@@ -6843,7 +6843,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:complexContent>
         <xs:extension base="tai:__AppinfoTolliumComponent">
-          <xs:attribute name="lib" /> <!-- legacy nodes can still refer to lib=... -->
         </xs:extension>
       </xs:complexContent>
     </xs:complexType>

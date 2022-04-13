@@ -467,22 +467,9 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       IF(elrec.placement NOT IN ["block","inline","composition","menu", "toolbar","fragment","screens","row","action","listcolumn","optionsource","tabsextension","rte","autosuggest","mapicon"])
         INSERT CELL[ line := tolliumcomp->linenum, col := 0, resourcename, message := `Invalid placement '${elrec.placement}' for element '${element.name}'` ] INTO retval.errors AT END;
 
-    IF(tolliumcomp->HasAttribute("objecttype") AND NOT tolliumcomp->HasAttribute("lib"))
+    IF(tolliumcomp->HasAttribute("objecttype"))
     {
       elrec.objtype := MakeAbsoluteResourcePath(resourcename, tolliumcomp->GetAttribute("objecttype"));
-    }
-    ELSE IF(tolliumcomp->HasAttribute("lib"))
-    {
-      INSERT CELL[ line := tolliumcomp->linenum, col := 0, resourcename, message := `Using objecttype= with separate lib= is deprecated` ] INTO retval.warnings AT END;
-
-      STRING lib := tolliumcomp->GetAttribute("lib");
-      IF(NOT IsAbsoluteResourcePath(lib))
-      {
-        //Discover the proper module. We can't just take 'module' as the library may have come from an imported schema
-        STRING libmodule := GetModuleNameFromResourcePath(tolliumcompinfo.source->xsdfilename);
-        lib := "module::" || libmodule || "/" || lib;
-      }
-      elrec.objtype := lib || "#" || tolliumcomp->GetAttribute("objecttype");
     }
 
     IF(tolliumcomp->HasAttribute("fragment"))
