@@ -119,10 +119,19 @@ now lf:&#10;next line" />
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestActions()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:demo"));
+  RECORD openres := ExecuteWindowOpenAction(TT("openwebharedev"));
+  TestEq([ type := "url", url := "https://www.webhare.dev/" ], openres);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 Runtestframework( [ PTR InputValidations
                   , PTR DateTimeClamping
                   , PTR DateTimeLocalTZValue
                   , PTR TestBasicFieldsRegressions
                   , PTR TestTextField
+                  , PTR TestActions
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]
                   ]);

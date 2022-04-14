@@ -21,6 +21,9 @@ PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
 
   BOOLEAN pvt_ellipsis;
 
+  /// Fallback if no handler is specified, used for eg <windowopenaction link=....>
+  MACRO PTR __fallbackhandler;
+
   PUBLIC PROPERTY ellipsis(pvt_ellipsis, SetEllipsis);
 
   /** @short Icon specified from tollium.
@@ -508,11 +511,10 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
     //ADDME what if the order of enableon rules changes serverside and old events are still pending ?
     IF(Length(this->pvt_enableons)=0)
     {
-      IF(GetMember(this, this->handlername) != DEFAULT MACRO PTR)
-        RETURN Getmember(this, this->handlername);
-
-      Print("action ignoring execute - action has no onexecute handler\n");
-      RETURN DEFAULT MACRO PTR;
+      MACRO PTR handler := GetMember(this, this->handlername) ?? this->__fallbackhandler;
+      IF(handler = DEFAULT MACRO PTR)
+        Print("action ignoring execute - action has no onexecute handler\n");
+      RETURN handler;
     }
 
     RECORD enableon := this->pvt_enableons[msgdata.rule];
@@ -552,7 +554,7 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
     STRING ARRAY unmasked_events;
     IF(this->handlername IN ["copytoclipboard","handlefeedback"]) //hack to implement some client-side actions for which we don't actually want a callbcak
       unmasked_events := STRING[this->handlername];
-    ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)))
+    ELSE IF (GetMember(this, this->handlername) != DEFAULT FUNCTION PTR OR (RecordExists(SELECT FROM this->enableon WHERE GetCell(enableon, this->handlername) != DEFAULT FUNCTION PTR)) OR this->__fallbackhandler != DEFAULT FUNCTION PTR)
       INSERT Substring(this->handlername, 2) INTO unmasked_events AT END; //ADDME now if all this handlername handling isn't a hack :P
 
     IF(NOT ObjectExists(this->owner))
@@ -692,7 +694,7 @@ PUBLIC OBJECTTYPE TolliumDownloadAction EXTEND ActionBase
   }
 >;
 
-PUBLIC OBJECTTYPE WindowOpenActionBase EXTEND ActionBase
+PUBLIC STATIC OBJECTTYPE WindowOpenActionBase EXTEND ActionBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -1001,11 +1003,15 @@ PUBLIC OBJECTTYPE TolliumImageAction EXTEND TolliumUploadAction
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumWindowOpenAction EXTEND WindowOpenActionBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE TolliumWindowOpenAction EXTEND WindowOpenActionBase
+<
+  STRING __link;
+
+  // ---------------------------------------------------------------------------
   //
   // Public properties
   //
+  PUBLIC PROPERTY link(__link, SetLink);
 
   PUBLIC PROPERTY onwindowopen(pvt_onwindowopen, pvt_onwindowopen);
 
@@ -1021,6 +1027,21 @@ PUBLIC OBJECTTYPE TolliumWindowOpenAction EXTEND WindowOpenActionBase
     WindowOpenActionBase::StaticInit(definition);
     this->onwindowopen := definition.onwindowopen;
     this->target := definition.target;
+    this->link := definition.link;
+  }
+
+  MACRO SetLink(STRING newlink)
+  {
+    this->__link := newlink;
+    this->__fallbackhandler := this->__link != "" ? PTR this->OpenMyLink : DEFAULT MACRO PTR;
+  }
+
+  MACRO OpenMyLink(OBJECT handler)
+  {
+    IF(this->__link != "")
+      handler->SendURL(this->__link);
+    ELSE
+      handler->Cancel();
   }
 >;
 
