@@ -1505,6 +1505,13 @@ To change a <xs:attribute /> for adding descriptions
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
+
+      <xs:attribute name="link" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Link to use for this action if no callback is given</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
     </xs:complexType>
   </xs:element>
 

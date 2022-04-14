@@ -1,17 +1,16 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         lib="mod::webhare_testsuite/tolliumapps/demo/main.whlib"
          gid="tolliumapps.demo"
-         >
+         library="mod::webhare_testsuite/tolliumapps/demo/main.whlib">
 
   <messageboxes>
     <messagebox name="cannotloadscreen" icon="error" buttons="ok" title="Cannot load the screen" />
   </messageboxes>
 
-  <screen name="main" menubar="menubar" allowresize="true">
+  <screen name="main" allowresize="true" menubar="menubar">
     <actions>
       <action name="close" onexecute="cancel" title="Close" />
       <action name="openitem" onexecute="doopenitem" />
+      <windowopenaction name="openwebharedev" link="https://www.webhare.dev/" />
     </actions>
 
     <menus>
@@ -20,6 +19,7 @@
           <!-- ADDME: open selected test in Sublime -->
           <item action="close" />
         </item>
+        <item action="openwebharedev" />
       </menu>
     </menus>
 
@@ -32,44 +32,27 @@
         <option rowkey="browsertab" />
       </select>
       -->
-
-      <text name="quicklinkurl"
-            selectable="true"
-            />
-
+      <text name="quicklinkurl" selectable="true" />
       <split type="horizontal">
         <part minwidth="25x">
-          <list name="type"
-                selectmode="single"
-                borders="top left bottom"
-                onselect="dorefreshdemolist"
-                >
+          <list name="type" borders="top left bottom" onselect="dorefreshdemolist" selectmode="single">
             <column name="title" type="text" />
           </list>
         </part>
-        <part minwidth="70x"
-              spacers="right"
-              >
-
+        <part minwidth="70x" spacers="right">
           <list name="list"
-                selectmode="single"
-                openaction="openitem"
-                onselect="doshowtesturl"
-                sortable="true"
-                icons="tollium:tollium/webhare tollium:tollium/bestaatniet"
                 borders="top right bottom"
-                >
-            <column name="title" type="text" tree="true" title="Test name" />
-            <column name="tag"   type="text" title="App" />
+                icons="tollium:tollium/webhare tollium:tollium/bestaatniet"
+                onselect="doshowtesturl"
+                openaction="openitem"
+                selectmode="single"
+                sortable="true">
+            <column name="title" type="text" title="Test name" tree="true" />
+            <column name="tag" type="text" title="App" />
           </list>
-
         </part>
-        <part width="1pr"
-              name="testpanel"
-              >
-        </part>
-    </split>
-
+        <part name="testpanel" width="1pr" />
+      </split>
     </body>
   </screen>
 
