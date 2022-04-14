@@ -40,7 +40,7 @@ textarea
   }
 }
 
-t-textarea:not(.textarea--hiderequiredifdisabled) textarea[readonly]
+t-textarea:not(.textarea--hiderequiredifdisabled) textarea[required][readonly]
 {
   @include tollium-input-required-and-disabled;
 }
