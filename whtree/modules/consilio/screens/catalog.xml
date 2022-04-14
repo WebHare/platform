@@ -448,31 +448,14 @@
       <action name="clear" onexecute="doclear" />
     </actions>
     <body>
-      <split type="vertical">
-        <part height="2pr">
-          <box tid=".info">
-            <text name="file" />
-            <text name="errorloc" />
-            <text name="what" />
-          </box>
-          <codeedit name="source"
-                    enabled="false"
-                    height="1pr"
-
-                    />
-        </part>
-        <part height="1pr">
-          <list name="errors"
-                selectmode="single"
-                onselect="onselect"
-                sortable="false">
-            <column name="error" type="text" tree="true" />
-            <column name="func" type="text" />
-            <column name="linetext" type="text" width="7x" />
-            <column name="coltext" type="text" width="7x" />
-          </list>
-        </part>
-      </split>
+      <list name="errors"
+            selectmode="single"
+            sortable="false">
+        <column name="error" type="text" tree="true" />
+        <column name="func" type="text" />
+        <column name="linetext" type="text" width="7x" />
+        <column name="coltext" type="text" width="7x" />
+      </list>
     </body>
     <footer>
       <line layout="right">

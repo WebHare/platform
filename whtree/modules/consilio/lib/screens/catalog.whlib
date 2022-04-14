@@ -1346,7 +1346,7 @@ PUBLIC STATIC OBJECTTYPE ThesaurusWord EXTEND TolliumRowEditScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -1362,7 +1362,7 @@ PUBLIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->contentsourceid := data.contentsourceid;
-    this->errors->rows :=
+    ^errors->rows :=
         SELECT error :=         what != "" ? what : error
              , errorloc :=      error
              , what :=          what
@@ -1384,43 +1384,10 @@ PUBLIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
                         , expanded :=   FALSE
                      FROM this->DecodeTrace(trace)
           FROM data.errors;
-    IF (RecordExists(this->errors->rows))
-      this->errors->selection := this->errors->rows[0];
+    IF (RecordExists(^errors->rows))
+      ^errors->selection := ^errors->rows[0];
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
-
-  MACRO OnSelect()
-  {
-    RECORD sel := this->errors->selection;
-    IF (NOT RecordExists(sel) OR sel.linetext = "")
-    {
-      IF (NOT RecordExists(sel) OR LENGTH(sel.trace) = 0)
-      {
-        this->file->value := "";
-        this->source->value := "";
-        RETURN;
-      }
-      sel := sel.trace[0];
-    }
-
-    STRING file := this->GetDiskFileName(sel.filename);
-
-    this->file->value := sel.filename;
-    this->what->value := this->errors->selection.what;
-    this->what->visible := this->what->value != "";
-    this->errorloc->value := this->errors->selection.errorloc;
-    this->source->value := BlobToString(GetDiskResource(file, [ allowmissing := TRUE ]), -1);
-    this->source->GotoLine(sel.line);
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
 
   RECORD ARRAY FUNCTION DecodeTrace(STRING ARRAY trace)
   {
@@ -1451,34 +1418,6 @@ PUBLIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
       INSERT rec INTO result AT END;
     }
     RETURN result;
-  }
-
-
-  STRING FUNCTION GetDiskFileName(STRING uri)
-  {
-    STRING prefix := uri;
-    INTEGER ddpos := SearchSubString(prefix, "::");
-    STRING rest := SubString(prefix, ddpos + 2);
-    prefix := LEFT(prefix, ddpos);
-
-    STRING module;
-    IF (prefix != "wh")
-    {
-      module := rest;
-      INTEGER spos := SearchSubString(module, "/");
-      rest := SubString(rest, spos + 1);
-      module := LEFT(module, spos);
-    }
-
-    STRING subdir;
-    SWITCH (prefix)
-    {
-    CASE "wh"             { module := "system"; subdir := "whlibs/"; }
-    CASE "module"         { subdir := "include/"; }
-    CASE "modulescript"   { subdir := "scripts/"; }
-    }
-
-    RETURN GetModuleInstallationRoot(module) || subdir || rest;
   }
 
   // ---------------------------------------------------------------------------
