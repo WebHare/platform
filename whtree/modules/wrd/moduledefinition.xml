@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
   <meta>
@@ -31,12 +30,12 @@
   </tollium>
 
   <services>
-    <webservice name="auth" transports="jsonrpc" library="internal/auth/service.whlib" primarytrans="auto" prefix="rpc_">
+    <webservice name="auth" transports="jsonrpc" library="lib/internal/auth/service.whlib" primarytrans="auto" prefix="rpc_">
       <accesscheck>
       </accesscheck>
     </webservice>
 
-    <webservice name="sync" transports="whremoting" library="internal/sync/service.whlib" primarytrans="auto" prefix="rpc_" requirewhaccount="true">
+    <webservice name="sync" transports="whremoting" library="lib/internal/sync/service.whlib" primarytrans="auto" prefix="rpc_" requirewhaccount="true">
       <accesscheck />
     </webservice>
 

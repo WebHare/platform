@@ -1,25 +1,29 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
   <meta>
     <description>Tollium user interface</description>
     <packaging>
-      <dependency module="system"/>
-      <dependency module="wrd"/>
+      <dependency module="system" />
+      <dependency module="wrd" />
     </packaging>
     <validation options="nowarnings" />
   </meta>
 
   <servicemanager>
-    <task runat="4 6 * * *" runtz="maintenance" tag="cleanrtetemporaries" script="scripts/internal/cleanrtetemporaries.whscr" />
+    <task runat="4 6 * * *" runtz="maintenance" script="scripts/internal/cleanrtetemporaries.whscr" tag="cleanrtetemporaries" />
   </servicemanager>
 
   <backend>
     <webrule path="root:/.tollium/integrations/" match="initial" redirecttodir="web:integrations/" />
-    <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
-    <webrule path="allroots:/.tollium/ui/" match="initial" redirecttodir="web:ui/" priority="after" />
-    <!-- FIXME is it dangerous to host this everywhere ? it was limited.. . -->
-    <webrule path="allroots:/.tollium/ui/filetransfer.shtml" match="initial" redirecttoscript="internal/filetransfer.shtml" priority="after" />
 
+    <!-- We'll host the /ui/ on all paths. Nothing harmful there, only static assets -->
+    <webrule path="allroots:/.tollium/ui/" match="initial" priority="after" redirecttodir="web:ui/" />
+
+    <!-- FIXME is it dangerous to host this everywhere ? it was limited.. . -->
+    <webrule path="allroots:/.tollium/ui/filetransfer.shtml"
+             match="initial"
+             priority="after"
+             redirecttoscript="internal/filetransfer.shtml" />
   </backend>
 
   <portal>
@@ -27,43 +31,67 @@
       <accesscheck />
     </application>
 
-    <notification name="notifications.testnotification" tid="notifications.testnotification" descriptiontid="notifications.testnotification-desc"/>
+    <notification name="notifications.testnotification"
+                  descriptiontid="notifications.testnotification-desc"
+                  tid="notifications.testnotification" />
   </portal>
 
   <tollium>
-    <components namespace="http://www.webhare.net/xmlns/tollium/screens" xmlschema="screens.xsd"/>
-    <components namespace="http://www.webhare.net/xmlns/tollium/portal/components" xmlschema="portal.xsd"/>
+    <components namespace="http://www.webhare.net/xmlns/tollium/screens" xmlschema="screens.xsd" />
+    <components namespace="http://www.webhare.net/xmlns/tollium/portal/components" xmlschema="portal.xsd" />
   </tollium>
 
   <publisher>
-    <siteprofile path="data/tollium.siteprl.xml"/>
+    <siteprofile path="data/tollium.siteprl.xml" />
+
     <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml">
-      <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface" supportedlanguages="en nl" compatibility="es2016" webharepolyfills="false" />
+      <assetpack compatibility="es2016"
+                 entrypoint="mod::tollium/webdesigns/webinterface/webinterface"
+                 supportedlanguages="en nl"
+                 webharepolyfills="false" />
     </webdesign>
-    <customnode namespace="http://www.webhare.net/xmlns/tollium" name="portal"/>
+
+    <customnode name="portal" namespace="http://www.webhare.net/xmlns/tollium" />
+
     <feedbackscope tag="webharebackend" />
   </publisher>
 
   <services>
-    <webservice name="todd" transports="whremoting jsonrpc" library="todd/internal/service.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="todd"
+                library="/lib/todd/internal/service.whlib"
+                prefix="RPC_"
+                primarytrans="none"
+                requirewhaccount="false"
+                transports="whremoting jsonrpc">
+      <accesscheck />
     </webservice>
 
-    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" where="webserver" />
+    <internalservice library="internal/applicationstarter.whscr"
+                     mode="ondemand"
+                     portname="tollium:appstarter"
+                     releaseonsoftreset="true"
+                     screen=""
+                     tag="tolliumapplicationstarter"
+                     tid="todd.misc.applicationstarter"
+                     where="webserver" />
   </services>
 
   <documentation>
     <xmlschemas>
-      <xmlschema path="portal.xsd" title="portal components"/>
-      <xmlschema path="screens.xsd" title="base tollium components"/>
+      <xmlschema path="portal.xsd" title="portal components" />
+      <xmlschema path="screens.xsd" title="base tollium components" />
       <xmlschema path="icons.xsd" title="tollium icons" />
     </xmlschemas>
   </documentation>
 
   <validation>
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens" rootnodes="screens" schemalocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents" validator="lib/internal/validation.whlib#ScreensFileValidator"/>
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens" rootnodes="language" schemalocation="data/screens.xsd" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens"
+                 rootnodes="screens"
+                 schemalocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents"
+                 validator="lib/internal/validation.whlib#ScreensFileValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens"
+                 rootnodes="language"
+                 schemalocation="data/screens.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/icons" rootnodes="icon" schemalocation="data/icons.xsd" />
   </validation>
 

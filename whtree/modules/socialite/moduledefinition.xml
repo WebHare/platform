@@ -25,7 +25,7 @@
   </servicemanager>
 
   <services>
-    <webservice name="recaptcha" transports="jsonrpc" library="internal/recaptcha-rpc.whlib" primarytrans="none" prefix="RPC_">
+    <webservice name="recaptcha" transports="jsonrpc" library="lib/internal/recaptcha-rpc.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
