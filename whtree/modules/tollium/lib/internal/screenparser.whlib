@@ -85,13 +85,20 @@ STRING FUNCTION GetLibraryPath(STRING resourcename, OBJECT basenode)
     IF(node->HasAttribute("library"))
       RETURN MakeAbsoluteResourcePath(resourcename, node->GetAttribute("library"));
 
-    IF(node->HasAttribute("lib"))
+    IF(node->HasAttribute("lib")) //having a lib= will block attempting the root element too
     {
       STRING callbacklibrary := node->GetAttribute("lib");
       IF(callbacklibrary != "" AND callbacklibrary NOT LIKE "*::*")
-        RETURN "module::" || GetModuleNameFromResourcePath(resourcename) || "/" || callbacklibrary;
-      ELSE
-       RETURN callbacklibrary;
+      {
+        //A lib= may point to both lib/ and include/ ... like module:: does (but might not always do forever!) ... dev:rewrite will fix these lib=s though
+        FOREVERY(STRING attemptsubdir FROM ["lib/","include/"])
+        {
+          STRING tryname := "mod::" || GetModuleNameFromResourcePath(resourcename) || "/" || attemptsubdir || callbacklibrary;
+          IF(RecordExists(RetrieveWebHareResource(tryname, [ allowmissing := TRUE ])))
+            RETURN tryname;
+        }
+      }
+      RETURN callbacklibrary;
     }
   }
   RETURN "";

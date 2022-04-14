@@ -482,14 +482,14 @@ void HS_Libdump(VarId id_set, VirtualMachine *vm)
         HSVM_BooleanSet(*vm, success, false);
         HSVM_SetDefault(*vm, errors, HSVM_VAR_RecordArray);
 
-        std::string toload = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
-        vm->GetFileSystem().ResolveAbsoluteLibrary(vm->GetContextKeeper(), vm->GetExecuteLibrary(), &toload);
-
         ErrorHandler errorhandler;
         Library const *lib = 0;
 
         try
         {
+                std::string toload = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
+                vm->GetFileSystem().ResolveAbsoluteLibrary(vm->GetContextKeeper(), vm->GetExecuteLibrary(), &toload);
+
                 lib = vm->GetEnvironment().GetLibRef(vm->GetContextKeeper(), toload, errorhandler);
                 DoLibdump(*vm, id_set, lib->GetWrappedLibrary());
                 HSVM_BooleanSet(*vm, success, true);

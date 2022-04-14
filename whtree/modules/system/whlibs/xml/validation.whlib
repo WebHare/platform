@@ -1416,11 +1416,6 @@ PUBLIC MACRO __ParseXSDSchemaNoBuildProps(OBJECT xsdparser, OBJECT node, STRING 
             {
               IF (xsd_filename LIKE "/*")
                 schemalocation := MergePath(GetDirectoryFromPath(xsd_filename), schemalocation);
-              ELSE IF (xsd_filename LIKE "moduledata::*/*" OR xsd_filename LIKE "site::*/*" OR xsd_filename LIKE "moduleroot::*/*" OR xsd_filename LIKE "whres::*/*")
-              {
-                INTEGER spos := SearchSubString(xsd_filename, "/");
-                schemalocation := Left(xsd_filename, spos) || MergePath(GetDirectoryFromPath(SubString(xsd_filename, spos)), schemalocation);
-              }
               ELSE
               {
                 IF (IsAbsoluteURL(xsd_filename))

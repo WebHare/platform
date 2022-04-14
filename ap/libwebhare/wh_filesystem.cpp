@@ -550,6 +550,14 @@ enum Type
         FSTest
 };
 
+bool IgnoreOldNamespaces()
+{
+        /* Drop support for old namespaces? still intend to do so eventually, but it'll take a few rounds of trying it and
+           seeing what more dev-rewrites we will be needing...
+        */
+        return !Blex::GetEnvironVariable("WEBHARE_IGNORE_OLD_NAMESPACES").empty();
+}
+
 Type GetPrefix(std::string const &liburi)
 {
         // Determine the prefix
@@ -560,17 +568,17 @@ Type GetPrefix(std::string const &liburi)
             return FSWH;
         else if (prefix == Blex::StringPair::FromStringConstant("whres"))
             return FSWHRes;
-        else if (prefix == Blex::StringPair::FromStringConstant("moduledata"))
+        else if (prefix == Blex::StringPair::FromStringConstant("moduledata") && !IgnoreOldNamespaces())
             return FSModuleData;
         else if (prefix == Blex::StringPair::FromStringConstant("storage"))
             return FSStorage;
         else if (prefix == Blex::StringPair::FromStringConstant("mod"))
             return FSMod;
-        else if (prefix == Blex::StringPair::FromStringConstant("moduleroot"))
+        else if (prefix == Blex::StringPair::FromStringConstant("moduleroot") && !IgnoreOldNamespaces())
             return FSModuleRoot;
-        else if (prefix == Blex::StringPair::FromStringConstant("module"))
+        else if (prefix == Blex::StringPair::FromStringConstant("module") && !IgnoreOldNamespaces())
             return FSModule;
-        else if (prefix == Blex::StringPair::FromStringConstant("modulescript"))
+        else if (prefix == Blex::StringPair::FromStringConstant("modulescript") && !IgnoreOldNamespaces())
             return FSModuleScript;
         else if (prefix == Blex::StringPair::FromStringConstant("whfs"))
             return FSWHFS;
@@ -587,7 +595,7 @@ Type GetPrefix(std::string const &liburi)
         else if (prefix == Blex::StringPair::FromStringConstant("test"))
             return FSTest;
 
-        throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str());
+        throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str(), liburi);
 }
 
 const char * GetPrefixString(Type type)
@@ -724,7 +732,7 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 default:
                     {
                             std::string::iterator it = std::find(loader.begin(), loader.end(), ':');
-                            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it));
+                            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it), loader);
                     }
                 }
 
