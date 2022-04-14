@@ -112,16 +112,34 @@ test.registerTests(
   , "Required/HideRequiredIfDisabled"
   , async function()
     {
+      //we start at Enabled,Required,HideRequiredIfDisabled all true
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
+      test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
-      //required + disabled REMOVES the background color
+      //required + disabled REMOVES the background color (but SETS the disabled pattern)
       test.fill(test.compByTitle("Enabled").querySelector("input"), false);
       await test.wait("ui");
       test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
+      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
-      //Disabling HideRequiredIfDisabled re-enables the yellow background
+      //Disabling HideRequiredIfDisabled re-enables the yellow background AND sets the disabled pattern
       test.fill(test.compByTitle("HideRequiredIfDisabled").querySelector("input"), false);
       await test.wait("ui");
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
+      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+
+      //But not if it's not actually required
+      test.fill(test.compByTitle("Required").querySelector("input"), false);
+      await test.wait("ui");
+      test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
+      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+
+      //Enable and Require the field again - should see the background color but NOT the pattern
+      test.fill(test.compByTitle("Enabled").querySelector("input"), true);
+      await test.wait("ui");
+      test.fill(test.compByTitle("Required").querySelector("input"), true);
+      await test.wait("ui");
+      test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
+      test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
     }
   ]);

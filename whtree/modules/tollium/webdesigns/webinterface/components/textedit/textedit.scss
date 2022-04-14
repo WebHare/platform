@@ -70,7 +70,7 @@ t-textedit > input
   }
 }
 
-t-textedit:not(.textedit--hiderequiredifdisabled) input[readonly]
+t-textedit:not(.textedit--hiderequiredifdisabled) input[required][readonly]
 {
   @include tollium-input-required-and-disabled;
 }
