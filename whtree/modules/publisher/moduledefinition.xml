@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
   <meta configscreen="screens/sysmgmt/filesystem.xml#filesystem">
@@ -1091,22 +1090,22 @@
   </publisher>
 
   <services>
-    <webservice name="forms" transports="jsonrpc" library="internal/forms/rpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+    <webservice name="forms" transports="jsonrpc" library="lib/internal/forms/rpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
       <accesscheck/>
     </webservice>
 
-    <webservice name="designfiles" transports="jsonrpc" library="internal/webdesign/services.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+    <webservice name="designfiles" transports="jsonrpc" library="lib/internal/webdesign/services.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
       <accesscheck/>
     </webservice>
 
-    <webservice name="rpc" transports="jsonrpc" library="internal/analytics/analyticsrpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
+    <webservice name="rpc" transports="jsonrpc" library="lib/internal/analytics/analyticsrpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
       <accesscheck/>
     </webservice>
 
-    <webservice name="poll" transports="jsonrpc" library="webtools/internal/pollrpc.whlib" primarytrans="none" prefix="RPC_" />
-    <webservice name="forum" transports="jsonrpc" library="internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
+    <webservice name="poll" transports="jsonrpc" library="lib/webtools/internal/pollrpc.whlib" primarytrans="none" prefix="RPC_" />
+    <webservice name="forum" transports="jsonrpc" library="lib/internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
 
-    <webservice name="feedback" transports="jsonrpc" library="internal/feedback/rpc.whlib" primarytrans="auto" prefix="RPC_" />
+    <webservice name="feedback" transports="jsonrpc" library="lib/internal/feedback/rpc.whlib" primarytrans="auto" prefix="RPC_" />
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
 

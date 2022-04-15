@@ -2364,7 +2364,7 @@ BOOLEAN tempignoreupdates; // FIXME: rather we don't need this
           [ type := "overlays"
           , overlays :=
                 SELECT *
-                     , rowkey :=        TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+                     , rowkey :=        EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey))
                      , tollium_newid := CellExists(overlays, "TOLLIUM_NEWID") ? tollium_newid : 0
                   FROM overlays
           ]);
@@ -2372,7 +2372,7 @@ BOOLEAN tempignoreupdates; // FIXME: rather we don't need this
     IF (   (this->dirtyflags.fully AND ObjectExists(this->storage))
         OR this->dirtyflags.selection)
     {
-      STRING ARRAY newselection := SELECT AS STRING ARRAY TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+      STRING ARRAY newselection := SELECT AS STRING ARRAY EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey))
                                      FROM this->storage->rows
                                     WHERE tolliumselected;
       this->ToddUpdate([type:="selection", selection:=newselection]);
@@ -2398,7 +2398,7 @@ BOOLEAN tempignoreupdates; // FIXME: rather we don't need this
 
         FOREVERY (RECORD row FROM this->storage->rows)
         {
-          RECORD pos := RecordLowerBound(newareas, [ rowkey := TypeToString(row.rowkey, TypeId(row.rowkey)) ], [ "ROWKEY" ]);
+          RECORD pos := RecordLowerBound(newareas, [ rowkey := EncodeRowkey(row.rowkey, TypeId(row.rowkey)) ], [ "ROWKEY" ]);
           IF (pos.found)
           {
             row.area := newareas[pos.position].area;
@@ -2427,7 +2427,7 @@ BOOLEAN tempignoreupdates; // FIXME: rather we don't need this
         RECORD ARRAY selection :=
             SELECT *
               FROM this->storage->rows
-             WHERE TypeToString(rowkey, TypeId(rowkey)) IN data.rowkeys;
+             WHERE EncodeRowkey(rowkey, TypeId(rowkey)) IN data.rowkeys;
         this->storage->SetSelectionByRecords(selection, FALSE);
 
         this->tempignoreupdates := FALSE;

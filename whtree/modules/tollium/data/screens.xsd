@@ -5672,13 +5672,17 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
   </xs:complexType>
 
+  <!-- The rowkey types supported by EncodeRowkey/DecodeRowkey (ie tollium_acceptable_rowkeytypes) -->
   <xs:attributeGroup name="RowKeyType">
     <xs:attribute name="rowkeytype">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:enumeration value="string"/>
-          <xs:enumeration value="integer"/>
-          <xs:enumeration value="boolean"/>
+          <xs:enumeration value="boolean" />
+          <xs:enumeration value="datetime" />
+          <xs:enumeration value="money" />
+          <xs:enumeration value="integer" />
+          <xs:enumeration value="integer64" />
+          <xs:enumeration value="string" />
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>

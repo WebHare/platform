@@ -128,6 +128,23 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
           this->AddErrorForLine(wrdschema->linenum, `Cannot find '${deffile}'`);
       }
 
+    FOREVERY(OBJECT webservice FROM this->xml->ListElements(whconstant_xmlns_moduledef, "webservice"))
+      IF(IsNodeApplicableToThisWebHare(webservice))
+      {
+        STRING lib := MakeAbsoluteResourcePath(this->respath, webservice->GetAttribute("library"));
+        IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
+        {
+          IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
+          {
+            this->AddWarningForLine(webservice->linenum, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path (dev:rewrite can fix this!)");
+          }
+          ELSE
+          {
+            this->AddErrorForLine(webservice->linenum, `Cannot find '${lib}'`);
+          }
+        }
+      }
+
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
       this->AddError(legacywrdschemas, `<wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }

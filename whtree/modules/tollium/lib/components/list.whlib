@@ -696,11 +696,11 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
             i := i + 1;
           }
         }
-        STRING ARRAY visible_rowkeys := SELECT AS STRING ARRAY TypeToString(rowkey, this->rowkeytype) FROM visible_nodes;
+        STRING ARRAY visible_rowkeys := SELECT AS STRING ARRAY EncodeRowkey(rowkey, this->rowkeytype) FROM visible_nodes;
 
         // Only save visible expanded nodes
         STRING ARRAY expanded_nodes;
-        FOREVERY (STRING rowkey FROM (SELECT AS STRING ARRAY TypeToString(value, this->rowkeytype) FROM ToRecordArray(this->expanded, 'value')))
+        FOREVERY (STRING rowkey FROM (SELECT AS STRING ARRAY EncodeRowkey(value, this->rowkeytype) FROM ToRecordArray(this->expanded, 'value')))
           IF (rowkey IN visible_rowkeys)
             INSERT rowkey INTO expanded_nodes AT END;
 
@@ -740,7 +740,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
         FOREVERY (STRING rowkey FROM Tokenize(state.expanded, ' '))
         {
-          VARIANT expandvalue := StringToType(rowkey, this->rowkeytype);
+          VARIANT expandvalue := DecodeRowkey(rowkey, this->rowkeytype);
           IF(expandvalue IN currently_expanded)
             CONTINUE; //this was already expanded specifically, cannot filter it out
           INSERT expandvalue INTO extra_expand AT END;
@@ -1384,7 +1384,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   MACRO ExtEditComplete(VARIANT rowkey, INTEGER cellidx, BOOLEAN accept)
   {
     this->EnsureFilledDirtyFlags();
-    INSERT [ rowkey := TypeToString(rowkey, TypeID(rowkey))
+    INSERT [ rowkey := EncodeRowkey(rowkey, TypeID(rowkey))
            , cellidx := cellidx
            , accept := accept
            ] INTO this->dirtyflags.editcompletions AT END;
@@ -2001,7 +2001,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     IF (current_rowkeytype = 0) // Rowkey type not known, so no rows available anyway
       RETURN DEFAULT RECORD;
 
-    VARIANT myrowkey := StringToType(encoded_rowkey, current_rowkeytype);
+    VARIANT myrowkey := DecodeRowkey(encoded_rowkey, current_rowkeytype);
     INTEGER rowid := this->storage->GetPositionByRowkey(myrowkey);
     IF(rowid<0)
       RETURN DEFAULT RECORD;
@@ -2199,7 +2199,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                   , items := drag.items
                   ];
     IF(CellExists(options,'target'))
-      INSERT CELL target := TypeToString(options.target, TypeId(options.target)) INTO msg;
+      INSERT CELL target := EncodeRowkey(options.target, TypeId(options.target)) INTO msg;
     this->ProcessInboundMessage("acceptdrop", msg);
   }
 
@@ -2452,7 +2452,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         {
           FOREVERY (RECORD upd FROM this->dirtyflags.childnodes)
           {
-            STRING rowkey := TypeToString(upd.parent.rowkey, TypeID(upd.parent.rowkey));
+            STRING rowkey := EncodeRowkey(upd.parent.rowkey, TypeID(upd.parent.rowkey));
             this->ToddUpdate([type:="children", parent:=rowkey, rows :=  this->Web_RenderRows(upd.childnodes, TRUE) ]);
           }
         }
@@ -2481,7 +2481,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       }
       IF (this->dirtyflags.selection)
       {
-        STRING ARRAY newselection := SELECT AS STRING ARRAY TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+        STRING ARRAY newselection := SELECT AS STRING ARRAY EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey))
                                        FROM this->storage->rows
                                       WHERE tolliumselected;
         this->ToddUpdate([type:="selection", selection:=newselection]);
@@ -2568,7 +2568,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
             Print("EXTENDLIST: Unable to match " || vals[0] || " in an empty list\n");
             CONTINUE;
           }
-          VARIANT myrowkey := StringToType(vals[0], current_rowkeytype);
+          VARIANT myrowkey := DecodeRowkey(vals[0], current_rowkeytype);
           INTEGER rowpos := this->storage->GetPositionByRowkey(myrowkey);
 
           IF (rowpos = -1)
@@ -2637,7 +2637,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     {
       RECORD ARRAY expanding := SELECT *
                                   FROM this->storage->rows
-                                 WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = param;
+                                 WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = param;
       this->storage->ExpandRowsByRecords(expanding, FALSE, FALSE);
       RETURN;
     }
@@ -2655,7 +2655,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       {
         RECORD row := SELECT *
                         FROM this->storage->rows
-                       WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
+                       WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
         this->oncheck(row, params[1]);
       }
     }
@@ -2666,7 +2666,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       {
         RECORD row := SELECT *
                         FROM this->storage->rows
-                       WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
+                       WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
 
         IF(RecordExists(row))
           this->oniconclick(row, params[1]);
@@ -2682,7 +2682,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     RETURN SELECT *
              FROM this->storage->rows
-            WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) IN tags;
+            WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) IN tags;
   }
 
   PUBLIC RECORD ARRAY FUNCTION Web_ListColumns()
@@ -2816,7 +2816,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
     IF(fullrow)
     {
-      meta.rowkey := TypeToString(row.rowkey, TypeId(row.rowkey));
+      meta.rowkey := EncodeRowkey(row.rowkey, TypeId(row.rowkey));
       meta.flags := StoredAttrsJSON(row, this->flags);
 
       IF(Length(row.listrowclasses) > 0 )

@@ -20,6 +20,31 @@ ASYNC MACRO TestRadio()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 }
 
+ASYNC MACRO TestRowKeyTypes()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(
+    `<screen name="test" implementation="none">
+      <body>
+        <list name="list_integer" rowkeytype="integer" selectmode="multiple"/>
+        <list name="list_datetime" rowkeytype="datetime" selectmode="single"/>
+        <list name="list_boolean" rowkeytype="boolean" selectmode="multiple"/>
+
+        <list name="list_unset" selectmode="multiple"/>
+
+        <select name="select_integer" rowkeytype="integer" type="checkbox"/>
+        <select name="select_datetime" rowkeytype="datetime" type="radio"/>
+        <select name="select_boolean" rowkeytype="boolean" type="checkbox"/>
+      </body>
+     </screen>`)));
+
+  TestThrowsLike('Rowkeys of type*not supported*', PTR MemberUpdate(TT("list_unset"), "rowkeytype", TYPEID(INTEGER ARRAY)));
+  TestThrowsLike('Rowkeys of type*not supported*', PTR MemberUpdate(TT("list_unset"), "rowkeytype", TYPEID(OBJECT)));
+  TestThrowsLike('Rowkeys of type*not supported*', PTR MemberUpdate(TT("list_unset"), "rowkeytype", TYPEID(FLOAT)));
+  TT("list_unset")->rowkeytype := TYPEID(INTEGER64); //shouldn't crash
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+ }
+
 ASYNC MACRO TestSubscreenRegression()
 {
   //Test a screen that open a subscreen immediately. This broke optionsetting in WRD Brwoser
@@ -114,6 +139,7 @@ ASYNC MACRO TestDupeElimination()
  }
 
 RunTestframework([ PTR TestRadio
+                 , PTR TestrowKeyTypes
                  , PTR TestSubscreenRegression
                  , PTR TestSubcomponentsRegression
                  , PTR TestInvisibleSelectRegression

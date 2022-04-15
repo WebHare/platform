@@ -768,7 +768,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     IF (current_rowkeytype = 0) // Rowkey type not known, so no rows available anyway
       RETURN DEFAULT RECORD;
 
-    VARIANT myrowkey := StringToType(encoded_rowkey, current_rowkeytype);
+    VARIANT myrowkey := DecodeRowkey(encoded_rowkey, current_rowkeytype);
     INTEGER rowid := this->storage->GetPositionByRowkey(myrowkey);
     IF(rowid<0)
       RETURN DEFAULT RECORD;

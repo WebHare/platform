@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
   <meta>
@@ -2219,15 +2218,15 @@ The full base URL on which this site will be published, calculated by combining 
   </publisher>
 
   <services>
-    <webservice name="auth" transports="whremoting" library="internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
+    <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
-    <webservice name="admin" transports="whremoting" library="internal/adminservice.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
+    <webservice name="admin" transports="whremoting" library="lib/internal/adminservice.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
-    <webservice name="jstests" transports="whremoting jsonrpc" maxservertype="development" library="internal/jstests/service.whlib" prefix="RPC_">
+    <webservice name="jstests" transports="whremoting jsonrpc" maxservertype="development" library="lib/internal/jstests/service.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>

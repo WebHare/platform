@@ -285,9 +285,13 @@ STRING FUNCTION GetTolliumExceptionWhat(OBJECT badobj, STRING what)
     THROW NEW Exception(what || " (TolliumException required an object which derives from TolliumComponentBase)");
 }
 
+PUBLIC CONSTANT INTEGER ARRAY tollium_acceptable_rowkeytypes := [ TypeId(BOOLEAN), TypeId(DATETIME), TypeId(INTEGER), TypeId(INTEGER64), TypeId(MONEY), TypeId(STRING) ];
 
-PUBLIC STRING FUNCTION TypeToString(VARIANT data, INTEGER type)
+PUBLIC STRING FUNCTION EncodeRowkey(VARIANT data, INTEGER type)
 {
+  IF(type NOT IN tollium_acceptable_rowkeytypes)
+    THROW NEW Exception(`Rowkeys of type ${GetTypeName(type)} are not supported`);
+
   SWITCH(type)
   {
     CASE TypeId(BOOLEAN)
@@ -310,19 +314,27 @@ PUBLIC STRING FUNCTION TypeToString(VARIANT data, INTEGER type)
     {
       RETURN FormatMoney(data,0,'.','',FALSE);
     }
+    /* This seems unsafe for rowkeys but we can't guarantee it was unused. let's see in 5.0+ ...
     CASE TypeId(FLOAT)
     {
       RETURN FormatFloat(data,20);
     }
+    */
     CASE TypeId(DATETIME)
     {
       RETURN FormatDatetime("%Y-%m-%dT%H:%M:%S.%Q", data); //ADDME: Full ISO8601 dates: http://www.w3.org/TR/xmlschema-2/#isoformats
     }
+    DEFAULT
+    {
+      ABORT("tollium_acceptable_rowkeytypes does not match our switch/case");
+    }
   }
-  THROW NEW Exception("Type "||GetTypeName(type)||" cannot be converted to a string");
 }
-PUBLIC VARIANT FUNCTION StringToType(STRING value, INTEGER type)
+PUBLIC VARIANT FUNCTION DecodeRowkey(STRING value, INTEGER type)
 {
+  IF(type NOT IN tollium_acceptable_rowkeytypes)
+    THROW NEW Exception(`Rowkeys of type ${GetTypeName(type)} are not supported`);
+
   SWITCH (type)
   {
     CASE TypeId(STRING)
@@ -345,16 +357,21 @@ PUBLIC VARIANT FUNCTION StringToType(STRING value, INTEGER type)
     {
       RETURN ToMoney(value, 0);
     }
+    /* This seems unsafe for rowkeys but we can't guarantee it was unused. let's see in 5.0+ ...
     CASE TypeId(FLOAT)
     {
       RETURN ToFloat(value, 0);
     }
+    */
     CASE TypeId(DATETIME)
     {
       RETURN MakeDateFromText(value);
     }
+    DEFAULT
+    {
+      ABORT("tollium_acceptable_rowkeytypes does not match our switch/case");
+    }
   }
-  THROW NEW Exception("Type "||GetTypeName(type)||" cannot be converted to a string");
 }
 
 /** @short Checks the flags of a selection

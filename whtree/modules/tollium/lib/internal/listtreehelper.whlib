@@ -283,7 +283,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   MACRO CheckSingleRowkey(VARIANT rowkey)
   {
     IF (this->pvt_rowkey_type = 0)
-      this->pvt_rowkey_type := TYPEID(rowkey);
+      this->rowkeytype := TYPEID(rowkey);
     ELSE IF (TYPEID(rowkey) != this->pvt_rowkey_type)
       THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
   }
@@ -306,7 +306,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       IF (this->pvt_rowkey_type = 0)
       {
         IF (Length(newkeys) > 0)
-          this->pvt_rowkey_type := TYPEID(newkeys[0]);
+          this->rowkeytype := TYPEID(newkeys[0]);
       }
       ELSE
       {
@@ -330,7 +330,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       THROW NEW TolliumException(this->pvt_callback, "An array of values cannot be set as the value of a singleselect " || this->callback->GetComponentIdentification());
 
     IF (this->pvt_rowkey_type = 0)
-      this->pvt_rowkey_type := TYPEID(newkeys);
+      this->rowkeytype := TYPEID(newkeys);
     ELSE IF (this->pvt_rowkey_type != TYPEID(newkeys))
       //THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
       THROW NEW TolliumException(this->pvt_callback, `Expected given rowkeys to be of type ${GetTypeName(this->pvt_rowkey_type)} but got ${GetTypeName(TypeID(newkeys))}`);
@@ -491,7 +491,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
             IF (this->pvt_dynamic OR (LENGTH(this->pvt_rows) != 0 OR #row>=1))
               THROW NEW TolliumException(this->pvt_callback, "Detected an item with missing rowkey in " || this->callback->GetComponentIdentification() || ". Please add a cell named 'rowkey', containing an unique value.");
 
-            this->pvt_rowkey_type := TYPEID(INTEGER);
+            this->rowkeytype := TYPEID(INTEGER);
           }
 
           this->pvt_rowkey_autonumber := this->pvt_rowkey_autonumber + 1;
@@ -500,7 +500,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
         ELSE
         {
           IF (this->pvt_rowkey_type = 0)
-            this->pvt_rowkey_type := TYPEID(row.rowkey);
+            this->rowkeytype := TYPEID(row.rowkey);
           ELSE
             IF (this->pvt_rowkey_type != TYPEID(row.rowkey))
               THROW NEW TolliumException(this->pvt_callback, "Detected mixing of rowkey types in "||this->callback->GetComponentIdentification()||"! The rows contain rowkeys of type " || GetTypeName(this->pvt_rowkey_type) || ", while trying to insert a rowkey of type " || GetTypeName(TypeId(row.rowkey)) || ".");
@@ -1193,8 +1193,8 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       RETURN;//Cannot 'unset'
     IF (this->pvt_rowkey_type = 0)
     {
-      IF (new_type NOT IN [ TypeID(INTEGER), TypeID(STRING) ])
-        THROW NEW TolliumException(this->pvt_callback, "Only rowkeys of type INTEGER and STRING are allowed in " || this->callback->GetComponentIdentification());
+      IF (new_type NOT IN tollium_acceptable_rowkeytypes)
+        THROW NEW TolliumException(this->pvt_callback, `Rowkeys of type ${GetTypeName(new_type)} are not supported in ${this->callback->GetComponentIdentification()}`);
 
       this->pvt_rowkey_type := new_type;
     }
@@ -1255,7 +1255,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   PUBLIC BOOLEAN FUNCTION IsRowKeyPresent(VARIANT rowkey)
   {
     IF (this->pvt_rowkey_type = 0)
-      this->pvt_rowkey_type := TYPEID(rowkey);
+      this->rowkeytype := TYPEID(rowkey);
     ELSE IF (this->pvt_rowkey_type != TYPEID(rowkey))
       THROW NEW TolliumException(this->pvt_callback, "The value for " || this->callback->GetComponentIdentification() || " does not match the type of the rowkeys");
 
