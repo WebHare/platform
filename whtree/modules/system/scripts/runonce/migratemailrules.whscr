@@ -30,16 +30,16 @@ IF(trans->ColumnExists("system","mailqueue_route","id"))
   OBJECT configschema := OpenWRDSchema("system:config");
   INTEGER changeset := configschema->CreateChangeset();
   configschema->^mailroute->DeleteAllEntities();
-  configschema->^mailsenders->DeleteAllEntities();
-  configschema->^mailrecipients->DeleteAllEntities();
-  configschema->^mailcorrections->DeleteAllEntities();
+  configschema->^mailsender->DeleteAllEntities();
+  configschema->^mailrecipient->DeleteAllEntities();
+  configschema->^mailcorrection->DeleteAllEntities();
 
   RECORD ARRAY migrateroutes := SELECT * FROM mailqueue_route WHERE tag NOT LIKE "webhare_testsuite:*";
 
   RECORD ARRAY routes := SELECT * FROM migrateroutes WHERE ruletype = 0 ORDER BY ordering, id;
 
   //If the *last* route is a 'send everything to default destination' route, just delete it. we no longer require such a route
-  IF(Length(routes) >= 1 AND routes[END-1].outgoingmailaddress = "" AND routes[END-1].serverurl = "" AND routes[END-1].originmask = "" AND routes[END-1].sendermask = "" AND routes[END-1].mask = "")
+  IF(Length(routes) >= 1 AND routes[END-1].outgoingmailaddress = "" AND routes[END-1].serverurl = "" AND routes[END-1].originmask IN ["","*"] AND routes[END-1].sendermask IN ["","*"] AND routes[END-1].mask IN ["","*"])
     DELETE FROM routes AT END-1;
 
   FOREVERY(RECORD route FROM routes)
