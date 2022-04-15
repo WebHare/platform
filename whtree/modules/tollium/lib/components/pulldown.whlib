@@ -145,7 +145,7 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
           RETURN;
         }
 
-        STRING newselection := SELECT AS STRING TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey))
+        STRING newselection := SELECT AS STRING EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey))
                                  FROM this->storage->rows
                                 WHERE tolliumselected;
         this->ToddUpdate([type:="newselection", newselection := newselection]);
@@ -157,7 +157,7 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
   PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
   //NOTE: Dupe of ExtendList
   {
-    RECORD ARRAY newvals := SELECT * FROM this->storage->rows WHERE TypeToString(COLUMN rowkey, TypeId(COLUMN rowkey)) = inp;
+    RECORD ARRAY newvals := SELECT * FROM this->storage->rows WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = inp;
 //    this->UpdateSelection(newvals, FALSE);
     this->storage->SetSelectionByRecords(newvals, FALSE);
   }
@@ -165,7 +165,7 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
   PUBLIC RECORD ARRAY FUNCTION TolliumWebPrintOptions()
   {
     RETURN SELECT flags := StoredAttrsJSON(currentrows, this->flags)
-                , value := TypeToString(rowkey, TypeId(rowkey))
+                , value := EncodeRowkey(rowkey, TypeId(rowkey))
                 , enablecomponents := CelLExists(currentrows, "enablecomponents") ? GetVisibleComponentNames(currentrows.enablecomponents) : DEFAULT STRING ARRAY
                 , selected := tolliumselected
                 , enabled
