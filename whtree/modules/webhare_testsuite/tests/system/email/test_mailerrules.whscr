@@ -8,12 +8,17 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 
 MACRO TestMailWhitelists()
 {
+  //Sanity checks to prevent you from wasting time on these tests if your system is wide open anyway...
+  TestEq(0, IsAllowedEmailSender("anyone@nowhere.invalid"), "If *anyone* is a valid sender, we can't properly run whitelist tests. Disable the offending mailrules first!");
+  TestEq(FALSE, IsAllowedEmailReceiver("anyone@nowhere.invalid"), "If *anyone* is a valid recipient, we can't properly run whitelist tests. Disable the offending mailrules first!");
+
   //Create a email field to test stuff with
   OBJECT work;
   OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
@@ -35,7 +40,8 @@ MACRO TestMailWhitelists()
 
     work := screen->BeginFeedback();
     IF(test.fail)
-      TestEqLike("*'any@receiver.beta.webhare.net'*not allowed to send email*", work->errors[0].text);
+      TestEqLike("*'any@receiver.beta.webhare.net'*not allowed to send email*", (SELECT AS STRING text FROM work->errors), `email-maysendfrom"];
+ ${test.address}`);
     ELSE
       TestEq(RECORD[], work->errors);
     work->Cancel();
@@ -47,13 +53,14 @@ MACRO TestMailWhitelists()
                             ,[ address := "Arnold <any@sender.beta.webhare.net>", fail := TRUE ]
                             ,[ address := "any@receiver.beta.webhare.net", fail := FALSE ]
                             ,[ address := "Arnold <any@receiver.beta.webhare.net>", fail := FALSE ]
+                            ,[ address := "someone@redirect.beta.webhare.net", fail := FALSE ]
                             ])
   {
     screen->comp->value := test.address;
 
     work := screen->BeginFeedback();
     IF(test.fail)
-      TestEqLike("*'any@sender.beta.webhare.net'*not allowed to receive email*", work->errors[0].text);
+      TestEqLike("*not allowed to receive email*", (SELECT AS STRING text FROM work->errors), `email-maysendto ${test.address}`);
     ELSE
       TestEq(RECORD[], work->errors);
     work->Cancel();
@@ -65,13 +72,14 @@ MACRO TestMailWhitelists()
                             ,[ address := "Arnold <any@sender.beta.webhare.net>, Arnold <any@receiver.beta.webhare.net>", fail := TRUE ]
                             ,[ address := "any@receiver.beta.webhare.net, other@receiver.beta.webhare.net", fail := FALSE ]
                             ,[ address := "Arnold <any@receiver.beta.webhare.net>, Other <other@receiver.beta.webhare.net>", fail := FALSE ]
+                            ,[ address := "someone@redirect.beta.webhare.net", fail := FALSE ]
                             ])
   {
     screen->comp->value := test.address;
 
     work := screen->BeginFeedback();
     IF(test.fail)
-      TestEqLike("*'any@sender.beta.webhare.net'*not allowed to receive email*", work->errors[0].text);
+      TestEqLike("*not allowed to receive email*", (SELECT AS STRING text FROM work->errors), `emails-maysendto ${test.address}`);
     ELSE
       TestEq(RECORD[], work->errors);
     work->Cancel();

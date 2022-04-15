@@ -1598,6 +1598,12 @@ PUBLIC MACRO SetupTestWhitelists()
 {
   testfw->BeginWork();
   OBJECT systemconfigschema := OpenWRDSchema("system:config");
+  systemconfigschema->^mailroute->CreateEntity(CELL[ wrd_tag := "TESTFW_MAILROUTE"
+                                                   , sendermasks := [[ mask := "*" ]]
+                                                   , recipientmasks := [[ mask := "*@redirect.beta.webhare.net"]]
+                                                   , rewritemailaddress := "redirectto@receiver.beta.webhare.net"
+                                                   , wrd_ordering := -999
+                                                   ]);
   systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION1", mask := "*@sender.beta.webhare.net" ]);
   systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION2", mask := "*whitelist*@*.beta.webhare.net" ]);
   systemconfigschema->^mailrecipient->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION3", mask := "*@receiver.beta.webhare.net" ]);
