@@ -22,16 +22,13 @@
   <test script="test_customcontent.whscr" />
   <test script="test_suggestfields.whscr" />
   <test script="test_thesaurus.whscr" />
-  <test script="test_boostwords.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_boostwords.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_boostwords.whscr" />
   <test script="test_parsers.whscr" />
-  <test script="test_publishersearch.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_publishersearch.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_publishersearch.whscr" />
   <test script="test_linkcheck.whscr"/>
   <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" />
-  <test script="test_pagelists.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_pagelists.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_pagelists.whscr" />
 
   <test script="test_moduleindices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
 

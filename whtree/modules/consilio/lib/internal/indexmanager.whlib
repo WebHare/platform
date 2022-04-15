@@ -461,6 +461,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
         // initialfilter.
         RECORD settings :=
             [ properties := defaultmappingfields
+            , dynamic := "strict"
             ];
 
         RECORD ARRAY mapping := GetContentSourceMapping(contentsourceid);
