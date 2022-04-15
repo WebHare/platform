@@ -107,7 +107,16 @@ PUBLIC INTEGER FUNCTION IsAllowedEmailSender(STRING email)
 
 PUBLIC BOOLEAN FUNCTION IsAllowedEmailReceiver(STRING email)
 {
-  RETURN IsInLikeUC(email, GetMailroutes().mailrecipients);
+  RECORD mailconfig := GetMailroutes();
+  IF(IsInLikeUC(email, mailconfig.mailrecipients))
+    RETURN TRUE;
+
+  //if any rewrite rule would handle the outgoing mail, fine with us
+  FOREVERY(RECORD rewriterule FROM mailconfig.mailroutes)
+    IF(rewriterule.rewritemailaddress != ""  AND IsInLikeUC(email, rewriterule.recipientmasks) AND IsInLikeUC(rewriterule.rewritemailaddress, mailconfig.mailrecipients))
+      RETURN TRUE;
+
+  RETURN FALSE;
 }
 
 /** Returns the relevant mailroute for a sender, receiver and origin
