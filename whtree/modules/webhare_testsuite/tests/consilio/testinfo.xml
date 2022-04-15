@@ -16,15 +16,11 @@
     <arg param="listenport"/>
     <arg param="indexdir"/>
   </test>
-  <test script="test_siteprofile_indices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_siteprofile_indices.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
-  <test script="test_consilioapi.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_consilioapi.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_siteprofile_indices.whscr" />
+  <test script="test_consilioapi.whscr" />
   <test script="test_robots.whscr" />
-  <test script="test_customcontent.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_customcontent.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
-  <test script="test_suggestfields.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_suggestfields.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_customcontent.whscr" />
+  <test script="test_suggestfields.whscr" />
   <test script="test_thesaurus.whscr" />
   <test script="test_boostwords.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_boostwords.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
