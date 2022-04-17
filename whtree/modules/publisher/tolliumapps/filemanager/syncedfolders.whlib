@@ -25,7 +25,6 @@ LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
 <
   INTEGER selection;
-  INTEGER curr_synced_folder;
 
   MACRO Init(RECORD data)
   {
@@ -37,7 +36,6 @@ PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
 
     this->selection := data.objectid;
     this->RefreshList();
-    this->folders->value := this->curr_synced_folder;
   }
 
   MACRO RefreshList()
@@ -64,18 +62,18 @@ PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
 
   MACRO DoAdd()
   {
-    INTEGER id := this->RunScreen("#editfolder", [ id := 0, folderid := this->selection ]);
+    INTEGER64 id := this->RunScreen("#editfolder", [ id := 0, folderid := this->selection ]);
     this->RefreshList();
     IF (id != 0)
-      this->folders->value := id;
+      ^folders->value := id;
   }
 
   MACRO DoEdit()
   {
-    INTEGER id := this->RunScreen("#editfolder", [ id := ^folders->value, folderid := ^folders->selection.folderid ]);
+    INTEGER64 id := this->RunScreen("#editfolder", [ id := ^folders->value, folderid := ^folders->selection.folderid ]);
     this->RefreshList();
     IF (id != 0)
-      this->folders->value := id;
+      ^folders->value := id;
   }
 
   MACRO DoDelete()
@@ -102,7 +100,7 @@ PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
 
 PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
 <
-  INTEGER pvt_id;
+  INTEGER64 pvt_id;
   OBJECT selectedpeer;
 
   PUBLIC PROPERTY id(pvt_id, -);
@@ -134,7 +132,7 @@ PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
     }
   }
 
-  INTEGER FUNCTION Submit()
+  INTEGER64 FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
     IF (work->HasFailed())
