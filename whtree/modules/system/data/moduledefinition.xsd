@@ -2096,8 +2096,7 @@
     <xs:attribute name="name" type="Name" use="required" />
     <xs:attribute name="tid" type="SimpleTid" />
     <xs:attribute name="icon" type="sc:ImageSrc" />
-    <xs:attribute name="library" type="xs:string" />
-    <xs:attribute name="contentproviderobject" type="xs:string" />
+    <xs:attribute name="contentproviderobject" type="xs:string" use="required" />
   </xs:complexType>
 
   <xs:complexType name="Catalog">
