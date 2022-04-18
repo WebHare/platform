@@ -145,6 +145,18 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         }
       }
 
+    FOREVERY(OBJECT webservice FROM this->xml->ListElements(whconstant_xmlns_moduledef, "ephemeraltask") CONCAT this->xml->ListElements(whconstant_xmlns_moduledef, "managedtask"))
+      IF(IsNodeApplicableToThisWebHare(webservice))
+      {
+        IF(webservice->HasAttribute("library"))
+        {
+          STRING lib := MakeAbsoluteResourcePath(this->respath, webservice->GetAttribute("library"));
+          IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
+            IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
+              this->AddWarningForLine(webservice->linenum, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path (dev:rewrite can fix this!)");
+        }
+      }
+
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
       this->AddError(legacywrdschemas, `<wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }
