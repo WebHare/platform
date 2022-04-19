@@ -107,10 +107,6 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
   OBJECT ARRAY pvt_visibleoptioncomponents;
 
 
-  /** Counter used to generate rowkeys for dividers
-  */
-  INTEGER dividercounter;
-
   /// Implicitly add contained components to their <option>'s enablecomponents
   BOOLEAN implicitenablecomponents;
 
@@ -508,8 +504,8 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     IF (clear_sources)
       this->pvt_optionsources := DEFAULT RECORD ARRAY;
 
-    BOOLEAN has_rowkeys;
-    BOOLEAN rowkey_is_integer;
+    INTEGER rowkeytype;
+    INTEGER64 dividercounter;
     BOOLEAN dividercounterset;
 
     // Find out the type of the new rowkeys from first non-divider item.
@@ -518,9 +514,8 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
       IF (CellExists(opt, "ISDIVIDER") AND opt.isdivider)
         CONTINUE;
 
-      has_rowkeys := CellExists(opt, "ROWKEY");
-      IF (has_rowkeys)
-        rowkey_is_integer := TypeID(opt.rowkey) = TypeID(INTEGER);
+      IF (CellExists(opt, "ROWKEY"))
+        rowkeytype := TYPEID(opt.rowkey);
 
       BREAK;
     }
@@ -550,23 +545,28 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
 
       IF (opt.isdivider)
       {
-        IF (NOT CellExists(opt, "ROWKEY") AND has_rowkeys)
+        IF (NOT CellExists(opt, "ROWKEY") AND rowkeytype != 0)
         {
-          this->dividercounter := this->dividercounter + 1;
-          IF (rowkey_is_integer)
+          dividercounter := dividercounter + 1;
+          IF (rowkeytype IN [TYPEID(INTEGER),TYPEID(INTEGER64)])
           {
             IF (NOT dividercounterset)
             {
-              this->dividercounter :=
-                  SELECT AS INTEGER Max(rowkey) + 1
+              dividercounter :=
+                  SELECT AS INTEGER64 Max(rowkey) + 1
                     FROM newrows
                    WHERE CellExists(newrows, "ROWKEY");
               dividercounterset := TRUE;
             }
-            INSERT CELL rowkey := this->dividercounter INTO opt;
+            IF(rowkeytype = TYPEID(INTEGER64))
+              INSERT CELL rowkey := dividercounter INTO opt;
+            ELSE
+              INSERT CELL rowkey := INTEGER(dividercounter) INTO opt;
           }
           ELSE
-            INSERT CELL rowkey := "$divider" || this->dividercounter INTO opt;
+          {
+            INSERT CELL rowkey := "$divider" || dividercounter INTO opt;
+          }
         }
         IF (NOT CellExists(opt, "TITLE"))
           INSERT CELL title := "" INTO opt;

@@ -34,6 +34,7 @@ ASYNC MACRO TestRowKeyTypes()
         <select name="select_integer" rowkeytype="integer" type="checkbox"/>
         <select name="select_datetime" rowkeytype="datetime" type="radio"/>
         <select name="select_boolean" rowkeytype="boolean" type="checkbox"/>
+        <select name="select_implicit64" type="pulldown"/>
       </body>
      </screen>`)));
 
@@ -41,6 +42,12 @@ ASYNC MACRO TestRowKeyTypes()
   TestThrowsLike('Rowkeys of type*not supported*', PTR MemberUpdate(TT("list_unset"), "rowkeytype", TYPEID(OBJECT)));
   TestThrowsLike('Rowkeys of type*not supported*', PTR MemberUpdate(TT("list_unset"), "rowkeytype", TYPEID(FLOAT)));
   TT("list_unset")->rowkeytype := TYPEID(INTEGER64); //shouldn't crash
+  TT("select_implicit64")->options := [[ rowkey := 1i64, title := "X1" ]
+                                      ,[ isdivider := TRUE ]
+                                      ,[ rowkey := 2i64, title := "X2" ]
+                                      ,[ isdivider := TRUE ]
+                                      ];
+  TestEq(3i64, TT("select_implicit64")->options[1].rowkey);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
  }
@@ -139,7 +146,7 @@ ASYNC MACRO TestDupeElimination()
  }
 
 RunTestframework([ PTR TestRadio
-                 , PTR TestrowKeyTypes
+                 , PTR TestRowKeyTypes
                  , PTR TestSubscreenRegression
                  , PTR TestSubcomponentsRegression
                  , PTR TestInvisibleSelectRegression
