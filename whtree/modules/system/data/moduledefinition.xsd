@@ -713,7 +713,7 @@
       <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" />
-    <xs:attribute name="library" type="xs:string" use="required" />
+    <xs:attribute name="library" type="xs:string"/>
     <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attribute name="objecttype" type="xs:string" /> <!-- legacy support -->
     <xs:attributeGroup ref="ApplicabletoWebHare" />
