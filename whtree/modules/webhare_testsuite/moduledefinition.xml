@@ -112,36 +112,33 @@
 
   <rights>
     <!-- Rights for tests -->
-    <objecttype name="testobjecttype" table=".rights_tree" title="Test rights objecttype for table beta.rights_tree" parentfield="parent">
-      <describer library="internal/rights.whlib" objectname="betatreeobjecttypedescriber" />
-    </objecttype>
-
-    <objecttype name="testflatobjecttype" table=".rights_tree" title="Test rights objecttype for table beta.rights_tree, without parent field">
-      <describer library="internal/rights.whlib" objectname="betatreeflatobjecttypedescriber" />
-    </objecttype>
+    <objecttype name="testobjecttype"
+                describer="lib/internal/rights.whlib#betatreeobjecttypedescriber"
+                parentfield="parent"
+                table=".rights_tree"
+                title="Test rights objecttype for table beta.rights_tree" />
+    <objecttype name="testflatobjecttype"
+                describer="lib/internal/rights.whlib#betatreeflatobjecttypedescriber"
+                table=".rights_tree"
+                title="Test rights objecttype for table beta.rights_tree, without parent field" />
 
     <right name="globalright" title="webhare_testsuite globalright">
-      <impliedby right="system:sysop"/>
+      <impliedby right="system:sysop" />
     </right>
-
     <right name="objectright" objecttype="testobjecttype">
-      <impliedby right="system:sysop"/>
+      <impliedby right="system:sysop" />
     </right>
-
     <right name="objectright2" objecttype="testobjecttype">
-      <impliedby right="globalright"/>
+      <impliedby right="globalright" />
     </right>
-
     <right name="objectright2_impl" objecttype="testobjecttype">
-      <impliedby right="objectright2"/>
+      <impliedby right="objectright2" />
     </right>
-
     <right name="objectflatright" objecttype="testflatobjecttype">
-      <impliedby right="globalright"/>
+      <impliedby right="globalright" />
     </right>
-
     <right name="betatesting" title="Allow acces to beta test apps">
-      <impliedby right="system:sysop"/>
+      <impliedby right="system:sysop" />
     </right>
   </rights>
 
