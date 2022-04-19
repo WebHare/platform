@@ -259,12 +259,12 @@
   <publisher>
     <siteprofile path="data/webhare_testsuite.siteprl.xml"/>
     <siteprofile path="tests/consilio/data/consiliotests.siteprl.xml"/>
-    <virtualfs name="beta_tests" library="myvirtualfs.whlib" objectname="BetaFS">
+    <virtualfs name="beta_tests" objectname="lib/myvirtualfs.whlib#BetaFS">
       <accesscheck>
         <requireright right="system:sysop"/>
       </accesscheck>
     </virtualfs>
-    <virtualfs name="beta_tests2" library="myvirtualfs.whlib" objectname="BetaModularFS">
+    <virtualfs name="beta_tests2" objectname="lib/myvirtualfs.whlib#BetaModularFS">
       <accesscheck>
         <requireright right="system:sysop"/>
       </accesscheck>

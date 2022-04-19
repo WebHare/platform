@@ -2200,17 +2200,17 @@ The full base URL on which this site will be published, calculated by combining 
   </hooking>
 
   <publisher>
-    <virtualfs name="data" library="internal/virtualfs/data.whlib" objectname="DataFS">
+    <virtualfs name="data" objectname="lib/internal/virtualfs/data.whlib#DataFS">
       <accesscheck>
         <requireright right="webdav_readaccess" />
       </accesscheck>
     </virtualfs>
-    <virtualfs name="system" library="internal/virtualfs/system.whlib" objectname="SystemFS">
+    <virtualfs name="system" objectname="lib/internal/virtualfs/system.whlib#SystemFS">
       <accesscheck>
         <requireright right="sysop" />
       </accesscheck>
     </virtualfs>
-    <virtualfs name="home" library="internal/virtualfs/data.whlib" objectname="DataFSHomeFolder">
+    <virtualfs name="home" objectname="lib/internal/virtualfs/data.whlib#DataFSHomeFolder">
       <accesscheck>
         <requireright right="sysop" />
       </accesscheck>
