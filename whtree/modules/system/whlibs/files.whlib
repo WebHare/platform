@@ -942,7 +942,7 @@ PUBLIC STRING FUNCTION __GetModuleNameFromResourcePath(STRING path)
   IF(namespace IN [ "moduleroot", "module", "moduledata", "modulescript"])
   {
     IF(GetEnvironmentVariable("WEBHARE_IGNORE_OLD_NAMESPACES") != "")
-       RETURN ""; //w're not allowed to recognize these namespaces, helps prevent them from being passed to a fatal __HS_INTERNAL_RESOLVEABSOLUTELIBRARY call
+       RETURN ""; //we're not allowed to recognize these namespaces, helps prevent them from being passed to a fatal __HS_INTERNAL_RESOLVEABSOLUTELIBRARY call
   }
   ELSE IF(namespace NOT IN [ "mod", "storage" ])
     RETURN ""; //not a proper module namespace
