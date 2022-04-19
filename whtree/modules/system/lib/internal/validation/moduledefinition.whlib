@@ -73,7 +73,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         this->VerifyScreenReferenceExistence(app.linenum, app.screen, "screen");
 
       IF(app.appfunction != "")
-        this->VerifyFunctionExistence([ resourcename := this->respath, line := app.linenum, col := 0], app.appfunction);
+        this->VerifyFunctionExistenceForScope([ resourcename := this->respath, line := app.linenum, col := 0], app.appfunction);
     }
 
     FOREVERY(RECORD task FROM md.tasks)
@@ -120,6 +120,44 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       IF(dependency->HasAttribute("requireversion"))
         this->AddWarningForLine(dependency->linenum, "requireversion has been deprecated. Use moduleversion= and specify a semver mask if you want to match a module, or webhareversion= to make this dependency rule only apply to the specified WebHare version");
 
+    FOREVERY(OBJECT appnode FROM this->xml->ListElements(whconstant_xmlns_moduledef,"application"))
+      IF(IsNodeApplicableToThisWebHare(appnode))
+      {
+        STRING startmacro := appnode->GetAttribute("startmacro");
+        IF(appnode->HasAttribute("library"))
+        {
+          this->AddWarningForLine(appnode->linenum, "The use of library= has been deprecated. (combine into startmacro=, dev:rewite can fix this!)");
+          IF(startmacro != "")
+            startmacro := appnode->GetAttribute("library") || "#" || startmacro;
+        }
+
+        IF(startmacro != "" AND startmacro NOT LIKE "*#*")
+        {
+          this->AddErrorForLine(appnode->linenum, "Invalid startmacro reference");
+          CONTINUE;
+        }
+
+        IF(startmacro != "")
+        {
+          STRING lib := MakeAbsoluteResourcePath(this->respath, Tokenize(startmacro,'#')[0]);
+          IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
+          {
+            STRING trylib := "module::" || this->modulename || "/" || Tokenize(startmacro,'#')[0];
+            IF(RecordExists(RetrieveWebHareResource(trylib, [ allowmissing := TRUE ])))
+            {
+              this->AddWarning(appnode, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path - dev:rewrite can fix this!)");
+              startmacro := trylib || "#" || Tokenize(startmacro,'#')[1];
+            }
+            ELSE
+            {
+              this->AddError(appnode, `Cannot find '${lib}'`);
+              CONTINUE;
+            }
+          }
+          this->VerifyFunctionExistence(appnode, MakeAbsoluteResourcePath(this->respath, startmacro));
+        }
+      }
+
     FOREVERY(OBJECT wrdschema FROM this->xml->ListElements(whconstant_xmlns_moduledef,"schema"))
       IF(IsNodeApplicableToThisWebHare(wrdschema))
       {
@@ -135,13 +173,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
         {
           IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
-          {
-            this->AddWarningForLine(webservice->linenum, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path (dev:rewrite can fix this!)");
-          }
+            this->AddWarning(webservice, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path - dev:rewrite can fix this!)");
           ELSE
-          {
-            this->AddErrorForLine(webservice->linenum, `Cannot find '${lib}'`);
-          }
+            this->AddError(webservice, `Cannot find '${lib}'`);
         }
       }
 
