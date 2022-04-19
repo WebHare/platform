@@ -1317,6 +1317,7 @@
         <text tid="outgoingredirect-false">Send to the mail recipient (To:)</text>
         <text tid="outgoingredirect-true">Redirect all emails to</text>
         <text tid="port">Port</text>
+        <text tid="receiverlistmaybeskipped">Some mails (such as password resets) will ignore the acceptable receivers list</text>
         <text tid="receiversempty">All receiver addresses are blocked</text>
         <text tid="receiverstab">Receivers</text>
         <text tid="redirect">Send emails</text>
