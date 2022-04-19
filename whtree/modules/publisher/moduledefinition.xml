@@ -987,7 +987,7 @@
     <siteprofile path="data/siteprofiles/webtools.siteprl.xml"/>
     <siteprofile path="widgets/widgets.siteprl.xml"/>
 
-    <virtualfs name="publisher" library="internal/virtualfs-publisher.whlib" objectname="PublisherFSWithNoDefault" >
+    <virtualfs name="publisher" objectname="lib/internal/virtualfs-publisher.whlib#PublisherFSWithNoDefault" >
       <accesscheck>
         <requireright right="system:fs_browse"/>
       </accesscheck>

@@ -1372,11 +1372,18 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       {
         CASE "virtualfs"
         {
+          STRING library := subchild->GetAttribute("library");
           RECORD virtualfs := [ name := subchild->GetAttribute("name")
-                              , library := "module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library"))
                               , objectname := subchild->HasAttribute("objecttype") ? subchild->GetAttribute("objecttype") : subchild->GetAttribute("objectname")
+                              , ...ParseChecks(this->moduledef.name, subchild, TRUE)
                               ];
-          virtualfs := MakeMergedRecord(virtualfs, ParseChecks(this->moduledef.name, subchild, TRUE));
+
+          //TODO start removing library= at some point. either directly or with warnings, i'm not sure there *are* much external users to worry about
+          IF(library != "")
+            virtualfs.objectname := "module::" || this->moduledef.name || "/" || library || "#" || virtualfs.objectname;
+          ELSE
+            virtualfs.objectname := MakeAbsoluteResourcePath(this->respath, virtualfs.objectname);
+
           INSERT virtualfs INTO this->moduledef.virtualfs AT END;
         }
         CASE "siteprofile"
@@ -1535,26 +1542,18 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     STRING fieldname := node->GetAttribute("name");
     STRING namespace := node->GetAttribute("namespace");
     STRING membername := node->GetAttribute("member");
-    STRING library := node->GetAttribute("library");
-    IF (library != "" AND library NOT LIKE "*::*")
-      library := "module::" || this->moduledef.name || "/" || library;
-    STRING functionname := node->GetAttribute("functionname");
     STRING fieldfunc := node->GetAttribute("fieldfunc");
 
-    // Either both 'namespace' and 'member' or both 'library' and 'functionname' or just 'fieldfunc' are required. If
-    // 'library' and 'functionname' or 'fieldfunc' are given, 'name' is required, otherwise the value of 'member' is used
-    // as the name if the name is not given.
+    // Either both 'namespace' and 'member' or just 'fieldfunc' is required. If 'fieldfunc' are given, 'name' is required,
+    // otherwise the value of 'member' is used  as the name if the name is not given.
 
-    IF (((namespace != "" OR membername != "") AND (library != "" OR functionname != ""))
-        OR ((namespace != "" OR membername != "") AND fieldfunc != "")
-        OR ((library != "" OR functionname != "") AND fieldfunc != "")
-        OR (namespace = "" AND membername = "" AND library = "" AND functionname = "" AND fieldfunc = ""))
+    IF (((namespace != "" OR membername != "") AND fieldfunc != "")
+        OR (namespace = "" AND membername = "" AND fieldfunc = ""))
       this->AddError(node, "Either 'namespace' and 'member' or 'fieldfunc' should be set");
     ELSE IF (recurse AND ((namespace != "" AND membername = "") OR (namespace = "" AND membername != "")))
       this->AddError(node, "'namespace' and 'member' are both required");
-    ELSE IF ((library != "" AND functionname = "") OR (library = "" AND functionname != ""))
-      this->AddError(node, "'library' and 'functionname' are both required");
-    IF ((library != "" OR fieldfunc != "") AND fieldname = "")
+
+    IF (fieldfunc != "" AND fieldname = "")
     {
       this->AddError(node, "'name' is required if 'fieldfunc' are used");
       RETURN DEFAULT RECORD;
@@ -1562,17 +1561,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     ELSE IF (membername != "" AND fieldname = "")
       fieldname := membername;
 
-    IF (fieldfunc != "")
-    {
-      library := Tokenize(fieldfunc, "#")[0];
-      functionname := Substring(fieldfunc, Length(library) + 1);
-      library := MakeAbsoluteResourcePath(this->respath, library);
-      IF (library = "" OR functionname = "")
-      {
-        this->AddError(node, `Invalid 'fieldfunc' value ${fieldfunc}`);
-        RETURN DEFAULT RECORD;
-      }
-    }
+    fieldfunc := MakeAbsoluteResourcePath(this->respath, fieldfunc);
 
     RECORD ARRAY arraymembers;
     IF (recurse)
@@ -1594,14 +1583,13 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     }
 
     RECORD indexfield :=
-        [ fieldname := fieldname
-        , namespace := namespace
-        , membername := membername
-        , library := library
-        , functionname := functionname
-        , tokenized := ParseXSBoolean(node->GetAttribute("tokenized"))
-        , suggested := ParseXSBoolean(node->GetAttribute("suggested"))
-        ];
+        CELL[ fieldname
+            , namespace
+            , membername := membername
+            , fieldfunc
+            , tokenized := ParseXSBoolean(node->GetAttribute("tokenized"))
+            , suggested := ParseXSBoolean(node->GetAttribute("suggested"))
+            ];
     IF (recurse)
       INSERT CELL arraymembers := arraymembers INTO indexfield;
     RETURN indexfield;

@@ -395,7 +395,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     {
       RETURN this->ParseContentTypeField(fields, objid, indexfield, arrayid);
     }
-    ELSE IF (indexfield.library != "" AND indexfield.functionname != "")
+    ELSE IF (indexfield.fieldfunc != "")
     {
       RETURN this->ParseLibraryField(fields, objid, indexfield, arrayid, DEFAULT RECORD);
     }
@@ -575,14 +575,14 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
   RECORD FUNCTION ParseLibraryField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, RECORD parentfield)
   {
     FUNCTION PTR getfield := RecordExists(parentfield)
-        ? MakeFunctionPtr(indexfield.library, indexfield.functionname, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
-        : MakeFunctionPtr(indexfield.library, indexfield.functionname, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
+        ? MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
+        : MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
     VARIANT fieldvalue := RecordExists(parentfield)
         ? getfield(indexfield.fieldname, parentfield.fieldname, objid, arrayid)
         : getfield(indexfield.fieldname, objid);
     INTEGER expectedtype := indexfield.fieldname LIKE "date_*" ? TypeID(DATETIME) : TypeID(STRING);
     IF (TypeID(fieldvalue) != expectedtype)
-      THROW NEW Exception("Invalid field type returned for field '" || ((RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname) || "' by function '" || indexfield.library || "#" || indexfield.functionname || "' (expected " || GetTypeName(expectedtype) || ", got " || GetTypeName(TypeID(fieldvalue)) || ")");
+      THROW NEW Exception("Invalid field type returned for field '" || ((RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname) || "' by function '" || indexfield.fieldfunc || "' (expected " || GetTypeName(expectedtype) || ", got " || GetTypeName(TypeID(fieldvalue)) || ")");
     STRING fieldname := (RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname || "@" || indexfield.module;
     RETURN this->InsertFieldValue(fields, objid, fieldname, fieldvalue);
   }
