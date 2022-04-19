@@ -86,6 +86,7 @@
             <column name="mask" type="text" width="1pr" tid=".mask" />
             <column name="wrd_title" type="text" width="2pr" tid="~description" />
           </wrd:entitiesedit>
+          <text valuetid=".receiverlistmaybeskipped" wordwrap="true" width="1pr" />
         </tab>
         <tab name="emailcorrectionstab">
           <wrd:entitiesedit name="emailcorrections"

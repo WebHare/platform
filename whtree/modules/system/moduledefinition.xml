@@ -158,28 +158,23 @@
     <!-- candownloadflags requires 'filename' & 'mimetype' -->
     <dragtype name="whfsfile"
               candownloadflags="candownload"
-              library="internal/whfs/dragtypes.whlib"
-              objectname="whfsfiledrag"
+              objectname="lib/internal/whfs/dragtypes.whlib#whfsfiledrag"
               flags="canmove candownload isactive" />
 
     <dragtype name="whfsfolder"
-              library="internal/whfs/dragtypes.whlib"
-              objectname="whfsfolderdrag"
+              objectname="lib/internal/whfs/dragtypes.whlib#whfsfolderdrag"
               flags="canmove isactive" />
 
     <dragtype name="unit"
-              library="internal/support.whlib"
-              objectname="unitdrag"
+              objectname="lib/internal/support.whlib#unitdrag"
               flags="candelete" />
 
     <dragtype name="user"
-              library="internal/support.whlib"
-              objectname="userdrag"
+              objectname="lib/internal/support.whlib#userdrag"
               flags="candelete" />
 
     <dragtype name="role"
-              library="internal/support.whlib"
-              objectname="roledrag"
+              objectname="lib/internal/support.whlib#roledrag"
               flags="candelete" />
 
   </tollium>

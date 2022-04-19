@@ -533,8 +533,7 @@
 
   <consilio>
     <contentprovider
-      name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database"
-      library="contentproviders/customcontent.whlib" contentproviderobject="CustomContentProvider"
+      name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database" contentproviderobject="lib/contentproviders/customcontent.whlib#CustomContentProvider"
     />
 
     <fieldgroup tag="pxl_data">

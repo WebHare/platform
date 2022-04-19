@@ -245,7 +245,6 @@ PUBLIC RECORD FUNCTION ParseWebServiceDefinitionNode(STRING modulename, OBJECT s
   STRING libpath := MakeAbsoluteResourcePath("mod::" || modulename || "/", servicenode->GetAttribute("library"));
   IF(NOT RecordExists(RetrieveWebHareResource(libpath, [ allowmissing := TRUE])))
   {
-    //TODO warn about legacy path
     STRING altlibpath := (modulename != "" ? "module::" || modulename || "/" : "") || servicenode->GetAttribute("library");
     IF(RecordExists(RetrieveWebHareResource(altlibpath, [ allowmissing := TRUE])))
     {

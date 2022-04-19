@@ -583,8 +583,7 @@ PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
   RETURN SELECT name
               , title
               , icon
-              , library
-              , createcontentprovider := PTR MakeObject(library, contentproviderobject)
+              , createcontentprovider := PTR MakeObject(contentproviderobject)
            FROM contentproviders;
 }
 
@@ -598,7 +597,6 @@ RECORD FUNCTION GetContentProviders_Uncached()
       INSERT [ name := cp.name
              , title := cp.title
              , icon := cp.icon
-             , library := cp.library
              , contentproviderobject := cp.contentproviderobject
              ] INTO contentproviders AT END;
     }

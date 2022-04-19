@@ -1135,6 +1135,7 @@
         <text tid="outgoingredirect-false">Stuur naar de geadresseerde (To:)</text>
         <text tid="outgoingredirect-true">Stuur de e-mail naar</text>
         <text tid="port">Poort</text>
+        <text tid="receiverlistmaybeskipped">Sommige e-mails (bv. wachtwoord resets) negeren de geaccepteerde ontvangerslijst</text>
         <text tid="receiversempty">Alle ontvangers zijn geblokkeerd</text>
         <text tid="receiverstab">Ontvangers</text>
         <text tid="redirect">E-mails versturen</text>

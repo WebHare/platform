@@ -1042,7 +1042,6 @@
       <xs:element name="dragtype" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="name" type="xs:string" use="required" />
-          <xs:attribute name="library" type="xs:string" use="required" />
           <xs:attribute name="objectname" type="xs:string" use="required" />
           <xs:attribute name="flags" type="CheckFlags" />
           <xs:attribute name="candownloadflags" type="CheckFlags" />
@@ -2081,8 +2080,7 @@
     <xs:attribute name="name" type="Name" use="required" />
     <xs:attribute name="tid" type="SimpleTid" />
     <xs:attribute name="icon" type="sc:ImageSrc" />
-    <xs:attribute name="library" type="xs:string" />
-    <xs:attribute name="contentproviderobject" type="xs:string" />
+    <xs:attribute name="contentproviderobject" type="xs:string" use="required" />
   </xs:complexType>
 
   <xs:complexType name="Catalog">

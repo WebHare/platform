@@ -227,11 +227,13 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       STRING legacypath := MakeAbsoluteResourcePath(legacybasepath, path);
       IF(RecordExists(RetrieveWebHareResource(legacypath, [ allowmissing := TRUE ])))
       {
+        STRING realpath := Substring(legacypath, Length(MakeAbsoluteResourcePath(this->respath,"./")));
+        STRING message := `Attribute '${attrname}' required the use of an implicit path to find, please specify it as '${realpath}'`;
         IF(options.warnversion > 0 AND (this->IsBuiltinModule() OR GetWebhareVersionNumber() >= options.warnversion)) //builtin modules need to set a good example, so ignore the version check
-        {
-          STRING realpath := Substring(legacypath, Length(MakeAbsoluteResourcePath(this->respath,"./")));
-          this->AddWarning(node, `Attribute '${attrname}' required the use of an implicit path to find, please specify it as '${realpath}'`);
-        }
+          this->AddWarning(node, message);
+        ELSE
+          this->AddHint(node, message);
+
         RETURN legacypath;
       }
     }
@@ -356,11 +358,41 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   }
 
   /** Verifies the existence of a reference to a function
-      @param linenum Line number of the reference
+      @param node Node for the reference
       @param func Reference to the function
       @return Function definition if it exists
   */
-  RECORD FUNCTION VerifyFunctionExistence(RECORD tolliumscope, STRING func)
+  RECORD FUNCTION VerifyFunctionExistence(OBJECT node, STRING func)
+  {
+    STRING ARRAY functoks := Tokenize(func,'#');
+    IF(Length(functoks) != 2)
+    {
+      this->AddError(node, `Invalid function reference '${func}')`);
+      RETURN DEFAULT RECORD;
+    }
+    RECORD lib := this->GetLibDescription(functoks[0]);
+    IF(NOT RecordExists(lib))
+    {
+      this->AddError(node, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
+      RETURN DEFAULT RECORD;
+    }
+
+    RECORD match := SELECT * FROM lib.functions WHERE name = ToUppercase(functoks[1]);
+    IF(NOT RecordExists(match))
+    {
+      this->AddError(node, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN match;
+  }
+
+  /** Verifies the existence of a reference to a function
+      @param tolliumscope Scope for the reference
+      @param func Reference to the function
+      @return Function definition if it exists
+  */
+  RECORD FUNCTION VerifyFunctionExistenceForScope(RECORD tolliumscope, STRING func)
   {
     STRING ARRAY functoks := Tokenize(func,'#');
     IF(Length(functoks) != 2)
@@ -435,7 +467,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   }
   PUBLIC MACRO ValidateGlobalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
-    RECORD match := this->VerifyFunctionExistence(tolliumscope, handlerrec.name);
+    RECORD match := this->VerifyFunctionExistenceForScope(tolliumscope, handlerrec.name);
     IF(NOT RecordExists(match))
       RETURN; //already handled
 

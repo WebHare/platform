@@ -42,52 +42,44 @@
       </accesscheck>
     </linkapp>
 
-
     <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen">
-      <accesscheck/>
+      <accesscheck />
     </application>
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
-      <accesscheck/>
+      <accesscheck />
     </application>
-    <application name="anycomponent" library="screens/tests/anycomponent.whlib" startmacro="RunAnyComponent">
-      <accesscheck/>
+    <application name="anycomponent" startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent">
+      <accesscheck />
     </application>
-    <application name="appstarttest" screen="tests/comm.appstart">
-      <accesscheck/>
+    <application name="appstarttest" screen="/screens/tests/comm.xml#appstart">
+      <accesscheck />
     </application>
-    <application name="human" screen="tests/human.main">
-      <accesscheck/>
+    <application name="human" screen="/screens/tests/human.xml#main">
+      <accesscheck />
     </application>
-
-    <application name="testsiteversioning" library="mod::webhare_testsuite/lib/publisher/versioningapp.whlib" startmacro="StartVersioningApp" icon="tollium:applications/versioning">
+    <application name="testsiteversioning"
+                 icon="tollium:applications/versioning"
+                 startmacro="/lib/publisher/versioningapp.whlib#StartVersioningApp">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-
-
-
-    <application name="demo"
-                 screen="tolliumapps/demo/main.xml#main"
-                 title="Demo &amp; dev">
+    <application name="demo" screen="tolliumapps/demo/main.xml#main" title="Demo &amp; dev">
       <accesscheck />
     </application>
 
     <!-- temp, have to add a main.xml / tollium.xml which opens this? -->
-    <application name="imagemap"
-                 screen="tolliumapps/demo/imagemap-editor/imagemap_editor.xml#main"
-                 title="Imagemap editor">
+    <application name="imagemap" screen="tolliumapps/demo/imagemap-editor/imagemap_editor.xml#main" title="Imagemap editor">
       <accesscheck />
     </application>
-
     <application name="dymodemo" screen="tolliumapps/demo/dymo/dymo.xml#main">
-      <accesscheck/>
+      <accesscheck />
     </application>
     <application name="wrddemo" screen="tolliumapps/demo/wrd/wrddemo.xml#main" supportedlanguages="en">
-      <accesscheck/>
+      <accesscheck />
     </application>
     <application name="mapdemo" screen="tolliumapps/demo/socialite/mapdemo.xml#maps">
-      <accesscheck/>
+      <accesscheck />
     </application>
 
     <notification name="eventservertest" tid="module.eventservertest" descriptiontid="module.eventservertest-desc" defaultenabled="true" />
@@ -98,18 +90,18 @@
   </tollium>
 
   <services>
-    <webservice name="test" transports="jsonrpc whremoting" library="webservicetest.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
+    <webservice name="test" transports="jsonrpc whremoting" library="lib/webservicetest.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
       <accesscheck>
         <requireright right="system:sysop"/>
       </accesscheck>
       <addheader header=" X-Test-Header :  * "/>
     </webservice>
-    <webservice name="testnoauth" transports="jsonrpc whremoting" library="webservicetest.whlib" prefix="RPC_">
+    <webservice name="testnoauth" transports="jsonrpc whremoting" library="lib/webservicetest.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
 
-    <webservice name="sharedtests" transports="jsonrpc" library="sharedtests.whlib" prefix="RPC_">
+    <webservice name="sharedtests" transports="jsonrpc" library="lib/sharedtests.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
