@@ -327,7 +327,7 @@ PUBLIC RECORD FUNCTION GetFormDef(STRING formdefinitionfile, STRING formname)
     IF(Length(formtoks) != 3 OR NOT IsValidWHFSName(formtoks[1],FALSE))
       THROW NEW Exception("Illegal builtin form name '" || formname || "'");
 
-    formdefinitionfile := "module::publisher/internal/forms/" || formtoks[1] || ".formdef.xml";
+    formdefinitionfile := "mod::publisher/lib/internal/forms/" || formtoks[1] || ".formdef.xml";
     lookupname := formtoks[2];
   }
   ELSE
