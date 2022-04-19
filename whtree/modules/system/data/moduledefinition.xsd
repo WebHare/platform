@@ -1742,21 +1742,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
-    <xs:attribute name="library" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Deprecated, use fieldfunc instead.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="functionname" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Deprecated, use fieldfunc instead.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="SearchContentProvider">
