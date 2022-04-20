@@ -2069,10 +2069,11 @@
           <text tid="manual">Enter sender name:</text>
           <text tid="moduletemplate">Template in module:</text>
           <text tid="none">Please choose:</text>
+          <text tid="noreceivers">Add at least one receiver</text>
           <text tid="noreply">No reply possible</text>
           <text tid="noreplywarning">When no "Reply-to" is choosen, the receivers of the mail can't reply to the e-mail.</text>
           <text tid="receiverfield">Send to</text>
-          <text tid="replytoexplain">(We recommend using the visitors e-mail address.)</text>
+          <text tid="replytoexplain">(using the visitors e-mail address is recommended)</text>
           <text tid="replytofield">Reply to</text>
           <text tid="rtd">Email contents</text>
           <text tid="sender">Sender address</text>

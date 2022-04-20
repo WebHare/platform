@@ -2068,10 +2068,11 @@
           <text tid="manual">Naam opgeven:</text>
           <text tid="moduletemplate">Sjabloon in module:</text>
           <text tid="none">Maak een keuze:</text>
+          <text tid="noreceivers">Voeg tenminste één ontvanger toe</text>
           <text tid="noreply">Geen antwoordmogelijkheid</text>
           <text tid="noreplywarning">Als er geen "Antwoord aan"-adres is gekozen, dan kunnen de ontvangers niet reageren op e-mail.</text>
           <text tid="receiverfield">Verstuur aan:</text>
-          <text tid="replytoexplain">(kies bij voorkeur het e-mailadres van de bezoeker.)</text>
+          <text tid="replytoexplain">(kies bij voorkeur het e-mailadres van de bezoeker)</text>
           <text tid="replytofield">Antwoord aan</text>
           <text tid="rtd">E-mailinhoud</text>
           <text tid="sender">Afzenderadres</text>

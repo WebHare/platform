@@ -12,29 +12,29 @@
       >
     <insert position="settings" where="after">
       <heading tid=".mailto" />
-      <arrayedit name="mailto" height="1pr" roweditscreen="#editmailto">
+      <arrayedit name="mailto" height="1pr" roweditscreen="#editmailto" emptytid=".noreceivers">
         <column name="email" type="text" tid="~email" />
         <p:formconditioncolumn name="condition" />
       </arrayedit>
       <heading tid=".mailprops"/>
       <textedit name="subject" width="1pr" />
       <line>
-        <select name="sendernamefield" type="pulldown">
-          <option rowkey="" tid=".manual" enablecomponents="sendername"/>
-          <divider/>
-        </select>
-       <textedit name="sendername" width="1pr" title="" required="true" placeholdertid=".sendernameexplain"/>
-      </line>
-      <line>
         <select name="replytofield" type="pulldown">
           <option rowkey="" tid=".noreply" />
           <divider/>
         </select>
-        <text title="" wordwrap="true" valuetid=".replytoexplain"/>
+        <text title="" wordwrap="true" valuetid=".replytoexplain" />
       </line>
     </insert>
     <insert position="advanced" where="after">
       <textedit name="sender" validationchecks="email-maysendfrom" width="1pr" />
+      <line>
+        <select name="sendernamefield" type="pulldown">
+          <option rowkey="" tid=".manual" enablecomponents="sendername"/>
+          <divider/>
+        </select>
+       <textedit name="sendername" width="1pr" title=""  errorlabeltid=".sendername"/>
+      </line>
     </insert>
     <newtab tid=".emailcontents">
       <includefragment name="emailcontents" fragment="#emailcontents" />
