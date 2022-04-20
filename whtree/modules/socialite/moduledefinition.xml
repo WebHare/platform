@@ -1,4 +1,3 @@
-<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
   <meta configscreen="screens/sysmgmt.xml#googleapikeys">
@@ -10,7 +9,6 @@
     1.6 - Vimeo V3 API
     -->
     <description>Social network API and manager</description>
-
     <packaging>
       <dependency module="publisher" />
       <dependency module="tollium" />
@@ -19,217 +17,225 @@
   </meta>
 
   <servicemanager>
-    <task runat="*/30  * * * *" tag="checksessions" script="scripts/tasks/checksessions.whscr" description="Check persistent sessions" />
-    <task runat="*/5   * * * *" tag="update_embedded" script="scripts/tasks/update_embedded.whscr" description="Update embedded scripts" />
-    <runonce tag="setup_feedaccount" script="scripts/runonce/setup_feedaccount.whscr" when="aftertablecreation"  />
+    <task runat="*/30  * * * *" script="scripts/tasks/checksessions.whscr" tag="checksessions" description="Check persistent sessions" />
+    <task runat="*/5   * * * *" script="scripts/tasks/update_embedded.whscr" tag="update_embedded" description="Update embedded scripts" />
+
+    <runonce script="scripts/runonce/setup_feedaccount.whscr" tag="setup_feedaccount" when="aftertablecreation" />
   </servicemanager>
 
   <services>
-    <webservice name="recaptcha" transports="jsonrpc" library="lib/internal/recaptcha-rpc.whlib" primarytrans="none" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="recaptcha"
+                library="lib/internal/recaptcha-rpc.whlib"
+                prefix="RPC_"
+                primarytrans="none"
+                transports="jsonrpc">
+      <accesscheck />
     </webservice>
 
     <check objectname="lib/internal/check.whlib#SessionsCheck" />
   </services>
 
   <portal>
-    <application group="system:setup" name="config" screen="config.main" tid="config.apptitle" icon="tollium:applications/socialite">
+    <application name="config"
+                 group="system:setup"
+                 icon="tollium:applications/socialite"
+                 screen="/screens/config.xml#main"
+                 tid="config.apptitle">
       <accesscheck>
         <requireright right="fullaccess" />
       </accesscheck>
     </application>
-
-    <application name="linkbuilder" screen="linkbuilder.main" tid="linkbuilder.apptitle">
-      <accesscheck>
-      </accesscheck>
+    <application name="linkbuilder" screen="/screens/linkbuilder.xml#main" tid="linkbuilder.apptitle">
+      <accesscheck />
     </application>
   </portal>
 
   <backend>
     <webrule path="allroots:/.socialite/" match="initial" handlebydir="web/global/" priority="after" />
-     <!-- embed scripts. cache for 10 minutes, together with the 5 minutes refresh rate this should sort of simulate GTM's 15 minute cache -->
-    <webrule path="allroots:/.se/" match="initial" redirecttodir="var:se/" cachecontrol="public, max-age=600" priority="after" />
+
+    <!-- embed scripts. cache for 10 minutes, together with the 5 minutes refresh rate this should sort of simulate GTM's 15 minute cache -->
+    <webrule path="allroots:/.se/"
+             match="initial"
+             cachecontrol="public, max-age=600"
+             priority="after"
+             redirecttodir="var:se/" />
 
     <!-- Facebook callback page for the JS SDK auth -->
-    <webrule path="allroots:/tollium_todd.res/socialite/callbacks/fbchannel.html" match="exact" expires="31536000" priority="after" />
+    <webrule path="allroots:/tollium_todd.res/socialite/callbacks/fbchannel.html"
+             match="exact"
+             expires="31536000"
+             priority="after" />
   </backend>
 
   <rights>
-    <objecttype name="accounts" table=".accounts" tid="rights.accounts">
-      <describer library="internal/support.whlib" objectname="accountsdescriber" />
-    </objecttype>
+    <objecttype name="accounts"
+                describer="lib/internal/support.whlib#accountsdescriber"
+                table=".accounts"
+                tid="rights.accounts" />
 
-    <right name="fullaccess" objecttype="accounts" tid="rights.fullaccess" descriptiontid="rights.fullaccess-descr">
+    <right name="fullaccess" descriptiontid="rights.fullaccess-descr" objecttype="accounts" tid="rights.fullaccess">
       <impliedby right="system:sysop" />
     </right>
-    <right name="authorizesessions" objecttype="accounts" tid="rights.authorizesessions" descriptiontid="rights.authorizesessions-descr">
+    <right name="authorizesessions"
+           descriptiontid="rights.authorizesessions-descr"
+           objecttype="accounts"
+           tid="rights.authorizesessions">
       <impliedby right="fullaccess" />
     </right>
   </rights>
 
   <tollium>
     <!-- Entry point for our component parser -->
-    <components namespace="http://www.webhare.net/xmlns/socialite/components"
-                xmlschema="components.xsd" />
+    <components namespace="http://www.webhare.net/xmlns/socialite/components" xmlschema="components.xsd" />
   </tollium>
 
   <!-- schema kort
        accounts bestaan uit
            keys (keys definieren applicaties)
   -->
-
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
     <d:table name="accounts" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:varchar name="title" nullable="0" maxlength="256" />
-      <d:varchar name="tag" nullable="0" maxlength="256" />
+      <d:varchar name="title" maxlength="256" nullable="0" />
+      <d:varchar name="tag" maxlength="256" nullable="0" />
     </d:table>
-
-    <d:table name="applications" primarykey="id" parentlinkcolumn="account">
+    <d:table name="applications" parentlinkcolumn="account" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="account" references=".accounts" ondelete="cascade" nullable="0" />
-      <d:varchar name="title" nullable="0" maxlength="256" />
+      <d:integer name="account" nullable="0" ondelete="cascade" references=".accounts" />
+      <d:varchar name="title" maxlength="256" nullable="0" />
       <d:varchar name="tag" maxlength="256" />
-      <d:varchar name="type" nullable="0" maxlength="16" />
+      <d:varchar name="type" maxlength="16" nullable="0" />
       <d:varchar name="remarks" maxlength="4096" />
       <d:boolean name="logrpc" />
     </d:table>
-
-    <d:table name="applicationkeys" primarykey="id" parentlinkcolumn="application">
+    <d:table name="applicationkeys" parentlinkcolumn="application" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="application" references=".applications" ondelete="cascade" nullable="0" />
-      <d:varchar name="tag" nullable="0" maxlength="256" />
+      <d:integer name="application" nullable="0" ondelete="cascade" references=".applications" />
+      <d:varchar name="tag" maxlength="256" nullable="0" />
       <d:varchar name="value" maxlength="4096" />
     </d:table>
-
-    <d:table name="sessions" primarykey="id" parentlinkcolumn="application">
+    <d:table name="sessions" parentlinkcolumn="application" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="application" references=".applications" ondelete="cascade" nullable="0" />
-      <d:varchar name="title" nullable="0" maxlength="256" />
+      <d:integer name="application" nullable="0" ondelete="cascade" references=".applications" />
+      <d:varchar name="title" maxlength="256" nullable="0" />
       <d:varchar name="tag" maxlength="256" />
       <d:varchar name="authorizationremark" maxlength="4096" />
       <d:boolean name="persistent" />
       <d:boolean name="authorized" />
       <d:datetime name="authorizedat" />
       <d:datetime name="verifiedat" />
-      <d:varchar name="requestpermissions" maxlength="4096" /><!-- list with numers of abstracted permissions we want to use/authorize for -->
-      <d:varchar name="userid" maxlength="256" /><!-- userid (used for hyvertising logintokens)  -->
-      <d:varchar name="accesstoken" maxlength="4096" /><!-- accesstoken for this session -->
+      <d:varchar name="requestpermissions" maxlength="4096" />  <!-- list with numers of abstracted permissions we want to use/authorize for -->
+      <d:varchar name="userid" maxlength="256" />  <!-- userid (used for hyvertising logintokens) -->
+      <d:varchar name="accesstoken" maxlength="4096" />  <!-- accesstoken for this session -->
       <d:varchar name="methods" maxlength="4096" />
       <d:boolean name="expirationwarning" />
-
       <d:index name="useridindex" columns="application userid" />
     </d:table>
-
     <d:table name="feeds" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="session" references=".sessions" ondelete="cascade" />
+      <d:integer name="session" ondelete="cascade" references=".sessions" />
       <d:integer name="maxnum">
-        <d:documentation>
-          Maximum number of entries to store
-        </d:documentation>
+        <d:documentation>Maximum number of entries to store</d:documentation>
       </d:integer>
       <d:varchar name="query" maxlength="1024">
-        <d:documentation>
-          Query done for this feed
-        </d:documentation>
+        <d:documentation>Query done for this feed</d:documentation>
       </d:varchar>
       <d:datetime name="created" nullable="0">
-        <d:documentation>
-          original creation date of this feed
-        </d:documentation>
+        <d:documentation>original creation date of this feed</d:documentation>
       </d:datetime>
       <d:datetime name="lastupdateattempt" nullable="0">
-        <d:documentation>
-          the last time we tried to sync this feed (used to detect broken feeds, if lastsync is much larger than lastupdate)
-        </d:documentation>
+        <d:documentation>the last time we tried to sync this feed (used to detect broken feeds, if lastsync is much larger than lastupdate)</d:documentation>
       </d:datetime>
       <d:datetime name="lastupdate">
-        <d:documentation>
-          last time this feeds was updated
-        </d:documentation>
+        <d:documentation>last time this feeds was updated</d:documentation>
       </d:datetime>
       <d:datetime name="lastrequest" nullable="0">
-        <d:documentation>
-          last time this feed was requested. note that this isn't updated for every request, as it is only used to detect feeds that haven't been requested for a long time
-        </d:documentation>
+        <d:documentation>last time this feed was requested. note that this isn't updated for every request, as it is only used to detect feeds that haven't been requested for a long time</d:documentation>
       </d:datetime>
       <d:varchar name="format" maxlength="80">
-        <d:documentation>
-          Encoding format for the feed entries
-        </d:documentation>
+        <d:documentation>Encoding format for the feed entries</d:documentation>
       </d:varchar>
       <d:varchar name="lasterror" maxlength="4096">
-        <d:documentation>
-          Last error message
-        </d:documentation>
+        <d:documentation>Last error message</d:documentation>
       </d:varchar>
       <d:index name="sessionquery" columns="session query" unique="1" />
       <d:blob name="baseinfo" />
       <d:varchar name="baseinfohash" maxlength="64" />
     </d:table>
-
     <d:table name="feedentries" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="feed" references=".feeds" ondelete="cascade" />
+      <d:integer name="feed" ondelete="cascade" references=".feeds" />
       <d:datetime name="created" nullable="0">
-        <d:documentation>
-          original creation date of this entry
-        </d:documentation>
+        <d:documentation>original creation date of this entry</d:documentation>
       </d:datetime>
       <d:varchar name="messageid" maxlength="64">
-        <d:documentation>
-          Message id
-        </d:documentation>
+        <d:documentation>Message id</d:documentation>
       </d:varchar>
       <d:varchar name="data" maxlength="4096">
-        <d:documentation>
-          Data for the entry
-        </d:documentation>
+        <d:documentation>Data for the entry</d:documentation>
       </d:varchar>
       <d:blob name="longdata">
-        <d:documentation>
-          Long data for the entry, if it didn't fit into "data"
-        </d:documentation>
+        <d:documentation>Long data for the entry, if it didn't fit into "data"</d:documentation>
       </d:blob>
       <d:boolean name="publish">
-        <d:documentation>
-          Publish this feed entry?
-        </d:documentation>
+        <d:documentation>Publish this feed entry?</d:documentation>
       </d:boolean>
     </d:table>
 
     <!-- TODO generalize this a bit, there are more things that need API keys that are bound to local urls. we should probably move it to a webhare configuration wrdschema -->
     <d:table name="google_apikeys" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="keytype" /> <!-- 0 = maps, 1 = recaptcha -->
-      <d:integer name="scopetype" /> <!-- 0 = any scope. 1 = use in clients (javascript), 2 = use in servers -->
+      <d:integer name="keytype" />  <!-- 0 = maps, 1 = recaptcha -->
+      <d:integer name="scopetype" />  <!-- 0 = any scope. 1 = use in clients (javascript), 2 = use in servers -->
       <d:varchar name="domain" maxlength="1024" nullable="0" />
       <d:varchar name="apikey" maxlength="512" nullable="0" />
       <d:varchar name="privatekey" maxlength="512" />
       <d:datetime name="creationdate" />
-      <d:varchar name="comment" maxlength="512"/>
+      <d:varchar name="comment" maxlength="512" />
       <d:index name="domainskeys" columns="keytype scopetype domain(32)" unique="1" uppercase="1" />
     </d:table>
+
     <!-- Everyone may read Google Maps API keys -->
-    <d:grant permissions="select" table="google_apikeys" grantee="public" />
+    <d:grant grantee="public" permissions="select" table="google_apikeys" />
   </databaseschema>
 
   <publisher>
     <siteprofile path="data/socialite.siteprl.xml" />
-    <webdesignplugin name="analytics" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#analyticsplugin"  />
-    <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/socialite" objectname="mod::socialite/lib/internal/webdesignplugin.whlib#SocialiteGoogleAnalyticsPluginWrapper"  />
-    <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/socialite" objectname="mod::socialite/lib/internal/webdesignplugin.whlib#SocialiteGTMWrapper" hooksfeatures="debugsettings" />
-    <webdesignplugin name="opengraph" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#opengraphplugin"  />
-    <webdesignplugin name="analyticsexperiment" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#analyticsexperimentplugin"  />
-    <webdesignplugin name="seotab" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/plugins/seotab.whlib#seotabplugin" hooksfeatures="objectprops" />
-    <formcomponents namespace="http://www.webhare.net/xmlns/socialite/forms" xmlschema="data/forms/formdef.xsd"/>
+
+    <webdesignplugin name="analytics"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="lib/internal/webdesignplugin.whlib#analyticsplugin" />
+    <webdesignplugin name="googleanalytics"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="mod::socialite/lib/internal/webdesignplugin.whlib#SocialiteGoogleAnalyticsPluginWrapper" />
+    <webdesignplugin name="gtm"
+                     hooksfeatures="debugsettings"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="mod::socialite/lib/internal/webdesignplugin.whlib#SocialiteGTMWrapper" />
+    <webdesignplugin name="opengraph"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="lib/internal/webdesignplugin.whlib#opengraphplugin" />
+    <webdesignplugin name="analyticsexperiment"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="lib/internal/webdesignplugin.whlib#analyticsexperimentplugin" />
+    <webdesignplugin name="seotab"
+                     hooksfeatures="objectprops"
+                     namespace="http://www.webhare.net/xmlns/socialite"
+                     objectname="lib/internal/plugins/seotab.whlib#seotabplugin" />
+
+    <formcomponents namespace="http://www.webhare.net/xmlns/socialite/forms" xmlschema="data/forms/formdef.xsd" />
 
     <embedvideodetector functionname="lib/internal/embedvideo/support.whlib#guessfromcode" />
-    <embedvideoprovider name="youtube" tid="embedvideo.network.youtube" objectname="lib/internal/embedvideo/youtube.whlib#YoutubeProvider" />
-    <embedvideoprovider name="vimeo" tid="embedvideo.network.vimeo" objectname="lib/internal/embedvideo/vimeo.whlib#VimeoProvider" />
-    <embedvideoprovider name="youku" tid="embedvideo.network.youku" objectname="lib/internal/embedvideo/youku.whlib#YoukuProvider" />
+
+    <embedvideoprovider name="youtube"
+                        objectname="lib/internal/embedvideo/youtube.whlib#YoutubeProvider"
+                        tid="embedvideo.network.youtube" />
+    <embedvideoprovider name="vimeo"
+                        objectname="lib/internal/embedvideo/vimeo.whlib#VimeoProvider"
+                        tid="embedvideo.network.vimeo" />
+    <embedvideoprovider name="youku"
+                        objectname="lib/internal/embedvideo/youku.whlib#YoukuProvider"
+                        tid="embedvideo.network.youku" />
   </publisher>
 
   <moduleregistry>
