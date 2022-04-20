@@ -22,6 +22,11 @@ PUBLIC STRING FUNCTION GenerateTaskMessageId(INTEGER taskid)
 
 PUBLIC RECORD FUNCTION CreateMailFromTask(RECORD mailtask)
 {
+  //Set fields which may not be set in earlier WebHare versions but still on the queue
+  mailtask := EnforceStructure([ replytofallsbacktorecipient := FALSE
+                               , messageid := ""
+                               ], mailtask);
+
   STRING sender := mailtask.sender;
   // Get defaults for some header fields
   RECORD ARRAY mimeheaders := mailtask.mimeheaders;
@@ -34,11 +39,17 @@ PUBLIC RECORD FUNCTION CreateMailFromTask(RECORD mailtask)
     INSERT INTO mimeheaders(field, value) VALUES("From", sender) AT END;
   }
 
+  IF(mailtask.replytofallsbacktorecipient AND (SELECT AS STRING value FROM mimeheaders WHERE ToUppercase(field) = "REPLY-TO") = "")
+  {
+    DELETE FROM mimeheaders WHERE ToUppercase(field) = "REPLY-TO";
+    INSERT [ field := "Reply-To", value := PrettyFormatEmailAddress(mailtask.receiver) ] INTO mimeheaders AT END;
+  }
+
   STRING ARRAY u_mimeheaders_fields := SELECT AS STRING ARRAY ToUppercase(field) FROM mimeheaders;
 
   RECORD ARRAY baseheaders := GetSMTPEmailHeader(sender, "", "");
 
-  IF(CellExists(mailtask,'MESSAGEID'))
+  IF(mailtask.messageid != "")
     INSERT [ field := "Message-Id", value := mailtask.messageid ] INTO mimeheaders AT END;
 
   // Add the missing headers with their default values (when missing)
