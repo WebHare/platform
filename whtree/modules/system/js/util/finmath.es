@@ -2,6 +2,8 @@
    know why we need this, try to predict what the following code would print:
    var cents=0;for(var i=0;i<100;++i)cents+=0.01;cents-=1;console.log(cents);
    and think twice about whether you want to code anything financial in JS.
+
+   Money values supplied from HareScript should be formatted using FormatJSFinmathMoney
 */
 
 //a 'price' is a string of the form "nnn[.NNNN]"

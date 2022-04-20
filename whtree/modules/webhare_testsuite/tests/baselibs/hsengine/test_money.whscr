@@ -30,6 +30,8 @@ MACRO FormatMoneyTest()
   TestEq('1.234,56789', FormatMoney(1234.56789, 5, ',', '.', TRUE));
   TestEq('1.234,56789', FormatMoney(1234.56789, 6, ',', '.', TRUE));
 
+  TestEq('1234.56789', FormatJSFinmathMoney(1234.56789));
+
   TestEq('1.234,56789', FormatMoney(1234.56789, -1, ',', '.', FALSE));
   TestEq('1.234,56789', FormatMoney(1234.56789, 0, ',', '.', FALSE));
   TestEq('1.234,56789', FormatMoney(1234.56789, 1, ',', '.', FALSE));

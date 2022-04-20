@@ -90,6 +90,14 @@ PUBLIC STRING FUNCTION FormatMoney(MONEY value, INTEGER decimals, STRING decimal
   RETURN (isnegative?"-":"") || primarystr || (decimalstr=""?"":decimalsep||decimalstr);
 }
 
+/** Format money amounts as our JS finmath library expects it (simply n[.nnnnn] eg 4.25 or 8.5)
+    @param indata Money value to format
+    @return Money value formatted so the finmath functions can process them
+*/
+PUBLIC STRING FUNCTION FormatJSFinmathMoney(MONEY indata)
+{
+  RETURN FormatMoney(indata,0,'.','',FALSE);
+}
 
 
 
