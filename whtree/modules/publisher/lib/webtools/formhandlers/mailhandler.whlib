@@ -796,7 +796,9 @@ STATIC OBJECTTYPE MailHandlerTask EXTEND FormHandlerTaskBase
     IF(CellExists(this->settings, 'mailwaitdays') AND this->settings.mailwaitdays > 0)
       notbefore := GetMailtaskScheduleDate(results.when, this->settings.mailwaitdays, this->settings.mailwaittimezone, this->settings.mailwaitat);
 
-    INTEGER ARRAY tasks := mail->QueueMailInWork(CELL[notbefore]);
+    INTEGER ARRAY tasks := mail->QueueMailInWork(CELL[ notbefore
+                                                     , replytofallsbacktorecipient := this->handlertype = "results"
+                                                     ]);
     this->ResolveByCompletion( CELL[ receivers := mail->mailto, tasks, notbefore ]);
   }
 
