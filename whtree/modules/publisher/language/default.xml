@@ -2073,7 +2073,7 @@
           <text tid="noreply">No reply possible</text>
           <text tid="noreplywarning">When no "Reply-to" is choosen, the receivers of the mail can't reply to the e-mail.</text>
           <text tid="receiverfield">Send to</text>
-          <text tid="replytoexplain">(using the visitors e-mail address is recommended)</text>
+          <text tid="replytoexplain">(using the visitor's e-mail address is recommended)</text>
           <text tid="replytofield">Reply to</text>
           <text tid="rtd">Email contents</text>
           <text tid="sender">Sender address</text>
