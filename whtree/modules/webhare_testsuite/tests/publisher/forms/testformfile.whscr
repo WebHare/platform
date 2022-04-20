@@ -360,6 +360,7 @@ PUBLIC MACRO FillInForm()
   TestEq("Your Form Was Filled", ownermail[0].subject);
   TestEq("Your Form Was Filled", ownermail[1].subject);
   TestEq(["copt1+jstest@beta.webhare.net","mailresult+jstest@beta.webhare.net"], SELECT AS STRING ARRAY receiver FROM ownermail ORDER BY receiver);
+  TestEq(["<copt1+jstest@beta.webhare.net>","<mailresult+jstest@beta.webhare.net>"], SELECT AS STRING ARRAY replyto FROM ownermail ORDER BY receiver);
   //Make sure the upload is linked from the email
   TestEq("allstar.txt (1 KB, text/plain)", ownermail[0].links[0].textcontent);
   TestEq(firstuploadlink, ownermail[0].links[0].href);
