@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -57,28 +56,14 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
     this->modulecolumns := ^modules->columns;
     this->RefreshPermissions();
     this->LoadRevisionInfo();
-/* FIXME module message handling
-    IF(RecordExists(data.message))
-    {
-      this->OnMessage(data.message);
-    }
-    ELSE IF(Length(data.params) > 0)
-    {
-      ^modules->SetValueIfValid(data.params[0]);
-      ^configuremodule->TolliumClick();
-    }*/
   }
-  /* FIXME
-    MACRO OnMessage(RECORD msg)
-  {
-    msg := EnforceStructure([ panel := "" , module := "", registrykey := "" ], msg);
 
-    IF(msg.module != "") //used by dashboard error list
-    {
-      ^modules->SetValueIfValid(msg.module);
-    }
+  MACRO OnMessage(RECORD msg)
+  {
+    IF (CellExists(msg, "module"))
+      ^modules->value := msg.module;
   }
-*/
+
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     ^modules->Invalidate();
