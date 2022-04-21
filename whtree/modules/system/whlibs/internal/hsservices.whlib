@@ -34,6 +34,7 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
   // Public properties
   //
 
+  /// Promise for the wait result
   PUBLIC PROPERTY promise(this->defer.promise, -);
 
   // ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
   // Constructor
   //
 
+  /// Construct a new __HS_INTERNAL_AsyncCallbackWaitHelperBase
   MACRO NEW()
   {
     this->defer := CreateDeferredPromise();
@@ -178,6 +180,10 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_OutputObject
   // Constructor
   //
 
+  /** Create a new __HS_INTERNAL_OutputObject object
+      @param handle Handle
+      @param supports_write_signalling Whether this output object supports write signalling
+  */
   MACRO NEW(INTEGER handle, BOOLEAN supports_write_signalling)
   {
     this->pvt_handle := handle;
@@ -308,6 +314,9 @@ STATIC OBJECTTYPE __HS_INTERNAL_SuspendableFunctionController
   /** Restarts the suspended function
       @param type 0: Send normal value, 1: Send exception, 2: send return
       @param value Value to send
+      @return Yielded value
+      @cell return.done Whether the function has completed
+      @cell return.value Returned value
   */
   RECORD FUNCTION HandleResume(INTEGER type, VARIANT value) __ATTRIBUTES__(EXTERNAL);
 
@@ -325,16 +334,18 @@ STATIC OBJECTTYPE __HS_INTERNAL_SuspendableFunctionController
     in the first yield (which is placed right at the start of the function)
 */
 PUBLIC OBJECTTYPE __HS_INTERNAL_FunctionGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
-< MACRO NEW()
+< /// Create a new __HS_INTERNAL_FunctionGenerator object
+  MACRO NEW()
   : __HS_INTERNAL_SuspendableFunctionController(TRUE)
   {
   }
 
   /** Sends a value to a yielded generator, returns the next yielded (or returned)
       value. Throws when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or returned value, when the generator has returned)
+      @param pass Value to send to the function
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or returned value, when the generator has returned)
   */
   PUBLIC RECORD FUNCTION Next(VARIANT pass DEFAULTSTO DEFAULT RECORD) //__ATTRIBUTES__(SKIPTRACE)
   {
@@ -353,9 +364,10 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_FunctionGenerator EXTEND __HS_INTERNAL_Suspendab
 
   /** Sends a exception to throw to a yielded generator, returns the next yielded (or
       returned) value. Throws when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or returned value, when the generator has returned)
+      @param e Exception to throw
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or returned value, when the generator has returned)
   */
   PUBLIC RECORD FUNCTION SendThrow(OBJECT e) //__ATTRIBUTES__(SKIPTRACE)
   {
@@ -374,9 +386,10 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_FunctionGenerator EXTEND __HS_INTERNAL_Suspendab
 
   /** Sends a value to return to a yielded generator, returns the next yielded (or
       returned) value. Throws when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or retu erned value, when the generator has returned)
+      @param retval Value to send to the function
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or retuerned value, when the generator has returned)
   */
   PUBLIC RECORD FUNCTION SendReturn(VARIANT retval DEFAULTSTO DEFAULT RECORD) // __ATTRIBUTES__(SKIPTRACE)
   {
@@ -401,25 +414,43 @@ OBJECT FUNCTION *__HS_INTERNAL_IterateArray(VARIANT arr)
   RETURN DEFAULT RECORD;
 }
 
-PUBLIC OBJECT FUNCTION __HS_CONVERTTOITERATOR(VARIANT v)
+/** Converts iterators/arrays to an iterator when possible
+    @param v Value to iteratorify
+    @return Iteratorified value
+*/
+PUBLIC OBJECT FUNCTION __HS_CONVERTTOITERATOR(VARIANT v) __ATTRIBUTES__(SKIPTRACE)
 {
   IF ((TypeID(v) BITAND 0x80) != 0) // Array?
     RETURN __HS_INTERNAL_IterateArray(v);
-  IF (TypeID(v) != TypeID(OBJECT) OR v NOT EXTENDSFROM __HS_INTERNAL_FunctionGenerator)
-    THROW NEW Exception("Cannot convert expression to an iterator");
+  IF (TypeID(v) != TypeID(OBJECT) OR NOT MemberExists(v, "NEXT"))
+    THROW NEW Exception("Cannot convert this expression to an iterator");
   RETURN v;
 }
 
 OBJECTTYPE GetAsyncControlAction __ATTRIBUTES__(INTERNALPROTECTED) < >;
 
-PUBLIC OBJECT FUNCTION GetAsyncControl() { RETURN NEW GetAsyncControlAction; }
+/** Function to set async function/generator options. Use `AWAIT GetAsyncControl()` to get
+    the object
+    @return(object %AsyncControl) Control object
+*/
+PUBLIC OBJECT FUNCTION GetAsyncControl()
+{
+  // When awaited, an object of type AsyncControl is returned.
+  RETURN NEW GetAsyncControlAction;
+}
 
+/** Object used to configure async function/generator options
+    @public
+*/
 OBJECTTYPE AsyncControl __ATTRIBUTES__(INTERNALPROTECTED)
 <
   OBJECT generator;
   OBJECT pvt_canceltoken;
 
+  /// @type(object ../promise.whlib#CancellationToken) Cancel token
   PUBLIC PROPERTY canceltoken(pvt_canceltoken, -);
+
+  /// @type(boolean) Whether to auto-cancel awaited promises when the current function is canceled
   PUBLIC PROPERTY autolinkcancel(this->generator->pvt_autolinkcancel, this->generator->pvt_autolinkcancel);
 
   MACRO NEW(OBJECT generator, OBJECT pvt_canceltoken)
@@ -483,6 +514,7 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_Susp
   // Constructor
   //
 
+  /// Create a new __HS_INTERNAL_AsyncFunctionGenerator object
   MACRO NEW() __ATTRIBUTES__(SKIPTRACE)
   : __HS_INTERNAL_SuspendableFunctionController(FALSE)
   {
@@ -511,7 +543,9 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_Susp
     this->ProcessResult(result);
   }
 
-  /// Constructs the return value for the this->ReturnXXX calls.
+  /** Constructs the return value for the this->ReturnXXX calls.
+      @return Return value for the generator call (record with done+value columns of promise with that record)
+  */
   VARIANT FUNCTION GetFinalReturnValue()
   {
     // Return value - first yield returns the promise, else an iterator value
@@ -532,7 +566,10 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_Susp
   // Functions called from controlled function (injected by compiler)
   //
 
-  /// Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+  /** Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+      @param value Value put after the AWAIT
+      @return Control instruction to handle AWAIT result
+  */
   VARIANT FUNCTION SendAwait(VARIANT value)
   {
     IF (TypeID(value) = TypeID(OBJECT))
@@ -559,14 +596,20 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_Susp
     RETURN [ yieldvalue := TRUE, value := this->defer.promise ];
   }
 
-  /// Reject the generator promise, return iterator return value
+  /** Reject the generator promise, return iterator return value
+      @param value Thrown exception
+      @return Return value for function
+  */
   VARIANT FUNCTION ReturnThrow(OBJECT value) __ATTRIBUTES__(SKIPTRACE)
   {
     this->defer.reject(value);
     RETURN this->GetFinalReturnValue();
   }
 
-  /// Resolve the generator promise, return iterator return value
+  /** Resolve the generator promise, return iterator return value
+      @param value Returned value
+      @return Return value for function
+  */
   VARIANT FUNCTION ReturnValue(VARIANT value)
   {
     // Link the canceltoken to returned promises
@@ -598,7 +641,12 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
 
   /** Queued calls to the iterator from the user
       @cell type
-      @cell value
+        - 0: yield
+        - 1: throw
+        - 2: return
+        - 3: await
+        - 4: continue with yieled value
+      @cell value Relevant value
   */
   RECORD ARRAY queued;
 
@@ -633,6 +681,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
   // Constructor
   //
 
+  /// Create a new __HS_INTERNAL_AsyncGeneratorGenerator object
   MACRO NEW()
   : __HS_INTERNAL_SuspendableFunctionController(TRUE)
   {
@@ -716,7 +765,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
           CreateResolvedPromise(res.value)->__Chain(PRIVATE this);
           RETURN;
         }
-        CASE 4 // continue with yieled value
+        CASE 4 // continue with yielded value
         {
           // (assert: done=false)
           INSERT [ type := 0, value := res.value ] INTO this->queued AT 0;
@@ -763,13 +812,18 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
   // Functions called from controlled function (injected by compiler)
   //
 
-  /// Return value for the first YIELD (injected at start). Returned value is return value for function (so it must be an AsyncIterator)
+  /** Return value for the first YIELD (injected at start). Returned value is return value for function (so it must be an AsyncIterator)
+      @return Return value for the generator function (this object)
+  */
   OBJECT FUNCTION InitGenerator()
   {
     RETURN this;
   }
 
-  /// Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+  /** Calculate the iterator return value for an AWAIT call, setup iterator continuation when the value converted to a promise resolves.
+      @param value Value of the AWAIT-expression
+      @return Instruction for generator code to handle return for AWAIT.
+  */
   VARIANT FUNCTION SendAwait(VARIANT value)
   {
     IF (TypeID(value) = TypeID(OBJECT))
@@ -787,7 +841,10 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
     RETURN [ yieldvalue := TRUE, value := [ done := FALSE, type := 3, value := value ] ]; // await
   }
 
-  /// Called to calculated the return value for a YIELD in code
+  /** Called to calculated the return value for a YIELD in code
+      @param value Value of the YIELD-expression
+      @return Internal control data to handle the yield expression
+  */
   VARIANT FUNCTION SendYield(VARIANT value)
   {
     // First yield is controller, must be sent immediately
@@ -801,12 +858,19 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
     RETURN [ done := FALSE, type := 0, value := value ]; // yield
   }
 
-  /// Process thrown value
+  /** Process thrown value
+      @param value Thrown expression
+      @return Internal control data to handle the throw
+  */
   RECORD FUNCTION ReturnThrow(OBJECT value)
   {
     RETURN [ done := TRUE, type := 1, value := value ]; // throw
   }
 
+  /** Process return
+      @param value Returned expression
+      @return Internal control data to handle the return
+  */
   RECORD FUNCTION ReturnValue(VARIANT value)
   {
     RETURN [ done := TRUE, type := 2, value := value ]; // return
@@ -819,9 +883,10 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
 
   /** Sends a value to a yielded generator, returns a promise for the the next yielded (or returned)
       value. Rejects when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or returned value, when the generator has returned)
+      @param pass Value to send to the function
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or returned value, when the generator has returned)
   */
   PUBLIC OBJECT FUNCTION Next(VARIANT pass DEFAULTSTO DEFAULT RECORD) //__ATTRIBUTES__(SKIPTRACE)
   {
@@ -830,9 +895,10 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
 
   /** Sends a exception to throw to a yielded generator, returns a promise for the the next yielded (or
       returned) value. Rejects when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or returned value, when the generator has returned)
+      @param e Exception to throw
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or returned value, when the generator has returned)
   */
   PUBLIC OBJECT FUNCTION SendThrow(OBJECT e) //__ATTRIBUTES__(SKIPTRACE)
   {
@@ -841,9 +907,10 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
 
   /** Sends a value to return to a yielded generator, returns a promise for the next yielded (or
       returned) value. Rejects when the generator throws.
-      @return
-      @cell(boolean) done Whether the generator has returned
-      @cell value Yielded value (or retu erned value, when the generator has returned)
+      @param retval Value to send to the function
+      @return Value returned by the generator
+      @cell(boolean) return.done Whether the generator has returned
+      @cell return.value Yielded value (or retuerned value, when the generator has returned)
   */
   PUBLIC OBJECT FUNCTION SendReturn(VARIANT retval DEFAULTSTO DEFAULT RECORD) // __ATTRIBUTES__(SKIPTRACE)
   {
@@ -851,6 +918,8 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
   }
 >;
 
+/** Handles promise resolved for WaitUntilMultiple
+*/
 OBJECTTYPE PromisesResultKeeper
 < // ---------------------------------------------------------------------------
   //
@@ -896,6 +965,9 @@ OBJECTTYPE PromisesResultKeeper
   // Public API
   //
 
+  /** Adds a list of promises
+      @param promises Promises to add
+  */
   PUBLIC MACRO AddPromises(OBJECT ARRAY promises)
   {
     IF (RecordExists(this->result) OR this->waitgen < 0)
@@ -909,6 +981,14 @@ OBJECTTYPE PromisesResultKeeper
     }
   }
 
+  /** Get the result for the promises
+      @return Result
+      @cell return.type Always "promise"
+      @cell return.fulfullmenttype "resolved"/"rejected"
+      @cell return.promise Promise that resolved
+      @cell return.value Value the promise resolved to
+      @cell return.handle Always -1
+  */
   PUBLIC RECORD FUNCTION GetResult() __ATTRIBUTES__(SKIPTRACE)
   {
     IF (NOT RecordExists(this->result))
@@ -937,6 +1017,7 @@ OBJECTTYPE PromisesResultKeeper
         ];
   }
 
+  /// Remove subscriptions to all promises
   PUBLIC MACRO Unsubscribe()
   {
     FOREVERY (WEAKOBJECT promise FROM this->promises)
@@ -963,7 +1044,7 @@ VARIANT FUNCTION ToArray(VARIANT value, BOOLEAN ignoredefault DEFAULTSTO TRUE)
 }
 
 /** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached
-    @param waitfor
+    @param waitfor What to wait for
     @cell(integer array) waitfor.read Return when any of these handles is read-signalled (optional)
     @cell(integer array) waitfor.write Return when any of these handles is write-signalled (optional)
     @cell(object array) waitfor.promise Return when any of these promises are fulfilled. Throws when a promise is rejected, returns
@@ -973,7 +1054,7 @@ VARIANT FUNCTION ToArray(VARIANT value, BOOLEAN ignoredefault DEFAULTSTO TRUE)
     @cell(boolean) waitfor.multiple if TRUE, allow returning multiple results
     @cell(boolean) waitfor.callbacks if TRUE, return when a callback has been executed
     @param until Wait until this time
-    @return
+    @return List of signalled items
     @cell return.type Reason of exit: 'handle-read', 'handle-write', 'promise', 'timeout', 'callback')
     @cell return.handle Signalled handle
     @cell return.promise Fulfilled promise (promises only)
@@ -987,7 +1068,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
 }
 
 /** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached
-    @param waitfor
+    @param waitfor What to wait for
     @cell(integer array) waitfor.read Return when any of these handles is read-signalled (optional)
     @cell(integer array) waitfor.write Return when any of these handles is write-signalled (optional)
     @cell(object array) waitfor.promise Return when any of these promises are fulfilled. Throws when a promise is rejected, returns
@@ -997,7 +1078,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
                     the exception.
     @cell(boolean) waitfor.multiple if TRUE, allow returning multiple results
     @param until Wait until this time
-    @return List of signalled stuff
+    @return List of signalled items
     @cell return.type Reason of exit: 'handle-read', 'handle-write', 'promise', 'timeout', 'func')
     @cell return.handle Signalled handle
     @cell return.promise Fulfilled promise (promises only)
@@ -1117,6 +1198,13 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
   }
 }
 
+/** Synchronously waits for a promise to resolve
+    @param promise Promise to wait for
+    @cell(datetime) options.timeout Timeout
+    @cell options.timeoutvalue Value to return in case of timeout (the function
+      will throws if this is not provided)
+    @return Return value of the promise if resolved (or an exception if rejected)
+*/
 PUBLIC VARIANT FUNCTION WaitForPromise(OBJECT promise, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT ObjectExists(promise))
@@ -1218,6 +1306,8 @@ MACRO GotAsyncHandleCancel(RECORD defer)
 
 /** This function asynchronously drives a generator function that yields promises. It returns a promise for the
     final return value.
+    @param generator Generator to run
+    @return Promise for the generator return value
 */
 PUBLIC OBJECT FUNCTION GeneratorSpawn(OBJECT generator)
 {
@@ -1227,6 +1317,8 @@ PUBLIC OBJECT FUNCTION GeneratorSpawn(OBJECT generator)
 /** This function asynchronously drives a generator function that yields promises. If the async generator
     doesn't yield or return a promise, the value is returned directly. Otherwise, a promise for the return
     value is returned.
+    @param generator Generator to run synchronously (if possible)
+    @return Generator return value (or promise for that value)
 */
 PUBLIC VARIANT FUNCTION GeneratorSpawnTrySync(OBJECT generator)
 {
@@ -1234,7 +1326,7 @@ PUBLIC VARIANT FUNCTION GeneratorSpawnTrySync(OBJECT generator)
 }
 
 STATIC OBJECTTYPE SpawnHelper
-< PUBLIC RECORD defer;
+< RECORD defer;
   OBJECT generator;
   INTEGER waitgen;
   OBJECT asynccontext;
@@ -1262,9 +1354,11 @@ STATIC OBJECTTYPE SpawnHelper
     {
       this->defer.reject(e);
     }
-
   }
 
+  /** @param trysyncreturn Try to run the generator synchronously (without using promises)
+      @return Return value
+  */
   PUBLIC VARIANT FUNCTION Start(BOOLEAN trysyncreturn)
   {
     VARIANT nextvalue := DEFAULT RECORD;
@@ -1304,7 +1398,9 @@ STATIC OBJECTTYPE SpawnHelper
   }
 >;
 
-/** Drives a generator until it is exhausted, returns the final returned value
+/** Drives a (non-async) generator until it is exhausted, returns the final returned value
+    @param generator Generator to run
+    @return Generator return value
 */
 PUBLIC VARIANT FUNCTION RunGeneratorUntilReturn(OBJECT generator)
 {
