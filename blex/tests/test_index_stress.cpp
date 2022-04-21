@@ -612,17 +612,18 @@ void Index_Splice2Test()
         superblock->InsertAtWithID(superblock->begin(), entry, left_block.GetBlockId());
         FillBlock(*right_block, right_fill, orderno, max_entry_size);
 
-        DEBUGONLY(unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize());
+#ifdef DEBUG
+        unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize();
+#endif
 
         DEBUGPRINT("<"<<C_Index::InsertDelete::LowMinSize<<", "<<C_Index::InsertDelete::MinSize<<" - "<<C_Index::InsertDelete::MaxSize<<">");
 
         DEBUGPRINT("("<<totalsize<<") " <<left_block->FillSize() << " - " << superblock->FillSize() << " - " << right_block->FillSize());
 //        RawDisplayTree(r.filesession, superblock.GetBlockId());
 
-        DEBUGONLY(bool retval = true);
         r.Splice2(*superblock, superblock->begin());
 
-        DEBUGPRINT((retval?"TRUE":"FALSE") << " ("<<totalsize<<") " <<left_block->FillSize() << " - " << superblock->FillSize() << " - " << right_block->FillSize());
+        DEBUGPRINT("TRUE" << " ("<<totalsize<<") " <<left_block->FillSize() << " - " << superblock->FillSize() << " - " << right_block->FillSize());
 //        RawDisplayTree(r.filesession, superblock.GetBlockId());
 }
 
@@ -675,7 +676,9 @@ void Index_Average3Test()
         superblock->InsertAtWithID(superblock->begin()+1, entry, middle_block.GetBlockId());
         FillBlock(*right_block, right_fill, orderno, max_entry_size);
 
-        DEBUGONLY(unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize());
+#ifdef DEBUG
+        unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize();
+#endif
 
         DEBUGPRINT("<"<<C_Index::InsertDelete::LowMinSize<<", "<<C_Index::InsertDelete::MinSize<<" - "<<C_Index::InsertDelete::MaxSize<<">");
 

@@ -139,11 +139,14 @@ bool equal(DBIndexFileSystem::Session &session, int32_t blockid, ContainerList c
 }
 void FillBlock(IndexBlock& block, signed firstlen, signed lastlen, signed totallen, signed idstart, bool bigentries = true)
 {
-        assert(totallen <= C_Block::MaxData && (totallen == IndexBlockEntry::EOBSize || totallen >= IndexBlockEntry::EOBSize + IndexBlockEntry::HeaderSize));
+        assert(totallen <= signed(C_Block::MaxData) && (totallen == signed(IndexBlockEntry::EOBSize) || totallen >= signed(IndexBlockEntry::EOBSize + IndexBlockEntry::HeaderSize)));
         // Fills block base with entries until exact length of totallen (when possible)
         std::string s(64, '_');
         const uint8_t* text = reinterpret_cast<const uint8_t*>(&s[0]);
         IndexBlockEntryContainer thing;
+#ifdef DEBUG
+        signed oldtotallen = totallen;
+#endif
 
         totallen -= IndexBlockEntry::EOBSize;
         block.DeleteRange(block.begin(), block.end());
