@@ -1,2 +1,20 @@
 <?wh
-// Reset for 4.36 as 4.35 is a required update, but I'm sure there will be new postart cleanup updates so we'll keep this script
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+
+
+// Reset for 5.0 as 4.35 is a required update, but I'm sure there will be new postart cleanup updates so we'll keep this script
+OpenPrimary();
+
+// 5.0.0 - drop manually configured tasks
+RECORD ARRAY legacytasks := SELECT * FROM system_internal.tasks WHERE tag="";
+IF(Length(legacytasks) > 0)
+{
+  GetPrimary()->BeginWork();
+  Print("Deleting the following legacy tasks:\n");
+  DumpValue(legacytasks, [ name := "", format := "boxed" ]);
+  DELETE FROM system_internal.tasks WHERE tag="";
+  GetPrimary()->CommitWork();
+}
+

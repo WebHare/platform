@@ -20,7 +20,6 @@
               shortcut="ctrl+shift+t"
               tid="tolliumapps.config.settings.settings" />
       <action name="webdavdata" frameflags="issysop" onexecute="dowebdavdata" tid="sysmgmt.webdav.data.title" />
-      <action name="scheduler" frameflags="issysop" onexecute="doscheduler" tid="sysmgmt.scheduler.title" />
       <windowopenaction name="openinseparatetab" frameflags="issysop" onwindowopen="doopeninseparatetab">
         <enableon source="monitorpanels" min="1" max="1" />
       </windowopenaction>
@@ -35,7 +34,6 @@
         <item action="backend" />
         <item action="adhoccache" />
         <item action="remoting" />
-        <item action="scheduler" />
         <item action="webdavdata" />
         <item action="mailroutes" />
         <divider />

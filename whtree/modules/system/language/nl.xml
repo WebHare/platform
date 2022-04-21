@@ -674,26 +674,6 @@
       <text tid="allwebservers">(globaal)</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="scheduler">   <!-- scheduler -->
-    <textgroup gid="main">   <!-- scheduler.main -->
-      <text tid="confirm_delete">Weet je zeker dat je de geselecteerde taak wilt verwijderen?</text>
-      <text tid="description">Omschrijving</text>
-      <text tid="main">Geplande taken</text>
-      <text tid="nexttime">Volgende keer</text>
-      <text tid="parameters">Argumenten</text>
-      <text tid="scriptname">Scriptnaam</text>
-    </textgroup>
-    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
-      <text tid="enabled">Schakel deze taak in</text>
-      <text tid="nexttime">Volgende tijdstip uitvoering</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="repeatevery">herhaal elke</text>
-      <text tid="runatstartup">Voer deze taak elke keer dat WebHare wordt gestart uit</text>
-      <text tid="scriptname">Scriptnaam</text>
-      <text tid="taskprops">Taakeigenschappen</text>
-      <text tid="taskscreen">Taak</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
@@ -833,9 +813,6 @@
         <text tid="service">Service</text>
         <text tid="title">Beheer remoting instellingen</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
-      <text tid="title">Ingeplande taken</text>
     </textgroup>
     <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
       <text tid="title">Sessielijst</text>

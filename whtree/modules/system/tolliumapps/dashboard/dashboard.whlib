@@ -258,11 +258,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RunScreen("/screens/sysmgmt/webdav.xml#webdav_data");
   }
 
-
-  MACRO DoScheduler()
-  {
-    this->RunScreen("/screens/scheduler.xml#");
-  }
   MACRO DoMailRoutes()
   {
     this->RunScreen(Resolve("../config/mailrouting.xml#mailroutes"));

@@ -856,26 +856,6 @@
       <text tid="allwebservers">(global)</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="scheduler">   <!-- scheduler -->
-    <textgroup gid="main">   <!-- scheduler.main -->
-      <text tid="confirm_delete">Are you sure you want to delete the selected task?</text>
-      <text tid="description">Description</text>
-      <text tid="main">Scheduler</text>
-      <text tid="nexttime">Next time</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="scriptname">Script name</text>
-    </textgroup>
-    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
-      <text tid="enabled">Enable this task</text>
-      <text tid="nexttime">Next execution time</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="repeatevery">repeat every</text>
-      <text tid="runatstartup">Execute this task every time WebHare is started</text>
-      <text tid="scriptname">Script name</text>
-      <text tid="taskprops">Task properties</text>
-      <text tid="taskscreen">Task</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
@@ -1015,9 +995,6 @@
         <text tid="service">Service</text>
         <text tid="title">Manage remoting settings</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
-      <text tid="title">Scheduler</text>
     </textgroup>
     <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
       <text tid="title">Activity Monitor</text>
