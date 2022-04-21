@@ -478,7 +478,7 @@
       <text tid="stack">Stack</text>
       <text tid="starturl">Start URL</text>
       <text tid="stats">Statistieken</text>
-      <text tid="sureclosewebharelogin">Weet je zeker dat je de login voor niet-sysops wilt afsluiten?</text>
+      <text tid="sureclosewebharelogin">Weet je zeker dat je de login voor gewone gebruikers (die niet sysop of supervisor zijn) wilt afsluiten?</text>
       <text tid="surekillallsessions">Weet je zeker dat je alle applicaties van deze gebruiker wilt afsluiten?</text>
       <text tid="surekillsession">Weet je zeker dat je deze applicatie wilt afsluiten?</text>
       <text tid="timestarted">Starttijd</text>
