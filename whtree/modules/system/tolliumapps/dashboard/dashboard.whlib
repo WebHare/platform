@@ -91,7 +91,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO OnMessage(RECORD message)
   {
     IF (CellExists(message, "PANEL") AND message.panel != "")
+    {
+      IF(NOT RecordExists(SELECT FROM ^monitorpanels->rows WHERE rowkey = message.panel))
+        RETURN; //ignore. you probably lack access to the panel
       ^monitorpanels->value := message.panel;
+    }
 
     this->OnMonitorPanelsSelect();
     IF(MemberExists(^currentmonitor->contents, "ONMESSAGE"))
