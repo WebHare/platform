@@ -117,6 +117,7 @@ class SemanticChecker: public AST::NodeVisitor<void, bool>
         virtual void V_End(AST::End *obj, bool check_return);
         virtual void V_ExpressionBlock (AST::ExpressionBlock *obj, bool check_return);
         virtual void V_ForEveryStatement(AST::ForEveryStatement *obj, bool check_return);
+        virtual void V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, bool check_return);
         virtual void V_Function (AST::Function *obj, bool check_return);
         virtual void V_FunctionCall (AST::FunctionCall *obj, bool check_return);
         virtual void V_FunctionPtr (AST::FunctionPtr *obj, bool check_return);

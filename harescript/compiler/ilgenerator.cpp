@@ -866,6 +866,10 @@ SSAVariable * ILGenerator::V_ForEveryStatement(AST::ForEveryStatement *, Empty)
 {
         throw std::runtime_error("this ast type (ForEveryStatement) may not reach this stage (run sql translator!)");
 }
+SSAVariable * ILGenerator::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *, Empty)
+{
+        throw std::runtime_error("this ast type (ForEveryYieldStatement) may not reach this stage (run sql translator!)");
+}
 SSAVariable * ILGenerator::V_Function (AST::Function *obj, Empty)
 {
         CodedFunction *func = Adopt(new CodedFunction);

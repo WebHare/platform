@@ -71,6 +71,7 @@ class AstDotPrinter : public AST::NodeVisitor<void, Empty>
         virtual void V_End(AST::End *arrayelementconst, Empty);
         virtual void V_ExpressionBlock(AST::ExpressionBlock *expressionblock, Empty);
         virtual void V_ForEveryStatement(AST::ForEveryStatement *foreverystatement, Empty);
+        virtual void V_ForEveryYieldStatement(AST::ForEveryYieldStatement *foreveryieldstatement, Empty);
         virtual void V_Function(AST::Function *function, Empty);
         virtual void V_FunctionCall(AST::FunctionCall *functioncall, Empty);
         virtual void V_FunctionPtr(AST::FunctionPtr *functionptr, Empty);

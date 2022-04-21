@@ -1294,6 +1294,19 @@ void SemanticChecker::V_ForEveryStatement(AST::ForEveryStatement *obj, bool)
         --loopdepth;
 }
 
+void SemanticChecker::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, bool)
+{
+        Visit(obj->source, true);
+        Visit(obj->iteratevar, true);
+        Visit(obj->positionvar, true);
+
+        if (typestorage[obj->source] != VariableTypes::Object && typestorage[obj->source] != VariableTypes::Variant && !(typestorage[obj->source] & VariableTypes::Array))
+            context.errorhandler.AddErrorAt(obj->source->position, Error::CannotConvertToIterator);
+        ++loopdepth;
+        Visit(obj->loop, false);
+        --loopdepth;
+}
+
 void SemanticChecker::V_Function (Function *obj, bool)
 {
         currentfunc = obj;

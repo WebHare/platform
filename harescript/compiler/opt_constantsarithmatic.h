@@ -117,6 +117,7 @@ class Opt_ConstantsArithmatic: public AST::NodeVisitor<Optimizable, Empty>
         virtual Optimizable V_End (AST::End*obj, Empty);
         virtual Optimizable V_ExpressionBlock (AST::ExpressionBlock *obj, Empty);
         virtual Optimizable V_ForEveryStatement(AST::ForEveryStatement *obj, Empty);
+        virtual Optimizable V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty);
         virtual Optimizable V_Function (AST::Function *obj, Empty);
         virtual Optimizable V_FunctionCall (AST::FunctionCall *obj, Empty);
         virtual Optimizable V_FunctionPtr (AST::FunctionPtr *obj, Empty);

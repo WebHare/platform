@@ -504,6 +504,11 @@ void Parser::P_Forevery_Statement()
 
         symboltable.EnterScope(pos);
 
+        LineColumn asyncpos = lexer.GetPosition();
+        bool async = TryParse(Lexer::Await);
+        if (async && (!currentfunction || !currentfunction->functiondef->generator || !currentfunction->functiondef->isasync))
+            lexer.AddErrorAt(asyncpos, Error::AwaitOnlyInAsyncFunction);
+
         ExpectOpenParenthesis();
 
         Symbol *elementstore;
@@ -551,6 +556,12 @@ void Parser::P_Forevery_Statement()
                     elementstore = res.first;
         }
 
+        bool yield = TryParse(Lexer::Yield);
+        if (async && !yield)
+        {
+                lexer.AddError(Error::ExpectedToken, "YIELD");
+                yield = true;
+        }
         if (TokenType()==Lexer::From)
             NextToken();
         else
@@ -562,10 +573,9 @@ void Parser::P_Forevery_Statement()
         if (hsvartype != VariableTypes::Uninitialized)
             symboltable.RegisterDeclaredVariable(varpos, elementstore, false, false, hsvartype);
 
-        //Create the loop variable
+        //Create the counter symbol variable
         Symbol *position_symbol = context.symboltable->RegisterDeclaredVariable (varpos, 0, false, false, VariableTypes::Integer);
         position_symbol->variabledef->is_counter = true;
-
         AST::Variable* position_var = coder->ImVariable(varpos, position_symbol);
 
         //Create the iterator..
@@ -590,11 +600,25 @@ void Parser::P_Forevery_Statement()
         //Restore the original counter-symbol
         elementstore->variabledef->countersymbol = save_counter_symbol;
 
-        coder->ImForEvery(pos,
-                iterator_var,
-                foreveryexpr,
-                loopblock,
-                position_var);
+        if (!yield)
+        {
+                coder->ImForEvery(pos,
+                        iterator_var,
+                        foreveryexpr,
+                        loopblock,
+                        position_var);
+        }
+        else
+        {
+                coder->ImForEveryYield(pos,
+                        async,
+                        iterator_var,
+                        foreveryexpr,
+                        loopblock,
+                        position_var,
+                        withinfunction,
+                        loopdepth);
+        }
 
         symboltable.LeaveScope(lexer.GetPosition());
 }

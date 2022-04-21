@@ -183,7 +183,7 @@ void AstCodePrinter::V_BinaryOperator(BinaryOperator *obj, Empty)
 {
         NODENAMEPRINT("BinaryOperator");
         Visit(obj->lhs);
-        stream->WriteString(" " + EncodeString(BinaryOperatorType::ToSTLStr(obj->operation)) + " ");
+        stream->WriteString(" " + BinaryOperatorType::ToSTLStr(obj->operation) + " ");
         Visit(obj->rhs);
 }
 void AstCodePrinter::V_Block(Block *block, Empty)
@@ -377,6 +377,23 @@ void AstCodePrinter::V_ForEveryStatement(AST::ForEveryStatement *obj, Empty)
         stream->WriteString("FOREVERY (");
         Visit(obj->iteratevar);
         stream->WriteString(" FROM ");
+        Visit(obj->source);
+        stream->WriteString(")\n");
+        ++indent;
+        for (unsigned i = 0; i != indent; ++i)
+          stream->WriteString("  ");
+        Visit(obj->loop);
+        --indent;
+}
+
+void AstCodePrinter::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty)
+{
+        NODENAMEPRINT("ForEveryYieldStatement");
+        stream->WriteString("FOREVERY (");
+        if (obj->async)
+          stream->WriteString("AWAIT ");
+        Visit(obj->iteratevar);
+        stream->WriteString(" YIELD FROM ");
         Visit(obj->source);
         stream->WriteString(")\n");
         ++indent;

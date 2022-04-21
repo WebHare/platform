@@ -202,6 +202,7 @@ class ILGenerator: public AST::NodeVisitor<IL::SSAVariable *, Empty>
         virtual IL::SSAVariable * V_End(AST::End*obj, Empty);
         virtual IL::SSAVariable * V_ExpressionBlock (AST::ExpressionBlock *obj, Empty);
         virtual IL::SSAVariable * V_ForEveryStatement(AST::ForEveryStatement *obj, Empty);
+        virtual IL::SSAVariable * V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty);
         virtual IL::SSAVariable * V_Function (AST::Function *obj, Empty);
         virtual IL::SSAVariable * V_FunctionCall (AST::FunctionCall *obj, Empty);
         virtual IL::SSAVariable * V_FunctionPtr (AST::FunctionPtr *obj, Empty);

@@ -401,6 +401,17 @@ void AstDotPrinter::V_ForEveryStatement(AST::ForEveryStatement *foreverystatemen
         BuildLink(foreverystatement, foreverystatement->positionvar, 3);
 }
 
+void AstDotPrinter::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *foreveryyieldstatement, Empty)
+{
+        STARTCODE(foreveryyieldstatement);
+        stream->WriteString(std::string("|{") + (foreveryyieldstatement->async ? "AWAIT " : "") + "|<f0>var | <f1>source | <f2>loops | <f3>position}");
+        ENDCODE
+        BuildLink(foreveryyieldstatement, foreveryyieldstatement->iteratevar, 0);
+        BuildLink(foreveryyieldstatement, foreveryyieldstatement->source, 1);
+        BuildLink(foreveryyieldstatement, foreveryyieldstatement->loop, 2);
+        BuildLink(foreveryyieldstatement, foreveryyieldstatement->positionvar, 3);
+}
+
 
 void AstDotPrinter::V_Function(Function *function, Empty)
 {
