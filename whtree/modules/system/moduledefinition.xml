@@ -116,8 +116,16 @@
 
     <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
     <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
-    <dashboardpanel group="ap" name="modules" tid="tolliumapps.dashboard.modules.modulespanel" screen="tolliumapps/dashboard/modules.xml" />
-    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
+    <dashboardpanel group="ap" name="modules" tid="tolliumapps.dashboard.modules.modulespanel" screen="tolliumapps/dashboard/modules.xml">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
+    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
     <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog">
       <accesscheck>
         <requireright right="system:sysop" />
