@@ -12,7 +12,6 @@
       <action name="refresh" onexecute="dorefresh" title="" />
       <action name="softreset" onexecute="dosoftreset" />
       <action name="clearcaches" onexecute="doclearcaches" />
-      <action name="editreg" frameflags="issysop" onexecute="doeditreg" tid="sysmgmt.registry.title" />
       <action name="adhoccache" frameflags="issysop" onexecute="doadhoccache" tid="sysmgmt.adhoccache.title" />
       <action name="remoting" frameflags="issysop" onexecute="doremoting" tid="sysmgmt.remoting.title" />
       <action name="backend"
@@ -34,7 +33,6 @@
         <item action="softreset" />
         <divider />
         <item action="backend" />
-        <item action="editreg" />
         <item action="adhoccache" />
         <item action="remoting" />
         <item action="scheduler" />

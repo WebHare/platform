@@ -752,33 +752,6 @@
       <text tid="title">Ad-hoccache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
-    <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
-      <text tid="appmenu">Register</text>
-      <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="name">Naam</text>
-      <text tid="title">Register</text>
-      <text tid="value">Waarde</text>
-      <textgroup gid="actions">   <!-- sysmgmt.editreg.actions -->
-        <text tid="editkey">Wijzig registerwaarde</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="editregkey">   <!-- sysmgmt.editregkey -->
-      <text tid="blob">Blob</text>
-      <text tid="boolean">Boolean</text>
-      <text tid="datetime">Datetime</text>
-      <text tid="description">Omschrijving</text>
-      <text tid="editregkey">Wijzig registersleutel</text>
-      <text tid="false">Onwaar</text>
-      <text tid="initialvalue">Initiële waarde</text>
-      <text tid="integer">Integer</text>
-      <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
-      <text tid="name">Naam sleutel</text>
-      <text tid="record">Record</text>
-      <text tid="string">String</text>
-      <text tid="true">Waar</text>
-      <text tid="type">Type</text>
-      <text tid="value">Waarde</text>
-    </textgroup>
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
       <text tid="cannotreplacemodule">Het is niet mogelijk om de bestaande module '<param p="1"/>' te vervangen</text>
       <text tid="cannotrestorebackup">Het is niet mogelijk om de backup versie van module '<param p="1"/>' terug te zetten - de module is nu niet beschikbaar.</text>
@@ -836,9 +809,6 @@
     </textgroup>
     <textgroup gid="receiverproperties">   <!-- sysmgmt.receiverproperties -->
       <text tid="receiverproperties">Eigenschappen van ontvanger</text>
-    </textgroup>
-    <textgroup gid="registry">   <!-- sysmgmt.registry -->
-      <text tid="title">WebHare register</text>
     </textgroup>
     <textgroup gid="remoting">   <!-- sysmgmt.remoting -->
       <text tid="title">Webhare remoting</text>
@@ -1304,7 +1274,6 @@
           <text tid="filter">Filter</text>
           <text tid="flush">Alles opnieuw proberen</text>
           <text tid="forward">Doorsturen</text>
-          <text tid="mailroutes">E-mailinstellingen</text>
           <text tid="nextattempt">Volgende poging</text>
           <text tid="receiver">Ontvanger</text>
           <text tid="requeue">Mail opnieuw versturen</text>
@@ -1388,6 +1357,21 @@
         <text tid="untilinpast">De 'tot' datum moet in de toekomst liggen.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (gestart op <param p="2"/>), webserver uptime: <param p="3"/> (gestart op <param p="4"/>)</text>
+      </textgroup>
+      <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
+        <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="description">Omschrijving</text>
+        <text tid="editkey">Wijzig registerwaarde</text>
+        <text tid="editregkey">Wijzig registersleutel</text>
+        <text tid="false">Onwaar</text>
+        <text tid="initialvalue">Initiële waarde</text>
+        <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
+        <text tid="name">Naam sleutel</text>
+        <text tid="registrypanel">Register</text>
+        <text tid="toobigtodisplay">(te groot om te tonen)</text>
+        <text tid="true">Waar</text>
+        <text tid="type">Type</text>
+        <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
         <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>

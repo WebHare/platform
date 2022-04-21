@@ -73,11 +73,7 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
   {
     msg := EnforceStructure([ panel := "" , module := "", registrykey := "" ], msg);
 
-    IF(msg.panel = "registry") //used by dashboard warning about this regkey TODO remove by jumping straight to webserver tweaks
-    {
-      this->RunScreen("mod::system/screens/sysmgmt/registry.xml#editreg", [ selectkey := msg.registrykey ]);
-    }
-    ELSE IF(msg.module != "") //used by dashboard error list
+    IF(msg.module != "") //used by dashboard error list
     {
       ^modules->SetValueIfValid(msg.module);
     }

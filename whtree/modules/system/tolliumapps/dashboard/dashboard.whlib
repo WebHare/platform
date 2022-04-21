@@ -237,11 +237,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     receiver->SendURL(`/?app=system:dashboard(${EncodeURL(^monitorpanels->value)})`);
   }
 
-  MACRO DoEditReg()
-  {
-    this->RunScreen("/screens/sysmgmt/registry.xml#editreg");
-  }
-
   MACRO DoAdHocCache()
   {
     this->RunScreen("/screens/sysmgmt/adhoccache.xml#status");

@@ -132,6 +132,11 @@
     <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
     <dashboardpanel group="ap" name="servicemanager" tid="tolliumapps.dashboard.servicemanager.servicemanager" screen="tolliumapps/dashboard/servicemanager.xml" />
     <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
+    <dashboardpanel group="ap" name="registry" tid="tolliumapps.dashboard.registry.registrypanel" screen="tolliumapps/dashboard/registry.xml#registrypanel">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
 
     <dashboardpanel group="database" name="postgresqlsettings" tid="monitor.postgresql.settings" screen="monitor/postgresql.postgresqlsettings" ifenvironset="WEBHARE_DBASENAME"  />
     <dashboardpanel group="database" name="postgresqltransactions" tid="monitor.postgresql.transactions" screen="monitor/postgresql.postgresqltransactions" ifenvironset="WEBHARE_DBASENAME"  />
