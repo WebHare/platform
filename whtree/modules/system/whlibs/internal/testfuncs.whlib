@@ -945,3 +945,12 @@ PUBLIC MACRO TestEqStructure(VARIANT expect, VARIANT input, STRING annotation DE
   InnerTestEqualStructure(expect, input, "", annotation);
 }
 
+/** Reports an error when this statement is reached
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+*/
+PUBLIC MACRO TestUnreachable(STRING annotation DEFAULTSTO "")
+{
+  ReportError("This statement should be unreachable", RECORD[], annotation);
+}
