@@ -997,6 +997,9 @@
         Specify a panel for the dashboard pplication
       </xs:documentation>
     </xs:annotation>
+    <xs:sequence>
+      <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
     <xs:attribute name="group" type="xs:string" />
     <xs:attribute name="name" type="Name" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />

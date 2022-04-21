@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/debugger/commonactions.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
@@ -151,8 +152,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO SetupGroups()
   {
-    this->allgroups := DEFAULT RECORD ARRAY;
-    this->allpanels := DEFAULT RECORD ARRAY;
+    this->allgroups := RECORD[];
+    this->allpanels := RECORD[];
 
     FOREVERY(RECORD mod FROM GetWebHareModules())
     {
@@ -162,12 +163,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       CATCH
         CONTINUE;
 
-      IF(ObjectExists(moddef))
-      {
-        RECORD dashboardinfo := GetModuleDashboardInfo(mod.name, moddef);
-        this->allgroups := this->allgroups CONCAT dashboardinfo.groups;
-        this->allpanels := this->allpanels CONCAT dashboardinfo.panels;
-      }
+      RECORD dashboardinfo := GetModuleDashboardInfo(mod.name, moddef);
+      this->allgroups := this->allgroups CONCAT dashboardinfo.groups;
+      FOREVERY(RECORD panel FROM dashboardinfo.panels)
+        IF(DoAccessCheckFor(panel.accesscheck, this->contexts->user))
+          INSERT panel INTO this->allpanels AT END;
     }
 
     this->allgroups := SELECT *, title := GetTid(title) FROM this->allgroups;

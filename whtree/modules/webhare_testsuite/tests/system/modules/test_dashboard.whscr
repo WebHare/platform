@@ -1,0 +1,26 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestDashboardApp()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dashboard"));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("monitorpanels")->rows WHERE ToUppercase(title) = "RPC LOGS"));
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+
+  testfw->SetTestUser("marge");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dashboard"));
+  TestEq(FALSE, RecordExists(SELECT FROM TT("monitorpanels")->rows WHERE ToUppercase(title) = "RPC LOGS"));
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+RunTestframework([ PTR TestDashboardApp
+                 ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                                   , [ login := "marge", grantrights := ["system:supervisor"] ]
+                                   ]
+                    , mailwhitelists := FALSE
+                    ]);
