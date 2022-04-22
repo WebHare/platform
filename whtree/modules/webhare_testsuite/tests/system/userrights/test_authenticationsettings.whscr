@@ -68,7 +68,7 @@ ASYNC MACRO ManageAuthenticationSettings()
             ]
       ]);
   testfw->CommitWork();
-
+//abort();
   AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
   AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->:Change"));
   TestEQ("Configured", TT(":One-time access code")->value);

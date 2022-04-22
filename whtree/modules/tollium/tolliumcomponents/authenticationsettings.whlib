@@ -306,7 +306,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
     IF (NOT RecordExists(authorized))
       RETURN;
 
-    this->owner->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#editauthsettingspassword", CELL
+    this->owner->RunScreen(Resolve("authenticationsettings.xml#editauthsettingspassword"), CELL
         [ valuekeeper := this->_valuekeeper
         , this->validationchecks
         , cursettings := this->_valuekeeper->GetExistingValue()
@@ -320,7 +320,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
        - authorization can update the data (by using a backup totp token, updating challenge etc)
        - need to update immediately instead of depending on userpreference dialog ok
     */
-    this->owner->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#managetwofaauth", CELL
+    this->owner->RunScreen(Resolve("authenticationsettings.xml#managetwofaauth"), CELL
         [ this->requireauthorization
         , this->managementmode
         , valuekeeper := this->_valuekeeper
@@ -459,7 +459,7 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
 
     IF (^newpassword->value = "" AND this->displayemptywarning)
     {
-      IF (this->RunMessageBox(".sureclearpassword") != "yes")
+      IF (this->RunSimpleScreen("question", GetTid("tollium:commondialogs.editpassword.sureclearpassword")) != "yes")
       {
         this->tolliumresult := "cancel";
         RETURN FALSE;
@@ -727,7 +727,7 @@ PUBLIC STRING FUNCTION RunManageTwoFAAuthDialog(OBJECT parentscreen, OBJECT enti
 
   OBJECT valuekeeper := NEW LiveAuthenticationSettingValue(entity, options.attributetag ?? parentscreen->contexts->userapi->wrdschema->accountpasswordtag);
 
-  RETURN parentscreen->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#managetwofaauth", CELL
+  RETURN parentscreen->RunScreen(Resolve("authenticationsettings.xml#managetwofaauth"), CELL
       [ options.requireauthorization
       , managementmode :=   FALSE
       , valuekeeper

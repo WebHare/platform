@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         gid="components.authenticationsettings"
-         lib="components/authenticationsettings.whlib">
+         gid="tolliumcomponents.authenticationsettings"
+         library="authenticationsettings.whlib">
 
   <fragment name="authenticationsettings">
     <actions>
@@ -14,13 +14,17 @@
         <button name="btn_changepassword" action="changepassword" tid="~change" />
       </line>
       <line>
-        <textedit name="secondfactorstatus" width="1pr" tid=".twofactorauthentication" enabled="false" />
+        <textedit name="secondfactorstatus" width="1pr" enabled="false" tid=".twofactorauthentication" />
         <button name="btn_managesecondfactor" action="managesecondfactor" tid="~change" />
       </line>
     </contents>
   </fragment>
 
-  <screen name="editauthsettingspassword" width="60x" gid="commondialogs.editpassword" tid=".pagetitle">
+  <screen name="editauthsettingspassword"
+          width="60x"
+          footerbuttons="ok cancel"
+          gid="commondialogs.editpassword"
+          tid=".pagetitle">
     <body name="toppanel">
       <line layout="left">
         <text name="validationchecksfield" minwidth="40x" title="" visible="false" wordwrap="true" />
@@ -32,10 +36,6 @@
         <text labelfor="showpasswords" valuetid=".showpasswords" />
       </line>
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="managetwofaauth" gid=".managetwofaauth">
@@ -46,7 +46,7 @@
     </actions>
 
     <body spacers="none">
-      <panel name="warningpanel" borders="bottom" backgroundcolor="#FEFFDE" spacers="left right">
+      <panel name="warningpanel" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right">
         <text name="warning_totprequired" title="" valuetid=".warning_totprequired" visible="false" />
       </panel>
       <panel spacers="all">
@@ -68,6 +68,7 @@
         </line>
       </panel>
     </body>
+
     <footer>
       <line layout="right">
         <button tid="~close" tolliumresult="cancel" />
@@ -109,7 +110,7 @@
           <heading tid=".totpbackupcodes" />
           <text valuetid=".backupcodeexplanation" wordwrap="true" />
           <line layout="left">
-            <textarea name="backupcodes_text" enabled="false" title="" height="12x" />
+            <textarea name="backupcodes_text" height="12x" enabled="false" title="" />
           </line>
           <line layout="left">
             <button action="copybackupcodes" />
@@ -123,11 +124,12 @@
     <actions>
       <copyaction name="copybackupcodes" source="backupcodes_text" tid=".copytoclipboard" />
     </actions>
+
     <body>
       <heading tid=".backupcodes" />
       <text valuetid=".backupcodeexplanation" wordwrap="true" />
       <line layout="left">
-        <textarea name="backupcodes_text" enabled="false" title="" height="12x" />
+        <textarea name="backupcodes_text" height="12x" enabled="false" title="" />
       </line>
       <line layout="left">
         <button action="copybackupcodes" />

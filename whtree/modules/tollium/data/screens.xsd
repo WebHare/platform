@@ -2351,7 +2351,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AuthenticationSettings">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="components/authenticationsettings.authenticationsettings" />
+        <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/authenticationsettings.xml#authenticationsettings" />
       </xs:appinfo>
     </xs:annotation>
 
