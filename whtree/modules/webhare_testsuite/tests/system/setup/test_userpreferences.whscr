@@ -165,7 +165,7 @@ ASYNC MACRO TestAuthSettings()
 
 RunTestframework( [ PTR TestAuthSettings
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                    ,[ login := "lisa@allow2fa.test.webhare.net", grantrights := ["system:sysop"] ]
+                                    ,[ login := "lisa@allow2fa.test.webhare.net" ]
                                     ]
                      , debug := TRUE
                      ]
