@@ -2360,14 +2360,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Required" />
     <xs:attributeGroup ref="sc:Errorlabel" />
 
-    <xs:attribute name="requireauthorization" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          Require entering the current password and second factor (if configured) of the CURRENT user. Defaults to 'true'
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
     <xs:attribute name="validationchecks">
       <xs:annotation>
         <xs:documentation>
@@ -2397,9 +2389,7 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attribute name="managementmode" type="xs:boolean">
       <xs:annotation>
-        <xs:documentation>
-          If true, cannot change settings except for disabling TOTP.
-        </xs:documentation>
+        <xs:documentation>Set to TRUE if editing someone else's authentication settings. This allows you to change the password without knowing the original one but disallows you from setting a TOTP - you can only reset it</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 

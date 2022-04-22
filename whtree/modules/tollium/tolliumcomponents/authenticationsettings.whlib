@@ -153,9 +153,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   /// @type(string) Validation checks @includecelldef #ParsePasswordChecks.checks
   PUBLIC PROPERTY validationchecks(_validationchecks, SetValidationChecks);
 
-  /// Whether to require requireauthorization before changing a value
-  PUBLIC BOOLEAN requireauthorization;
-
   /// If TRUE, don't allow to edit passwords (only disable TOTP)
   PUBLIC PROPERTY managementmode(_managementmode, SetManagementMode);
 
@@ -170,7 +167,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   /// Create a new AuthenticationSettingsField
   MACRO NEW()
   {
-    this->requireauthorization := TRUE;
     this->_allowsecondfactor := TRUE;
   }
 
@@ -181,8 +177,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(description);
 
-    this->managementmode := description.managementmode;
-    this->requireauthorization := NOT description.managementmode;
+    this->managementmode := description.managementmode AND NOT description.managementmode;
     this->allowsecondfactor := description.allowsecondfactor;
   }
 
@@ -285,7 +280,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   RECORD FUNCTION AskForAuthorization()
   {
-    IF (NOT this->requireauthorization)
+    IF (this->managementmode)
       RETURN CELL[];
 
     RECORD authorized := this->owner->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", [ returnpassword := TRUE ]);
@@ -321,7 +316,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
        - need to update immediately instead of depending on userpreference dialog ok
     */
     this->owner->RunScreen(Resolve("authenticationsettings.xml#managetwofaauth"), CELL
-        [ this->requireauthorization
+        [ requireauthorization := NOT this->managementmode
         , this->managementmode
         , valuekeeper := this->_valuekeeper
         , this->validationchecks
@@ -352,10 +347,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
   {
-    // Require authorization when editing this user
-    IF (ObjectExists(this->owner->contexts->user) AND this->owner->contexts->user->entityid = entity->id)
-      this->requireauthorization := TRUE;
-
     this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag);
     this->Reload();
   }

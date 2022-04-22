@@ -115,6 +115,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     RECORD unitinfo;
     BOOLEAN isnew := NOT ObjectExists(this->pvt_user);
     this->isself := isnew = FALSE AND ObjectExists(this->tolliumuser->entity) AND this->tolliumuser->entity->id = this->pvt_user->entityid;
+    ^authenticationsettings->managementmode := isnew = FALSE AND NOT this->isself;
 
     IF (isnew) // new user
     {
