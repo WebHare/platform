@@ -135,7 +135,7 @@ PUBLIC OBJECT FUNCTION CreateImageEditDialog(OBJECT parent)
 
 PUBLIC OBJECT FUNCTION CreatePasswordChangeDialog(OBJECT parent)
 {
-  RETURN parent->LoadScreen("tollium:components/passwordfield.editpassword");
+  RETURN parent->LoadScreen("mod::tollium/tolliumcomponents/passwordfield.xml#editpassword");
 }
 
 PUBLIC OBJECT FUNCTION CreateColorPickerDialog(OBJECT parent, STRING type, BOOLEAN showedit)

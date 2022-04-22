@@ -465,7 +465,6 @@
       <text tid="current_password_not_equal">The password you entered does not match your current password.</text>
       <text tid="new_passwords_not_equal">The newly entered passwords do not match.</text>
       <text tid="newpassword">New password</text>
-      <text tid="oldpassword">Current password</text>
       <text tid="pagetitle">Change password</text>
       <text tid="showpasswords">Show passwords as plain text</text>
       <text tid="sureclearpassword">You are now clearing the password of this user. Are you sure you want to do this?</text>
@@ -1115,6 +1114,13 @@
         <text tid="warning_totprequired">Configuring two factor authentication is required for logging in.</text>
         <text tid="wrongcode">Incorrect code entered, please try again.</text>
       </textgroup>
+    </textgroup>
+    <textgroup gid="passwordfield">   <!-- tolliumcomponents.passwordfield -->
+      <text tid="confirmpassword">Confirm new password</text>
+      <text tid="newpassword">New password</text>
+      <text tid="oldpassword">Current password</text>
+      <text tid="pagetitle">Change password</text>
+      <text tid="showpasswords">Show passwords as plain text</text>
     </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->

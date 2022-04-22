@@ -2280,7 +2280,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="PasswordField">
     <xs:annotation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="components/passwordfield.passwordfield" />
+        <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/passwordfield.xml#passwordfield" />
       </xs:appinfo>
     </xs:annotation>
 

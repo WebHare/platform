@@ -465,7 +465,6 @@
       <text tid="current_password_not_equal">Het ingevulde huidige wachtwoord is onjuist ingevuld.</text>
       <text tid="new_passwords_not_equal">De nieuw ingevulde wachtwoorden komen niet overeen.</text>
       <text tid="newpassword">Nieuw wachtwoord</text>
-      <text tid="oldpassword">Huidig wachtwoord</text>
       <text tid="pagetitle">Wijzig wachtwoord</text>
       <text tid="showpasswords">Laat wachtwoorden als tekst zien</text>
       <text tid="sureclearpassword">U verwijdert nu het huidige wachtwoord van deze gebruiker. Weet u zeker dat u dit wilt doen?</text>
@@ -1095,6 +1094,13 @@
         <text tid="warning_totprequired">Twee-factor authenticatie moet ingesteld zijn om in te kunnen loggen.</text>
         <text tid="wrongcode">Ongeldige code ingevoerd, probeer het alsjeblieft opnieuw.</text>
       </textgroup>
+    </textgroup>
+    <textgroup gid="passwordfield">   <!-- tolliumcomponents.passwordfield -->
+      <text tid="confirmpassword">Nogmaals nieuw wachtwoord</text>
+      <text tid="newpassword">Nieuw wachtwoord</text>
+      <text tid="oldpassword">Huidig wachtwoord</text>
+      <text tid="pagetitle">Wijzig wachtwoord</text>
+      <text tid="showpasswords">Laat wachtwoorden als tekst zien</text>
     </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->
