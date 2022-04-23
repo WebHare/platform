@@ -283,10 +283,10 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
                 CONTINUE;
               }
             }
-            CASE "__longkey"
+            CASE "__longkey", "integer64"
             {
               INTEGER defvalin := ToInteger(col->GetAttribute("default"),0);
-              basecol := [ dbtype := "__LONGKEY"
+              basecol := [ dbtype := "INTEGER64"
                          , autonumberstart := ToInteger(col->GetAttribute("autonumberstart"),0)
                          , defval := defvalin != 0 ? ToString(defvalin) : ""
                          ];
@@ -296,12 +296,6 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
                 INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid auto number starting value", col->linenum, 0) AT END;
                 CONTINUE;
               }
-            }
-            CASE "integer64"
-            {
-              basecol := [ dbtype := "INTEGER64"
-                         , defval := ""
-                         ];
             }
             CASE "varchar"
             {

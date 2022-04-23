@@ -1144,8 +1144,8 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
         An instance of contenttype data for a fs_objects (file/folder).
       </d:documentation>
 
-      <d:__longkey name="id" autonumberstart="1">
-      </d:__longkey>
+      <d:integer64 name="id" autonumberstart="1">
+      </d:integer64>
       <d:integer name="fs_object" references=".fs_objects" ondelete="cascade" nullable="false">
         <d:documentation>
           The fs_object (file/folder) to which this data is linked.
@@ -1393,8 +1393,8 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
         In case of member's of type 'whfsref' or 'array' there can be multiple fs_settings per member+instance combination.
       </d:documentation>
 
-      <d:__longkey name="id" autonumberstart="1">
-      </d:__longkey>
+      <d:integer64 name="id" autonumberstart="1">
+      </d:integer64>
       <d:blob name="blobdata">
         <d:documentation>
           Value/content (used if the content is longer than 4096 and therefore doesn't fit in the 'setting' field)
@@ -1406,12 +1406,12 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The contenttype of this member in case this setting belongs to a member of type 'instance'.
         </d:documentation>
       </d:integer>
-      <d:__longkey name="fs_instance" references=".fs_instances" ondelete="cascade" nullable="false" noupdate="true">
+      <d:integer64 name="fs_instance" references=".fs_instances" ondelete="cascade" nullable="false" noupdate="true">
         <d:documentation>
           Used for members of type "instance" to store an instance of a(nother) contenttype.
           This instance will than be the value (returned as RECORD through the API) instead of the blobdata or settings field.
         </d:documentation>
-      </d:__longkey>
+      </d:integer64>
 
       <d:integer name="fs_member" references=".fs_members" ondelete="cascade" nullable="false" noupdate="true">
         <d:documentation>
@@ -1429,11 +1429,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Used for members of type "whfsref" or "whfsrefarray" to link to the fs_object, and by images to point to the original Publisher file.
         </d:documentation>
       </d:integer>
-      <d:__longkey name="parent" references=".fs_settings" ondelete="cascade">
+      <d:integer64 name="parent" references=".fs_settings" ondelete="cascade">
         <d:documentation>
           The setting of type 'array' that combines the individual elements of an array row
         </d:documentation>
-      </d:__longkey>
+      </d:integer64>
       <d:integer name="ordering">
         <d:documentation>
           In case this setting belongs to a member of type 'array',

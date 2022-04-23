@@ -300,7 +300,7 @@
     </d:table>
 
     <d:table name="entity_settings_whfslink" primarykey="id" parentlinkcolumn="id">
-      <d:__longkey name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
+      <d:integer64 name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
       <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0">
         <d:documentation>Referencing to file in /webhare-private/wrd/sNNN/PPP holding data (for linktype 0 and 1) or the fsobject being pointed to (for linktype 2)</d:documentation>
       </d:integer>
@@ -310,11 +310,11 @@
     </d:table>
 
     <d:table name="entity_settings" primarykey="id" parentlinkcolumn="entity">
-      <d:__longkey name="id" autonumberstart="1">
+      <d:integer64 name="id" autonumberstart="1">
         <d:documentation>
 
         </d:documentation>
-      </d:__longkey>
+      </d:integer64>
       <d:integer name="attribute" references=".attrs" nullable="0" ondelete="cascade">
         <d:documentation>
 
@@ -335,11 +335,11 @@
 
         </d:documentation>
       </d:integer>
-      <d:__longkey name="parentsetting" references=".entity_settings" ondelete="cascade">
+      <d:integer64 name="parentsetting" references=".entity_settings" ondelete="cascade">
         <d:documentation>
 
         </d:documentation>
-      </d:__longkey>
+      </d:integer64>
       <d:varchar name="rawdata" maxlength="4096">
         <d:documentation>
 
