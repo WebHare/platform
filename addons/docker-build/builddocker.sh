@@ -221,11 +221,12 @@ HERE
 # Create version info
 mkdir -p dropins/opt/wh/whtree/modules/system/whres
 cat > dropins/opt/wh/whtree/modules/system/whres/buildinfo << HERE
-committag=$CI_COMMIT_SHA
-builddate=`date +'%Y-%m-%d'`
-buildtime=`date +'%H:%M:%S'`
-branch=$CI_COMMIT_REF_NAME
-version=$WEBHARE_VERSION
+committag="$CI_COMMIT_SHA"
+builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+builddate="$(date +'%Y-%m-%d')"
+buildtime="$(date +'%H:%M:%S')"
+branch="$CI_COMMIT_REF_NAME"
+version="$WEBHARE_VERSION"
 HERE
 
 # Fix permissions (crontab files cannot be world-writable)
