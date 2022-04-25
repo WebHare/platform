@@ -1115,6 +1115,10 @@
         <text tid="wrongcode">Incorrect code entered, please try again.</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="movetoselect">   <!-- tolliumcomponents.movetoselect -->
+      <text tid="allisselected">All items are selected</text>
+      <text tid="nothingisselected">No items selected</text>
+    </textgroup>
     <textgroup gid="passwordfield">   <!-- tolliumcomponents.passwordfield -->
       <text tid="confirmpassword">Confirm new password</text>
       <text tid="newpassword">New password</text>
