@@ -88,7 +88,7 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
     IF(debug)
       Print("Task requested restart\n");
 
-    DATETIME nexttry := AddTimeToDate(restartdelay,GetCurrentDatetime());
+    DATETIME nexttry := GetCurrentDatetime();
     IF(nexttry < resolution.when)
       nexttry := resolution.when;
 
