@@ -660,7 +660,7 @@
       <text tid="stack">Stack</text>
       <text tid="starturl">Start URL</text>
       <text tid="stats">Statistics</text>
-      <text tid="sureclosewebharelogin">Are you sure you want to close the login for normal users (who aren't sysop or supervisor) other than sysops?</text>
+      <text tid="sureclosewebharelogin">Are you sure you want to close the login for normal users (who aren't sysop or supervisor)?</text>
       <text tid="surekillallsessions">Are you sure you want to close all the applications of this user?</text>
       <text tid="surekillsession">Are you sure you want to close this application?</text>
       <text tid="timestarted">Start time</text>
