@@ -243,7 +243,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
 
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
   {
-    INSERT [ msg := ":Logins for non-sysops have been closed"
+    INSERT [ msg := ":Logins for normal users have been closed"
            ] INTO messages AT END;
   }
   IF(ReadRegistryKey("system.services.smtp.mailfrom")="")

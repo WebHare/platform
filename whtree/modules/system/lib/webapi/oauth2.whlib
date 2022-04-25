@@ -237,6 +237,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   {
     IF(NOT RecordExists(this->token)) //no token set at all
       RETURN [ success := FALSE, message := "No token set" ];
+    IF(NOT CellExists(this->token,'refresh_token')) //not everyone (eg facebook) will give us a refresh_token
+      RETURN [ success := FALSE, message := "Token cannot be refreshed" ];
 
     DATETIME requeststart := GetCurrentDatetime();
     BLOB body := CreateHTTPUrlencodedRequest(
