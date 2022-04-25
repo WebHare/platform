@@ -551,6 +551,8 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
          , title :=           ParseXMLTidPtr(resourcename, topgid, panel, "title")
          , screen :=          MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
          , name :=            QualifyName(modulename, panel->GetAttribute("name"))
+                              //TODO make sure accesscheck errors are handled, perhaps we can completely move it to modulevalidation. for now, they'll be invisible for dashboard panels...
+         , accesscheck :=     ParseChecks("", panel, TRUE).accesscheck
          ];
 
     IF (IsNodeApplicableToThisWebHare(panel))
@@ -611,18 +613,6 @@ PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT modd
              ] INTO slots AT END;
     }
   RETURN slots;
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetDashboardPanels(STRING modulename, OBJECT moddef)
-{
-  OBJECT portalnode := moddef->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "portal")->Item(0);
-  IF(NOT ObjectExists(portalnode))
-    RETURN DEFAULT RECORD ARRAY;
-
-  RECORD ARRAY results;
-
-  STRING topgid := moddef->documentelement->GetAttribute("gid");
-  RETURN results;
 }
 
 PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modulename, OBJECT node, STRING childgid)
@@ -751,7 +741,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
     app.name := this->moduledef.name || ":" || app.name;
 
-    RETURN MakeMergedRecord(app, ParseChecks(this->moduledef.name, node, TRUE));
+    RETURN CELL[ ...app
+               , ...ParseChecks(this->moduledef.name, node, TRUE)
+               ];
   }
 
   STRING FUNCTION ParseXMLTidTitle(OBJECT element, STRING attrname, STRING gid)

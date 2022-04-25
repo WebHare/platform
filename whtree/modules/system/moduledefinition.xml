@@ -15,7 +15,7 @@
     <runonce tag="initdb_20220215" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_2022_02_24" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce tag="poststartcleanup_2022_04_21" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
@@ -49,7 +49,7 @@
     <applicationgroup name="documentation" tid="module.appgroups.documentation" orderbefore="development" orderafter="setup" />
     <applicationgroup name="development" tid="module.appgroups.development" orderafter="documentation" />
 
-    <application name="dashboard" group="setup" tid="module.apps.dashboard" screen="tolliumapps/dashboard/dashboard.xml#main" icon="system:sysmgmt/monitoring" shortcut="ctrl+shift+d">
+    <application name="dashboard" group="setup" tid="module.apps.dashboard" screen="tolliumapps/dashboard/dashboard.xml#main" icon="system:sysmgmt/monitoring" shortcut="ctrl+shift+d" openmultipleinstances="true">
       <accesscheck>
         <requireright right="system:supervisor" />
       </accesscheck>
@@ -102,11 +102,6 @@
       </accesscheck>
     </application>
 
-    <application name="config" screen="tolliumapps/config/config.xml#main" group="system:setup" tid="portal.apps.config" icon="tollium:system/system" shortcut="ctrl+shift+c">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
-    </application>
     <application name="webservers" screen="tolliumapps/webservers/webservers.xml#main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
       <accesscheck>
         <requireright right="system:webservermgmt" />
@@ -121,8 +116,21 @@
 
     <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
     <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
-    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
-    <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
+    <dashboardpanel group="ap" name="modules" tid="tolliumapps.dashboard.modules.modulespanel" screen="tolliumapps/dashboard/modules.xml">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
+    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
+    <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />
     <dashboardpanel group="dev" name="precalculatedcache" tid="tolliumapps.dashboard.caches.precalculatedcache" screen="tolliumapps/dashboard/caches.xml#precalculatedcache" />
     <dashboardpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
@@ -132,6 +140,11 @@
     <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
     <dashboardpanel group="ap" name="servicemanager" tid="tolliumapps.dashboard.servicemanager.servicemanager" screen="tolliumapps/dashboard/servicemanager.xml" />
     <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
+    <dashboardpanel group="ap" name="registry" tid="tolliumapps.dashboard.registry.registrypanel" screen="tolliumapps/dashboard/registry.xml#registrypanel">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </dashboardpanel>
 
     <dashboardpanel group="database" name="postgresqlsettings" tid="monitor.postgresql.settings" screen="monitor/postgresql.postgresqlsettings" ifenvironset="WEBHARE_DBASENAME"  />
     <dashboardpanel group="database" name="postgresqltransactions" tid="monitor.postgresql.transactions" screen="monitor/postgresql.postgresqltransactions" ifenvironset="WEBHARE_DBASENAME"  />

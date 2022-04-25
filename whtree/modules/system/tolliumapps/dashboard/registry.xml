@@ -1,0 +1,68 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.registry" library="registry.whlib">
+
+  <screen name="registrypanel" allowresize="true" footerbuttons="close" title="">
+    <actions>
+      <action name="editkey" onexecute="doeditkey">
+        <enableon source="registry" min="1" max="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+        <enableon source="registry" min="1" max="1" />
+      </action>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
+    </actions>
+
+    <menus>
+      <menu name="selection_registry">
+        <item action="editkey" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:registry.*" onevents="onevents" />
+    </compositions>
+
+    <body height="1pr">
+      <panel spacers="all">
+        <textedit name="filter" width="1pr" onchange="RefreshDashboardPanel" tid="common.filter" trimwhitespace="false" />
+      </panel>
+      <grid width="1pr" height="1pr">
+        <cell width="1pr">
+          <list name="registry"
+                borders="right bottom top"
+                ongetrows="OnRegistryLoadItems"
+                openaction="editkey"
+                selectcontextmenu="selection_registry"
+                selectmode="single">
+            <column name="name" type="text" width="2pr" />
+            <column name="value" type="text" />
+            <column name="modificationdate" type="datetime" width="20x" storeutc="true" tid="common.modificationdate" />
+          </list>
+        </cell>
+        <cell>
+          <button width="1pr" action="editkey" />
+          <button width="1pr" action="delete" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="editregkey" minwidth="40x" allowresize="true" footerbuttons="ok cancel" savestate="size">
+    <body name="keydata" layout="form">
+      <text name="name" />
+      <text name="description" visible="0" />
+      <text name="initialvalue" visible="0" />
+      <text name="type" />
+      <textedit name="stringvalue" width="1pr" tid=".value" visible="0" />
+      <select name="booleanvalue" type="radio" tid=".value" visible="0">
+        <option rowkey="1" tid=".true" />
+        <option rowkey="0" tid=".false" />
+      </select>
+      <textedit name="integervalue" tid=".value" value="0" valuetype="integer" visible="0" />
+      <fileedit name="blobvalue" tid=".value" visible="false" />
+      <datetime name="datetimevalue" type="datetime" precision="milliseconds" storeutc="true" tid=".value" visible="false" />
+      <panel height="1pr" />
+    </body>
+  </screen>
+
+</screens>

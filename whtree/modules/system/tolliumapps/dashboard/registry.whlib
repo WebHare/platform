@@ -1,0 +1,187 @@
+<?wh
+
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// Registry editor
+//
+
+// Port changes here also to the other one
+// Or generalize the registry editors!
+
+PUBLIC STATIC OBJECTTYPE RegistryPanel EXTEND DashboardPanelBase
+<
+  MACRO Init(RECORD data)
+  {
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  MACRO OnMessage(RECORD msg)
+  {
+    IF (CellExists(msg, "registrykey"))
+      ^filter->value := msg.registrykey;
+  }
+
+  MACRO OnEvents(RECORD ARRAY events)
+  {
+    ^registry->ReloadList();
+  }
+
+  MACRO DoEditKey()
+  {
+    this->RunScreen("#editregkey", [ regkey := ^registry->value ]);
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletekey", ^registry->value)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DeleteRegistryKey(^registry->value);
+    work->Finish();
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    ^registry->ReloadList();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION OnRegistryLoadItems()
+  {
+    STRING filter := ToLowerCase(^filter->value);
+
+    IF (SearchSubstring(filter, "*") = -1)
+      filter := "*" || filter || "*";
+
+    RETURN SELECT rowkey := name
+                , name
+                , value := data ?? this->GetTid(".toobigtodisplay")
+                , modificationdate
+             FROM system.flatregistry
+            WHERE (filter != "" ? name LIKE filter : TRUE)
+                  AND (name NOT LIKE "<*"); //ignore 'user' registries
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditRegKey EXTEND TolliumScreenBase
+<
+  STRING regkey;
+  INTEGER valtype;
+
+  MACRO Init(RECORD data)
+  {
+    this->regkey := data.regkey;
+
+    VARIANT val := ReadRegistryKey(this->regkey);
+    ^name->value := this->regkey;
+    this->valtype := TypeID(val);
+    ^type->value := GetTypeName(this->valtype);
+
+    SWITCH(this->valtype)
+    {
+      CASE TYPEID(STRING)
+      {
+        ^stringvalue->visible := true;
+        ^stringvalue->value := val;
+      }
+      CASE TYPEID(DATETIME)
+      {
+        ^datetimevalue->visible := true;
+        ^datetimevalue->value := val;
+      }
+      CASE TYPEID(BOOLEAN)
+      {
+        ^booleanvalue->visible := true;
+        ^booleanvalue->value := val ? "1" : "0";
+      }
+      CASE TYPEID(INTEGER)
+      {
+        ^integervalue->visible := true;
+        ^integervalue->value := val;
+      }
+      CASE TYPEID(BLOB)
+      {
+        ^blobvalue->visible := true;
+        ^blobvalue->SetFile(val, "blob");
+      }
+      CASE TYPEID(RECORD)
+      {
+        ^stringvalue->visible := true;
+        ^stringvalue->value := RecordExists(val) ? EncodeHSON(val) : "";
+        ^stringvalue->placeholder := "hson:*";
+      }
+      DEFAULT
+      {
+        ^stringvalue->visible := true;
+        ^stringvalue->value := EncodeHSON(val);
+      }
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    SWITCH(this->valtype)
+    {
+      CASE TYPEID(STRING)
+      {
+        WriteRegistryKey(this->regkey, ^stringvalue->value);
+      }
+      CASE TYPEID(DATETIME)
+      {
+        WriteRegistryKey(this->regkey, ^datetimevalue->value);
+      }
+      CASE TYPEID(BOOLEAN)
+      {
+        WriteRegistryKey(this->regkey, ^booleanvalue->value="1");
+      }
+      CASE TYPEID(INTEGER)
+      {
+        WriteRegistryKey(this->regkey, ^integervalue->value);
+      }
+      CASE TYPEID(BLOB)
+      {
+        WriteRegistryKey(this->regkey, RecordExists(^blobvalue->value) ? ^blobvalue->value.data : DEFAULT BLOB);
+      }
+      CASE TYPEID(RECORD)
+      {
+        IF (^stringvalue->value = "")
+          WriteRegistryKey(this->regkey, DEFAULT RECORD);
+        ELSE
+        {
+          RECORD value;
+          TRY
+          {
+            VARIANT decoded := DecodeHSON(^stringvalue->value);
+            IF (TypeID(decoded) != TypeID(RECORD))
+              THROW NEW Exception("");
+            value := decoded;
+          }
+          CATCH (OBJECT e)
+            work->AddError(this->GetTid(".invalidrecordvalue"));
+
+          // Not within the Try/Catch block, so we only catch decoding errors
+          IF (NOT work->HasFailed())
+            WriteRegistryKey(this->regkey, value);
+        }
+      }
+      DEFAULT
+      {
+        WriteRegistryKey(this->regkey, DecodeHSON(^stringvalue->value));
+      }
+    }
+    RETURN work->Finish();
+  }
+>;

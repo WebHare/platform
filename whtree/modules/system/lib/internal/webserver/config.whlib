@@ -1081,8 +1081,8 @@ OBJECTTYPE WebConfigBuilder
         INSERT
             [ source :=   ""
             , error :=    "Header accessrule and path debugging is enabled on the webserver"
-            , jumpto :=   [ app := "system:config", panel := "registry", registrykey := "system.webserver.global.debugurls" ] //TODO move to webserver tweaks and jump there!
-            ] INTO this->errors AT END;
+            , jumpto :=   [ app := "system:dashboard", panel := "system:registry", registrykey := "system.webserver.global.debugurls" ] //TODO move to webserver tweaks and jump there!
+            ] INTO this->finalconfig.errors AT END;
       }
 
       FOREVERY(STRING tok FROM Tokenize(ReadRegistryKey("system.webserver.global.proxyservers.trustxforwardedfor"),","))

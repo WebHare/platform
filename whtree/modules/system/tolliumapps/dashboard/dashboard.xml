@@ -12,15 +12,30 @@
       <action name="refresh" onexecute="dorefresh" title="" />
       <action name="softreset" onexecute="dosoftreset" />
       <action name="clearcaches" onexecute="doclearcaches" />
+      <action name="adhoccache" frameflags="issysop" onexecute="doadhoccache" tid="sysmgmt.adhoccache.title" />
+      <action name="remoting" frameflags="issysop" onexecute="doremoting" tid="sysmgmt.remoting.title" />
+      <action name="backend"
+              frameflags="issysop"
+              onexecute="dobackend"
+              shortcut="ctrl+shift+t"
+              tid="tolliumapps.config.settings.settings" />
+      <action name="webdavdata" frameflags="issysop" onexecute="dowebdavdata" tid="sysmgmt.webdav.data.title" />
       <windowopenaction name="openinseparatetab" frameflags="issysop" onwindowopen="doopeninseparatetab">
         <enableon source="monitorpanels" min="1" max="1" />
       </windowopenaction>
+      <action name="mailroutes" frameflags="issysop" onexecute="domailroutes" shortcut="ctrl+shift+e" tid=".mailroutes" />
     </actions>
 
     <menus>
       <menu name="menubar">
         <item action="clearcaches" />
         <item action="softreset" />
+        <divider />
+        <item action="backend" />
+        <item action="adhoccache" />
+        <item action="remoting" />
+        <item action="webdavdata" />
+        <item action="mailroutes" />
         <divider />
         <item action="openinseparatetab" disablemode="hidden" />
       </menu>
@@ -46,9 +61,9 @@
                 columnheaders="false"
                 onselect="onmonitorpanelsselect"
                 selectcontextmenu="panelscontextmenu"
+                selectevent="synchronous"
                 selectmode="single"
-                sortable="false"
-                selectevent="synchronous">
+                sortable="false">
             <column name="title" type="text" title="" tree="true" />
           </list>
           <panel name="statusbar" borders="top" spacers="left">

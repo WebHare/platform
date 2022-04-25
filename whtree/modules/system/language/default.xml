@@ -856,26 +856,6 @@
       <text tid="allwebservers">(global)</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="scheduler">   <!-- scheduler -->
-    <textgroup gid="main">   <!-- scheduler.main -->
-      <text tid="confirm_delete">Are you sure you want to delete the selected task?</text>
-      <text tid="description">Description</text>
-      <text tid="main">Scheduler</text>
-      <text tid="nexttime">Next time</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="scriptname">Script name</text>
-    </textgroup>
-    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
-      <text tid="enabled">Enable this task</text>
-      <text tid="nexttime">Next execution time</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="repeatevery">repeat every</text>
-      <text tid="runatstartup">Execute this task every time WebHare is started</text>
-      <text tid="scriptname">Script name</text>
-      <text tid="taskprops">Task properties</text>
-      <text tid="taskscreen">Task</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
@@ -933,33 +913,6 @@
       <text tid="status">Webserver adhoc cache status</text>
       <text tid="title">Ad hoc cache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
-    </textgroup>
-    <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
-      <text tid="appmenu">Registry</text>
-      <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
-      <text tid="name">Name</text>
-      <text tid="title">WebHare Registry</text>
-      <text tid="value">Value</text>
-      <textgroup gid="actions">   <!-- sysmgmt.editreg.actions -->
-        <text tid="editkey">Edit</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="editregkey">   <!-- sysmgmt.editregkey -->
-      <text tid="blob">Blob</text>
-      <text tid="boolean">Boolean</text>
-      <text tid="datetime">Datetime</text>
-      <text tid="description">Description</text>
-      <text tid="editregkey">Edit registry key</text>
-      <text tid="false">False</text>
-      <text tid="initialvalue">Initial value</text>
-      <text tid="integer">Integer</text>
-      <text tid="invalidrecordvalue">Invalid HSON-encoded record value</text>
-      <text tid="name">Key name</text>
-      <text tid="record">Record</text>
-      <text tid="string">String</text>
-      <text tid="true">True</text>
-      <text tid="type">Type</text>
-      <text tid="value">Value</text>
     </textgroup>
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
       <text tid="cannotreplacemodule">Unable to replace the existing module '<param p="1"/>'</text>
@@ -1019,9 +972,6 @@
     <textgroup gid="receiverproperties">   <!-- sysmgmt.receiverproperties -->
       <text tid="receiverproperties">Receiver properties</text>
     </textgroup>
-    <textgroup gid="registry">   <!-- sysmgmt.registry -->
-      <text tid="title">WebHare registry</text>
-    </textgroup>
     <textgroup gid="remoting">   <!-- sysmgmt.remoting -->
       <text tid="title">Webhare remoting</text>
       <textgroup gid="editservice">   <!-- sysmgmt.remoting.editservice -->
@@ -1045,9 +995,6 @@
         <text tid="service">Service</text>
         <text tid="title">Manage remoting settings</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
-      <text tid="title">Scheduler</text>
     </textgroup>
     <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
       <text tid="title">Activity Monitor</text>
@@ -1341,43 +1288,6 @@
         <text tid="usealternativesmtpserver-dontsend">Black hole (block all email)</text>
         <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
       </textgroup>
-      <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="configuremodule">Configure</text>
-        <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
-        <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
-        <text tid="dontshowdeleted">Only show current modules</text>
-        <text tid="lastmodified">Last updated</text>
-        <text tid="name">Name</text>
-        <text tid="openwebsite">Open website</text>
-        <text tid="revision">Source revision</text>
-        <text tid="showdeleted">Show current and deleted modules</text>
-        <text tid="uncommittedchanges">(+ changes)</text>
-        <text tid="version">Version</text>
-        <text tid="versions">Versions</text>
-      </textgroup>
-      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="date">Date</text>
-        <text tid="hotfixes">Local changes</text>
-        <text tid="modifiedfiles">Modified files</text>
-        <text tid="moduleinfo">Module info</text>
-        <text tid="path">Path</text>
-        <text tid="server">Server</text>
-        <text tid="source">Source</text>
-        <text tid="sourcerepositoryurl">Repository URL</text>
-        <text tid="sourcerepositoryuuid">Repository UUID</text>
-        <text tid="sourcerevision">Source revision</text>
-        <text tid="status">Status</text>
-        <text tid="userfullname">User</text>
-      </textgroup>
-      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
-        <text tid="archived">Archived</text>
-        <text tid="hotfixes">Show hotfixes</text>
-        <text tid="modified">(modified)</text>
-        <text tid="obsoletiondate">Obsoleted</text>
-        <text tid="revision">Source revision</text>
-        <text tid="uploaddate">Installed</text>
-        <text tid="version">Version</text>
-      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Keep access log</text>
         <text tid="accountname">Account name</text>
@@ -1495,6 +1405,7 @@
         <text tid="clearcaches">Clear caches</text>
         <text tid="confirmsoftreset">Are you sure you want to perform a soft reset?</text>
         <text tid="lastupdate">Last update</text>
+        <text tid="mailroutes">Email routing</text>
         <text tid="main">Dashboard</text>
         <text tid="openinseparatetab">Open panel in separate tab</text>
         <text tid="refreshbutton">Refresh now</text>
@@ -1541,6 +1452,44 @@
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="modules">   <!-- tolliumapps.dashboard.modules -->
+        <text tid="configuremodule">Configure</text>
+        <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
+        <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
+        <text tid="dontshowdeleted">Only show current modules</text>
+        <text tid="lastmodified">Last updated</text>
+        <text tid="modulespanel">Modules</text>
+        <text tid="name">Name</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="revision">Source revision</text>
+        <text tid="showdeleted">Show current and deleted modules</text>
+        <text tid="uncommittedchanges">(+ changes)</text>
+        <text tid="version">Version</text>
+        <text tid="versions">Versions</text>
+        <textgroup gid="moduleinfo">   <!-- tolliumapps.dashboard.modules.moduleinfo -->
+          <text tid="date">Date</text>
+          <text tid="hotfixes">Local changes</text>
+          <text tid="modifiedfiles">Modified files</text>
+          <text tid="moduleinfo">Module info</text>
+          <text tid="path">Path</text>
+          <text tid="server">Server</text>
+          <text tid="source">Source</text>
+          <text tid="sourcerepositoryurl">Repository URL</text>
+          <text tid="sourcerepositoryuuid">Repository UUID</text>
+          <text tid="sourcerevision">Source revision</text>
+          <text tid="status">Status</text>
+          <text tid="userfullname">User</text>
+        </textgroup>
+        <textgroup gid="moduleversions">   <!-- tolliumapps.dashboard.modules.moduleversions -->
+          <text tid="archived">Archived</text>
+          <text tid="hotfixes">Show hotfixes</text>
+          <text tid="modified">(modified)</text>
+          <text tid="obsoletiondate">Obsoleted</text>
+          <text tid="revision">Source revision</text>
+          <text tid="uploaddate">Installed</text>
+          <text tid="version">Version</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->
         <text tid="buildinfo">Build</text>
         <text tid="comment">Comment</text>
@@ -1567,6 +1516,21 @@
         <text tid="untilinpast">Until date must be in the future.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (started <param p="2"/>), webserver uptime: <param p="3"/> (started <param p="4"/>)</text>
+      </textgroup>
+      <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
+        <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
+        <text tid="description">Description</text>
+        <text tid="editkey">Edit</text>
+        <text tid="editregkey">Edit registry key</text>
+        <text tid="false">False</text>
+        <text tid="initialvalue">Initial value</text>
+        <text tid="invalidrecordvalue">Invalid HSON-encoded record value</text>
+        <text tid="name">Key name</text>
+        <text tid="registrypanel">Registry</text>
+        <text tid="toobigtodisplay">(too big to display)</text>
+        <text tid="true">True</text>
+        <text tid="type">Type</text>
+        <text tid="value">Value</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
         <text tid="apprunnerdown">The service manager is unavailable</text>

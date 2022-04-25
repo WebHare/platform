@@ -35,6 +35,9 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
     }
     IF(CellExists(data, "FILTER"))
       this->filterorigin := data.filter;
+
+    ^mailroutes->enabled := this->contexts->user->HasRight("system:sysop");
+    ^mailroutesbutton->visible := ^mailroutes->enabled;
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -172,6 +175,11 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
     DeleteManagedTasks(this->mailqueue->value);
     work->Finish();
   }
+  MACRO DoMailRoutes()
+  {
+    this->RunScreen(Resolve("../config/mailrouting.xml#mailroutes"));
+  }
+
 >;
 
 PUBLIC OBJECTTYPE Result EXTEND TolliumScreenBase

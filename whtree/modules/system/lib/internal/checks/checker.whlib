@@ -120,7 +120,7 @@ RECORD ARRAY FUNCTION GetHotFixCheckResult()
       FOREVERY (STRING msg FROM STRING ARRAY(module.messages))
         INSERT CELL
             [ msg
-            , jumpto := [ app := "system:config", module := module.module ]
+            , jumpto := [ app := "system:dashboard", panel := "system:modules", module := module.module ]
             ] INTO messages AT END;
     }
   }

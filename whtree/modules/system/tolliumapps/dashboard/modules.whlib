@@ -1,0 +1,430 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION GetModuleDetails(STRING langcode) //do we even need to do this async now that we ignore git ?
+{
+  //TODO yield statusses as they come in?
+  SetTidLanguage(langcode);
+  RECORD ARRAY enriched;
+
+  //Gather statusses from manifests
+  RECORD ARRAY modlist := EnrichInstalledModulesWithManifests(GetInstalledModulesOverview(FALSE)); //don't get deleted modules
+  FOREVERY(RECORD mod FROM modlist)
+  {
+    IF(RecordExists(SELECT FROM enriched WHERE name = mod.name))
+      CONTINUE; // already seen
+
+    IF(mod.source_revision != "")
+    {
+      INSERT [ name := mod.name
+             , revision := mod.source_revision || (mod.source_uncommittedchanges ? " " || GetTid("system:tolliumapps.dashboard.modules.uncommittedchanges") : "")
+             , gitinfo := DEFAULT RECORD
+             , website := ""
+             ] INTO enriched AT END;
+    }
+  }
+
+  RETURN enriched;
+}
+
+PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
+<
+  RECORD ARRAY moduledetails;
+  RECORD ARRAY modulecolumns;
+
+  OBJECT revisionupdatefifo;
+
+  MACRO Init()
+  {
+    this->revisionupdatefifo := NEW FIFO;
+    this->modulecolumns := ^modules->columns;
+    this->RefreshPermissions();
+    this->LoadRevisionInfo();
+  }
+
+  MACRO OnMessage(RECORD msg)
+  {
+    IF (CellExists(msg, "module"))
+      ^modules->value := msg.module;
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    ^modules->Invalidate();
+  }
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0; //no auto refresh
+  }
+
+  MACRO RefreshPermissions()
+  {
+    ^modules->Invalidate();
+  }
+
+  MACRO DoUploadModule(RECORD upload_result)
+  {
+    OBJECT work := this->BeginFeedback();
+    RECORD result := ImportModule(upload_result.data);
+    FOREVERY(STRING error FROM result.errors)
+      work->AddError(error);
+    FOREVERY(STRING warning FROM result.warnings)
+      work->AddWarning(warning);
+
+    work->Finish();
+    IF(Length(result.errors) = 0)
+    {
+      ^modules->Invalidate(); //manually invalidate, it takes some time for the events to do it.
+      ^modules->SetValueIfValid(result.importmodulename);
+    }
+  }
+
+  MACRO DoDeleteModule()
+  {
+    STRING modulename := ^modules->selection.name;
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".deletemodule", modulename)) != "yes")
+      RETURN;
+
+    IF(NOT DeleteModule(modulename))
+      this->RunSimpleScreen("error", this->GetTid(".deletemodulefailed", modulename));
+  }
+
+  MACRO ShowInfoForModule(RECORD row)
+  {
+    this->RunScreen("moduleinfo.xml#moduleinfo", [ modulename := row.name, path := row.path ]);
+  }
+
+  MACRO DoShowModuleInfo()
+  {
+    this->ShowInfoForModule(^modules->selection);
+  }
+
+  MACRO DoVersions()
+  {
+    this->RunScreen("moduleinfo.xml#moduleversions", [ modulename := ^modules->value ]);
+  }
+
+  MACRO DoConfigModule()
+  {
+    OBJECT scr := this->LoadScreen(^modules->selection.configscreen);
+    IF(ObjectExists(scr))
+      scr->RunModal();
+  }
+
+  MACRO OnOpenWebsite(OBJECT receiver)
+  {
+    RECORD details := ^modules->selection.details;
+    IF(RecordExists(details) AND details.website != "")
+      receiver->SendURL(details.website);
+  }
+
+  MACRO GotModuleEvent(RECORD ARRAY events)
+  {
+    ^modules->Invalidate();
+  }
+
+  MACRO OnShowDeletedChange()
+  {
+    ^modules->Invalidate();
+  }
+
+  MACRO GotGitEvent(RECORD ARRAY events)
+  {
+    STRING ARRAY modules;
+    FOREVERY (RECORD event FROM events)
+      INSERT Tokenize(Tokenize(event.event, "/")[0] , "mod::")[1] INTO modules AT END;
+
+    this->revisionupdatefifo->Push([ modules := GetSortedSet(modules) ]);
+  }
+
+
+  RECORD ARRAY FUNCTION GetModules()
+  {
+    RECORD ARRAY overview := GetInstalledModulesOverview(^showdeleted->value);
+
+    overview := SELECT *
+                     , details := (SELECT * FROM this->moduledetails WHERE moduledetails.name = overview.name)
+                  FROM overview;
+
+    RETURN SELECT name
+                , path
+                , version
+                , description
+                , lastmodified
+                , typeicon := isdeleted ? 0 : isinstalled ? 3 : isbuiltin ? 2 : 4
+                //, revision := source_revision || (source_uncommittedchanges ? " " || this->GetTid(".uncommittedchanges") : "")
+                , details
+                , revision       := RecordExists(details) ? details.revision : ""
+                , havewebsite    := RecordExists(details) AND details.website != ""
+                , listrowclasses := isdeleted ? ["grayedout"] : STRING[]
+                , rowkey         := name
+                , isavailable    := NOT isdeleted
+                , configscreen
+                , isconfigurable := configscreen != ""
+                , configicon     := (configscreen != "") ? 5 : 0
+                , canmanage      := isinstalled AND packagingupgrade
+                , canseeversions := isinstalled OR isdeleted
+              FROM overview;
+  }
+
+  ASYNC MACRO LoadRevisionInfo()
+  {
+    STRING ARRAY modules := [ "*" ];
+    WHILE (LENGTH(modules) != 0)
+    {
+      // ADDME: update only the modules that need updating
+      this->moduledetails := AWAIT AsyncCallFunctionFromJob(Resolve("#GetModuleDetails"), GetTidLanguage());
+      ^modules->Invalidate();
+
+      // Get new list of modules to update - and batch them by reading synchronously until the fifo is empty
+      modules := STRING[];
+      RECORD rec := AWAIT this->revisionupdatefifo->AsyncShift();
+      AWAIT NEW WaitableTimer(100); // batch updates a bit better
+      WHILE (RecordExists(rec))
+      {
+        modules := modules CONCAT rec.modules;
+        rec := this->revisionupdatefifo->Shift();
+      }
+      modules := GetSortedSet(modules);
+    }
+  }
+>;
+
+RECORD FUNCTION GetModuleManifest(STRING module)
+{
+  RECORD manifest;
+  TRY
+  {
+    RETURN ParseModuleManifest(OpenXMLDoc("mod::" || module || "/history/manifest.xml",FALSE).doc);
+  }
+  CATCH(OBJECT<RetrieveResourceException> e)
+  {
+    RETURN ParseModuleManifest(DEFAULT OBJECT);
+    //ignoring retrieve errors
+  }
+}
+
+PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING modulename;
+
+  INTEGER updatecallback_archived;
+  INTEGER updatecallback_softreset;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+    this->frame->title := GetTid("system:sysmgmt.modules.versionstitle", this->modulename);
+    this->RefreshList();
+
+    this->updatecallback_archived := RegisterMultiEventCallback("system:modules.archivedmodule", PTR this->OnModulesChangedEvent);
+    this->updatecallback_softreset := RegisterMultiEventCallback("system:softreset", PTR this->OnModulesChangedEvent);
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    UnregisterCallback(this->updatecallback_softreset);
+    UnregisterCallback(this->updatecallback_archived);
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO OnModulesChangedEvent(STRING eventname, RECORD ARRAY data)
+  {
+    this->RefreshList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List refresh
+  //
+
+  MACRO RefreshList()
+  {
+    RECORD ARRAY allmods :=
+       (SELECT *
+             , path := GetWebHareConfiguration().varroot || "installedmodules/" || name
+             , isarchive := FALSE
+          FROM ReadDiskDirectory(GetWebHareConfiguration().varroot || "installedmodules/", this->modulename || "*")
+         WHERE name = this->modulename OR name LIKE this->modulename || ".*")
+     CONCAT
+       (SELECT *
+             , path := GetWebHareConfiguration().varroot || "archivedmodules/" || name
+             , isarchive := TRUE
+          FROM ReadDiskDirectory(GetWebHareConfiguration().varroot || "archivedmodules/", this->modulename || ".*"));
+
+    allmods :=
+         SELECT *
+              , data := GetModuleDataFromFolder(path, name, isarchive)
+           FROM allmods;
+
+    RECORD ARRAY rows;
+
+    FOREVERY (RECORD rec FROM allmods)
+    {
+      STRING version, description;
+      STRING source_revision;
+
+      //Can't read this from cache (eg GetWebhareModules) at least not for the archive.
+      BLOB moduledef := GetDiskResource(rec.path || "/moduledefinition.xml", [ allowmissing := TRUE ]);
+      IF (LENGTH(moduledef) != 0)
+      {
+        RECORD mdef := ParseModuleDefinition(rec.data.name, MakeXMLDocument(moduledef));
+        IF (RecordExists(mdef))
+        {
+          version := mdef.version;
+          description := mdef.description;
+        }
+      }
+
+      BLOB manifestdata := GetDiskResource(rec.path || "/history/manifest.xml", [ allowmissing := TRUE ]);
+      IF (LENGTH(manifestdata) != 0)
+      {
+        RECORD manifest := ParseModuleManifest(MakeXMLDocument(manifestdata));
+        source_revision := manifest.source_revision || (manifest.has_modifications ? " " || this->GetTid(".modified") : "");
+      }
+
+      INSERT
+          [ rowkey :=           rec.path
+          , path :=             rec.path
+          , name :=             rec.data.name
+          , archived :=         rec.isarchive ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+          , orderdate :=        rec.data.moduledate
+          , uploaddate :=       rec.data.newformat ? rec.data.moduledate : DEFAULT DATETIME
+          , obsoletiondate :=   rec.data.obsoletiondate
+          , version :=          version
+          , revision :=         source_revision
+          , description :=      description
+          ] INTO rows AT END;
+    }
+
+    this->versions->rows := rows;
+  }
+
+  MACRO DoHotfixes()
+  {
+    RECORD sel := ^versions->selection;
+    this->RunScreen("#moduleinfo", [ modulename := sel.name
+                                   , path := sel.path
+                                   ]);
+  }
+>;
+
+
+/*
+NOTE: RPC's are not read by GetWebhareModuleInfo()
+
+Some fields/information we might also like to show:
+- authorlink
+- TOLLIUMAPPGROUP
+- runoncescripts
+- modulerightgroups
+- moduleobjects
+- modulerights <-- tonen, eventueel in boomstructuur met rightgroups??
+- fs_objecteditors
+- virtualfs
+- logfiles
+- isbuiltinmodule
+- name
+- (what is?) inputdeps
+*/
+PUBLIC STATIC OBJECTTYPE ModuleInfo EXTEND TolliumScreenBase
+< STRING modulename;
+  STRING modulepath;
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+    this->modulepath := data.path;
+    this->RefreshChangesets();
+  }
+
+  MACRO RefreshChangesets()
+  {
+    RECORD ARRAY rows :=
+        SELECT rowkey :=  "cs-" || #changesets
+             , date
+             , server
+             , userfullname
+             , source
+             , originalsarchive :=  modifications_originals_archive_path
+             , modifications :=     modifications
+             , data :=              changesets
+          FROM GetModuleManifest(this->modulename).changesets;
+
+    FOREVERY (RECORD rec FROM rows)
+      IF (RecordExists(rec.data) AND rec.data.source_revision != "")
+      {
+        ^sourcerepositoryurl->value := rec.data.source_repository_url;
+        ^sourcerepositoryuuid->value := rec.data.source_repository_uuid;
+        ^sourcerevision->value := rec.data.source_revision;
+        BREAK;
+      }
+
+    RECORD mods := GetModuleModifiedFiles(this->modulepath, FALSE);
+    IF (mods.success AND LENGTH(mods.files) != 0)
+    {
+      INSERT
+          [ rowkey :=            "hotfixes"
+          , date :=              GetCurrentDateTime()
+          , server:=             ""
+          , userfullname :=      ""
+          , source :=            this->GetTid(".hotfixes")
+          , originalsarchive :=  ""
+          , modifications :=     (SELECT path, status FROM mods.files)
+          , data :=              DEFAULT RECORD
+          ] INTO rows AT END;
+    }
+
+    ^sourcerepositoryurl->visible := ^sourcerepositoryurl->value != "";
+    ^sourcerepositoryuuid->visible := ^sourcerepositoryuuid->value != "";
+    ^sourcerevision->visible := ^sourcerevision->value != "";
+
+    ^changesets->rows := rows;
+  }
+
+  MACRO OnChangesetSelect()
+  {
+    RECORD sel := ^changesets->selection;
+
+    IF (NOT RecordExists(sel))
+      ^modifications->rows := DEFAULT RECORD ARRAY;
+    ELSE
+    {
+      ^modifications->rows :=
+          SELECT rowkey :=  path
+               , path
+               , status
+            FROM sel.modifications;
+    }
+  }
+>;

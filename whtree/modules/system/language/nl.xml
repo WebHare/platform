@@ -674,26 +674,6 @@
       <text tid="allwebservers">(globaal)</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="scheduler">   <!-- scheduler -->
-    <textgroup gid="main">   <!-- scheduler.main -->
-      <text tid="confirm_delete">Weet je zeker dat je de geselecteerde taak wilt verwijderen?</text>
-      <text tid="description">Omschrijving</text>
-      <text tid="main">Geplande taken</text>
-      <text tid="nexttime">Volgende keer</text>
-      <text tid="parameters">Argumenten</text>
-      <text tid="scriptname">Scriptnaam</text>
-    </textgroup>
-    <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
-      <text tid="enabled">Schakel deze taak in</text>
-      <text tid="nexttime">Volgende tijdstip uitvoering</text>
-      <text tid="parameters">Parameters</text>
-      <text tid="repeatevery">herhaal elke</text>
-      <text tid="runatstartup">Voer deze taak elke keer dat WebHare wordt gestart uit</text>
-      <text tid="scriptname">Scriptnaam</text>
-      <text tid="taskprops">Taakeigenschappen</text>
-      <text tid="taskscreen">Taak</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
@@ -751,33 +731,6 @@
       <text tid="status">Webserver adhoc cache status</text>
       <text tid="title">Ad-hoccache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
-    </textgroup>
-    <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
-      <text tid="appmenu">Register</text>
-      <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="name">Naam</text>
-      <text tid="title">Register</text>
-      <text tid="value">Waarde</text>
-      <textgroup gid="actions">   <!-- sysmgmt.editreg.actions -->
-        <text tid="editkey">Wijzig registerwaarde</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="editregkey">   <!-- sysmgmt.editregkey -->
-      <text tid="blob">Blob</text>
-      <text tid="boolean">Boolean</text>
-      <text tid="datetime">Datetime</text>
-      <text tid="description">Omschrijving</text>
-      <text tid="editregkey">Wijzig registersleutel</text>
-      <text tid="false">Onwaar</text>
-      <text tid="initialvalue">Initiële waarde</text>
-      <text tid="integer">Integer</text>
-      <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
-      <text tid="name">Naam sleutel</text>
-      <text tid="record">Record</text>
-      <text tid="string">String</text>
-      <text tid="true">Waar</text>
-      <text tid="type">Type</text>
-      <text tid="value">Waarde</text>
     </textgroup>
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
       <text tid="cannotreplacemodule">Het is niet mogelijk om de bestaande module '<param p="1"/>' te vervangen</text>
@@ -837,9 +790,6 @@
     <textgroup gid="receiverproperties">   <!-- sysmgmt.receiverproperties -->
       <text tid="receiverproperties">Eigenschappen van ontvanger</text>
     </textgroup>
-    <textgroup gid="registry">   <!-- sysmgmt.registry -->
-      <text tid="title">WebHare register</text>
-    </textgroup>
     <textgroup gid="remoting">   <!-- sysmgmt.remoting -->
       <text tid="title">Webhare remoting</text>
       <textgroup gid="editservice">   <!-- sysmgmt.remoting.editservice -->
@@ -863,9 +813,6 @@
         <text tid="service">Service</text>
         <text tid="title">Beheer remoting instellingen</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="scheduler">   <!-- sysmgmt.scheduler -->
-      <text tid="title">Ingeplande taken</text>
     </textgroup>
     <textgroup gid="sessionlist">   <!-- sysmgmt.sessionlist -->
       <text tid="title">Sessielijst</text>
@@ -1159,43 +1106,6 @@
         <text tid="usealternativesmtpserver-dontsend">Zwart gat (blokkeert de uitgaande mail)</text>
         <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
       </textgroup>
-      <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="configuremodule">Configureren</text>
-        <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
-        <text tid="dontshowdeleted">Toon alleen huidige modules</text>
-        <text tid="lastmodified">Laatste update</text>
-        <text tid="name">Naam</text>
-        <text tid="openwebsite">Open website</text>
-        <text tid="revision">Bronrevisie</text>
-        <text tid="showdeleted">Toon huidige en verwijderde modules</text>
-        <text tid="uncommittedchanges">(+ wijzigingen)</text>
-        <text tid="version">Versie</text>
-        <text tid="versions">Versies</text>
-      </textgroup>
-      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="date">Datum</text>
-        <text tid="hotfixes">Lokale wijzigingen</text>
-        <text tid="modifiedfiles">Gewijzigde bestanden</text>
-        <text tid="moduleinfo">Module informatie</text>
-        <text tid="path">Pad</text>
-        <text tid="server">Server</text>
-        <text tid="source">Bron</text>
-        <text tid="sourcerepositoryurl">Repository URL</text>
-        <text tid="sourcerepositoryuuid">Repository UUID</text>
-        <text tid="sourcerevision">Bronrevisie</text>
-        <text tid="status">Status</text>
-        <text tid="userfullname">Gebruiker</text>
-      </textgroup>
-      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
-        <text tid="archived">Gearchiveerd</text>
-        <text tid="hotfixes">Toon hotfixes</text>
-        <text tid="modified">(gewijzigd)</text>
-        <text tid="obsoletiondate">Overbodig vanaf</text>
-        <text tid="revision">Bronrevisie</text>
-        <text tid="uploaddate">Geïnstalleerd</text>
-        <text tid="version">Versie</text>
-      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Bewaar toegangslog</text>
         <text tid="accountname">Accountname</text>
@@ -1313,6 +1223,7 @@
         <text tid="clearcaches">Leeg caches</text>
         <text tid="confirmsoftreset">Weet je zeker dat je een soft reset wilt uitvoeren?</text>
         <text tid="lastupdate">Laatst bijgewerkt</text>
+        <text tid="mailroutes">E-mailinstellingen</text>
         <text tid="main">Dashboard</text>
         <text tid="openinseparatetab">Open paneel in aparte tab</text>
         <text tid="refreshbutton">Nu verversen</text>
@@ -1359,6 +1270,44 @@
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="modules">   <!-- tolliumapps.dashboard.modules -->
+        <text tid="configuremodule">Configureren</text>
+        <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
+        <text tid="dontshowdeleted">Toon alleen huidige modules</text>
+        <text tid="lastmodified">Laatste update</text>
+        <text tid="modulespanel">Modules</text>
+        <text tid="name">Naam</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="revision">Bronrevisie</text>
+        <text tid="showdeleted">Toon huidige en verwijderde modules</text>
+        <text tid="uncommittedchanges">(+ wijzigingen)</text>
+        <text tid="version">Versie</text>
+        <text tid="versions">Versies</text>
+        <textgroup gid="moduleinfo">   <!-- tolliumapps.dashboard.modules.moduleinfo -->
+          <text tid="date">Datum</text>
+          <text tid="hotfixes">Lokale wijzigingen</text>
+          <text tid="modifiedfiles">Gewijzigde bestanden</text>
+          <text tid="moduleinfo">Module informatie</text>
+          <text tid="path">Pad</text>
+          <text tid="server">Server</text>
+          <text tid="source">Bron</text>
+          <text tid="sourcerepositoryurl">Repository URL</text>
+          <text tid="sourcerepositoryuuid">Repository UUID</text>
+          <text tid="sourcerevision">Bronrevisie</text>
+          <text tid="status">Status</text>
+          <text tid="userfullname">Gebruiker</text>
+        </textgroup>
+        <textgroup gid="moduleversions">   <!-- tolliumapps.dashboard.modules.moduleversions -->
+          <text tid="archived">Gearchiveerd</text>
+          <text tid="hotfixes">Toon hotfixes</text>
+          <text tid="modified">(gewijzigd)</text>
+          <text tid="obsoletiondate">Overbodig vanaf</text>
+          <text tid="revision">Bronrevisie</text>
+          <text tid="uploaddate">Geïnstalleerd</text>
+          <text tid="version">Versie</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->
         <text tid="buildinfo">Build</text>
         <text tid="comment">Commentaar</text>
@@ -1385,6 +1334,21 @@
         <text tid="untilinpast">De 'tot' datum moet in de toekomst liggen.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (gestart op <param p="2"/>), webserver uptime: <param p="3"/> (gestart op <param p="4"/>)</text>
+      </textgroup>
+      <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
+        <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="description">Omschrijving</text>
+        <text tid="editkey">Wijzig registerwaarde</text>
+        <text tid="editregkey">Wijzig registersleutel</text>
+        <text tid="false">Onwaar</text>
+        <text tid="initialvalue">Initiële waarde</text>
+        <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
+        <text tid="name">Naam sleutel</text>
+        <text tid="registrypanel">Register</text>
+        <text tid="toobigtodisplay">(te groot om te tonen)</text>
+        <text tid="true">Waar</text>
+        <text tid="type">Type</text>
+        <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
         <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>

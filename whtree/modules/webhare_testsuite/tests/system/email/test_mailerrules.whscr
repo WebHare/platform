@@ -166,7 +166,7 @@ MACRO TestFormsapiFixing()
 
 ASYNC MACRO TestMailRouteDialog()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:config"));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dashboard"));
   AWAIT ExpectScreenChange(+1, PTR TTClick("mailroutes"));
   TestEq("Blocked", SELECT AS STRING target FROM TT("emailcorrections")->rows WHERE masks LIKE "*@blocked.beta.webhare.net");
 
