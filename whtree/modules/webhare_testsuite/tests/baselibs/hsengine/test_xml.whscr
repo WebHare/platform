@@ -811,11 +811,17 @@ MACRO TestRegression()
   ParseHTMLAsXMLWithCallbacks(message.data.subparts[1].data, XMLCallbacks, "UTF-8");
   TestEq('<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-16"></meta></head><body><p>\'&#13;&#10;DIT IS EEN TESTMAIL&#13;&#10;\'</p></body></html>', cbresult);
 
-  /* Passing an empty document to a validator was a good way to crash stuff */
+  // Passing an empty document to a validator was a good way to crash stuff
   STRING validationdoc := '<?xml version="1.0" encoding="UTF-8"?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn::x"></xs:schema>';
   OBJECT emptyvalidation := MakeXMLSchema(StringToBlob(validationdoc));
   TestEq(0, Length(emptyvalidation->GetParseErrors()));
   TestEq(1, LEngth(emptyvalidation->ValidateDocument(MakeXMLDocument(DEFAULT BLOB))));
+
+
+  // How does ListAttributes handle formatted attributes, given XML whitespace collapsing?
+  OBJECT testattrdoc := MakeXMLDocument(StringToBlob('<testattr attr="hi\n    everybody!\ntabbity\ttab"/>'));
+  TestEq("hi     everybody! tabbity tab", testattrdoc->documentelement->GetAttribute("attr"));
+  TestEq("hi     everybody! tabbity tab", testattrdoc->documentelement->ListAttributes()[0].nodevalue);
 
   CloseTest("XMLRegression");
 }
