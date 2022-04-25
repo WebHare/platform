@@ -466,7 +466,6 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
       , references_schema :=        ""
       , references_table :=         ""
       , check :=                    ""
-      , islongkey :=                FALSE
       ], colrec,
       [ required := [ "name", "dbtype" ]
       , discard := [ "internalcolumnname", "noupdate", "documentation", "location" ]
@@ -484,7 +483,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
   BOOLEAN validated_defval;
   SWITCH (colrec.dbtype)
   {
-    CASE "integer", "__longkey"
+    CASE "integer", "integer64", "__longkey"
     {
       IF (colrec.autonumberstart > 0)
       {
@@ -500,11 +499,14 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
           validated_defval := TRUE;
         }
       }
-      IF (colrec.dbtype = "__longkey")
+      IF (colrec.dbtype != "integer")
       {
         colrec.dbtype := "int8";
-        colrec.check := `(((${PostgreSQLEscapeIdentifier(colrec.name)} >= '-2147483648'::integer) AND (${PostgreSQLEscapeIdentifier(colrec.name)} <= 2147483647)))`;
-        colrec.islongkey := TRUE;
+        IF (colrec.autonumberstart > 0)
+        {
+          // Clamp 8bit keys to 32bit range. Needed at least until we have MakeAutonumber64
+          colrec.check := `(((${PostgreSQLEscapeIdentifier(colrec.name)} >= '-2147483648'::integer) AND (${PostgreSQLEscapeIdentifier(colrec.name)} <= 2147483647)))`;
+        }
       }
       ELSE
         colrec.dbtype := "int4";
@@ -512,7 +514,6 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     CASE "boolean"      { colrec.dbtype := "bool"; }
     CASE "datetime"     { colrec.dbtype := "timestamp"; }
     CASE "string"       { colrec.dbtype := "varchar"; }
-    CASE "integer64"    { colrec.dbtype := "int8"; }
     CASE "float"        { colrec.dbtype := "float8"; }
     CASE "money"        { colrec.dbtype := "numeric"; }
     CASE "blob"
@@ -838,8 +839,8 @@ PUBLIC MACRO RebuildColumnAutonumberConfig(OBJECT context, STRING schemaname, ST
   IF (context->trans->__ExecSQL(`SELECT to_regclass($1)::oid`, [ args := VARIANT[ col.sequencename ] ]).to_regclass != 0)
     context->AddCommand(`DROP SEQUENCE IF EXISTS ${col.sequencename}`);
 
-  // Use int4 for __longkey, so the value is clamped and an integer is returned (useful for MakeAutoNumber)
-  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" AND NOT col.islongkey ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
+  // Clamp 8bit keys to 32bit range. Needed at least until we have MakeAutonumber64
+  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart} MAXVALUE 2147483647 START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
 
   // When updating the contents of this function, please update `autonumberfunc_procid` to replace the existing functions
   context->AddCommand(`CREATE OR REPLACE FUNCTION ${col.autonumbersfuncname}(count integer) RETURNS ${col.dbtype}[] VOLATILE LANGUAGE plpgsql AS $$
@@ -1339,12 +1340,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
       {
         CASE "bool"           { coldef.dbtype := "BOOLEAN"; }
         CASE "int4"           { coldef.dbtype := "INTEGER"; }
-        CASE "int8"
-        {
-          coldef.dbtype := "INTEGER64";
-          IF (coldef.name = tablerec.primary_key_name OR col.referenced_table_name != "")
-            coldef.dbtype := "__LONGKEY";
-        }
+        CASE "int8"           { coldef.dbtype := "INTEGER64"; }
         CASE "float8"         { coldef.dbtype := "FLOAT"; }
         CASE "timestamp"      { coldef.dbtype := "DATETIME"; }
         CASE "numeric"        { coldef.dbtype := "MONEY"; }
@@ -1436,7 +1432,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
 
       IF (coldef.dbtype = "VARCHAR")
         INSERT CELL maxlength := col.character_maximum_length INTO coldef;
-      IF (coldef.dbtype IN [ "INTEGER", "__LONGKEY" ])
+      IF (coldef.dbtype IN [ "INTEGER", "INTEGER64", "__LONGKEY" ])
         INSERT CELL autonumberstart := autonumberstart INTO coldef;
 
       INSERT coldef INTO tabledef.cols AT END;

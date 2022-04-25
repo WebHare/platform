@@ -16,27 +16,26 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 ASYNC MACRO Setup()
 {
   INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
+  GetPrimary()->BeginWork();
 
-}
-
-ASYNC MACRO ManageAuthenticationSettings()
-{
   STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
   IF ("*@allow2fa.test.webhare.net" NOT IN allowsecondfactormasks)
   {
     allowsecondfactormasks := STRING[ ...ArrayDelete(allowsecondfactormasks, [ "" ]), "*@allow2fa.test.webhare.net" ];
-    GetPrimary()->BeginWork();
     WriteRegistryKey("system.userrights.allowsecondfactorloginmasks", Detokenize(allowsecondfactormasks, " "));
-    GetPrimary()->CommitWork();
   }
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "minlength:2");
 
-  testfw->SetTestUser("sysop");
+  GetPrimary()->CommitWork();
+}
 
+ASYNC MACRO ManageAuthenticationSettings()
+{
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD, message := DEFAULT RECORD ]));
 
   TTFillByTitle("unittree->unitlist", "Lisa's unit");
 
-  AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->newuser"));
   TT("username")->value := "homer@allow2fa.test.webhare.net";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
@@ -44,7 +43,7 @@ ASYNC MACRO ManageAuthenticationSettings()
   TTFillByTitle("unitcontents->userandrolelist", "homer@allow2fa.test.webhare.net");
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
-  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->:Change"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->btn_managesecondfactor"));
   TestEQ("Not configured", TT(":One-time access code")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
@@ -68,9 +67,9 @@ ASYNC MACRO ManageAuthenticationSettings()
             ]
       ]);
   testfw->CommitWork();
-//abort();
+
   AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
-  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->:Change"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->btn_managesecondfactor"));
   TestEQ("Configured", TT(":One-time access code")->value);
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Disable two-factor authentication"));
@@ -87,11 +86,38 @@ ASYNC MACRO ManageAuthenticationSettings()
       , data :=             ""
       ]);
 
-
   TestEQ("Not configured", TT(":One-time access code")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->btn_changepassword"));
+  TestEq(TRUE, TT("newpassword", [ findinvisible := TRUE ])->visible);
+  TT("newpassword")->value := "a";
+  TT("confirmpassword")->value := "a";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
+  TestAuditEvent(
+      [ entity :=           homer
+      , login :=            "homer@allow2fa.test.webhare.net"
+      , byentity :=         testfw->GetUserObject("sysop")->entityid
+      , bylogin :=          "sysop@beta.webhare.net"
+      , browsertriplet :=   ""
+      , ip :=               ""
+      , type :=             "wrd:authsettings.setpassword"
+      , impersonated :=     FALSE
+      , data :=             ""
+      ]);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //STORY: Try to edit self, shouldn't see mangagement mode but normal password flow
+  TTFillByTitle("unittree->unitlist", "webhare_testsuite.unit");
+  TTFillByTitle("unitcontents->userandrolelist", "sysop@beta.webhare.net");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->btn_changepassword"));
+  TestEq(TRUE, TT("enterpasswordforauthorization")->visible);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -134,6 +160,9 @@ ASYNC MACRO TestAuditLog()
       TestEQMembers(
           [ [ bylogin :=              "sysop@beta.webhare.net"
             , wrdaudit_type :=        "Disabled two factor authentication"
+            ]
+          , [ bylogin :=              "sysop@beta.webhare.net"
+            , wrdaudit_type :=        "Set password"
             ]
           , [ byentity :=             testfw->GetUserWRDId("lisa")
             , bylogin :=              "lisa@beta.webhare.net"

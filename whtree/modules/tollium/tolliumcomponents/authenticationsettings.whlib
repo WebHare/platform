@@ -190,8 +190,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   MACRO SetManagementMode(BOOLEAN newmanagementmode)
   {
     this->_managementmode := newmanagementmode;
-    ^changepassword->enabled := NOT this->_managementmode;
-    ^btn_changepassword->visible := NOT this->_managementmode;
   }
 
   MACRO SetAllowSecondFactor(BOOLEAN newallowsecondfactor)
@@ -232,7 +230,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
 
     BOOLEAN have_password := RecordExists(value) AND IsValueSet(value.passwords) AND value.passwords[END-1].passwordhash NOT IN [ "", "*" ];
     ^passwordfield->value := have_password ? "password" : "";
-    ^changepassword->enabled := have_password;
 
     BOOLEAN have_secondfactor := RecordExists(value) AND IsValueSet(value.totp);
     ^secondfactorstatus->value := have_secondfactor
@@ -303,7 +300,8 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
 
     this->owner->RunScreen(Resolve("authenticationsettings.xml#editauthsettingspassword"), CELL
         [ valuekeeper := this->_valuekeeper
-        , this->validationchecks
+        //when managing other passwords, you're allowed to ignore password rules.
+        , validationchecks := this->managementmode ? "" : this->validationchecks
         , cursettings := this->_valuekeeper->GetExistingValue()
         ]);
     this->Reload();

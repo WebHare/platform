@@ -31,7 +31,7 @@
                     </xs:complexContent>
                   </xs:complexType>
                 </xs:element>
-                <xs:element name="__longkey">
+                <xs:element name="__longkey"> <!-- FIXME remove when Connect is updated -->
                   <xs:complexType>
                     <xs:complexContent>
                       <xs:extension base="BaseColumnType">
@@ -44,7 +44,10 @@
                 <xs:element name="integer64">
                   <xs:complexType>
                     <xs:complexContent>
-                      <xs:extension base="BaseColumnType" />
+                      <xs:extension base="BaseColumnType">
+                        <xs:attributeGroup ref="ReferenceAttributes" />
+                        <xs:attribute name="autonumberstart" type="xs:integer" />
+                      </xs:extension>
                     </xs:complexContent>
                   </xs:complexType>
                 </xs:element>
