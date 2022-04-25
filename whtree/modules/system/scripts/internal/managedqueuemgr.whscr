@@ -804,6 +804,13 @@ STATIC OBJECTTYPE QueueMgr
       RETURN;
     }
 
+    /* Has this task already been rescheduled by ReadManagedTasksFromDB?
+       Can happen when this task is marked as finished, the onfinish call is
+       scheduled by microtasks, and ReadManagedTasksFromDB runs in between
+    */
+    IF (this->managedtasks[pos.position].item->id != item->id)
+      RETURN;
+
     // If the managed task has been rescheduled, build a new queue item for executing it
     IF (this->managedtasks[pos.position].iterations != item->taskdata.iterations)
     {

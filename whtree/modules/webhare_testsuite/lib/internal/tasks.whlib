@@ -131,3 +131,35 @@ PUBLIC STATIC OBJECTTYPE UserEditedTask EXTEND ManagedTaskBase
     this->ResolveByCompletion(data);
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE DoubleScheduleTask EXTEND ManagedTaskBase
+<
+  MACRO GotCommit(BOOLEAN iscommit)
+  {
+    Sleep(200);
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
+  {
+    OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:doubleschedule_connectport");
+    link->SendMessage([ msg := `I'm alive ${taskdata.t}: stage ${Right(`00000${taskdata.stage}`, 6)}` ]);
+    link->Close();
+
+    IF (taskdata.stage < taskdata.iters)
+    {
+      // Sleep a bit after the commit
+      //GetPrimary()->RegisterCommitHandler("", PTR this->GotCommit);
+
+      FOR (INTEGER i := 0; i < taskdata.stage; i := i + 1)
+        BroadcastEvent(`webhare_testsuite:eventpilefiller.${taskdata.stage}.${i}`, DEFAULT RECORD);
+
+      this->ResolveByRestart(DEFAULT DATETIME, [ newdata := [ ...taskdata, stage := taskdata.stage + 1 ] ]);
+    }
+    ELSE
+    {
+      this->ResolveByCompletion(DEFAULT RECORD);
+    }
+  }
+>;
+
+
