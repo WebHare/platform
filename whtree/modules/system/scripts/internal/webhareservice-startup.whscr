@@ -107,6 +107,18 @@ IF(RecordExists(shrinkwrapfile))
 }
 
 __disable_compilable_lockmgr := TRUE;
+
+//Write version info so wh can check the last started version at startup
+RECORD versioninfo := CELL[ ...GetWebHareConfiguration()
+                          , ...GetWebhareVersionInfo()
+                            //delete variants of the same paths
+                          , DELETE ephemeralroot
+                          , DELETE logroot
+                          , DELETE varroot
+                          ];
+StoreDiskFile(MergePath(GetWebhareConfiguration().basedataroot, "webhare.version"), EncodeJSONBlob(versioninfo), [ overwrite := TRUE ]);
+
+//Continu with the softreset path
 RunRestartReset(showinfo, FALSE);
 
 IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
