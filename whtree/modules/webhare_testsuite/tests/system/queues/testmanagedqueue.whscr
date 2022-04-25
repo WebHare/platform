@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -289,7 +290,46 @@ ASYNC MACRO TestNotBeforeTasks()
   AWAIT cancelpromise;
 }
 
+STRING FUNCTION AcceptLink(OBJECT port)
+{
+  OBJECT link := port->Accept(MAX_DATETIME);
+  STRING retval := link->ReceiveMessage(MAX_DATETIME).msg.msg;
+  link->Close();
+  RETURN retval;
+}
+
+MACRO TestDoubleSchedule()
+{
+  /* Tests double scheduling of tasks that have resolved by restart.
+     The tasks increasingly fill the event pipe so the event signalling the
+     task table update interferes with the handling of the task finish report by
+     the managed worker.
+  */
+  INTEGER iters := 200;
+  testfw->BeginWork();
+
+  OBJECT port := CreateGlobalIPCPort("webhare_testsuite:doubleschedule_connectport");
+  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 1 ]);
+  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 2 ]);
+  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 3 ]);
+  ScheduleManagedTask("webhare_testsuite:doublescheduletask", CELL[ stage := 1, iters, t := 4 ]);
+  testfw->CommitWork();
+
+  STRING ARRAY messages;
+  FOR (INTEGER i := 0; i < 4 * iters; i := i + 1)
+  {
+    STRING str := AcceptLink(port);
+    RECORD pos := LowerBound(messages, str);
+    TestEQ(FALSE, pos.found, `The task iterations with message ${EncodeJSON(str)} has been duplicated`);
+    INSERT str INTO messages AT pos.position;
+  }
+  port->Close();
+}
+
 RunTestframework([ PTR TestWaitableAction
                  , PTR TestMarkAsTemporaryFailure
                  , PTR TestNotBeforeTasks
+                 , PTR TestDoubleSchedule()
+                 ],
+                 [ wrdschema := FALSE
                  ]);

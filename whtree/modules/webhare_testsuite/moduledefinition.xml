@@ -23,6 +23,9 @@
       <arg>arg2</arg>
     </task>
     <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
+
+    <taskcluster harescriptworkers="2" tag="testcluster" />
+
     <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
     <managedtask   type="applyruletask" library="lib/internal/tasks.whlib" objectname="applyruletask"/> <!-- used by actions.whscr -->
     <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask" failreschedule="4000" />
@@ -31,6 +34,7 @@
     <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
     <managedtask   type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
     <managedtask   type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
+    <managedtask   type="doublescheduletask" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" cluster="testcluster" />
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask"/>
     <ephemeraltask type="nodetask" library="js/task.es" />
   </servicemanager>
