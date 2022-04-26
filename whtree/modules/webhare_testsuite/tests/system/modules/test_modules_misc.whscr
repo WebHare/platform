@@ -30,6 +30,16 @@ MACRO TestApplicability()
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test4")));
 }
 
+MACRO TestConfigurationAndVersion()
+{
+  TestEq(TRUE, GetWebhareVersionInfo().versionnum >= 43600 AND GetWebhareVersionInfo().versionnum < 99999);
+  IF(GetWebhareVersionInfo().docker)
+  {
+    TestEq(40,Length(GetWebhareVersionInfo().committag));
+    TestEq(FALSE, GetWebhareVersionInfo().builddate LIKE '*"*');
+  }
+}
+
 MACRO TestWithModule()
 {
   testfw->SetupTestModule();
@@ -40,5 +50,6 @@ MACRO TestWithModule()
 
 RunTestframework([ PTR TestSemvers
                  , PTR TestApplicability
+                 , PTR TestConfigurationAndVersion
                  , PTR TestWithModule
                  ]);
