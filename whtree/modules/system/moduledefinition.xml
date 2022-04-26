@@ -1515,16 +1515,8 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Generate widget preview for files of this type.
         </d:documentation>
       </d:boolean>
-      <d:varchar name="previewlibrary" maxlength="256">
-        <d:documentation>
-          If this a file of this type has never been published, generate a preview for files of this type using the object previewobjectname in this library.
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="previewobjectname" maxlength="256">
-        <d:documentation>
-          If this a file of this type has never been published, generate a preview for files of this type using this object in the library previewlibrary.
-        </d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="previewlibrary" />
+      <d:obsoletecolumn name="previewobjectname" />
       <d:boolean name="orphan">
         <d:documentation>
           When a contenttype doesn't exist anymore in a siteprofile but is still kept in the database, the orphan field will be set to TRUE.

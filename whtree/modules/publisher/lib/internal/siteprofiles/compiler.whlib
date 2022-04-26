@@ -298,7 +298,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
         RETURN CELL [ cloneoncopy := TRUE, isfiletype := FALSE, isfoldertype := FALSE, orphan := FALSE
                     , isacceptableindex := FALSE
                     , needstemplate := FALSE, ispublishable := FALSE, ispublishedassubdir := FALSE
-                    , generatepreview := FALSE, previewobjectname:="", previewlibrary := ""
+                    , generatepreview := FALSE
                     , isdynamicexecution := FALSE, capturesubpaths := FALSE
                     ];
       }
@@ -317,8 +317,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                            , ispublishable := RecordExists(ctype.filetype) AND ctype.filetype.ispublishable
                            , ispublishedassubdir := RecordExists(ctype.filetype) AND ctype.filetype.ispublishedassubdir
                            , generatepreview := RecordExists(ctype.filetype) AND ctype.filetype.generatepreview
-                           , previewobjectname := RecordExists(ctype.filetype) ? ctype.filetype.previewobjectname : ""
-                           , previewlibrary := RecordExists(ctype.filetype) ? ctype.filetype.previewlibrary : ""
                            , capturesubpaths := RecordExists(ctype.filetype) AND ctype.filetype.capturesubpaths
                            ];
 

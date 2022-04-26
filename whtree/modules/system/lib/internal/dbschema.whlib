@@ -220,8 +220,6 @@ PUBLIC SCHEMA
     , BOOLEAN "ispublishable"
     , BOOLEAN "generatepreview"
     , BOOLEAN "capturesubpaths"
-    , STRING "previewlibrary"
-    , STRING "previewobjectname"
     , DATETIME "orphansince"
     ; KEY id
     > fs_types

@@ -334,8 +334,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       ctype.filetype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
     IF(ftype->HasAttribute("ispublishable"))
       ctype.filetype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
-    ctype.filetype.previewlibrary := ftype->GetAttribute("previewlibrary");
-    ctype.filetype.previewobjectname := ftype->GetAttribute("previewobjectname");
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.filetype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));

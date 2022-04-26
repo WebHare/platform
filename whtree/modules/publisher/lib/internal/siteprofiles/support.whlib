@@ -53,8 +53,6 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          , pagelistprovider := ""
          , requirescontent := FALSE
          , generatepreview := FALSE
-         , previewlibrary := ""
-         , previewobjectname := ""
          , searchcontentprovider := ""
          , indexversion := ""
          , isacceptableindex := FALSE
