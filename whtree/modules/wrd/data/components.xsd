@@ -833,12 +833,16 @@
             <xs:appinfo>
               <tai:callbacksignature arguments="object integer" />
             </xs:appinfo>
-            <xs:documentation>
-              <html:p>
-                Handler used in case of the user trying to delete an entity.
-                If onrowdelete is specified, the default confirmation messagebox will not be used.
-              </html:p>
-            </xs:documentation>
+            <xs:documentation>Handler used in case of the user trying to delete an entity. If specified, the default confirmation messagebox will not be used.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="onentitiesdelete" type="tc:Handler">
+          <xs:annotation>
+            <xs:appinfo>
+              <tai:callbacksignature arguments="object integerarray" />
+            </xs:appinfo>
+            <xs:documentation>Handler used in case of the user trying to delete entities (for selectmultiple editors). If specified, the default confirmation messagebox will not be used.</xs:documentation>
           </xs:annotation>
         </xs:attribute>
 

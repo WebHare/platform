@@ -67,7 +67,11 @@ PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
           STRING param := Left(line,SearchSubstring(line,'='));
           IF(param="")
             CONTINUE;
-          buildinfo := CellInsert(buildinfo, param, TrimWhitespace(Substring(line, Length(param)+1)));
+
+          STRING value := TrimWhitespace(Substring(line, Length(param)+1));
+          IF(value LIKE '"*"') //unescape quotes
+            value := DecodeJava(Substring(value,1,Length(value)-2));
+          buildinfo := CellInsert(buildinfo, param, value);
         }
       }
     }

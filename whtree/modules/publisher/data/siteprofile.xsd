@@ -784,20 +784,6 @@
         <xs:attribute name="isacceptableindex" type="xs:boolean" />
         <xs:attribute name="ispublishable" type="xs:boolean" />
         <xs:attribute name="ispublishedassubdir" type="xs:boolean" />
-        <xs:attribute name="previewlibrary" type="xs:string">
-          <xs:annotation>
-            <xs:documentation>
-              If this a file of this type has never been published, generate a preview for files of this type using the object previewobjectname in this library.
-            </xs:documentation>
-          </xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="previewobjectname" type="xs:string">
-          <xs:annotation>
-            <xs:documentation>
-              If this a file of this type has never been published, generate a preview for files of this type using this object in the library previewlibrary.
-            </xs:documentation>
-          </xs:annotation>
-        </xs:attribute>
         <xs:attributeGroup ref="CaptureSubPaths" />
         <xs:attribute name="pagelistprovider">
           <xs:annotation>

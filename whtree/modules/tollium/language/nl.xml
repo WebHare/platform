@@ -1095,6 +1095,10 @@
         <text tid="wrongcode">Ongeldige code ingevoerd, probeer het alsjeblieft opnieuw.</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="movetoselect">   <!-- tolliumcomponents.movetoselect -->
+      <text tid="allisselected">Alles is geselecteerd</text>
+      <text tid="nothingisselected">Niets geselecteerd</text>
+    </textgroup>
     <textgroup gid="passwordfield">   <!-- tolliumcomponents.passwordfield -->
       <text tid="confirmpassword">Nogmaals nieuw wachtwoord</text>
       <text tid="newpassword">Nieuw wachtwoord</text>

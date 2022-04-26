@@ -12,8 +12,5 @@ to the WebHare Platform to allow your module to integrate with it. We are
 generally open to adding additional hooks and integration points, especially if
 we can build them in a way that makes them generally useful to other modules too.
 
-Contributions should come with automatic tests runnable by GitLab CI wherever
+Contributions should come with automatic tests runnable by GitLab CI whenever
 reasonably possible.
-
-We require external contributors to agree to a contributor license agreement(https://www.webhare.dev/cla)
-before we can accept your submission.
