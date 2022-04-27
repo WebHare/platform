@@ -14,6 +14,7 @@
 #include <harescript/vm/baselibs.h>
 #include <blex/unicode.h>
 #include <string_view>
+#include <optional>
 #include <limits>
 #include <iomanip>
 #include <variant>

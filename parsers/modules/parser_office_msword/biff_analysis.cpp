@@ -468,7 +468,7 @@ void BiffParaAnalyzer::ParagraphsRead(void)
 
                 //Reset the grpprlpointer merges - we use these to reduce the
                 //memory usage when two paragraphs refer to the same properties
-                memset (mergers,0,sizeof(mergers));
+                std::fill_n(mergers, 256, ParagraphMerger());
 
                 //Run through the entries and record BX (and later PAPX) information
                 for (unsigned curentry=0;curentry<unsigned(entries);++curentry)
