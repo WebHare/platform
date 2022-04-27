@@ -905,7 +905,8 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN
         [ value :=        value
         , eventmasks :=   site_referrals_mask
-        , ttl :=          60 * 1000
+        //CSP subset can still be a lot of data, so updated cache from earlier 1 to 15 minutes. if this triggers more CI races, good to know the invalidation was broken
+        , ttl :=          15 * 60 * 1000
         ];
   }
 
