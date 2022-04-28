@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -90,7 +91,13 @@ ASYNC MACRO WalkTheTree()
   OBJECT crashfile := GetTestsuiteTempFolder()->CreateFile([ name := "crash.rtd", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
   OBJECT crashlink := GetTestsuiteTempFolder()->CreateFile([ name := "crash.link", typens := "http://www.webhare.net/xmlns/publisher/internallink", publish := TRUE, filelink := crashfile->id ]);
   OBJECT disconnectedlink := GetTestsuiteTempFolder()->CreateFile([ name := "disconnectedlink", typens := "http://www.webhare.net/xmlns/publisher/internallink", publish := TRUE ]);
+
+  // to simulate the situation where a file/folder has a type that is no longer a valid file/folder type... (which the DB can't currently prevent) we'll force a file of type 'sitesettings'
+  OBJECT invalidfile := GetTestsuiteTempFolder()->CreateFile( [ name := "invalidfiletype", type := 0, publish := TRUE ]);
+  UPDATE system.fs_objects SET type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings")->id WHERE id = invalidfile->id;
+
   testfw->CommitWork();
+  WaitForPublishCompletion(GetTestsuiteTempFolder()->id, [ expecterrorsfor := INTEGER[ crashfile->id, disconnectedlink->id, invalidfile->id ]]); //the testsite better be published as tests will be using it!
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
 
@@ -219,6 +226,14 @@ ASYNC MACRO WalkTheTree()
   //Open and close the error screen
   AWAIT(ExpectScreenChange(+1, PTR pvs.messagecomp->onclicklink(link->GetAttribute("href"))));
   AWAIT(ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel));
+
+  //Verify a file of an orphan type
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="invalidfiletype";
+  TestEq(1, Length(TT("filelist")->value));
+  pvs := TT("previewbrowser")->GetPreviewState();
+  TestEqLike("*/invalidfiletype", pvs.displayurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
+  TestEq(TRUE, pvs.showingmessages);
 
   // Select the internal link to the errored file
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.link";

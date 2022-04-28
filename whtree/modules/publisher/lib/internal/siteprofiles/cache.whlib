@@ -118,17 +118,11 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
   }
   ELSE IF(CellExists(options,'isfolder'))
   {
-    IF(options.isfolder AND NOT RecordExists(type.foldertype))
-      IF(options.mockifmissing)
-        type.fstype := DEFAULT RECORD;
-      ELSE
-        RETURN DEFAULT RECORD;
+    IF(options.isfolder AND NOT RecordExists(type.foldertype) AND NOT options.mockifmissing)
+      RETURN DEFAULT RECORD;
 
-    IF(NOT options.isfolder AND NOT RecordExists(type.filetype))
-      IF(options.mockifmissing)
-        type.fstype := DEFAULT RECORD;
-      ELSE
-        RETURN DEFAULT RECORD;
+    IF(NOT options.isfolder AND NOT RecordExists(type.filetype) AND NOT options.mockifmissing)
+      RETURN DEFAULT RECORD;
   }
 
   STRING ns := ismissing ? RecordExists(fstype) ? fstype.namespace : "#" || id : type.namespace;
