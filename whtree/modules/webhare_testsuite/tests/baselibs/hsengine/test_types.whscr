@@ -32,7 +32,7 @@ MACRO MultiTest()
 
   result := TestCompileAndRun('<?wh INTEGER i := 1, j := 2; PRINT(i || j); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "12", result.output);
+  TestEq("12", result.output);
 
   CloseTest("TestTypes: MultiTest");
 }
@@ -41,11 +41,11 @@ MACRO TypeIdTest()
 {
   OpenTest("TestTypes: TypeIdTest");
 
-  TestEqualInteger(1, TYPEID(INTEGER), TYPEID(1));
-  TestEqualInteger(2, TYPEID(BOOLEAN), TYPEID(TRUE));
-  TestEqualInteger(3, TYPEID(STRING), TYPEID(""));
-  TestEqualInteger(4, TYPEID(STRING ARRAY), TYPEID([""]));
-  TestEqualInteger(5, TYPEID(RECORD ARRAY), TYPEID([[a:=0]]));
+  TestEq(TYPEID(INTEGER), TYPEID(1));
+  TestEq(TYPEID(BOOLEAN), TYPEID(TRUE));
+  TestEq(TYPEID(STRING), TYPEID(""));
+  TestEq(TYPEID(STRING ARRAY), TYPEID([""]));
+  TestEq(TYPEID(RECORD ARRAY), TYPEID([[a:=0]]));
 
   CloseTest("TestTypes: TypeIdTest");
 }
@@ -57,23 +57,23 @@ MACRO IntegerTest()
 
   result := TestCompileAndRun('<?wh INTEGER i; PRINT(i || ""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "0", result.output);
+  TestEq("0", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER i := 1; PRINT(i || ""); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER i := 1 + 1; PRINT(i || ""); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "2", result.output);
+  TestEq("2", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER i := 2147483647; PRINT(ToString(i)); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "2147483647", result.output);
+  TestEq("2147483647", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER i := 2147483647; PRINT(i || ""); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "2147483647", result.output);
+  TestEq("2147483647", result.output);
 
   errors := TestCompile('<?wh INTEGER i := 2147483648; ?>');
   MustContainError(11, errors, 62, "MONEY", "INTEGER");
@@ -186,13 +186,13 @@ MACRO Integer64Test()
 {
   OpenTest("TestType: Integer64Test");
 
-  TestEqual(  1, 10i64, INTEGER64(10));
-  TestEqual(  2, -10i64, INTEGER64(-10));
-  TestEqual(  3, "-10a", -10i64 || "a");
-  TestEqual(  4, "9223372036854775807", 9223372036854775807i64 || "");
-  TestEqual(  5, "-9223372036854775808", -9223372036854775808i64 || "");
-  TestEqual(  6, 0, 65536*65536);
-  TestEqual(  7, 4294967296I64, 65536i64*65536);
+  TestEq(10i64, INTEGER64(10));
+  TestEq(-10i64, INTEGER64(-10));
+  TestEq("-10a", -10i64 || "a");
+  TestEq("9223372036854775807", 9223372036854775807i64 || "");
+  TestEq("-9223372036854775808", -9223372036854775808i64 || "");
+  TestEq(0, 65536*65536);
+  TestEq(4294967296I64, 65536i64*65536);
 
   CloseTest("TestType: Integer64Test");
 }
@@ -204,21 +204,21 @@ MACRO StringTest()
 
   result := TestCompileAndRun('<?wh STRING s; PRINT(s); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh STRING s := "x"; PRINT(s); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "x", result.output);
+  TestEq("x", result.output);
   result := TestCompileAndRun("<?wh STRING s := 'x'; PRINT(s); ?>");
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "x", result.output);
+  TestEq("x", result.output);
 
   result := TestCompileAndRun('<?wh STRING s := "x" || "y"; PRINT(s); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "xy", result.output);
+  TestEq("xy", result.output);
   result := TestCompileAndRun("<?wh STRING s := 'x' || 'y'; PRINT(s); ?>");
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "xy", result.output);
+  TestEq("xy", result.output);
 
   errors := TestCompile('<?wh STRING s := "x\ny"; PRINT(s); ?>');
   MustContainError(11, errors, 10);
@@ -242,80 +242,80 @@ MACRO TemplateTest()
   // simple tempate strings behave like normal strings
   result := TestCompileAndRun("<?wh STRING s := `x`; PRINT(s); ?>");
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "x", result.output);
+  TestEq("x", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x` || `y`; PRINT(s); ?>");
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "xy", result.output);
+  TestEq("xy", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x` || 0; PRINT(s); ?>");
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "x0", result.output);
+  TestEq("x0", result.output);
 
   // newlines are allowed (and normalized) in template strings
   result := TestCompileAndRun("<?wh STRING s := `x\ny`; PRINT(s); ?>");
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "x\ny", result.output);
+  TestEq("x\ny", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x\r\ny`; PRINT(s); ?>");
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "x\ny", result.output);
+  TestEq("x\ny", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x\ry`; PRINT(s); ?>");
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "x\ny", result.output);
+  TestEq("x\ny", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x\r\n\ry`; PRINT(s); ?>");
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "x\n\ny", result.output);
+  TestEq("x\n\ny", result.output);
 
   // escape special characters
   result := TestCompileAndRun("<?wh STRING s := `\\``; PRINT(s); ?>");
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "`", result.output);
+  TestEq("`", result.output);
   result := TestCompileAndRun("<?wh STRING s := `a\\${'a'}a`; PRINT(s); ?>");
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "a${'a'}a", result.output);
+  TestEq("a${'a'}a", result.output);
   result := TestCompileAndRun("<?wh STRING s := `a$\\{'a'}a`; PRINT(s); ?>");
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "a${'a'}a", result.output);
+  TestEq("a${'a'}a", result.output);
   result := TestCompileAndRun("<?wh STRING s := `a\nb${'c'||`d${1}`}e\nf\\`g\\`\\${h}$\\{i}j`; PRINT(s); ?>");
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "a\nbcd1e\nf`g`${h}${i}j", result.output);
+  TestEq("a\nbcd1e\nf`g`${h}${i}j", result.output);
 
   // simple placeholders
   result := TestCompileAndRun("<?wh STRING s := `x${'y'}z`; PRINT(s); ?>");
   TestCleanResult(25, result.errors);
-  TestEqualString(26, "xyz", result.output);
+  TestEq("xyz", result.output);
   result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `x${p}z`; PRINT(s); ?>");
   TestCleanResult(27, result.errors);
-  TestEqualString(28, "xyz", result.output);
+  TestEq("xyz", result.output);
   result := TestCompileAndRun("<?wh STRING s := `${'y'}`; PRINT(s); ?>");
   TestCleanResult(29, result.errors);
-  TestEqualString(30, "y", result.output);
+  TestEq("y", result.output);
   result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `${p}`; PRINT(s); ?>");
   TestCleanResult(31, result.errors);
-  TestEqualString(32, "y", result.output);
+  TestEq("y", result.output);
 
   // more advanced placeholders
   result := TestCompileAndRun("<?wh INTEGER p := 1; STRING s := `x${ ToString(p) }z`; PRINT(s); ?>");
   TestCleanResult(33, result.errors);
-  TestEqualString(34, "x1z", result.output);
+  TestEq("x1z", result.output);
   result := TestCompileAndRun("<?wh INTEGER p := 1; STRING s := `x${ p }z`; PRINT(s); ?>");
   TestCleanResult(35, result.errors);
-  TestEqualString(36, "x1z", result.output);
+  TestEq("x1z", result.output);
   result := TestCompileAndRun("<?wh BOOLEAN p := TRUE; STRING s := `x${ p ? '1' : '0' }z`; PRINT(s); ?>");
   TestCleanResult(37, result.errors);
-  TestEqualString(38, "x1z", result.output);
+  TestEq("x1z", result.output);
   result := TestCompileAndRun("<?wh BOOLEAN p := FALSE; STRING s := `x${ NOT p ? 1 : 0 }z`; PRINT(s); ?>");
   TestCleanResult(39, result.errors);
-  TestEqualString(40, "x1z", result.output);
+  TestEq("x1z", result.output);
 
   // recursive placeholders
   result := TestCompileAndRun("<?wh STRING s := `x${ `y` }z`; PRINT(s); ?>");
   TestCleanResult(41, result.errors);
-  TestEqualString(42, "xyz", result.output);
+  TestEq("xyz", result.output);
   result := TestCompileAndRun("<?wh STRING s := `x${ `${ 'y' }` }z`; PRINT(s); ?>");
   TestCleanResult(43, result.errors);
-  TestEqualString(44, "xyz", result.output);
+  TestEq("xyz", result.output);
   result := TestCompileAndRun("<?wh STRING p := 'y'; STRING s := `x${ `${ p }` }z`; PRINT(s); ?>");
   TestCleanResult(45, result.errors);
-  TestEqualString(46, "xyz", result.output);
+  TestEq("xyz", result.output);
 
   // check for errors
   errors := TestCompile('<?wh STRING s := `${`; ?>');
@@ -336,20 +336,20 @@ MACRO TemplateTest()
 
   result := TestCompileAndRun("<?wh PRINT(`${1}\\`${2}`); ?>");
   TestCleanResult(0, result.errors);
-  TestEqualString(0, "1`2", result.output);
+  TestEq("1`2", result.output);
 
   // template strings in selects
   result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
   TestCleanResult(0, result.errors);
-  TestEqualString(0, "x", result.output);
+  TestEq("x", result.output);
 
   result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x${ `${ 'y' }` }z` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
   TestCleanResult(0, result.errors);
-  TestEqualString(0, "xyz", result.output);
+  TestEq("xyz", result.output);
 
   result := TestCompileAndRun("<?wh STRING s := SELECT AS STRING `x${ `${ `${'y'}${'a'}` }` }z` || e FROM [ [ e := '' ] ]; PRINT(s); ?>");
   TestCleanResult(0, result.errors);
-  TestEqualString(0, "xyaz", result.output);
+  TestEq("xyaz", result.output);
 
   CloseTest("TestTypes: TemplateTest");
 }
@@ -361,15 +361,15 @@ MACRO BooleanTest()
 
   result := TestCompileAndRun('<?wh BOOLEAN b; PRINT(b ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN b := TRUE; PRINT(b ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "TRUE", result.output);
+  TestEq("TRUE", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN b := TRUE = FALSE; PRINT(b ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   errors := TestCompile('<?wh BOOLEAN b := 1; ?>');
   MustContainError(7, errors, 62, 'INTEGER', 'BOOLEAN');
@@ -523,23 +523,23 @@ MACRO CastTest()
 
   result := TestCompileAndRun('<?wh RECORD a := [ b := 1 ]; PRINT(""||INTEGER(a.b)); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD a := [ b := 1 ]; INTEGER(a.b); PRINT(""||INTEGER(a.b)); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD a := [ b := 3 ]; IF ((FLOAT(a.b) / 2) > 1) PRINT("OK"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "OK", result.output);
+  TestEq("OK", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[ a := 1, b := 2 ]]; PRINT(""||LENGTH(UnpackRecord(RECORD(a)))); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "2", result.output);
+  TestEq("2", result.output);
 
   result := TestCompileAndRun('<?wh PRINT(""||INTEGER(1)); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "1", result.output);
+  TestEq("1", result.output);
 
   INTEGER t_i := 1;
   MONEY t_m := 1.25m;
@@ -721,7 +721,7 @@ MACRO HeavyCastTest()
     IF (combo.c_i)
     {
       TestCleanResult(1, result.errors);
-      TestEqualString(4, GetTypeName(combo.type_to), result.output);
+      TestEq(GetTypeName(combo.type_to), result.output);
     }
     ELSE
     {
@@ -738,7 +738,7 @@ MACRO HeavyCastTest()
     IF (combo.c_e)
     {
       TestCleanResult(1, result.errors);
-      TestEqualString(4, GetTypeName(combo.type_to), result.output);
+      TestEq(GetTypeName(combo.type_to), result.output);
     }
     ELSE
     {

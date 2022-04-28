@@ -85,13 +85,13 @@ MACRO SelectTest()
   MustNotContainWarning(4, errors, 10);
 
   //Test ambiguous [parse (is "" a column name or an expression?)
-  TestEqualRecord(5, [ append := "", t := 1 ], SELECT "" AS append, t FROM [ [ t := 1 ] ]);
+  TestEq([[ append := "", t := 1 ]], SELECT "" AS append, t FROM [ [ t := 1 ] ]);
 
   //Test column name overrride
-  TestEqualRecord(6, [ quack := 5 ], SELECT test AS quack FROM [[ test := 5 ]]);
+  TestEq([[ quack := 5 ]], SELECT test AS quack FROM [[ test := 5 ]]);
 
   //Test column name overrride
-  TestEqualRecord(7, [ quack := 5 ], SELECT quack := test FROM [[ test := 5 ]]);
+  TestEq([[ quack := 5 ]], SELECT quack := test FROM [[ test := 5 ]]);
 
   //Test odd compile error: SELECT FROM users WHERE id = VAR id) returned 'unknown token id' instead of 'unknown variable 'id')
   errors := TestCompile('<?wh TABLE<INTEGER id> users; SELECT FROM users WHERE id = VAR id;');
@@ -106,7 +106,7 @@ MACRO SelectTest()
 
   // Check if VAR source-name skips the substition record
   RECORD ARRAY test := [ [ t := 1 ] ];
-  TestEqualRecord(11, [ value := 1, t := 1 ], SELECT LENGTH(VAR test) AS value, t FROM test);
+  TestEq([[ value := 1, t := 1 ]], SELECT LENGTH(VAR test) AS value, t FROM test);
 
   errors := TestCompile('<?wh SCHEMA< TABLE <INTEGER ID > a, TABLE< INTEGER ID2 > b > sch; SELECT a.id, b.id2 FROM sch.a, sch.b;');
   TestCleanResult(12, errors);
@@ -118,10 +118,10 @@ MACRO SelectTest()
 
   result := TestCompileAndRun('<?wh OBJECTTYPE a<PUBLIC RECORD ARRAY b;>;OBJECT c := NEW a; c->b := [[ d := "1" ]];PRINT(SELECT AS STRING b.d FROM c->b); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "1", result.output);
+  TestEq("1", result.output);
 
   // Check column overwrites
-  TestEqualRecord(17, [ [ a := 0 ], [ a := 1, b := 2 ] ], (SELECT *, a := #row FROM [[ a := 10 ], [ b := 2 ]] AS row));
+  TestEq([ [ a := 0 ], [ a := 1, b := 2 ] ], (SELECT *, a := #row FROM [[ a := 10 ], [ b := 2 ]] AS row));
 
   errors := TestCompile('<?wh TABLE<INTEGER a,INTEGER b> users;SELECT *, b := 17 FROM users; ?>');
   TestCleanResult(18, errors);
@@ -194,89 +194,89 @@ MACRO SelectArrayTest(BOOLEAN with_dbase)
   /* SELECT nothing */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT FROM x; PRINT (Length(a) || ""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "4", result.output);
+  TestEq("4", result.output);
 
   /* SELECT everything */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT * FROM x; FOREVERY (RECORD r FROM a) PRINT (r.id || "-" || r.furniture || "-" || r.height || ", "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1-Clock-10, 2-Table-7, 3-Radio-4, 4-Chair-7, ", result.output);
+  TestEq("1-Clock-10, 2-Table-7, 3-Radio-4, 4-Chair-7, ", result.output);
 
   /* SELECT column */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x; FOREVERY (RECORD r FROM a) PRINT (r.furniture || ", "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "Clock, Table, Radio, Chair, ", result.output);
+  TestEq("Clock, Table, Radio, Chair, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT id, furniture FROM x; FOREVERY (RECORD r FROM a) PRINT (r.id || "-" || r.furniture || ", "); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
+  TestEq("1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
 
   /* SELECT column AS alternative_name */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture AS item FROM x; FOREVERY (RECORD r FROM a) PRINT (r.item || ", "); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "Clock, Table, Radio, Chair, ", result.output);
+  TestEq("Clock, Table, Radio, Chair, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT id, furniture AS item FROM x; FOREVERY (RECORD r FROM a) PRINT (r.id || "-" || r.item || ", "); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
+  TestEq("1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT id AS number, furniture AS item FROM x; FOREVERY (RECORD r FROM a) PRINT (r.number || "-" || r.item || ", "); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
+  TestEq("1-Clock, 2-Table, 3-Radio, 4-Chair, ", result.output);
 
   /* WHERE expr */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x WHERE id < 3; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "Clock, Table, ", result.output);
+  TestEq("Clock, Table, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x WHERE id < 3 AND furniture != "Table"; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "Clock, ", result.output);
+  TestEq("Clock, ", result.output);
 
   /* ORDER BY column */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x ORDER BY height; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "Radio, Table, Chair, Clock, ", result.output);
+  TestEq("Radio, Table, Chair, Clock, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x ORDER BY height ASC; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "Radio, Table, Chair, Clock, ", result.output);
+  TestEq("Radio, Table, Chair, Clock, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x ORDER BY height DESC; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "Clock, Table, Chair, Radio, ", result.output);
+  TestEq("Clock, Table, Chair, Radio, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x ORDER BY height, furniture; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(25, result.errors);
-  TestEqualString(26, "Radio, Chair, Table, Clock, ", result.output);
+  TestEq("Radio, Chair, Table, Clock, ", result.output);
 
   /* WHERE expr ORDER BY column */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x WHERE id > 2 ORDER BY furniture; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(27, result.errors);
-  TestEqualString(28, "Chair, Radio, ", result.output);
+  TestEq("Chair, Radio, ", result.output);
 
   /* LIMIT totalrecords */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x LIMIT 2; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(29, result.errors);
-  TestEqualString(30, "Clock, Table, ", result.output);
+  TestEq("Clock, Table, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x LIMIT 0; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(31, result.errors);
-  TestEqualString(32, "", result.output);
+  TestEq("", result.output);
 
   /* WHERE expr LIMIT totalrecords */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x WHERE id > 1 LIMIT 2; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(33, result.errors);
-  TestEqualString(34, "Table, Radio, ", result.output);
+  TestEq("Table, Radio, ", result.output);
 
   /* ORDER BY column LIMIT totalrecords */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x ORDER BY furniture LIMIT 2; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(35, result.errors);
-  TestEqualString(36, "Chair, Clock, ", result.output);
+  TestEq("Chair, Clock, ", result.output);
 
   /* WHERE expr ORDER BY columns LIMIT totalrecords */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; a := SELECT furniture FROM x WHERE id > 1 ORDER BY furniture LIMIT 2; FOREVERY (RECORD r FROM a) PRINT(r.furniture || ", "); ?>');
   TestCleanResult(37, result.errors);
-  TestEqualString(38, "Chair, Radio, ", result.output);
+  TestEq("Chair, Radio, ", result.output);
 
   /* Evil code */
   result := TestCompileAndRun('<?wh ' || decls || 'RECORD ARRAY a; {RECORD ARRAY a := SELECT * FROM x WHERE a.data=id; PRINT("Len:" || Length(a));}');
@@ -288,29 +288,29 @@ MACRO SelectArrayTest(BOOLEAN with_dbase)
   /* DISTINCT */
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT f FROM x; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY f)) PRINT(r.f || ", ");');
   TestCleanResult(50, result.errors);
-  TestEqualString(51, "Clock, Radio, Table, ", result.output);
+  TestEq("Clock, Radio, Table, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT * FROM x; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY f, id)) PRINT(r.id || ", ");');
 //  PrintRecordTo(0, result, "tree");
   TestCleanResult(52, result.errors);
-  TestEqualString(53, "1, 2, 3, 2, ", result.output);
+  TestEq("1, 2, 3, 2, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT f FROM x; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY f)) PRINT(r.f || ", ");');
   TestCleanResult(54, result.errors);
-  TestEqualString(55, "Clock, Radio, Table, ", result.output);
+  TestEq("Clock, Radio, Table, ", result.output);
 
   /* DISTINCT ORDER BY */
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT f, id FROM x ORDER BY id; FOREVERY (RECORD r FROM a) PRINT(r.f || ", ");');
   TestCleanResult(56, result.errors);
-  TestEqualString(57, "Clock, Clock, Table, Radio, ", result.output);
+  TestEq("Clock, Clock, Table, Radio, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT * FROM x ORDER BY f; FOREVERY (RECORD r FROM a) PRINT(r.f || ", ");');
   TestCleanResult(58, result.errors);
-  TestEqualString(59, "Clock, Clock, Radio, Table, ", result.output);
+  TestEq("Clock, Clock, Radio, Table, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT id FROM x ORDER BY f; FOREVERY (RECORD r FROM a) PRINT(r.id || ", ");');
   TestCleanResult(60, result.errors);
-  TestEqualString(61, "1, 2, 3, ", result.output);
+  TestEq("1, 2, 3, ", result.output);
 
   // FIXME: what should this deliver?
 //  errors := TestCompile('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT DISTINCT f FROM x ORDER BY id; FOREVERY (RECORD r FROM a) PRINT(r.id || ", ");');
@@ -320,19 +320,19 @@ MACRO SelectArrayTest(BOOLEAN with_dbase)
   {
     result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT #x AS nr FROM x; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY nr)) PRINT(r.nr || ", ");');
     TestCleanResult(70, result.errors);
-    TestEqualString(71, "0, 1, 2, 3, 4, ", result.output);
+    TestEq("0, 1, 2, 3, 4, ", result.output);
 
     result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT #x AS nr FROM x WHERE id = 2; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY nr)) PRINT(r.nr || ", ");');
     TestCleanResult(72, result.errors);
-    TestEqualString(73, "1, 2, ", result.output);
+    TestEq("1, 2, ", result.output);
 
     result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT #x AS nr FROM x WHERE #x < 2; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY nr)) PRINT(r.nr || ", ");');
     TestCleanResult(74, result.errors);
-    TestEqualString(75, "0, 1, ", result.output);
+    TestEq("0, 1, ", result.output);
 
     result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT #x AS nr FROM x WHERE #x < 2; FOREVERY (RECORD r FROM (SELECT * FROM a ORDER BY nr)) PRINT(r.nr || ", ");');
     TestCleanResult(76, result.errors);
-    TestEqualString(77, "0, 1, ", result.output);
+    TestEq("0, 1, ", result.output);
   }
   ELSE
   {
@@ -342,47 +342,47 @@ MACRO SelectArrayTest(BOOLEAN with_dbase)
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y3.* FROM y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY a, b)) PRINT(r.a || r.b || ", ");');
   TestCleanResult(78, result.errors);
-  TestEqualString(79, "1a, 2b, ", result.output);
+  TestEq("1a, 2b, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y3.* FROM y1, y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY a, b)) PRINT(r.a || r.b || ", ");');
   TestCleanResult(80, result.errors);
-  TestEqualString(81, "1a, 1a, 2b, 2b, ", result.output);
+  TestEq("1a, 1a, 2b, 2b, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y2.t, y3.* FROM y2, y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY t, a, b)) PRINT(r.t || r.a || r.b || ", ");');
   TestCleanResult(82, result.errors);
-  TestEqualString(83, "11a, 12b, 21a, 22b, ", result.output);
+  TestEq("11a, 12b, 21a, 22b, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y1.* AS aname FROM y1; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY a, b)) PRINT(r.a || r.b || ", ");');
   MustContainError(86, result.errors, 80);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT *, 5 as extra FROM [[ org := 1 ]]; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY org, extra)) PRINT(r.org || r.extra || ", ");');
   TestCleanResult(87, result.errors);
-  TestEqualString(88, "15, ", result.output);
+  TestEq("15, ", result.output);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT *, 5 as extra FROM [[ org := 1 ]]; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY org, extra)) PRINT(r.org || r.extra || ", ");');
   TestCleanResult(87, result.errors);
-  TestEqualString(88, "15, ", result.output);
+  TestEq("15, ", result.output);
 
   // In
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT * FROM x WHERE id IN [ 1, 2 ]; PRINT(Detokenize((SELECT AS STRING ARRAY f FROM a ORDER BY f), ", "));');
   TestCleanResult(100, result.errors);
-  TestEqualString(101, "Clock, Clock, Table", result.output);
+  TestEq("Clock, Clock, Table", result.output);
   MayNotContainWarnings(102, result.errors);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT * FROM x WHERE f IN [ "Radio", "Chair" ]; PRINT(Detokenize((SELECT AS STRING ARRAY f FROM a ORDER BY f), ", "));');
   TestCleanResult(103, result.errors);
-  TestEqualString(104, "Radio, Radio", result.output);
+  TestEq("Radio, Radio", result.output);
   MayNotContainWarnings(105, result.errors);
 
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY a; a := SELECT * FROM x WHERE f IN [ "Clock", "Chair" ] AND id IN [ 2, 3]; PRINT(Detokenize((SELECT AS STRING ARRAY f FROM a ORDER BY f), ", "));');
   TestCleanResult(106, result.errors);
-  TestEqualString(107, "Clock", result.output);
+  TestEq("Clock", result.output);
   MayNotContainWarnings(108, result.errors);
 
   // SELECT *, DELETE x
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT *, DELETE b FROM y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY a)) PRINT(r.a || (CellExists(r, "b")?1:0) || ", ");');
   TestCleanResult(108, result.errors);
-  TestEqualString(109, "10, 20, ", result.output);
+  TestEq("10, 20, ", result.output);
 
   // Overwrite should give error (record array at runtime, tables at compiletime)
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y1.*, y3.* FROM y1, y3; PRINT(LENGTH(rs)||"");');
@@ -391,12 +391,12 @@ MACRO SelectArrayTest(BOOLEAN with_dbase)
   // Deleting offending cells in between should work
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y3.*, DELETE a, y1.* FROM y1, y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY a, b)) PRINT(r.a || r.b || ", ");');
   TestCleanResult(111, result.errors);
-  TestEqualString(112, "1a, 1b, 2a, 2b, ", result.output);
+  TestEq("1a, 1b, 2a, 2b, ", result.output);
 
   // 2 times a valid delete
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y3.*, DELETE a, y1.*, DELETE a FROM y1, y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY b)) PRINT(r.b || ", ");');
   TestCleanResult(113, result.errors);
-  TestEqualString(114, "a, a, b, b, ", result.output);
+  TestEq("a, a, b, b, ", result.output);
 
   // Repeated delete
   result := TestCompileAndRun('<?wh ' || dist_decls || 'RECORD ARRAY rs; rs := SELECT y3.*, DELETE a, DELETE a, y1.* FROM y1, y3; FOREVERY (RECORD r FROM (SELECT * FROM rs ORDER BY b)) PRINT(r.b || ", ");');
@@ -520,22 +520,22 @@ MACRO SelectJoinTest()
   // test
   result := SELECT (files.id || files.id) AS str FROM files;
   s := SortAndConcatStringsInRecArr(result);
-  TestEqualString(1, "11, 22, 33, 44", s);
+  TestEq("11, 22, 33, 44", s);
 
   // Straight carthesian join
   result := SELECT (files.id || folders.id) AS str FROM files, folders;
   s := SortAndConcatStringsInRecArr(result);
-  TestEqualString(2, "11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43", s);
+  TestEq("11, 12, 13, 21, 22, 23, 31, 32, 33, 41, 42, 43", s);
 
   // Join on files.parent-folders.id
   result := SELECT (files.id || folders.id) AS str FROM files, folders WHERE files.parent = folders.id;
   s := SortAndConcatStringsInRecArr(result);
-  TestEqualString(3, "11, 21, 32, 43", s);
+  TestEq("11, 21, 32, 43", s);
 
   // Join on files.parent-folders.id, files.length > 13
   result := SELECT (files.id || folders.id) AS str FROM files, folders WHERE files.parent = folders.id AND files.length > 13;
   s := SortAndConcatStringsInRecArr(result);
-  TestEqualString(4, "21, 43", s);
+  TestEq("21, 43", s);
 
   CloseTest("TestDatabase: SelectJoinTest");
 }
@@ -557,44 +557,44 @@ MACRO UpdateTest()
 
   RECORD ARRAY rs := rs_original;
   UPDATE rs SET a := 7 WHERE a = 5;
-  TestEqualRecordArray(5, [[a := 7, b := "1"], [a := 10, b := "2"]], rs);
+  TestEq([[a := 7, b := "1"], [a := 10, b := "2"]], rs);
 
   rs := rs_original;
   UPDATE rs SET a := 7;
-  TestEqualRecordArray(6, [[a := 7, b := "1"], [a := 7, b := "2"]], rs);
+  TestEq([[a := 7, b := "1"], [a := 7, b := "2"]], rs);
 
   RECORD r := [ test := rs_original ];
   UPDATE r.test SET a := 7 WHERE a = 5;
-  TestEqualRecordArray(7, [[a := 7, b := "1"], [a := 10, b := "2"]], r.test);
+  TestEq([[a := 7, b := "1"], [a := 10, b := "2"]], r.test);
 
   errors := TestCompile('<?wh RECORD ARRAY d; UPDATE d SET a := 3, A := 6;');
   MustContainError(8, errors, 204, 'A');
 
   r := [ test := rs_original ];
   UPDATE r.test SET RECORD [ a := 7 ] WHERE a = 5;
-  TestEqualRecordArray(9, [[a := 7, b := "1"], [a := 10, b := "2"]], r.test);
+  TestEq([[a := 7, b := "1"], [a := 10, b := "2"]], r.test);
 
   /* # record array position */
   rs := [[a := 1], [a := 2], [a := 3]];
   UPDATE rs SET a := 4 WHERE #rs = 1;
-  TestEqualRecordArray(10, [[a := 1], [a := 4], [a := 3]], rs);
+  TestEq([[a := 1], [a := 4], [a := 3]], rs);
   UPDATE rs SET a := #rs;
-  TestEqualRecordArray(11, [[a := 0], [a := 1], [a := 2]], rs);
+  TestEq([[a := 0], [a := 1], [a := 2]], rs);
 
   // DEFAULT RECORDs
   rs := [DEFAULT RECORD, [a := 1], [a := 2]];
   UPDATE rs SET a := 4 WHERE RecordExists(rs) AND a = 1;
-  TestEqualRecordArray(12, [DEFAULT RECORD, [a := 4], [a := 2]], rs);
+  TestEq([DEFAULT RECORD, [a := 4], [a := 2]], rs);
 
   // Check update results
   result := TestCompileAndRun('<?wh ' || dbase_decls || 'UPDATE x SET id := 6; RECORD ARRAY a; a := SELECT id, furniture AS item FROM x; FOREVERY (RECORD r FROM a) PRINT (r.id || "-" || r.item || ", "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "6-Clock, 6-Table, 6-Radio, 6-Chair, ", result.output);
+  TestEq("6-Clock, 6-Table, 6-Radio, 6-Chair, ", result.output);
 
   // Check update results with SET RECORD
   result := TestCompileAndRun('<?wh ' || dbase_decls || 'UPDATE x SET RECORD [ id := 6 ]; RECORD ARRAY a; a := SELECT id, furniture AS item FROM x; FOREVERY (RECORD r FROM a) PRINT (r.id || "-" || r.item || ", "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "6-Clock, 6-Table, 6-Radio, 6-Chair, ", result.output);
+  TestEq("6-Clock, 6-Table, 6-Radio, 6-Chair, ", result.output);
 
   // Shouldn't fail with internal error
   TestAnnotatedCompile(`<?wh ${dbase_decls}
@@ -627,7 +627,7 @@ MACRO DeleteTest()
 
   RECORD ARRAY rs := [ DEFAULT RECORD, [ a := 1 ], [ a := 2 ], [ a := 1 ] ];
   DELETE FROM rs WHERE RecordExists(rs) AND rs.a = 1;
-  TestEqualRecordArray(6, [ DEFAULT RECORD, [a := 2] ], rs);
+  TestEq([ DEFAULT RECORD, [a := 2] ], rs);
 
   CloseTest("TestDatabase: DeleteTest");
 }
@@ -639,7 +639,7 @@ MACRO InsertTest()
   RECORD ARRAY rs_original := [[a := 5, b := "1"], [a := 10, b := "2"]];
   RECORD ARRAY rs := [[a := 5, b := "1"]];
   INSERT INTO rs(a, b) VALUES (10, "2") AT END;
-  TestEqualRecordArray(1, rs_original, rs);
+  TestEq(rs_original, rs);
 
   errors := TestCompile('<?wh RECORD ARRAY d; INSERT INTO d(a, b) VALUES (1,2);');
   MustContainError(2, errors, 202);
@@ -686,41 +686,41 @@ MACRO SelectOptimizeTest()
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE value = "a"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1, ", result.output);
+  TestEq("1, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) = ToUpperCase("a"); FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) = "A"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) = "a"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(9, result.errors);
   MustContainWarning(10, result.errors, 25);
-  TestEqualString(11, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE value LIKE "a"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(12, result.errors);
-  TestEqualString(13, "1, ", result.output);
+  TestEq("1, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) LIKE ToUpperCase("a"); FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(14, result.errors);
-  TestEqualString(15, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) LIKE "A"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(16, result.errors);
-  TestEqualString(17, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE ToUpperCase(value) LIKE "a"; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(18, result.errors);
   MustContainWarning(19, result.errors, 25);
-  TestEqualString(20, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := [[id := 1, value := "a"], [id := 2, value := "A"]]; RECORD ARRAY b := SELECT id FROM a WHERE "a" LIKE value; FOREVERY (RECORD r FROM b) PRINT(r.id || ", "); ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "1, ", result.output);
+  TestEq("1, ", result.output);
 
   errors := TestCompile('<?wh RECORD ARRAY a; RECORD ARRAY b := SELECT id FROM a WHERE RECORDEXISTS(a) AND a.id = 5; ?>');
   TestCleanResult(23, errors);
@@ -728,13 +728,13 @@ MACRO SelectOptimizeTest()
 
   result := TestCompileAndRun('<?wh RECORD a := SELECT id FROM [[id:="1"],DEFAULT RECORD]; PRINT(RecordExists(a)?"Y":"N"); ?>');
   TestCleanResult(25, result.errors);
-  TestEqualString(26, "Y", result.output);
+  TestEq("Y", result.output);
 
   RECORD ARRAY rs;
   /* # record array position */
   rs := [[a := 1], [a := 2], [a := 3]];
   DELETE FROM rs WHERE #rs = 1;
-  TestEqualRecordArray(27, [[a := 1], [a := 3]], rs);
+  TestEq([[a := 1], [a := 3]], rs);
 
   // Test whether the optimizer picks up conditions that are optimized
   RECORD ARRAY opt_single_data := SELECT a := 1, t FROM [ [ t := 1 ] ];
@@ -754,11 +754,11 @@ MACRO SelectAsTest()
 
   result := TestCompileAndRun('<?wh STRING ARRAY a := SELECT AS STRING ARRAY id FROM [[id:="a"],[id:="b"]]; FOREVERY (STRING r FROM a) PRINT(r || ", "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "a, b, ", result.output);
+  TestEq("a, b, ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER a := SELECT AS INTEGER id FROM DEFAULT RECORD ARRAY; PRINT(a || ""); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "0", result.output);
+  TestEq("0", result.output);
 
   errors := TestCompile('<?wh TABLE<STRING id> t; STRING a := SELECT AS STRING id FROM t; ?>');
   TestCleanResult(9, errors);
@@ -774,11 +774,11 @@ MACRO SelectAsTest()
 
   result := TestCompileAndRun('<?wh RECORD a := SELECT AS RECORD x FROM [[x:=[a:="2"]]]; PRINT(a.a); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "2", result.output);
+  TestEq("2", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY a := SELECT AS RECORD ARRAY x FROM [[x:=[a:="2"]],[x:=[a:="3"]]]; FOREVERY (RECORD r FROM a) PRINT(r.a || ", "); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "2, 3, ", result.output);
+  TestEq("2, 3, ", result.output);
 
   errors := TestCompile('<?wh SELECT AS STRING "" FROM DEFAULT RECORD ARRAY; ?>');
   MustContainError(17, errors, 252);
@@ -880,7 +880,7 @@ MACRO GroupByTest()
   /* SELECT id FROM x GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
   TestCleanResult(2, result.errors);
-  TestEqualString(3, "1, 2, 3, ", result.output);
+  TestEq("1, 2, 3, ", result.output);
 /*
   /* SELECT id+1 FROM x GROUP BY id+1 * / //fail
   errors := TestCompile('<?wh '||array_dist_decls||'SELECT id+1 AS data FROM x GROUP BY id+1;');
@@ -889,17 +889,17 @@ MACRO GroupByTest()
   /* SELECT id FROM x WHERE id < 3 GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x WHERE id < 3 GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   /* SELECT id FROM x WHERE f != "Clock" GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x WHERE f != "Clock" GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "2, 3, ", result.output);
+  TestEq("2, 3, ", result.output);
 
   /* SELECT id FROM x WHERE id < 3 GROUP BY id ORDER BY id DESC */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x WHERE id < 3 GROUP BY id ORDER BY id DESC; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "2, 1, ", result.output);
+  TestEq("2, 1, ", result.output);
 
   /* SELECT id FROM x WHERE id < 3 GROUP BY id ORDER BY f DESC */ // fail
   errors := TestCompile('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x WHERE id < 3 GROUP BY id ORDER BY f DESC; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
@@ -908,7 +908,7 @@ MACRO GroupByTest()
   /* SELECT id FROM x WHERE id < 3 GROUP BY id HAVING id > 1 ORDER BY id DESC */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x WHERE id < 3 GROUP BY id HAVING id > 1 ORDER BY id DESC; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
   TestCleanResult(12, result.errors);
-  TestEqualString(13, "2, ", result.output);
+  TestEq("2, ", result.output);
 
   /* SELECT id FROM x WHERE id < 3 GROUP BY id HAVING f != "" ORDER BY id DESC */ // fail
   errors := TestCompile('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id FROM x GROUP BY id HAVING f != "" ORDER BY id DESC; FOREVERY (RECORD r FROM rs) PRINT(r.id || ", "); ?>');
@@ -917,27 +917,27 @@ MACRO GroupByTest()
   /* SELECT id, count(*) AS data FROM x GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Count(*) AS data FROM x GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "1(1), 2(2), 3(2), ", result.output);
+  TestEq("1(1), 2(2), 3(2), ", result.output);
 
   /* SELECT id, Count(*) AS data FROM x GROUP BY id HAVING count(*) > 1 */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Count(*) AS data FROM x GROUP BY id HAVING count(*) > 1; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "2(2), 3(2), ", result.output);
+  TestEq("2(2), 3(2), ", result.output);
 
   /* SELECT id, Count(*)*10-id AS data FROM x GROUP BY id ORDER BY Count(*)*10-id, id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Count(*)*10-id AS data FROM x GROUP BY id ORDER BY Count(*)*10-id; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "1(9), 3(17), 2(18), ", result.output);
+  TestEq("1(9), 3(17), 2(18), ", result.output);
 
   /* SELECT id, min(f) FROM x GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Min(f) AS data FROM x GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "1(Clock), 2(Clock), 3(Radio), ", result.output);
+  TestEq("1(Clock), 2(Clock), 3(Radio), ", result.output);
 
   /* SELECT id, max(f) FROM x GROUP BY id */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Max(f) AS data FROM x GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "1(Clock), 2(Table), 3(Radio), ", result.output);
+  TestEq("1(Clock), 2(Table), 3(Radio), ", result.output);
 
   /* SELECT id, count(f) AS data FROM x GROUP BY id */ // fail
   errors := TestCompile('<?wh '||array_decls||'RECORD ARRAY rs := SELECT id, Count(f) AS data FROM x GROUP BY id; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
@@ -945,7 +945,7 @@ MACRO GroupByTest()
 
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD r := SELECT AS RECORD [ is := [COUNT(*), MIN(id), MAX(id), SUM(id)]] FROM x; FOREVERY (INTEGER i FROM r.is) PRINT(i || ", "); ?>');
   TestCleanResult(26, result.errors);
-  TestEqualString(27, "5, 1, 3, 11, ", result.output);
+  TestEq("5, 1, 3, 11, ", result.output);
 
   result := TestCompileAndRun('<?wh RECORD ARRAY data:=[[a:=1,b:=DEFAULT RECORD ARRAY]];SELECT min(b) AS x FROM data; ?>');
   MustContainError(28, result.errors, 56);
@@ -957,15 +957,15 @@ MACRO GroupByTest()
   /* SELECT id, min(f) FROM x GROUP BY id LIMIT 1 */ // ok
   result := TestCompileAndRun('<?wh '||array_dist_decls||'RECORD ARRAY rs := SELECT id, Min(f) AS data FROM x GROUP BY id LIMIT 1; FOREVERY (RECORD r FROM rs) PRINT(r.id || "(" || r.data || "), "); ?>');
   TestCleanResult(30, result.errors);
-  TestEqualString(31, "1(Clock), ", result.output);
+  TestEq("1(Clock), ", result.output);
 
   /* SELECT min_y := Min(Y), var_i := x FROM DEFAULT RECORD ARRAY AS x */ // FAIL
   errors := TestCompile('<?wh SELECT min_y := Min(Y), var_i := x FROM DEFAULT RECORD ARRAY AS x;');
   MustContainError(32, errors, 53);
 
   RECORD ARRAY groupbydata := [ [ x := 1, y := 2, str := "forward" ], [ x := 2, y := 3, str := "pop3" ], [ x := 3, y:= 4, str := "forward" ] ];
-  TestEqualInteger(33, 2, Length(SELECT FROM groupbydata GROUP BY x/2));
-  TestEqualInteger(34, 2, Length(SELECT FROM groupbydata GROUP BY str||"!"));
+  TestEq(2, Length(SELECT FROM groupbydata GROUP BY x/2));
+  TestEq(2, Length(SELECT FROM groupbydata GROUP BY str||"!"));
 
   /* Group by in WHERE may refers to outer select, may not use variables from own FROM */
   errors := TestCompile('<?wh RECORD ARRAY aap, wim; SELECT a := (SELECT * FROM aap WHERE zus IN GroupedValues(aap.mies)) FROM wim;');
@@ -974,7 +974,7 @@ MACRO GroupByTest()
   /* MIN[] used in an inner select was incorrectly detected as aggregate function (resulted in fixupper error) */
   result := TestCompileAndRun('<?wh PRINT(EncodeJSON(SELECT i := (SELECT a, m := MIN[](INTEGER[ a, b ]) FROM Any(row).data) FROM [ [ x := 1, data := [ [ a := 1, b := 2 ], [ a := 2, b := 1 ] ] ] ] AS row GROUP BY x));');
   TestCleanResult(0, result.errors);
-  TestEqualString(0, `[{"i":[{"a":1,"m":1},{"a":2,"m":1}]}]`, result.output);
+  TestEq(`[{"i":[{"a":1,"m":1},{"a":2,"m":1}]}]`, result.output);
 
   CloseTest("TestDatabase: GroupByTest");
 }
@@ -999,7 +999,7 @@ MACRO BindingTest()
   INTEGER trans2 := OpenLocalTransaction();
 
   // Transaction ids must differ, please
-  TestEqualBoolean(1, FALSE, trans1 = trans2);
+  TestEq(FALSE, trans1 = trans2);
 
   sch1 := BindTransactionToSchema(trans1, "S1");
   sch2 := BindTransactionToSchema(trans2, "S2");
@@ -1074,72 +1074,72 @@ MACRO DynQueryTest()
   /* Dynamic SELECT id FROM (table) x */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "1, 2, 2, 3, 3, ", result.output);
+  TestEq("1, 2, 2, 3, 3, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id < 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", "<", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1, ", result.output);
+  TestEq("1, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id > 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", ">", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "3, 3, ", result.output);
+  TestEq("3, 3, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id <= 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", "<=", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1, 2, 2, ", result.output);
+  TestEq("1, 2, 2, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id >= 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", ">=", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "2, 2, 3, 3, ", result.output);
+  TestEq("2, 2, 3, 3, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id != 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", "!=", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "1, 3, 3, ", result.output);
+  TestEq("1, 3, 3, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE id = 2 */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", "=", 2);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "2, 2, ", result.output);
+  TestEq("2, 2, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE f LIKE "C*" */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.f", "LIKE", "C*");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE f LIKE "CL*" */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.f", "LIKE", "CL*");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "", result.output);
+  TestEq("", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE ToUppercase(f) LIKE "CL*" */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddUppercaseConstraint("x.f", "LIKE", "CL*");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE f = "CLock" */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.f", "=", "CLOCK");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "", result.output);
+  TestEq("", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE ToUppercase(f) = "CLOCK" */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddUppercaseConstraint("x.f", "=", "CLOCK");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "1, 2, ", result.output);
+  TestEq("1, 2, ", result.output);
 
   /* Dynamic SELECT x.id, y,id FROM (table) x, x AS y WHERE x.id = y.id */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddTable("Y",trans,"X",["ID"]);q->AddJoin("x.id", "=", "y.id");RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||"-"||r.y.id||", "); ?>');
   TestCleanResult(25, result.errors);
-  TestEqualString(26, "1-1, 2-2, 2-2, 2-2, 2-2, 3-3, 3-3, 3-3, 3-3, ", result.output);
+  TestEq("1-1, 2-2, 2-2, 2-2, 2-2, 3-3, 3-3, 3-3, 3-3, ", result.output);
 
   /* Dynamic SELECT id FROM (table) x WHERE x.id IN [2, 1] */ // ok
   result := TestCompileAndRun('<?wh '||dbase_dist_decls||'OBJECT q := NEW DynamicQuery;q->AddTable("X",trans,"X",["ID"]);q->AddConstraint("x.id", "IN", [2, 1]);RECORD ARRAY rs:=q->Execute();rs:=SELECT*FROM rs ORDER BY rs.x.id;FOREVERY (RECORD r FROM rs) PRINT(r.x.id||", "); ?>');
   TestCleanResult(27, result.errors);
-  TestEqualString(28, "1, 2, 2, ", result.output);
+  TestEq("1, 2, 2, ", result.output);
 
   // Test breaking up large ins (>= 1023 items, random order, with duplicates)
   {
@@ -1285,7 +1285,7 @@ MACRO OrderingTest()
     ];
 
   // Test if ordering is stable
-  TestEqual(1, (SELECT * FROM test ORDER BY val, id), (SELECT * FROM test ORDER BY val));
+  TestEq((SELECT * FROM test ORDER BY val, id), (SELECT * FROM test ORDER BY val));
 
   CloseTest("TestDatabase: OrderingTest");
 }

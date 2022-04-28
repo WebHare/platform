@@ -101,10 +101,10 @@ MACRO PtrSyntaxTest()
   //Test indirect loadlib messing up
   result := TestCompileAndRun('<?wh LOADLIB "test::testdata_functions_loadlib.whlib"; test2ptr(); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "Test", result.output);
+  TestEq("Test", result.output);
 
   //Test passing a string to a variant function
-  TEstEqualString(9, "TEST", (PTR Test4)("Test"));
+  TestEq("TEST", (PTR Test4)("Test"));
 
   CloseTest("TestFunctions: PtrSyntaxTest");
 }
@@ -125,55 +125,55 @@ MACRO PtrRunningTest()
 {
   OpenTest("TestFunctions: PtrRunningTest");
 
-  TestEqualString(1, "test 1", Test1());
+  TestEq("test 1", Test1());
 
   FUNCTION PTR TestFuncPtr := PTR test1;
-  TestEqualString(2, "test 1", TestFuncPtr());
+  TestEq("test 1", TestFuncPtr());
 
   MACRO PTR TestMacroPtr := PTR test2;
   TestMacroPtr();
-  TestEqualString(3, "test 2", pubdata);
+  TestEq("test 2", pubdata);
 
   TestMacroPtr := PTR test3;
   TestMacroPtr();
-  TestEqualString(4, "test 3", pubdata);
+  TestEq("test 3", pubdata);
 
   TestFuncPtr := PTR TestAny;
-  TestEqualString(5, "return7", TestFuncPtr(7));
-  TestEqualString(6, "Test7", pubdata);
+  TestEq("return7", TestFuncPtr(7));
+  TestEq("Test7", pubdata);
 
   TestFuncPtr := PTR TestAny(#1);
-  TestEqualString(7, "return9", TestFuncPtr(9));
-  TestEqualString(8, "Test9", pubdata);
+  TestEq("return9", TestFuncPtr(9));
+  TestEq("Test9", pubdata);
 
   TestFuncPtr := PTR TestAny(12);
-  TestEqualString(9, "return12", TestFuncPtr());
-  TestEqualString(10, "Test12", pubdata);
+  TestEq("return12", TestFuncPtr());
+  TestEq("Test12", pubdata);
 
   FUNCTION PTR defaultptr;
-  TestEqualBoolean (11, TRUE, defaultptr = DEFAULT FUNCTION PTR);
-  TestEqualBoolean (12, TRUE, defaultptr = DEFAULT MACRO PTR);
-  TestEqualBoolean (13, TRUE, defaultptr != testfuncptr);
-  TestEqualBoolean (14, TRUE, DEFAULT MACRO PTR != testfuncptr);
+  TestEq(TRUE, defaultptr = DEFAULT FUNCTION PTR);
+  TestEq(TRUE, defaultptr = DEFAULT MACRO PTR);
+  TestEq(TRUE, defaultptr != testfuncptr);
+  TestEq(TRUE, DEFAULT MACRO PTR != testfuncptr);
   testfuncptr := DEFAULT MACRO PTR;
-  TestEqualBoolean (15, FALSE, DEFAULT MACRO PTR != testfuncptr);
+  TestEq(FALSE, DEFAULT MACRO PTR != testfuncptr);
 
-  TestEqualString(16, "AB", (PTR TestDefaults)("A", "B"));
-  TestEqualString(17, "Ab", (PTR TestDefaults(#1))("A"));
-  TestEqualString(18, "BA", (PTR TestDefaults(#2, #1))("A", "B"));
+  TestEq("AB", (PTR TestDefaults)("A", "B"));
+  TestEq("Ab", (PTR TestDefaults(#1))("A"));
+  TestEq("BA", (PTR TestDefaults(#2, #1))("A", "B"));
 
   FUNCTION PTR TestRebind1 := PTR TestDefaults;
   FUNCTION PTR TestRebind2 := PTR TestRebind1(#1, "B");
-  TestEqualString(20, "AB", TestRebind2("A"));
+  TestEq("AB", TestRebind2("A"));
 
   OBJECT o := NEW PtrTest;
   o->fptr := PTR TestDefaults;
 
-  TestEqualString(21, "AC", (PTR o->fptr)("A", "C"));
+  TestEq("AC", (PTR o->fptr)("A", "C"));
 
-  TestEqualString(22, "AD", (PTR (PTR o->fptr)(#1, "D"))("A"));
-  TestEqualString(23, "AC", (PTR o->func)("A", "C"));
-  TestEqualString(24, "AD", (PTR (PTR o->func)(#1, "D"))("A"));
+  TestEq("AD", (PTR (PTR o->fptr)(#1, "D"))("A"));
+  TestEq("AC", (PTR o->func)("A", "C"));
+  TestEq("AD", (PTR (PTR o->func)(#1, "D"))("A"));
 
   result := TestCompileAndRun('<?wh OBJECTTYPE t < PUBLIC INTEGER a; >; FUNCTION PTR c := PTR (NEW t)->a; c(); ?>');
   MustContainError(25, result.errors, 62, "INTEGER", "FUNCTION PTR");
@@ -238,10 +238,10 @@ MACRO PtrLoadlibTest()
 
   FUNCTION PTR PtrRetTest3_local := PTR RetTest3;
 
-  TestEqualString(1, "test3", RetTest3());
-  TestEqualString(2, "test3", PtrRetTest3_local());
-  TestEqualString(3, "test3", PtrRetTest3_loadlib());
-  TestEqualString(4, "test3", CallPtrRetTest3_loadlib());
+  TestEq("test3", RetTest3());
+  TestEq("test3", PtrRetTest3_local());
+  TestEq("test3", PtrRetTest3_loadlib());
+  TestEq("test3", CallPtrRetTest3_loadlib());
 
   CloseTest("TestFunctions: PtrLoadlibTest");
 }
@@ -268,7 +268,7 @@ MACRO AggregatesTest()
   /* XFAIL: PRINT(""||AGGREGATE COUNT([1,2,3]); */ // ok, xfail totdat als COUNT meer dan (*) ondersteunt
 //  result := TestCompileAndRun('<?wh PRINT(""||COUNT[]([1,2,3]); ? *** >');
 //  TestCleanResult(2, result.errors);
-//  TestEqualString(3, "3", result.output);
+//  TestEq("3", result.output);
 
   /* INTEGER AGGREGATE FUNCTION test1(INTEGER nr1) { RETURN 0; } */ //FAIL, 55
   errors := TestCompile('<?wh INTEGER AGGREGATE FUNCTION test1(INTEGER nr1) { RETURN 0; } ?>');
@@ -301,22 +301,22 @@ MACRO AggregatesTest()
   /* Using aggregate function in normal form */
   result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT(test1[](DEFAULT STRING ARRAY)); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "a", result.output);
+  TestEq("a", result.output);
 
   /* Using aggregate function in PTR form */
   result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1[](DEFAULT STRING ARRAY))()); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "a", result.output);
+  TestEq("a", result.output);
 
   /* Using aggregate function in PTR form, with passthroughs */
   result := TestCompileAndRun('<?wh STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } PRINT((PTR test1[](#1))(DEFAULT STRING ARRAY)); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "a", result.output);
+  TestEq("a", result.output);
 
   /* Using aggregate function in normal form, before decl */
   result := TestCompileAndRun('<?wh PRINT(test1[](DEFAULT STRING ARRAY)); STRING AGGREGATE FUNCTION test1(STRING ARRAY s1) { RETURN "a"; } ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "a", result.output);
+  TestEq("a", result.output);
 
   /* Using aggregate form for normal function */
   errors := TestCompile('<?wh PRINT[](""); ?>');

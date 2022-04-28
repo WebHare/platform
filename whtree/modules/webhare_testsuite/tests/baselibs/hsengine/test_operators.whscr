@@ -29,26 +29,26 @@ MACRO LogicalTest()
 {
   OpenTest("TestOperators: LogicalTest");
 
-  TestEqualBoolean(1, TRUE, TRUE);
-  TestEqualBoolean(2, FALSE, FALSE);
+  TestEq(TRUE, TRUE);
+  TestEq(FALSE, FALSE);
 
-  TestEqualBoolean(3, FALSE, NOT TRUE);
-  TestEqualBoolean(4, TRUE, NOT FALSE);
+  TestEq(FALSE, NOT TRUE);
+  TestEq(TRUE, NOT FALSE);
 
-  TestEqualBoolean(5, TRUE, TRUE AND TRUE);
-  TestEqualBoolean(6, FALSE, TRUE AND FALSE);
-  TestEqualBoolean(7, FALSE, FALSE AND TRUE);
-  TestEqualBoolean(8, FALSE, FALSE AND FALSE);
+  TestEq(TRUE, TRUE AND TRUE);
+  TestEq(FALSE, TRUE AND FALSE);
+  TestEq(FALSE, FALSE AND TRUE);
+  TestEq(FALSE, FALSE AND FALSE);
 
-  TestEqualBoolean(9, TRUE, TRUE OR TRUE);
-  TestEqualBoolean(10, TRUE, TRUE OR FALSE);
-  TestEqualBoolean(11, TRUE, FALSE OR TRUE);
-  TestEqualBoolean(12, FALSE, FALSE OR FALSE);
+  TestEq(TRUE, TRUE OR TRUE);
+  TestEq(TRUE, TRUE OR FALSE);
+  TestEq(TRUE, FALSE OR TRUE);
+  TestEq(FALSE, FALSE OR FALSE);
 
-  TestEqualBoolean(13, FALSE, TRUE XOR TRUE);
-  TestEqualBoolean(14, TRUE, TRUE XOR FALSE);
-  TestEqualBoolean(15, TRUE, FALSE XOR TRUE);
-  TestEqualBoolean(16, FALSE, FALSE XOR FALSE);
+  TestEq(FALSE, TRUE XOR TRUE);
+  TestEq(TRUE, TRUE XOR FALSE);
+  TestEq(TRUE, FALSE XOR TRUE);
+  TestEq(FALSE, FALSE XOR FALSE);
 
   errors := TestCompile('<?wh BOOLEAN b := 1 AND "x"; ?>');
   MustContainError(17, errors, 62, 'INTEGER', 'BOOLEAN');
@@ -67,7 +67,7 @@ MACRO LogicalTest()
   errors := TestCompile('<?wh BOOLEAN b := NOT "x"; ?>');
   MustContainError(24, errors, 62, 'STRING', 'BOOLEAN');
 
-  TestEqualBoolean(25, TRUE, NOT NOT NOT NOT (FALSE OR TRUE));
+  TestEq(TRUE, NOT NOT NOT NOT (FALSE OR TRUE));
 
   errors := TestCompile('<?wh BOOLEAN b := TRUE NOT AND FALSE; ?>');
   MustContainError(26, errors, 27);
@@ -92,36 +92,36 @@ MACRO ConditionalTest()
   BOOLEAN b;
 
   i := TRUE ? 1 : 2;
-  TestEqualInteger(1, 1, i);
+  TestEq(1, i);
   i := FALSE ? 1 : 2;
-  TestEqualInteger(2, 2, i);
+  TestEq(2, i);
 
   m := TRUE ? 1 : 2;
-  TestEqualMoney(3, 1, m);
+  TestEq(1m, m);
   m := FALSE ? 1 : 2;
-  TestEqualMoney(4, 2, m);
+  TestEq(2m, m);
 
   f := TRUE ? 1 : 2;
-  TestEqualFloat(5, 1, f);
+  TestEqFloat(1, f, .0001);
   f := FALSE ? 1 : 2;
-  TestEqualFloat(6, 2, f);
+  TestEqFloat(2, f, .0001);
 
   s := TRUE ? "x" : "y";
-  TestEqualString(7, "x", s);
+  TestEq("x", s);
   s := FALSE ? "x" : "y";
-  TestEqualString(8, "y", s);
+  TestEq("y", s);
 
   b := TRUE ? TRUE : FALSE;
-  TestEqualBoolean(9, TRUE, b);
+  TestEq(TRUE, b);
   b := FALSE ? TRUE : FALSE;
-  TestEqualBoolean(10, FALSE, b);
+  TestEq(FALSE, b);
 
   b := TRUE;
   i := b ? 1 : 2;
-  TestEqualInteger(11, 1, i);
+  TestEq(1, i);
   b := FALSE;
   i := b ? 1 : 2;
-  TestEqualInteger(12, 2, i);
+  TestEq(2, i);
 
   errors := TestCompile('<?wh 1 ? 1 : 2; ?>');
   MustContainError(13, errors, 123);
@@ -144,35 +144,35 @@ MACRO AssignmentTest()
   BOOLEAN b;
 
   i := 1;
-  TestEqualInteger(1, 1, i);
+  TestEq(1, i);
 
   m := 1;
-  TestEqualMoney(2, 1, m);
+  TestEq(1m, m);
   m := 1.23456;
-  TestEqualMoney(3, 1.23456, m);
+  TestEq(1.23456, m);
   m := .12345;
-  TestEqualMoney(4, 0.12345, m);
+  TestEq(0.12345, m);
   m := 1.;
-  TestEqualMoney(5, 1, m);
+  TestEq(1m, m);
 
   f := 1;
-  TestEqualFloat(6, 1, f);
+  TestEqFloat(1, f, .0001);
   f := 1.23456;
-  TestEqualFloat(7, 1.23456, f);
+  TestEqFloat(1.23456, f, .0001);
   f := .12345;
-  TestEqualFloat(8, 0.12345, f);
+  TestEqFloat(0.12345, f, .0001);
   f := 1.;
-  TestEqualFloat(9, 1, f);
+  TestEqFloat(1, f, .0001);
   f := 1.2345678;
-  TestEqualFloat(10, 1.2345678, f);
+  TestEqFloat(1.2345678, f, .0001);
   f := .12345678;
-  TestEqualFloat(11, 0.12345678, f);
+  TestEqFloat(0.12345678, f, .0001);
 
   s := "x";
-  TestEqualString(12, "x", s);
+  TestEq("x", s);
 
   b := TRUE;
-  TestEqualBoolean(13, TRUE, b);
+  TestEq(TRUE, b);
 
   CloseTest("TestOperators: AssignmentTest");
 }
@@ -182,117 +182,117 @@ MACRO ComparisonTest()
 {
   OpenTest("TestOperators: ComparisonTest");
 
-  TestEqualBoolean(1, TRUE, 1 = 1);
-  TestEqualBoolean(2, FALSE, 1 = 2);
+  TestEq(TRUE, 1 = 1);
+  TestEq(FALSE, 1 = 2);
 
-  TestEqualBoolean(3, TRUE, 92233720368547.75807 = 92233720368547.75807);
-  TestEqualBoolean(4, FALSE, 0.00001 = 92233720368547.75807);
+  TestEq(TRUE, 92233720368547.75807 = 92233720368547.75807);
+  TestEq(FALSE, 0.00001 = 92233720368547.75807);
 
-  TestEqualBoolean(5, TRUE, .00000001 = .00000001);
-  TestEqualBoolean(6, FALSE, .00000001 = .00000002);
+  TestEq(TRUE, .00000001 = .00000001);
+  TestEq(FALSE, .00000001 = .00000002);
 
-  TestEqualBoolean(7, TRUE, "x" = "x");
-  TestEqualBoolean(8, FALSE, "x" = "y");
+  TestEq(TRUE, "x" = "x");
+  TestEq(FALSE, "x" = "y");
 
-  TestEqualBoolean(9, TRUE, TRUE = TRUE);
-  TestEqualBoolean(10, FALSE, TRUE = FALSE);
+  TestEq(TRUE, TRUE = TRUE);
+  TestEq(FALSE, TRUE = FALSE);
 
-  TestEqualBoolean(11, TRUE, 2 >= 1);
-  TestEqualBoolean(12, TRUE, 1 >= 1);
-  TestEqualBoolean(13, FALSE, 1 >= 2);
+  TestEq(TRUE, 2 >= 1);
+  TestEq(TRUE, 1 >= 1);
+  TestEq(FALSE, 1 >= 2);
 
-  TestEqualBoolean(14, TRUE, 92233720368547.75807 >= 0.00001);
-  TestEqualBoolean(15, TRUE, 92233720368547.75807 >= 92233720368547.75807);
-  TestEqualBoolean(16, FALSE, 0.00001 >= 92233720368547.75807);
+  TestEq(TRUE, 92233720368547.75807 >= 0.00001);
+  TestEq(TRUE, 92233720368547.75807 >= 92233720368547.75807);
+  TestEq(FALSE, 0.00001 >= 92233720368547.75807);
 
-  TestEqualBoolean(17, TRUE, .00000002 >= .00000001);
-  TestEqualBoolean(18, TRUE, .00000001 >= .00000001);
-  TestEqualBoolean(19, FALSE, .00000001 >= .00000002);
+  TestEq(TRUE, .00000002 >= .00000001);
+  TestEq(TRUE, .00000001 >= .00000001);
+  TestEq(FALSE, .00000001 >= .00000002);
 
-  TestEqualBoolean(20, TRUE, "y" >= "x");
-  TestEqualBoolean(21, TRUE, "x" >= "x");
-  TestEqualBoolean(22, FALSE, "x" >= "y");
-  TestEqualBoolean(23, TRUE, TRUE >= TRUE);
+  TestEq(TRUE, "y" >= "x");
+  TestEq(TRUE, "x" >= "x");
+  TestEq(FALSE, "x" >= "y");
+  TestEq(TRUE, TRUE >= TRUE);
 
-  TestEqualBoolean(24, TRUE, 1 <= 2);
-  TestEqualBoolean(25, TRUE, 1 <= 1);
-  TestEqualBoolean(26, FALSE, 2 <= 1);
+  TestEq(TRUE, 1 <= 2);
+  TestEq(TRUE, 1 <= 1);
+  TestEq(FALSE, 2 <= 1);
 
-  TestEqualBoolean(27, TRUE, 0.00001 <= 92233720368547.75807);
-  TestEqualBoolean(28, TRUE, 92233720368547.75807 <= 92233720368547.75807);
-  TestEqualBoolean(29, FALSE, 92233720368547.75807 <= 0.00001);
+  TestEq(TRUE, 0.00001 <= 92233720368547.75807);
+  TestEq(TRUE, 92233720368547.75807 <= 92233720368547.75807);
+  TestEq(FALSE, 92233720368547.75807 <= 0.00001);
 
-  TestEqualBoolean(30, TRUE, .00000001 <= .00000002);
-  TestEqualBoolean(31, TRUE, .00000001 <= .00000001);
-  TestEqualBoolean(32, FALSE, .00000002 <= .00000001);
+  TestEq(TRUE, .00000001 <= .00000002);
+  TestEq(TRUE, .00000001 <= .00000001);
+  TestEq(FALSE, .00000002 <= .00000001);
 
-  TestEqualBoolean(33, TRUE, "x" <= "y");
-  TestEqualBoolean(34, TRUE, "x" <= "x");
-  TestEqualBoolean(35, FALSE, "y" <= "x");
-  TestEqualBoolean(36, TRUE, TRUE <= TRUE);
+  TestEq(TRUE, "x" <= "y");
+  TestEq(TRUE, "x" <= "x");
+  TestEq(FALSE, "y" <= "x");
+  TestEq(TRUE, TRUE <= TRUE);
 
-  TestEqualBoolean(37, TRUE, 2 > 1);
-  TestEqualBoolean(38, FALSE, 1 > 1);
-  TestEqualBoolean(39, FALSE, 1 > 2);
+  TestEq(TRUE, 2 > 1);
+  TestEq(FALSE, 1 > 1);
+  TestEq(FALSE, 1 > 2);
 
-  TestEqualBoolean(40, TRUE, 92233720368547.75807 > 0.00001);
-  TestEqualBoolean(41, FALSE, 92233720368547.75807 > 92233720368547.75807);
-  TestEqualBoolean(42, FALSE, 0.00001 > 92233720368547.75807);
+  TestEq(TRUE, 92233720368547.75807 > 0.00001);
+  TestEq(FALSE, 92233720368547.75807 > 92233720368547.75807);
+  TestEq(FALSE, 0.00001 > 92233720368547.75807);
 
-  TestEqualBoolean(43, TRUE, .00000002 > .00000001);
-  TestEqualBoolean(44, FALSE, .00000001 > .00000001);
-  TestEqualBoolean(45, FALSE, .00000001 > .00000002);
+  TestEq(TRUE, .00000002 > .00000001);
+  TestEq(FALSE, .00000001 > .00000001);
+  TestEq(FALSE, .00000001 > .00000002);
 
-  TestEqualBoolean(46, TRUE, "y" > "x");
-  TestEqualBoolean(47, FALSE, "x" > "x");
-  TestEqualBoolean(48, FALSE, "x" > "y");
-  TestEqualBoolean(49, FALSE, TRUE > TRUE);
-  TestEqualBoolean(50, TRUE, 1 < 2);
-  TestEqualBoolean(51, FALSE, 1 < 1);
-  TestEqualBoolean(52, FALSE, 2 < 1);
+  TestEq(TRUE, "y" > "x");
+  TestEq(FALSE, "x" > "x");
+  TestEq(FALSE, "x" > "y");
+  TestEq(FALSE, TRUE > TRUE);
+  TestEq(TRUE, 1 < 2);
+  TestEq(FALSE, 1 < 1);
+  TestEq(FALSE, 2 < 1);
 
-  TestEqualBoolean(53, TRUE, 0.00001 < 92233720368547.75807);
-  TestEqualBoolean(54, FALSE, 92233720368547.75807 < 92233720368547.75807);
-  TestEqualBoolean(55, FALSE, 92233720368547.75807 < 0.00001);
+  TestEq(TRUE, 0.00001 < 92233720368547.75807);
+  TestEq(FALSE, 92233720368547.75807 < 92233720368547.75807);
+  TestEq(FALSE, 92233720368547.75807 < 0.00001);
 
-  TestEqualBoolean(56, TRUE, .00000001 < .00000002);
-  TestEqualBoolean(57, FALSE, .00000001 < .00000001);
-  TestEqualBoolean(58, FALSE, .00000002 < .00000001);
+  TestEq(TRUE, .00000001 < .00000002);
+  TestEq(FALSE, .00000001 < .00000001);
+  TestEq(FALSE, .00000002 < .00000001);
 
-  TestEqualBoolean(59, TRUE, "x" < "y");
-  TestEqualBoolean(60, FALSE, "x" < "x");
-  TestEqualBoolean(61, FALSE, "y" < "x");
-  TestEqualBoolean(62, FALSE, TRUE < TRUE);
+  TestEq(TRUE, "x" < "y");
+  TestEq(FALSE, "x" < "x");
+  TestEq(FALSE, "y" < "x");
+  TestEq(FALSE, TRUE < TRUE);
 
-  TestEqualBoolean(63, FALSE, 1 <> 1);
-  TestEqualBoolean(64, TRUE, 1 <> 2);
+  TestEq(FALSE, 1 <> 1);
+  TestEq(TRUE, 1 <> 2);
 
-  TestEqualBoolean(65, FALSE, 92233720368547.75807 <> 92233720368547.75807);
-  TestEqualBoolean(66, TRUE, 0.00001 <> 92233720368547.75807);
+  TestEq(FALSE, 92233720368547.75807 <> 92233720368547.75807);
+  TestEq(TRUE, 0.00001 <> 92233720368547.75807);
 
-  TestEqualBoolean(67, FALSE, .00000001 <> .00000001);
-  TestEqualBoolean(68, TRUE, .00000001 <> .00000002);
+  TestEq(FALSE, .00000001 <> .00000001);
+  TestEq(TRUE, .00000001 <> .00000002);
 
-  TestEqualBoolean(69, FALSE, "x" <> "x");
-  TestEqualBoolean(70, TRUE, "x" <> "y");
+  TestEq(FALSE, "x" <> "x");
+  TestEq(TRUE, "x" <> "y");
 
-  TestEqualBoolean(71, FALSE, TRUE <> TRUE);
-  TestEqualBoolean(72, TRUE, TRUE <> FALSE);
+  TestEq(FALSE, TRUE <> TRUE);
+  TestEq(TRUE, TRUE <> FALSE);
 
-  TestEqualBoolean(73, FALSE, 1 != 1);
-  TestEqualBoolean(74, TRUE, 1 != 2);
+  TestEq(FALSE, 1 != 1);
+  TestEq(TRUE, 1 != 2);
 
-  TestEqualBoolean(75, FALSE, 92233720368547.75807 != 92233720368547.75807);
-  TestEqualBoolean(76, TRUE, 0.00001 != 92233720368547.75807);
+  TestEq(FALSE, 92233720368547.75807 != 92233720368547.75807);
+  TestEq(TRUE, 0.00001 != 92233720368547.75807);
 
-  TestEqualBoolean(77, FALSE, .00000001 != .00000001);
-  TestEqualBoolean(78, TRUE, .00000001 != .00000002);
+  TestEq(FALSE, .00000001 != .00000001);
+  TestEq(TRUE, .00000001 != .00000002);
 
-  TestEqualBoolean(79, FALSE, "x" != "x");
-  TestEqualBoolean(80, TRUE, "x" != "y");
+  TestEq(FALSE, "x" != "x");
+  TestEq(TRUE, "x" != "y");
 
-  TestEqualBoolean(81, FALSE, TRUE != TRUE);
-  TestEqualBoolean(82, TRUE, TRUE != FALSE);
+  TestEq(FALSE, TRUE != TRUE);
+  TestEq(TRUE, TRUE != FALSE);
 
   errors := TestCompile('<?wh record array x; if (x = default record array) abort("yeay"); ');
   MustContainError(83, errors, 225, 'RECORD ARRAY');
@@ -305,14 +305,14 @@ MACRO ComparisonTest()
   MustContainError(86, errors, 27);
 
   RECORD a := [ v_int := 0, v_mon := 0m, v_flo := 0f ];
-  TestEqual(87, TRUE, a.v_int = 0);
-  TestEqual(88, TRUE, 0 = a.v_int);
+  TestEq(TRUE, a.v_int = 0);
+  TestEq(TRUE, 0 = a.v_int);
 
-  TestEqual(89, TRUE, a.v_mon = 0);
-  TestEqual(90, TRUE, 0 = a.v_mon);
+  TestEq(TRUE, a.v_mon = 0);
+  TestEq(TRUE, 0 = a.v_mon);
 
-  TestEqual(91, TRUE, a.v_flo = 0);
-  TestEqual(92, TRUE, 0 = a.v_flo);
+  TestEq(TRUE, a.v_flo = 0);
+  TestEq(TRUE, 0 = a.v_flo);
 
   CloseTest("TestOperators: ComparisonTest");
 }
@@ -322,89 +322,89 @@ MACRO ArithmeticTest()
 {
   OpenTest("TestOperators: ArithmeticTest");
 
-  TestEqualInteger(1, 1, +1);
-  TestEqualMoney(2, 1.1, +1.1);
-  TestEqualFloat(3, .00000001, +.00000001);
+  TestEq(1, +1);
+  TestEq(1.1, +1.1);
+  TestEqFloat(.00000001, +.00000001, .0001);
 
-  TestEqualInteger(4, 5, 2 + 3);
-  TestEqualInteger(5, 1, -2 + 3);
-  TestEqualInteger(6, -1, 2 + -3);
-  TestEqualInteger(7, -5, -2 + -3);
+  TestEq(5, 2 + 3);
+  TestEq(1, -2 + 3);
+  TestEq(-1, 2 + -3);
+  TestEq(-5, -2 + -3);
 
-  TestEqualMoney(8, 5.2, 2.1 + 3.1);
-  TestEqualMoney(9, 1.1, -2.1 + 3.2);
-  TestEqualMoney(10, -1.1, 2.1 + -3.2);
-  TestEqualMoney(11, -5.2, -2.1 + -3.1);
+  TestEq(5.2, 2.1 + 3.1);
+  TestEq(1.1, -2.1 + 3.2);
+  TestEq(-1.1, 2.1 + -3.2);
+  TestEq(-5.2, -2.1 + -3.1);
 
-  TestEqualFloat(12, .00000005, .00000002 + .00000003);
-  TestEqualFloat(13, .00000001, -.00000002 + .00000003);
-  TestEqualFloat(14, -.00000001, .00000002 + -.00000003);
-  TestEqualFloat(15, -.00000005, -.00000002 + -.00000003);
+  TestEqFloat(.00000005, .00000002 + .00000003, .0001);
+  TestEqFloat(.00000001, -.00000002 + .00000003, .0001);
+  TestEqFloat(-.00000001, .00000002 + -.00000003, .0001);
+  TestEqFloat(-.00000005, -.00000002 + -.00000003, .0001);
 
-  TestEqualInteger(16, 1, 3 - 2);
-  TestEqualInteger(17, -1, 2 - 3);
-  TestEqualInteger(18, -5, -3 - 2);
-  TestEqualInteger(19, 5, 3 - -2);
-  TestEqualInteger(20, -1, -3 - -2);
+  TestEq(1, 3 - 2);
+  TestEq(-1, 2 - 3);
+  TestEq(-5, -3 - 2);
+  TestEq(5, 3 - -2);
+  TestEq(-1, -3 - -2);
 
-  TestEqualMoney(21, 1.1, 3.2 - 2.1);
-  TestEqualMoney(22, -1.1, 2.1 - 3.2);
-  TestEqualMoney(23, -5.2, -3.1 - 2.1);
-  TestEqualMoney(24, 5.2, 3.1 - -2.1);
-  TestEqualMoney(25, -1.1, -3.2 - -2.1);
+  TestEq(1.1, 3.2 - 2.1);
+  TestEq(-1.1, 2.1 - 3.2);
+  TestEq(-5.2, -3.1 - 2.1);
+  TestEq(5.2, 3.1 - -2.1);
+  TestEq(-1.1, -3.2 - -2.1);
 
-  TestEqualFloat(26, .00000001, .00000003 - .00000002);
-  TestEqualFloat(27, -.00000001, .00000002 - .00000003);
-  TestEqualFloat(28, -.00000005, -.00000003 - .00000002);
-  TestEqualFloat(29, .00000005, .00000003 - -.00000002);
-  TestEqualFloat(30, -.00000001, -.00000003 - -.00000002);
+  TestEqFloat(.00000001, .00000003 - .00000002, .0001);
+  TestEqFloat(-.00000001, .00000002 - .00000003, .0001);
+  TestEqFloat(-.00000005, -.00000003 - .00000002, .0001);
+  TestEqFloat(.00000005, .00000003 - -.00000002, .0001);
+  TestEqFloat(-.00000001, -.00000003 - -.00000002, .0001);
 
-  TestEqualInteger(31, 6, 2 * 3);
-  TestEqualInteger(32, -6, -2 * 3);
-  TestEqualInteger(33, -6, 2 * -3);
-  TestEqualInteger(34, 6, -2 * -3);
+  TestEq(6, 2 * 3);
+  TestEq(-6, -2 * 3);
+  TestEq(-6, 2 * -3);
+  TestEq(6, -2 * -3);
 
-  TestEqualMoney(35, 6.51, 2.1 * 3.1);
-  TestEqualMoney(36, -6.51, -2.1 * 3.1);
-  TestEqualMoney(37, -6.51, 2.1 * -3.1);
-  TestEqualMoney(38, 6.51, -2.1 * -3.1);
+  TestEq(6.51, 2.1 * 3.1);
+  TestEq(-6.51, -2.1 * 3.1);
+  TestEq(-6.51, 2.1 * -3.1);
+  TestEq(6.51, -2.1 * -3.1);
 
-  TestEqualFloat(39, .000000000006, .000002 * .000003);
-  TestEqualFloat(40, -.000000000006, -.000002 * .000003);
-  TestEqualFloat(41, -.000000000006, .000002 * -.000003);
-  TestEqualFloat(42, .000000000006, -.000002 * -.000003);
+  TestEqFloat(.000000000006, .000002 * .000003, .0001);
+  TestEqFloat(-.000000000006, -.000002 * .000003, .0001);
+  TestEqFloat(-.000000000006, .000002 * -.000003, .0001);
+  TestEqFloat(.000000000006, -.000002 * -.000003, .0001);
 
-  TestEqualInteger(43, 2, 6 / 3);
-  TestEqualInteger(44, 2, 7 / 3);
-  TestEqualInteger(45, 2, 8 / 3);
-  TestEqualInteger(46, -2, -6 / 3);
-  TestEqualInteger(47, -2, 6 / -3);
-  TestEqualInteger(48, 2, -6 / -3);
+  TestEq(2, 6 / 3);
+  TestEq(2, 7 / 3);
+  TestEq(2, 8 / 3);
+  TestEq(-2, -6 / 3);
+  TestEq(-2, 6 / -3);
+  TestEq(2, -6 / -3);
 
-  TestEqualMoney(49, 2.1, 6.51 / 3.1);
-  TestEqualMoney(50, 2.33333, 7. / 3);
-  TestEqualMoney(51, 2.66667, 8. / 3);
-  TestEqualMoney(52, -2.1, -6.51 / 3.1);
-  TestEqualMoney(53, -2.1, 6.51 / -3.1);
-  TestEqualMoney(54, 2.1, -6.51 / -3.1);
+  TestEq(2.1, 6.51 / 3.1);
+  TestEq(2.33333, 7. / 3);
+  TestEq(2.66667, 8. / 3);
+  TestEq(-2.1, -6.51 / 3.1);
+  TestEq(-2.1, 6.51 / -3.1);
+  TestEq(2.1, -6.51 / -3.1);
 
-  TestEqualFloat(55, .000002, .000000000006 / .000003);
-  TestEqualFloat(56, .00000233333333333333333, .000000000007 / .000003);
-  TestEqualFloat(57, .00000266666666666666667, .000000000008 / .000003);
-  TestEqualFloat(58, -.000002, -.000000000006 / .000003);
-  TestEqualFloat(59, -.000002, .000000000006 / -.000003);
-  TestEqualFloat(60, .000002, -.000000000006 / -.000003);
+  TestEqFloat(.000002, .000000000006 / .000003, .0001);
+  TestEqFloat(.00000233333333333333333, .000000000007 / .000003, .0001);
+  TestEqFloat(.00000266666666666666667, .000000000008 / .000003, .0001);
+  TestEqFloat(-.000002, -.000000000006 / .000003, .0001);
+  TestEqFloat(-.000002, .000000000006 / -.000003, .0001);
+  TestEqFloat(.000002, -.000000000006 / -.000003, .0001);
 
-  TestEqualInteger(61, 0, 6 % 3);
-  TestEqualInteger(62, 1, 7 % 3);
-  TestEqualInteger(63, 2, 8 % 3);
-  TestEqualInteger(64, -1, -7 % 3);
-  TestEqualInteger(65, 1, 7 % -3);
-  TestEqualInteger(66, -1, -7 % -3);
+  TestEq(0, 6 % 3);
+  TestEq(1, 7 % 3);
+  TestEq(2, 8 % 3);
+  TestEq(-1, -7 % 3);
+  TestEq(1, 7 % -3);
+  TestEq(-1, -7 % -3);
 
-  TestEqualInteger(67, -2147483648, 2147483647 + 1);
-  TestEqualInteger(68, -2147483648, -2147483647 - 1);
-  TestEqualInteger(69, 2147483647, -2147483648 - 1);
+  TestEq(-2147483648, 2147483647 + 1);
+  TestEq(-2147483648, -2147483647 - 1);
+  TestEq(2147483647, -2147483648 - 1);
 
   errors := TestCompile('<?wh INTEGER i := 1073741824 * 2; ?>');
   TestCleanResult(70, errors);
@@ -443,9 +443,9 @@ MACRO ArithmeticTest()
   MustContainError(85, errors, 219, 'BOOLEAN');
 
   //Test unary operators
-  TestEqualInteger(86, -1, -(1*1));
-  TestEqualMoney(87, -1.1, -(1*1.1));
-  TestEqualFloat(88, -.00000001, -(1*.00000001));
+  TestEq(-1, -(1*1));
+  TestEq(-1.1, -(1*1.1));
+  TestEqFloat(-.00000001, -(1*.00000001), .0001);
 
   errors := TestCompile('<?wh INTEGER b := 4 NOT + 4; ?>');
   MustContainError(89, errors, 27);
@@ -482,20 +482,20 @@ MACRO ArithmeticTest()
   MustContainError(100, result.errors, 62, 'STRING', 'INTEGER');
 
   // int64 arithmetic
-  TestEqual(111, 1020000000000204i64, 10000000000002i64 * 102i64);
-  TestEqual(112, 1000000000000005i64, 1000000000000003i64 + 2i64);
-  TestEqual(113, 1000000000000001i64, 1000000000000003i64 - 2i64);
-  TestEqual(114, 580860888638633i64, 232344355455453333i64 / 400i64);
-  TestEqual(115, 4354366851221i64, 232344355455453333i64 % 17592186044416i64);
+  TestEq(1020000000000204i64, 10000000000002i64 * 102i64);
+  TestEq(1000000000000005i64, 1000000000000003i64 + 2i64);
+  TestEq(1000000000000001i64, 1000000000000003i64 - 2i64);
+  TestEq(580860888638633i64, 232344355455453333i64 / 400i64);
+  TestEq(4354366851221i64, 232344355455453333i64 % 17592186044416i64);
 
-  TestEqual(120, TRUE,  1000000000000003i64 <  1000000000000004i64);
-  TestEqual(121, FALSE, 1000000000000003i64 <= 1000000000000002i64);
-  TestEqual(122, TRUE,  1000000000000003i64 >        2147483647i64);
-  TestEqual(123, FALSE,       2147483647i64 >= 1000000000000004i64);
-  TestEqual(124, TRUE,  1000000000000003i64 =  1000000000000003i64);
-  TestEqual(125, FALSE, 1000000000000003i64 != 1000000000000003i64);
-  TestEqual(126, TRUE,        2147483647i64 !=       6442450943i64);
-  TestEqual(127, FALSE,       2147483647i64 =        6442450943i64);
+  TestEq(TRUE,  1000000000000003i64 <  1000000000000004i64);
+  TestEq(FALSE, 1000000000000003i64 <= 1000000000000002i64);
+  TestEq(TRUE,  1000000000000003i64 >        2147483647i64);
+  TestEq(FALSE,       2147483647i64 >= 1000000000000004i64);
+  TestEq(TRUE,  1000000000000003i64 =  1000000000000003i64);
+  TestEq(FALSE, 1000000000000003i64 != 1000000000000003i64);
+  TestEq(TRUE,        2147483647i64 !=       6442450943i64);
+  TestEq(FALSE,       2147483647i64 =        6442450943i64);
 
   result := TestCompileAndRun('<?wh DumpValue(-[a:=""].a);');
   MustContainError(2, result.errors, 169, "STRING");
@@ -508,13 +508,13 @@ MACRO StringMergeTest()
 {
   OpenTest("TestOperators: StringMergeTest");
 
-  TestEqualString(1, "ab", "a" || "b");
+  TestEq("ab", "a" || "b");
 
-  TestEqualString(2, "a1", "a" || 1);
+  TestEq("a1", "a" || 1);
 
-  TestEqualString(3, "12", 1 || 2);
+  TestEq("12", 1 || 2);
 
-  TestEqualString(4, "-1-2", -1 || -2);
+  TestEq("-1-2", -1 || -2);
 
   STRING decls;
   decls := decls || 'STRING s16 := "abcdefghijklmnop";\n';
@@ -549,23 +549,23 @@ MACRO CellTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (r.a || ""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.1 INTO r; PRINT (FormatMoney(r.a, 0, ".", ",", false)); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1.1", result.output);
+  TestEq("1.1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.000001 INTO r; PRINT (FormatFloat(r.a, 6)); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1.000001", result.output);
+  TestEq("1.000001", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="HareScript" INTO r; PRINT (r.a); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "HareScript", result.output);
+  TestEq("HareScript", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=TRUE INTO r; PRINT (r.a ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "TRUE", result.output);
+  TestEq("TRUE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="HareScript" INTO r; PRINT (r.b); ?>');
   MustContainError(11, result.errors, 92, 'B');
@@ -588,29 +588,29 @@ MACRO PrecedenceTest()
 {
   OpenTest("TestOperators: PrecedenceTest");
 
-  TestEqualInteger(1, -10, 2 + 3 * -4);
-  TestEqualInteger(2, 1, 4 - 6 / +2);
-  TestEqualInteger(3, 4, 8 + -9 % 5);
+  TestEq(-10, 2 + 3 * -4);
+  TestEq(1, 4 - 6 / +2);
+  TestEq(4, 8 + -9 % 5);
 
-  TestEqualInteger(4, -20, (2 + 3) * -4);
-  TestEqualInteger(5, -1, (4 - 6) / +2);
-  TestEqualInteger(6, -1, (8 + -9) % 5);
+  TestEq(-20, (2 + 3) * -4);
+  TestEq(-1, (4 - 6) / +2);
+  TestEq(-1, (8 + -9) % 5);
 
-  TestEqualBoolean(7, TRUE, 2 + 3 * -4 < 4 - 6 / +2);
-  TestEqualBoolean(8, FALSE, 4 - 6 / +2 >= 8 + -9 % 5);
-  TestEqualBoolean(9, TRUE, (4 - 6) / +2 >= (8 + -9) % 5);
-  TestEqualBoolean(10, TRUE, 8 + -9 % 5 != 2 + 3 * -4);
+  TestEq(TRUE, 2 + 3 * -4 < 4 - 6 / +2);
+  TestEq(FALSE, 4 - 6 / +2 >= 8 + -9 % 5);
+  TestEq(TRUE, (4 - 6) / +2 >= (8 + -9) % 5);
+  TestEq(TRUE, 8 + -9 % 5 != 2 + 3 * -4);
 
-  TestEqualBoolean(11, TRUE, 2 + 3 * -4 < 4 - 6 / +2 AND 8 + -9 % 5 != 2 + 3 * -4);
-  TestEqualBoolean(12, TRUE, 4 - 6 / +2 >= 8 + -9 % 5 XOR 2 + 3 * -4 < 4 - 6 / +2);
-  TestEqualBoolean(13, TRUE, (4 - 6) / +2 >= (8 + -9) % 5 OR 4 - 6 / +2 >= 8 + -9 % 5);
+  TestEq(TRUE, 2 + 3 * -4 < 4 - 6 / +2 AND 8 + -9 % 5 != 2 + 3 * -4);
+  TestEq(TRUE, 4 - 6 / +2 >= 8 + -9 % 5 XOR 2 + 3 * -4 < 4 - 6 / +2);
+  TestEq(TRUE, (4 - 6) / +2 >= (8 + -9) % 5 OR 4 - 6 / +2 >= 8 + -9 % 5);
 
-  TestEqualBoolean(14, FALSE, TRUE AND TRUE != FALSE AND FALSE);
-  TestEqualBoolean(15, TRUE, (TRUE AND TRUE) != (FALSE AND FALSE));
+  TestEq(FALSE, TRUE AND TRUE != FALSE AND FALSE);
+  TestEq(TRUE, (TRUE AND TRUE) != (FALSE AND FALSE));
 
-  TestEqualBoolean(16, FALSE, "A" = "B" || "C");
-  TestEqualString(17, "ABC", "A" || (TRUE ? "B" : "X") || "C");
-  TestEqualString(18, "B", TRUE ? "B" : "X" || "C");
+  TestEq(FALSE, "A" = "B" || "C");
+  TestEq("ABC", "A" || (TRUE ? "B" : "X") || "C");
+  TestEq("B", TRUE ? "B" : "X" || "C");
 
   CloseTest("TestOperators: PrecedenceTest");
 }
@@ -620,68 +620,68 @@ MACRO BitOperatorTest()
 {
   OpenTest("TestOperators: BitOperatorTest");
 
-  TestEqualInteger( 1, 0, 0 BITAND 0);
-  TestEqualInteger( 2, 0, 0 BITAND 1);
-  TestEqualInteger( 3, 0, 1 BITAND 0);
-  TestEqualInteger( 4, 1, 1 BITAND 1);
-  TestEqualInteger( 5, -2147483648i, -2147483648i BITAND -2147483648i);
-  TestEqualInteger( 6, 0, -2147483648i BITAND 2147483647i);
-  TestEqualInteger( 7, -2147483648i, -1 BITAND -2147483648i);
+  TestEq(0, 0 BITAND 0);
+  TestEq(0, 0 BITAND 1);
+  TestEq(0, 1 BITAND 0);
+  TestEq(1, 1 BITAND 1);
+  TestEq(-2147483648i, -2147483648i BITAND -2147483648i);
+  TestEq(0, -2147483648i BITAND 2147483647i);
+  TestEq(-2147483648i, -1 BITAND -2147483648i);
 
-  TestEqualInteger( 8, 0, 0 BITOR 0);
-  TestEqualInteger( 9, 1, 0 BITOR 1);
-  TestEqualInteger(10, 1, 1 BITOR 0);
-  TestEqualInteger(11, 1, 1 BITOR 1);
-  TestEqualInteger(12, -2147483648i, -2147483648i BITOR -2147483648i);
-  TestEqualInteger(13, -1, -2147483648i BITOR 2147483647i);
-  TestEqualInteger(14, -1, -1 BITOR -2147483648i);
+  TestEq(0, 0 BITOR 0);
+  TestEq(1, 0 BITOR 1);
+  TestEq(1, 1 BITOR 0);
+  TestEq(1, 1 BITOR 1);
+  TestEq(-2147483648i, -2147483648i BITOR -2147483648i);
+  TestEq(-1, -2147483648i BITOR 2147483647i);
+  TestEq(-1, -1 BITOR -2147483648i);
 
-  TestEqualInteger(15, 0, 0 BITXOR 0);
-  TestEqualInteger(16, 1, 0 BITXOR 1);
-  TestEqualInteger(17, 1, 1 BITXOR 0);
-  TestEqualInteger(18, 0, 1 BITXOR 1);
-  TestEqualInteger(19, 0, -2147483648i BITXOR -2147483648i);
-  TestEqualInteger(20, -1, -2147483648i BITXOR 2147483647i);
-  TestEqualInteger(21, 2147483647i, -1 BITXOR -2147483648i);
+  TestEq(0, 0 BITXOR 0);
+  TestEq(1, 0 BITXOR 1);
+  TestEq(1, 1 BITXOR 0);
+  TestEq(0, 1 BITXOR 1);
+  TestEq(0, -2147483648i BITXOR -2147483648i);
+  TestEq(-1, -2147483648i BITXOR 2147483647i);
+  TestEq(2147483647i, -1 BITXOR -2147483648i);
 
-  TestEqualInteger(22, -2, BITNEG 1);
-  TestEqualInteger(23, 1, BITNEG -2);
-  TestEqualInteger(24, -1, BITNEG 0);
-  TestEqualInteger(25, 0, BITNEG -1);
-  TestEqualInteger(26, -2147483648i, BITNEG 2147483647i);
-  TestEqualInteger(27, 2147483647i, BITNEG -2147483648i);
+  TestEq(-2, BITNEG 1);
+  TestEq(1, BITNEG -2);
+  TestEq(-1, BITNEG 0);
+  TestEq(0, BITNEG -1);
+  TestEq(-2147483648i, BITNEG 2147483647i);
+  TestEq(2147483647i, BITNEG -2147483648i);
 
-  TestEqualInteger(28, 1, 1 BITLSHIFT -1);
-  TestEqualInteger(29, 1, 1 BITLSHIFT 0);
-  TestEqualInteger(30, 2, 1 BITLSHIFT 1);
-  TestEqualInteger(31, 640, 5 BITLSHIFT 7);
-  TestEqualInteger(32, 1073741824, 1 BITLSHIFT 30);
-  TestEqualInteger(33, -2147483648i, 1 BITLSHIFT 31);
-  TestEqualInteger(34, 0, -2147483648i BITLSHIFT 1);
-  TestEqualInteger(35, 2, -2147483647i BITLSHIFT 1);
+  TestEq(1, 1 BITLSHIFT -1);
+  TestEq(1, 1 BITLSHIFT 0);
+  TestEq(2, 1 BITLSHIFT 1);
+  TestEq(640, 5 BITLSHIFT 7);
+  TestEq(1073741824, 1 BITLSHIFT 30);
+  TestEq(-2147483648i, 1 BITLSHIFT 31);
+  TestEq(0, -2147483648i BITLSHIFT 1);
+  TestEq(2, -2147483647i BITLSHIFT 1);
 
-  TestEqualInteger(36, 2, 2 BITRSHIFT -1);
-  TestEqualInteger(37, 2, 2 BITRSHIFT 0);
-  TestEqualInteger(38, 1, 2 BITRSHIFT 1);
-  TestEqualInteger(39, 5, 640 BITRSHIFT 7);
-  TestEqualInteger(40, 1, 1073741824 BITRSHIFT 30);
-  TestEqualInteger(41, -1, -2147483648i BITRSHIFT 31);
-  TestEqualInteger(42, -1073741824i, -2147483648i BITRSHIFT 1);
-  TestEqualInteger(43, 1073741823i, 2147483647i BITRSHIFT 1);
+  TestEq(2, 2 BITRSHIFT -1);
+  TestEq(2, 2 BITRSHIFT 0);
+  TestEq(1, 2 BITRSHIFT 1);
+  TestEq(5, 640 BITRSHIFT 7);
+  TestEq(1, 1073741824 BITRSHIFT 30);
+  TestEq(-1, -2147483648i BITRSHIFT 31);
+  TestEq(-1073741824i, -2147483648i BITRSHIFT 1);
+  TestEq(1073741823i, 2147483647i BITRSHIFT 1);
 
   INTEGER64 x40x41 := 3i64 BITLSHIFT 40;
   INTEGER64 x40 := 1i64 BITLSHIFT 40;
   INTEGER64 x41 := 2i64 BITLSHIFT 40;
 
-  TestEqual( 50, 3298534883328i64, x40x41);
-  TestEqual( 51, x40x41,      x40 BITOR x41);
-  TestEqual( 52, x40,         x40 BITAND x40x41);
-  TestEqual( 53, x41,         x40 BITXOR x40x41);
-  TestEqual( 54, 0i64,        x40 BITAND (BITNEG x40));
-  TestEqual( 55, BITNEG 0i64, x40 BITOR  (BITNEG x40));
-  TestEqual( 56, BITNEG 0i64, x40 BITXOR (BITNEG x40));
-  TestEqual( 57, x41,         x40 BITLSHIFT 1);
-  TestEqual( 58, x40,         x41 BITRSHIFT 1);
+  TestEq(3298534883328i64, x40x41);
+  TestEq(x40x41,      x40 BITOR x41);
+  TestEq(x40,         x40 BITAND x40x41);
+  TestEq(x41,         x40 BITXOR x40x41);
+  TestEq(0i64,        x40 BITAND (BITNEG x40));
+  TestEq(BITNEG 0i64, x40 BITOR  (BITNEG x40));
+  TestEq(BITNEG 0i64, x40 BITXOR (BITNEG x40));
+  TestEq(x41,         x40 BITLSHIFT 1);
+  TestEq(x40,         x41 BITRSHIFT 1);
 
 
   errors := TestCompile('<?wh INTEGER b := 4 NOT BITAND 4; ?>');
@@ -705,23 +705,23 @@ MACRO InCONCATTest()
   errors := TestCompile('<?wh 2 IN ["abc"];  ?>');
   MustContainError(3, errors, 62, "INTEGER", "STRING"); //conversion error
 
-  TestEqualBoolean(4, FALSE, 2 IN [3,4,5]);
-  TestEqualBoolean(5, TRUE, 2 IN [2,4,5]);
-  TestEqualBoolean(6, TRUE, "abc" IN ["abc","def"]);
-  TestEqualBoolean(7, TRUE, DEFAULT DATETIME IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
+  TestEq(FALSE, 2 IN [3,4,5]);
+  TestEq(TRUE, 2 IN [2,4,5]);
+  TestEq(TRUE, "abc" IN ["abc","def"]);
+  TestEq(TRUE, DEFAULT DATETIME IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
 
-  TestEqualInteger(8, 4, LENGTH([1,2] CONCAT [3,4]));
-  TestEqualInteger(9, 4, LENGTH([1,2] CONCAT [1,2])); //no dupe elimination!
+  TestEq(4, LENGTH([1,2] CONCAT [3,4]));
+  TestEq(4, LENGTH([1,2] CONCAT [1,2])); //no dupe elimination!
 
-  TestEqualBoolean(10, TRUE, 3 IN ([1,2] CONCAT [3,4]));
-  TestEqualBoolean(11, FALSE, 3 IN ([1,2] CONCAT [1,2]));
-  TestEqualBoolean(12, TRUE, 3 IN ([1,2] CONCAT [3,4]));
-  TestEqualBoolean(13, TRUE, 1 IN ([1,2] CONCAT [1,2]));
+  TestEq(TRUE, 3 IN ([1,2] CONCAT [3,4]));
+  TestEq(FALSE, 3 IN ([1,2] CONCAT [1,2]));
+  TestEq(TRUE, 3 IN ([1,2] CONCAT [3,4]));
+  TestEq(TRUE, 1 IN ([1,2] CONCAT [1,2]));
 
-  TestEqualBoolean(14, FALSE, 2 IN [5]);
-  TestEqualBoolean(15, TRUE,  2 IN [5,2]);
-  TestEqualBoolean(16, TRUE,  2 IN [2.5,2.8,2]);
-  TestEqualBoolean(17, FALSE,  2.1 IN ([2.5f,2.8f] CONCAT [2f]));
+  TestEq(FALSE, 2 IN [5]);
+  TestEq(TRUE,  2 IN [5,2]);
+  TestEq(TRUE,  2 IN [2.5,2.8,2]);
+  TestEq(FALSE,  2.1 IN ([2.5f,2.8f] CONCAT [2f]));
 
 
   errors := TestCompile('<?wh 2 NOT IN 5;  ?>');
@@ -730,15 +730,15 @@ MACRO InCONCATTest()
   errors := TestCompile('<?wh 2 NOT IN ["abc"];  ?>');
   MustContainError(19, errors, 62, "INTEGER", "STRING"); //conversion error
 
-  TestEqualBoolean(20, TRUE, 2 NOT IN [3,4,5]);
-  TestEqualBoolean(21, FALSE, 2 NOT IN [2,4,5]);
-  TestEqualBoolean(22, FALSE, "abc" NOT IN ["abc","def"]);
-  TestEqualBoolean(23, FALSE, DEFAULT DATETIME NOT IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
+  TestEq(TRUE, 2 NOT IN [3,4,5]);
+  TestEq(FALSE, 2 NOT IN [2,4,5]);
+  TestEq(FALSE, "abc" NOT IN ["abc","def"]);
+  TestEq(FALSE, DEFAULT DATETIME NOT IN [ DEFAULT DATETIME,GetCurrentDateTime() ]);
 
-  TestEqualBoolean(24, TRUE, 2 NOT IN [5]);
-  TestEqualBoolean(25, FALSE,  2 NOT IN [5,2]);
-  TestEqualBoolean(26, FALSE,  2 NOT IN [2.5,2.8,2]);
-  TestEqualBoolean(27, TRUE,  2.1 NOT IN ([2.5f,2.8f] CONCAT [2f]));
+  TestEq(TRUE, 2 NOT IN [5]);
+  TestEq(FALSE,  2 NOT IN [5,2]);
+  TestEq(FALSE,  2 NOT IN [2.5,2.8,2]);
+  TestEq(TRUE,  2.1 NOT IN ([2.5f,2.8f] CONCAT [2f]));
 
   // cross-type IN
   TestEQ(TRUE, 2 IN [ 2m ] AND 3 NOT IN [ 2m ]);

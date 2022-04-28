@@ -1,7 +1,6 @@
 ﻿<?wh
 
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 
 
@@ -171,7 +170,7 @@ MACRO TestYield()
   // Throw within the CATCH
   TestEQ([ done := FALSE, value := 10 ], gen->Next(3)); // # 8
   TestEQ("1,6,7,8", callorder);
-  TestThrows(PTR gen->Next()); // # 8
+  TestThrowsLike('Yeey',PTR gen->Next()); // # 8
   TestEQ("1,6,7,8,9", callorder);
   TestEQ([ done := TRUE, value := DEFAULT RECORD ], gen->Next(3));
   TestEQ("1,6,7,8,9", callorder);

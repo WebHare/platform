@@ -42,15 +42,15 @@ MACRO InsertTest()
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "3 2 1 ", result.output);
+  TestEq("3 2 1 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1 2 3 ", result.output);
+  TestEq("1 2 3 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1 3 2 ", result.output);
+  TestEq("1 3 2 ", result.output);
 
   // FIXME: this fails only for kleunen, no error was returned
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 1; PRINT(a[2] || ""); ?>');
@@ -64,11 +64,11 @@ MACRO InsertTest()
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
   TestCleanResult(10, result.errors);
-  TestEqualString(11, "b a ", result.output);
+  TestEq("b a ", result.output);
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT END; INSERT "b" INTO a AT END; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
   TestCleanResult(12, result.errors);
-  TestEqualString(13, "a b ", result.output);
+  TestEq("a b ", result.output);
 
 //  // FIXME: this fails only for kleunen, no error was returned
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 1; PRINT(a[2]); ?>');
@@ -79,11 +79,11 @@ MACRO InsertTest()
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
   TestCleanResult(16, result.errors);
-  TestEqualString(17, "FALSE TRUE ", result.output);
+  TestEq("FALSE TRUE ", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT END; INSERT FALSE INTO a AT END; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
   TestCleanResult(18, result.errors);
-  TestEqualString(19, "TRUE FALSE ", result.output);
+  TestEq("TRUE FALSE ", result.output);
 
 //  // FIXME: this fails only for kleunen, no error was returned
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 1; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
@@ -94,11 +94,11 @@ MACRO InsertTest()
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
   TestCleanResult(22, result.errors);
-  TestEqualString(23, "2 1 ", result.output);
+  TestEq("2 1 ", result.output);
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT END; INSERT MakeDateFromDayCount(2) INTO a AT END; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
   TestCleanResult(24, result.errors);
-  TestEqualString(25, "1 2 ", result.output);
+  TestEq("1 2 ", result.output);
 
 //  // FIXME: this fails only for kleunen, no error was returned
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 1; PRINT(GetDayCount(a[2]) || ""); ?>');
@@ -136,19 +136,19 @@ MACRO DeleteTest()
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "3 1 ", result.output);
+  TestEq("3 1 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; DELETE FROM a ALL; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1 3 ", result.output);
+  TestEq("1 3 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; DELETE FROM a AT 1; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1 2 ", result.output);
+  TestEq("1 2 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; DELETE FROM a AT 1; PRINT(a[2] || ""); ?>');
   MustContainError(9, result.errors, 46, '1');
@@ -158,33 +158,33 @@ MACRO DeleteTest()
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; DELETE FROM a AT 1; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "b ", result.output);
+  TestEq("b ", result.output);
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; DELETE FROM a ALL; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; DELETE FROM a AT 1; PRINT(a[2]); ?>');
   MustContainError(15, result.errors, 46, '1');
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; DELETE FROM a AT 1; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
   TestCleanResult(16, result.errors);
-  TestEqualString(17, "FALSE ", result.output);
+  TestEq("FALSE ", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; DELETE FROM a ALL; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
   TestCleanResult(18, result.errors);
-  TestEqualString(19, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; DELETE FROM a AT 1; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
   MustContainError(20, result.errors, 46, '1');
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; DELETE FROM a AT 1; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "2 ", result.output);
+  TestEq("2 ", result.output);
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; DELETE FROM a ALL; FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; DELETE FROM a AT 1; PRINT(GetDayCount(a[2]) || ""); ?>');
   MustContainError(25, result.errors, 46, '1');
@@ -208,15 +208,15 @@ MACRO UpdateTest()
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 0; INSERT 3 INTO a AT 0; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "3 4 1 ", result.output);
+  TestEq("3 4 1 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT END; INSERT 2 INTO a AT END; INSERT 3 INTO a AT END; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1 4 3 ", result.output);
+  TestEq("1 4 3 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; INSERT 1 INTO a AT 0; INSERT 2 INTO a AT 1; INSERT 3 INTO a AT 1; a[1] := 4; FOREVERY (INTEGER i FROM a) PRINT (i || " "); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1 4 2 ", result.output);
+  TestEq("1 4 2 ", result.output);
 
   result := TestCompileAndRun('<?wh INTEGER ARRAY a; a[1] := 1; PRINT(a[2] || ""); ?>');
   MustContainError(7, result.errors, 46, '1');
@@ -226,21 +226,21 @@ MACRO UpdateTest()
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; INSERT "a" INTO a AT 0; INSERT "b" INTO a AT 0; a[1] := "c"; FOREVERY (STRING s FROM a) PRINT (s || " "); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "b c ", result.output);
+  TestEq("b c ", result.output);
 
   result := TestCompileAndRun('<?wh STRING ARRAY a; a[1] := "a"; PRINT(a[2]); ?>');
   MustContainError(11, result.errors, 46, '1');
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; INSERT TRUE INTO a AT 0; INSERT FALSE INTO a AT 0; a[1] := FALSE; FOREVERY (BOOLEAN b FROM a) PRINT ((b ? "TRUE" : "FALSE") || " "); ?>');
   TestCleanResult(12, result.errors);
-  TestEqualString(13, "FALSE FALSE ", result.output);
+  TestEq("FALSE FALSE ", result.output);
 
   result := TestCompileAndRun('<?wh BOOLEAN ARRAY a; a[1] := TRUE; PRINT(a[2] ? "TRUE" : "FALSE"); ?>');
   MustContainError(14, result.errors, 46, '1');
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; INSERT MakeDateFromDayCount(1) INTO a AT 0; INSERT MakeDateFromDayCount(2) INTO a AT 0; a[1] := MakeDateFromDayCount(3); FOREVERY (DATETIME d FROM a) PRINT (GetDayCount(d) || " "); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "2 3 ", result.output);
+  TestEq("2 3 ", result.output);
 
   result := TestCompileAndRun('<?wh DATETIME ARRAY a; a[1] := MakeDateFromDayCount(1); PRINT(GetDayCount(a[2]) || ""); ?>');
   MustContainError(17, result.errors, 46, '1');

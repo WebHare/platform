@@ -747,13 +747,13 @@ MACRO TestEmailAddresses()
   FOREVERY(RECORD test FROM testdata.internet.testemail)
     TestEq(test.valid, IsValidEmailAddress(test.email));
 
-  TestEqualInteger(7,1,Length(TokenizeEmailAddresses('"Example, M." <marge@example.nl>')));
-  TestEqualString(8,'"Example, M." <marge@example.nl>',TokenizeEmailAddresses('"Example, M." <marge@example.nl>')[0]);
+  TestEq(1,Length(TokenizeEmailAddresses('"Example, M." <marge@example.nl>')));
+  TestEq('"Example, M." <marge@example.nl>',TokenizeEmailAddresses('"Example, M." <marge@example.nl>')[0]);
 
-  TestEqualInteger(10,2,Length(TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')));
-  TestEqualString(11,'marge@example.com',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[0]);
-  TestEqualString(12,'Example M. <marge@example.nl>',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[1]);
-  TestEqualString(13,'marge@example.nl',SplitEmailName('"Example, M." <marge@example.nl>').email);
+  TestEq(2,Length(TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')));
+  TestEq('marge@example.com',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[0]);
+  TestEq('Example M. <marge@example.nl>',TokenizeEmailAddresses('marge@example.com, Example M. <marge@example.nl>')[1]);
+  TestEq('marge@example.nl',SplitEmailName('"Example, M." <marge@example.nl>').email);
   CloseTest("TestInternet: Email addresses");
 }
 

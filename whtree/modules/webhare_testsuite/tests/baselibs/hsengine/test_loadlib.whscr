@@ -53,11 +53,11 @@ MACRO ExportTest()
 
   result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype1; PRINT(""||x->memberx); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "0", result.output);
+  TestEq("0", result.output);
 
   result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype2; PRINT(""||x->memberx); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "7", result.output);
+  TestEq("7", result.output);
 
   CloseTest("TestLoadlib: ExportTest");
 }
@@ -118,7 +118,7 @@ MACRO DeinitTest()
 
   result := TestCompileAndRun('<?wh PUBLIC MACRO Test1() __ATTRIBUTES__(DEINITMACRO) { PRINT ("Testing 1 2 3"); }');
   TestCleanResult(5,result.errors);
-  TestEqualString(6, "Testing 1 2 3", result.output);
+  TestEq("Testing 1 2 3", result.output);
 
   CloseTest("TestLoadlib: DeinitTest");
 }
@@ -158,7 +158,7 @@ MAX_DATETIME := MakeDate(2000, 1, 1);
 
   result := TestCompileAndRun('<?wh PUBLIC MACRO Test(FLOAT x DEFAULTSTO pi) { PRINT(FormatFloat(x, 2)); } Test();');
   TestCleanResult(5,result.errors);
-  TestEqualString(6, "3.14", result.output);
+  TestEq("3.14", result.output);
 
   TestAnnotatedCompile(`<?wh LOADLIB "wh::float.whlib";
 CONSTANT FLOAT my_pi := pi;

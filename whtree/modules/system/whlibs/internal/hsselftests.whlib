@@ -4,16 +4,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/stringparser.whlib";
-LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEqualInteger,
-                                       TestEqualMoney,
-                                       TestEqualFloat,
-                                       TestEqualString,
-                                       TestEqualBoolean,
-                                       TestEqualDateTime,
-                                       TestEqualRecord,
-                                       TestEqualRecordArray,
-                                       TestEqual,
-                                       TestEq,
+LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq,
                                        TestEqLike,
                                        TestEqFloat,
                                        TestThrows,

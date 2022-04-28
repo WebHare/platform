@@ -22,17 +22,17 @@ MACRO FormatFloatTest()
 {
   OpenTest("TestFloat: FormatFloatTest");
 
-  TestEqualString(1, '9.8765432100', FormatFloat(9.87654321, 10));
-  TestEqualString(2, '9.876543210', FormatFloat(9.87654321, 9));
-  TestEqualString(3, '9.87654321', FormatFloat(9.87654321, 8));
-  TestEqualString(4, '9.8765432', FormatFloat(9.87654321, 7));
-  TestEqualString(5, '9.876543', FormatFloat(9.87654321, 6));
-  TestEqualString(6, '9.87654', FormatFloat(9.87654321, 5));
-  TestEqualString(7, '9.8765', FormatFloat(9.87654321, 4));
-  TestEqualString(8, '9.877', FormatFloat(9.87654321, 3));
-  TestEqualString(9, '9.88', FormatFloat(9.87654321, 2));
-  TestEqualString(10, '9.9', FormatFloat(9.87654321, 1));
-  TestEqualString(11, '10', FormatFloat(9.87654321, 0));
+  TestEq('9.8765432100', FormatFloat(9.87654321, 10));
+  TestEq('9.876543210', FormatFloat(9.87654321, 9));
+  TestEq('9.87654321', FormatFloat(9.87654321, 8));
+  TestEq('9.8765432', FormatFloat(9.87654321, 7));
+  TestEq('9.876543', FormatFloat(9.87654321, 6));
+  TestEq('9.87654', FormatFloat(9.87654321, 5));
+  TestEq('9.8765', FormatFloat(9.87654321, 4));
+  TestEq('9.877', FormatFloat(9.87654321, 3));
+  TestEq('9.88', FormatFloat(9.87654321, 2));
+  TestEq('9.9', FormatFloat(9.87654321, 1));
+  TestEq('10', FormatFloat(9.87654321, 0));
 
   TestEQ( "99.99999999999999000000", formatfloat(99.99999999999998223643,99));
   TestEQ("-99.99999999999999000000", formatfloat(-99.99999999999998223643,99));
@@ -104,16 +104,16 @@ MACRO ConversionTest()
 {
   OpenTest("TestFloat: ConversionTest");
 
-  TestEqualFloat(1, 0., (0));
-  TestEqualFloat(2, 2147483647., (2147483647));
-  TestEqualFloat(3, -2147483647., (-2147483647));
+  TestEqFloat(0., (0), .0001);
+  TestEqFloat(2147483647., (2147483647), .0001);
+  TestEqFloat(-2147483647., (-2147483647), .0001);
 
-  TestEqualFloat(4, .12345, (.12345));
-  TestEqualFloat(5, 1122334455.66778, (1122334455.66778));
-  TestEqualFloat(6, -1122334455.66778, (-1122334455.66778));
+  TestEqFloat(.12345, (.12345), .0001);
+  TestEqFloat(1122334455.66778, (1122334455.66778), .0001);
+  TestEqFloat(-1122334455.66778, (-1122334455.66778), .0001);
 
-  TestEqualInteger(7, 0, FloatToInteger(0.));
-  TestEqualInteger(8, 2147483647, FloatToInteger(2147483647.123456));
+  TestEq(0, FloatToInteger(0.));
+  TestEq(2147483647, FloatToInteger(2147483647.123456));
 
   CloseTest("TestFloat: ConversionTest");
 }
@@ -123,13 +123,13 @@ MACRO MathematicsTest()
 {
   OpenTest("TestFloat: MathematicsTest");
 
-  TestEqualFloat(1, 987654321.123456789, Abs(987654321.123456789));
-  TestEqualFloat(2, 987654321.123456789, Abs(-987654321.123456789));
-  TestEqualFloat(3, Pi-1, Abs(1-Pi));
+  TestEqFloat(987654321.123456789, Abs(987654321.123456789), .0001);
+  TestEqFloat(987654321.123456789, Abs(-987654321.123456789), .0001);
+  TestEqFloat(Pi-1, Abs(1-Pi), .0001);
 
-  TestEqualFloat(4, 4, Ceil(Pi));
+  TestEqFloat(4, Ceil(Pi), .0001);
 
-  TestEqualFloat(5, 0, Sqrt(0));
+  TestEqFloat(0, Sqrt(0), .0001);
   result := TestCompileAndRun('<?wh Sqrt(-1); ?>');
   MustContainError(6, result.errors, 172);
 
@@ -231,16 +231,16 @@ MACRO MathematicsTest()
   MustContainError(45, result.errors, 175);
   */
 
-  TestEqualInteger(46, Abs(4), 4);
-  TestEqualInteger(47, Abs(-4), 4);
-  TestEqualInteger(48, Abs(-2147483648), -2147483648);
+  TestEq(Abs(4), 4);
+  TestEq(Abs(-4), 4);
+  TestEq(Abs(-2147483648), -2147483648);
 
-  TestEqualMoney(49, Abs(4m), 4m);
-  TestEqualMoney(50, Abs(-4m), 4m);
-  TestEqualMoney(51, Abs(-92233720368547.75808), -92233720368547.75808);
+  TestEq(Abs(4m), 4m);
+  TestEq(Abs(-4m), 4m);
+  TestEq(Abs(-92233720368547.75808), -92233720368547.75808);
 
-  TestEqualFloat(52, Abs(4f), 4f);
-  TestEqualFloat(53, Abs(-4f), 4f);
+  TestEqFloat(Abs(4f), 4f, .0001);
+  TestEqFloat(Abs(-4f), 4f, .0001);
 
   TestEq(4i64, Abs(4i64));
   TestEq(4i64, Abs(-4i64));

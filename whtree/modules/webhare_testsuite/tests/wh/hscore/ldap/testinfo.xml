@@ -1,7 +1,7 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
 
   <group name="ber">
-    <test script="ber.whlib" />
+    <test script="ber.whscr" />
   </group>
 
 </group>

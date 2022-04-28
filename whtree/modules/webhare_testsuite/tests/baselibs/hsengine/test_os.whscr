@@ -24,11 +24,11 @@ MACRO WaitForMultipleTest()
 
 //  Print("After time: " || FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", after_wait) || "\n");
 
-  TestEqualInteger(1, -1, waiter);
-  TestEqualBoolean(2, true, after_wait > expect_min);
+  TestEq(-1, waiter);
+  TestEq(true, after_wait > expect_min);
 
   waiter := WaitForMultiple(DEFAULT INTEGER ARRAY, DEFAULT INTEGER ARRAY, 0);
-  TestEqualInteger(3, -1, waiter);
+  TestEq(-1, waiter);
 
   CloseTest("TestOS: WaitForMultiple");
 }
