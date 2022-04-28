@@ -980,6 +980,7 @@ Rvalue* Parser::P_Yield()
 {
         LineColumn pos = lexer.GetPosition();
 
+        // Inv: TokenType() == Lexer::Await || TokenType() == Lexer::Yield
         bool is_yield = TokenType() == Lexer::Yield;
         NextToken();
 
@@ -987,30 +988,27 @@ Rvalue* Parser::P_Yield()
         if (currentfunction && is_yield && !currentfunction->functiondef->isasync) // no yield* in async function for now
           star = TryParse(Lexer::OpMultiply);
 
-        Rvalue *retval;
-        if (!currentfunction || !currentfunction->functiondef->generator || (!is_yield && !currentfunction->functiondef->isasync))
-        {
-                if (is_yield)
-                    lexer.AddErrorAt(pos, Error::YieldOnlyInGeneratorFunction);
-                else
-                    lexer.AddErrorAt(pos, Error::AwaitOnlyInAsyncFunction);
-                P_Expression(false);
-                retval = coder->ImSafeErrorValueReturn(pos);
-        }
-        else
-        {
-                Rvalue *expr = is_yield ? P_Expression(false) : P_Postfix_Expression();
+        Rvalue *expr = is_yield ? P_Expression(false) : P_Postfix_Expression();
 
-                retval = coder->ImYield(
-                        pos,
-                        coder->ImVariable(pos, currentfunction->functiondef->generator), expr,
-                        currentfunction->functiondef->isasync,
-                        !is_yield,
-                        is_yield && !currentfunction->functiondef->isasync,
-                        star);
+        if (is_yield && (!currentfunction || !currentfunction->functiondef->isgenerator))
+        {
+                lexer.AddErrorAt(pos, Error::YieldOnlyInGeneratorFunction);
+                return coder->ImSafeErrorValueReturn(pos);
         }
 
-        return retval;
+        if (!is_yield && (!currentfunction || !currentfunction->functiondef->isasync))
+        {
+                lexer.AddErrorAt(pos, Error::AwaitOnlyInAsyncFunction);
+                return coder->ImSafeErrorValueReturn(pos);
+        }
+
+        return coder->ImYield(
+                pos,
+                coder->ImVariable(pos, currentfunction->functiondef->generator), expr,
+                currentfunction->functiondef->isasync,
+                !is_yield,
+                is_yield && !currentfunction->functiondef->isasync,
+                star);
 }
 
 Rvalue* Parser::P_Simple_Object()

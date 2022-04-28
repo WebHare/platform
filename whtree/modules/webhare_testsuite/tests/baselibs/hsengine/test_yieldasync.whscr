@@ -109,6 +109,16 @@ MACRO TestSyntax()
   result := TestCompileAndRun('<?wh OBJECTTYPE x< ASYNC MACRO Test() { RETURN ""; } >; ?>');
   MustContainError(0, result.errors, 98);
 
+  TestAnnotatedCompile(`
+ASYNC MACRO Test() { YIELD 1; }
+//                   ^ E:246
+`);
+
+  TestAnnotatedCompile(`
+FUNCTION *test() { AWAIT 1; }
+//                 ^ E:248
+`);
+
   TestEQ(FALSE, WaitForPromise(TestAsyncMacro()));
   TestEQ(FALSE, WaitForPromise(TestAsyncMacro2()));
   TestEQ("X", WaitForPromise(TestAsyncFunction()));
