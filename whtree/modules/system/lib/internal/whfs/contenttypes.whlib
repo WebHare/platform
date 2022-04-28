@@ -1802,7 +1802,7 @@ STATIC OBJECTTYPE WHFSType
 >;
 
 /** Register or update a new WHFS type */
-PUBLIC MACRO RegisterWHFSType(RECORD typeinfo)
+PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
 {
   OBJECT type := OpenWHFSType(typeinfo.namespace, [ openorphans := TRUE ]);
   INTEGER whfstypeid;
@@ -1841,6 +1841,7 @@ PUBLIC MACRO RegisterWHFSType(RECORD typeinfo)
     type->__rescan();
 
   GetPrimary()->BroadcastOnCommit("publisher:internal.siteprofiles.memberschanged", DEFAULT RECORD); //TODO shouldn't FSTypesChanged imply this?
+  RETURN whfstypeid;
 }
 
 /** @short Returns a WHFS type object from the id of the type
