@@ -476,9 +476,45 @@ MACRO TestAsyncGenerator()
   TestThrowsLike("2", PTR WaitForPromise(TestAsyncIterator2()->Next()));
 }
 
+
+INTEGER unclosed;
+
+FUNCTION *YieldStarInner()
+{
+  unclosed := unclosed + 1;
+  TRY
+  {
+    YIELD 2;
+    RETURN -2;
+  }
+  FINALLY
+    unclosed := unclosed - 1;
+}
+
+FUNCTION *YieldStarOuter()
+{
+  unclosed := unclosed + 1;
+  TRY
+  {
+    YIELD *YieldStarInner();
+  }
+  FINALLY
+    unclosed := unclosed - 1;
+  RETURN -1;
+}
+
+MACRO TestYieldStar()
+{
+  OBJECT o := YieldStarOuter();
+  TestEQ([ done := FALSE, value := 2 ], o->Next());
+  TestEQ([ done := TRUE, value := -3 ], o->SendReturn(-3));
+  TestEQ(0, unclosed, "all generators should have executed their FINALLY");
+}
+
 PRINT("\n === Running TestYieldAsync\n");
 TestSyntax();
 TestYield();
 TestAsync();
 TestAsyncGenerator();
+TestYieldStar();
 

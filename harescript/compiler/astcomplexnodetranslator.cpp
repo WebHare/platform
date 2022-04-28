@@ -1389,6 +1389,37 @@ void ASTComplexNodeTranslator::V_ObjectTypeUID(AST::ObjectTypeUID *obj, Empty)
         ReplacePtr(str);
 }
 
+void ASTComplexNodeTranslator::CodeYieldReturn(LineColumn position, Rvalue *retval)
+{
+        //   RETURN [ done := TRUE, value := retval ]
+        Rvalue *retvalrec_rvalue = 0;
+        if (currentfunction->symbol->functiondef->isasync)
+        {
+                RvaluePtrs params({ retval });
+                retvalrec_rvalue = coder->ImObjectMethodCall(
+                        position,
+                        coder->ImVariable(position, currentfunction->symbol->functiondef->generator),
+                        "RETURNVALUE",
+                        true,
+                        params,
+                        false,
+                        std::vector< int32_t >());
+        }
+        else
+        {
+                AST::ConstantRecord *retvalrec = coder->ImConstantRecord(position);
+                retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "DONE", coder->ImConstantBoolean(position, true)));
+                retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "VALUE", retval));
+
+                retvalrec_rvalue = retvalrec;
+        }
+
+        semanticchecker.Visit(retvalrec_rvalue, false);
+        opt_carim.Optimize(retvalrec_rvalue);
+
+        coder->ImReturn(position, retvalrec_rvalue);
+}
+
 void ASTComplexNodeTranslator::CodeNormalYieldHandling(Yield *obj, Rvalue *yieldret_rvalue, Symbol *retval)
 {
         RvaluePtrs params;
@@ -1452,34 +1483,7 @@ void ASTComplexNodeTranslator::CodeNormalYieldHandling(Yield *obj, Rvalue *yield
         coder->ImIf_Else(obj->position);
 
         //   RETURN [ done := TRUE, value := retval ]
-        {
-                Rvalue *retvalrec_rvalue = 0;
-                if (currentfunction->symbol->functiondef->isasync)
-                {
-                        RvaluePtrs params(1, coder->ImVariable(obj->position, retval));
-                        retvalrec_rvalue = coder->ImObjectMethodCall(
-                            obj->position,
-                            coder->ImVariable(obj->position, currentfunction->symbol->functiondef->generator),
-                            "RETURNVALUE",
-                            true,
-                            params,
-                            false,
-                            std::vector< int32_t >());
-                }
-                else
-                {
-                        AST::ConstantRecord *retvalrec = coder->ImConstantRecord(obj->position);
-                        retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "DONE", coder->ImConstantBoolean(obj->position, true)));
-                        retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "VALUE", coder->ImVariable(obj->position, retval)));
-
-                        retvalrec_rvalue = retvalrec;
-                }
-
-                semanticchecker.Visit(retvalrec_rvalue, false);
-                opt_carim.Optimize(retvalrec_rvalue);
-
-                coder->ImReturn(obj->position, retvalrec_rvalue);
-        }
+        CodeYieldReturn(obj->position, coder->ImVariable(obj->position, retval));
 
         coder->ImIf_Close(obj->position);
 
@@ -1708,6 +1712,18 @@ void ASTComplexNodeTranslator::V_Yield(Yield *obj, Empty)
                                     RvaluePtrs(1, coder->ImVariable(obj->position, receivedvalue)),
                                     false,
                                     std::vector< int32_t >())));
+
+                //   IF (res.done) RETURN res.value
+                coder->ImIf_Open(obj->position,
+                        coder->ImColumnOf(obj->position,
+                                coder->ImVariable(obj->position, res),
+                                "DONE"));
+
+                CodeYieldReturn(obj->position, coder->ImColumnOf(obj->position,
+                        coder->ImVariable(obj->position, res),
+                        "VALUE"));
+
+                coder->ImIf_Close(obj->position);
 
                 coder->ImIf_Close(obj->position);
 

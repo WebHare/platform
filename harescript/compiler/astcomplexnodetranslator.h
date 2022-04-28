@@ -72,6 +72,7 @@ class ASTComplexNodeTranslator: protected AST::AllNodeVisitor
         AST::Rvalue * ArrayExpressionEndRewrite(LineColumn position, AST::Rvalue *array, AST::Rvalue **index, VariableTypes::Type return_type, AST::ExpressionBlock **eblock);
         void ArrayExpressionStatementEndRewrite(LineColumn position, AST::Variable *array, AST::Rvalue **index, AST::Block **block);
 
+        void CodeYieldReturn(LineColumn position, AST::Rvalue *retval);
         void CodeNormalYieldHandling(AST::Yield *obj, AST::Rvalue *yieldret_rvalue, Symbol *retval);
 
     public:
