@@ -1,8 +1,6 @@
 ﻿<?wh
 
 LOADLIB "wh::filetypes/archiving.whlib";
-LOADLIB "wh::internal/testfuncs.whlib";
-
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";

@@ -754,40 +754,6 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
   }
 }
 
-PUBLIC MACRO TestEqualInteger(INTEGER testno, INTEGER a, INTEGER b) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq(a,b);
-}
-PUBLIC MACRO TestEqualMoney(INTEGER testno, MONEY a, MONEY b) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq(a,b);
-}
-PUBLIC MACRO TestEqualFloat(INTEGER testno, FLOAT a, FLOAT b, FLOAT max_deviation DEFAULTSTO .0001) __ATTRIBUTES__(SKIPTRACE)
-{
-  IF (abs(a-b) > max_deviation)
-    ReportError("Expected: " || FormatFloat(a, 15) || ", got: " || FormatFloat(b, 15), DEFAULT RECORD ARRAY, "");
-}
-PUBLIC MACRO TestEqualString(INTEGER testno, STRING a, STRING b)
-{
-  TestEq(a,b);
-}
-PUBLIC MACRO TestEqualStringBinary(INTEGER testno, STRING expected, STRING actual) __ATTRIBUTES__(SKIPTRACE)
-{
-  IF(expected!=actual)
-    ReportError("Expected: '" || EncodeBase16(expected) || "', got: '" || EncodeBase16(actual) || "'", DEFAULT RECORD ARRAY, "");
-}
-PUBLIC MACRO TestEqualBoolean(INTEGER testno, BOOLEAN a, BOOLEAN b)
-{
-  TestEq(a,b);
-}
-PUBLIC MACRO TestEqualDateTime(INTEGER testno, DATETIME a, DATETIME b) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq(a,b);
-}
-PUBLIC MACRO TestEqualBlob(INTEGER testno, BLOB a, BLOB b) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq(a,b);
-}
 PUBLIC MACRO TestAssert(INTEGER testno, BOOLEAN to_assert, STRING if_failed) __ATTRIBUTES__(SKIPTRACE)
 {
   IF(NOT to_assert)
@@ -802,22 +768,12 @@ MACRO dumpcells(RECORD expected, RECORD actual)
   PrintrecordTo(0,actual,"boxed");
 }
 
-PUBLIC MACRO TestEqualRecord(INTEGER testno, RECORD expected, RECORD actual) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq( expected, actual);
-}
-
 MACRO dumpcellsarray(RECORD ARRAY expected, RECORD ARRAY actual)
 {
   PRINT("Expected:\n");
   PrintrecordarrayTo(0,expected,"boxed");
   PRINT("Actual:\n");
   PrintrecordarrayTo(0,actual,"boxed");
-}
-
-PUBLIC MACRO TestEqualRecordArray(INTEGER testno, RECORD ARRAY expected, RECORD ARRAY actual) __ATTRIBUTES__(SKIPTRACE)
-{
-  TestEq( expected, actual);
 }
 
 // Generate random text from www.loremipsum.net standard text

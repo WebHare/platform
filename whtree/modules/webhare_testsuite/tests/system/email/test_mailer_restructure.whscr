@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 

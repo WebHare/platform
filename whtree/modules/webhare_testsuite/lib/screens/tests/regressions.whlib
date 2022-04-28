@@ -1,6 +1,9 @@
 <?wh
-LOADLIB "wh::internal/testfuncs.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
 
 PUBLIC OBJECTTYPE Test_Fragment_Visibility EXTEND TolliumScreenBase
 <

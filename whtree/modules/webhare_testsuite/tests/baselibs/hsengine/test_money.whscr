@@ -118,12 +118,12 @@ MACRO FormatMoneyTest()
   MustContainError(66, errors, 62, 'INTEGER', 'BOOLEAN');
 
   TestEq('-10,000,000,000,000.00001', FormatMoney(-10000000000000.0000100, 0, '.', ',', FALSE));
-  TestEqual(71, TRUE, (100000000000000 / 10000000000000) - 9.99 < 0.02); // Eerste moet float zijn, 2e money, en redelijk in de buurt
+  TestEq(TRUE, (100000000000000 / 10000000000000) - 9.99 < 0.02); // Eerste moet float zijn, 2e money, en redelijk in de buurt
   TestEq('-92.233.720.368.547,75808', FormatMoney(-92233720368547.75808, 0, ',', '.', FALSE));
-  TestEqual(73, TypeID(MONEY), TypeID(92233720368547.75807));
-  TestEqual(74, TypeID(FLOAT), TypeID(92233720368547.75808));
-  TestEqual(75, TypeID(MONEY), TypeID(-92233720368547.75808));
-  TestEqual(76, TypeID(FLOAT), TypeID(-92233720368547.75809));
+  TestEq(TypeID(MONEY), TypeID(92233720368547.75807));
+  TestEq(TypeID(FLOAT), TypeID(92233720368547.75808));
+  TestEq(TypeID(MONEY), TypeID(-92233720368547.75808));
+  TestEq(TypeID(FLOAT), TypeID(-92233720368547.75809));
 
   CloseTest("TestMoney: FormatMoneyTest");
 }
@@ -171,9 +171,9 @@ MACRO ConversionTest()
 {
   OpenTest("TestMoney: ConversionTest");
 
-  TestEqualMoney(1, 0., 0);
-  TestEqualMoney(2, 2147483647., 2147483647);
-  TestEqualMoney(3, -2147483647., -2147483647);
+  TestEq(0., 0m);
+  TestEq(2147483647., 2147483647m);
+  TestEq(-2147483647., -2147483647m);
 
   /* FIXME: Re-enable these tests!
      On linux, with floating point optimization:
@@ -181,13 +181,13 @@ MACRO ConversionTest()
      Test 6: Expected: -112233445.56677, got: -112233445.56678
      .
      Apparently rounding errors aren't taken into account
-  TestEqualMoney(4, .12345, FloatToMoney(.12345));
-  TestEqualMoney(5, 112233445.56677, FloatToMoney(112233445.56677));
-  TestEqualMoney(6, -112233445.56677, FloatToMoney(-112233445.56677));
+  TestEq(.12345, FloatToMoney(.12345));
+  TestEq(112233445.56677, FloatToMoney(112233445.56677));
+  TestEq(-112233445.56677, FloatToMoney(-112233445.56677));
   */
 
-  TestEqualInteger(7, 0, MoneyToInteger(0.));
-  TestEqualInteger(8, 2147483647, MoneyToInteger(2147483647.12345));
+  TestEq(0, MoneyToInteger(0.));
+  TestEq(2147483647, MoneyToInteger(2147483647.12345));
 
   CloseTest("TestMoney: ConversionTest");
 }
@@ -198,35 +198,35 @@ MACRO PrecisionTest()
   OpenTest("TestMoney: PrecisionTest");
 
   // Add/subtract
-  TestEqualMoney(1, -92233720368547.75808, 92233720368547.75807+.00001);
-  TestEqualMoney(2, 92233720368547.75807, -92233720368547.75808-.00001);
+  TestEq(-92233720368547.75808, 92233720368547.75807+.00001);
+  TestEq(92233720368547.75807, -92233720368547.75808-.00001);
 
   // Multiply
-  TestEqualMoney(3, 12193263.11126, 1234.56789*9876.54321);
+  TestEq(12193263.11126, 1234.56789*9876.54321);
 
-  TestEqualMoney(4, 0.00001, 0.001*0.01);
-  TestEqualMoney(5, 0.00001, 0.002*0.0025);
-  TestEqualMoney(6, 0, 0.002*0.0024);
+  TestEq(0.00001, 0.001*0.01);
+  TestEq(0.00001, 0.002*0.0025);
+  TestEq(0m, 0.002*0.0024);
 
   // Basic division
-  TestEqualMoney(7, 1, 1m/1m);
-  TestEqualMoney(8, 8, 9876.54321/1234.56789);
+  TestEq(1m, 1m/1m);
+  TestEq(8m, 9876.54321/1234.56789);
 
   // Small numbers
-  TestEqualMoney(9, 0.00001, 1m/100000m);
-  TestEqualMoney(10, 100000m, 1m/0.00001);
+  TestEq(0.00001, 1m/100000m);
+  TestEq(100000m, 1m/0.00001);
 
   // Rounding
-  TestEqualMoney(11, 0.00001, 5m/1000000m);
-  TestEqualMoney(12, 0, 4m/1000000m);
-  TestEqualMoney(13, -0.00001, -5m/1000000m);
-  TestEqualMoney(14, 0, -4m/1000000m);
+  TestEq(0.00001, 5m/1000000m);
+  TestEq(0m, 4m/1000000m);
+  TestEq(-0.00001, -5m/1000000m);
+  TestEq(0m, -4m/1000000m);
 
   // Big numbers
-  TestEqualMoney(15, 1, 92233720368547.75807/92233720368547.75807);
-  TestEqualMoney(16, -1, -92233720368547.75807/92233720368547.75807);
-  TestEqualMoney(17, -1, 92233720368547.75807/-92233720368547.75807);
-  TestEqualMoney(18, 1, -92233720368547.75808/-92233720368547.75808);
+  TestEq(1m, 92233720368547.75807/92233720368547.75807);
+  TestEq(-1m, -92233720368547.75807/92233720368547.75807);
+  TestEq(-1m, 92233720368547.75807/-92233720368547.75807);
+  TestEq(1m, -92233720368547.75808/-92233720368547.75808);
 
   CloseTest("TestMoney: PrecisionTest");
 }

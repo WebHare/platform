@@ -20,9 +20,9 @@ MACRO MimeDecodeTest()
   OpenTest("TestMime: MimeDecodeTest");
 
   final := DecodeMIMEMessage(StringToBlob('Return-path: <""@>\r\nX-Original-To: <test1@linux039.utsp.utwente.nl>\r\nDelivered-To: test1@alumnus.utwente.net\r\nReceived: from 127.0.0.1\r\n        by 127.0.0.1 (Webhare MTP) with MTP id a41f009ce865d0e5066dd48be6ceeda4\r\n        for <test1@linux039.utsp.utwente.nl>; Mon, 26 Nov 2007 14:41:11 -0000 (UTC)\r\ntestje'));
-  TestEqual(1, 308, final.data.ofs_bodystart);
-  testEqual(2, 5, Length(final.headers));
-  testEqual(3, 0, Length(final.data.data));
+  TestEq(308, final.data.ofs_bodystart);
+  TestEq(5, Length(final.headers));
+  TestEq(0, Length(final.data.data));
 
   CloseTest("TestMime: MimeDecodeTest");
 }
@@ -37,15 +37,15 @@ MACRO MimeDecodeTest2()
   SendBlobTo(mimeid, OpenTestFile("mime2.txt"));
   RECORD final := FinishMimeData(mimeid);
 
-  TestEqual(1, 2, Length(final.subparts));
-  TestEqual(2, 2, Length(final.subparts[0].subparts));
-  TestEqual(3, "3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
-  TestEqual(4, 1061, final.subparts[0].subparts[0].ofs_partstart);
-  TestEqual(5, 1180, final.subparts[0].subparts[0].ofs_bodystart);
-  TestEqual(6, 1421, final.subparts[0].subparts[0].ofs_partend);
-  TestEqual(7, 1421, final.subparts[0].subparts[0].ofs_bodyend);
-  TestEqual(8, 2699, final.subparts[1].ofs_bodystart);
-  TestEqual(9, 140221, final.subparts[1].ofs_bodyend);
+  TestEq(2, Length(final.subparts));
+  TestEq(2, Length(final.subparts[0].subparts));
+  TestEq("3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
+  TestEq(1061, final.subparts[0].subparts[0].ofs_partstart);
+  TestEq(1180, final.subparts[0].subparts[0].ofs_bodystart);
+  TestEq(1421, final.subparts[0].subparts[0].ofs_partend);
+  TestEq(1421, final.subparts[0].subparts[0].ofs_bodyend);
+  TestEq(2699, final.subparts[1].ofs_bodystart);
+  TestEq(140221, final.subparts[1].ofs_bodyend);
 
 /* FIXME: Add test code
   printrecordto(0,final,"tree");
@@ -67,13 +67,13 @@ MACRO MimeDecodeTest2Sliced()
   RECORD final := FinishMimeData(mimeid);
 
 
-  TestEqual(1, 1, Length(final.subparts));
-  TestEqual(2, 2, Length(final.subparts[0].subparts));
-  TestEqual(3, "3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
-  TestEqual(4, 1061, final.subparts[0].subparts[0].ofs_partstart);
-  TestEqual(5, 1180, final.subparts[0].subparts[0].ofs_bodystart);
-  TestEqual(6, 1421, final.subparts[0].subparts[0].ofs_partend);
-  TestEqual(7, 1421, final.subparts[0].subparts[0].ofs_bodyend);
+  TestEq(1, Length(final.subparts));
+  TestEq(2, Length(final.subparts[0].subparts));
+  TestEq("3B6A0B96BF690BA458655DDC2DBB9CB2", EncodeBase16(GetMD5Hash(BlobToString(final.subparts[0].subparts.data,65536))));
+  TestEq(1061, final.subparts[0].subparts[0].ofs_partstart);
+  TestEq(1180, final.subparts[0].subparts[0].ofs_bodystart);
+  TestEq(1421, final.subparts[0].subparts[0].ofs_partend);
+  TestEq(1421, final.subparts[0].subparts[0].ofs_bodyend);
 
 /* FIXME: Add test code
   printrecordto(0,final,"tree");
@@ -89,18 +89,18 @@ MACRO MimeEncodeDecodeQPTest()
   OpenTest("TestMime: MimeEncodeDecodeQPTest");
 
   // Special characters
-  TestEqual(1, "=00=01=0A=0D=1F =3D\175\176=7F=80=FF", EncodeQP("\0\1\12\15\37 =\175\176\177\200\377"));
-  TestEqual(2, "\0\1\12\15\37 =\175\176\177\200\377", DecodeQP("=00=01=0A=0D=1F =3D\175\176=7F=80=FF"));
+  TestEq("=00=01=0A=0D=1F =3D\175\176=7F=80=FF", EncodeQP("\0\1\12\15\37 =\175\176\177\200\377"));
+  TestEq("\0\1\12\15\37 =\175\176\177\200\377", DecodeQP("=00=01=0A=0D=1F =3D\175\176=7F=80=FF"));
 
   // too long lines
-  TestEqual(5, "01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890123"));
-  TestEqual(6, "01234567890123456789012345678901234567890123456789012345678901234567890123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123"));
+  TestEq("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890123"));
+  TestEq("01234567890123456789012345678901234567890123456789012345678901234567890123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n123"));
 
-  TestEqual(7, "0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123", EncodeQP("0123456789012345678901234567890123456789012345678901234567890123456789\n123"));
-  TestEqual(8, "0123456789012345678901234567890123456789012345678901234567890123456789\n123", DecodeQP("0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123"));
-  TestEqual(9, "01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890\n123"));
-  TestEqual(10, "01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123"));
-  TestEqual(11, "01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=0A=\r\n123"));
+  TestEq("0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123", EncodeQP("0123456789012345678901234567890123456789012345678901234567890123456789\n123"));
+  TestEq("0123456789012345678901234567890123456789012345678901234567890123456789\n123", DecodeQP("0123456789012345678901234567890123456789012345678901234567890123456789=0A=\r\n123"));
+  TestEq("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123", EncodeQP("01234567890123456789012345678901234567890123456789012345678901234567890\n123"));
+  TestEq("01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=\r\n=0A123"));
+  TestEq("01234567890123456789012345678901234567890123456789012345678901234567890\n123", DecodeQP("01234567890123456789012345678901234567890123456789012345678901234567890=0A=\r\n123"));
 
   CloseTest("TestMime: MimeEncodeDecodeQPTest");
 }
@@ -137,8 +137,8 @@ MACRO MimeHeadersTest()
   STRING ARRAY connectionfields := __internal_CombineMIMEHeaders(header, "Connection");
 
   // Test the MIMEGetHeaderFields function
-  TestEqualInteger( 2, 3, Length(connectionfields));
-  TestEqualString( 3, "hey", connectionfields[2]);
+  TestEq(3, Length(connectionfields));
+  TestEq("hey", connectionfields[2]);
 
   CloseTest("TestMime: Headers");
 }

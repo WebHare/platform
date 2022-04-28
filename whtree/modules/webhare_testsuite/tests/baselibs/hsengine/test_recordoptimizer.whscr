@@ -17,23 +17,23 @@ MACRO BasicTest()
 
   RECORD a;
   INSERT CELL name:="test" INTO a;
-  TestEqualString(1, a.name, "test");
+  TestEq(a.name, "test");
 
   RECORD b := a;
-  TestEqualString(2, b.name, "test");
+  TestEq(b.name, "test");
 
   RECORD c := recordid(a);
-  TestEqualString(3, c.name, "test");
+  TestEq(c.name, "test");
 
   RECORD ARRAY d; INSERT c INTO d AT END;
-  TestEqualString(4, d[0].name, "test");
+  TestEq(d[0].name, "test");
 
   RECORD ARRAY e; INSERT c INTO e AT END;
-  TestEqualString(5, e.name, "test");
+  TestEq(e.name, "test");
 
   RECORD f;
   INSERT CELL nested := c INTO f;
-  TestEqualString(6, f.nested.name, "test");
+  TestEq(f.nested.name, "test");
 
   CloseTest("TestRecordOptimizer: BasicTest");
 }
@@ -57,12 +57,12 @@ MACRO GlobalTest_1()
 
 MACRO GlobalTest_2()
 {
-  TestEqualString(1, global1.name, "test");
-  TestEqualString(2, global2.name, "test");
-  TestEqualString(3, global3.name, "test");
-  TestEqualString(4, global4[0].name, "test");
-  TestEqualString(5, global5.name, "test");
-  TestEqualString(6, global6.nested.name, "test");
+  TestEq(global1.name, "test");
+  TestEq(global2.name, "test");
+  TestEq(global3.name, "test");
+  TestEq(global4[0].name, "test");
+  TestEq(global5.name, "test");
+  TestEq(global6.nested.name, "test");
 }
 
 MACRO GlobalTest()
@@ -86,7 +86,7 @@ MACRO ReturnTest()
 {
   OpenTest("TestRecordOptimizer: ReturnTest");
 
-  TestEqualString(1, ReturnTestFunc().name, "test");
+  TestEq(ReturnTestFunc().name, "test");
 
   CloseTest("TestRecordOptimizer: ReturnTest");
 }
@@ -95,10 +95,10 @@ MACRO LoadlibTest()
 {
   OpenTest("TestRecordOptimizer: LoadlibTest");
 
-  TestEqualString(1, public1.name, "test");
-  TestEqualString(2, public2.name, "test");
-  TestEqualString(3, public2[0].name, "test");
-  TestEqualString(4, public3.nested.name, "test");
+  TestEq(public1.name, "test");
+  TestEq(public2.name, "test");
+  TestEq(public2[0].name, "test");
+  TestEq(public3.nested.name, "test");
 
   CloseTest("TestRecordOptimizer: LoadlibTest");
 }
@@ -114,8 +114,8 @@ MACRO ConcatTest()
 
   RECORD ARRAY B := A CONCAT [[ xkey := 8 ]];
 
-  TestEqualInteger(1, B[0].id, 7);
-  TestEqualInteger(2, B[1].xkey, 8);
+  TestEq(B[0].id, 7);
+  TestEq(B[1].xkey, 8);
 
   CloseTest("TestRecordOptimizer: ConcatTest");
 }

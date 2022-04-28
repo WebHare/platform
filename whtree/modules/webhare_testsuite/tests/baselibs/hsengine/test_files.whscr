@@ -181,7 +181,7 @@ MACRO LoopbackReaders()
   FOR(INTEGER i:=0;i<passes;i:=i+1)
   {
     STRING input := ReadFrom(testfile, Length(testsrcdata));
-    TestEqualString(18+i, Substring(totaldata,i*Length(testsrcdata),Length(testsrcdata)), input);
+    TestEq(Substring(totaldata,i*Length(testsrcdata),Length(testsrcdata)), input);
   }
   CloseBlobFile(testfile);
 
@@ -201,23 +201,23 @@ MACRO BufferFilepointertest()
 
   /* Test whether file pointer manipulation is not disturbed by buffering */
   testfile := OpenBlobAsFile(testdata);
-  TestEqualString ( 1, "Dit is een test", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("Dit is een test", ReadLineFrom(testfile,1024,TRUE));
   TestEq(Length("Dit is een test\r\n"), INTEGER(GetFilePointer(testfile)));
 
   SetFilePointer(testfile, GetFilePointer(testfile)-4);
-  TestEqualString ( 3, "st", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("st", ReadLineFrom(testfile,1024,TRUE));
   CloseBlobFile(testfile);
 
 
   /* Now slice it! */
   testdata := MakeSlicedBlob(testdata, 1, Length(testdata)-2);
   testfile := OpenBlobAsFile(testdata);
-  TestEqualString ( 4, "it is een test", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("it is een test", ReadLineFrom(testfile,1024,TRUE));
   TestEq( Length("it is een test\r\n"), INTEGER(GetFilePointer(testfile)));
   SetFilePointer(testfile, GetFilePointer(testfile)-4);
-  TestEqualString ( 6, "st", ReadLineFrom(testfile,1024,TRUE));
-  TestEqualString ( 7, "Dit is er nog een", ReadLineFrom(testfile,1024,TRUE));
-  TestEqualString ( 8, "En dit is de laatst", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("st", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("Dit is er nog een", ReadLineFrom(testfile,1024,TRUE));
+  TestEq("En dit is de laatst", ReadLineFrom(testfile,1024,TRUE));
   CloseBlobFile(testfile);
 
   CloseTest("TestFiles: BufferFilepointertest");
@@ -229,7 +229,7 @@ MACRO BlobManipTest()
 
   //Test with empty blob first..
   BLOB simpleblob := DEFAULT BLOB;
-  TestEqualInteger( 1, 0, LENGTH(simpleblob));
+  TestEq(0, LENGTH(simpleblob));
 
   //Test a simple 13-byte blob
   INTEGER newblobstream := CreateStream();
@@ -239,7 +239,7 @@ MACRO BlobManipTest()
   BLOB newblob := MakeBlobFromStream(newblobstream);
 
   //Test the length of this blob in various ways
-  TestEqualInteger( 4, 13, LENGTH(newblob));
+  TestEq(13, LENGTH(newblob));
   INTEGER openblob := OpenBlobAsFile(newblob);
   TestEq(13i64, GetFileLength(openblob));
   TestEq(0i64, GetFilePointer(openblob));
@@ -250,7 +250,7 @@ MACRO BlobManipTest()
   SetFilePointer(openblob,3);
   TestEq(3i64, GetFilePointer(openblob));
   TestEq( "lo, World\n", ReadFromFile(openblob,100));
-  TestEqualBoolean(11, TRUE/* no i/o errors */, CloseBlobFile(openblob));
+  TestEq(TRUE/* no i/o errors */, CloseBlobFile(openblob));
 
   CloseTest("TestFiles: BlobManip");
 }
@@ -299,16 +299,16 @@ MACRO UnpackOleTest()
   RECORD props := ScanBlob(testblob, testfile);
 
   //Ensure opening went succesful
-  TestEqualBoolean(1, FALSE, Length(testblob)=0);
+  TestEq(FALSE, Length(testblob)=0);
 
   RECORD oleprops := __HS_UnpackOleProps(testblob);
-  TestEqualBoolean(2, TRUE, RecordExists(oleprops));
-  //TestEqualString (3, "{00020906-0000-0000-C000-000000000046}", oleprops.clsid);
+  TestEq(TRUE, RecordExists(oleprops));
+  //TestEq("{00020906-0000-0000-C000-000000000046}", oleprops.clsid);
 
   RECORD ARRAY propsets := SELECT * FROM oleprops.propsets ORDER BY name;
-  TestEqualInteger(4, 2, Length(propsets));
-  TestEqualString (5, "\005DocumentSummaryInformation", propsets[0].name);
-  TestEqualString (6, "\005SummaryInformation", propsets[1].name);
+  TestEq(2, Length(propsets));
+  TestEq("\005DocumentSummaryInformation", propsets[0].name);
+  TestEq("\005SummaryInformation", propsets[1].name);
 
   RECORD ARRAY docsumprops := SELECT * FROM propsets[0].sections[0].properties ORDER BY id;
   RECORD ARRAY sumprops := SELECT * FROM propsets[1].sections[0].properties ORDER BY id;
@@ -317,8 +317,8 @@ MACRO UnpackOleTest()
   TestEq( "B-Lex Information Technologies", (SELECT * FROM docsumprops WHERE id=15).data);
   TestEq( "Handleiding WebHare Professional", (SELECT * FROM sumprops WHERE id=2).data);
   TestEq( "keyword 1\r\nkeyword 2\r\nkeyword 3", (SELECT * FROM sumprops WHERE id=5).data);
-  TestEqualInteger(11, 1, (SELECT * FROM sumprops WHERE id=14).data);
-  TestEqualDatetime(12, MakeDatetime(2000,9,27,15,02,00), (SELECT * FROM sumprops WHERE id=13).data);
+  TestEq(1, (SELECT * FROM sumprops WHERE id=14).data);
+  TestEq(MakeDatetime(2000,9,27,15,02,00), (SELECT * FROM sumprops WHERE id=13).data);
 
   testblob := OpenTestFile("olepropscrash.doc");
   props := ScanBlob(testblob, "");
@@ -349,11 +349,11 @@ MACRO MiscTest()
   STRING testfile := selftests_hsengine_tests_dir || "does-not-exist.txt";
   BLOB testblob := MakeBlobFromDiskfile(testfile);
 //  BLOB testblob := OpenTestFile("does-not-exist.txt");
-  TestEqualInteger(13, 0, Length(testblob));
+  TestEq(0, Length(testblob));
   TestThrowsLike("No such*file*",PTR GetDiskResource(testfile));
   TestEq(DEFAULT BLOB, GetDiskResource(testfile,[allowmissing := TRUE]));
 
-  TestEqualBoolean(14, FALSE, GenerateTemporaryPathname() = GenerateTemporaryPathname());
+  TestEq(FALSE, GenerateTemporaryPathname() = GenerateTemporaryPathname());
   TestEq("uber-12-strassen-", GetSafeFileName(".Über '12' _Straßen_.?"));
   TestEq("unknown", GetSafeFileName("????? ??????? ?????????"));
   TestEq("index.html", GetSafeFileName("^index.html"));
@@ -378,7 +378,7 @@ MACRO ArchiveTest()
 
   {
     INTEGER newarchive := CreateArchive();
-    TestEqualBoolean(1, FALSE, newarchive = 0);
+    TestEq(FALSE, newarchive = 0);
     AddFileToArchive(newarchive, "file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
     AddFolderToArchive(newarchive, "folder1", MakeDate(2003,4,5));
     AddFileToArchive(newarchive, "folder1/file2", StringToBlob("File nummer 2"), MakeDate(2002,2,3));
@@ -417,7 +417,7 @@ MACRO ArchiveTest()
     RECORD ARRAY results := UnpackArchive(archive);
     results := SELECT * FROM results ORDER BY path, name;
 
-    TestEqual(4, [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
+    TestEq([ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
                  , [ path := "folder1", name := "", modtime := MakeDate(2003,4,5), data := DEFAULT BLOB ]
                  , [ path := "folder1", name := "file2", modtime := MakeDate(2002,2,3), data := StringToBlob("File nummer 2") ]
                  , [ path := "folder2", name := "", modtime := MakeDate(2004,5,6), data := DEFAULT BLOB ]
@@ -474,7 +474,7 @@ MACRO ArchiveTest()
         , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), size := 12, size64 := 12i64, data := "dit is file3" ]
         ], zipentries);
 
-    TestEqual(21, "", ziparchive->archivecomment);
+    TestEq("", ziparchive->archivecomment);
 
     ziparchive->archivecomment := "testcommentaar";
     ziparchive->RemoveEntries("", "file1.txt");
@@ -504,7 +504,7 @@ MACRO ArchiveTest()
         , [ fullpath := "folder2/folder5/file6.txt",  path := "folder2/folder5",    name := "file6.txt",    type := 0, modtime := MakeDateTime(2009, 3, 3,  10,  0,  6), size := 12, size64 := 12i64, data := "dit is file6" ]
         ], zipentries);
 
-//    TestEqual(23, "testcommentaar", ziparchive->archivecomment);
+//    TestEq("testcommentaar", ziparchive->archivecomment);
 
     ziparchive->Close();
   }
@@ -647,7 +647,7 @@ MACRO ArchiveEncodingTest()
     BLOB archive := newarchive->MakeBlob();
     newarchive->Close();
     RECORD ARRAY results := UnpackArchive(archive);
-    TestEqual(3, [ [ path := "", name := "t\u20ACst", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ] ]
+    TestEq([ [ path := "", name := "t\u20ACst", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ] ]
               ,results);
   }
 
@@ -662,7 +662,7 @@ MACRO RedirectTest()
   BOOLEAN saved_show_test_progress := show_test_progress;
   show_test_progress := FALSE;
 
-  TestEqualInteger(1, 0, RedirectOutputTo(0));
+  TestEq(0, RedirectOutputTo(0));
 
   INTEGER testblobstream := CreateStream();
   PrintTo(testblobstream,"1234567");
@@ -671,7 +671,7 @@ MACRO RedirectTest()
   INTEGER newstr := CreateStream();
   PrintTo(newstr,"test");
   RedirectOutputTo(newstr);
-  TestEqualInteger(2, newstr, RedirectOutputTo(newstr));
+  TestEq(newstr, RedirectOutputTo(newstr));
   Print("test2");
   SendBlobTo(0,testblob);
 
@@ -680,8 +680,8 @@ MACRO RedirectTest()
   BLOB finalblob := MakeBlobFromStream(newstr);
 
   RedirectOutputTo(0);
-  TestEqualInteger(3, 0, RedirectOutputTo(0));
-  TestEqualInteger(4, 4 + 5 + 7 + 9, Length(finalblob));
+  TestEq(0, RedirectOutputTo(0));
+  TestEq(4 + 5 + 7 + 9, Length(finalblob));
 
   show_test_progress := saved_show_test_progress;
 
@@ -708,34 +708,34 @@ MACRO FSTest()
 
   STRING temppath := GenerateTemporaryPathname();
   INTEGER outfile := CreateDiskFile(temppath, FALSE, TRUE);
-  TestEqualBoolean(1, TRUE, outfile>0);
+  TestEq(TRUE, outfile>0);
   PrintTo(outfile,"abcdef");
   TestEq(6i64, GetFilelength(outfile));
-  TestEqualBOolean(3, TRUE, CloseDiskFile(outfile));
+  TestEq(TRUE, CloseDiskFile(outfile));
 
   BLOB outfileblob := MakeBLobFromDiskFile(temppath);
-  TestEqualInteger(4, 6, Length(outfileblob));
-  TestEqualInteger(5, 6, Length(BLobToString(outfileblob,7)));
+  TestEq(6, Length(outfileblob));
+  TestEq(6, Length(BLobToString(outfileblob,7)));
 
   outfile := OpenDiskFile(temppath, TRUE);
-  TestEqualBoolean(6, TRUE, outfile>0);
+  TestEq(TRUE, outfile>0);
   STRING outfilestring := ReadFromFile(outfile, 10);
-  TestEqualInteger(7, 6, Length(outfilestring));
+  TestEq(6, Length(outfilestring));
   SetDiskFileLength(outfile, 0);
   PrintTo(outfile,"abcdef");
   TestEq(6i64, GetFilelength(outfile));
-  TestEqualBOolean(9, TRUE, CloseDiskFile(outfile));
+  TestEq(TRUE, CloseDiskFile(outfile));
 
-  TestEqualBoolean(10, TRUE, DeleteDiskFile(temppath));
-  TestEqualInteger(11, 6, Length(outfileblob));
+  TestEq(TRUE, DeleteDiskFile(temppath));
+  TestEq(6, Length(outfileblob));
 
   STRING tempdir := GenerateTemporaryPathname();
   CreateDiskDirectory(tempdir, TRUE);
   BLOB dirblob := MakeBlobFromDiskFile(tempdir);
   INTEGER dontcrash := OpenBlobAsFile(dirblob);
-  TestEqual(13, TRUE, dontcrash > 0); //ADDME are we sure it must always succeed to open a directory?
+  TestEq(TRUE, dontcrash > 0); //ADDME are we sure it must always succeed to open a directory?
   STRING nodata := ReadFrom(dontcrash,24);
-  TestEqual(15, "", nodata);
+  TestEq("", nodata);
   TestEq(0i64, GetFileLength(dontcrash));
   CloseBlobFile(dontcrash);
 

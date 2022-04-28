@@ -24,74 +24,74 @@ MACRO EmbeddingTest()
 
   result := TestCompileAndRunPrimitive('<?wh ');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('<?wh\t');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('<?wh\n');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('<?wh');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "<?wh", result.output);
+  TestEq("<?wh", result.output);
 
   result := TestCompileAndRunPrimitive('<HTML> <?wh ?> </HTML>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "<HTML>  </HTML>", result.output);
+  TestEq("<HTML>  </HTML>", result.output);
 
   result := TestCompileAndRunPrimitive('<?Wh ');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "<?Wh ", result.output);
+  TestEq("<?Wh ", result.output);
 
   result := TestCompileAndRunPrimitive('<?wH ');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "<?wH ", result.output);
+  TestEq("<?wH ", result.output);
 
   errors := TestCompilePrimitive('<?wh ??>');
   MustContainError(15, errors, 73, '??');
 
   result := TestCompileAndRunPrimitive('<?w h ');
   TestCleanResult(16, result.errors);
-  TestEqualString(17, "<?w h ", result.output);
+  TestEq("<?w h ", result.output);
 
   result := TestCompileAndRunPrimitive('<?webhare ');
   TestCleanResult(18, result.errors);
-  TestEqualString(19, "<?webhare ", result.output);
+  TestEq("<?webhare ", result.output);
 
   result := TestCompileAndRunPrimitive('\xEF\xBB\xBF ');
   TestCleanResult(20, result.errors);
-  TestEqualString(21, "", result.output); //note: no spaces due to terminator-space-truncation rule
+  TestEq("", result.output); //note: no spaces due to terminator-space-truncation rule
 
   result := TestCompileAndRunPrimitive('\xEF\xBB\xBF');
   TestCleanResult(22, result.errors);
-  TestEqualString(23, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('#!/bin/yeey\n');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('#!/bin/yeey\na');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "a", result.output);
+  TestEq("a", result.output);
 
   result := TestCompileAndRunPrimitive('#!/bin/yeey\n<?wh ');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRunPrimitive('#!/bin/yeey\n#!/bin/yeey\n');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "#!/bin/yeey\n", result.output);
+  TestEq("#!/bin/yeey\n", result.output);
 
   result := TestCompileAndRunPrimitive('<?wh ?>#!/bin/yeey\n');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "#!/bin/yeey\n", result.output);
+  TestEq("#!/bin/yeey\n", result.output);
 
   result := TestCompileAndRunPrimitive('a#!/bin/yeey\n');
   TestCleanResult(1, result.errors);
-  TestEqualString(1, "a#!/bin/yeey\n", result.output);
+  TestEq("a#!/bin/yeey\n", result.output);
 
   errors :=  TestCompilePrimitive('Data<?wh LOADLIB "wh::witty.whlib";');
   TestCleanResult(1, errors);
@@ -186,18 +186,18 @@ MACRO GeneralTest()
   //Whitespace at the end of a file is automatically stripped, IF following a ? >
   result := TestCompileAndRun('<?wh ?> \n \r   \t      ');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "", result.output);
+  TestEq("", result.output);
 
   //But normal text should not trigger any ignore!
   result := TestCompileAndRun('<?wh ?> \n \r   \t      A');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, " \n \r   \t      A", result.output);
+  TestEq(" \n \r   \t      A", result.output);
   result := TestCompileAndRun('<?wh ?> \n \r   \t      A   \t');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, " \n \r   \t      A   \t", result.output);
+  TestEq(" \n \r   \t      A   \t", result.output);
   result := TestCompileAndRun('<?wh ?>A   \t');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "A   \t", result.output);
+  TestEq("A   \t", result.output);
 
   CloseTest("TestSyntax: GeneralTest");
 }
@@ -213,15 +213,15 @@ MACRO FunctionTest()
 
   result := TestCompileAndRun('<?wh STRING FUNCTION f (STRING a DEFAULTSTO "x") { RETURN a; } STRING s := f(); PRINT(s)?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "x", result.output);
+  TestEq("x", result.output);
 
   result := TestCompileAndRun('<?wh STRING FUNCTION f (STRING a DEFAULTSTO "x") { RETURN a; } STRING s := f("y"); PRINT(s); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "y", result.output);
+  TestEq("y", result.output);
 
   result := TestCompileAndRun('<?wh STRING FUNCTION f ( ) { ?> test <?wh RETURN ""; } STRING s := f(); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, " test ", result.output);
+  TestEq(" test ", result.output);
 
   errors := TestCompile('<?wh STRING FUNCTION f ( ) { } ?>');
   MustContainError(10, errors, 99);
@@ -266,11 +266,11 @@ MACRO MacroTest()
 
   result := TestCompileAndRun('<?wh MACRO m (STRING a DEFAULTSTO "x") { PRINT(a); } m(); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "x", result.output);
+  TestEq("x", result.output);
 
   result := TestCompileAndRun('<?wh MACRO m (STRING a DEFAULTSTO "x") { PRINT(a); } m("y"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "y", result.output);
+  TestEq("y", result.output);
 
   errors := TestCompile('<?wh MACRO m ( { } ?>');
   MustContainError(7, errors, 134);
@@ -316,43 +316,43 @@ MACRO CommentsTest()
 
   result := TestCompileAndRun('<?wh // This is a comment ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh // This is a ?> comment');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh // PRINT("0"); PRINT("1"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh /* This is a comment */ ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh /* This is a ?> comment */');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh /* PRINT("0"); */ PRINT("1"); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh /* This is \n a comment */ ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "", result.output);
+  TestEq("", result.output);
 
   result := TestCompileAndRun('<?wh /**/ PRINT ("ok"); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "ok", result.output);
+  TestEq("ok", result.output);
 
   result := TestCompileAndRun('<?wh /** /**/ PRINT ("ok"); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "ok", result.output);
+  TestEq("ok", result.output);
 
   result := TestCompileAndRun('<?wh /** /**//**/PRINT ("ok"); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "ok", result.output);
+  TestEq("ok", result.output);
 
   result := TestCompileAndRun('<?wh /*');
   TestCleanResult(21, result.errors);
@@ -372,25 +372,25 @@ MACRO StrConstTest()
 
   result := TestCompileAndRun('<?wh PRINT("HareScript"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "HareScript", result.output);
+  TestEq("HareScript", result.output);
   result := TestCompileAndRun("<?wh PRINT('HareScript'); ?>");
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "HareScript", result.output);
+  TestEq("HareScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("\'Hare\'Script"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "'Hare'Script", result.output);
+  TestEq("'Hare'Script", result.output);
   result := TestCompileAndRun("<?wh PRINT('\"Hare\"Script'); ?>");
   TestCleanResult(7, result.errors);
-  TestEqualString(8, '"Hare"Script', result.output);
+  TestEq('"Hare"Script', result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare \\" Script"); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, 'Hare " Script', result.output);
+  TestEq('Hare " Script', result.output);
 
   result := TestCompileAndRun("<?wh PRINT('Hare \\' Script'); ?>");
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "Hare ' Script", result.output);
+  TestEq("Hare ' Script", result.output);
 
   errors := TestCompile('<?wh PRINT("Hare \" Script"); ?>');
   MustContainError(13, errors, 26);
@@ -412,43 +412,43 @@ MACRO EscapeTest()
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\aScript"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "Hare\aScript", result.output);
+  TestEq("Hare\aScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\bScript"); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "Hare\bScript", result.output);
+  TestEq("Hare\bScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\fScript"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "Hare\fScript", result.output);
+  TestEq("Hare\fScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\nScript"); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "Hare\nScript", result.output);
+  TestEq("Hare\nScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\rScript"); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "Hare\rScript", result.output);
+  TestEq("Hare\rScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\tScript"); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "Hare\tScript", result.output);
+  TestEq("Hare\tScript", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\\'Script"); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "Hare'Script", result.output);
+  TestEq("Hare'Script", result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\"Script"); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, 'Hare"Script', result.output);
+  TestEq('Hare"Script', result.output);
 
   result := TestCompileAndRun('<?wh PRINT("Hare\\\\Script"); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "Hare\\Script", result.output);
+  TestEq("Hare\\Script", result.output);
 
   result := TestCompileAndRun( '<?wh PRINT("Hare\\137Script"); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "Hare_Script", result.output);
+  TestEq("Hare_Script", result.output);
 
   CloseTest("TestSyntax: EscapeTest");
 }
@@ -456,7 +456,7 @@ MACRO EscapeTest()
 MACRO ScriptingStuff()
 {
   OpenTest("TestSyntax: ScriptingStuff");
-  TestEqualInteger(3, 1234, GetStoredScriptProperty("FILEID"));
+  TestEq(1234, GetStoredScriptProperty("FILEID"));
   CloseTest("TestSyntax: ScriptingStuff");
 }
 
@@ -515,19 +515,19 @@ PUBLIC MACRO ConditionalCompileTest()
 
   result := TestCompileAndRun('<?wh (*IFVERSION >= 31000*)PRINT("a");(*ELSE*)PRINT("b");(*END*) ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "a", result.output);
+  TestEq("a", result.output);
 
   result := TestCompileAndRun('<?wh (*IFVERSION < 31000*)PRINT("a");(*ELSE*)PRINT("b");(*END*) ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "b", result.output);
+  TestEq("b", result.output);
 
   result := TestCompileAndRun('<?wh (*IFVERSION > 31000*)PRINT("a");(*END*) ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "a", result.output);
+  TestEq("a", result.output);
 
   result := TestCompileAndRun('<?wh (*IFVERSION < 31000*)PRINT("a");(*END*) ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "", result.output);
+  TestEq("", result.output);
 
   errors := TestCompile('<?wh (*IFVERSION >= 31000*)PRINT("a"); ?>');
   MustContainError(3, errors, 242);

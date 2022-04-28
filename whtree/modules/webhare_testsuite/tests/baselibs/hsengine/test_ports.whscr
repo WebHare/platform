@@ -6,11 +6,11 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
-MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)
+MACRO TestReadSignalledStatus(BOOLEAN expect_status, INTEGER handle)
 {
   BOOLEAN is_signalled := WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle;
 
-  TestEqual(testid, expect_status, is_signalled);
+  TestEq(expect_status, is_signalled);
 }
 
 // FIXME: add tests for timeouts on ->Accept and ->ReceiveMessage
@@ -25,12 +25,12 @@ MACRO BaseTest()
   OBJECT port1 := CreateIPCPort("test1");
   TestEq(TRUE, ObjectExists(port1));
   TestEq(FALSE, port1->IsSignalled());
-  TestReadSignalledStatus(3, FALSE, port1->handle);
+  TestReadSignalledStatus(FALSE, port1->handle);
 
   // And another
   OBJECT port2 := CreateIPCPort("test2");
   TestEq(TRUE, ObjectExists(port2));
-  TestReadSignalledStatus(5, FALSE, port2->handle);
+  TestReadSignalledStatus(FALSE, port2->handle);
 
   // No duplicate ports
   TestThrows(PTR CreateIPCPort("test1"));
@@ -39,21 +39,21 @@ MACRO BaseTest()
   OBJECT l1a := ConnectToIPCPort("test1");
   TestEq(TRUE, ObjectExists(l1a));
   TestEq(FALSE, l1a->IsSignalled());
-  TestReadSignalledStatus(12, FALSE, l1a->handle);
+  TestReadSignalledStatus(FALSE, l1a->handle);
   TestEq(TRUE, port1->IsSignalled());
-  TestReadSignalledStatus(14, TRUE, port1->handle);
+  TestReadSignalledStatus(TRUE, port1->handle);
 
   OBJECT l2a := ConnectToIPCPort("test1") ;
   TestEq(TRUE, ObjectExists(l2a));
   TestEq(FALSE, l2a->IsSignalled());
-  TestReadSignalledStatus(17, FALSE, l2a->handle);
+  TestReadSignalledStatus(FALSE, l2a->handle);
 
   OBJECT l3a := ConnectToIPCPort("test1") ;
   TestEq(TRUE, ObjectExists(l3a));
   TestEq(FALSE, l3a->IsSignalled());
-  TestReadSignalledStatus(20, FALSE, l3a->handle);
+  TestReadSignalledStatus(FALSE, l3a->handle);
   TestEq(TRUE, port1->IsSignalled());
-  TestReadSignalledStatus(22, TRUE, port1->handle);
+  TestReadSignalledStatus(TRUE, port1->handle);
 
   // Accept connections
   OBJECT l1b := port1->Accept(DEFAULT DATETIME);

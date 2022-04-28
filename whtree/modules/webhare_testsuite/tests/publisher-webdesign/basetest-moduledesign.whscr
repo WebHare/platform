@@ -1,7 +1,6 @@
 ﻿<?wh
 //This is a port of basetest.whscr to moduledesigns
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";

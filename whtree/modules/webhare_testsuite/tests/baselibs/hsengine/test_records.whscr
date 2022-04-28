@@ -34,10 +34,10 @@ MACRO RecordInitializerTest()
   INSERT CELL test:="ok" INTO c;
   INSERT CELL nested:=c INTO a;
 
-  TestEqualRecord(1, c, [ test := "ok" ]);
-  TestEqualRecord(2, c, [ "test" := "ok" ]);
-  TestEqualRecord(3, a, [ a := 1, b := "f", nested := [ test := "ok" ]]);
-  TestEqualRecord(4, a, [ "a" := 1, "b" := "f", "nested" := [ "test" := "ok" ]]);
+  TestEq(c, [ test := "ok" ]);
+  TestEq(c, [ "test" := "ok" ]);
+  TestEq(a, [ a := 1, b := "f", nested := [ test := "ok" ]]);
+  TestEq(a, [ "a" := 1, "b" := "f", "nested" := [ "test" := "ok" ]]);
 
   errors := TestCompile('<?wh RECORD a := [ a:= 1, a := 2 ]; ?>');
   MustContainError(5, errors, 204, "A");
@@ -84,11 +84,11 @@ MACRO InsertCellTest()
   //do the basics work?
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL data := "Data1" INTO r; PRINT(r.data); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "Data1", result.output);
+  TestEq("Data1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL data := "Data1", data2 := 5 INTO r; PRINT(r.data || (r.data2+1));');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "Data16", result.output);
+  TestEq("Data16", result.output);
 
   //protect against cell overwrites
   result := TestCompileAndRun('<?wh RECORD r := [ data := "data" ]; INSERT CELL data := "Data1" INTO r; PRINT(r.data);');
@@ -109,27 +109,27 @@ MACRO DeleteCellTest()
 
   RECORD a := [ b := 1 ];
 
-  TestEqual(1, TRUE, CellExists(a, "B"));
+  TestEq(TRUE, CellExists(a, "B"));
   DELETE CELL b FROM a;
-  TestEqual(2, FALSE, CellExists(a, "B"));
-  TestEqual(3, TRUE, RecordExists(a));
+  TestEq(FALSE, CellExists(a, "B"));
+  TestEq(TRUE, RecordExists(a));
 
   a := DEFAULT RECORD;
 
   DELETE CELL b FROM a;
-  TestEqual(4, FALSE, RecordExists(a));
-  TestEqual(5, FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
+  TestEq(FALSE, RecordExists(a));
+  TestEq(FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
 
   a := CELL[];
 
   DELETE CELL b FROM a;
-  TestEqual(6, TRUE, RecordExists(a));
-  TestEqual(7, FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
+  TestEq(TRUE, RecordExists(a));
+  TestEq(FALSE, RecordExists(CellDelete(DEFAULT RECORD,"b")));
 
   a := [ b := 1, c := 2 ];
   DELETE CELL b, c FROM a;
-  TestEqual(8, TRUE, RecordExists(a));
-  TestEqual(9, 0, Length(UnpackRecord(a)));
+  TestEq(TRUE, RecordExists(a));
+  TestEq(0, Length(UnpackRecord(a)));
 
   CloseTest("TestRecord: DeleteCellTest");
 }
@@ -141,19 +141,19 @@ MACRO CellExistsTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "TRUE", result.output);
+  TestEq("TRUE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (CellExists(r, "b") ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r := DEFAULT RECORD; PRINT (CellExists(r, "a") ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   errors := TestCompile('<?wh CellExists("a", "b"); ?>');
   MustContainError(9, errors, 62, 'STRING', 'RECORD');
@@ -173,7 +173,7 @@ MACRO GetCellTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (GetCell(r, "a")||""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; PRINT (GetCell(r, "b")||""); ?>');
   MustContainError(3, result.errors, 92, 'B');
@@ -195,7 +195,7 @@ MACRO GetCellTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1,b:=2 INTO r; PRINT (r.a||r.b); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "12", result.output);
+  TestEq("12", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1,a:=2 INTO r; PRINT (r.a||r.b); ?>');
   MustContainError(11, result.errors, 204, 'A');
@@ -210,11 +210,11 @@ MACRO MakeEmptyTest()
 
   result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "TRUE", result.output);
+  TestEq("TRUE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (Length(UnpackRecord(r))||""); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "0", result.output);
+  TestEq("0", result.output);
 
   CloseTest("TestRecords: MakeEmptyTest");
 }
@@ -226,11 +226,11 @@ MACRO RecordExistsTest()
 
   result := TestCompileAndRun('<?wh RECORD r := CELL[]; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "TRUE", result.output);
+  TestEq("TRUE", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r := DEFAULT RECORD; PRINT (RecordExists(r) ? "TRUE" : "FALSE"); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "FALSE", result.output);
+  TestEq("FALSE", result.output);
 
   CloseTest("TestRecords: RecordExistsTest");
 }
@@ -243,22 +243,22 @@ MACRO CellAssignmentTest()
   // Normal assignment - 1
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; ; r.a := 2; PRINT(r.a || ""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "2", result.output);
+  TestEq("2", result.output);
 
   // Normal assignment - 2
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:="b" INTO r; ; r.a := "c"; PRINT(r.a || ""); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "c", result.output);
+  TestEq("c", result.output);
 
   // Normal assignment, casting from integer to money
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1.1 INTO r; ; r.a := 4; PRINT(FormatMoney(r.a, 1, ".", ",", false)); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "4.0", result.output);
+  TestEq("4.0", result.output);
 
   // Normal assignment, casting from record array to record
   result := TestCompileAndRun('<?wh RECORD r; RECORD ARRAY b; INSERT CELL a:=r INTO r; DELETE CELL a FROM r; INSERT CELL a:=b INTO r; PRINT(CellExists(r, "a") ? "1" : "0"); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1", result.output);
+  TestEq("1", result.output);
 
   // Inserting assignment
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r; r.b := 1; PRINT(GetCell(r, "b")||""); ?>');
@@ -282,51 +282,51 @@ MACRO RecordOptimizerTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.a || ""); ?>');
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.b); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(r.a || "-" || r.b); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "1-1", result.output);
+  TestEq("1-1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(ra.a || "-" || ra.b); ?>');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "1-1", result.output);
+  TestEq("1-1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM ra) PRINT(t.a || "-" || t.b); ?>');
   TestCleanResult(9, result.errors);
-  TestEqualString(10, "1-1", result.output);
+  TestEq("1-1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM SELECT * FROM ra) PRINT(t.a || "-" || t.b); ?>');
   TestCleanResult(11, result.errors);
-  TestEqualString(12, "1-1", result.output);
+  TestEq("1-1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;PRINT(Length(UnpackRecord(r) ) || ""); ?>');
   TestCleanResult(13, result.errors);
-  TestEqualString(14, "2", result.output);
+  TestEq("2", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(Length(ra) || ""); ?>');
   TestCleanResult(15, result.errors);
-  TestEqualString(16, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; PRINT(Length(SELECT * FROM ra) || ""); ?>');
   TestCleanResult(17, result.errors);
-  TestEqualString(18, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="1" INTO r;RECORD ARRAY ra; INSERT r INTO ra AT END; FOREVERY (RECORD t FROM SELECT b FROM ra) PRINT(t.b); ?>');
   TestCleanResult(19, result.errors);
-  TestEqualString(20, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh PRINT(Length("Test") || ""); ?>');
   TestCleanResult(23, result.errors);
-  TestEqualString(24, "4", result.output);
+  TestEq("4", result.output);
 
   result := TestCompileAndRun('<?wh STRING s := "Test"; PRINT(Length(s) || ""); ?>');
   TestCleanResult(25, result.errors);
-  TestEqualString(26, "4", result.output);
+  TestEq("4", result.output);
 
   {
     // not good enough link between expression sources and output
@@ -383,43 +383,43 @@ MACRO IncompleteTypeinfoTest()
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:=2 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(2, result.errors);
-  TestEqualString(3, "0", result.output);
+  TestEq("0", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2 INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(4, result.errors);
-  TestEqualString(5, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2 INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(6, result.errors);
-  TestEqualString(7, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2 INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(8, result.errors);
-  TestEqualString(9, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(10, result.errors);
-  TestEqualString(11, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(12, result.errors);
-  TestEqualString(13, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2.0 INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(14, result.errors);
-  TestEqualString(15, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=1 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(16, result.errors);
-  TestEqualString(17, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=1.0 INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(18, result.errors);
-  TestEqualString(19, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; FLOAT f := 1; INSERT CELL a:=2*f INTO r;INSERT CELL b:=f INTO r;PRINT(r.a > r.b ? "1" : "0") ?>');
   TestCleanResult(20, result.errors);
-  TestEqualString(21, "1", result.output);
+  TestEq("1", result.output);
 
   result := TestCompileAndRun('<?wh RECORD r; INSERT CELL a:=1 INTO r;INSERT CELL b:="a" INTO r;PRINT(r.a < r.b ? "1" : "0") ?>');
   MustContainError(22, result.errors, 62, 'INTEGER', 'STRING');
@@ -444,12 +444,12 @@ MACRO DeepTest()
                               || 'INSERT CELL y:=y INTO x; PRINT(x.y[2].abc); ');
 
   TestCleanResult(1, result.errors);
-  TestEqualString(2, "ABC", result.output);
+  TestEq("ABC", result.output);
 
   //Try INSERT INTO and DELETE in 'deep' arrays
   result := TestCompileAndRun('<?wh RECORD x := [ z := DEFAULT RECORD ARRAY ];PRINT(">" || LENGTH(x.z));INSERT x INTO x.z AT END;PRINT(">" || LENGTH(x.z) || LENGTH(x.z[0].z));DELETE FROM x.z AT 0;PRINT (">" || LENGTH(x.z));');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, ">0>10>0", result.output);
+  TestEq(">0>10>0", result.output);
 
   errors := TestCompile('<?wh RECORD FUNCTION a() { RETURN [x:=1]; } a().x := 2; ?>');
   MustContainError(5, errors, 108);
@@ -600,7 +600,7 @@ MACRO RegressionTest()
   MustContainError(1, result.errors, 92, 'ID_X');
 
   //Ensure sequence points
-  TestEqual(2, [ bla := 4, cell1 := 1, cell2 := 3, cell3 := 2 ]
+  TestEq([ bla := 4, cell1 := 1, cell2 := 3, cell3 := 2 ]
              , [ cell1 := GetSeq(), cell3 := GetSeq(), cell2 := GetSeq(), bla := GetSeq() ]);
 
   result := TestCompileAndRun('<?wh record test := [ x:=1 ]; test:=cellinsert(test,"x",2); print(test.x || "\\n");');

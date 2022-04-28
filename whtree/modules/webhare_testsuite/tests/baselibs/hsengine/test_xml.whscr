@@ -104,76 +104,76 @@ MACRO TestXML()
   RECORD ARRAY xmlresult := SelectXML(xmldoc, "/b:books/*");
 
   /* Test node names */
-  TestEqualInteger( 1, 2, Length(xmlresult));
-  TestEqualString(  2, "book", xmlresult[0].xml_name);
-  TestEqualInteger( 3, XmlElementNode, xmlresult[0].xml_type);
-  TestEqualString(  4, "book", xmlresult[1].xml_name);
-  TestEqualInteger( 5, XmlElementNode, xmlresult[1].xml_type);
+  TestEq(2, Length(xmlresult));
+  TestEq("book", xmlresult[0].xml_name);
+  TestEq(XmlElementNode, xmlresult[0].xml_type);
+  TestEq("book", xmlresult[1].xml_name);
+  TestEq(XmlElementNode, xmlresult[1].xml_type);
 
   /* Test attributes */
-  TestEqualString(  6, "book_4", xmlresult[0]."xml:id");
-  TestEqualString(  7, "book_8", xmlresult[1]."xml:id");
+  TestEq("book_4", xmlresult[0]."xml:id");
+  TestEq("book_8", xmlresult[1]."xml:id");
 
-  TestEqualString(  8, "abcdefghi", xmlresult[0].xml_content);
-  TestEqualString(  9, "defjklmno", xmlresult[1].xml_content);
+  TestEq("abcdefghi", xmlresult[0].xml_content);
+  TestEq("defjklmno", xmlresult[1].xml_content);
 
   /* Test text */
   // Select all text subnodes of the first 'book' element
   xmlresult := SelectXML(xmldoc, "//b:book[1]/text()");
   TestEq(3, Length(xmlresult));
-  TestEqualString( 11, "#text", xmlresult[0].xml_name);
+  TestEq("#text", xmlresult[0].xml_name);
   TestEq(XmlTextNode, xmlresult[0].xml_type);
-  TestEqualString( 13, "abc", xmlresult[0].xml_content);
-  TestEqualString( 14, "#text", xmlresult[1].xml_name);
+  TestEq("abc", xmlresult[0].xml_content);
+  TestEq("#text", xmlresult[1].xml_name);
   TestEq(XmlTextNode, xmlresult[1].xml_type);
-  TestEqualString( 16, "def", xmlresult[1].xml_content);
-  TestEqualString( 17, "#text", xmlresult[2].xml_name);
+  TestEq("def", xmlresult[1].xml_content);
+  TestEq("#text", xmlresult[2].xml_name);
   TestEq(XmlTextNode, xmlresult[2].xml_type);
-  TestEqualString( 19, "ghi", xmlresult[2].xml_content);
+  TestEq("ghi", xmlresult[2].xml_content);
 
   /* Test comments */
   // Select all comment nodes
   xmlresult := SelectXML(xmldoc, "//comment()");
   TestEq(3, Length(xmlresult));
-  TestEqualString( 21, "#comment", xmlresult[0].xml_name);
+  TestEq("#comment", xmlresult[0].xml_name);
   TestEq(XmlCommentNode, xmlresult[0].xml_type);
-  TestEqualString( 23, " A list of books ", xmlresult[0].xml_content);
-  TestEqualString( 24, "#comment", xmlresult[1].xml_name);
+  TestEq(" A list of books ", xmlresult[0].xml_content);
+  TestEq("#comment", xmlresult[1].xml_name);
   TestEq(XmlCommentNode, xmlresult[1].xml_type);
-  TestEqualString( 26, " First book ", xmlresult[1].xml_content);
-  TestEqualString( 27, "#comment", xmlresult[2].xml_name);
+  TestEq(" First book ", xmlresult[1].xml_content);
+  TestEq("#comment", xmlresult[2].xml_name);
   TestEq(XmlCommentNode, xmlresult[2].xml_type);
-  TestEqualString( 29, " Second book ", xmlresult[2].xml_content);
+  TestEq(" Second book ", xmlresult[2].xml_content);
 
   /* Test processing instructions - FIXME
   // Select all processing instruction nodes
   xmlresult := SelectXML(xmldoc, "//processing-instruction()");
   TestEq(1, Length(xmlresult));
-  TestEqualString( 31, "xml-stylesheet", xmlresult[0].xml_name);
+  TestEq("xml-stylesheet", xmlresult[0].xml_name);
   TestEq(XmlPiNode, xmlresult[0].xml_type);
-  TestEqualString( 33, "href=\"booklist.xsl\" type=\"text/xml\"", xmlresult[0].xml_content);
+  TestEq("href=\"booklist.xsl\" type=\"text/xml\"", xmlresult[0].xml_content);
 */
 
   /* Test selecting of nodes */
   // Select all nodes, whatever their type, within the 'book' element with an attribute id="4"
   xmlresult := SelectXML(xmldoc, "//b:book[@xml:id='book_4']/node()");
   TestEq(6, Length(xmlresult));
-  TestEqualString( 48, "#comment", xmlresult[0].xml_name);
+  TestEq("#comment", xmlresult[0].xml_name);
   TestEq(XmlCommentNode, xmlresult[0].xml_type);
-  TestEqualString( 50, "#text", xmlresult[1].xml_name);
+  TestEq("#text", xmlresult[1].xml_name);
   TestEq(XmlTextNode, xmlresult[1].xml_type);
-  TestEqualString( 52, "author", xmlresult[2].xml_name);
+  TestEq("author", xmlresult[2].xml_name);
   TestEq(XmlElementNode, xmlresult[2].xml_type);
-  TestEqualString( 54, "#text", xmlresult[3].xml_name);
+  TestEq("#text", xmlresult[3].xml_name);
   TestEq(XmlTextNode, xmlresult[3].xml_type);
-  TestEqualString( 56, "title", xmlresult[4].xml_name);
+  TestEq("title", xmlresult[4].xml_name);
   TestEq(XmlElementNode, xmlresult[4].xml_type);
-  TestEqualString( 58, "#text", xmlresult[5].xml_name);
+  TestEq("#text", xmlresult[5].xml_name);
   TestEq(XmlTextNode, xmlresult[5].xml_type);
 
   // Who is the author of 'My first book'?
   xmlresult := SelectXML(xmldoc, "//b:book[b:title='My first book']/b:author");
-  TestEqualString( 60, "<Jim Doe> & \"Jane Doe\"", xmlresult[0].xml_content);
+  TestEq("<Jim Doe> & \"Jane Doe\"", xmlresult[0].xml_content);
 
   /* Test node namespaces */
   // Select all elements which are children of the root 'books' element
@@ -208,7 +208,7 @@ MACRO TestXML()
   TestEq(TRUE, ObjectExists(xml->GetEvaluatedElement(myresolver, "//b:book[b:title='My first book']")->GetEvaluatedElement(myresolver, "b:author")));
   TestEq(FALSE, ObjectExists(xml->GetEvaluatedElement(myresolver, "//b:book[b:title='My first book']/b:dsfauthor")));
 
-  TestThrows(PTR xml->GetEvaluatedElement(myresolver, '//:syntaxerror:'));
+  TestThrowsLike('*Invalid expression*',PTR xml->GetEvaluatedElement(myresolver, '//:syntaxerror:'));
 
   CloseTest("TestXML");
 }
@@ -1066,10 +1066,9 @@ PUBLIC MACRO TestRegressions()
   OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob("1"));
   TestEq(9, doc->nodetype);
   TestEq(9, doc->documentelement->parentnode->nodetype);
-  TestEqualString(3
-                 , '<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<html><body><p>1</p></body></html>\n'
-                 , BlobToString(doc->GetDocumentBlob(FALSE),65535)
-                 );
+  TestEq('<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<html><body><p>1</p></body></html>\n'
+        , BlobToString(doc->GetDocumentBlob(FALSE),65535)
+        );
 
   doc := MakeXMLDocument(DEFAULT BLOB);
   TestEq(TRUE, ObjectExists(doc));

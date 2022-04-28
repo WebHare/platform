@@ -274,7 +274,7 @@ MACRO InsertMemberTest()
 
   result := TestCompileAndRun('<?wh OBJECTTYPE objtyp < PUBLIC MACRO DoInsert() { INSERT PUBLIC MEMBER test1 := 1, test2 := 2 INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); PRINT(o->test1 || o->test2); ?>');
   TestCleanResult(2, result.errors);
-  TestEqualString(3, "12", result.output);
+  TestEq("12", result.output);
 
   result := TestCompileAndRun('<?wh OBJECTTYPE objtyp < PUBLIC MACRO DoInsert() { INSERT PRIVATE MEMBER test := 1 INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); PRINT(o->test); ?>');
   MustContainError(4, result.errors, 105);
@@ -293,7 +293,7 @@ MACRO BaseTest()
   OpenTest("TestObjects: BaseTest");
 
   OBJECT test;
-  TestequalBoolean(1, TRUE, test = DEFAULT OBJECT);
+  TestEq(TRUE, test = DEFAULT OBJECT);
 
   TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib", "pvtobject"));
   TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib#pvtobject"));
@@ -316,62 +316,62 @@ MACRO BaseTest()
   test->stringmember := "StringMember";
   TestEq("StringMember", test->GetMe()->stringmember);
   //FIXME test->GetMe()->stringmember := "othervalue";
-  //FIXME TestEqualString(9, "othervalue", test->stringmember);
+  //FIXME TestEq("othervalue", test->stringmember);
 
   //Create a property
 //  ObjectPropertyInsert(test, "strval", FALSE, PTR GetStringMember, PTR SetStringMember);
 //  test->stringmember:="test1";
-//  TestEqualString(10, "test1", test->strval);
+//  TestEq("test1", test->strval);
 //  test->strval:="test2";
-//  TestEqualString(11, "test2", test->stringmember);
-//  TestEqualString(12, "test2", test->strval);
-//  TestequalString(13, "a!", test->abc("a"));
+//  TestEq("test2", test->stringmember);
+//  TestEq("test2", test->strval);
+//  TestEq("a!", test->abc("a"));
 
   test->recordmember := [ a := "6", b := [ f := "doom" ] ];
-  TestEqualString(14, "6", test->recordmember.a);
-  TestEqualString(15, "doom", test->recordmember.b.f);
+  TestEq("6", test->recordmember.a);
+  TestEq("doom", test->recordmember.b.f);
 
   test->recordmember.a := "8";
-  TestEqualString(16, "8", test->recordmember.a);
+  TestEq("8", test->recordmember.a);
 
   test->recordmember.b.f := "nodoom";
-  TestEqualString(17, "nodoom", test->recordmember.b.f);
+  TestEq("nodoom", test->recordmember.b.f);
 
   RECORD r := [ test := test ];
   INSERT CELL g := "yes" INTO r.test->recordmember.b;
-  TestEqualString(18, "yes", r.test->recordmember.b.g);
+  TestEq("yes", r.test->recordmember.b.g);
 
   OBJECT testparent := NEW EmptyObjectType;
   INSERT PUBLIC MEMBER rec := r INTO __HS_INTERNAL_MakeObjectReferencePrivileged(testparent);
 
   testparent->rec.test->recordmember.b.g := "no";
-  TestEqualString(19, "no", testparent->rec.test->recordmember.b.g);
-  TestEqualString(20, "no", test->recordmember.b.g);
+  TestEq("no", testparent->rec.test->recordmember.b.g);
+  TestEq("no", test->recordmember.b.g);
 
   OBJECT testparent2 := NEW EmptyObjectType;
   INSERT PUBLIC MEMBER xref := testparent INTO __HS_INTERNAL_MakeObjectReferencePrivileged(testparent2);
   INSERT PUBLIC MEMBER xref := testparent2 INTO __HS_INTERNAL_MakeObjectReferencePrivileged(testparent);
   testparent->xref->xref->xref := DEFAULT OBJECT;
-  TestequalBoolean(21, TRUE, testparent->xref = DEFAULT OBJECT);
+  TestEq(TRUE, testparent->xref = DEFAULT OBJECT);
 
   test := MakeObject("test::testdata_objects.whlib", "test1");
   OBJECT test2 := NEW test1; // Test new
-  TestequalBoolean(22, TRUE, test = test);
-  TestequalBoolean(23, FALSE, test = test2);
+  TestEq(TRUE, test = test);
+  TestEq(FALSE, test = test2);
 
   test->stringmember := "88";
-  TestequalString(24, "88", test->stringmember);
-  TestequalString(25, "88", test->prop1);
+  TestEq("88", test->stringmember);
+  TestEq("88", test->prop1);
   test->prop1 := "100";
-  TestequalString(26, "100", test->stringmember);
-  TestequalString(27, "100", test->prop1);
+  TestEq("100", test->stringmember);
+  TestEq("100", test->prop1);
 
   test->prop2_storage := 17;
-  TestequalInteger(28, 17, test->prop2_storage);
-  TestequalInteger(29, 16, test->prop2);
+  TestEq(17, test->prop2_storage);
+  TestEq(16, test->prop2);
   test->prop2 := 30;
-  TestequalInteger(30, 31, test->prop2_storage);
-  TestequalInteger(31, 30, test->prop2);
+  TestEq(31, test->prop2_storage);
+  TestEq(30, test->prop2);
 
   TestEQ("a6-", test->VAfunc("a", 6));
   TestEQ("a6-1", test->VAfunc("a", 6, "1"));
@@ -396,34 +396,34 @@ MACRO BaseTest()
   OBJECT testo := test2;
   EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(testo) BY test_override;
 //  OBJECT testo := NEW test_override(test2); // Test new, override syntax
-  TestequalString(32, "a?", testo->abc("a"));
-  TestequalString(33, scopy, testo->stringmember);
+  TestEq("a?", testo->abc("a"));
+  TestEq(scopy, testo->stringmember);
   testo->redirect := "redir";
-  TestequalString(34, "redir", testo->prop2);
+  TestEq("redir", testo->prop2);
   testo->prop2 := "mod";
-  TestequalString(35, "mod", testo->prop2);
+  TestEq("mod", testo->prop2);
 
-  TestequalString(36, "TEST_OVERRIDE", GetObjectTypeName(testo));
-  TestequalString(37, "EMPTYOBJECTTYPE", GetObjectTypeName(testparent2));
-  TestequalString(38, "", GetObjectTypeName(DEFAULT OBJECT));
+  TestEq("TEST_OVERRIDE", GetObjectTypeName(testo));
+  TestEq("EMPTYOBJECTTYPE", GetObjectTypeName(testparent2));
+  TestEq("", GetObjectTypeName(DEFAULT OBJECT));
 
   oid(testo)->prop2 := "mod2";
-  TestequalString(39, "mod2", testo->prop2);
+  TestEq("mod2", testo->prop2);
 
-  TestequalString(40, "9default", test->def1(9));
+  TestEq("9default", test->def1(9));
   TestEQ("9default", (PTR test->def1(#1))(9));
-  TestequalString(41, "3non", test->def1(3, "non"));
+  TestEq("3non", test->def1(3, "non"));
   TestEQ("3non", (PTR test->def1(3, "non"))());
   TestEQ("3non", (PTR test->def1(#1, "non"))(3));
   TestEQ("3non", (PTR test->def1(3, #1))("non"));
   TestEQ("3non", (PTR test->def1(#1, #2))(3, "non"));
 
   testo->prop2_storage := 17;
-  TestequalInteger(42, 17, testo->prop2_storage);
-  TestequalInteger(43, 15, testo->prop3);
+  TestEq(17, testo->prop2_storage);
+  TestEq(15, testo->prop3);
   testo->prop3 := 30;
-  TestequalInteger(44, 32, testo->prop2_storage);
-  TestequalInteger(45, 30, testo->prop3);
+  TestEq(32, testo->prop2_storage);
+  TestEq(30, testo->prop3);
 
   TestEQ("a6-", testo->VAfunc("a", 6));
   TestEQ("a6-1", testo->VAfunc("a", 6, "1"));
@@ -432,33 +432,33 @@ MACRO BaseTest()
 
   // Static extend
   testo := NEW test_override2;
-  TestequalString(46, "a?", testo->abc("a"));
-  TestequalString(47, scopy, testo->stringmember);
+  TestEq("a?", testo->abc("a"));
+  TestEq(scopy, testo->stringmember);
   testo->redirect := "redir";
-  TestequalString(48, "redir", testo->prop2);
+  TestEq("redir", testo->prop2);
   testo->prop2 := "mod";
-  TestequalString(49, "mod", testo->prop2);
+  TestEq("mod", testo->prop2);
 
-  TestequalString(50, "TEST_OVERRIDE2", GetObjectTypeName(testo));
-  TestequalString(51, "EMPTYOBJECTTYPE", GetObjectTypeName(testparent2));
-  TestequalString(52, "", GetObjectTypeName(DEFAULT OBJECT));
+  TestEq("TEST_OVERRIDE2", GetObjectTypeName(testo));
+  TestEq("EMPTYOBJECTTYPE", GetObjectTypeName(testparent2));
+  TestEq("", GetObjectTypeName(DEFAULT OBJECT));
 
   oid(testo)->prop2 := "mod2";
-  TestequalString(53, "mod2", testo->prop2);
+  TestEq("mod2", testo->prop2);
 
   testo->prop2_storage := 17;
-  TestequalInteger(56, 17, testo->prop2_storage);
-  TestequalInteger(57, 15, testo->prop3);
+  TestEq(17, testo->prop2_storage);
+  TestEq(15, testo->prop3);
   testo->prop3 := 30;
-  TestequalInteger(58, 32, testo->prop2_storage);
-  TestequalInteger(59, 30, testo->prop3);
+  TestEq(32, testo->prop2_storage);
+  TestEq(30, testo->prop3);
 
   testo->prop2_storage := 17;
-  TestequalInteger(60, 17, testo->prop2_storage);
-  TestequalInteger(61, 14, testo->prop5);
+  TestEq(17, testo->prop2_storage);
+  TestEq(14, testo->prop5);
   testo->prop5 := 30;
-  TestequalInteger(62, 33, testo->prop2_storage);
-  TestequalInteger(63, 30, testo->prop5);
+  TestEq(33, testo->prop2_storage);
+  TestEq(30, testo->prop5);
 
   TestEQ("a6-", testo->VAfunc("a", 6));
   TestEQ("a6-1", testo->VAfunc("a", 6, "1"));
@@ -467,12 +467,12 @@ MACRO BaseTest()
 
   OBJECT eo := NEW e(2);
   OBJECT fo := NEW f(3, 4);
-  TestequalInteger(70, 2, eo->id4);
-  TestequalInteger(71, 3, fo->id4);
-  TestequalInteger(72, 4, fo->id5);
+  TestEq(2, eo->id4);
+  TestEq(3, fo->id4);
+  TestEq(4, fo->id5);
 
   OBJECT go := NEW g(2);
-  TestequalInteger(72, 2, go->id4);
+  TestEq(2, go->id4);
 
   result := TestCompileAndRun('<?wh OBJECTTYPE type < INTEGER FUNCTION NEW() { RETURN 0; } >; ');
   MustContainError(73, result.errors, 135);
@@ -484,10 +484,10 @@ MACRO BaseTest()
   MustContainError(75, result.errors, 62, "STRING", "INTEGER");
 
   test->prop2_storage := 33;
-  TestequalInteger(76, 32, test->prop2r);
+  TestEq(32, test->prop2r);
   test->prop2w := 32;
-  TestequalInteger(77, 33, test->prop2_storage);
-  TestequalInteger(78, 32, test->prop2r);
+  TestEq(33, test->prop2_storage);
+  TestEq(32, test->prop2r);
 
   result := TestCompileAndRun('<?wh OBJECTTYPE B < INTEGER x; PUBLIC PROPERTY a(-, x); >; OBJECT c := NEW b; PRINT(""||c->a); ');
   MustContainError(79, result.errors, 150, "A");
@@ -508,20 +508,20 @@ MACRO BaseTest()
   // Use before declaration
   result := TestCompileAndRun('<?wh NEW noot();OBJECTTYPE noot < MACRO NEW() { PRINT("OK"); } >; ');
   TestCleanResult(84, result.errors);
-  TestEqualString(85, "OK", result.output);
+  TestEq("OK", result.output);
 
   // (Not) extending from
   result := TestCompileAndRun('<?wh DEFAULT OBJECT EXTENDSFROM noot;NEW noot();OBJECTTYPE noot < MACRO NEW() { PRINT("OK"); } >; ');
   TestCleanResult(86, result.errors);
-  TestEqualString(87, "OK", result.output);
+  TestEq("OK", result.output);
 
   result := TestCompileAndRun('<?wh NOT DEFAULT OBJECT EXTENDSFROM noot;NEW noot();OBJECTTYPE noot < MACRO NEW() { PRINT("OK"); } >; ');
   TestCleanResult(88, result.errors);
-  TestEqualString(89, "OK", result.output);
+  TestEq("OK", result.output);
 
   result := TestCompileAndRun('<?wh DEFAULT OBJECT NOT EXTENDSFROM noot;NEW noot();OBJECTTYPE noot < MACRO NEW() { PRINT("OK"); } >; ');
   TestCleanResult(90, result.errors);
-  TestEqualString(91, "OK", result.output);
+  TestEq("OK", result.output);
 
   errors := TestCompile(`<?wh OBJECTTYPE testo< (*IFVERSION >= 41600*) MACRO Test() {} (*ELSE*) failure (*END*) >; ?>`);
   TestCleanResult(0, errors);
@@ -536,7 +536,7 @@ MACRO PrivateTest()
   OBJECT o := NEW ptest;
   TestEQ(TRUE, IsObjectReferencePublic(o));
   o->xSet(10);
-  TestequalInteger(1, 10, o->xget());
+  TestEq(10, o->xget());
 
   result := TestCompileAndRun('<?wh OBJECTTYPE type < PRIVATE INTEGER a; >; OBJECT o := NEW type; PRINT(ToString(o->a)); ');
   MustContainError(2, result.errors, 105);
@@ -544,13 +544,13 @@ MACRO PrivateTest()
   result := TestCompileAndRun('<?wh OBJECTTYPE type < PRIVATE INTEGER a; OBJECT c; MACRO i() { this->c->a := 1; } >;  OBJECT o := NEW type; o->c := NEW type; o->i(); ');
   MustContainError(3, result.errors, 105);
 
-  TestequalInteger(4, 10, o->pubint);
+  TestEq(10, o->pubint);
   o->pubint := 11;
-  TestequalInteger(5, 11, o->pubint);
+  TestEq(11, o->pubint);
 
-  TestequalInteger(6, 11, o->pubint2);
+  TestEq(11, o->pubint2);
   o->pubint2 := 12;
-  TestequalInteger(7, 12, o->pubint2);
+  TestEq(12, o->pubint2);
 
   result := TestCompileAndRun('<?wh OBJECTTYPE type < MACRO a() {} >; OBJECT o := NEW type; o->a(); ');
   MustContainError(8, result.errors, 105);
@@ -565,15 +565,15 @@ MACRO PrivateTest()
   TestEQ(FALSE, IsObjectReferencePublic(f));
   f->TestThisIsPublicPtr();
   f->pubint := 7;
-  TestequalInteger(11, 7, f->pubint);
+  TestEq(7, f->pubint);
   f->privint := 14;
-  TestequalInteger(12, 14, f->privint);
+  TestEq(14, f->privint);
   f->xset(11);
-  TestequalInteger(13, 11, f->privint);
-  TestequalInteger(14, 11, f->xget());
+  TestEq(11, f->privint);
+  TestEq(11, f->xget());
 
-  TestEqualInteger(15, 11, o->GetXGet2Ptr()[0]());
-  TestEqualInteger(16, 11, o->GetXGet2Ptr()[1]());
+  TestEq(11, o->GetXGet2Ptr()[0]());
+  TestEq(11, o->GetXGet2Ptr()[1]());
 
   result := TestCompileAndRun('<?wh OBJECTTYPE type < PUBLIC OBJECT FUNCTION GetPrivate() { RETURN PRIVATE this; } OBJECT FUNCTION GetThis() { RETURN this; } INTEGER b; >; OBJECT o := NEW type; o->GetPrivate()->GetThis()->b := 2;');
   MustContainError(10, result.errors, 105);
@@ -616,7 +616,7 @@ MACRO PublicTest()
   OBJECT o := NEW putest;
 
   o->pubint := 29;
-  TestequalInteger(1, 29, o->pubint);
+  TestEq(29, o->pubint);
   CloseTest("TestObjects: PublicTest");
 }
 
@@ -649,11 +649,11 @@ MACRO ExtendTest()
   OpenTest("TestObjects: ExtendTest");
 
   OBJECT x := NEW o;
-  TestEqualInteger(1, 2, x->id2);
-  TestEqualInteger(2, 201, x->id);
+  TestEq(2, x->id2);
+  TestEq(201, x->id);
 
   x->ExtendByD();
-  TestEqualInteger(3, 3, x->id3);
+  TestEq(3, x->id3);
 
   errors := TestCompile('<?wh OBJECTTYPE a < INTEGER i; >; OBJECTTYPE b EXTEND a < UPDATE INTEGER i; >; ');
   MustContainError(4, errors, 115, "I");
@@ -728,7 +728,7 @@ MACRO ExtendTest()
   MustContainError(25, result.errors, 226);
 
 //  OBJECT y := NEW d;
-//  TestEqualInteger(4, 3, y->id3);
+//  TestEq(3, y->id3);
 
   //FIXME: This test fails unless test::testdata_subobject explictly exports basetest
   //errors := TestCompile('<?wh LOADLIB "test::testdata_subobject.whlib"; OBJECTTYPE extendtest EXTEND subtest < UPDATE MACRO MyMacro() { subtest::MyMacro(); } >;  ?>');
@@ -742,37 +742,37 @@ MACRO InsertDeleteTest()
   OpenTest("TestObjects: InsertDeleteTest");
 
   OBJECT x;
-  TestEqualBoolean(1, FALSE, ObjectExists(x));
-  TestEqualBoolean(2, FALSE, MemberExists(x, "T"));
+  TestEq(FALSE, ObjectExists(x));
+  TestEq(FALSE, MemberExists(x, "T"));
 
   // To make x accessible
   x := __HS_INTERNAL_MakeObjectReferencePrivileged(NEW o);
-  TestEqualBoolean(3, TRUE, ObjectExists(x));
-  TestEqualBoolean(4, FALSE, MemberExists(x, "T"));
+  TestEq(TRUE, ObjectExists(x));
+  TestEq(FALSE, MemberExists(x, "T"));
 
   MemberInsert(x, "T", FALSE, 7);
 
-  TestEqualBoolean(5, TRUE, MemberExists(x, "T"));
-  TestEqualInteger(6, 7, x->t);
-  TestEqualInteger(7, 7, GetMember(x, "T"));
+  TestEq(TRUE, MemberExists(x, "T"));
+  TestEq(7, x->t);
+  TestEq(7, GetMember(x, "T"));
   x->t := 10;
-  TestEqualInteger(8, 10, x->t);
+  TestEq(10, x->t);
 
   MemberUpdate(x, "T", 13);
-  TestEqualInteger(9, 13, x->t);
+  TestEq(13, x->t);
 
   MemberDelete(x, "T");
 
-  TestEqualBoolean(10, TRUE, ObjectExists(x));
-  TestEqualBoolean(11, FALSE, MemberExists(x, "T"));
+  TestEq(TRUE, ObjectExists(x));
+  TestEq(FALSE, MemberExists(x, "T"));
 
   INSERT PUBLIC MEMBER t := 1 INTO x;
   DELETE MEMBER t FROM x;
-  TestEqualBoolean(11, FALSE, MemberExists(x, "T"));
+  TestEq(FALSE, MemberExists(x, "T"));
 
   INSERT PRIVATE MEMBER t := 1 INTO x;
   DELETE MEMBER t FROM x;
-  TestEqualBoolean(11, FALSE, MemberExists(x, "T"));
+  TestEq(FALSE, MemberExists(x, "T"));
 
   x->InsertDeleteTest();
 
@@ -797,11 +797,11 @@ MACRO RecordOptimizerTest()
   RECORD check := [ a := 7, b := 8, c := 12 ];
 
   o->setter(rec1);
-  TestEqualRecord(1, check, o->getter());
-  TestEqualRecord(2, check, o->rec);
-  TestEqualRecord(3, check, o->x);
+  TestEq(check, o->getter());
+  TestEq(check, o->rec);
+  TestEq(check, o->x);
   o->x := rec2;
-  TestEqualRecord(4, check, o->x);
+  TestEq(check, o->x);
 
   CloseTest("TestObjects: RecordOptimizerTest");
 }
@@ -828,17 +828,17 @@ MACRO MethodCallTest()
   OBJECT o := NEW fptrtest;
   o->x := PTR RetValue;
   o->psetter(PTR RetValue);
-  TestEqualString(1, "a1", o->x("1"));
-  TestEqualString(2, "a2", o->p1("2"));
-  TestEqualString(3, "a3", o->p2("3"));
-  TestEqualString(4, "o4", o->retvalueo("4"));
-  TestEqualString(5, "a5", o->p3("5"));
-  TestEqualString(6, "a6", o->p4("6"));
+  TestEq("a1", o->x("1"));
+  TestEq("a2", o->p1("2"));
+  TestEq("a3", o->p2("3"));
+  TestEq("o4", o->retvalueo("4"));
+  TestEq("a5", o->p3("5"));
+  TestEq("a6", o->p4("6"));
 
   // Aliasing
   result := TestCompileAndRun('<?wh RECORD rec; OBJECTTYPE otype < PUBLIC MACRO test() { PRINT(rec.x); } >; OBJECT obj := NEW otype;PUBLIC MACRO A(){ rec := [ x := "OK" ]; obj->test();} rec := [ x := "FAIL" ]; A();');
   TestCleanResult(7, result.errors);
-  TestEqualString(8, "OK", result.output);
+  TestEq("OK", result.output);
 
 
   CloseTest("TestObjects: MethodCallTest");
@@ -861,16 +861,16 @@ MACRO GetUpdateTest()
 
   OBJECT o := NEW gutype;
   MemberUpdate(o, "val", "ok1");
-  TestEqualString(1, "ok1", GetMember(o, "val"));
+  TestEq("ok1", GetMember(o, "val"));
 
   MemberUpdate(o, "p", "ok2");
-  TestEqualString(2, "ok2", GetMember(o, "p"));
+  TestEq("ok2", GetMember(o, "p"));
 
   MemberUpdate(o, "q", "ok3");
-  TestEqualString(3, "ok3", GetMember(o, "q"));
+  TestEq("ok3", GetMember(o, "q"));
 
   MemberUpdate(o, "r", "ok4");
-  TestEqualString(4, "ok4-es-eg", GetMember(o, "r"));
+  TestEq("ok4-es-eg", GetMember(o, "r"));
 
   CloseTest("TestObjects: GetUpdateTest");
 }
@@ -962,7 +962,7 @@ OBJECTTYPE special
 MACRO SpecialFunctionsTest()
 {
   OpenTest("TestObjects: SpecialFunctionsTest");
-  TestEqual(1,
+  TestEq(
     "yeey" ||
     "n" ||
     "y" ||
@@ -1035,7 +1035,7 @@ MACRO ExtendsFromTest()
 
   result := TestCompileAndRun('<?wh PRINT(NEW later EXTENDSFROM later?"Y":"N"); OBJECTTYPE later< >; ?>');
   TestCleanResult(21, result.errors);
-  TestEqualString(22, "Y", result.output);
+  TestEq("Y", result.output);
 
   CloseTest("TestObjects: ExtendsFromTest");
 }
@@ -1245,11 +1245,11 @@ MACRO ComplexPropertyTest()
 
   result := TestCompileAndRun('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(this->notyet.b, a); PUBLIC MACRO DoInsert() { INSERT PRIVATE MEMBER notyet := [ b := "3" ] INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); PRINT(o->bla); ?>');
   TestCleanResult(3, result.errors);
-  TestEqualString(4, "3", result.output);
+  TestEq("3", result.output);
 
   result := TestCompileAndRun('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(a, this->notyet.b); PUBLIC MACRO DoInsert() { INSERT PUBLIC MEMBER notyet := [ b := "3" ] INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); o->bla := "5"; PRINT(o->notyet.b); ?>');
   TestCleanResult(5, result.errors);
-  TestEqualString(6, "5", result.output);
+  TestEq("5", result.output);
 
   OBJECT derived := NEW complex_property_type;
   derived->p := NEW complex_property_type;

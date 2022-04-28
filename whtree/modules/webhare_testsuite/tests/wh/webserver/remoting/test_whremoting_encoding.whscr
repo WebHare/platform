@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
-LOADLIB "wh::internal/testfuncs.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
@@ -133,12 +132,12 @@ MACRO XMLRoundTripTest()
 
   VARIANT decoded := codec2->DecodeVariable(MakeXMLDocument(encoded)->documentelement);
 
-  TestEqual(1, CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
+  TestEq(CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
 //  PRINT(AnyToString(decoded, "tree"));
 
-  TestEqual(2, "string1", decoded.o2->GetStr1());
-  TestEqual(3, "string2", decoded.o2->GetSide2()->GetStr2());
-  TestEqual(4, "string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
+  TestEq("string1", decoded.o2->GetStr1());
+  TestEq("string2", decoded.o2->GetSide2()->GetStr2());
+  TestEq("string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
 
   TestEq("A,b", decoded.o2->GetStr1VA("A"));
   TestEq("A,B", decoded.o2->GetStr1VA("A", "B"));
@@ -174,12 +173,12 @@ MACRO WSRoundTripTest()
 
   VARIANT decoded := codec2->DecodePackets(analyzeresult, ArraySlice(packets, 0, analyzeresult.packetcount));
 
-  TestEqual(1, CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
+  TestEq(CELL[ ...data, DELETE o2 ], CELL[ ...decoded, DELETE o2 ]);
 //  PRINT(AnyToString(decoded, "tree"));
 
-  TestEqual(2, "string1", decoded.o2->GetStr1());
-  TestEqual(3, "string2", decoded.o2->GetSide2()->GetStr2());
-  TestEqual(4, "string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
+  TestEq("string1", decoded.o2->GetStr1());
+  TestEq("string2", decoded.o2->GetSide2()->GetStr2());
+  TestEq("string1", decoded.o2->GetSide2()->GetSide1()->GetStr1());
 
   TestEq("A,b", decoded.o2->GetStr1VA("A"));
   TestEq("A,B", decoded.o2->GetStr1VA("A", "B"));

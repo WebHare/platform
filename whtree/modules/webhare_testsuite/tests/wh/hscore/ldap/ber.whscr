@@ -3,6 +3,9 @@ LOADLIB "wh::internal/ber.whlib";
 LOADLIB "wh::internal/ldap.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
 OpenTest("TestBERLimits");
 
 STRING bind_request_buffer := "\x30\x0c\x02\x01\x01\x60\x07\x02\x01\x03\x04\x00\x80\x00";
@@ -11,12 +14,12 @@ STRING bind_request_buffer := "\x30\x0c\x02\x01\x01\x60\x07\x02\x01\x03\x04\x00\
 FOR (INTEGER i := 0; i < 14; i := i + 1)
 {
   OBJECT incomplete_decoder := NEW BERDecoder(Substring(bind_request_buffer, 0, i));
-  TestEqualBoolean(i + 1, FALSE, incomplete_decoder->IsComplete());
+  TestEq(FALSE, incomplete_decoder->IsComplete());
 }
 
 //The complete buffer should be complete
 OBJECT complete_decoder := NEW BERDecoder(bind_request_buffer);
-TestEqualBoolean(16, TRUE, complete_decoder->IsComplete());
+TestEq(TRUE, complete_decoder->IsComplete());
 
 CloseTest("TestBERLimits");
 
@@ -54,41 +57,41 @@ encode_search_request->EndConstruction(); // SearchRequest
 encode_search_request->EndConstruction(); // LDAPMessage
 
 STRING search_request_constructed := encode_search_request->GetRequest();
-TestEqualInteger(1, 65, Length(search_request_constructed));
-TestEqualStringBinary(2, search_request_verify, search_request_constructed);
+TestEq(65, Length(search_request_constructed));
+TestEq(search_request_verify, search_request_constructed);
 
 OBJECT decode_search_request := NEW BERDecoder(search_request_constructed);
-TestEqualBoolean(3, TRUE, ObjectExists(decode_search_request));
-TestEqualBoolean(4, TRUE, decode_search_request->IsComplete());
+TestEq(TRUE, ObjectExists(decode_search_request));
+TestEq(TRUE, decode_search_request->IsComplete());
 
 OBJECT decode_ldapmessage := decode_search_request->ReadConstruction();
-TestEqualBoolean(5, TRUE, ObjectExists(decode_ldapmessage));
-TestEqualInteger(6, 2, decode_ldapmessage->ReadInteger());
+TestEq(TRUE, ObjectExists(decode_ldapmessage));
+TestEq(2, decode_ldapmessage->ReadInteger());
 
 OBJECT decode_searchrequest := decode_ldapmessage->ReadConstruction();
-TestEqualBoolean(7, TRUE, ObjectExists(decode_searchrequest));
-TestEqualString(8, "o=B-Lex, c=NL", decode_searchrequest->ReadOctetString());
-TestEqualInteger(9, 2, decode_searchrequest->ReadInteger());
-TestEqualInteger(10, 0, decode_searchrequest->ReadInteger());
-TestEqualInteger(11, 0, decode_searchrequest->ReadInteger());
-TestEqualInteger(12, 0, decode_searchrequest->ReadInteger());
-TestEqualBoolean(13, FALSE, decode_searchrequest->ReadInteger() = 0xFF);
+TestEq(TRUE, ObjectExists(decode_searchrequest));
+TestEq("o=B-Lex, c=NL", decode_searchrequest->ReadOctetString());
+TestEq(2, decode_searchrequest->ReadInteger());
+TestEq(0, decode_searchrequest->ReadInteger());
+TestEq(0, decode_searchrequest->ReadInteger());
+TestEq(0, decode_searchrequest->ReadInteger());
+TestEq(FALSE, decode_searchrequest->ReadInteger() = 0xFF);
 
 OBJECT decode_and := decode_searchrequest->ReadConstruction();
-TestEqualBoolean(14, TRUE, ObjectExists(decode_and));
+TestEq(TRUE, ObjectExists(decode_and));
 
 OBJECT decode_equality_1 := decode_and->ReadConstruction();
-TestEqualBoolean(15, TRUE, ObjectExists(decode_equality_1));
-TestEqualString(16, "ou", decode_equality_1->ReadOctetString());
-TestEqualString(17, "Prog", decode_equality_1->ReadOctetString());
+TestEq(TRUE, ObjectExists(decode_equality_1));
+TestEq("ou", decode_equality_1->ReadOctetString());
+TestEq("Prog", decode_equality_1->ReadOctetString());
 
 OBJECT decode_equality_2 := decode_and->ReadConstruction();
-TestEqualBoolean(18, TRUE, ObjectExists(decode_equality_2));
-TestEqualString(19, "sn", decode_equality_2->ReadOctetString());
-TestEqualString(20, "Noot", decode_equality_2->ReadOctetString());
+TestEq(TRUE, ObjectExists(decode_equality_2));
+TestEq("sn", decode_equality_2->ReadOctetString());
+TestEq("Noot", decode_equality_2->ReadOctetString());
 
 OBJECT decode_attributes := decode_searchrequest->ReadConstruction();
-TestEqualBoolean(21, TRUE, ObjectExists(decode_attributes));
+TestEq(TRUE, ObjectExists(decode_attributes));
 
 CloseTest("TestBERSearchRequest");
 

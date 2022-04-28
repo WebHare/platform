@@ -157,7 +157,7 @@ PUBLIC RECORD ARRAY FUNCTION Test()
   RETURN errors;
 }
 
-TestEqual(10, 4, LENGTH(Test()));
+TestEq(4, LENGTH(Test()));
 
 /*
 This code tests against the free heap variable list corruption done by the object garbage collector, discovered 23-11-2010.

@@ -21,43 +21,43 @@ MACRO AndTest()
 
   // Basic conformance
 
-  TestEqualBoolean(1, TRUE, TRUE AND TRUE);
-  TestEqualBoolean(2, FALSE, TRUE AND FALSE);
-  TestEqualBoolean(3, FALSE, FALSE AND TRUE);
-  TestEqualBoolean(4, FALSE, FALSE AND FALSE);
+  TestEq(TRUE, TRUE AND TRUE);
+  TestEq(FALSE, TRUE AND FALSE);
+  TestEq(FALSE, FALSE AND TRUE);
+  TestEq(FALSE, FALSE AND FALSE);
 
   // Side effects
   secounter := 0;
-  TestEqualBoolean(5, TRUE, TRUE AND SideEffect(TRUE));
-  TestEqualInteger(6, 1, secounter);
+  TestEq(TRUE, TRUE AND SideEffect(TRUE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(7, FALSE, TRUE AND SideEffect(FALSE));
-  TestEqualInteger(8, 1, secounter);
+  TestEq(FALSE, TRUE AND SideEffect(FALSE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(9, FALSE, FALSE AND SideEffect(TRUE));
-  TestEqualInteger(10, 0, secounter);
+  TestEq(FALSE, FALSE AND SideEffect(TRUE));
+  TestEq(0, secounter);
 
   secounter := 0;
-  TestEqualBoolean(11, FALSE, FALSE AND SideEffect(FALSE));
-  TestEqualInteger(12, 0, secounter);
+  TestEq(FALSE, FALSE AND SideEffect(FALSE));
+  TestEq(0, secounter);
 
   secounter := 0;
-  TestEqualBoolean(13, TRUE, SideEffect(TRUE) AND SideEffect(TRUE));
-  TestEqualInteger(14, 2, secounter);
+  TestEq(TRUE, SideEffect(TRUE) AND SideEffect(TRUE));
+  TestEq(2, secounter);
 
   secounter := 0;
-  TestEqualBoolean(15, FALSE, SideEffect(TRUE) AND SideEffect(FALSE));
-  TestEqualInteger(16, 2, secounter);
+  TestEq(FALSE, SideEffect(TRUE) AND SideEffect(FALSE));
+  TestEq(2, secounter);
 
   secounter := 0;
-  TestEqualBoolean(17, FALSE, SideEffect(FALSE) AND SideEffect(TRUE));
-  TestEqualInteger(18, 1, secounter);
+  TestEq(FALSE, SideEffect(FALSE) AND SideEffect(TRUE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(19, FALSE, SideEffect(FALSE) AND SideEffect(FALSE));
-  TestEqualInteger(20, 1, secounter);
+  TestEq(FALSE, SideEffect(FALSE) AND SideEffect(FALSE));
+  TestEq(1, secounter);
 
   CloseTest("TestShortCircuiting: AndTest");
 }
@@ -70,43 +70,43 @@ MACRO OrTest()
 
   // Basic conformance
 
-  TestEqualBoolean(1, TRUE, TRUE OR TRUE);
-  TestEqualBoolean(2, TRUE, TRUE OR FALSE);
-  TestEqualBoolean(3, TRUE, FALSE OR TRUE);
-  TestEqualBoolean(4, FALSE, FALSE OR FALSE);
+  TestEq(TRUE, TRUE OR TRUE);
+  TestEq(TRUE, TRUE OR FALSE);
+  TestEq(TRUE, FALSE OR TRUE);
+  TestEq(FALSE, FALSE OR FALSE);
 
   // Side effects
   secounter := 0;
-  TestEqualBoolean(5, TRUE, TRUE OR SideEffect(TRUE));
-  TestEqualInteger(6, 0, secounter);
+  TestEq(TRUE, TRUE OR SideEffect(TRUE));
+  TestEq(0, secounter);
 
   secounter := 0;
-  TestEqualBoolean(7, TRUE, TRUE OR SideEffect(FALSE));
-  TestEqualInteger(8, 0, secounter);
+  TestEq(TRUE, TRUE OR SideEffect(FALSE));
+  TestEq(0, secounter);
 
   secounter := 0;
-  TestEqualBoolean(9, TRUE, FALSE OR SideEffect(TRUE));
-  TestEqualInteger(10, 1, secounter);
+  TestEq(TRUE, FALSE OR SideEffect(TRUE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(11, FALSE, FALSE OR SideEffect(FALSE));
-  TestEqualInteger(12, 1, secounter);
+  TestEq(FALSE, FALSE OR SideEffect(FALSE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(13, TRUE, SideEffect(TRUE) OR SideEffect(TRUE));
-  TestEqualInteger(14, 1, secounter);
+  TestEq(TRUE, SideEffect(TRUE) OR SideEffect(TRUE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(15, TRUE, SideEffect(TRUE) OR SideEffect(FALSE));
-  TestEqualInteger(16, 1, secounter);
+  TestEq(TRUE, SideEffect(TRUE) OR SideEffect(FALSE));
+  TestEq(1, secounter);
 
   secounter := 0;
-  TestEqualBoolean(17, TRUE, SideEffect(FALSE) OR SideEffect(TRUE));
-  TestEqualInteger(18, 2, secounter);
+  TestEq(TRUE, SideEffect(FALSE) OR SideEffect(TRUE));
+  TestEq(2, secounter);
 
   secounter := 0;
-  TestEqualBoolean(19, FALSE, SideEffect(FALSE) OR SideEffect(FALSE));
-  TestEqualInteger(20, 2, secounter);
+  TestEq(FALSE, SideEffect(FALSE) OR SideEffect(FALSE));
+  TestEq(2, secounter);
 
   CloseTest("TestShortCircuiting: OrTest");
 }
