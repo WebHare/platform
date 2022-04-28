@@ -317,8 +317,8 @@ MACRO SliceTest()
   TestEq(ToSA("a"), ArraySlice(test, -2147483648,2147483649i64));
   TestEq(ToSA("abcde"), ArraySlice(test, -2147483648));
 
-  TestThrows(PTR ArraySlice(test, 2, -1));
-  TestThrows(PTR ArraySlice("bla", 0, 1));
+  TestThrowsLike("*no*negative*", PTR ArraySlice(test, 2, -1));
+  TestThrowsLike("*must be*array*", PTR ArraySlice("bla", 0, 1));
 
   CloseTest("SliceTest");
 }
@@ -475,8 +475,8 @@ MACRO PickTest()
 
   VARIANT ARRAY x;
   INSERT 5 INTO x AT END;
-  TestThrows(PTR PickFirst(x));
-  TestThrows(PTR PickFirst("array"));
+  TestThrowsLike("Argument to PickFirst must be an array with a determined type, not VARIANT ARRAY", PTR PickFirst(x));
+  TestThrowsLike("Argument to PickFirst must be an array, not STRING", PTR PickFirst("array"));
 
   Closetest("PickTest");
 

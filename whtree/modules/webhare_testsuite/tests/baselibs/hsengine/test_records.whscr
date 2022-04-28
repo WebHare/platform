@@ -526,10 +526,10 @@ MACRO UnpackRepackTest()
   TestEq([x := 42], RepackRecord([[name := "x", value := 42]]));
   TestEq([x := 42, y:=43], RepackRecord([[name := "x", value := 42],[name:="y",value:=43]]));
   TestEq([x := 42, y:=43], RepackRecord(UnpackRecord([x:=42,y:=43])));
-  TestThrows(PTR RepackRecord([[name := "x", value := 42],[name := "x", value := 42]]));
+  TestThrowsLike("Duplicate cell 'x'", PTR RepackRecord([[name := "x", value := 42],[name := "x", value := 42]]));
 
   TestEq([x := 42], PickCells([x:=42, y:=43], [ "x", "z" ]));
-  TestThrows(PTR PickCells([x:=42, y:=43], [ "x", "X" ]));
+  TestThrowsLike(`Duplicate cell "X"`, PTR PickCells([x:=42, y:=43], [ "x", "X" ]));
 
   CloseTest("TestRecords: UnpackRepackTest");
 }
@@ -651,15 +651,15 @@ MACRO ValidateOptionsTest()
   exc := TestThrowsLike("Cannot set both passthrough AND *", PTR ValidateOptions([ a := 42], [ BCELL := 43 ], [ passthrough := TRUE, passthroughin := "therest" ]));
   TestEq(FALSE, exc EXTENDSFROM InvalidOptionException, "Syntax errors in the defaultoptions should not trigger an InvalidOptionException");
 
-  TestThrows(PTR ValidateOptions([ a := 42], [ a := "ABC" ]));
+  TestThrowsLike("Incorrect type for cell 'A' in options, expected INTEGER got STRING", PTR ValidateOptions([ a := 42], [ a := "ABC" ]));
   TestThrowsLike("*meta option*", PTR ValidateOptions([ a := 42], DEFAULT RECORD, [ nosuchmeta := 42 ]));
-  TestThrows(PTR ValidateOptions([ a := 42], DEFAULT RECORD, [ required := ["a"] ]));
+  TestThrowsLike("Missing required cell 'a' in options", PTR ValidateOptions([ a := 42], DEFAULT RECORD, [ required := ["a"] ]));
   TestThrowsLike("Missing required*BCELL*use*ACELL*?", PTR ValidateOptions([ bcell := 42 ], [ acell := 1 ], [ required := ["bcell"], passthroughin := "pt" ]));
 
   // Casting:
   TestEq([ a := 42m ], ValidateOptions([ a := 42m ], [ a := 42 ]));
   TestEq([ a := 42m ], ValidateOptions([ a := 42m ], [ a := 42 ], [ optional := ["a"] ]), "optional should not allow evasion of typecasts");
-  TestThrows(PTR ValidateOptions([ a := DEFAULT RECORD ], [ a := DEFAULT RECORD ARRAY ]));
+  TestThrowsLike("Incorrect type*'A'*RECORD*got RECORD ARRAY", PTR ValidateOptions([ a := DEFAULT RECORD ], [ a := DEFAULT RECORD ARRAY ]));
 
   //optional
   TestEq(CELL[], ValidateOptions([ a := 42 ], DEFAULT RECORD, [ optional :=["a"]]));
@@ -680,18 +680,18 @@ MACRO ValidateOptionsTest()
 
   TestEq(CELL[], ValidateOptions([ fallback := "" ], DEFAULT RECORD, [ optional := ["fallback"], notypecheck := ["fallback" ]]));
 
-  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := "2" ] ])); // enum values not string array
-  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
-  TestThrows(PTR ValidateOptions([ a := "" ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // empty value as default is allowed, but a value must be passed then
-  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ c := [ "1", "2" ] ] ])); // no such option 'c'
-  TestThrows(PTR ValidateOptions([ a := 1 ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // default not a string
-  TestThrows(PTR ValidateOptions([ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
+  TestThrowsLike("*list of allowed values *'A'*STRING ARRAY", PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := "2" ] ])); // enum values not string array
+  TestThrowsLike("*default*value*'A'*not*valid*", PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
+  TestThrowsLike("*value*'A'*not*allowed*got*''*allowed*1*3*", PTR ValidateOptions([ a := "" ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // empty value as default is allowed, but a value must be passed then
+  TestThrowsLike("*'C'*not*exist*", PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ c := [ "1", "2" ] ] ])); // no such option 'c'
+  TestThrowsLike("*'a'*STRING*or*STRING*ARRAY*", PTR ValidateOptions([ a := 1 ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // default not a string
+  TestThrowsLike("*value*'A'*not*allowed*got*'2'*allowed*1*3*", PTR ValidateOptions([ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
   TestEQ([ a := "1" ], ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
   TestEQ([ a := "2" ], ValidateOptions([ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
   TestEQ([ a := "2" ], ValidateOptions([ a := "" ], [ a := "2"], [ enums := [ a := [ "1", "2", "3" ] ] ])); // empty value is allowed as default
 
-  TestThrows(PTR ValidateOptions([ a := [ "1" ] ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
-  TestThrows(PTR ValidateOptions([ a := STRING[] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
+  TestThrowsLike("*default*value*'a'*invalid*", PTR ValidateOptions([ a := [ "1" ] ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
+  TestThrowsLike("*value*'A'*not*allowed*got*'2'*allowed*1*3*", PTR ValidateOptions([ a := STRING[] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
   TestEQ([ a := [ "1" ] ], ValidateOptions([ a := [ "1" ] ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
   TestEQ([ a := [ "2" ] ], ValidateOptions([ a := [ "1" ] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
   TestEQ([ a := [ "2" ] ], ValidateOptions([ a := STRING[] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "2", "3" ] ] ]));

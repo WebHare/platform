@@ -834,7 +834,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
 
   sockets := CreateSocketPair(ipv6);
   PrintTo(sockets.connecting_socket, "\r");
-//  TestThrows(130, PTR ReadLineFrom(sockets.incoming_socket,-3,TRUE)); // FIXME: not implemented yet
+//  TestThrowsLike("*", PTR ReadLineFrom(sockets.incoming_socket,-3,TRUE)); // FIXME: not implemented yet
   TestEq("\r", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
   PrintTo(sockets.connecting_socket, "\na\r\n");
   TestEq("\n", ReadLineFrom(sockets.incoming_socket,-3,FALSE));

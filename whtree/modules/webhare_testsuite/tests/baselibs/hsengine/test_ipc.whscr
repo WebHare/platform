@@ -342,7 +342,7 @@ MACRO AsyncFunctionsTest()
     pair := CreateLinkPair();
     RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.second->Close);
     OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
-    TestThrows(PTR WaitForPromise(promise));
+    TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
   }
 
   // Test cancel of promise
@@ -350,7 +350,7 @@ MACRO AsyncFunctionsTest()
     pair := CreateLinkPair();
     OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
     RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR promise->Cancel);
-    TestThrows(PTR WaitForPromise(promise));
+    TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
     promise->Cancel(); // 2nd cancel shouldn't crash
 
     // Test if it works again
@@ -389,7 +389,7 @@ MACRO AsyncFunctionsTest()
     promise := pair.first->AsyncDoRequest([ type := "msg2" ]);
     promise->Cancel();
     TestEQMembers([ status := "ok", msg := [ type := "msg2" ] ], pair.second->ReceiveMessage(DEFAULT DATETIME), "*");
-    TestThrows(PTR WaitForPromise(promise));
+    TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
 
     promise := pair.first->AsyncDoRequest([ type := "msg3" ]);
     rec := pair.second->ReceiveMessage(DEFAULT DATETIME);
@@ -406,7 +406,7 @@ MACRO AsyncFunctionsTest()
     TestEQ("ok", rec.status);
     pair.second->SendReply([ type := "reply" ], -1);
 
-    TestThrows(PTR WaitForPromise(promise));
+    TestThrowsLike("received*reply*to*-1*but*for*", PTR WaitForPromise(promise));
   }
 
   // Test async accept
@@ -422,7 +422,7 @@ MACRO AsyncFunctionsTest()
 
     promise := port->AsyncAccept(MAX_DATETIME);
     promise->Cancel();
-    TestThrows(PTR WaitForPromise(promise));
+    TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
 
     promise := port->AsyncAccept(MAX_DATETIME);
     link := ConnectToIPCPort(port->name);

@@ -161,7 +161,7 @@ PUBLIC OBJECT FUNCTION TestThrowsTestException(FUNCTION PTR testfunc, STRING ann
   {
     expecttestexception := TRUE;
 
-    OBJECT exc := TestThrows(testfunc, annotation);
+    OBJECT exc := TestThrowsLike("Test failed", testfunc, annotation);
     IF(exc EXTENDSFROM TestFailException)
       RETURN exc;
   }

@@ -23,7 +23,7 @@ MACRO TestCreateResolvedPromise()
 
 MACRO TestCreateRejectedPromise()
 {
-  TestThrows(PTR WaitForPromise(CreateRejectedPromise(NEW Exception("throw"))));
+  TestThrowsLike("throw", PTR WaitForPromise(CreateRejectedPromise(NEW Exception("throw"))));
 }
 
 MACRO TestThen()
@@ -60,8 +60,8 @@ MACRO TestThen()
   TestEQ(x, WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ReturnId(x))));
 
   // Throwing stuff
-  TestThrows(PTR WaitForPromise(c->Then(PTR ThrowE(NEW Exception("thrown")))));
-  TestThrows(PTR WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ThrowE(NEW Exception("thrown")))));
+  TestThrowsLike("thrown", PTR WaitForPromise(c->Then(PTR ThrowE(NEW Exception("thrown")))));
+  TestThrowsLike("thrown", PTR WaitForPromise(e->Then(DEFAULT FUNCTION PTR, PTR ThrowE(NEW Exception("thrown")))));
 }
 
 MACRO TestCancel()
@@ -79,14 +79,14 @@ MACRO TestCancel()
   d.promise->rejectoncancel := TRUE;
   d.promise->Cancel();
   d.resolve(1);
-  TestThrows(PTR WaitForPromise(d.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(d.promise));
 
   // Cancel status is remembered and applied immediately when autocancel is set to true
   d := CreateDeferredPromise();
   d.promise->Cancel();
   d.promise->rejectoncancel := TRUE;
   d.resolve(1);
-  TestThrows(PTR WaitForPromise(d.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(d.promise));
 }
 
 MACRO Dummy(VARIANT inval)
@@ -96,12 +96,12 @@ MACRO Dummy(VARIANT inval)
 MACRO TestUncaught()
 {
   OBJECT prom := CreateRejectedPromise(NEW Exception("dead"));
-  TestThrows(PTR WaitForPromise(prom));
+  TestThrowsLike("dead", PTR WaitForPromise(prom));
 
   TestEq(TRUE, WaitForPromise(CreateResolvedPromise(TRUE))); //this one works
 
   prom := CreateRejectedPromise(NEW Exception("dead"))->Then(PTR Dummy);
-  TestThrows(PTR WaitForPromise(prom));
+  TestThrowsLike("dead", PTR WaitForPromise(prom));
 
   TestEq(TRUE, WaitForPromise(CreateResolvedPromise(TRUE))); //this now fails
 }
@@ -110,7 +110,7 @@ MACRO TestPromiseAll()
 {
   OBJECT a := CreateResolvedPromise(1), b := CreateResolvedPromise(2);
   TestEQ(VARIANT ARRAY([ 1, 2 ]), WaitForPromise(CreatePromiseAll([ a, b ])));
-  TestThrows(PTR WaitForPromise(CreatePromiseAll([ a, b, CreateRejectedPromise(NEW Exception("thrown")) ])));
+  TestThrowsLike("thrown", PTR WaitForPromise(CreatePromiseAll([ a, b, CreateRejectedPromise(NEW Exception("thrown")) ])));
 }
 
 MACRO TestPromiseRace()
@@ -119,7 +119,7 @@ MACRO TestPromiseRace()
   TestEQ(1, WaitForPromise(CreatePromiseRace([ CreateResolvedPromise(1) ])));
   TestEQ(1, WaitForPromise(CreatePromiseRace([ OBJECT(a), CreateResolvedPromise(1) ])));
   TestEQ([ source := b, value := "1" ], WaitForPromise(CreatePromiseRace([ OBJECT(a), b ], [ wrap := TRUE ])));
-  TestThrows(PTR WaitForPromise(CreatePromiseRace([ a, CreateRejectedPromise(NEW Exception("thrown")) ])));
+  TestThrowsLike("thrown", PTR WaitForPromise(CreatePromiseRace([ a, CreateRejectedPromise(NEW Exception("thrown")) ])));
 }
 
 MACRO TestPromiseAllSettled()
@@ -137,12 +137,12 @@ ASYNC MACRO TestCancellation()
   TestEQ(FALSE, t->IsCancelled());
   ts->Cancel();
   TestEQ(TRUE, t->IsCancelled());
-  TestThrows(PTR t->Check());
+  TestThrowsLike("*cancelled*", PTR t->Check());
 
   // test callback, registration after cancellation
   RECORD defer := CreateDeferredPromise();
   t->AddCallback(defer.reject);
-  TestThrows(PTR WaitForPromise(defer.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(defer.promise));
 
   // test callback, registration before cancellation
   ts := NEW CancellationTokenSource;
@@ -150,7 +150,7 @@ ASYNC MACRO TestCancellation()
   defer := CreateDeferredPromise();
   t->AddCallback(defer.reject);
   ts->Cancel();
-  TestThrows(PTR WaitForPromise(defer.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(defer.promise));
 
   // linktoken before cancellation, one callback
   ts := NEW CancellationTokenSource;
@@ -163,7 +163,7 @@ ASYNC MACRO TestCancellation()
   bts->Cancel();
   TestEQ(TRUE, bts->canceltoken->IsCancelled());
   TestEQ(TRUE, t->IsCancelled());
-  TestThrows(PTR WaitForPromise(defer.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(defer.promise));
 
   // linktoken before cancellation, no final callback
   ts := NEW CancellationTokenSource;
@@ -221,7 +221,7 @@ ASYNC MACRO TestCancellation()
   defer := CreateDeferredPromise();
   t->AddCallback(defer.reject);
   bbts->Cancel();
-  TestThrows(PTR WaitForPromise(defer.promise));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(defer.promise));
 }
 
 MACRO TestPromiseTime()

@@ -454,6 +454,10 @@ PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAUL
       , aslibrary :=      FALSE
       ], options);
 
+  // Auto-add script tag if missing
+  IF (test NOT LIKE "*<?wh*")
+    test := "<?wh\n" || test;
+
   RECORD ARRAY parsed := ParseAnnotation(test);
 
   STRING script := Detokenize((SELECT AS STRING ARRAY linetext || "\n" FROM parsed WHERE type = "line"), "");
