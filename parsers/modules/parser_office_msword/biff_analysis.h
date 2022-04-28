@@ -38,6 +38,10 @@ class BiffParaAnalyzer
         };
         struct ParagraphMerger //used by paragraph reader
         {
+                ParagraphMerger() : basestyle(0)
+                {
+                }
+
                 GrpprlPointer grpprlptr;
                 StyleId basestyle;
         };
