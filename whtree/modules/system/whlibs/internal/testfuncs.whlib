@@ -129,7 +129,7 @@ PUBLIC MACRO CloseTest(STRING testname)
     @param annotation Message to display when the test fails
     @return Returns the thrown exception
 */
-PUBLIC OBJECT FUNCTION TestThrows(FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+PUBLIC OBJECT FUNCTION TestThrows(FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE, DEPRECATED "Use TestThrowsLike")
 {
   IF(NOT warned_testthrow)
   {
@@ -204,7 +204,7 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
   }
   CATCH (OBJECT e)
   {
-    IF (e->what NOT LIKE mask)
+    IF (ToUppercase(e->what) NOT LIKE ToUppercase(mask))
     {
       IF(annotation != "")
         Print("\nAnnotation: " || annotation || "\n");
@@ -230,7 +230,7 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
     @param annotation Message to display when the test fails
     @return Returns the exception the promise was rejected with
 */
-PUBLIC OBJECT FUNCTION TestRejected(OBJECT promise, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
+PUBLIC OBJECT FUNCTION TestRejected(OBJECT promise, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE, DEPRECATED "Use TestRejectedLike")
 {
   IF(NOT warned_testreject)
   {
@@ -277,7 +277,7 @@ PUBLIC OBJECT FUNCTION TestRejectedLike(STRING mask, OBJECT promise, STRING anno
   }
   CATCH (OBJECT e)
   {
-    IF (e->what NOT LIKE mask)
+    IF (ToUppercase(e->what) NOT LIKE ToUppercase(mask))
     {
       IF(annotation != "")
         Print("\nAnnotation: " || annotation || "\n");
