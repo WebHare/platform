@@ -357,13 +357,6 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
     RETURN newactionid;
   }
-  UPDATE PUBLIC BOOLEAN FUNCTION ExecuteAddedAction(INTEGER actionid)
-  {
-    RECORD act := SELECT * FROM this->addedactions WHERE id=actionid;
-    IF(NOT RecordExists(act))
-      THROW NEW TolliumException(this,`No such added action #${actionid}`);
-    RETURN act.button->TolliumClick();
-  }
 
   MACRO SetOnChangeOrder(MACRO PTR newonchangeorder)
   {

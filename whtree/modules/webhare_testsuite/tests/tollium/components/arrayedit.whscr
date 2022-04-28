@@ -53,8 +53,8 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   topscreen->comp->SetSelectedRows([0]);
 
   //Test custom actions
-  INTEGER duplicate := topscreen->comp->AddAction("duplicate", PTR DuplicateAction);
-  TestEq(TRUE, topscreen->comp->ExecuteAddedAction(duplicate));
+  INTEGER duplicate := topscreen->comp->AddAction("Duplicate!", PTR DuplicateAction);
+  TestEq(TRUE, TTClick(":Duplicate!"));
   TestEq(2, Length(topscreen->comp->rows));
   TestEq([[rowkey := 2, checkbox := TRUE, text := "Duplicated"]], topscreen->comp->selection);
 
