@@ -1507,12 +1507,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("EXTENDPROPERTIES"))
       FOREVERY(RECORD extendprops FROM apply.extendproperties)
       {
-        IF(extendprops.isundo)
-        {
-          DELETE FROM retval.propertyeditors WHERE name LIKE extendprops.mask;
-          CONTINUE;
-        }
-
         IF(NOT this->HasRequiredRight(user, extendprops.requireright))
           CONTINUE;
 
