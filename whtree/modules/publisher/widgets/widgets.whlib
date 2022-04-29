@@ -50,17 +50,13 @@ PUBLIC STATIC OBJECTTYPE WittyWidget EXTEND WidgetBase
   {
     OBJECT templ := NEW WittyTemplate("HTML-NI");
     templ->LoadCodeDirect(this->data.wittycode);
-    print("start:");
     templ->Run();
-    print(":end");
   }
 
   UPDATE PUBLIC MACRO RenderLive()
   {
     OBJECT templ := NEW WittyTemplate("HTML-NI");
     templ->LoadCodeDirect(this->data.wittycode);
-    print("start:");
     templ->Run();
-    print(":end");
   }
 >;
