@@ -2682,5 +2682,10 @@
       <text tid="starttime">Start afspelen vanaf</text>
       <text tid="starttimepastend">De starttijd ligt na het einde van de video</text>
     </textgroup>
+    <textgroup gid="witty">   <!-- widgets.witty -->
+      <text tid="wittyblock">Witty sjabloon blok</text>
+      <text tid="wittycode">Witty code</text>
+      <text tid="wittyinline">Inline witty sjabloon</text>
+    </textgroup>
   </textgroup>
 </language>
