@@ -218,10 +218,8 @@ PUBLIC STATIC OBJECTTYPE EmailTest EXTEND TolliumScreenBase
       ^email->LoadEML(this->email->ExportAsEML());
       this->loadexception := DEFAULT OBJECT;
 
-      //TODO prepareemailwitty HTML-NIs so our source code isn't really correct - how to explain to programmer?
-      OBJECT htmldom := MakeXMLDocumentFromHTML(^email->htmlsource);
       ^wittylistener->masks := this->email->GetEventMasks();
-      ^htmlsource->value := BlobToSTring(htmldom->GetDocumentBlob(TRUE));
+      ^htmlsource->value := BlobToString(^email->primarysource);
     }
     CATCH(OBJECT e)
     {
