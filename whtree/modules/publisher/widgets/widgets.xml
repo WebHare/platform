@@ -47,4 +47,9 @@
     </newtab>
   </tabsextension>
 
+  <tabsextension name="wittywidget" gid=".witty" implementation="none" allowresize="true">
+    <newtab>
+      <textarea height="1pr" width="1pr" composition="contentdata" cellname="wittycode" required="true" maxlength="4096" />
+    </newtab>
+  </tabsextension>
 </screens>

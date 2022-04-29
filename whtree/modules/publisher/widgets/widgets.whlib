@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::witty.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/widgets.whlib";
@@ -34,5 +36,27 @@ PUBLIC STATIC OBJECTTYPE AnchorWidgetBase EXTEND WidgetBase
   UPDATE PUBLIC MACRO RenderSearchPreview()
   {
     // Don't render the anchor in search results
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WittyWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    Print(EncodeHTML(this->data.wittycode));
+  }
+
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
+  {
+    OBJECT templ := NEW WittyTemplate("HTML-NI");
+    templ->LoadCodeDirect(this->data.wittycode);
+    templ->Run();
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    OBJECT templ := NEW WittyTemplate("HTML-NI");
+    templ->LoadCodeDirect(this->data.wittycode);
+    templ->Run();
   }
 >;

@@ -80,7 +80,7 @@ PUBLIC MACRO RunWRDAuditLogDialog(OBJECT parentscreen, RECORD options DEFAULTSTO
     @param entityid WRD id of the entity to preselect, 0 if none
     @param options
     @cell(record) options.entitycontext Values that are set at creation/update, and cannot be edited
-    @cell(string) options.columns Names of columns to show when selecting. Defaults to WRD_TITLE if present, WRD_GUID otherwise
+    @cell(string array) options.columns Names of columns to show when selecting. Defaults to WRD_TITLE if present, WRD_GUID otherwise
     @return The id of the created or edited entity. 0 if the dialog was cancelled
 */
 PUBLIC INTEGER FUNCTION RunWRDEntitySelectDialog(OBJECT owner, OBJECT wrdtype, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)

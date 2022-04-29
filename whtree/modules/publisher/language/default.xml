@@ -2683,5 +2683,10 @@
       <text tid="starttime">Start playback at</text>
       <text tid="starttimepastend">The start time is past the end of the video</text>
     </textgroup>
+    <textgroup gid="witty">   <!-- widgets.witty -->
+      <text tid="wittyblock">Witty template block</text>
+      <text tid="wittycode">Witty code</text>
+      <text tid="wittyinline">Inline witty template</text>
+    </textgroup>
   </textgroup>
 </language>

@@ -659,9 +659,8 @@ ASYNC MACRO TestMailWitty()
   //And make sure the emailtest dialog also renders it as expected
   AWAIT ExpectScreenChange(+1, PTR RunEmailTestDialog(GetTestController(), outmail));
 
-  BLOB emailcontents := TT("email")->htmlsource;
-  TestEqLike("*I love 42 <b>HTML</b> tags!*", BlobToString(emailcontents));
-  TestEqLike("*HTMLBLOK-zonder-html*", BlobToString(emailcontents));
+  TestEqLike("*I love 42 <b>HTML</b> tags!*", TT("email->preview")->value);
+  TestEqLike("*HTMLBLOK-zonder-html*", TT("email->preview")->value);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }

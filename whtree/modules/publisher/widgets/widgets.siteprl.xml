@@ -80,4 +80,26 @@
     </members>
   </widgettype>
 
+  <!-- witty code widgets -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/wittyblock"
+              editextension="widgets.xml#wittywidget"
+              embedtype="block"
+              renderobjectname="widgets.whlib#WittyWidget"
+              tid="widgets.witty.wittyblock">
+    <members>
+      <member name="wittycode" type="string" />
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/wittyinline"
+              editextension="widgets.xml#wittywidget"
+              embedtype="inline"
+              renderobjectname="widgets.whlib#WittyWidget"
+              tid="widgets.witty.wittyinline">
+    <members>
+      <member name="wittycode" type="string" />
+    </members>
+  </widgettype>
+
+
 </siteprofile>

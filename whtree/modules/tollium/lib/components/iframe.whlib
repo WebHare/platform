@@ -3,6 +3,9 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
@@ -51,18 +54,24 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   /// <iframe> sandbox settings
   STRING _sandbox;
 
+  /// HTML value set
+  BLOB _setvalue;
+
+  /// Embedded data for SetEmail
+  RECORD ARRAY embedded;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables & properties
   //
 
-  /** Set the current HTML contents of the iframe (string). Write-only.
+  /** Set the current HTML contents of the iframe (string).
   */
-  PUBLIC PROPERTY value(-, SetHTML);
+  PUBLIC PROPERTY value(GetHTML, SetHTML);
 
-  /** Set the current HTML contents of the iframe (blob). Write-only.
+  /** Set the current HTML contents of the iframe (blob).
   */
-  PUBLIC PROPERTY blobvalue(-, SetHTMLBlob);
+  PUBLIC PROPERTY blobvalue(_setvalue, SetHTMLBlob);
 
   /** The source URL for the content
   */
@@ -207,6 +216,11 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     this->ExtUpdatedSandbox();
   }
 
+  STRING FUNCTION GetHTML()
+  {
+    RETURN BlobToString(this->_setvalue);
+  }
+
   MACRO SetHTML(STRING data)
   {
     this->SetHTMLBlob(StringToBlob(data));
@@ -215,8 +229,57 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   MACRO SetHTMLBlob(BLOB data)
   {
     this->pvt_src := "";
+    this->_setvalue := data;
     this->mainpagelink := this->AddInlineDownload(data, "text/html; charset=utf-8", "download.html");
     this->ExtUpdatedContent();
+  }
+
+  STRING FUNCTION RewriteEmbeddedLink(STRING inlink)
+  {
+    IF(inlink NOT LIKE "cid:*")
+      RETURN inlink;
+
+    STRING lookfor :=  '<' || Substring(inlink,4) || '>';
+    RECORD match := SELECT * FROM this->embedded WHERE contentid = lookfor;
+    IF(RecordExists(match) AND match.link = "")
+    {
+      match.link := this->AddInlineDownload(match.data, GetMIMEHeaderParameter(match.mimetype,""), GetMIMEHeaderParameter(match.mimetype,"name"));
+      UPDATE this->embedded SET link := match.link WHERE contentid = lookfor;
+    }
+    RETURN RecordExists(match) ? match.link : inlink;
+  }
+
+  /** Fill the iframe's contents with an email
+      @param mailtoppart Top MIME part of the email
+      @cell(blob) return.source text/html or text/plain source */
+  PUBLIC RECORD FUNCTION SetEmail(RECORD mailtoppart)
+  {
+    this->ResetContent();
+
+    RECORD relatedpart := GetEmailPrimaryMIMEPart(mailtoppart, "multipart/related");
+    RECORD htmlpart := GetEmailPrimaryMIMEPart(mailtoppart, "text/html");
+    IF(NOT RecordExists(htmlpart))
+    { //Then try as text
+      RECORD textpart := GetEmailPrimaryMIMEPart(mailtoppart, "text/plain");
+      IF (RecordExists(textpart))
+      {
+        this->SetHTML(EncodeHTML(BlobToString(textpart.data)));
+        RETURN CELL[ source := textpart.data ];
+      }
+      RETURN DEFAULT RECORD;
+    }
+
+    IF (RecordExists(relatedpart))
+      this->embedded := SELECT *, link := "" FROM relatedpart.subparts;
+
+    OBJECT doc  := MakeXMLDocumentFromHTML(htmlpart.data);
+    FOREVERY(OBJECT link FROM doc->GetElements("*[href]"))
+      link->SetAttribute("target", "_blank");
+
+    NEW HTMLRewriterContext->RewriteEmbeddedLinks(doc, PTR this->RewriteEmbeddedLink);
+    this->SetHTML(doc->innerhtml);
+
+    RETURN CELL[ source := htmlpart.data ];
   }
 
   PUBLIC MACRO SetFile(RECORD wrappedfile)
@@ -227,6 +290,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
       RETURN;
     }
     this->pvt_src := "";
+    this->_setvalue := wrappedfile.data;
     this->mainpagelink := this->AddInlineDownload(wrappedfile.data, wrappedfile.mimetype, wrappedfile.filename);
     this->ExtUpdatedContent();
   }
@@ -235,7 +299,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   {
     IF(this->pvt_src = href)
       RETURN;
+
     this->pvt_src := href;
+    this->_setvalue := DEFAULT BLOB;
     this->ExtUpdatedContent();
   }
 
@@ -431,7 +497,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   PUBLIC MACRO ResetContent()
   {
     //this->pvt_src := "about:blank";
+    this->embedded := RECORD[];
     this->mainpagelink := "";
+    this->_setvalue := DEFAULT BLOB;
     this->ResetDownloads();
   }
 
