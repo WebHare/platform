@@ -315,6 +315,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
       @param toexecute Callback handler
       @cell options.requireselection Whether to require a selection for this action. Defaults to TRUE.
       @cell(integer) options.max Maximum allowed selection size, defaults to 1. Set to -1 for no limit.
+      @cell(string array) options.checkflags Flags to check on the selection
       @return ID for the added action
   */
   UPDATE PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -322,6 +323,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     options := ValidateOptions(
         [ requireselection := TRUE
         , actiontype := "action"
+        , checkflags := STRING[]
         , max := 1
         ], options,
         [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction", "windowopenaction" ] ]
@@ -348,7 +350,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     menuitem->title := title;
     menuitem->action := action;
     IF(options.requireselection)
-      action->enableon := [[ min := 1, max := options.max, source := this->list ]];
+      action->enableon := [CELL[ min := 1, source := this->list, options.max, options.checkflags ]];
 
     this->extrabuttons->visible := TRUE;
     this->extrabuttons->InsertComponentAfter(button, DEFAULT OBJECT, TRUE);
@@ -356,13 +358,6 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
     INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
     RETURN newactionid;
-  }
-  UPDATE PUBLIC BOOLEAN FUNCTION ExecuteAddedAction(INTEGER actionid)
-  {
-    RECORD act := SELECT * FROM this->addedactions WHERE id=actionid;
-    IF(NOT RecordExists(act))
-      THROW NEW TolliumException(this,`No such added action #${actionid}`);
-    RETURN act.button->TolliumClick();
   }
 
   MACRO SetOnChangeOrder(MACRO PTR newonchangeorder)

@@ -7,7 +7,7 @@ PUBLIC RECORD ARRAY FUNCTION AddDummy(RECORD ARRAY rows)
 {
   IF(RecordExists(SELECT FROM rows WHERE CellExists(rows,'dummy')))
     ABORT("DUMMY ALREADY EXISTS ?!");
-  RETURN SELECT *, dummy := TRUE FROM rows;
+  RETURN SELECT *, dummy := TRUE, iseven := (#rows+1) % 2 = 0 FROM rows;
 }
 
 PUBLIC MACRO DuplicateAction()
