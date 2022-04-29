@@ -524,6 +524,7 @@ void Parser::P_Function_Body(
                         }*/
 
                         mem_def.generator = context.symboltable->RegisterDeclaredVariable(declpos, 0, false, false, VariableTypes::Object);
+                        mem_def.isgenerator = isgenerator;
                         mem_def.isasync = isasync;
 
                         RvaluePtrs params;

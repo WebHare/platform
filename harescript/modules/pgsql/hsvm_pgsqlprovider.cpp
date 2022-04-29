@@ -1402,7 +1402,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                                 }
                                                 else
                                                 {
-                                                        PQ_PRINT(" blob " << blobid << " not found at " << resourcepath);
+                                                        PQ_PRINT(" blob " << blobid << " not found at " << blobpath);
                                                 }
                                         }
 

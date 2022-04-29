@@ -20,7 +20,7 @@ MACRO TestRecordLowerBound()
   TestEq([ found := FALSE, position := 5 ], RecordLowerBound(list, [ a := 5, b := 8 ], [ "A", "B" ]));
 
   TestEq([ found := FALSE, position := 0 ], RecordLowerBound(list, [ a := 1, b := 8 ], [ "A", "B" ]));
-  TestThrows(PTR RecordLowerBound([ [ a := 3 ], [ a := 2 ], [ a := 2 ] ], [ a := 2 ], [ "A" ]));
+  TestThrowsLike("*not*sorted*", PTR RecordLowerBound([ [ a := 3 ], [ a := 2 ], [ a := 2 ] ], [ a := 2 ], [ "A" ]));
 }
 
 MACRO TestRecordUpperBound()
@@ -38,7 +38,7 @@ MACRO TestRecordUpperBound()
   TestEq(3, RecordUpperBound(list, [ a := 3, b := 1 ], [ "A", "B" ]));
   TestEq(5, RecordUpperBound(list, [ a := 5, b := 8 ], [ "A", "B" ]));
   TestEq(0, RecordUpperBound(list, [ a := 1, b := 8 ], [ "A", "B" ]));
-  TestThrows(PTR RecordUpperBound([ [ a := 1 ], [ a := 2 ], [ a := 2 ], [ a := 1 ] ], [ a := 2 ], [ "A" ]));
+  TestThrowsLike("*not*sorted*", PTR RecordUpperBound([ [ a := 1 ], [ a := 2 ], [ a := 2 ], [ a := 1 ] ], [ a := 2 ], [ "A" ]));
 }
 
 MACRO TestLowerBound()
@@ -52,7 +52,7 @@ MACRO TestLowerBound()
 
   TestEq([ found := FALSE, position := 0 ], LowerBound(list, "a"));
 
-  TestThrows(PTR LowerBound([3,2,2], 2));
+  TestThrowsLike("*not*sorted*", PTR LowerBound([3,2,2], 2));
 }
 
 MACRO TestUpperBound()
@@ -65,7 +65,7 @@ MACRO TestUpperBound()
 
   TestEq(0, UpperBound(list, "a"));
 
-  TestThrows(PTR UpperBound([1,2,2,1], 2));
+  TestThrowsLike("*not*sorted*", PTR UpperBound([1,2,2,1], 2));
 }
 
 BOOLEAN FUNCTION RecordCompare(RECORD a, RECORD b)
@@ -353,24 +353,24 @@ MACRO TestVAlueMapper()
   OBJECT gender := NEW ValueMapper;
   gender->Add('Male',1);
   gender->Add('Female',2);
-  TestThrows(PTR gender->Add('FEMALE',3));
+  TestThrowsLike("*already added*", PTR gender->Add('FEMALE',3));
   TestEq(1, gender->Lookup('Male'));
   TestEq(1, gender->Lookup('male'));
-  TestThrows(PTR MemberUpdate(gender, "casesensitive", TRUE));
+  TestThrowsLike("*cannot*be*changed*once*inserted*", PTR MemberUpdate(gender, "casesensitive", TRUE));
 
-  TestThrows(PTR gender->Lookup('Bla'));
-  TestThrows(PTR gender->Lookup(''));
+  TestThrowsLike("*not found*", PTR gender->Lookup('Bla'));
+  TestThrowsLike("*not found*", PTR gender->Lookup(''));
 
   TestEq(2,Length(gender->GetAllMappings()));
   gender->AddMultiple( [[ fromval := "abc", toval := 5 ]]);
   TestEq(3,Length(gender->GetAllMappings()));
-  TestThrows(PTR gender->AddMultiple( [[ fromval := "abc", toval := 5 ], [fromval :="def", toval := 6 ]]));
+  TestThrowsLike("*already added*", PTR gender->AddMultiple( [[ fromval := "abc", toval := 5 ], [fromval :="def", toval := 6 ]]));
   TestEq(3,Length(gender->GetAllMappings())); //NONE should have been added
 
   gender := NEW ValueMapper;
   gender->casesensitive := TRUE;
   gender->Add('Male',1);
-  TestThrows(PTR gender->Lookup('male'));
+  TestThrowsLike("*not found*", PTR gender->Lookup('male'));
   gender->Add('Female',2);
 
   OBJECT gender2 := NEW ValueMapper;
@@ -485,16 +485,16 @@ MACRO TestSortArray()
   TestEq(['a','b','b','c'], SortArray(['c','b','a','b']));
 
   TestEq(DEFAULT INTEGER ARRAY, SortArray(DEFAULT INTEGER ARRAY));
-  TestThrows(PTR SortArray(1));
+  TestThrowsLike("*must*be*array*", PTR SortArray(1));
 
   VARIANT ARRAY x;
-  TestThrows(PTR SortArray(x));
+  TestThrowsLike("*empty*array*", PTR SortArray(x));
 
   INSERT 5 INTO x AT END;
   INSERT 1 INTO x AT END;
   TestEq([1,5], SortArray(x));
   INSERT 'a' INTO x AT END;
-  TestThrows(PTR SortArray(x));
+  TestThrowsLike("*all*must*same*type*", PTR SortArray(x));
 
   TestEQ(DEFAULT STRING ARRAY, SortArray(DEFAULT STRING ARRAY));
   TestEQ([ "bar" ], SortArray([ "bar" ]));
@@ -578,10 +578,10 @@ MACRO TestArrayMove()
   TestEq( [2,0,1,3,4], __ArrayMove([0,1,2,3,4], 2, -1));
   TestEq( [0,1,3,4,2], __ArrayMove([0,1,2,3,4], 2, 5));
 
-  TestThrows(PTR __ArrayMove([0,1,2,3,4], 2, 'xxx'));
-  TestThrows(PTR __ArrayMove([0,1,2,3,4], 2, 1.5));
-  TestThrows(PTR __ArrayMove([0,1,2,3,4], -1, 'down'));
-  TestThrows(PTR __ArrayMove([0,1,2,3,4], 5, 'up'));
+  TestThrowsLike("*invalid*direction*", PTR __ArrayMove([0,1,2,3,4], 2, 'xxx'));
+  TestThrowsLike("*invalid*direction*", PTR __ArrayMove([0,1,2,3,4], 2, 1.5));
+  TestThrowsLike("*out*of*bounds*", PTR __ArrayMove([0,1,2,3,4], -1, 'down'));
+  TestThrowsLike("*out*of*bounds*", PTR __ArrayMove([0,1,2,3,4], 5, 'up'));
 }
 
 PRINT("\n === Running TestAlgorithms\n");

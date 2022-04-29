@@ -10,6 +10,7 @@ LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq,
                                        TestThrows,
                                        TestThrowsLike,
                                        TestEqCanvas,
+                                       TestUnreachable,
                                        OpenTest,
                                        CurrentTest,
                                        CloseTest,
@@ -452,6 +453,10 @@ PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAUL
       , addloadlibs :=    FALSE
       , aslibrary :=      FALSE
       ], options);
+
+  // Auto-add script tag if missing
+  IF (test NOT LIKE "*<?wh*")
+    test := "<?wh\n" || test;
 
   RECORD ARRAY parsed := ParseAnnotation(test);
 

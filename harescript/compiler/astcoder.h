@@ -121,6 +121,15 @@ class AstCoder
             @param loop Loop block */
         void ImForEvery(LineColumn const &position, AST::Variable * iteratevar, AST::Rvalue * source, AST::Block * loop, AST::Variable * positionvar);
 
+        /** Pushes a foreveryof-statement into the current block
+            @param position Relevant position in the source file
+            @param async Whether to await the return value of the iterator
+            @param iteratevar Iteration variable
+            @param source Source epxression
+            @param positionvar Current position var
+            @param loop Loop block */
+        void ImForEveryYield(LineColumn const &position, bool async, AST::Variable * iteratevar, AST::Rvalue * source, AST::Block * loop, AST::Variable * positionvar, bool in_function, bool in_loop);
+
         /** Pushes a for-statment into the current block, and sets the current block to the loop-block of that for
             @param position Relevant position in the source file
             @param loop_condition Condition on which the loop must be executed (can be NULL)

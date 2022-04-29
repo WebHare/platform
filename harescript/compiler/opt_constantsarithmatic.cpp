@@ -845,6 +845,14 @@ Optimizable Opt_ConstantsArithmatic::V_ForEveryStatement(AST::ForEveryStatement 
         Visit(obj->positionvar, Empty());
         return None;
 }
+Optimizable Opt_ConstantsArithmatic::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty)
+{
+        Optimize(obj->source);
+        Visit(obj->iteratevar, Empty());
+        Visit(obj->loop, Empty());
+        Visit(obj->positionvar, Empty());
+        return None;
+}
 Optimizable Opt_ConstantsArithmatic::V_Function (Function *obj, Empty)
 {
         for (std::vector<SymbolDefs::FunctionDef::Argument>::iterator it = obj->symbol->functiondef->arguments.begin();

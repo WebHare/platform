@@ -39,7 +39,7 @@ MACRO FilterTest()
         , MyExplainImageProcessing( example_refpoint, [ method := "none", format := "image/png", noforce := FALSE ]));
 
 
-  TestThrows(PTR MyExplainImageProcessing( example_bmp, [ method := "none", format := " " ]));
+  TestThrowsLike("Invalid output format ' ' in resize method", PTR MyExplainImageProcessing( example_bmp, [ method := "none", format := " " ]));
 
   TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , MyExplainImageProcessing( example_bmp, [ method := "none", format := "" ]));

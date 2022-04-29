@@ -17,7 +17,7 @@ LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestRejectedLike, TestEqLike, TestEqTextBlob, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException;
+LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestRejectedLike, TestEqLike, TestEqTextBlob, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException, TestUnreachable;
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/testframework.whlib";

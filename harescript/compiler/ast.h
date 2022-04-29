@@ -48,6 +48,7 @@ ACTION(DeepArrayInsert);
 ACTION(ExpressionBlock);
 ACTION(End);
 ACTION(ForEveryStatement);
+ACTION(ForEveryYieldStatement);
 ACTION(Function);
 ACTION(FunctionCall);
 ACTION(FunctionPtr);
@@ -173,6 +174,7 @@ struct BaseStatementVisitor: public BaseDeepOperationVisitor
         ACTION(ContinueStatement)
         ACTION(InitializeStatement)
         ACTION(ForEveryStatement)
+        ACTION(ForEveryYieldStatement)
         ACTION(LoopStatement)
         ACTION(ObjectMemberSet)
         ACTION(ObjectMemberInsert)
@@ -370,7 +372,7 @@ struct ConditionalStatement: public Statement
         ConditionalStatement(LineColumn const &position) : Statement(position), condition(0), stat_true(0), stat_false(0) { }
 };
 
-/// Translation of the FOREVERY ([TYPE] <iteratevar> FROM <source>) <statement> statement. Translated in 'sqltranslator' to simpler statements.
+/// Translation of the FOREVERY ([TYPE] <iteratevar> FROM <source>) <statement> statement. Translated in 'astcomplexnodetranslotor' to simpler statements.
 struct ForEveryStatement: public Statement
 {
         /// Expression containing the source. Type is ( type_of(<iteratevar>) + ARRAY ), checked.
@@ -388,6 +390,35 @@ struct ForEveryStatement: public Statement
         DEFINE_NODE_FUNCTIONS2(ForEveryStatement, Node, Statement)
 
         ForEveryStatement(LineColumn const &position) : Statement(position), source(0), iteratevar(0), loop(0) { }
+};
+
+/// Translation of the FOREVERY ([AWAIT] [TYPE] <iteratevar> YIELD FROM <source>) <statement> statement. Translated in 'astcomplexnodetranslotor' to simpler statements.
+struct ForEveryYieldStatement: public Statement
+{
+        /// Whether to AWAIT on the iteration return value
+        bool async;
+
+        /// Is used within a function?
+        bool in_function;
+
+        /// Is used within a loop?
+        bool in_loop;
+
+        /// Expression containing the source. Type is ( type_of(<iteratevar>) + ARRAY ), checked.
+        Rvalue* source;
+
+        /// Iteration variable. Type is guaranteed.
+        Variable* iteratevar;
+
+        /// Block that is executed in every iteration
+        Block* loop;
+
+        /// Variable containing current position in the forevery expression. Type INTEGER, checked.
+        Variable* positionvar;
+
+        DEFINE_NODE_FUNCTIONS2(ForEveryYieldStatement, Node, Statement)
+
+        ForEveryYieldStatement(LineColumn const &position) : Statement(position), async(false), source(0), iteratevar(0), loop(0) { }
 };
 
 /// Contains a loop with a precondition, an incrementer and a block to execute

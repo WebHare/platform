@@ -343,7 +343,7 @@ MACRO TestStates()
   TestEq(0, parser->GetDistanceFromState(begin));
 
   parser->Reset("123456");
-  TestThrows(PTR parser->GetDistanceFromState(begin));
+  TestThrowsLike("Cannot compare states with different data", PTR parser->GetDistanceFromState(begin));
   parser->RestoreState(begin);
   TestEQ(-2, parser->GetDistanceFromState(two));
 }

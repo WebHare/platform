@@ -209,6 +209,21 @@ void AstCoder::ImForEvery(LineColumn const &position, AST::Variable * iteratevar
         list->statements.push_back(stat);
 }
 
+void AstCoder::ImForEveryYield(LineColumn const &position, bool async, AST::Variable * iteratevar, AST::Rvalue * source, AST::Block * loop, AST::Variable * positionvar, bool in_function, bool in_loop)
+{
+        Block * list = GetCurrentBlock();
+        assert(list != 0);
+        ForEveryYieldStatement *stat = Adopt(new ForEveryYieldStatement(position));
+        stat->async = async;
+        stat->in_function = in_function;
+        stat->in_loop = in_loop;
+        stat->source = source;
+        stat->iteratevar = iteratevar;
+        stat->loop = loop;
+        stat->positionvar = positionvar;
+        list->statements.push_back(stat);
+}
+
 void AstCoder::ImFor_Open(LineColumn const &position, AST::Rvalue * loop_condition, AST::Rvalue * increment_condition)
 {
         Block * list = GetCurrentBlock();

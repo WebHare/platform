@@ -44,6 +44,7 @@ template <class ReturnType, class ParameterType, bool ReturnReferences = false>
         ACTION(End)
         ACTION(ExpressionBlock)
         ACTION(ForEveryStatement)
+        ACTION(ForEveryYieldStatement)
         ACTION(Function)
         ACTION(FunctionCall)
         ACTION(FunctionPtr)
@@ -105,6 +106,7 @@ template <class ReturnType, class ParameterType, bool ReturnReferences = false>
         ACTION(DeepArrayInsert)
         ACTION(InitializeStatement)
         ACTION(ForEveryStatement)
+        ACTION(ForEveryYieldStatement)
         ACTION(LoopStatement)
         ACTION(LvalueSet)
         ACTION(RecordCellSet)
@@ -199,6 +201,7 @@ struct AllNodeVisitor: public NodeVisitor<void, Empty>
         virtual void V_End(AST::End *obj, Empty);
         virtual void V_ExpressionBlock(AST::ExpressionBlock *obj, Empty);
         virtual void V_ForEveryStatement(AST::ForEveryStatement *obj, Empty);
+        virtual void V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty);
         virtual void V_Function(AST::Function *obj, Empty);
         virtual void V_FunctionCall(AST::FunctionCall *obj, Empty);
         virtual void V_FunctionPtr(AST::FunctionPtr *obj, Empty);
@@ -286,6 +289,7 @@ class TreeCopyingVisitor: public NodeVisitor<void, Empty>
         virtual void V_End(AST::End *obj, Empty);
         virtual void V_ExpressionBlock(AST::ExpressionBlock *obj, Empty);
         virtual void V_ForEveryStatement(AST::ForEveryStatement *obj, Empty);
+        virtual void V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty);
         virtual void V_Function(AST::Function *obj, Empty);
         virtual void V_FunctionCall(AST::FunctionCall *obj, Empty);
         virtual void V_FunctionPtr(AST::FunctionPtr *obj, Empty);

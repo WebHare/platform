@@ -109,6 +109,16 @@ MACRO TestSyntax()
   result := TestCompileAndRun('<?wh OBJECTTYPE x< ASYNC MACRO Test() { RETURN ""; } >; ?>');
   MustContainError(0, result.errors, 98);
 
+  TestAnnotatedCompile(`
+ASYNC MACRO Test() { YIELD 1; }
+//                   ^ E:246
+`);
+
+  TestAnnotatedCompile(`
+FUNCTION *test() { AWAIT 1; }
+//                 ^ E:248
+`);
+
   TestEQ(FALSE, WaitForPromise(TestAsyncMacro()));
   TestEQ(FALSE, WaitForPromise(TestAsyncMacro2()));
   TestEQ("X", WaitForPromise(TestAsyncFunction()));
@@ -200,6 +210,16 @@ MACRO TestYield()
   TestEQ("1,8", callorder);
   TestEQ([ done := TRUE, value := 23 ], gen->Next()); // value sent in SendReturn
   TestEQ("1,8,9", callorder);
+
+/*
+  // returns and throws in initial suspended state
+  OBJECT o := Generator(1);
+  TestEQ([ done := TRUE, value := -1 ], o->SendReturn(-1));
+  TestEQ([ done := TRUE, value := DEFAULT RECORD ], o->Next(DEFAULT RECORD));
+  TestEQ([ done := TRUE, value := -2 ], o->SendReturn(-2));
+  TestEQ([ done := TRUE, value := DEFAULT RECORD ], o->Next(DEFAULT RECORD));
+  TestThrowsLike("throw", PTR Generator(1)->SendThrow(NEW Exception("throw")));
+*/
 }
 
 OBJECT ASYNC FUNCTION AsyncFunc(BOOLEAN throwexit)
@@ -282,7 +302,7 @@ MACRO TestAsync()
   TestEQ("1,2,4,5", callorder);
 
   callorder := "";
-  TestThrows(PTR WaitForPromise(AsyncFunc(TRUE)));
+  TestThrowsLike("throw", PTR WaitForPromise(AsyncFunc(TRUE)));
   TestEQ("1,2,4", callorder);
 
   OBJECT p;
@@ -304,9 +324,9 @@ MACRO TestAsync()
   p := AsyncAutoLinkCancelFunc1();
   TestEQ("1,2", callorder); // First part must be executed synchronously, await getasynccontrol() does not wait
   p->Cancel();
-  TestThrows(PTR WaitForPromise(p));
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(p));
   TestEQ("1,2", callorder);
-  TestThrows(PTR WaitForPromise(dp)); // dp should be cancelled by p->Cancel()
+  TestThrowsLike("*cancelled*", PTR WaitForPromise(dp)); // dp should be cancelled by p->Cancel()
   TestEQ("1,2", callorder);
 
   TestEQ(10, WaitForPromise(RepeatedAwaits()));
@@ -424,9 +444,9 @@ MACRO TestAsyncGenerator()
 
     //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p4));
     //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p3));
-    TestThrows(PTR WaitForPromise(p4));
-    TestThrows(PTR WaitForPromise(p3));
-    TestThrows(PTR WaitForPromise(p2));
+    TestThrowsLike("Exception test", PTR WaitForPromise(p4));
+    TestThrowsLike("Exception test", PTR WaitForPromise(p3));
+    TestThrowsLike("Exception test", PTR WaitForPromise(p2));
     TestEQ([ done := FALSE, value := [ x := 2 ] ], WaitForPromise(p));
     TestEQ("1,2,3,4", callorder);
   }
@@ -454,11 +474,11 @@ MACRO TestAsyncGenerator()
     OBJECT p := itr->Next("a");
     TestEQ("1", callorder);
 
-    TestThrows(PTR WaitForPromise(p));
+    TestThrowsLike("t-1", PTR WaitForPromise(p));
     TestEQ("1", callorder);
 
     OBJECT p2 := itr->Next("b");
-    TestThrows(PTR WaitForPromise(p2));
+    TestThrowsLike("t-1", PTR WaitForPromise(p2));
     //TestEQ([ done := TRUE, value := DEFAULT RECORD ], WaitForPromise(p2));
   }
 
@@ -466,9 +486,45 @@ MACRO TestAsyncGenerator()
   TestThrowsLike("2", PTR WaitForPromise(TestAsyncIterator2()->Next()));
 }
 
+
+INTEGER unclosed;
+
+FUNCTION *YieldStarInner()
+{
+  unclosed := unclosed + 1;
+  TRY
+  {
+    YIELD 2;
+    RETURN -2;
+  }
+  FINALLY
+    unclosed := unclosed - 1;
+}
+
+FUNCTION *YieldStarOuter()
+{
+  unclosed := unclosed + 1;
+  TRY
+  {
+    YIELD *YieldStarInner();
+  }
+  FINALLY
+    unclosed := unclosed - 1;
+  RETURN -1;
+}
+
+MACRO TestYieldStar()
+{
+  OBJECT o := YieldStarOuter();
+  TestEQ([ done := FALSE, value := 2 ], o->Next());
+  TestEQ([ done := TRUE, value := -3 ], o->SendReturn(-3));
+  TestEQ(0, unclosed, "all generators should have executed their FINALLY");
+}
+
 PRINT("\n === Running TestYieldAsync\n");
 TestSyntax();
 TestYield();
 TestAsync();
 TestAsyncGenerator();
+TestYieldStar();
 

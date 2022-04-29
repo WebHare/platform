@@ -138,6 +138,7 @@ struct FunctionDef
         , object(0)
         , object_initializer(0)
         , generator(0)
+        , isgenerator(false)
         , isasync(false)
         , isasyncmacro(false)
         , returntype(VariableTypes::NoReturn)
@@ -149,7 +150,8 @@ struct FunctionDef
         std::string dllmodule;                  ///< Dynamic module this symbol is found ("" is VM internal)
         Symbol *object;
         Symbol *object_initializer;             ///< Is this function the initializer of an object
-        Symbol *generator;
+        Symbol *generator;                      ///< Generator object symbol (also set for normal async function)
+        bool isgenerator;                       ///< Is this a (async) generator function (false for normal async functions)
         bool isasync;
         bool isasyncmacro;
 

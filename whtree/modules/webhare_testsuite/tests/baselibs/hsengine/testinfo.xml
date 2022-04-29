@@ -20,6 +20,7 @@
   <test script="test_events.whscr" />
   <test script="test_files.whscr" />
   <test script="test_float.whscr" />
+  <test script="test_foreveryyield.whscr" />
   <test script="test_functions.whscr" />
   <test script="test_getopt.whscr" />
   <test script="test_graphics.whscr" />

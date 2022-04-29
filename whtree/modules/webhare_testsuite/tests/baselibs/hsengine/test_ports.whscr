@@ -33,7 +33,7 @@ MACRO BaseTest()
   TestReadSignalledStatus(FALSE, port2->handle);
 
   // No duplicate ports
-  TestThrows(PTR CreateIPCPort("test1"));
+  TestThrowsLike("*cannot*create*'test1'*already*exists", PTR CreateIPCPort("test1"));
 
   // Make 3 connections to the same port
   OBJECT l1a := ConnectToIPCPort("test1");
@@ -131,9 +131,9 @@ MACRO BaseTest()
   TestEq("gone", res.status);
   l1a->Close();
 
-  TestThrows(PTR l1a->SendMessage([ test := "a3" ]));
-  TestThrows(PTR l1a->ReceiveMessage(DEFAULT DATETIME));
-  TestThrows(PTR l1a->IsSignalled);
+  TestThrowsLike("*closed*", PTR l1a->SendMessage([ test := "a3" ]));
+  TestThrowsLike("*closed*", PTR l1a->ReceiveMessage(DEFAULT DATETIME));
+  TestThrowsLike("*closed*", PTR l1a->IsSignalled);
 
   // Replies
   RECORD send_b1 := l2a->SendReply([ test := "br" ], send_b.msgid);
@@ -157,8 +157,8 @@ MACRO BaseTest()
   OBJECT l4a := ConnectToIPCPort("test1") ;
 
   port1->Close();
-  TestThrows(PTR port1->IsSignalled);
-  TestThrows(PTR port1->Accept(DEFAULT DATETIME));
+  TestThrowsLike("*closed*", PTR port1->IsSignalled);
+  TestThrowsLike("*closed*", PTR port1->Accept(DEFAULT DATETIME));
 
   TestEq(TRUE, l4a->IsSignalled());
 

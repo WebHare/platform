@@ -72,6 +72,7 @@ class ASTComplexNodeTranslator: protected AST::AllNodeVisitor
         AST::Rvalue * ArrayExpressionEndRewrite(LineColumn position, AST::Rvalue *array, AST::Rvalue **index, VariableTypes::Type return_type, AST::ExpressionBlock **eblock);
         void ArrayExpressionStatementEndRewrite(LineColumn position, AST::Variable *array, AST::Rvalue **index, AST::Block **block);
 
+        void CodeYieldReturn(LineColumn position, AST::Rvalue *retval);
         void CodeNormalYieldHandling(AST::Yield *obj, AST::Rvalue *yieldret_rvalue, Symbol *retval);
 
     public:
@@ -86,6 +87,7 @@ class ASTComplexNodeTranslator: protected AST::AllNodeVisitor
     private:
         virtual void V_BinaryOperator(AST::BinaryOperator *obj, Empty);
         virtual void V_ForEveryStatement(AST::ForEveryStatement *obj, Empty);
+        virtual void V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty);
         virtual void V_SwitchStatement(AST::SwitchStatement *obj, Empty);
         virtual void V_Function(AST::Function *obj, Empty);
         virtual void V_FunctionPtr(AST::FunctionPtr *obj, Empty);

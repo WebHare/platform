@@ -213,6 +213,163 @@ void ASTComplexNodeTranslator::V_ForEveryStatement(ForEveryStatement *obj, Empty
         Visit(block, Empty());
 }
 
+void ASTComplexNodeTranslator::V_ForEveryYieldStatement(ForEveryYieldStatement *obj, Empty)
+{
+        Visit(obj->source, Empty());
+        Visit(obj->loop, Empty());
+        Visit(obj->positionvar, Empty());
+
+        Block *block = Adopt(new Block(obj->position));
+        ReplacePtr(block);
+
+        coder->ImOpenBlock(block);
+
+        /* The translation is as follows:
+
+           FOREVERY ([AWAIT] [type] Var FROM List) Statement
+           =>
+           INTEGER position := 0;
+           OBJECT itr := __HS_CONVERTTOITERATOR(syms);
+           RECORD itr_result := [ done := FALSE ];
+           TRY
+             IMFOR(; position := position + 1)
+             {
+               itr_result := (AWAIT) itr->Next();
+               IF (itr_result.done)
+                 BREAK;
+               [type] var := itr_result.value
+               Statement
+             }
+           FINALLY
+             IF (NOT itr_result.done AND MemberExists(itr, "SENDRETURN"))
+               itr->SendReturn();
+        }
+        */
+
+        Symbol *f_convert = context.symboltable->ResolveSymbol(obj->position, "__HS_CONVERTTOITERATOR", NULL, false);
+        if (!f_convert)
+        {
+                f_convert = context.symboltable->RegisterNewCalledFunction(obj->position, "__HS_CONVERTTOITERATOR", false);
+                SymbolDefs::FunctionDef *def = Adopt(new SymbolDefs::FunctionDef);
+                f_convert->functiondef = def;
+                def->returntype = VariableTypes::Object;
+                SymbolDefs::FunctionDef::Argument arg;
+                arg.value = 0;
+                arg.symbol = context.symboltable->RegisterDeclaredVariable(LineColumn(), 0, false, false, VariableTypes::Variant);
+                def->arguments.push_back(arg);
+        }
+
+        Symbol *f_memberexists = context.symboltable->RetrieveExternalFunction(obj->position, "MEMBEREXISTS");
+        Symbol *itr = context.symboltable->RegisterDeclaredVariable (obj->position, 0, false, false, VariableTypes::Object);
+        Symbol *itr_result = context.symboltable->RegisterDeclaredVariable (obj->position, 0, false, false, VariableTypes::Record);
+
+        // position := 0
+        coder->CodeInitialize(obj->positionvar->symbol);
+
+        // OBJECT itr := __HS_CONVERTTOITERATOR(syms);
+        RvaluePtrs converttoiterator_call_params(1, obj->source);
+        coder->ImExecute(obj->position,
+                coder->ImAssignment(obj->position,
+                        coder->ImVariable(obj->position, itr),
+                        coder->ImFunctionCall(obj->position, f_convert, converttoiterator_call_params)));
+
+        /// RECORD itr_result := [ done := FALSE ];
+        AST::ConstantRecord *initial_itr_result = coder->ImConstantRecord(obj->position);
+        initial_itr_result->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "DONE", coder->ImConstantBoolean(obj->position, false)));
+        Rvalue *initial_itr_result_rval = initial_itr_result;
+        opt_carim.ForceOptimize(initial_itr_result_rval);
+        coder->ImExecute(obj->position,
+                coder->ImAssignment(obj->position,
+                        coder->ImVariable(obj->position, itr_result),
+                        initial_itr_result_rval));
+
+        TryFinallyStatement *tryfinally = coder->ImTryFinally(obj->source->position,
+                obj->in_function,
+                obj->in_loop,
+                false,
+                obj->source->position);
+
+        // Code the statement
+        coder->ImOpenBlock(tryfinally->tryblock->tryblock);
+
+        //FOR (;; position := position + 1)
+        coder->ImFor_Open(obj->position,
+                nullptr,
+                coder->ImAssignment(obj->position,
+                        coder->ImVariable(obj->position, obj->positionvar->symbol),
+                        coder->ImBinaryOperator(obj->position, BinaryOperatorType::OpAdd,
+                                        coder->ImVariable(obj->position, obj->positionvar->symbol),
+                                        coder->ImConstantInteger(obj->position, 1))));
+
+        // itr_result := (AWAIT) itr->Next();
+        Rvalue *nextres = coder->ImObjectMethodCall(obj->source->position,
+                coder->ImVariable(obj->source->position, itr),
+                "NEXT",
+                false, RvaluePtrs(), false, std::vector< int32_t >());
+        if (obj->async && currentfunction && currentfunction->symbol->functiondef->generator)
+        {
+                nextres = coder->ImYield(obj->source->position,
+                        coder->ImVariable(obj->source->position, currentfunction->symbol->functiondef->generator),
+                        nextres, true, true, false, false);
+        }
+
+        coder->ImExecute(obj->source->position,
+                coder->ImAssignment(obj->source->position,
+                        coder->ImVariable(obj->source->position, itr_result),
+                        nextres));
+
+        coder->ImIf_Open(obj->source->position,
+                coder->ImColumnOf(obj->source->position,
+                        coder->ImVariable(obj->source->position, itr_result),
+                        "DONE"));
+        coder->ImBreak(obj->source->position);
+        coder->ImIf_Close(obj->source->position);
+
+        // var := itr_result.value;
+        coder->ImExecute(obj->source->position,
+                coder->ImAssignment(obj->source->position,
+                        coder->ImVariable(obj->iteratevar->position, obj->iteratevar->symbol),
+                        coder->ImColumnOf(obj->source->position,
+                                coder->ImVariable(obj->source->position, itr_result),
+                                "VALUE")));
+
+        coder->DoCodeBlock(obj->loop);
+
+        // And end the loop..
+        coder->ImFor_Close(obj->position);
+
+        coder->ImCloseBlock();
+
+        // FINALLY
+        coder->ImOpenBlock(tryfinally->finallycodeblock);
+
+        // IF (NOT itr_result.done AND MemberExists(itr, "SENDRETURN"))
+        RvaluePtrs memberexists_call_params({ coder->ImVariable(obj->source->position, itr), coder->ImConstantString(obj->source->position, "SENDRETURN") });
+        coder->ImIf_Open(obj->source->position,
+                coder->ImBinaryOperator(obj->source->position,
+                        BinaryOperatorType::OpAnd,
+                        coder->ImUnaryOperator(obj->source->position,
+                                UnaryOperatorType::OpNot,
+                                coder->ImColumnOf(obj->source->position,
+                                        coder->ImVariable(obj->source->position, itr_result),
+                                        "DONE")),
+                        coder->ImFunctionCall(obj->source->position, f_memberexists, memberexists_call_params)));
+
+        coder->ImExecute(obj->source->position,
+                coder->ImObjectMethodCall(obj->source->position,
+                        coder->ImVariable(obj->source->position, itr),
+                        "SENDRETURN",
+                        false, RvaluePtrs(), false, std::vector< int32_t >()));
+        coder->ImIf_Close(obj->source->position);
+        coder->ImCloseBlock();
+
+        coder->ImCloseBlock();
+
+        // Visit block to replace tryfinally ops
+        Visit(block, Empty());
+}
+
+
 void ASTComplexNodeTranslator::SwitchElts(LineColumn pos, Symbol *value, SwitchList::iterator begin, SwitchList::iterator end)
 {
         unsigned distance = std::distance(begin, end);
@@ -1232,6 +1389,37 @@ void ASTComplexNodeTranslator::V_ObjectTypeUID(AST::ObjectTypeUID *obj, Empty)
         ReplacePtr(str);
 }
 
+void ASTComplexNodeTranslator::CodeYieldReturn(LineColumn position, Rvalue *retval)
+{
+        //   RETURN [ done := TRUE, value := retval ]
+        Rvalue *retvalrec_rvalue = 0;
+        if (currentfunction->symbol->functiondef->isasync)
+        {
+                RvaluePtrs params({ retval });
+                retvalrec_rvalue = coder->ImObjectMethodCall(
+                        position,
+                        coder->ImVariable(position, currentfunction->symbol->functiondef->generator),
+                        "RETURNVALUE",
+                        true,
+                        params,
+                        false,
+                        std::vector< int32_t >());
+        }
+        else
+        {
+                AST::ConstantRecord *retvalrec = coder->ImConstantRecord(position);
+                retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "DONE", coder->ImConstantBoolean(position, true)));
+                retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "VALUE", retval));
+
+                retvalrec_rvalue = retvalrec;
+        }
+
+        semanticchecker.Visit(retvalrec_rvalue, false);
+        opt_carim.Optimize(retvalrec_rvalue);
+
+        coder->ImReturn(position, retvalrec_rvalue);
+}
+
 void ASTComplexNodeTranslator::CodeNormalYieldHandling(Yield *obj, Rvalue *yieldret_rvalue, Symbol *retval)
 {
         RvaluePtrs params;
@@ -1295,34 +1483,7 @@ void ASTComplexNodeTranslator::CodeNormalYieldHandling(Yield *obj, Rvalue *yield
         coder->ImIf_Else(obj->position);
 
         //   RETURN [ done := TRUE, value := retval ]
-        {
-                Rvalue *retvalrec_rvalue = 0;
-                if (currentfunction->symbol->functiondef->isasync)
-                {
-                        RvaluePtrs params(1, coder->ImVariable(obj->position, retval));
-                        retvalrec_rvalue = coder->ImObjectMethodCall(
-                            obj->position,
-                            coder->ImVariable(obj->position, currentfunction->symbol->functiondef->generator),
-                            "RETURNVALUE",
-                            true,
-                            params,
-                            false,
-                            std::vector< int32_t >());
-                }
-                else
-                {
-                        AST::ConstantRecord *retvalrec = coder->ImConstantRecord(obj->position);
-                        retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "DONE", coder->ImConstantBoolean(obj->position, true)));
-                        retvalrec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, "VALUE", coder->ImVariable(obj->position, retval)));
-
-                        retvalrec_rvalue = retvalrec;
-                }
-
-                semanticchecker.Visit(retvalrec_rvalue, false);
-                opt_carim.Optimize(retvalrec_rvalue);
-
-                coder->ImReturn(obj->position, retvalrec_rvalue);
-        }
+        CodeYieldReturn(obj->position, coder->ImVariable(obj->position, retval));
 
         coder->ImIf_Close(obj->position);
 
@@ -1551,6 +1712,18 @@ void ASTComplexNodeTranslator::V_Yield(Yield *obj, Empty)
                                     RvaluePtrs(1, coder->ImVariable(obj->position, receivedvalue)),
                                     false,
                                     std::vector< int32_t >())));
+
+                //   IF (res.done) RETURN res.value
+                coder->ImIf_Open(obj->position,
+                        coder->ImColumnOf(obj->position,
+                                coder->ImVariable(obj->position, res),
+                                "DONE"));
+
+                CodeYieldReturn(obj->position, coder->ImColumnOf(obj->position,
+                        coder->ImVariable(obj->position, res),
+                        "VALUE"));
+
+                coder->ImIf_Close(obj->position);
 
                 coder->ImIf_Close(obj->position);
 

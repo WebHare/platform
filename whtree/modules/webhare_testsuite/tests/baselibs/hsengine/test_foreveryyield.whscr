@@ -1,0 +1,319 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+RECORD returns;
+INTEGER gotreturns;
+
+MACRO ResetReturns()
+{
+  returns := [ intermediate := 0, normal := 0 ];
+}
+
+FUNCTION * TestGenerator(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ dothrow := FALSE ], options);
+  BOOLEAN intermediate_return := TRUE;
+  TRY
+  {
+    YIELD 1;
+    YIELD 2;
+    IF (options.dothrow)
+      THROW NEW Exception("thrown by generator");
+    YIELD 3;
+    intermediate_return := FALSE;
+  }
+  FINALLY
+  {
+
+    IF (intermediate_return)
+      returns.intermediate := returns.intermediate + 1;
+    ELSE
+      returns.normal := returns.normal + 1;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+FUNCTION * TestAsyncGenerator(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ dothrow := FALSE ], options);
+  BOOLEAN intermediate_return := TRUE;
+  TRY
+  {
+    YIELD 1;
+    YIELD 2;
+    IF (options.dothrow)
+      THROW NEW Exception("thrown by generator");
+    YIELD 3;
+    intermediate_return := FALSE;
+  }
+  FINALLY
+  {
+    IF (intermediate_return)
+      returns.intermediate := returns.intermediate + 1;
+    ELSE
+      returns.normal := returns.normal + 1;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+FUNCTION * TestReturnPromise()
+{
+  BOOLEAN intermediate_return := TRUE;
+  TRY
+  {
+    YIELD CreateResolvedPromise(1);
+    intermediate_return := FALSE;
+  }
+  FINALLY
+  {
+    IF (intermediate_return)
+      returns.intermediate := returns.intermediate + 1;
+    ELSE
+      returns.normal := returns.normal + 1;
+  }
+  RETURN DEFAULT RECORD;
+}
+
+OBJECTTYPE BasicIterator
+< INTEGER now;
+  PUBLIC RECORD FUNCTION Next()
+  {
+    this->now := this->now + 1;
+    IF (this->now = 4)
+      RETURN [ done := TRUE ];
+    RETURN [ done := FALSE, value := this->now ];
+  }
+>;
+
+MACRO TestForeveryYield()
+{
+  // test compile-time 'cannot convert to iterator'
+  TestAnnotatedCompile(`
+<?wh
+FOREVERY (STRING s YIELD FROM 1) {}
+//                            ^ E:266
+`);
+
+  TestAnnotatedCompile(`
+<?wh
+FOREVERY AWAIT (STRING s YIELD FROM 1) {}
+//       ^ E:248
+`);
+
+  TestAnnotatedCompile(`
+<?wh
+MACRO x()
+{
+  FOREVERY AWAIT (STRING s YIELD FROM 1) {}
+//         ^ E:248
+}
+`);
+
+  {
+    // over array
+    INTEGER ARRAY gotintegers;
+    FOREVERY (INTEGER a YIELD FROM [ 1, 2, 3])
+    {
+      TestEQ(#a + 1, a);
+      INSERT a INTO gotintegers AT END;
+    }
+    TestEQ([ 1, 2, 3 ], gotintegers);
+  }
+
+  {
+    // over iterator
+    ResetReturns();
+    INTEGER ARRAY gotintegers;
+    FOREVERY (INTEGER a YIELD FROM TestGenerator())
+      INSERT a INTO gotintegers AT END;
+    TestEQ([ 1, 2, 3 ], gotintegers);
+    TestEQ([ normal := 1, intermediate := 0 ], returns);
+  }
+
+  // test handling of throw within generator
+  {
+    INTEGER ARRAY gotintegers;
+    TRY
+    {
+      // over iterator
+      ResetReturns();
+      FOREVERY (INTEGER a YIELD FROM TestGenerator([ dothrow := TRUE ]))
+      {
+        TestEQ(#a + 1, a);
+        INSERT a INTO gotintegers AT END;
+      }
+      TestUnreachable("Expected throw from TestGenerator");
+    }
+    CATCH (OBJECT e)
+      TestEQLike("thrown by generator", e->what);
+    TestEQ([ 1, 2 ], gotintegers);
+    TestEQ([ normal := 0, intermediate := 1 ], returns);
+  }
+
+  // test handling of throw within statement
+  {
+    INTEGER ARRAY gotintegers;
+    TRY
+    {
+      // over iterator
+      ResetReturns();
+      FOREVERY (INTEGER a YIELD FROM TestGenerator([ dothrow := TRUE ]))
+      {
+        INSERT a INTO gotintegers AT END;
+        IF (#a = 1)
+          THROW NEW Exception(`my exception`);
+      }
+      TestUnreachable("Expected throw");
+    }
+    CATCH (OBJECT e)
+      TestEQLike("my exception", e->what);
+    TestEQ([ 1, 2 ], gotintegers);
+    TestEQ([ normal := 0, intermediate := 1 ], returns);
+  }
+
+  {
+    // over basic iterator
+    INTEGER ARRAY gotintegers;
+    FOREVERY (INTEGER a YIELD FROM NEW BasicIterator)
+    {
+      TestEQ(#a + 1, a);
+      INSERT a INTO gotintegers AT END;
+    }
+    TestEQ([ 1, 2, 3 ], gotintegers);
+  }
+
+  // conversion to iterator failure
+  {
+    RECORD x := [ a := 1 ];
+    TRY
+    {
+      FOREVERY (INTEGER a YIELD FROM x.a) {}
+      TestUnreachable();
+    }
+    CATCH (OBJECT e)
+      TestEQ("Cannot convert this expression to an iterator", e->what);
+  }
+
+}
+
+ASYNC MACRO TestAsyncForeveryYield()
+{
+  {
+    // async forevery over array
+    INTEGER ARRAY gotintegers;
+    FOREVERY AWAIT (INTEGER a YIELD FROM [ 1, 2, 3])
+    {
+      TestEQ(#a + 1, a);
+      INSERT a INTO gotintegers AT END;
+    }
+    TestEQ([ 1, 2, 3 ], gotintegers);
+  }
+
+  {
+    // over iterator
+    ResetReturns();
+    INTEGER ARRAY gotintegers;
+    FOREVERY AWAIT (INTEGER a YIELD FROM TestGenerator())
+      INSERT a INTO gotintegers AT END;
+    TestEQ([ 1, 2, 3 ], gotintegers);
+    TestEQ([ normal := 1, intermediate := 0 ], returns);
+  }
+
+  {
+    // over async iterator
+    ResetReturns();
+    INTEGER ARRAY gotintegers;
+    FOREVERY AWAIT (INTEGER a YIELD FROM TestAsyncGenerator())
+      INSERT a INTO gotintegers AT END;
+    TestEQ([ 1, 2, 3 ], gotintegers);
+    TestEQ([ normal := 1, intermediate := 0 ], returns);
+  }
+
+  // async forevery over normal iterator, with exception in iterator
+  {
+    INTEGER ARRAY gotintegers;
+    TRY
+    {
+      // over iterator
+      ResetReturns();
+      FOREVERY AWAIT (INTEGER a YIELD FROM TestGenerator([ dothrow := TRUE ]))
+        INSERT a INTO gotintegers AT END;
+      TestUnreachable("Expected throw");
+    }
+    CATCH (OBJECT e)
+      TestEQLike("thrown by generator", e->what);
+    TestEQ([ 1, 2 ], gotintegers);
+    TestEQ([ normal := 0, intermediate := 1 ], returns);
+  }
+
+  // async forevery over async iterator, with exception in iterator
+  {
+    INTEGER ARRAY gotintegers;
+    TRY
+    {
+      // over iterator
+      ResetReturns();
+      FOREVERY AWAIT (INTEGER a YIELD FROM TestAsyncGenerator([ dothrow := TRUE ]))
+        INSERT a INTO gotintegers AT END;
+      TestUnreachable("Expected throw");
+    }
+    CATCH (OBJECT e)
+      TestEQLike("thrown by generator", e->what);
+    TestEQ([ 1, 2 ], gotintegers);
+    TestEQ([ normal := 0, intermediate := 1 ], returns);
+  }
+
+  // async forevery over async iterator, with intermediate exception
+  {
+    INTEGER ARRAY gotintegers;
+    TRY
+    {
+      // over iterator
+      ResetReturns();
+      FOREVERY AWAIT (INTEGER a YIELD FROM TestAsyncGenerator([ dothrow := TRUE ]))
+        INSERT a INTO gotintegers AT END;
+      TestUnreachable("Expected throw");
+    }
+    CATCH (OBJECT e)
+      TestEQLike("thrown by generator", e->what);
+    TestEQ([ 1, 2 ], gotintegers);
+    TestEQ([ normal := 0, intermediate := 1 ], returns);
+  }
+
+  {
+    // over basic iterator
+    INTEGER ARRAY gotintegers;
+    FOREVERY AWAIT (INTEGER a YIELD FROM NEW BasicIterator)
+    {
+      TestEQ(#a + 1, a);
+      INSERT a INTO gotintegers AT END;
+    }
+    TestEQ([ 1, 2, 3 ], gotintegers);
+  }
+
+  // conversion to iterator failure
+  {
+    RECORD x := [ a := 1 ];
+    TRY
+    {
+      FOREVERY AWAIT (INTEGER a YIELD FROM x.a) {}
+      TestUnreachable();
+    }
+    CATCH (OBJECT e)
+      TestEQ("Cannot convert this expression to an iterator", e->what);
+  }
+
+  // yielded promises are not awaited automatically
+  {
+    ResetReturns();
+    FOREVERY AWAIT (OBJECT o YIELD FROM TestReturnPromise()) {}
+    TestEQ([ normal := 1, intermediate := 0 ], returns);
+  }
+}
+
+PRINT("\n === Running TestForEveryYield\n");
+TestForEveryYield();
+WaitForPromise(TestAsyncForeveryYield());
+

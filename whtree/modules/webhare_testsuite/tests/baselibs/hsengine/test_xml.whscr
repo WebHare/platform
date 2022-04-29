@@ -442,7 +442,7 @@ MACRO TestDOM()
   OBJECT impl := NEW XmlDomImplementation;
   OBJECT doc1 := impl->CreateDocument("root","f:test",DEFAULT OBJECT);
   OBJECT doc2 := doc1->CloneNode(TRUE);
-  TestThrows(PTR TryAppendChildFromWrongDocument(doc1, doc2));
+  TestThrowsLike("*node*created*different document", PTR TryAppendChildFromWrongDocument(doc1, doc2));
   doc1->documentelement->AppendChild(doc1->CreateElement("one"));
   doc2->documentelement->AppendChild(doc2->CreateElement("two"));
   TestEq("one", doc1->documentelement->lastchild->nodename);
@@ -455,7 +455,7 @@ MACRO TestDOM()
   TestEq("xml:lang", xmldoc->documentelement->attributes->item(1)->nodename);
 
   //Test creating a domlevel 1 node - we'll now fail that as we just create more complex out-of-spec stuff
-  TestThrows(PTR xmldoc->documentelement->SetAttribute("xsi:schemaLocation", "http://www.hodex.nl http://www.hodex.nl/hodex.xsd"));
+  TestThrowsLike("Invalid XML attribute name *", PTR xmldoc->documentelement->SetAttribute("xsi:schemaLocation", "http://www.hodex.nl http://www.hodex.nl/hodex.xsd"));
   TestEq(DEFAULT OBJECT, xmldoc->documentelement->GetAttributeNode('xsi:schemaLocation'));
 
   xmldoc->documentelement->SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
@@ -1162,7 +1162,7 @@ PUBLIC MACRO TestRegressions()
   TestEq("lang", attrnode->localname);
   TestEq("nl", attrnode->value);
 
-  TestThrows(PTR doc->documentelement->SetAttribute("fb:like", "1"));
+  TestThrowsLike("Invalid XML attribute name *", PTR doc->documentelement->SetAttribute("fb:like", "1"));
 
   CloseTest("TestRegressions");
 }
@@ -1355,8 +1355,8 @@ MACRO TestDocumentFragmentInserts()
   frag->AppendChild(doc->CreateElement("test2"));
   frag->AppendChild(doc->CreateComment("comment"));
 
-  TestThrows(PTR doc->AppendChild(frag));
-  TestThrows(PTR doc->InsertBefore(frag, DEFAULT OBJECT));
+  TestThrowsLike("*node*not*allow*insert*", PTR doc->AppendChild(frag));
+  TestThrowsLike("*node*not*allow*insert*", PTR doc->InsertBefore(frag, DEFAULT OBJECT));
 
   doc->ReplaceChild(frag, doc->documentelement);
   TestEQ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<test2/>\n<!--comment-->\n", BlobToString(doc->GetDocumentBlob(FALSE),-1));
@@ -1365,8 +1365,8 @@ MACRO TestDocumentFragmentInserts()
   frag->AppendChild(doc->CreateElement("test3"));
   frag->AppendChild(doc->CreateComment("comment2"));
 
-  TestThrows(PTR comment->AppendChild(frag));
-  TestThrows(PTR comment->InsertBefore(frag, DEFAULT OBJECT));
+  TestThrowsLike("*node*not*allow*insert*", PTR comment->AppendChild(frag));
+  TestThrowsLike("*node*not*allow*insert*", PTR comment->InsertBefore(frag, DEFAULT OBJECT));
 
   doc->documentelement->AppendChild(frag);
   TestEq("<test2><test3/><!--comment2--></test2>", doc->documentelement->outerxml);
@@ -1497,7 +1497,7 @@ MACRO TestExtensions()
   xmldoc->CreateElement("c")->Inject(xmldoc->GetElementById('p1'), "top");
   xmldoc->CreateElement("d")->Inject(xmldoc->GetElementById('p1'), "bottom");
   xmldoc->CreateElement("e")->Inject(xmldoc->GetElementById('p1'));
-  TestThrows(PTR xmldoc->CreateElement("f")->Inject(xmldoc->GetElementById('p1'), 'xxx'));
+  TestThrowsLike("Unsupported where 'xxx'", PTR xmldoc->CreateElement("f")->Inject(xmldoc->GetElementById('p1'), 'xxx'));
   TestEq('<x><b/><y xml:id="p1"><c/><middle/><d/><e/></y><a/></x>', xmldoc->outerxml);
 
   xmldoc->GetElementById('p1')->Empty();

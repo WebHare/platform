@@ -35,9 +35,9 @@ MACRO TestStructureTest()
   TestThrowsTestException(PTR TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x, y ] ]] ]) );
   TestThrowsTestException(PTR TestEqStructure([ a := [[ b := [ x ] ]] ], [ a := [[ b := [ x, t ] ]] ]) );
 
-  TestThrows(PTR TestEqMembers(x, x, "*,a"));
-  TestThrows(PTR TestEqMembers(x, x, "*,a,-b"));
-  TestThrows(PTR TestEqMembers(x, x, "-a,*"));
+  TestThrowsLike("'*' requires minus-members", PTR TestEqMembers(x, x, "*,a"));
+  TestThrowsLike("'*' requires minus-members", PTR TestEqMembers(x, x, "*,a,-b"));
+  TestThrowsLike("-CELLNAME requires a '*'", PTR TestEqMembers(x, x, "-a,*"));
   TestEqMembers(x, x, "a,nonexistant");
   TestEqMembers(x, CellDelete(x,"a"), "b,nonexistant");
   TestEqMembers(x, CellUpdate(x,"a","A!"), "b,nonexistant");

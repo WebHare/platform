@@ -131,6 +131,13 @@ void AllNodeVisitor::V_ForEveryStatement(AST::ForEveryStatement *obj, Empty)
         Visit(obj->loop, Empty());
         Visit(obj->positionvar, Empty());
 }
+void AllNodeVisitor::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty)
+{
+        Visit(obj->source, Empty());
+        Visit(obj->iteratevar, Empty());
+        Visit(obj->loop, Empty());
+        Visit(obj->positionvar, Empty());
+}
 void AllNodeVisitor::V_Function(AST::Function *obj, Empty)
 {
         for (std::vector<SymbolDefs::FunctionDef::Argument>::iterator it = obj->symbol->functiondef->arguments.begin();
@@ -507,6 +514,15 @@ void TreeCopyingVisitor::V_ExpressionBlock(AST::ExpressionBlock *obj, Empty)
         Visit(obj->returnvar, Empty());
 }
 void TreeCopyingVisitor::V_ForEveryStatement(AST::ForEveryStatement *obj, Empty)
+{
+        obj = Clone(obj);
+
+        Visit(obj->source, Empty());
+        Visit(obj->iteratevar, Empty());
+        Visit(obj->loop, Empty());
+        Visit(obj->positionvar, Empty());
+}
+void TreeCopyingVisitor::V_ForEveryYieldStatement(AST::ForEveryYieldStatement *obj, Empty)
 {
         obj = Clone(obj);
 
