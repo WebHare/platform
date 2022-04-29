@@ -390,13 +390,18 @@ function getNonNegativePowerOf10(exp)
     @param divisor Divisor
     @return Divided value, with 5 decimals of precision
 */
-export function moneyDivide(value, divisor)
+export function divide(value, divisor)
 {
   const lhs = splitPrice(value), rhs = splitPrice(divisor);
   const mul10exp = lhs.decimals - rhs.decimals - 5;
   const mulfactor = mul10exp < 0 ? getNonNegativePowerOf10(-mul10exp) : 1;
   const roundunit = mul10exp > 0 ? getNonNegativePowerOf10(mul10exp) : 1;
   return joinPrice({ num: __roundIntegerToMultiple(mulfactor * lhs.num / rhs.num, roundunit, "half-toward-infinity"), decimals: 5 });
+}
+
+export function moneyDivide(value, divisor) //divide was added in 5.0. remove this old name eventually
+{
+  return divide(value, divisor);
 }
 
 /** Test whether two values have a specific relation

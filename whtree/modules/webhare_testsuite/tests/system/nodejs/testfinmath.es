@@ -165,16 +165,16 @@ test.registerTests(
   , "Division"
   , function()
   {
-    test.eq(finmath.moneyDivide(1, 3), "0.33333");
-    test.eq(finmath.moneyDivide(-1, 3), "-0.33333");
-    test.eq(finmath.moneyDivide(2, 3), "0.66667");
-    test.eq(finmath.moneyDivide(-2, 3), "-0.66667");
-    test.eq(finmath.moneyDivide("0.00150", 100), "0.00002");
-    test.eq(finmath.moneyDivide("0.00149", 100), "0.00001");
-    test.eq(finmath.moneyDivide(100, 20), "5");
-    test.eq(finmath.moneyDivide(-5, 1000000), "-0.00001");
-    test.eq(finmath.moneyDivide("5", "2.5"), "2");
-    test.eq(finmath.moneyDivide("5", "0.5"), "10");
-    test.eq(finmath.moneyDivide("1.19299", "0.0867"), "13.75998");
+    test.eq(finmath.divide(1, 3), "0.33333");
+    test.eq(finmath.divide(-1, 3), "-0.33333");
+    test.eq(finmath.divide(2, 3), "0.66667");
+    test.eq(finmath.divide(-2, 3), "-0.66667");
+    test.eq(finmath.divide("0.00150", 100), "0.00002");
+    test.eq(finmath.divide("0.00149", 100), "0.00001");
+    test.eq(finmath.divide(100, 20), "5");
+    test.eq(finmath.divide(-5, 1000000), "-0.00001");
+    test.eq(finmath.divide("5", "2.5"), "2");
+    test.eq(finmath.divide("5", "0.5"), "10");
+    test.eq(finmath.divide("1.19299", "0.0867"), "13.75998");
   }
 ]);

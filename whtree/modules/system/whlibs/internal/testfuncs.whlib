@@ -204,7 +204,7 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
   }
   CATCH (OBJECT e)
   {
-    IF (e->what NOT LIKE mask)
+    IF (ToUppercase(e->what) NOT LIKE ToUppercase(mask))
     {
       IF(annotation != "")
         Print("\nAnnotation: " || annotation || "\n");
@@ -277,7 +277,7 @@ PUBLIC OBJECT FUNCTION TestRejectedLike(STRING mask, OBJECT promise, STRING anno
   }
   CATCH (OBJECT e)
   {
-    IF (e->what NOT LIKE mask)
+    IF (ToUppercase(e->what) NOT LIKE ToUppercase(mask))
     {
       IF(annotation != "")
         Print("\nAnnotation: " || annotation || "\n");

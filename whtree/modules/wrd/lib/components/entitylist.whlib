@@ -530,6 +530,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
     this->onentityedit := definition.onentityedit;
     this->onentitydelete := definition.onentitydelete;
+    this->onentitiesdelete := definition.onentitiesdelete;
     this->entityeditscreen := definition.entityeditscreen;
     this->deletemode := definition.deletemode;
     this->orderable := definition.orderable;

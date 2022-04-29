@@ -273,7 +273,7 @@ PUBLIC OBJECT FUNCTION MakeChangesIndexedPromise()
   RETURN GetWHFSCommitHandler()->WaitForChangesIndexed();
 }
 
-BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors)
+BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors, INTEGER ARRAY expecterrorsfor)
 {
   // See if any object is marked as currently publishing
   INTEGER ARRAY folderids := [ INTEGER(rootfolder->id) ];
@@ -290,11 +290,20 @@ BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors)
   BOOLEAN isscheduled := IsValueSet(scheduled);
   service->CloseService();
 
+  FOREVERY(INTEGER expected FROM expecterrorsfor)
+  {
+    RECORD obj := SELECT * FROM objects WHERE id = expected;
+    IF(NOT RecordExists(obj))
+      THROW NEW Exception(`Expected publication of file #${expected} to fail but it's not inside folder ${rootfolder->whfspath}`);
+    IF(GetErrorFromPublished(obj.published) = 0)
+      THROW NEW Exception(`Publication of file ${obj.whfspath} (#${expected}) unexpectedly succeeded`);
+  }
+
   IF(NOT accepterrors)
   {
     BOOLEAN anyerrors;
     FOREVERY (RECORD o FROM objects)
-      IF(GetErrorFromPublished(o.published) != 0)
+      IF(o.id NOT IN expecterrorsfor AND GetErrorFromPublished(o.published) != 0)
       {
         Print(`Publication error for #${o.id} (${o.whfspath}): errorcode ${GetErrorFromPublished(o.published)}${o.errordata != "" ? ","||o.errordata:""}\n`);
         anyerrors := TRUE;
@@ -339,7 +348,8 @@ MACRO WaitForEventCompletions(DATETIME deadline)
     @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
     @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
     @cell(boolean) options.skipeventcompletion Do not wait for publisher (republish) events to complete processing
-    @cell(boolean) options.accepterrors Accept errors in the publication (WebHare 4.33+)
+    @cell(boolean) options.accepterrors Accept any error in the publication (WebHare 4.33+)
+    @cell(integer array) options.expecterrorsfor Explicit file IDs we accept and expect an error for
     @return True if publication completed, false on timeout*/
 PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -347,6 +357,7 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD 
                              , reportfrequency := 0
                              , skipeventcompletion := FALSE
                              , accepterrors := FALSE
+                             , expecterrorsfor := INTEGER[]
                              ], options);
 
   IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
@@ -367,7 +378,7 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD 
     IF(options.reportfrequency != 0)
       nextfeedback := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
 
-    WHILE(IsFolderPublishing(folderobj, options.accepterrors))
+    WHILE(IsFolderPublishing(folderobj, options.accepterrors, options.expecterrorsfor))
     {
       /* Check every second because we won't get feedback from the publisher queue when items have completed
          (which will be some time AFTER they have committed)
