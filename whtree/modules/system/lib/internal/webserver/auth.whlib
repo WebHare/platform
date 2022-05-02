@@ -10,8 +10,10 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
-LOADLIB "mod::wrd/lib/objectapi.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
 
 
 PUBLIC OBJECT FUNCTION GetCurrentUserAPI()
@@ -20,11 +22,11 @@ PUBLIC OBJECT FUNCTION GetCurrentUserAPI()
   IF(schemaname="")
     RETURN GetPrimaryWebhareUserApi();
 
-  OBJECT wrdschema := OpenWRDSchemaByName(schemaname);
+  OBJECT wrdschema := OpenWRDSchema(schemaname);
   IF(NOT Objectexists(wrdschema))
     THROW NEW Exception("Access rules refers to non-existing WRD schema '" || schemaname || "'");
 
-  RETURN wrdschema->GetUserAPI();
+  RETURN GetWRDAuthUserAPI(wrdschema);
 }
 
 PUBLIC BOOLEAN FUNCTION TryOauthLogin()

@@ -59,7 +59,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC MACRO ReloadType()
   {
-    this->__ReloadType();
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
 
@@ -70,22 +70,12 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC STRING FUNCTION GenerateGUID()
   {
-    RETURN EncodeWRDGUID(CreateGUID());
+    RETURN this->GetNewEntityGUID();
   }
 
   UPDATE PUBLIC MACRO UpdateTypeMetadata(RECORD newmetadata)
   {
-    IF(CellExists(newmetadata,'requiretype_left'))
-    {
-      INSERT CELL linkfrom := newmetadata.requiretype_left INTO newmetadata;
-      DELETE CELL requiretype_left FROM newmetadata;
-    }
-    IF(CellExists(newmetadata,'requiretype_right'))
-    {
-      INSERT CELL linkto := newmetadata.requiretype_right INTO newmetadata;
-      DELETE CELL requiretype_right FROM newmetadata;
-    }
-    this->UpdateMetadata(newmetadata);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. Use UpdateMetadata instead`);
   }
 
   /** @return Result
@@ -123,7 +113,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC STRING FUNCTION GetNewAttributeTag(INTEGER parentattribute, STRING inputtag)
   {
-    RETURN GetSafeWRDTag(inputtag, PTR this->TagInUse(parentattribute, #1));
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. GetNewAttributeTag is no longer available`);
   }
 
   /* the attribute types for attributes
@@ -159,21 +149,12 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   */
   PUBLIC RECORD FUNCTION CreateAttribute (STRING attributetype, STRING attributetitle, STRING description, STRING attributetag, STRING domaintag)
   {
-    INTEGER domain;
-    IF(domaintag!="")
-    {
-      OBJECT targettype := this->wrdschema->__GetTypeByTag(domaintag);
-      IF(NOT ObjectExists(targettype))
-        THROW NEW Exception(`No such domain ${domaintag}`);
-      domain := targettype->id;
-    }
-    this->__DoCreateAttribute(attributetype,attributetitle,description,attributetag,domain);
-    RETURN this->GetAttributeInfoByTag(attributetag);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   PUBLIC MACRO UpdateAttributeMetadata(STRING tag, RECORD newsettings)
   {
-    this->UpdateAttribute(tag,newsettings);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use UpdateAttribute`);
   }
 
   /*

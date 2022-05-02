@@ -34,8 +34,3 @@ PUBLIC OBJECT FUNCTION OpenWRDType(INTEGER wrdtypeid, STRING currentlanguage DEF
   OBJECT theschema := OpenWRDSchema(parentschema, currentlanguage);
   RETURN ObjectExists(theschema) ? theschema->GetType(wrdtypeid) : DEFAULT OBJECT;
 }
-
-PUBLIC RECORD ARRAY FUNCTION GetAccessibleWRDSchemas(OBJECT user)
-{
-  RETURN SELECT *,name := tag FROM ListWRDSchemas([user := user ]);
-}
