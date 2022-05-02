@@ -182,7 +182,7 @@ PUBLIC OBJECT FUNCTION TestThrowsTestException(FUNCTION PTR testfunc, STRING ann
     @public
     @loadlib mod::system/lib/testframework.whlib
     @param testfunc Function to execute
-    @param mask Like mask to test the exception's what() against
+    @param mask Like mask to test the exception's what() against. If set to REPORT it will simply print the exception but continue
     @param annotation Message to display when the test fails
     @return Thrown exception
 */
@@ -206,6 +206,12 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
   {
     IF (ToUppercase(e->what) NOT LIKE ToUppercase(mask))
     {
+      IF(mask = "REPORT")
+      {
+        PRINT(`Line ${Right("    " || GetStackTrace()[0].line,5)}: "${EncodeJava(e->what)}"\n`);
+        RETURN e;
+      }
+
       IF(annotation != "")
         Print("\nAnnotation: " || annotation || "\n");
 
@@ -216,39 +222,6 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
       PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
       THROW NEW TestFailException(annotation);
     }
-    RETURN e;
-  }
-  PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
-  THROW NEW TestFailException(annotation);
-}
-
-/** Waits until a promise fulfulls, and tests if it is rejected
-    @topic testframework/api
-    @public
-    @loadlib mod::system/lib/testframework.whlib
-    @param promise Promise to test
-    @param annotation Message to display when the test fails
-    @return Returns the exception the promise was rejected with
-*/
-PUBLIC OBJECT FUNCTION TestRejected(OBJECT promise, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE, DEPRECATED "Use TestRejectedLike")
-{
-  IF(NOT warned_testreject)
-  {
-    Print(`** TestRejected has been deprecated and will be removed in the future. You can switch to TestRejectedLike("*", ...) but we recommend more explicitly matching the expected exception\n`);
-    warned_testreject := TRUE;
-  }
-
-  TRY
-  {
-    WaitForPromise(promise);
-
-    IF(annotation != "")
-      Print("\nAnnotation: " || annotation || "\n");
-
-    PRINT("Expected promise at line " || GetStackTrace()[0].line || " to be rejected, but it wasn't\n");
-  }
-  CATCH (OBJECT e)
-  {
     RETURN e;
   }
   PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');

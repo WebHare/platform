@@ -143,7 +143,6 @@ OBJECTTYPE ObjectPropsAPI
     STRING extensionsname := GetScreenNameFromScreenPath(extension);
     this->objectprops->__DoAddTab( CELL[ contenttype := whfstype
                                        , tabsextension := extension
-                                       , isundo := FALSE
                                        , mask := ""
                                        , name := extensionsname
                                        , selector := extensionsname

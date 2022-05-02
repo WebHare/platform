@@ -878,7 +878,6 @@
       <xs:element name="folderindex" type="FolderIndex" />
       <xs:element name="contentlisting" type="ContentListing" />
       <xs:element ref="extendproperties" />
-      <xs:element ref="undoextendproperties" />
       <xs:element ref="baseproperties" />
       <xs:element name="allowfoldertype" type="AllowType" />
       <xs:element name="denyfoldertype" type="DenyType" />
@@ -1094,12 +1093,6 @@
       <xs:attribute name="extension" type="xs:string" />
       <xs:attribute name="contenttype" type="xs:anyURI" />
       <xs:attribute name="requireright" type="xs:string" />
-    </xs:complexType>
-  </xs:element>
-
-  <xs:element name="undoextendproperties">
-    <xs:complexType>
-      <xs:attribute name="mask" type="xs:string" />
     </xs:complexType>
   </xs:element>
 

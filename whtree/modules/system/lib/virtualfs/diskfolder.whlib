@@ -184,7 +184,7 @@ PUBLIC OBJECTTYPE DiskFolderFS EXTEND VirtualFSBase
     }
     CATCH(OBJECT e)
     {
-      THROW NEW VirtualFSException("BADPATH", "Cannot GetFile: " || e->what);
+      THROW NEW VirtualFSException("BADPATH", "File does not exist"); //don't leak the exception, it contains a disk path (potential info-leak)
     }
   }
 

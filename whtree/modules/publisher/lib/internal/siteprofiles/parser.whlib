@@ -876,7 +876,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         {
           SWITCH(node->localname)
           {
-            CASE "extendproperties", "undoextendproperties"
+            CASE "extendproperties"
             {
               STRING extension := this->ParseTolliumRef(node,"extension");
               STRING contenttype := node->GetAttribute("contenttype") ?? targetnamespace;
@@ -891,8 +891,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                   this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
               }
 
-              RECORD applynode := [ isundo := node->localname = "undoextendproperties"
-                                  , contenttype := contenttype
+              RECORD applynode := [ contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
                                   , extension := extension ?? apply.siteprofile || "#" || node->GetAttribute("name")
                                   , mask := node->GetAttribute("mask")

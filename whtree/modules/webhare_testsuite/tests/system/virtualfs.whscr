@@ -76,10 +76,10 @@ MACRO DiskfolderReadonlyMaskTest()
   vfs->DeletePath("/beta_tests2/test-1/file");
 
   vfs->MakeDir("/beta_tests2/test-1/folder");
-  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-1"));
-  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
-  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
-  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-1", StringToBlob("aaa"), FALSE));
+  TestThrowsLike("No write access", PTR vfs->MakeDir("/beta_tests2/test-1/wonly-1"));
+  TestThrowsLike("No write access", PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
+  TestThrowsLike("No write access", PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-1", FALSE));
+  TestThrowsLike("No write access", PTR vfs->PutFile("/beta_tests2/test-1/wonly-1", StringToBlob("aaa"), FALSE));
   vfs->DeletePath("/beta_tests2/test-1/folder");
 
   vfs->MakeDir("/beta_tests2/test-1/folder");
@@ -94,22 +94,22 @@ MACRO DiskfolderReadonlyMaskTest()
   vfs->DeletePath("/beta_tests2/test-1/wonly-12");
 
   vfs->MakeDir("/beta_tests2/test-1/folder");
-  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2"));
-  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2a"));
-  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
-  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
-  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
-  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
-  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-2", StringToBlob("aaa"), FALSE));
-  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-2a", StringToBlob("aaa"), FALSE));
+  TestThrowsLike("No write access",PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2"));
+  TestThrowsLike("No write access",PTR vfs->MakeDir("/beta_tests2/test-1/wonly-2a"));
+  TestThrowsLike("No write access",PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
+  TestThrowsLike("No write access",PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2", FALSE));
+  TestThrowsLike("No write access",PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
+  TestThrowsLike("No write access",PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-2a", FALSE));
+  TestThrowsLike("No write access",PTR vfs->PutFile("/beta_tests2/test-1/wonly-2", StringToBlob("aaa"), FALSE));
+  TestThrowsLike("No write access",PTR vfs->PutFile("/beta_tests2/test-1/wonly-2a", StringToBlob("aaa"), FALSE));
   vfs->DeletePath("/beta_tests2/test-1/folder");
 
   vfs->MakeDir("/beta_tests2/test-1/folder");
   vfs->MakeDir("/beta_tests2/test-1/wonly-3");
-  TestThrows(PTR vfs->MakeDir("/beta_tests2/test-1/wonly-3/test"));
-  TestThrows(PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
-  TestThrows(PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
-  TestThrows(PTR vfs->PutFile("/beta_tests2/test-1/wonly-3/test", StringToBlob("aaa"), FALSE));
+  TestThrowsLike("No write access",PTR vfs->MakeDir("/beta_tests2/test-1/wonly-3/test"));
+  TestThrowsLike("No write access",PTR vfs->Move("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
+  TestThrowsLike("No write access",PTR vfs->Copy("/beta_tests2/test-1/folder", "/beta_tests2/test-1/wonly-3/test", FALSE));
+  TestThrowsLike("No write access",PTR vfs->PutFile("/beta_tests2/test-1/wonly-3/test", StringToBlob("aaa"), FALSE));
   vfs->DeletePath("/beta_tests2/test-1/wonly-3");
   vfs->DeletePath("/beta_tests2/test-1/folder");
 
@@ -149,7 +149,7 @@ MACRO GenericTests(OBJECT vfs, STRING basepath)
   TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
 
   //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
-  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
+  ex := TestThrowsLike("File already exists", PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
   TestEq(TRUE, ex->IsAlreadyExists());
 
@@ -159,7 +159,7 @@ MACRO GenericTests(OBJECT vfs, STRING basepath)
   TestEq(StringToBlob("Deze overwite moet lukken"), vfs->GetFile(basepath||"gf1.txt"));
 
   //Read a nonexisting file
-  ex := TestThrows(PTR vfs->GetFile(basepath || "gf2.txt"));
+  ex := TestThrowsLike("File does not exist", PTR vfs->GetFile(basepath || "gf2.txt"));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
   TestEq(FALSE, ex->IsAlreadyExists());
   TestEq(TRUE, ex->IsBadPath());
@@ -241,7 +241,7 @@ MACRO PublisherTests(STRING asuser, STRING basedir, STRING visiblebasedir)
 
   //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
   now := GetCurrentDatetime();
-  TestThrows(PTR vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een 3e test"), FALSE));
+  TestThrowsLike("File already exists", PTR vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een 3e test"), FALSE));
   testtxt := firstfolder->OpenByName("test.txt");
   TestEq(FALSE, IsBeingPublishedSince(testtxt->id,now));
 
@@ -272,9 +272,9 @@ MACRO PublisherTests(STRING asuser, STRING basedir, STRING visiblebasedir)
   testfw->CommitWork();
 
   //It should not be moveable
-  TestThrows(PTR vfs->Move(vfsbase || "design", vfsbase || "design2", FALSE));
+  TestThrowsLike("* is pinned",PTR vfs->Move(vfsbase || "design", vfsbase || "design2", FALSE));
   //It should not be deletable
-  TestThrows(PTR vfs->DeletePath(vfsbase || "design"));
+  TestThrowsLike("* is pinned",PTR vfs->DeletePath(vfsbase || "design"));
 
   //Unpin the directory
   testfw->BeginWork();
@@ -364,21 +364,21 @@ MACRO MacForkLayer()
   STRING realbase := webdavtestbase || "realbase/";
 
   //Test the diversion
-  TestThrows(PTR diverted_vfs->GetDirectoryListing(divertbase || "testdir"));
-  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
+  TestThrowsLike("Directory does not exist",PTR diverted_vfs->GetDirectoryListing(divertbase || "testdir"));
+  TestThrowsLike("No such path",PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
 
   diverted_vfs->MakeDir(divertbase || "testdir");
   TestEq(0, Length(diverted_vfs->GetDirectoryListing(divertbase || "testdir")));
-  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
+  TestThrowsLike("No such path",PTR diverted_vfs->GetWrappedFS()->GetDirectoryListing(divertbase || "testdir"));
 
-  TestThrows(PTR diverted_vfs->GetFile(divertbase || "testfile.txt"));
-  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
+  TestThrowsLike("*does not exist*",PTR diverted_vfs->GetFile(divertbase || "testfile.txt"));
+  TestThrowsLike("*does not exist*",PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
   TestEq(FALSE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));
   diverted_vfs->PutFile(divertbase || "testfile.txt", StringToBlob("Dit is een test"), FALSE);
   TestEq("Dit is een test", BlobToString(diverted_vfs->GetFile(divertbase || "testfile.txt"),-1));
   TestEq(TRUE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));
   TestEq(15, diverted_vfs->GetPathInfo(divertbase || "testfile.txt").size);
-  TestThrows(PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
+  TestThrowsLike("*does not exist*",PTR diverted_vfs->GetWrappedFS()->GetFile(divertbase || "testfile.txt"));
 
   diverted_vfs->DeletePath(divertbase||"testfile.txt");
   TestEq(FALSE, RecordExists(diverted_vfs->GetPathInfo(divertbase || "testfile.txt")));

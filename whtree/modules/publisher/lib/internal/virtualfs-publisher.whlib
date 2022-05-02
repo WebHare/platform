@@ -390,7 +390,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         IF(pathinfo.final->isfolder)
           THROW NEW VirtualFSException("BADPATH", "Cannot overwrite a folder with a file");
         IF(overwrite = FALSE)
-          THROW NEW VirtualFSException("ALREADYEXISTS", "File already exist");
+          THROW NEW VirtualFSException("ALREADYEXISTS", "File already exists");
 
         //FIXME UpdateMetadata should take care of republish marking and moddate itself!
         //FIXME type remapping/siteprofile stuff/allow filetype?
