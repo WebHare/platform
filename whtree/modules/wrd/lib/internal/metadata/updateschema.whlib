@@ -523,7 +523,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     STRING syncattr := r.right.domvalsyncattr;
 
     OBJECT local_type := local_schema->GetType(r.left.tag);
-    local_type->__ReloadType();
+    //local_type->__ReloadType();   Shouldn't have been needed, code above uses proper APIs ?
     RECORD ARRAY remote_attrs := CellExists(r.right, "ATTRS") ? r.right.attrs : DEFAULT RECORD ARRAY;
 
     RECORD oc;

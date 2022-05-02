@@ -16,15 +16,10 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   PUBLIC PROPERTY description (GetDescription, -);
   PUBLIC PROPERTY languagecode(currentlanguage, -);
   PUBLIC PROPERTY childtypeids(__childtypeids, -);
-  PUBLIC PROPERTY abstract(this->typerec.abstract, -);
+  PUBLIC PROPERTY abstract(isabstract, -);
 
-  PUBLIC STRING list_attributes;
-
-  PUBLIC INTEGER wrd_requiretype_left;
-  PUBLIC INTEGER wrd_requiretype_right;
-  PRIVATE OBJECT pvt_parenttype;
-
-  PRIVATE INTEGER pvt_metatype;
+  PUBLIC PROPERTY wrd_requiretype_left(linkfrom, -);
+  PUBLIC PROPERTY wrd_requiretype_right(linkto, -);
 
   PRIVATE STRING currentlanguage;
 
@@ -37,24 +32,12 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   : WRDTypeBase(wrdschema, typerec)
   //ADDME: Allow instantiating type at different time
   {
-    this->LoadType(typerec);
     this->currentlanguage := currentlanguage;
   }
 
   UPDATE OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
   {
     RETURN NEW LegacyWRDEntity(this, entityrec);
-  }
-
-  UPDATE RECORD FUNCTION LoadType(RECORD typerec)
-  {
-    RECORD data := WRDTypeBase::LoadType(typerec);
-    this->wrd_requiretype_left := typerec.requiretype_left;
-    this->wrd_requiretype_right := typerec.requiretype_right;
-
-    this->pvt_metatype := typerec.metatype;
-    this->pvt_parenttype := this->pvt_wrdschema->GetTypeById(this->typerec.parenttype);
-    RETURN data;
   }
 
   PUBLIC MACRO ReloadType()
@@ -174,11 +157,15 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC INTEGER FUNCTION LookupEntity(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
   {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`This LookupEntity call should be replaced with ->Search(tagname, tagval${match_case ? "" : ', [ matchcase := FALSE ]'})`);
     RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
   }
 
   PUBLIC INTEGER FUNCTION LookupWRDEntityByAttribute(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
   {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`This LookupEntity call should be replaced with ->Search(tagname, tagval${match_case ? "" : ', [ matchcase := FALSE ]'})`);
     RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
   }
 

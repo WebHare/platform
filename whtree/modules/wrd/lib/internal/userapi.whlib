@@ -58,7 +58,7 @@ STRING FUNCTION GetPasswordFromAuthField(VARIANT data)
     @topic wrdauth/api
     @public
 */
-PUBLIC STATIC OBJECTTYPE WHUserApi
+STATIC OBJECTTYPE WHUserApi
 < // ---------------------------------------------------------------------------
   //
   // Variables
