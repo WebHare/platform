@@ -13,6 +13,11 @@
       </line>
       <textedit name="authusername" tid="~username" />
       <textedit name="authpassword" password="true" tid="~password" />
+    </body>
+  </screen>
+
+  <screen name="senderconfig" footerbuttons="ok cancel">
+    <body>
       <heading tid=".fallbackvalues" />
       <textedit name="mailfrom" required="true" validationchecks="email-maysendfrom" />
       <line layout="left">
@@ -36,7 +41,8 @@
 
   <screen name="mailroutes" width="130x" height="40x" allowresize="true" footerbuttons="close">
     <actions>
-      <action name="mailconfig" onexecute="domailconfig" />
+      <action name="mailconfig" onexecute="domailconfig" tid="~edit"/>
+      <action name="senderconfig" onexecute="dosenderconfig" tid="~edit"/>
     </actions>
 
     <body spacers="none">
@@ -66,6 +72,12 @@
           </wrd:entitiesedit>
         </tab>
         <tab name="senderstab">
+          <heading tid=".fallbackvalues" />
+          <line>
+            <textedit name="mailfrom" width="1pr" enabled="false" />
+            <button action="senderconfig" />
+          </line>
+          <hr />
           <wrd:entitiesedit name="senders"
                             height="1pr"
                             deletemode="close"

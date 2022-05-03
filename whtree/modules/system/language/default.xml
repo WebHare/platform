@@ -1228,10 +1228,6 @@
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
         <text tid="altserver">SMTP server</text>
         <text tid="blocked">Blocked</text>
-        <text tid="confirm_delete_mailroute">Are you sure you want to delete this mailroute?</text>
-        <text tid="confirmdeletecorrection">Are you sure you want to delete the selected correction?</text>
-        <text tid="confirmdeletereceiver">Are you sure you want to delete receiver '<param p="1"/>' from the whitelist?</text>
-        <text tid="confirmdeletesender">Are you sure you want to delete sender '<param p="1"/>' from the whitelist?</text>
         <text tid="correctionsempty">No corrections have been specified yet</text>
         <text tid="correctiontype">Correction type</text>
         <text tid="correctiontype-block">Block</text>
@@ -1271,6 +1267,7 @@
         <text tid="rewriteto">Rewrite to</text>
         <text tid="routesempty">All mail will be sent using the default mail server.</text>
         <text tid="routestab">Routes</text>
+        <text tid="senderconfig">Sender configuration</text>
         <text tid="sendermask">Sender (From:)</text>
         <text tid="sendersempty">All sender addresses are blocked</text>
         <text tid="senderstab">Senders</text>
@@ -1319,7 +1316,6 @@
         <text tid="logindialog">Login screen</text>
         <text tid="mailretention">Save sent emails</text>
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
-        <text tid="passwordminlength">Minimum length</text>
         <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="processhistory">Keep process history</text>
         <text tid="pxllog">Keep pxl log</text>
