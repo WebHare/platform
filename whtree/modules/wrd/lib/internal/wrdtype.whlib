@@ -627,7 +627,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
   PUBLIC MACRO __SignalWRDSchemaDataChange()
   {
-    //InvalidateAdhocCached([ type := this->typerec.id, lang := this->currentlanguage ]); //needed? I don't see anything else invalidating types... TODO this comment still relevant ? copied from old __ReloadType
     this->__typerec := DEFAULT RECORD;
     this->typeinfoloaded := FALSE;
   }

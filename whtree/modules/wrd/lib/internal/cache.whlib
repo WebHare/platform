@@ -55,5 +55,5 @@ PUBLIC MACRO AddWRDCacheListener(INTEGER schemaid, WEAKOBJECT listener)
    IF (wrdcache_eventcollector = 0)
     wrdcache_eventcollector := __HS_EVENT_CREATECOLLECTOR([ "wrd:schema.*.change" ]);
 
- INSERT CELL[ wrdschema := schemaid, obj := listener ] INTO wrdcache_loadedobjects AT END;
+  INSERT CELL[ wrdschema := schemaid, obj := listener ] INTO wrdcache_loadedobjects AT END;
 }

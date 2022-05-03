@@ -308,7 +308,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateStoredQuery(/*INTEGER entity, */STRING tag, /*STRING title, STRING description, */RECORD query/*, BOOLEAN ispublic DEFAULTSTO FALSE*/)
   {
-    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
+    THROW NEW Exception(`Legacy WRDType stored queries are no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
 
