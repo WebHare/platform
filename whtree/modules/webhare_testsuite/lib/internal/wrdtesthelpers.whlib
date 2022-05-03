@@ -14,6 +14,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 
 
@@ -531,4 +532,14 @@ PUBLIC RECORD FUNCTION PublishSelectedSAMLIdPFile(OBJECT site, STRING fullpathma
     THROW NEW Exception(`Expected exactly 1 matching IdP endpoint, got ${LENGTH(nowpublished)} (found ${Detokenize((SELECT AS STRING ARRAY EncodeJSON(fullpath) FROM idpendpoints), ", ")}, matching ${EncodeJSON(fullpathmask)})`);
 
   RETURN nowpublished[0];
+}
+
+PUBLIC MACRO ApplyDirectSchemaDefUpdate(STRING wrdschematag, STRING schemadata)
+{
+  IF(NOT HavePrimaryTransaction())
+    OpenPrimary();
+
+  GetPrimary()->BeginWork();
+  OpenWRDSchema(wrdschematag)->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemadata) ]);
+  GetPrimary()->CommitWork();
 }

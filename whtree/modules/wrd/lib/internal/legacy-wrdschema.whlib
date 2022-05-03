@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib" ;
 LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
@@ -152,10 +153,8 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   /** @short Get a WebHare auth api for this schema */
   PUBLIC OBJECT FUNCTION GetUserAPI()
   {
-    IF(NOT this->usermgmt)
-      THROW NEW Exception("Requesting the user api of schema '" || this->name || "' which is not configured for user management");
-    RETURN MakeObject("mod::wrd/lib/internal/userapi.whlib#WHUserApi",this);
-  }
+    THROW NEW Exception(`The UserAPI is not compatible with Legacy WRD types. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
+ }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAllTypes()
   {
@@ -189,39 +188,22 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
 
   PUBLIC OBJECT FUNCTION CreateRelationType (STRING title, STRING description, STRING tag)
   {
-    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
-                             , linkfrom := 0, linkto := 0, metatype := 1
-                             , parenttype := 0
-                             ]
-                           );
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
-  /* 15-02-2012 */
   PUBLIC OBJECT FUNCTION CreateRelationTypeWithParentType (STRING title, STRING description, STRING tag, INTEGER parenttype)
   {
-    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
-                             , linkfrom := 0, linkto := 0, metatype := 1
-                             , parenttype := parenttype
-                             ]
-                           );
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   PUBLIC OBJECT FUNCTION CreateLinkType (STRING title, STRING description, STRING tag, INTEGER linkfrom, INTEGER linkto)
   {
-    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
-                             , linkfrom := linkfrom, linkto := linkto, metatype := 2
-                             , parenttype := 0
-                             ]
-                           );
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   PUBLIC OBJECT FUNCTION CreateClassificationType (STRING title, STRING description, STRING tag, INTEGER linkfrom)
   {
-    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
-                             , linkfrom := linkfrom, linkto := 0, metatype := 3
-                             , parenttype := 0
-                             ]
-                           );
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   /** @short Creates a domain in this schema
@@ -235,10 +217,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
 */
   PUBLIC OBJECT FUNCTION CreateDomainType (STRING title, STRING description, STRING tag)
   {
-    RETURN this->__DoCreateType( [ title := title, description := description, tag := tag
-                             , linkfrom := 0, linkto := 0, metatype := 4
-                             , parenttype := 0
-                             ] );
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   PUBLIC OBJECT FUNCTION OpenWRDEntityByGuid (STRING http_guid)
@@ -329,25 +308,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateStoredQuery(/*INTEGER entity, */STRING tag, /*STRING title, STRING description, */RECORD query/*, BOOLEAN ispublic DEFAULTSTO FALSE*/)
   {
-    RECORD fields :=
-        [/* entity :=        entity
-        ,*/ tag :=           tag
-        //, title :=         title
-        //, description :=   description
-        , query_rec :=     query
-        //, ispublic :=      ispublic
-        ];
-    RETURN NEW WRDStoredQuery(this, fields, TRUE);
-  }
-
-
-  /** Open a new transaction
-      Bind the transaction to your table definitions using BindTransactionToSchema(trans->id, "");
-      @return Transaction
-  */
-  PUBLIC OBJECT FUNCTION OpenTransaction()
-  {
-    RETURN OpenWRDTransaction(this);
+    THROW NEW Exception(`Legacy WRDType stored queries are no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
 

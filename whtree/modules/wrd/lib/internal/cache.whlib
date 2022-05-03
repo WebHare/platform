@@ -1,0 +1,59 @@
+<?wh
+
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD ARRAY wrdcache_loadedobjects;
+INTEGER wrdcache_eventcollector;
+
+/// Call this before using wrdcache_loadedobjects and whfscache_csp
+PUBLIC MACRO CheckWRDCache()
+{
+  IF (wrdcache_eventcollector = 0)
+    RETURN;
+
+  STRING ARRAY changed := __HS_EVENT_COLLECTORREAD(wrdcache_eventcollector);
+  FOREVERY(STRING change FROM changed)
+  {
+    INTEGER changedschema := ToInteger(Tokenize(change,'.')[1],0);
+    RECORD ARRAY toclear := SELECT * FROM wrdcache_loadedobjects WHERE wrdschema = changedschema;
+
+    IF(Length(toclear) > 0)
+    {
+      DELETE FROM wrdcache_loadedobjects WHERE wrdschema = changedschema; //clear first, so they can readd themselves
+      FOREVERY(RECORD clear FROM toclear)
+      {
+        OBJECT listener := OBJECT(clear.obj);
+        IF(ObjectExists(listener))
+          listener->__SignalWRDSchemaDataChange();
+      }
+    }
+  }
+}
+
+//Set for the duration of the transaction if any metadata changed as we can't safely use some adhoc caches until we commit
+PUBLIC BOOLEAN FUNCTION IsWRDMetadataCacheDisabled()
+{
+  IF(NOT HavePrimaryTransaction())
+    RETURN FALSE;
+
+  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
+  RETURN ObjectExists(handler) AND handler->metadatachanges;
+}
+
+PUBLIC BOOLEAN FUNCTION IsWRDDataCacheDisabled(INTEGER wrdschemaid)
+{
+  IF(NOT HavePrimaryTransaction())
+    RETURN FALSE;
+
+  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
+  RETURN ObjectExists(handler) AND wrdschemaid IN handler->datachanges;
+}
+
+PUBLIC MACRO AddWRDCacheListener(INTEGER schemaid, WEAKOBJECT listener)
+{
+   IF (wrdcache_eventcollector = 0)
+    wrdcache_eventcollector := __HS_EVENT_CREATECOLLECTOR([ "wrd:schema.*.change" ]);
+
+  INSERT CELL[ wrdschema := schemaid, obj := listener ] INTO wrdcache_loadedobjects AT END;
+}

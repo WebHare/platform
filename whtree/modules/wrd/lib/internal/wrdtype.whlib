@@ -23,6 +23,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/attributes.whlib";
+LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
@@ -462,25 +463,32 @@ BLOB FUNCTION MapBlob(RECORD ARRAY blobmapping, RECORD change, RECORD setting)
 PUBLIC STATIC OBJECTTYPE WRDTypeBase
 <
   OBJECT pvt_wrdschema;
-  RECORD typerec;
+  RECORD __typerec;
   BOOLEAN domainvalues_cached;
   RECORD ARRAY domainvalues;
 
   PUBLIC RECORD ARRAY __final_attrs; //query api needs raw access
   //'official' attribute list
   RECORD ARRAY attributelist;
-  PUBLIC INTEGER ARRAY __childtypeids;
+  INTEGER ARRAY __childtypeidscache;
   INTEGER ARRAY __consiliolinkcheckattrs;
   INTEGER ARRAY __whfslinkattrs;
+  INTEGER __id;
+  BOOLEAN typeinfoloaded;
+
+  //Wraps __typerec and loads on demand
+  PROPERTY typerec(GetTypeRec, -);
+
+  PUBLIC PROPERTY __childtypeids(GetChildTypeIds, -);
 
   /// @type(integer) ID of this type
-  PUBLIC PROPERTY id(this->typerec.id, -);
+  PUBLIC PROPERTY id(__id, -);
 
   /// @type(string) Title of this type
-  PUBLIC PROPERTY title(this->typerec.title, -);
+  PUBLIC PROPERTY title(__GetTyperecTitle, -);
 
   /// @type(string) Tag of this type
-  PUBLIC PROPERTY tag(this->typerec.tag, -);
+  PUBLIC PROPERTY tag(__GetTyperecTag, -);
 
   /// @type(object %WRDSchema2017) WRD schema object
   PUBLIC PROPERTY wrdschema(pvt_wrdschema, -);
@@ -497,13 +505,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /// @type(boolean) Whether this type is a attachment
   PUBLIC PROPERTY isattachment(GetIsAttachment, -);
 
-  PUBLIC PROPERTY isabstract(this->typerec.abstract, -);
-  PUBLIC PROPERTY linkfrom(this->typerec.requiretype_left, -);
-  PUBLIC PROPERTY linkto(this->typerec.requiretype_right, -);
-  PUBLIC PROPERTY parent(this->typerec.parenttype, -);
-  PUBLIC PROPERTY metatype(this->typerec.metatype, -);
+  PUBLIC PROPERTY isabstract(__GetTyperecAbstract, -);
+  PUBLIC PROPERTY linkfrom(__GetTyperecRequiretype_left, -);
+  PUBLIC PROPERTY linkto(__GetTyperecRequiretype_right, -);
+  PUBLIC PROPERTY parent(__GetTyperecParenttype, -);
+  PUBLIC PROPERTY metatype(__GetTyperecMetatype, -);
 
-  PUBLIC PROPERTY keephistorydays(this->typerec.keephistorydays, -);
+  PUBLIC PROPERTY keephistorydays(__GetTyperecKeephistorydays, -);
   PUBLIC PROPERTY haspersonaldata(GetHasPersonalData, -);
 
   PUBLIC PROPERTY linkfromtype(GetLinkFromType, -);
@@ -514,24 +522,28 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   MACRO NEW(OBJECT wrdschema, RECORD typerec)
   {
     this->pvt_wrdschema := wrdschema;
+    this->__id := typerec.id;
+    this->__typerec := typerec;
   }
 
   /////////////////////////////////////////////////////////////////////////////
   //
   // Type level metadata
   //
-  RECORD FUNCTION LoadType(RECORD typerec)
+  MACRO EnsureTypeInfoLoaded()
   {
-    this->typerec := typerec;
+    CheckWRDCache();
+    IF(this->typeinfoloaded)
+      RETURN;
 
     RECORD data;
     STRING langcode := this->pvt_wrdschema->__GetCurrentLanguageCode();
     IF (NOT IsWRDMetadataCacheDisabled())
-      data := GetAdhocCached([ type := this->typerec.id, lang := langcode ], PTR GetCacheableTypeData(this->typerec, langcode));
+      data := GetAdhocCached([ type := this->id, lang := langcode ], PTR GetCacheableTypeData(this->typerec, langcode));
     ELSE
       data := GetCacheableTypeData(this->typerec,langcode).value;
 
-    this->__childtypeids := data.__childtypeids;
+    this->__childtypeidscache := data.__childtypeids;
     this->__consiliolinkcheckattrs := data.__consiliolinkcheckattrs;
     this->__whfslinkattrs := data.__whfslinkattrs;
     this->__final_attrs := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
@@ -541,8 +553,55 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                              FROM data.__final_attrs
                             WHERE NOT ishiddenbyparent
                          ORDER BY ToUppercase(tag);
-    RETURN data;
+
+    AddWRDCacheListener(this->pvt_wrdschema->id, WEAKOBJECT(this)); //once we've loaded data, we need to start listening again
+    this->typeinfoloaded := TRUE;
   }
+
+  RECORD FUNCTION GetTypeRec()
+  {
+    IF(NOT RecordExists(this->__typerec))
+      this->__typerec := SELECT * FROM wrd.types WHERE id = this->__id;
+    RETURN this->__typerec;
+  }
+  INTEGER ARRAY FUNCTION GetChildTypeIds()
+  {
+    this->EnsureTypeInfoLoaded();
+    RETURN this->__childtypeidscache;
+  }
+  STRING FUNCTION __GetTyperecTitle()
+  {
+    RETURN this->typerec.title;
+  }
+  STRING FUNCTION __GetTyperecTag()
+  {
+    RETURN this->typerec.tag;
+  }
+  BOOLEAN FUNCTION __GetTyperecAbstract()
+  {
+    RETURN this->typerec.abstract;
+  }
+  INTEGER FUNCTION __GetTyperecRequiretype_left()
+  {
+    RETURN this->typerec.requiretype_left;
+  }
+  INTEGER FUNCTION __GetTyperecRequiretype_right()
+  {
+    RETURN this->typerec.requiretype_right;
+  }
+  INTEGER FUNCTION __GetTyperecParenttype()
+  {
+    RETURN this->typerec.parenttype;
+  }
+  INTEGER FUNCTION __GetTyperecMetatype()
+  {
+    RETURN this->typerec.metatype;
+  }
+  INTEGER FUNCTION __GetTyperecKeephistorydays()
+  {
+    RETURN this->typerec.keephistorydays;
+  }
+
   BOOLEAN FUNCTION GetIsObject()
   {
     RETURN this->typerec.metatype = 1;
@@ -562,21 +621,22 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
   INTEGER ARRAY FUNCTION GetValidTypeIDs()
   {
+    this->EnsureTypeInfoLoaded();
     RETURN INTEGER[this->typerec.id] CONCAT this->__childtypeids;
   }
 
-  PUBLIC MACRO __ReloadType()
+  PUBLIC MACRO __SignalWRDSchemaDataChange()
   {
-    //InvalidateAdhocCached([ type := this->typerec.id, lang := this->currentlanguage ]); //needed? I don't see anything else invalidating types...
-    this->LoadType(SELECT * FROM wrd.types WHERE id = this->typerec.id);
+    this->__typerec := DEFAULT RECORD;
+    this->typeinfoloaded := FALSE;
   }
   PUBLIC MACRO __ReloadTypeAndChildren()
   {
     // Need to reload this type first so this->__childtypeids is set correctly
-    this->__ReloadType();
+    this->__SignalWRDSchemaDataChange();
     FOREVERY(OBJECT typ FROM this->pvt_wrdschema->__GetTypeIfcached(this->GetValidTypeIDs()))
       IF (typ != this)
-        typ->__ReloadType();
+        typ->__SignalWRDSchemaDataChange();
   }
   BOOLEAN FUNCTION GetHasPersonalData()
   {
@@ -770,6 +830,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttribute(STRING find_tag)
   {
+    this->EnsureTypeInfoLoaded();
     INTEGER pos := RecordBinaryFind(this->attributelist, [ tag := ToUppercase(find_tag) ], ["TAG"]);
     RETURN pos = -1 ? DEFAULT RECORD : this->attributelist[pos];
   }
@@ -779,6 +840,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttributeById(INTEGER attrid)
   {
+    this->EnsureTypeInfoLoaded();
     RETURN SELECT * FROM this->attributelist WHERE id = attrid;
   }
 
@@ -808,6 +870,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   */
   PUBLIC RECORD ARRAY FUNCTION ListAttributes(INTEGER fromparent)
   {
+    this->EnsureTypeInfoLoaded();
     RETURN SELECT *
              FROM this->attributelist
             WHERE fromparent = -1 ? TRUE : parent = fromparent;
@@ -845,6 +908,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   */
   BOOLEAN FUNCTION __InternalUpdateAttribute(STRING tag, RECORD newsettings)
   {
+    this->EnsureTypeInfoLoaded();
     newsettings := ValidateOptions([ checklinks := FALSE
                                    , multiline := FALSE
                                    , isunique := FALSE
@@ -1190,6 +1254,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
   RECORD FUNCTION GetAllDomVals(STRING findtag)
   {
+    this->EnsureTypeInfoLoaded();
+
     INTEGER attrid := SELECT AS INTEGER (#attrs + 1) FROM this->__final_attrs AS attrs WHERE ToUppercase(tag)=ToUppercase(findtag);
     IF(attrid=0)
       THROW NEW Exception("No such attribute '" || findtag || "'");
@@ -1369,6 +1435,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   */
   PUBLIC RECORD ARRAY FUNCTION ListDomVals(STRING findtag)
   {
+    this->EnsureTypeInfoLoaded();
+
     RECORD res := this->GetAllDomvals(findtag);
     IF(NOT res.isdom)
     {
@@ -2680,6 +2748,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   */
   PUBLIC RECORD FUNCTION __internal_updentity(RECORD entitydata, INTEGER entityid, BOOLEAN isv2api, RECORD options)
   {
+    this->EnsureTypeInfoLoaded();
     options := ValidateOptions([ errorcallback := PTR OnThrowEntityError
                                , onmapdomvalue := PTR this->GetDomVal(#1,#2)
                                , importmode := FALSE
@@ -2763,7 +2832,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       entitydata.wrd_guid := setguid;
     }
 
-    RECORD splitdata := this->DoSplitEntityData(entitydata, this->typerec.tag, this->__final_attrs, isv2api, options);
+    RECORD splitdata := this->DoSplitEntityData(entitydata, this->__typerec.tag, this->__final_attrs, isv2api, options);
     RECORD ARRAY unpacked_leftovers := UnpackRecord(splitdata.leftovers);
     IF(Length(unpacked_leftovers)=1)
     {
@@ -2818,11 +2887,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     BOOLEAN allow_unique_rawdata := entity_limit = MAX_DATETIME OR entity_limit > GetCurrentDatetime();
 
 
-    IF(this->typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
+    IF(this->__typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
     {
       IF((NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
       {
-        IF(NOT is_temp AND this->typerec.metatype != 4) //for domains its optional
+        IF(NOT is_temp AND this->__typerec.metatype != 4) //for domains its optional
         {
           options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -2835,11 +2904,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       ELSE IF(CellExists(splitdata.entityrec,"leftentity") AND NOT this->wrdschema->__disableintegritychecks) //ADDME try to skip validation check if the entity didn't actually change
       {
-        this->ValidateReferredType([INTEGER(splitdata.entityrec.leftentity)], this->typerec.metatype=4 ? this->typerec.id : this->typerec.requiretype_left, "WRD_LEFTENTITY");
+        this->ValidateReferredType([INTEGER(splitdata.entityrec.leftentity)], this->__typerec.metatype=4 ? this->__typerec.id : this->__typerec.requiretype_left, "WRD_LEFTENTITY");
       }
     }
 
-    IF(this->typerec.metatype = 2 AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
+    IF(this->__typerec.metatype = 2 AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
     {
       IF((NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
       {
@@ -2856,7 +2925,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       ELSE IF(CellExists(splitdata.entityrec,"rightentity") AND NOT this->wrdschema->__disableintegritychecks) //ADDME try to skip validation check if the entity didn't actually change
       {
-        this->ValidateReferredType([INTEGER(splitdata.entityrec.rightentity)], this->typerec.requiretype_right, "WRD_RIGHTENTITY");
+        this->ValidateReferredType([INTEGER(splitdata.entityrec.rightentity)], this->__typerec.requiretype_right, "WRD_RIGHTENTITY");
       }
     }
 
@@ -2960,7 +3029,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         splitdata.entityrec := CELL
             [ id :=                 result.entityid
-            , type :=               this->typerec.id
+            , type :=               this->__typerec.id
             , creationdate :=       splitdata.entityrec.modificationdate
             , limitdate :=          MAX_DATETIME
             , guid :=               setguid
@@ -3034,7 +3103,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         INSERT splitdata.entityrec INTO wrd.entities;
       ELSE
       {
-        IF (this->typerec.keephistorydays > 0 OR historydebugging)
+        IF (this->__typerec.keephistorydays > 0 OR historydebugging)
         {
           orgentityrec := SELECT * FROM wrd.entities WHERE id = result.entityid;
           orgwhfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER64 ARRAY id FROM cursettings);
@@ -3076,7 +3145,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             FROM splitdata.settings
            WHERE ArraysIntersect(attr.__selectattributeids, updateres.updatedattrs);
 
-      IF (this->typerec.keephistorydays > 0 OR historydebugging)
+      IF (this->__typerec.keephistorydays > 0 OR historydebugging)
       {
         RECORD newrec := CELL[ ...orgentityrec, ...splitdata.entityrec ];
         IF (newrec.creationdate != MAX_DATETIME) // Entity is now not temporary?
@@ -3161,7 +3230,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             IF (historydebugging)
               encoded_source := EncodeHSON([ stacktrace := GetAsyncStackTrace() ]);
 
-            INTEGER changeset := options.changeset ?? GetWRDCommitHandler()->GetAutoChangeSet(this->typerec.wrd_schema);
+            INTEGER changeset := options.changeset ?? GetWRDCommitHandler()->GetAutoChangeSet(this->__typerec.wrd_schema);
             IF (changeset = 0)
             {
               changeset := this->CreateChangeSet();
@@ -3187,9 +3256,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
 
       IF (is_new)
-        GetWRDCommitHandler()->EntityCreated(this->typerec.wrd_schema, this->typerec.id, entityid);
+        GetWRDCommitHandler()->EntityCreated(this->__typerec.wrd_schema, this->__typerec.id, entityid);
       ELSE
-        GetWRDCommitHandler()->EntityUpdated(this->typerec.wrd_schema, this->typerec.id, entityid);
+        GetWRDCommitHandler()->EntityUpdated(this->__typerec.wrd_schema, this->__typerec.id, entityid);
     }
 
     GetWRDCommitHandler()->AddLinkCheckedSettings(checklinks_settingids);
@@ -3520,16 +3589,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 */
 PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
 <
-  /** @private
-      @param wrdschema WRD schema
-      @param typerec Database record of this type
-  */
-  PUBLIC MACRO NEW(OBJECT wrdschema, RECORD typerec)
-  : WRDTypeBase(wrdschema, typerec)
-  {
-    this->LoadType(typerec);
-  }
-
   UPDATE OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
   {
     RETURN NEW WRDEntity2017(this, entityrec);

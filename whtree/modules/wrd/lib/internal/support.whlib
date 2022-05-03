@@ -1000,25 +1000,6 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
 >;
 
-//Set for the duration of the transaction if any metadata changed as we can't safely use some adhoc caches until we commit
-PUBLIC BOOLEAN FUNCTION IsWRDMetadataCacheDisabled()
-{
-  IF(NOT HavePrimaryTransaction())
-    RETURN FALSE;
-
-  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
-  RETURN ObjectExists(handler) AND handler->metadatachanges;
-}
-
-PUBLIC BOOLEAN FUNCTION IsWRDDataCacheDisabled(INTEGER wrdschemaid)
-{
-  IF(NOT HavePrimaryTransaction())
-    RETURN FALSE;
-
-  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
-  RETURN ObjectExists(handler) AND wrdschemaid IN handler->datachanges;
-}
-
 PUBLIC OBJECT FUNCTION GetWRDCommitHandler()
 {
   OBJECT trans := GetPrimaryWebhareTransactionObject();

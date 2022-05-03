@@ -16,15 +16,10 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   PUBLIC PROPERTY description (GetDescription, -);
   PUBLIC PROPERTY languagecode(currentlanguage, -);
   PUBLIC PROPERTY childtypeids(__childtypeids, -);
-  PUBLIC PROPERTY abstract(this->typerec.abstract, -);
+  PUBLIC PROPERTY abstract(isabstract, -);
 
-  PUBLIC STRING list_attributes;
-
-  PUBLIC INTEGER wrd_requiretype_left;
-  PUBLIC INTEGER wrd_requiretype_right;
-  PRIVATE OBJECT pvt_parenttype;
-
-  PRIVATE INTEGER pvt_metatype;
+  PUBLIC PROPERTY wrd_requiretype_left(linkfrom, -);
+  PUBLIC PROPERTY wrd_requiretype_right(linkto, -);
 
   PRIVATE STRING currentlanguage;
 
@@ -37,7 +32,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   : WRDTypeBase(wrdschema, typerec)
   //ADDME: Allow instantiating type at different time
   {
-    this->LoadType(typerec);
     this->currentlanguage := currentlanguage;
   }
 
@@ -46,20 +40,9 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     RETURN NEW LegacyWRDEntity(this, entityrec);
   }
 
-  UPDATE RECORD FUNCTION LoadType(RECORD typerec)
-  {
-    RECORD data := WRDTypeBase::LoadType(typerec);
-    this->wrd_requiretype_left := typerec.requiretype_left;
-    this->wrd_requiretype_right := typerec.requiretype_right;
-
-    this->pvt_metatype := typerec.metatype;
-    this->pvt_parenttype := this->pvt_wrdschema->GetTypeById(this->typerec.parenttype);
-    RETURN data;
-  }
-
   PUBLIC MACRO ReloadType()
   {
-    this->__ReloadType();
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
 
@@ -70,22 +53,12 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC STRING FUNCTION GenerateGUID()
   {
-    RETURN EncodeWRDGUID(CreateGUID());
+    RETURN this->GetNewEntityGUID();
   }
 
   UPDATE PUBLIC MACRO UpdateTypeMetadata(RECORD newmetadata)
   {
-    IF(CellExists(newmetadata,'requiretype_left'))
-    {
-      INSERT CELL linkfrom := newmetadata.requiretype_left INTO newmetadata;
-      DELETE CELL requiretype_left FROM newmetadata;
-    }
-    IF(CellExists(newmetadata,'requiretype_right'))
-    {
-      INSERT CELL linkto := newmetadata.requiretype_right INTO newmetadata;
-      DELETE CELL requiretype_right FROM newmetadata;
-    }
-    this->UpdateMetadata(newmetadata);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. Use UpdateMetadata instead`);
   }
 
   /** @return Result
@@ -123,7 +96,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC STRING FUNCTION GetNewAttributeTag(INTEGER parentattribute, STRING inputtag)
   {
-    RETURN GetSafeWRDTag(inputtag, PTR this->TagInUse(parentattribute, #1));
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. GetNewAttributeTag is no longer available`);
   }
 
   /* the attribute types for attributes
@@ -159,21 +132,12 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   */
   PUBLIC RECORD FUNCTION CreateAttribute (STRING attributetype, STRING attributetitle, STRING description, STRING attributetag, STRING domaintag)
   {
-    INTEGER domain;
-    IF(domaintag!="")
-    {
-      OBJECT targettype := this->wrdschema->__GetTypeByTag(domaintag);
-      IF(NOT ObjectExists(targettype))
-        THROW NEW Exception(`No such domain ${domaintag}`);
-      domain := targettype->id;
-    }
-    this->__DoCreateAttribute(attributetype,attributetitle,description,attributetag,domain);
-    RETURN this->GetAttributeInfoByTag(attributetag);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
   }
 
   PUBLIC MACRO UpdateAttributeMetadata(STRING tag, RECORD newsettings)
   {
-    this->UpdateAttribute(tag,newsettings);
+    THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use UpdateAttribute`);
   }
 
   /*
@@ -193,11 +157,15 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PUBLIC INTEGER FUNCTION LookupEntity(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
   {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`This LookupEntity call should be replaced with ->Search(tagname, tagval${match_case ? "" : ', [ matchcase := FALSE ]'})`);
     RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
   }
 
   PUBLIC INTEGER FUNCTION LookupWRDEntityByAttribute(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
   {
+    IF(NOT IsDtapLive())
+      THROW NEW Exception(`This LookupEntity call should be replaced with ->Search(tagname, tagval${match_case ? "" : ', [ matchcase := FALSE ]'})`);
     RETURN this->Search(tagname, tagval, [matchcase:=match_case]);
   }
 

@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -463,6 +465,34 @@ MACRO TestMetaTypeChange()
   testfw->RollbackWork();
 }
 
+
+MACRO TestAsyncMetaTypeChange()
+{
+  OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;;
+  TestEq(FALSE, RecordExists(persontype->GetAttribute("ADDED_ATTRIBUTE")));
+
+  CallFunctionFromJob(Resolve("mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib#ApplyDirectSchemaDefUpdate"), testfw->GetWRDSchema()->tag,
+    `<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="WRD_PERSON">
+    <attributes>
+      <free tag="ADDED_ATTRIBUTE" />
+    </attributes>
+  </object>
+</schemadefinition>`);
+  TestEq(TRUE, RecordExists(persontype->GetAttribute("ADDED_ATTRIBUTE")));
+
+  CallFunctionFromJob(Resolve("mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib#ApplyDirectSchemaDefUpdate"), testfw->GetWRDSchema()->tag,
+    `<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="WRD_PERSON">
+    <attributes>
+      <obsolete tag="ADDED_ATTRIBUTE" />
+    </attributes>
+  </object>
+</schemadefinition>`);
+  TestEq(FALSE, RecordExists(persontype->GetAttribute("ADDED_ATTRIBUTE")));
+}
+
+
 MACRO TestRename()
 {
   STRING savetag := testfw->GetWRDSchema()->tag;
@@ -722,6 +752,7 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestCreate
                  , PTR TestCreateWithMetadata
                  , PTR TestMetaTypeChange
+                 , PTR TestAsyncMetaTypeChange
                  , PTR TestRename
                  , PTR TestAttributePromotion
                  , PTR TestParent

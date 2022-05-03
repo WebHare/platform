@@ -3,9 +3,9 @@
 
 LOADLIB "wh::adhoccache.whlib";
 
+LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib" EXPORT OverwritingProtectedWRDSchemaException;
 LOADLIB "mod::wrd/lib/internal/objectapi-helpers.whlib" EXPORT DescribeWRDAttribute, DescribeWRDEntity, IsValidWRDGuid;
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib" EXPORT MakeWRDQuery, RunWRDQuery, WRDQueryInterface;
@@ -33,9 +33,4 @@ PUBLIC OBJECT FUNCTION OpenWRDType(INTEGER wrdtypeid, STRING currentlanguage DEF
 
   OBJECT theschema := OpenWRDSchema(parentschema, currentlanguage);
   RETURN ObjectExists(theschema) ? theschema->GetType(wrdtypeid) : DEFAULT OBJECT;
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetAccessibleWRDSchemas(OBJECT user)
-{
-  RETURN SELECT *,name := tag FROM ListWRDSchemas([user := user ]);
 }
