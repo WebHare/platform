@@ -467,7 +467,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   BOOLEAN domainvalues_cached;
   RECORD ARRAY domainvalues;
 
-  PUBLIC RECORD ARRAY __final_attrs; //query api needs raw access
+  RECORD ARRAY __final_attrscache;
   //'official' attribute list
   RECORD ARRAY attributelist;
   INTEGER ARRAY __childtypeidscache;
@@ -480,6 +480,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PROPERTY typerec(GetTypeRec, -);
 
   PUBLIC PROPERTY __childtypeids(GetChildTypeIds, -);
+
+  PUBLIC PROPERTY __final_attrs(GetFinalAttrs, -);  //query api needs raw access
 
   /// @type(integer) ID of this type
   PUBLIC PROPERTY id(__id, -);
@@ -546,7 +548,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     this->__childtypeidscache := data.__childtypeids;
     this->__consiliolinkcheckattrs := data.__consiliolinkcheckattrs;
     this->__whfslinkattrs := data.__whfslinkattrs;
-    this->__final_attrs := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
+    this->__final_attrscache := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
     this->attributelist := SELECT *
                                 , DELETE ishiddenbyparent, DELETE __reftype, DELETE cellname, DELETE cellnames, DELETE isgenerated
                                 , DELETE generatetag, DELETE __selectattributeids
@@ -568,6 +570,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     this->EnsureTypeInfoLoaded();
     RETURN this->__childtypeidscache;
+  }
+  RECORD ARRAY FUNCTION GetFinalAttrs()
+  {
+    this->EnsureTypeInfoLoaded();
+    RETURN this->__final_attrscache;
   }
   STRING FUNCTION __GetTyperecTitle()
   {
@@ -1184,7 +1191,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                  , isinherited :=       FALSE
                  , attributetypename := attr.attributetype
                  , checklinks :=        FALSE
-                 ] INTO this->__final_attrs AT END;
+                 ] INTO this->__final_attrscache AT END;
 
       attributes[#attr] := attr;
     }
@@ -1284,7 +1291,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       typeobj := this->pvt_wrdschema->GetTypeById(this->__final_attrs[attrid-1].domain);
       IF(NOT ObjectExists(typeobj))
         THROW NEW Exception("Type #" || this->__final_attrs[attrid-1].domain || " referred to by attribute '" || findtag || "' no longer exists");
-      this->__final_attrs[attrid-1].__reftype := typeobj;
+      this->__final_attrscache[attrid-1].__reftype := typeobj;
     }
     IF(NOT typeobj->isdomain)
       RETURN [ isdom := FALSE, vals := DEFAULT RECORD ARRAY, type := typeobj ];
