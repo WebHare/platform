@@ -71,6 +71,33 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
     RETURN this->plugin->__GetWRDAuth()->Login(login, password, options);
   }
 
+  /** @short Extract the login name from an OIDC payload
+      @param providerinfo Provider information
+      @cell(integer) providerinfo.wrd_id ID
+      @cell(string) providerinfo.wrd_tag Tag
+      @cell(string) providerinfo.loginfield Login field to use
+      @param payload OIDC payload describing the user*/
+  PUBLIC STRING FUNCTION GetOIDCLoginName(RECORD providerinfo, RECORD payload)
+  {
+    IF(providerinfo.loginfield != "")
+    {
+      IF(CellExists(payload, providerinfo.loginfield) AND TYPEID(GetCell(payload, providerinfo.loginfield)) = TYPEID(STRING))
+        RETURN GetCell(payload, providerinfo.loginfield);
+      RETURN "";
+    }
+
+    //Fallback configuration.
+    IF(CellExists(payload, 'email') AND CellExists(payload, 'email_verified') AND payload.email_verified)
+      RETURN payload.email;
+    ELSE IF(CellExists(payload, 'employeeid')) //FIXME is this common or should this be selected through a special rule? currently used for UT/Azure
+      RETURN payload.employeeid;
+    ELSE
+      RETURN payload.sub;
+
+    RETURN "";
+  }
+
+
   PUBLIC OBJECT FUNCTION GetSAMLSPConfig(OBJECT plugin, STRING sp_tag, RECORD configdata)
   {
     RETURN NEW SAMLWebhareSPConfig(plugin, configdata);
