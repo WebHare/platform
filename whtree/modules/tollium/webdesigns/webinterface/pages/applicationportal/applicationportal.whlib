@@ -24,7 +24,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
-LOADLIB "mod::system/lib/internal/backend/preview.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
@@ -89,8 +88,6 @@ RECORD FUNCTION GetCacheableUIFilesKey()
 
 PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 <
-  PUBLIC STRING initialskin;
-  PUBLIC STRING faviconurl;
   PUBLIC STRING title;
   PUBLIC STRING toddroot;
   //Root for assets that should remain as static as possible, even without allow jscache
@@ -129,13 +126,11 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   RECORD rundata;
   STRING ARRAY applicationmasks;
   STRING ARRAY dashboardmenuupdaters;
-  BOOLEAN runwebhareinstall;
   STRING jsversion;
 
   MACRO NEW()
   {
     this->dashboard := TRUE;
-    this->initialskin := "default";
     this->title := "WebHare Platform";
     this->frontendid := GenerateUFS128BitId();
 
@@ -162,14 +157,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     RECORD data :=
       [ toddroot         := this->toddroot
-      , faviconurl       := this->faviconurl
       , title            := this->title
       , tolliumconfig    := EncodeJSON(config)
       , config := config
       , frontendmode     := this->frontendmode
 
       , addedheaders     := this->addedheaders
-      , initialskin      := this->initialskin
       , version          := GetWebhareVersion()
     ];
     RETURN data;
@@ -971,8 +964,5 @@ MACRO RunThePage()
 
 PUBLIC MACRO RunApplicationPortal()
 {
-  // Show a generic preview page for Safari Top Sites or Opera Speed Dial
-  IF (GeneratePreview())
-    RETURN;
   RunThePage();
 }
