@@ -2232,7 +2232,7 @@ The full base URL on which this site will be published, calculated by combining 
     </webservice>
 
     <internalservice tag="getconfig"
-                     library="internal/webserver/getconfig.whscr"
+                     library="scripts/internal/webserver/getconfig.whscr"
                      tid="tolliumapps.webservers.scripts.getconfig"
                      portname="system:webserver.getconfig"
                      globalport="true"

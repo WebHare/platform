@@ -66,7 +66,7 @@
       <accesscheck />
     </webservice>
 
-    <internalservice library="internal/applicationstarter.whscr"
+    <internalservice library="scripts/internal/applicationstarter.whscr"
                      mode="ondemand"
                      portname="tollium:appstarter"
                      releaseonsoftreset="true"
