@@ -188,6 +188,7 @@
       <xs:element name="record" type="PlainAttribute" />
       <xs:element name="authenticationsettings" type="PlainAttribute" />
       <xs:element name="obsolete" type="ObsoleteAttribute" />
+      <xs:element name="whfslink" type="PlainAttribute" />
 
       <!-- legacy -->
       <xs:element name="domainsingle" type="DomainAttribute" />

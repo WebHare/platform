@@ -416,9 +416,16 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
         this->currentobjects := [comp];
       }
       */
-      CASE 20 //Intextlink
+      CASE 20 //WHFSINTEXTLINK
       {
         OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components", "intextlink");
+        comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
+        comp->readonly := this->fieldreadonly;
+        this->currentobjects := [comp];
+      }
+      CASE 29 //WHFSLINK
+      {
+        OBJECT comp := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components", "browseforobject");
         comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
         comp->readonly := this->fieldreadonly;
         this->currentobjects := [comp];

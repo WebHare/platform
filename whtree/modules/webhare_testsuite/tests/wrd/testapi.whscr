@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
@@ -1000,30 +1001,38 @@ MACRO RichDoc()
                                                 , fsref := destlink->id
                                                 ]
                               , testintextlink := [ internallink := destlink->id, externallink := "", append := "#bla" ]
+                              , testlink := destlink->id
                               ] );
 
   RECORD ARRAY rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
   INTEGER64 rawsetting_testinstance := SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id;
   INTEGER64 rawsetting_testintextlink := SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id;
+  INTEGER64 rawsetting_testlink := SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTLINK").ID;
   RECORD rawlink_testinstance := SELECT * FROM wrd.entity_settings_whfslink WHERE id = rawsetting_testinstance;
   RECORD rawlink_testintextlink := SELECT * FROM wrd.entity_settings_whfslink WHERE id = rawsetting_testintextlink;
+  RECORD rawlink_testlink := SELECT * FROM wrd.entity_settings_whfslink WHERE id = rawsetting_testlink;
 
   TestEq(TRUE, RecordExists(rawlink_testinstance));
   TestEq(TRUE, RecordExists(rawlink_testintextlink));
+  TestEq(TRUE, RecordExists(rawlink_testlink));
   TestEq(FALSE, rawlink_testinstance.fsobject IN GetWRDObsoleteWHFSObjects());
   TestEq(FALSE, rawlink_testintextlink.fsobject IN GetWRDObsoleteWHFSObjects());
+  TestEq(FALSE, rawlink_testlink.fsobject IN GetWRDObsoleteWHFSObjects());
 
   //ensure updating works
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink->id, externallink := "", append := "" ]
+                              , testlink := whconstant_whfsid_webharebackend
                               ] );
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink->id, externallink := "", append := "#test" ]
+                              , testlink := destlink->id
                               ] );
 
   rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
   TestEq(rawsetting_testintextlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+  TestEq(rawsetting_testlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTLINK").id);
 
   testfw->CommitWork();
-  RECORD org_testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE", "TESTINSTANCE", "TESTINTEXTLINK"]);
+  RECORD org_testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE", "TESTINSTANCE", "TESTINTEXTLINK", "TESTLINK"]);
   RECORD testrec1 := org_testrec1;
 
   BLOB fragment := GetRichDocumentAsHtmlFragment(testrec1.richie);
@@ -1037,8 +1046,9 @@ MACRO RichDoc()
   TestTestInstance(testrec1.testinstance);
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testintextlink.internallink);
   TestEq("#test", testrec1.testintextlink.append);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testlink);
 
-  RECORD ARRAY queryres := wrdperson->RunQuery( [ outputcolumns := [ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]
+  RECORD ARRAY queryres := wrdperson->RunQuery( [ outputcolumns := [ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK", "TESTLINK" ]
                                                 , filters := [[ field := "WRD_ID", value := testpersonid ]]
                                                 ]);
   TestEq(1,Length(queryres));
@@ -1053,6 +1063,7 @@ MACRO RichDoc()
   TEstTestInstance( queryres[0].testinstance);
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, queryres[0].testintextlink.internallink);
   TestEq("#test", queryres[0].testintextlink.append);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, queryres[0].testlink);
 
   // Change only the htmltext, to make sure it's being detected
   testfw->BeginWork();
@@ -1080,9 +1091,11 @@ MACRO RichDoc()
   // Let the link point to destlink2, delete it. Then reset the link to destlink
   // (was regression: could not store extlinks after delete)
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink2->id, externallink := "", append := "" ]
+                              , testlink := destlink2->id
                               ] );
   OpenTestsuiteSite()->OpenByPath("tmp/destlink2")->DeleteSelf();
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink->id, externallink := "", append := "" ]
+                              , testlink := destlink->id
                               ] );
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, wrdperson->GetEntity(testpersonid)->GetField("TESTINTEXTLINK").internallink);
 
@@ -1104,14 +1117,17 @@ MACRO RichDoc()
   rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
   TestEq(rawsetting_testinstance, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id);
   TestEq(rawsetting_testintextlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+  TestEq(rawsetting_testlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTLINK").id);
 
   testpersonobj->UpdateEntity([ testinstance := DEFAULT RECORD
                               , testintextlink := DEFAULT RECORD
+                              , testlink := 0
                               ] );
 
   rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
   TestEq(0i64, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id);
   TestEq(0i64, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+  TestEq(0i64, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTLINK").id);
   TestEq(TRUE, rawlink_testinstance.fsobject IN GetWRDObsoleteWHFSObjects(), "The instance will no longer be referred");
   TestEq(FALSE, rawlink_testintextlink.fsobject IN GetWRDObsoleteWHFSObjects(), "Linktype 2s point straight towards their object, so they'll never get on the obsolete list");
 
@@ -1140,6 +1156,7 @@ MACRO RichDocEmbed()
                                                  , fsref := destlinkid
                                                  ]
                                , testintextlink := [ internallink := destlinkid, externallink := "", append := "#jantje" ]
+                               , testlink := destlinkid
                                ] );
   RECORD testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE","TESTINSTANCE"]);
   TestRichieEmbedded(testrec1.richie);
@@ -2669,6 +2686,7 @@ MACRO TestUpdateFiltering()
   rel_obj->CreateAttribute("WRD_CONTACT_PHONE",                "TELEPHONE",         [ title := "Testphone" ]);
   rel_obj->CreateAttribute("TESTINSTANCE",                     "WHFSINSTANCE",      [ title := "Testinstance" ]);
   rel_obj->CreateAttribute("TESTINTEXTLINK",                   "WHFSINTEXTLINK",    [ title := "Testintextlink" ]);
+  rel_obj->CreateAttribute("TESTLINK",                         "WHFSLINK",          [ title := "testlink" ]);
   rel_obj->CreateAttribute("TEST_RICHDOCUMENT",                "RICHDOCUMENT",      [ title := "Rich document" ]);
   rel_obj->CreateAttribute("TEST_IMAGE",                       "IMAGE",             [ title := "Image attribute" ]);
   rel_obj->CreateAttribute("TEST_FILE",                        "FILE",              [ title := "File attribute" ]);
@@ -2893,6 +2911,7 @@ MACRO TestWHFSMapper()
             , externallink :=   ""
             , append :=         ""
             ]
+      , testlink :=         destlink->id
       , richie :=           myrichexp
       , test_image :=       myimage
       , test_file :=        myimage
@@ -2903,7 +2922,7 @@ MACRO TestWHFSMapper()
       ]);
 
   RECORD rec := testfw->GetWRDSchema()->^wrd_person->RunQuery(CELL
-      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance" ]
+      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance", "testlink" ]
       , filters := [ [ field := "wrd_id", value := entity_person->id ]
                    ]
       , whfsmapper
@@ -2914,11 +2933,12 @@ MACRO TestWHFSMapper()
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec.testintextlink.internallink);
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec.richie.embedded[0].source_fsobject);
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec.testinstance.fsref);
+  TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec.testlink);
 
   entity_person->UpdateEntity(rec, CELL[ whfsmapper ]);
 
   RECORD rec2 := testfw->GetWRDSchema()->^wrd_person->RunQuery(CELL
-      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance" ]
+      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance", "testlink" ]
       , filters := [ [ field := "wrd_id", value := entity_person->id ]
                    ]
       , whfsmapper
@@ -2929,13 +2949,14 @@ MACRO TestWHFSMapper()
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec2.testintextlink.internallink);
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec2.richie.embedded[0].source_fsobject);
   TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec2.testinstance.fsref);
+  TestEQ('site::webhare_testsuite.testsite/TestPages/imgeditfile.jpeg', rec2.testlink);
 
   // Test unmapping images with incomplete info
   rec.test_image := CellDelete(rec.test_image, "hash");
   entity_person->UpdateEntity(rec, CELL[ whfsmapper ]);
 
   RECORD rec2_1 := testfw->GetWRDSchema()->^wrd_person->RunQuery(CELL
-      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance" ]
+      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance", "testlink" ]
       , filters := [ [ field := "wrd_id", value := entity_person->id ]
                    ]
       , whfsmapper

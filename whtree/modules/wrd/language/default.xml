@@ -1161,6 +1161,7 @@
         <text tid="url">URL</text>
         <text tid="whfsinstance">WHFS instance</text>
         <text tid="whfsintextlink">WHFS internal/external link</text>
+        <text tid="whfslink">WHFS link</text>
       </textgroup>
       <textgroup gid="update">   <!-- types.attributes.update -->
         <text tid="addform">Attribute settings</text>

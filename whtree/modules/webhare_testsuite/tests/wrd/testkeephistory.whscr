@@ -145,6 +145,7 @@ MACRO TestChanges()
         [ "richie"
         , "testinstance"
         , "testintextlink"
+        , "testlink"
         , "test_array"
         , "test_free"
         , "test_file"
@@ -162,6 +163,7 @@ MACRO TestChanges()
                                   , fsref := destlink->id
                                   ]
         , testintextlink :=       MakeIntExtInternalLink(whconstant_whfsid_webharebackend, "")
+        , testlink :=             whconstant_whfsid_webharebackend
         , test_array :=           [ CELL[ ...arrayvalue[0], test_int := 2 ] ]
         , test_file :=            testfile
         , test_free :=            "updated test field2"
@@ -174,6 +176,7 @@ MACRO TestChanges()
         [ "richie"
         , "testinstance"
         , "testintextlink"
+        , "testlink"
         , "test_array"
         , "test_date"
         , "test_free"

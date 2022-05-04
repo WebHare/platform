@@ -77,11 +77,12 @@ MACRO ExportImportWRD()
   OBJECT wrdperson := importedschema->GetType("WRD_PERSON");
   INTEGER richdocembedded_personid := wrdperson->Search("WRD_CONTACT_EMAIL", "richdocembedded@example.com");
   TestEq(TRUE, richdocembedded_personid != 0);
-  RECORD testrec1 := wrdperson->GetEntityFields(richdocembedded_personid, ["RICHIE","TESTINSTANCE","TESTINTEXTLINK"]);
+  RECORD testrec1 := wrdperson->GetEntityFields(richdocembedded_personid, ["RICHIE","TESTINSTANCE","TESTINTEXTLINK","TESTLINK"]);
   TestRichieEmbedded(testrec1.richie);
   TestTestInstance(testrec1.testinstance);
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testintextlink.internallink);
   TestEq("#jantje", testrec1.testintextlink.append);
+  TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, testrec1.testlink);
 
   RECORD ARRAY query_testrecs := wrdperson->RunQuery(
     [ outputcolumns := [ "RICHIE", "TESTINSTANCE"]
