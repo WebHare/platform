@@ -253,7 +253,7 @@ OBJECTTYPE ParsedSchemaDef
       IF ((fieldnode->localname = "arrayfield") != (celltype = "ARRAY"))
         THROW NEW Exception(`Wrong field type for '${ cellname }', expected got <${ fieldnode->localname }> for ${ celltype }`);
 
-      IF(cellname IN ["WRD_TAG","WRD_TITLE","WRD_LEFTENTITY"] OR celltype IN ["FREE","DOMAIN","EMAIL","PASSWORD","TELEPHONE","ENUM"])
+      IF(cellname IN ["WRD_TAG","WRD_TITLE","WRD_LEFTENTITY","WRD_GUID"] OR celltype IN ["FREE","DOMAIN","EMAIL","PASSWORD","TELEPHONE","ENUM"])
       {
         val := CellInsert(val, cellname, fieldnode->textcontent);
         IF (cellname = "WRD_TAG" AND (fieldnode->childrentext LIKE "* *"))

@@ -367,9 +367,7 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @cell(string) schemadef.types.linkfrom_tag For "ATTACHMENT", "LINK", tag of type of WRD_LEFTENTITY
     @cell(string) schemadef.types.linkto_tag For "LINK", tag of type of WRD_RIGHTENTITY
     @cell(record array) schemadef.types.attrs List of attributes
-    @cell(string) schemadef.types.attrs.attributetypename One of "DOMAIN_SINGLE", "FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE",
-          "PASSWORD", "DOMAIN_MULTIPLE", "IMAGE", "FILE", "TIME", "DATETIME", "ARRAY", "MONEY", "INTEGER", "BOOLEAN", "RICHDOCUMENT",
-          "WHFSINSTANCE", "WHFSINTEXTLINK", "URL", "RECORD"
+    @cell(string) schemadef.types.attrs.attributetypename WRD attribute typename
     @cell(string) schemadef.types.attrs.title Title of the attribute
     @cell(string) schemadef.types.attrs.tag Tag of the attribute
     @cell(string) schemadef.types.attrs.domaintag For DOMAIN_SINGLE, DOMAIN_MULTIPLE, tag of the type
@@ -523,29 +521,31 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     STRING syncattr := r.right.domvalsyncattr;
 
     OBJECT local_type := local_schema->GetType(r.left.tag);
-    //local_type->__ReloadType();   Shouldn't have been needed, code above uses proper APIs ?
     RECORD ARRAY remote_attrs := CellExists(r.right, "ATTRS") ? r.right.attrs : DEFAULT RECORD ARRAY;
 
-    RECORD oc;
+    RECORD outputcolumns;
     FOREVERY (RECORD o FROM remote_attrs)
       IF(o.attributetype != 0)
-        oc := CellInsert(oc, o.tag, o.tag);
-    IF (NOT CellExists(oc, "WRD_TAG"))
-      INSERT CELL wrd_tag := "WRD_TAG" INTO oc;
-    IF (NOT CellExists(oc, "WRD_ID"))
-      INSERT CELL wrd_id := "WRD_ID" INTO oc;
-    IF (r.left.metatype = 4 AND NOT CellExists(oc, "WRD_LEFTENTITY"))
-      INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO oc;
+        outputcolumns := CellInsert(outputcolumns, o.tag, o.tag);
+
+    outputcolumns := CELL[ wrd_tag := "WRD_TAG"
+                         , wrd_guid := "WRD_GUID"
+                         , wrd_id := "WRD_ID"
+                         , ...outputcolumns
+                         ];
+
+    IF (r.left.metatype = 4 AND NOT CellExists(outputcolumns, "WRD_LEFTENTITY"))
+      INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO outputcolumns;
 
    IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
       FOREVERY(STRING tooverwrite FROM r.right.domvalsoverwritefields)
-        IF(NOT CellExists(oc, tooverwrite))
-          oc := CellInsert(oc, tooverwrite, tooverwrite);
+        IF(NOT CellExists(outputcolumns, tooverwrite))
+          outputcolumns := CellInsert(outputcolumns, tooverwrite, tooverwrite);
 
-    IF (NOT CellExists(oc, syncattr))
+    IF (NOT CellExists(outputcolumns, syncattr))
       THROW NEW Exception("Domain values sync attribute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
 
-    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := oc ]);
+    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := outputcolumns ]);
 
     VARIANT ARRAY allsyncattrvalues := GetSyncAttrValuesrecursive(r.right.vals, syncattr);
     VARIANT ARRAY doubles :=
