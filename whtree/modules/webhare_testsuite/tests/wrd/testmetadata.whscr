@@ -490,6 +490,16 @@ MACRO TestAsyncMetaTypeChange()
   </object>
 </schemadefinition>`);
   TestEq(FALSE, RecordExists(persontype->GetAttribute("ADDED_ATTRIBUTE")));
+
+  //test regression - accessing a wrdtype after deletion shouldn't be a harescript crash. I guess an exception we'll have to be able to deal with
+  testfw->BeginWork();
+  OBJECT temptype := testfw->GetWRDSchema()->CreateType("TEMPTYPE");
+  temptype->CreateAttribute("FREE1", "FREE", [ title := "Free 1" ]);
+  TestEq(RECORD[], temptype->RunQuery([ outputcolumns := CELL[ "WRD_ID", "FREE1" ]]));
+  temptype->DeleteSelf();
+  testfw->CommitWork();
+
+  TestThrowsLike("Type*deleted*", PTR temptype->RunQuery([ outputcolumns := CELL[ "WRD_ID", "FREE1" ]]));
 }
 
 
