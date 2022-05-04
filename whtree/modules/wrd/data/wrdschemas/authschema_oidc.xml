@@ -10,6 +10,7 @@
       <free tag="CLIENTID" />
       <free tag="CLIENTSECRET" />
       <free tag="ADDITIONALSCOPES" />
+      <free tag="LOGINFIELD" /> <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->
     </attributes>
   </object>
 

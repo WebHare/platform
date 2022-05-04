@@ -76,20 +76,27 @@ PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase
 
   MACRO Init()
   {
-    this->RefreshSMTPServer();
+    this->RefreshConfig();
   }
 
-  MACRO RefreshSMTPServer()
+  MACRO RefreshConfig()
   {
     this->smtpserverurl := ReadRegistryKey("system.services.smtp.defaultmailroute");
     ^smtpserver->value := HideSMTPPassword(this->smtpserverurl);
     ^snsendpoint->value := GetSNSEndpoint();
+    ^mailfrom->value := ReadRegistryKey("system.services.smtp.mailfrom");
   }
 
   MACRO DoMailConfig()
   {
     this->RunScreen("#mailconfig");
-    this->RefreshSMTPServer();
+    this->RefreshConfig();
+  }
+
+  MACRO DoSenderConfig()
+  {
+    this->RunScreen("#senderconfig");
+    this->RefreshConfig();
   }
 
   RECORD ARRAY FUNCTION OnMapRoutes(RECORD ARRAY routes)
@@ -120,9 +127,6 @@ PUBLIC STATIC OBJECTTYPE MailConfig EXTEND TolliumScreenBase
   MACRO Init()
   {
     this->smtpserverurl := ReadRegistryKey("system.services.smtp.defaultmailroute");
-    ^usefornonwhitelisted->value := ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted");
-
-    ^mailfrom->value := ReadRegistryKey("system.services.smtp.mailfrom");
     IF (this->smtpserverurl != "")
     {
       RECORD rec := UnpackURL(this->smtpserverurl);
@@ -139,16 +143,34 @@ PUBLIC STATIC OBJECTTYPE MailConfig EXTEND TolliumScreenBase
     IF (work->HasFailed())
       RETURN FALSE;
 
-    RECORD rec := UnpackURL("smtp://smtp.blex.nl"); // get a record with all URL fields and protcol prefilled
+    RECORD rec := UnpackURL("smtp://example.net"); // get a record with all URL fields and protocol prefilled
     rec.host     := ^hostname->value;
     rec.port     := ^port->value;
     rec.user     := ^authusername->value;
     rec.password := ^authpassword->value;
 
     WriteRegistryKey("system.services.smtp.defaultmailroute", RepackURL(rec));
+
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SenderConfig EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    ^usefornonwhitelisted->value := ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted");
+    ^mailfrom->value := ReadRegistryKey("system.services.smtp.mailfrom");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN FALSE;
+
     WriteRegistryKey("system.services.smtp.mailfrom", ^mailfrom->value);
     WriteRegistryKey("system.services.smtp.usemailfromfornonwhitelisted", ^usefornonwhitelisted->value);
-
     RETURN work->Finish();
   }
 >;
@@ -247,7 +269,7 @@ PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND WRDEntityEditScreenBase
               : "alternative";
 
     this->GotSMTPServerChange();
-    this->RefreshSMTPServer();
+    this->RefreshConfig();
   }
 
   MACRO GotSMTPServerChange()
@@ -294,11 +316,11 @@ PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND WRDEntityEditScreenBase
     IF (dialog->RunModal() = "ok")
     {
       this->smtpserverurl := dialog->value;
-      this->RefreshSMTPServer();
+      this->RefreshConfig();
     }
   }
 
-  MACRO RefreshSMTPServer()
+  MACRO RefreshConfig()
   {
     ^serverurl->value := HideSMTPPassword(this->smtpserverurl);
   }

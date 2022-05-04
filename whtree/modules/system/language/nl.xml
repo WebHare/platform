@@ -1046,10 +1046,6 @@
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
         <text tid="altserver">SMTP server</text>
         <text tid="blocked">Geblokkeerd</text>
-        <text tid="confirm_delete_mailroute">Weet je zeker dat je deze mailroute wilt verwijderen?</text>
-        <text tid="confirmdeletecorrection">Weet je zeker dat je de geselecteerde correctie wil verwijderen?</text>
-        <text tid="confirmdeletereceiver">Weet je zeker dat je ontvanger '<param p="1"/>' van de whitelist wil verwijderen?</text>
-        <text tid="confirmdeletesender">Weet je zeker dat je afzender  '<param p="1"/>' van de whitelist wil verwijderen?</text>
         <text tid="correctionsempty">Er zijn nog geen correcties gespecificeerd</text>
         <text tid="correctiontype">Correctietype</text>
         <text tid="correctiontype-block">Blokkeren</text>
@@ -1089,6 +1085,7 @@
         <text tid="rewriteto">Herschrijf naar</text>
         <text tid="routesempty">Alle mail wordt via de standaard mailserver verstuurd.</text>
         <text tid="routestab">Routes</text>
+        <text tid="senderconfig">Afzenderinstellingen</text>
         <text tid="sendermask">Afzender (Van:)</text>
         <text tid="sendersempty">Alle afzenders zijn geblokkeerd</text>
         <text tid="senderstab">Afzenders</text>
@@ -1137,7 +1134,6 @@
         <text tid="logindialog">Inlogscherm</text>
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
-        <text tid="passwordminlength">Minimum lengte</text>
         <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
         <text tid="pxllog">Bewaar pxl log</text>
