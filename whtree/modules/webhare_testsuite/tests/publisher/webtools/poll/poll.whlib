@@ -13,9 +13,14 @@ PUBLIC RECORD FUNCTION TESTINVOKE_RESETTESTPOLL()
   OBJECT testsite := OpenTestsuiteSite();
   OBJECT pollfile := testsite->OpenByPath("webtools/polltest");
   OpenPoll(pollfile->id)->ResetVotes();
+  OBJECT pollfile2 := testsite->OpenByPath("webtools/polltest2");
+  OpenPoll(pollfile2->id)->ResetVotes();
+  OBJECT pollholder := testsite->OpenByPath("webtools/pollholder");
 
   trans->CommitWork();
 
-  RETURN [ pollurl := CreateWidgetPreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", pollfile->id, pollfile->id) ];
+  RETURN [ pollurl := CreateWidgetPreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", pollfile->id, pollfile->id)
+         , pollholder := pollholder->link
+         ];
 
 }

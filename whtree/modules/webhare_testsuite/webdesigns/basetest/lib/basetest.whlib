@@ -361,3 +361,21 @@ PUBLIC BOOLEAN FUNCTION CheckTestpagesURLHistoryAccess(RECORD urlinfo)
 {
   RETURN urlinfo.url LIKE "*/i-have-got-the-power";
 }
+
+PUBLIC STATIC OBJECTTYPE WidgetBlockWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    Print(`WidgetBlockWidget`);
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    RECORD ARRAY items;
+    FOREVERY( INTEGER widget FROM this->data.widgets )
+      INSERT [ contents := PTR this->context->RenderSharedBlock( ResolveWidgetAsSharedBlock(widget)) ] INTO items AT END;
+
+    this->EmbedComponent( CELL[ items
+                              ] );
+  }
+>;

@@ -1,13 +1,12 @@
 import * as test from "@mod-system/js/wh//testframework";
 
-function testVoteCounts(counts)
+function getVoteCounts(counts)
 {
-  let votecounts = test.qSA('.wh-poll__option__votes');
-  test.eq(counts.length, votecounts.length);
-  counts.forEach( (count,idx) => test.eq(count, parseInt(votecounts[idx].dataset.votes)));
+  return test.qSA('.wh-poll__option__votes').map(_ => parseInt(_.dataset.votes));
 }
 
 let pollurl = '';
+let testdata;
 
 test.registerTests(
   [ async function()
@@ -17,8 +16,8 @@ test.registerTests(
         if(key.startsWith("wh-webtools-votetime:"))
           localStorage.removeItem(key);
 
-      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib#resetTestPoll');
-      pollurl = result.pollurl;
+      testdata = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib#resetTestPoll');
+      pollurl = testdata.pollurl;
     }
 
   , async function()
@@ -27,7 +26,7 @@ test.registerTests(
       console.log(test.qS('.wh-poll__showresultsbutton').getBoundingClientRect());
       console.log(test.qS('.wh-poll').getBoundingClientRect());
       test.click('.wh-poll__showresultsbutton');
-      testVoteCounts([0,0]);
+      test.eq([0,0], getVoteCounts());
     }
 
   , async function()
@@ -42,6 +41,16 @@ test.registerTests(
 
       await test.wait('ui');
 
-      testVoteCounts([0,1]);
+      test.eq([0,1], getVoteCounts());
     }
+
+  , async function()
+    {
+      await test.load(testdata.pollholder);
+      await test.wait('ui');
+
+      test.eq([0,1,0,0], getVoteCounts());
+      //we still can't vote on poll 1
+    }
+
   ]);
