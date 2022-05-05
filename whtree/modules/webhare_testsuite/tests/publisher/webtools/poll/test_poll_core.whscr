@@ -120,64 +120,36 @@ PUBLIC MACRO Prepare()
   RECORD vote_result;
 
 
-  BOOLEAN fail;
-
-
   // Blank votes should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*blank vote*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , DEFAULT STRING ARRAY
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail on blank votes.");
+                  ));
 
 
   // Using an unknown option GUID should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*option*does not*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , ["IDONOTEXISTASOPTION"]
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail on a non-existant option GUID.");
-
+                  ));
 
 
   // Multiple selected options on singlechoice poll should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*multiple votes*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , [ STRING(options[1].guid), options[0].guid ]
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail when trying to vote for multiple options on a singleselect poll.");
+                  ));
 
 
   RECORD hidden_option := SELECT * FROM options WHERE hide;
   TestThrowsLike( "*not available*"
-                , PTR testfw->browser->CallJSONRPC(
+       , PTR testfw->browser->CallJSONRPC(
                       GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                     , pollwebtool->toolid
                     , [ STRING(hidden_option.guid) ] //STRING(options[1].guid) ]
@@ -232,8 +204,6 @@ PUBLIC MACRO Prepare()
   // when we request the statistics again we expect only one change:
   // the "votes" field for the second option must now be 1 instead of 0
   RECORD results2 := pollwebtool->GetResults();
-  //DumpValue(results.options, "tree");
-  //DumpValue(results2.options, "tree");
   TestEq(results.options, results2.options, "GetResults().options didn't return what we expected after having used the RPC CastVote.");
 
 

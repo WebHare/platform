@@ -44,5 +44,4 @@ test.registerTests(
 
       testVoteCounts([0,1]);
     }
-
   ]);
