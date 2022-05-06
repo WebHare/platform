@@ -544,11 +544,11 @@ function getOpenMenuItem(containstext)
 }
 function getWin()
 {
-  return testfw.pageframewin;
+  return testfw.getFrameRecord().win;
 }
 function getDoc()
 {
-  return testfw.pageframedoc;
+  return testfw.getFrameRecord().doc;
 }
 function setFormsapiFileElement (el, filedata, filename)
 {
@@ -690,6 +690,26 @@ async function waitForEmails(email, options)
 async function subtest(name)
 {
   callbacks.subtest(name);
+}
+
+async function addFrame(name, { width })
+{
+  return callbacks.setFrame(name, "add", { width });
+}
+
+async function updateFrame(name, { width })
+{
+  return callbacks.setFrame(name, "update", { width });
+}
+
+async function removeFrame(name)
+{
+  return callbacks.setFrame(name, "delete");
+}
+
+async function selectFrame(name)
+{
+  return callbacks.setFrame(name, "select");
 }
 
 async function load(page)
@@ -872,6 +892,11 @@ module.exports = { registerTests: registerJSTests
                  , getListViewRow
                  , getPxlLog
                  , prepareUploadTest
+
+                 , addFrame
+                 , updateFrame
+                 , removeFrame
+                 , selectFrame
                  };
 
 module_exports = module.exports;

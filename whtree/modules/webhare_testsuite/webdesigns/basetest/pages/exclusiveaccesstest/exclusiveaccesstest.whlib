@@ -1,0 +1,56 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::tollium/lib/applications.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ExclusiveAccessTestPage EXTEND WebPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    this->webdesign->AddResourceDependencies([ "mod::system/web/systemroot/exclusiveaccess/exclusiveaccess.whsock" ]);
+
+    INSERT "exclusiveaccesstest" INTO this->webdesign->htmlclasses AT END;
+    RETURN PTR EmbedWittyComponent(Resolve("exclusiveaccesstest.witty:page"), DEFAULT RECORD);
+  }
+>;
+
+PUBLIC RECORD FUNCTION TestInvoke_TestLockToken(STRING token, BOOLEAN wait)
+{
+  OBJECT lock;
+  TRY
+  {
+    lock := GetExclusiveLockRPCMutex(token);
+
+    IF (wait)
+    {
+      RECORD rec := CreateDeferredPromise();
+
+      RegisterEventCallback("webhare_testsuite:exclusivity.resume", PTR GotCallback(rec.resolve, #1, #2));
+
+      WaitForPromise(rec.promise);
+    }
+
+    RETURN [ success := TRUE ];
+  }
+  FINALLY
+    IF (ObjectExists(lock))
+      lock->Close();
+  RETURN [ success := FALSE ];
+}
+
+MACRO GotCallback(FUNCTION PTR resolve, STRING event, RECORD data)
+{
+  resolve(TRUE);
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_Resume()
+{
+  BroadcastEvent("webhare_testsuite:exclusivity.resume", DEFAULT RECORD);
+  RETURN DEFAULT RECORD;
+}

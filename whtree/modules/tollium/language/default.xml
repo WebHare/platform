@@ -778,6 +778,13 @@
     <text tid="takeover">Take-over</text>
     <text tid="takeoverdenied">Your request to take over the screen has been denied.</text>
     <text tid="waitforreplytext">Waiting for <ifparam p="1" value="">the other user <else/>user <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> to respond to your take-over request.<br/><br/>When left unanswered you will be allowed to take over the screen automatically after <ifparam p="3" value="1">1 second<else/><param p="3"/> seconds</ifparam>.</text>
+    <textgroup gid="frontend">   <!-- exclusive.frontend -->
+      <text tid="alreadylocked"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> is currently using this item. When you take over this item it will be closed for this user.<br/><br/>Are you sure you want to take over the item?</text>
+      <text tid="lockstolen"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> has taken over this item.</text>
+      <text tid="releaserequest"><ifparam p="1" value="">Another user <else/>User <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> requests to take over this item. Unsaved changes will be discarded. <br/><br/>Do you wish to allow this? After <ifparam p="3" value="1">1 second<else/><param p="3"/> seconds</ifparam> the other user will be allowed to take over the item automatically.</text>
+      <text tid="releaserequestdenied">Your request to take over the screen has been denied.</text>
+      <text tid="waitingforowner">Waiting for <ifparam p="1" value="">the other user <else/>user <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> to respond to your take-over request.<br/><br/>When left unanswered you will be allowed to take over the item automatically after <ifparam p="3" value="1">1 second<else/><param p="3"/> seconds</ifparam>.</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="testnotification">Test Notification</text>

@@ -758,6 +758,13 @@
     <text tid="takeover">Overnemen</text>
     <text tid="takeoverdenied">Uw verzoek om het scherm over te mogen nemen is afgewezen.</text>
     <text tid="waitforreplytext">Aan het wachten op een reactie van <ifparam p="1" value="">de andere gebruiker<else/><ifparam p="2" value=""><param p="1"/><else/>gebruiker <param p="2"/> (<param p="1"/>)</ifparam></ifparam>. <br/><br/>Wanneer deze niet reageert geeft wordt de overname na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> automatisch toegestaan.</text>
+    <textgroup gid="frontend">   <!-- exclusive.frontend -->
+      <text tid="alreadylocked"><ifparam p="1" value="">Een andere gebruiker <else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> heeft dit item in gebruik. <br/>Als u dit item overneemt zal het bij deze gebruiker afgesloten worden.<br/><br/>Weet u zeker dat u het item wilt overnemen?</text>
+      <text tid="lockstolen"><ifparam p="1" value="">Een andere gebruiker <else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> heeft dit item overgenomen.</text>
+      <text tid="releaserequest"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> wil dit item overnemen. Niet-opgeslagen gegevens zullen verloren gaan. <br/><br/>Wilt u dit toestaan? Na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> zal de overname automatisch worden toegestaan.</text>
+      <text tid="releaserequestdenied">Uw verzoek om het scherm over te mogen nemen is afgewezen.</text>
+      <text tid="waitingforowner">Aan het wachten op een reactie van <ifparam p="1" value="">de andere gebruiker<else/><ifparam p="2" value=""><param p="1"/><else/>gebruiker <param p="2"/> (<param p="1"/>)</ifparam></ifparam>. <br/><br/>Wanneer deze niet reageert geeft wordt de overname na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> automatisch toegestaan.</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="testnotification">Testmelding</text>

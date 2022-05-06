@@ -1064,7 +1064,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
     STRING identifier := EncodeUFS(GetSHA1Hash(EncodeHSON(tag)));
 
-    this->tollium_exclusivity_handler := NEW ExclusivityHandler(this, identifier, options);
+    this->tollium_exclusivity_handler := NEW TolliumExclusivityHandler(this, identifier, options);
 
     IF (NOT this->tollium_exclusivity_handler->Start())
     {
@@ -1094,7 +1094,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
     STRING identifier := EncodeUFS(GetSHA1Hash(EncodeHSON(tag)));
 
-    OBJECT handler := NEW ExclusivityHandler(this, identifier, CELL[ subscreensonly := TRUE, ...options ]);
+    OBJECT handler := NEW TolliumExclusivityHandler(this, identifier, CELL[ subscreensonly := TRUE, ...options ]);
     IF (NOT handler->Start())
       RETURN FALSE;
 

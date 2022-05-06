@@ -1,0 +1,6 @@
+[component page]
+<div>Status: <span id="status">-</span></div>
+<div>Locked: <span id="locked">no</span></div>
+<button id="startexclusiveaccesstest">Start</button>
+<button id="releaselock" disabled>Release lock</button>
+[/component]
