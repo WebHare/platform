@@ -1,0 +1,128 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+
+/* General API description: https://dev.buckaroo.nl/Apis
+   Actual APIs: https://testcheckout.buckaroo.nl/json/Docs
+
+*/
+
+PUBLIC CONSTANT RECORD ARRAY buckaroo_paymentmethods :=
+  [[ rowkey := "ideal"   //should match Services.ServiceList
+   , title := "iDEAL"
+   , issuers := wrd_payments_idealbanks
+  ]];
+
+CONSTANT STRING apiroot_prod := "https://checkout.buckaroo.nl/json/";
+CONSTANT STRING apiroot_test := "https://testcheckout.buckaroo.nl/json/";
+
+OBJECT buckaroobrowser;
+OBJECT FUNCTION GetBrowser()
+{
+  IF(ObjectExists(buckaroobrowser))
+    RETURN buckaroobrowser;
+
+  buckaroobrowser := NEW WebBrowser;
+  LogRPCForWebbrowser("wrd:payments.buckaroo", "", buckaroobrowser);
+
+  RETURN buckaroobrowser;
+}
+
+STRING FUNCTION EncodeURLBuckaroo(STRING indata) //Buckaroo doesn't specify the expected URI encoder so we'll guess... this one!
+{
+  indata := EncodeURL(indata);
+  indata := Substitute(indata,'/',"%2f");
+  indata := Substitute(indata,'!',"%21");
+  indata := Substitute(indata,'$',"%24");
+  indata := Substitute(indata,'(',"%28");
+  indata := Substitute(indata,')',"%29");
+  indata := Substitute(indata,'%7E','~');
+  //it wants all escapes to be lowercase
+  indata := Substitute(indata,'%3D',"%3d");
+  indata := Substitute(indata,'%3F',"%3f");
+  RETURN indata;
+}
+
+
+RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, STRING culture, STRING channel)
+{
+  STRING method := RecordExists(body) ? "POST" : "GET";
+  STRING finalurl := ResolveToAbsoluteURL(settings.testmode ? apiroot_test : apiroot_prod, suburl);
+  INTEGER requesttimestamp := GetUnixTimestamp(GetCurrentDatetime());
+  STRING nonce := GenerateUFS128BitId();
+  STRING bodytext := EncodeJSON(body);
+
+  // Signature algorithms: https://dev.buckaroo.nl/Apis/Description/json#authentication
+  //                       read the C# example code! the spec is ambiguous (eg requestContentBase64String should be empty if no body, secretkey should not be concatenated, Channel is not optional)
+  //                       also it doesn't specify the URL Encoding algorithm
+  // Debugger: https://dev.buckaroo.nl/Apis/AuthenticationDebugger
+  STRING hashbase := settings.websiteid
+                     || method
+                     || EncodeURLBuckaroo(ToLowercase(Substring(finalurl, 8))) //strip "https://" prefix
+                     || requesttimestamp
+                     || nonce
+                     || (RecordExists(body) ? EncodeBase64(GetMD5Hash(bodytext)) : "");
+  STRING auth := `${settings.websiteid}:${EncodeBase64(GetHashForString(hashbase,"HMAC:SHA-256", settings.secretid))}:${nonce}:${requesttimestamp}`;
+  dumpvalue(hashbase);
+
+  GetBrowser()->SendRawRequest(method, finalurl,
+     [[ field := "Culture", value := culture ]
+     ,[ field := "Channel", value := channel ]
+     ,[ field := "Software", value := `{"PlatformName":"WebHare","PlatformVersion":"${EncodeJava(GetWebhareVersionInfo().version)}","ModuleSupplier":"WebHare","ModuleName":"WRD BuckarooPaymentProvider","ModuleVersion":"1.0"}`]
+     ,[ field := "Content-Type", value := "application/json" ]
+     ,[ field := "Authorization", value := `hmac ${auth}` ]
+     ], RecordExists(body) ? StringToBlob(bodytext) : DEFAULT BLOB);
+
+  RETURN CELL[ status := GetBrowser()->GetHTTPStatusCode()
+             , response := DecodeJSONBlob(GetBrowser()->content)
+             ];
+}
+
+PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  STRING transactionid;
+
+  MACRO NEW(RECORD settings)
+  : WRDPaymentProviderBase("wrd:buckaroo", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD ARRAY methods;
+
+    FOREVERY(RECORD method FROM buckaroo_paymentmethods)
+    {
+      IF(method.rowkey NOT IN this->settings.methods)
+        CONTINUE;
+
+      INSERT [[ paymentoptiontag := method.rowkey
+              , title := method.title
+              , issuers := options.getissuers ? method.issuers : RECORD[]
+             ]] INTO methods AT END;
+    }
+    RETURN methods;
+  }
+>;
+
+PUBLIC BOOLEAN FUNCTION CheckBuckarooMerchant(STRING websiteid, STRING secretid, BOOLEAN testmode)
+{
+  IF(websiteid = "" OR secretid = "")
+    RETURN FALSE;
+
+  RECORD config := CELL[ websiteid, secretid, testmode ];
+  RECORD result := DoBuckarooRequest(config, "/json/Transaction/Specification/ideal?serviceVersion=1.0", DEFAULT RECORD, "nl-NL","Web");
+  RETURN result.status = 200 AND result.response.name = "ideal";
+}

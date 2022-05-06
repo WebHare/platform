@@ -130,19 +130,17 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , webhooks := TRUE
                                ]
           ]
-/*         ,[ tag := "wrd:klarna"
-          , title := ":Klarna"
-          , objectname := "mod::wrd/lib/internal/psp/klarna.whlib#KlarnaPaymentProvider"
-          , payinfoscreen := "paymentproviders:klarna.payinfo"
-          , metadataoptions := DEFAULT RECORD
-          ]
          ,[ tag := "wrd:buckaroo"
           , title := ":Buckaroo"
           , objectname := "mod::wrd/lib/internal/psp/buckaroo.whlib#BuckarooPaymentProvider"
-          , payinfoscreen := "paymentproviders:buckaroo.payinfo"
-          , metadataoptions := DEFAULT RECORD
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/buckaroo.xml#payinfo"
+          , configextensions := "mod::wrd/tolliumapps/payments/buckaroo.xml#configbuckaroo"
+          , metadataoptions := [ websiteid := ""
+                               , secretid := ""
+                               , methods := DEFAULT STRING ARRAY
+                               , testmode := FALSE
+                               ]
           ]
-*/
          ,[ tag := "wrd:test"
           , title := ":Test"
           , objectname := "mod::wrd/lib/internal/psp/test.whlib#TestPaymentProvider"
