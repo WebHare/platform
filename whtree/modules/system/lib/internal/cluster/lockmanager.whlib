@@ -32,6 +32,8 @@ PUBLIC OBJECT FUNCTION ConnectToMutexManager()
 OBJECT lockmgr;
 
 /** Lock object
+    @topic modules/services
+    @public
 */
 OBJECTTYPE MutexLock
 < // ---------------------------------------------------------------------------
@@ -244,6 +246,7 @@ OBJECTTYPE LockManager
 
   /** Locks a mutex
       @param mutexname Name of mutex to lock
+      @return(object #MutexLock) Lock
   */
   PUBLIC OBJECT FUNCTION LockMutex(STRING mutexname)
   {
@@ -254,6 +257,7 @@ OBJECTTYPE LockManager
   /** Tries to locks a mutex
       @param mutexname Name of mutex to lock
       @param wait_until Wait max until this time for the lock.
+      @return(object #MutexLock) Lock (DEFAULT OBJECT if not available before wait_until)
   */
   PUBLIC OBJECT FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
   {
