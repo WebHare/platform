@@ -27,4 +27,5 @@
   <test name="services" path="services/" />
   <test name="heavy" path="heavy/" />
   <test name="precalc" path="precalc/" />
+  <jstest file="testexclusiveaccess.es" />
 </group>

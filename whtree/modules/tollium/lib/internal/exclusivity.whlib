@@ -6,19 +6,24 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 
 /** Handles exclusive opening of tollium screens (or locking for actions), with support for
     stealing access by other users
 */
-PUBLIC STATIC OBJECTTYPE ExclusivityHandler
+PUBLIC STATIC OBJECTTYPE ExclusivityHandlerBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
-  /// Exclusively opened screen
-  OBJECT screen;
+  /** @type(record) User data
+      @cell entityid User entity id
+      @cell login User login name
+      @cell realname User real name
+  */
+  RECORD userdata;
 
   /// Identifier (for encoding multiple instances, eg for edited entities)
   STRING identifier;
@@ -36,10 +41,7 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
   INTEGER requestid_counter;
 
   /// Opened 'can we close?' dialog
-  OBJECT askclosedialog;
-
-  /// Takeover dialogs at requester's side
-  OBJECT takeoverdialog;
+  BOOLEAN askclosedialog_active;
 
   /** Options
       @cell(function ptr) onbeforesteal Callback called just before the screen is stolen
@@ -49,12 +51,15 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
   RECORD options;
 
   /** Steal exitmessage
-      @cell(boolean) showmessage
+      @cell(boolean) showmessage Message to show
       @cell(record) closedby Identity data for the user that stole the screen (login, realname)
-      @cell(string) closedby.login
-      @cell(string) closedby.realname
+      @cell(string) closedby.login Login name of user
+      @cell(string) closedby.realname Real name of user
   */
   RECORD exitmessage;
+
+  /// UID for the current lock
+  STRING pvt_lockuid;
 
   // ---------------------------------------------------------------------------
   //
@@ -70,28 +75,41 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
   */
   PUBLIC PROPERTY requests(GetRequests, -);
 
+  /** @type(string) UID for the current lock
+  */
+  PUBLIC PROPERTY lockuid(pvt_lockuid, -);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
   //
 
   /** Constructs a new ExclusivityHandler object
-    @param screen Screen opening the exclusive access
     @param identifier Identifies the unique resource to protect
+    @param entityid Entity id of user locking the resource
     @param options Options
     @cell(function ptr) options.onbeforesteal Callback called just before the screen is stolen
     @cell(function ptr) options.onsteal Callback called after the screen has been stolen
     @cell(record) options.subscreensonly Close only subscreens of the opening screen
+    @cell(string) options.login Login name of the user
+    @cell(string) options.realname Real name of the user
   */
-  MACRO NEW(OBJECT screen, STRING identifier, RECORD options)
+  MACRO NEW(STRING identifier, INTEGER entityid, RECORD options)
   {
-    this->screen := screen;
     this->identifier := identifier;
     this->options :=  ValidateOptions(
         [ onstolen :=         DEFAULT FUNCTION PTR
         , onbeforesteal :=    DEFAULT FUNCTION PTR
         , subscreensonly :=   FALSE
+        , login :=            ""
+        , realname :=         ""
         ], options);
+
+    this->userdata := CELL
+        [ this->options.login
+        , this->options.realname
+        , entityid
+        ];
   }
 
   // ---------------------------------------------------------------------------
@@ -126,6 +144,7 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
 
   /** Incoming comm link is signalled
       Warning: this can be called from WITHIN the signaltakeover dialog!!!
+      @param link New link
   */
   MACRO OnLinkMessage(OBJECT link)
   {
@@ -145,11 +164,18 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
       CASE "identify"
       {
         // Identification request
-        link->SendReply(
-            [ login :=    this->screen->tolliumuser->login
-            , realname := this->screen->tolliumuser->realname
-            , entityid := this->screen->tolliumuser->entityid
+        link->SendReply(CELL
+            [ this->userdata.login
+            , this->userdata.realname
+            , this->userdata.entityid
             , groupid :=  GetCurrentGroupId()
+            ], rec.msgid);
+      }
+      CASE "verifylockuid"
+      {
+        // Identification request
+        link->SendReply(CELL
+            [ success :=    rec.msg.lockuid = this->pvt_lockuid
             ], rec.msgid);
       }
       CASE "close"
@@ -199,14 +225,12 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
             ] INTO this->pvt_requests AT END;
 
         // Open the ask dialog if not open yet (if already open, we called from within its modal loop!)
-        IF (NOT ObjectExists(this->askclosedialog))
+        IF (NOT this->askclosedialog_active)
         {
           // Run the askclosedialog
-          this->askclosedialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.signaltakeover", CELL[ control := this ]);
-          STRING dres := this->askclosedialog->RunModal();
-
-          // Erase the reference immediately!
-          this->askclosedialog := DEFAULT OBJECT;
+          this->askclosedialog_active := TRUE;
+          STRING dres := this->DisplaySignalTakeoverDialog();
+          this->askclosedialog_active := FALSE;
 
           // Did the user consent to the takeover (say ok, or let it timeout)
           BOOLEAN close_screen := dres IN [ "ok", "timeout" ];
@@ -239,7 +263,9 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
           }
         }
         ELSE // Got another request, update the signaltakeover dialog
-          this->askclosedialog->GotUpdate();
+        {
+          this->UpdateSignalTakeoverDialog();
+        }
       }
     }
   }
@@ -254,13 +280,16 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
   {
     IF (ObjectExists(this->port))
     {
+      this->pvt_lockuid := "";
       UnregisterCallback(this->port->userdata.cb);
       this->port->Close();
       this->port := DEFAULT OBJECT;
     }
   }
 
-  /// Close a comm link
+  /** Close a comm link
+      @param link Link to close
+  */
   MACRO CloseLink(OBJECT link)
   {
     // Cancel requests from this link
@@ -276,34 +305,45 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
       DELETE FROM this->links AT pos;
 
     // If the dialog is open, update its state
-    IF (ObjectExists(this->askclosedialog))
-      this->askclosedialog->GotUpdate();
+    IF (this->askclosedialog_active)
+      this->UpdateSignalTakeoverDialog();
   }
 
   // ---------------------------------------------------------------------------
   //
-  // Callbacks
+  // Public API
   //
 
+  /** Starts locking
+      @return TRUE if lock was succesfull
+  */
   PUBLIC BOOLEAN FUNCTION Start()
   {
+    STRING portname := "tollium:exclusive_access." || this->identifier;
+
     // Wait loop
     WHILE (TRUE)
     {
+      OBJECT lock := OpenLockManager()->LockMutex(portname);
       TRY
       {
         // Try to register our port. Only one port with the same name can be active in a process (webserver).
         // Throws upon failure
-        this->port := CreateIPCPort("tollium:exclusive_access." || this->identifier);
+        this->port := CreateIPCPort(portname);
+        lock->Close();
 
         // Listen to incoming takeover requests
         this->port->userdata := [ cb := RegisterHandleReadCallback(this->port->handle, PTR this->OnLink) ];
+
+        this->pvt_lockuid := GenerateUFS128BitId();
         RETURN TRUE;
       }
       CATCH (OBJECT e)
       {
+        lock->Close();
+
         // Port already existed. Connect to it.
-        OBJECT link := ConnectToIPCPort("tollium:exclusive_access." || this->identifier);
+        OBJECT link := ConnectToIPCPort(portname);
         IF (NOT ObjectExists(link)) // Might have gone already.
           CONTINUE;
 
@@ -320,9 +360,11 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
               THROW NEW Exception("Recursive exclusive access lock detected!");
 
             // Is this a tab of the current user?
-            IF (res.msg.entityid = this->screen->tolliumuser->entityid)
+            IF (res.msg.entityid = this->userdata.entityid AND res.msg.entityid > 0)
             {
               // Ask what to do
+              STRING dres := this->DisplayStealDialog(CELL[ res.msg, link, isown := TRUE ]);
+/*
               OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.stealdialog",
                   [ msg := res.msg
                   , link := link
@@ -331,7 +373,7 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
                   ]);
 
               STRING dres := dialog->RunModal();
-
+*/
               // Other side disappeared? Retry loop
               IF (dres = "linkbroken")
                 CONTINUE;
@@ -341,8 +383,8 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
               {
                 link->DoRequest(
                     [ type := "close"
-                    , login :=    this->screen->tolliumuser->login
-                    , realname := this->screen->tolliumuser->realname
+                    , login :=    this->userdata.login
+                    , realname := this->userdata.realname
                     ]);
                 CONTINUE;
               }
@@ -350,6 +392,8 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
             ELSE
             {
               // Ask if user wants to take over dialog from other user
+              STRING dres := this->DisplayStealDialog(CELL[ res.msg, link, isown := FALSE ]);
+/*
               OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.stealdialog",
                   [ msg := res.msg
                   , link := link
@@ -358,31 +402,30 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
                   ]);
 
               STRING dres := dialog->RunModal();
+*/
               IF (dres = "ok")
               {
                 // Yes, user wants to. Run screen waitforreply, it will do the request
+                dres := this->DisplayRunTakeoverRequest(CELL[ res.msg, link ]);
+/*
                 dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.runtakeoverrequest",
                     [ msg := res.msg
                     , link := link
                     , title := this->screen->frame->title
                     ]);
                 dres := dialog->RunModal();
-
+*/
                 IF (dres = "ok")
                   CONTINUE;
                 ELSE IF (dres = "denied")
                 {
-                  this->screen->tolliumcontroller->RunMessageBox("tollium:exclusive.takeoverdenied", this->screen->frame->title);
+                  this->DisplayTakeoverDenied();
                   RETURN FALSE;
                 }
               }
               ELSE IF (dres = "linkbroken")
                 CONTINUE;
             }
-
-            // Asked for license to close, but didn't get it
-            IF (NOT this->options.subscreensonly)
-              this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
 
             // Cleanup resources
             this->Close();
@@ -396,6 +439,8 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
     RETURN FALSE;
   }
 
+  /** Checks if the resource is still owned. Throws OperationCancelledException if not
+  */
   PUBLIC MACRO Check()
   {
     IF (RecordExists(this->exitmessage))
@@ -416,14 +461,7 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
 
     IF (RecordExists(this->exitmessage))
     {
-      IF (this->exitmessage.showmessage)
-        this->screen->RunMessageBox("tollium:exclusive.dialogstolen", this->exitmessage.closedby.login, this->exitmessage.closedby.realname);
-
-      // Close the relevant screens
-      IF (this->options.subscreensonly)
-        this->screen->tolliumcontroller->MarkChildrenScreensAsStolen(this->screen);
-      ELSE
-        this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
+      this->DisplayStolenMessage(CELL[ this->exitmessage.showmessage, this->exitmessage.closedby ]);
 
       IF (CellExists(this->options, "ONSTOLEN") AND this->options.onstolen != DEFAULT FUNCTION PTR)
         this->options.onstolen();
@@ -431,6 +469,168 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
       this->exitmessage := DEFAULT RECORD;
     }
   }
+
+  /** Get a lock token, which can be used to get a mutex
+      @return Lock token
+  */
+  PUBLIC STRING FUNCTION GetLockToken()
+  {
+    IF (this->pvt_lockuid = "")
+      THROW NEW Exception(`Lock is currently not taken`);
+
+    RETURN EncryptForThisServer("tollium:exclusivity", CELL[ i := this->identifier, t := this->pvt_lockuid ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks to override
+  //
+
+  /** Display a dialog that a resource is already locked
+      @param data Message data
+      @cell data.msg Owner of the resource
+      @cell data.msg.login Login name
+      @cell data.msg.realname Real name
+      @cell data.msg.entityid Entity ID
+      @cell data.msg.groupid GroupId of the job with the lock
+      @cell data.link Link to the exclusivityhandler of the owner
+      @cell data.isown Whether the current user is the user who owns the lock
+      @return 'linkbroken', 'ok' (to steal from other user), 'cancel'/''
+  */
+  STRING FUNCTION DisplayStealDialog(RECORD data)
+  {
+    THROW NEW Exception(`Display steal dialog`);
+  }
+
+  /** Display a dialog that shows the progress of a takeover request
+      @param data Message data
+      @cell data.msg Owner of the resource
+      @cell data.msg.login Login name
+      @cell data.msg.realname Real name
+      @cell data.msg.entityid Entity ID
+      @cell data.msg.groupid GroupId of the job with the lock
+      @cell data.link Link to the exclusivityhandler of the owner
+      @return 'ok', 'denied', 'cancel'/''
+  */
+  STRING FUNCTION DisplayRunTakeoverRequest(RECORD data)
+  {
+    THROW NEW Exception(`Display run takeoverrequest screen`);
+  }
+
+  /** Display a dialog that the request to take over the resource has been denied
+  */
+  MACRO DisplayTakeoverDenied()
+  {
+    THROW NEW Exception(`Display takeover denied screen`);
+  }
+
+  /** Display a dialog that a user wants to take over the dialog
+      @return 'ok', 'cancel'/'', 'timeout'
+  */
+  STRING FUNCTION DisplaySignalTakeoverDialog()
+  {
+    THROW NEW Exception(`Display steal dialog (resource is locked by other user`);
+  }
+
+  /// Called when lock info changes during showing of signal takeover dialog
+  MACRO UpdateSignalTakeoverDialog()
+  {
+  }
+
+  /** Display that the resource got stolen (and close the screens)
+      @param exitmessage Exit message data
+      @cell exitmessage.showmessage Whether a message should be displayed
+      @cell exitmessage.closedby Who took the resource
+      @cell exitmessage.closedby.login Login name
+      @cell exitmessage.closedby.realname Real name
+  */
+  MACRO DisplayStolenMessage(RECORD exitmessage)
+  {
+    THROW NEW Exception(`Display resource stolen screen`);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TolliumExclusivityHandler EXTEND ExclusivityHandlerBase
+<
+  OBJECT screen;
+  OBJECT askclosedialog;
+
+  MACRO NEW(OBJECT screen, STRING identifier, RECORD options)
+  : ExclusivityHandlerBase(identifier, screen->tolliumuser->entityid, CELL
+      [ ...options
+      , screen->tolliumuser->login
+      , screen->tolliumuser->realname
+      ])
+  {
+    this->screen := screen;
+  }
+
+  UPDATE STRING FUNCTION DisplaySignalTakeoverDialog()
+  {
+    this->askclosedialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.signaltakeover", CELL[ control := this ]);
+    STRING dres := this->askclosedialog->RunModal();
+    this->askclosedialog := DEFAULT OBJECT;
+    RETURN dres;
+  }
+
+  UPDATE MACRO UpdateSignalTakeoverDialog()
+  {
+    // If the dialog is open, update its state
+    IF (ObjectExists(this->askclosedialog))
+      this->askclosedialog->GotUpdate();
+  }
+
+  UPDATE STRING FUNCTION DisplayStealDialog(RECORD data)
+  {
+    OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.stealdialog", CELL
+        [ data.msg
+        , data.link
+        , data.isown
+        , title := this->screen->frame->title
+        ]);
+
+    RETURN dialog->RunModal();
+  }
+
+  UPDATE STRING FUNCTION DisplayRunTakeoverRequest(RECORD data)
+  {
+    OBJECT dialog := this->screen->tolliumcontroller->LoadScreen("tollium:exclusive.runtakeoverrequest", CELL
+        [ data.msg
+        , data.link
+        , title := this->screen->frame->title
+        ]);
+    RETURN dialog->RunModal();
+  }
+
+  UPDATE MACRO DisplayTakeoverDenied()
+  {
+    this->screen->tolliumcontroller->RunMessageBox("tollium:exclusive.takeoverdenied", this->screen->frame->title);
+  }
+
+  UPDATE MACRO DisplayStolenMessage(RECORD exitmessage)
+  {
+    IF (exitmessage.showmessage)
+      this->screen->RunMessageBox("tollium:exclusive.dialogstolen", exitmessage.closedby.login, exitmessage.closedby.realname);
+
+    // Close the relevant screens
+    IF (this->options.subscreensonly)
+      this->screen->tolliumcontroller->MarkChildrenScreensAsStolen(this->screen);
+    ELSE
+      this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
+
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION Start()
+  {
+    BOOLEAN result := ExclusivityHandlerBase::Start();
+
+    // Asked for lock, but didn't get it
+    IF (NOT result AND NOT this->options.subscreensonly)
+      this->screen->tolliumcontroller->MarkScreenAsStolen(this->screen);
+
+    RETURN result;
+  }
+
 >;
 
 /** Returns TRUE when a specific tag has a tollium screen exclusive lock. Only
@@ -453,7 +653,6 @@ PUBLIC BOOLEAN FUNCTION TestExclusiveLocked(RECORD tag)
 
   RETURN FALSE;
 }
-
 
 /** Status object returned by [GetBulkExclusiveLock](#GetBulkExclusiveLock)
     @public
@@ -663,6 +862,13 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
                 , groupid :=  GetCurrentGroupId()
                 ], rec.msgid);
           }
+          CASE "verifyuid"
+          {
+            link->SendReply(
+                [ success :=  FALSE
+                ], rec.msgid);
+
+          }
           CASE "close", "requestclose"
           {
             // Ignoring, assume that a bulk operation is speedy
@@ -717,15 +923,20 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
     STRING portname := "tollium:exclusive_access." || this->_status[pos].identifier;
     WHILE (TRUE)
     {
+      OBJECT lock;
       TRY
       {
+        lock := OpenLockManager()->LockMutex(portname);
         OBJECT port := CreateIPCPort(portname);
+        lock->Close();
         this->UpdateStatus(pos, [ status := "ok", id := DEFAULT RECORD ]);
         this->HandlePort(pos, port)->LinkToken(canceltoken);
         BREAK;
       }
-      CATCH
+      CATCH (OBJECT e)
       {
+        IF (ObjectExists(lock))
+          lock->Close();
         OBJECT link := ConnectToIPCPort(portname);
         IF (ObjectExists(link))
         {
@@ -813,3 +1024,36 @@ PUBLIC OBJECT FUNCTION GetBulkExclusiveLock(RECORD ARRAY tags, RECORD options DE
 
   RETURN NEW BulkExclusiveKeeper(tags, options);
 }
+
+
+/** Get a mutex usable in RPC context. The exclusive lock won't be opened by
+    another user while this mutex is locked.
+    @param locktoken Lock token
+    @return(object mod::system/lib/internal/cluster/lockmanager.whlib#MutexLock) Mutex lock. Do not
+    forget to call 'Close' on the lock when done (throws if the lock wasn't taken)
+    @public
+    @loadlib mod::tollium/lib/applications.whlib
+    @topic tollium/appdev
+*/
+PUBLIC OBJECT FUNCTION GetExclusiveLockRPCMutex(STRING locktoken)
+{
+  RECORD parts := DecryptForThisServer("tollium:exclusivity", locktoken);
+
+  STRING portname := "tollium:exclusive_access." || parts.i;
+  OBJECT lock := OpenLockManager()->LockMutex(portname);
+  OBJECT link := ConnectToIPCPort(portname);
+  IF (ObjectExists(link))
+  {
+    RECORD rec := link->DoRequest([ type := "verifylockuid", lockuid := parts.t ]);
+    link->Close();
+    IF (rec.status = "ok" AND rec.msg.success)
+      RETURN lock;
+  }
+
+  lock->Close();
+  THROW NEW Exception(`The lock was already released`);
+}
+
+
+
+

@@ -5,6 +5,12 @@
              xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite"
              xmlns:xyz="urn:xyz">
 
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest"
+            kind="virtualfile"
+            isacceptableindex="true">
+    <dynamicexecution webpageobjectname="pages/exclusiveaccesstest/exclusiveaccesstest.whlib#ExclusiveAccessTestPage" />
+  </filetype>
+
   <!-- Global site settings -->
   <apply>
     <to type="all" />
@@ -82,10 +88,7 @@
                   capturesubpaths="true"
                   tag="prebuiltshtml_csp"
                   webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
-    <prebuiltpage type="static"
-                  capturesubpaths="true"
-                  tag="prebuilthtml_csp"
-                  webpageobjectname="pages/xxx.whlib#XXXPage" />
+    <prebuiltpage type="static" capturesubpaths="true" tag="prebuilthtml_csp" webpageobjectname="pages/xxx.whlib#XXXPage" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
@@ -357,8 +360,8 @@
               editextension="#editlevel1"
               renderobjectname="lib/basetest.whlib#Level1Widget">
     <members>
-      <member name="richdoc" type="richdocument" />
-      <member name="fileref" type="whfsref" />
+      <richdocument name="richdoc" />
+      <whfsref name="fileref" />
     </members>
   </widgettype>
 
@@ -376,12 +379,12 @@
               renderobjectname="lib/basetest.whlib#Level2Widget"
               wittycomponent="witty/basetest.witty:level2widget">
     <members>
-      <member name="richdoc" type="richdocument" />
-      <member name="fileref" type="whfsref" />
-      <member name="testrenderinstance_array" type="array">
-        <member name="membera" type="string" />
-        <member name="memberb" type="string" />
-      </member>
+      <richdocument name="richdoc" />
+      <whfsref name="fileref" />
+      <array name="testrenderinstance_array">
+        <string name="membera" />
+        <string name="memberb" />
+      </array>
     </members>
   </widgettype>
 
@@ -814,6 +817,7 @@
     <to type="all" pathmask="/tmp/*follow*" />
     <urlhistory store="true" />
   </apply>
+
   <apply>
     <to type="all" pathmask="/testpages/" />
     <urlhistory accesscheck="lib/basetest.whlib#CheckTestpagesURLHistoryAccess" />
@@ -954,9 +958,7 @@
       <webrule path="/tmp/subsub2/" match="initial">
         <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
       </webrule>
-      <webrule path="/tmp/secret/"
-               match="initial"
-               requirehttpauth="true">
+      <webrule path="/tmp/secret/" match="initial" requirehttpauth="true">
         <account password="protected" username="service" />
         <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
       </webrule>

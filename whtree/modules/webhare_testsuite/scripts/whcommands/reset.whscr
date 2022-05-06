@@ -275,6 +275,8 @@ FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.r
         ]);
 }
 
+testpages->CreateFile( [ name := "exclusiveaccesstest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest", publish := TRUE ] );
+
 ScheduleFolderRepublish(testsite->id,TRUE,TRUE);
 
 STRING alttestsitehost := ReadRegistryKey("webhare_testsuite.tests.alttestsitehost");

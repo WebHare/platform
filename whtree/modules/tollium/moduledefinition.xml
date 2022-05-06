@@ -24,6 +24,8 @@
              match="initial"
              priority="after"
              redirecttoscript="internal/filetransfer.shtml" />
+
+    <webrule path="allroots:/.tollium/exclusiveaccess/" match="initial" redirecttodir="web:/exclusiveaccess/" priority="after" />
   </backend>
 
   <portal>

@@ -1,0 +1,373 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+LOADLIB "mod::tollium/lib/internal/exclusivity.whlib";
+
+
+//rudesh sawitri
+
+
+MACRO IgnoreError() {}
+
+/* Protocol:
+
+   incoming messages;
+        => "lock": want to lock a resource
+        => "requestLock": want to takeover the lock from the client that has it
+        => "allowReleaseRequest": allow the takeover of your lock
+        => "denyReleaseRequest": deny the takeover of your lock
+        => "release": close the lock/cancel the lock request
+
+    outgoing messages;
+
+        <= "alreadyLocked" + info: resource is already owned by another client
+        <= "waitingForOwner" + info + timeleft: response to requestLock
+        <= "releaseRequestDenied": request to release the lock was denied
+        <= "lockDenied": lock was not obtained (for any reason). Is also sent after
+              "releaseRequestDenied"
+        <= "lockGranted" + token: lock on the resource has been obtained
+        <= "releaseRequest" + info + timeleft: other client wants to take over the lock
+        <= "cancelReleaseRequest": request to take over was cancelled
+        <= "updateReleaseRequest" + info + timeleft: another client wants to take over the lock
+        <= "lockStolen" + info: lock was stolen by another client (received allowReleaseRequest,
+              timeout on release request or request to takeover lock from client with same entityid)
+*/
+
+
+PUBLIC STATIC OBJECTTYPE WebExclusivityHandler EXTEND ExclusivityHandlerBase
+<
+  OBJECT handler;
+
+  MACRO NEW(OBJECT handler, STRING identifier, INTEGER entityid, STRING login, STRING realname)
+  : ExclusivityHandlerBase(identifier, entityid, CELL
+      [ login
+      , realname
+      ])
+  {
+    this->handler := handler;
+  }
+
+  UPDATE STRING FUNCTION DisplayStealDialog(RECORD data)
+  {
+    // signal the client the resource is already locked
+    this->handler->fifo->Push(
+        [ type := "local-alreadyLocked"
+        , info := CELL[ data.msg.login, data.msg.realname ]
+        ]);
+
+    // create a promise to record the client's response
+    this->handler->alreadylocked_response := CreateDeferredPromise();
+
+    // wait for either the resource to become free or the client to respond
+    OBJECT waitsignalled := data.link->AsyncWaitRead(MAX_DATETIME);
+    WHILE (TRUE)
+    {
+      RECORD res := WaitForPromise(CreatePromiseRace([ waitsignalled, this->handler->alreadylocked_response.promise ], [ wrap := TRUE ]));
+      IF (res.source = waitsignalled)
+      {
+        // resource might have become free (when link is gone)
+        IF (data.link->ReceiveMessage(DEFAULT DATETIME).status = "gone") // Warning: this eats messages!
+          RETURN "linkbroken";
+        waitsignalled := data.link->AsyncWaitRead(MAX_DATETIME);
+      }
+      ELSE
+      {
+        // client has responded, return the response ('ok' or something else)
+        waitsignalled->Cancel();
+        RETURN res.value;
+      }
+    }
+  }
+
+  UPDATE STRING FUNCTION DisplayRunTakeoverRequest(RECORD data)
+  {
+    // get the takeover time (ADDME: make configurable?)
+    INTEGER waitsecs := ReadRegistryKey("system.backend.exclusiveaccess.takeovertime");
+
+    DATETIME requesttime := GetCurrentDateTime();
+    INTEGER diff := waitsecs * 1000;
+    DATETIME deadline := AddTimeToDate(diff, requesttime);
+
+    // open the waitingForOwner at the client
+    this->handler->fifo->Push(
+        [ type :=     "local-waitingForOwner"
+        , info :=     CELL[ data.msg.login, data.msg.realname ]
+        , timeleft := diff
+        ]);
+
+    // Request the close timeout to start at owner of the resource
+    data.link->SendMessage(CELL
+        [ type :=     "requestclose"
+        , login :=    this->userdata.login
+        , realname := this->userdata.realname
+        , deadline
+        ]);
+
+    // wait for the answer of the current owner of the cancel of the user
+    OBJECT waitsignalled := data.link->AsyncWaitRead(MAX_DATETIME);
+    WHILE (TRUE)
+    {
+      RECORD res := WaitForPromise(CreatePromiseRace([ waitsignalled, this->handler->cancel_response.promise ], [ wrap := TRUE ]));
+      IF (res.source = waitsignalled)
+      {
+        RECORD rec := data.link->ReceiveMessage(DEFAULT DATETIME);
+        IF (rec.status = "gone")
+          RETURN "ok";
+        ELSE IF (rec.status != "timeout")
+        {
+          // [ success := FALSE ] means the request is denied (manually or by granting other user access)
+          IF (NOT rec.msg.success)
+            RETURN "denied";
+          ELSE
+            RETURN "ok";
+        }
+      }
+      ELSE
+      {
+        waitsignalled->Cancel();
+        waitsignalled->OnError(PTR IgnoreError);
+        RETURN res.value;
+      }
+    }
+  }
+
+  UPDATE STRING FUNCTION DisplaySignalTakeoverDialog()
+  {
+    RECORD req := this->requests;
+    DATETIME now := GetCurrentDateTime();
+    INTEGER diff := GetDateTimeDifference(now, req.deadline).msecs;
+
+    // signal the client that a release request for his resource is now active
+    this->handler->fifo->Push(
+        [ type :=     "local-releaseRequest"
+        , info :=     CELL[ req.login, req.realname ]
+        , timeleft := diff
+        ]);
+
+    // create a promise with the client's response
+    this->handler->releaserequest_response := CreateDeferredPromise();
+
+    // wait for either the resource to become free or the client to respond
+    OBJECT deadline := CreateDeadlinePromise(req.deadline);
+    WHILE (TRUE)
+    {
+      RECORD res := WaitForPromise(CreatePromiseRace([ deadline, this->handler->releaserequest_response.promise ], [ wrap := TRUE ]));
+      IF (res.source = deadline)
+        RETURN "timeout";
+      ELSE
+        RETURN res.value;
+    }
+  }
+
+  UPDATE MACRO UpdateSignalTakeoverDialog()
+  {
+    // the list of requests have been updated
+    RECORD req := this->requests;
+    IF (NOT RecordExists(req))
+    {
+      // no more takeover requests, hide the dialog at the client and auto-cancel
+      this->handler->fifo->Push(
+          [ type :=     "local-cancelReleaseRequest"
+          ]);
+      this->handler->releaserequest_response.resolve("cancel");
+    }
+    ELSE
+    {
+      // update the dialog at the client
+      DATETIME now := GetCurrentDateTime();
+      INTEGER diff := GetDateTimeDifference(now, req.deadline).msecs;
+
+      this->handler->fifo->Push(
+          [ type :=     "local-updateReleaseRequest"
+          , info :=     CELL[ req.login, req.realname ]
+          , timeleft := diff
+          ]);
+    }
+  }
+
+  UPDATE MACRO DisplayTakeoverDenied()
+  {
+    this->handler->fifo->Push(CELL[ type := "local-takeoverdenied" ]);
+  }
+
+  UPDATE MACRO DisplayStolenMessage(RECORD exitmessage)
+  {
+    this->handler->fifo->Push(CELL[ type := "local-lockstolen", exitmessage ]);
+  }
+
+>;
+
+OBJECTTYPE LockHandler
+< /// @type(object #WebExclusivityHandler) Exclusivity handler
+  OBJECT handler;
+
+  /** @type(object mod::system/lib/internal/asynctools.whlib#FIFO) FIFO filled with websocket messages
+    and local control messages. Stored in records with cell 'type'. The type of local messages is prefixed
+    with 'local-'
+  */
+  PUBLIC OBJECT fifo;
+
+  /// Callback to send messages over the websocket
+  FUNCTION PTR sendmessage;
+
+  /// Callback to send a close over the websocket
+  FUNCTION PTR close;
+
+  /// Deferred promise, resolved when the client cancels
+  PUBLIC RECORD cancel_response;
+
+  /// Deferred promise to keep the response of the client to the 'alreadyLocked' dialog
+  PUBLIC RECORD alreadylocked_response;
+
+  /// Deferred promise to keep the response of the client to the 'releaseRequest' dialog
+  PUBLIC RECORD releaserequest_response;
+
+  MACRO NEW(FUNCTION PTR sendmessage, FUNCTION PTR close)
+  {
+    this->fifo := NEW FIFO;
+    this->sendmessage := sendmessage;
+    this->close := close;
+    this->cancel_response := CreateDeferredPromise();
+  }
+
+  MACRO StartExclusivityHandler(STRING identifier, RECORD data)
+  {
+    identifier := EncodeUFS(GetSHA1Hash(EncodeHSON([ jslock := identifier ])));
+
+    this->handler := NEW WebExclusivityHandler(this, identifier, data.entityid, data.login, data.realname);
+    IF (this->handler->Start())
+      this->fifo->Push([ type := "local-lockGranted", token := this->handler->GetLockToken() ]);
+    ELSE
+    {
+      this->handler := DEFAULT OBJECT;
+      this->fifo->Push([ type := "local-lockDenied" ]);
+    }
+  }
+
+  /// Central loop, handle all messages in the FIFO
+  PUBLIC ASYNC MACRO HandleFIFO()
+  {
+    WHILE (TRUE)
+    {
+      RECORD item := AWAIT this->fifo->AsyncShift();
+      IF (item.type = "close")
+        TerminateScript();
+
+      SWITCH (item.type)
+      {
+        CASE "lock"
+        {
+          IF (ObjectExists(this->handler))
+            THROW NEW Exception(`Cannot take multiple locks at the same time`);
+          ScheduleMicrotask(PTR this->StartExclusivityHandler(item.identifier, item.userinfo));
+        }
+        CASE "local-lockGranted"
+        {
+          this->sendmessage(CELL[ type := "lockGranted", item.token ]);
+        }
+        CASE "local-lockDenied"
+        {
+          this->sendmessage(CELL[ type := "lockDenied" ]);
+        }
+        CASE "local-alreadyLocked"
+        {
+          this->sendmessage(CELL[ type := "alreadyLocked", item.info ]);
+        }
+        CASE "requestLock"
+        {
+          IF (RecordExists(this->alreadylocked_response))
+            this->alreadylocked_response.resolve("ok");
+        }
+        CASE "local-waitingForOwner"
+        {
+          this->sendmessage(CELL[ type := "waitingForOwner", item.info, item.timeleft ]);
+        }
+        CASE "local-lockstolen"
+        {
+          this->sendmessage(CELL[ type := "lockStolen", info := item.exitmessage.closedby ]);
+          this->close();
+        }
+        CASE "local-releaseRequest"
+        {
+          this->sendmessage(CELL[ type := "releaseRequest", item.timeleft, item.info ]);
+        }
+        CASE "local-updateReleaseRequest"
+        {
+          this->sendmessage(CELL[ type := "updateReleaseRequest", item.timeleft, item.info ]);
+        }
+        CASE "local-cancelReleaseRequest"
+        {
+          this->sendmessage(CELL[ type := "cancelReleaseRequest" ]);
+        }
+        CASE "denyReleaseRequest"
+        {
+          IF (RecordExists(this->releaserequest_response))
+            this->releaserequest_response.resolve("denied");
+        }
+        CASE "allowReleaseRequest"
+        {
+          IF (RecordExists(this->releaserequest_response))
+            this->releaserequest_response.resolve("ok");
+        }
+        CASE "local-takeoverdenied"
+        {
+          this->sendmessage(CELL[ type := "releaseRequestDenied" ]);
+        }
+        CASE "release"
+        {
+          IF (ObjectExists(this->handler))
+            this->handler->Close();
+          this->handler := DEFAULT OBJECT;
+          IF (RecordExists(this->releaserequest_response))
+            this->releaserequest_response.resolve("ok");
+          this->cancel_response.resolve(TRUE);
+        }
+        DEFAULT
+        {
+          ABORT(`Unhandled type ${item.type}`);
+        }
+      }
+    }
+  }
+>;
+
+MACRO PushPacket(OBJECT fifo, VARIANT data)
+{
+  VARIANT rec := TypeID(data) = TypeID(BLOB) ? DecodeJSONBlob(data) : DecodeJSON(data);
+  fifo->Push(RECORD(rec));
+}
+
+MACRO PushClose(OBJECT fifo, INTEGER code, STRING reason)
+{
+  fifo->Push([ type := "close" ]);
+}
+
+MACRO SendMessage(OBJECT wshandler, RECORD message)
+{
+  wshandler->SendData(EncodeJSON(message));
+}
+
+MACRO Close(OBJECT wshandler)
+{
+  wshandler->Close();
+}
+
+OpenPrimary();
+OBJECT handler := CreateWebSocketHandler();
+
+OBJECT lock := NEW LockHandler(PTR SendMessage(handler, #1), PTR Close(handler));
+lock->fifo := NEW FIFO;
+
+handler->ondata := PTR PushPacket(lock->fifo, #1);
+handler->onclose := PTR PushClose(lock->fifo, #1, #2);
+lock->HandleFIFO();
+handler->Run();
