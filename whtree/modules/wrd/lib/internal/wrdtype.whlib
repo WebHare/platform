@@ -2046,7 +2046,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(RecordExists(val))
           INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val/*StoreInstanceInWHFS(this->wrdschema->id, val, whfsmapper)*/, linktype := 1 ] INTO newsets AT END;
       }
-      CASE 20 /* intextlink */
+      CASE 20 // WHFSINTEXTLINK
       {
         val := this->EnsureRecord(attr, val);
 
@@ -2066,6 +2066,20 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           ELSE IF(val.internallink != 0)
             INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val.internallink, linktype := 2 ] INTO newsets AT END;
         }
+      }
+      CASE 29 // WHFSLINK
+      {
+        IF (NOT IsDefaultValue(whfsmapper))
+        {
+          IF(TypeId(val) != TYPEID(STRING))
+            THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
+          val := whfsmapper->UnmapWHFSRef(val);
+        }
+        ELSE IF(TypeId(val) != TYPEID(INTEGER))
+          THROW NEW Exception(`Value must be of type INTEGER, got ${GetTypeName(TYPEID(val))}`);
+
+        IF(val != 0)
+          INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val, linktype := 2 ] INTO newsets AT END;
       }
       CASE 22 //RECORD (HSON)
       {

@@ -53,6 +53,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   persontype->CreateAttribute("TESTINSTANCE", "WHFSINSTANCE", [ title := "Testinstance" ]);
   persontype->CreateAttribute("TESTINTEXTLINK", "WHFSINTEXTLINK", [ title := "Testintextlink" ]);
   persontype->CreateAttribute("TESTINTEXTLINK_NOCHECK", "WHFSINTEXTLINK", [ title := "Testintextlink with checklinks=false", checklinks := FALSE ]);
+  persontype->CreateAttribute("TESTLINK", "WHFSLINK", [ title := "testlink" ]);
   persontype->CreateAttribute("URL", "URL", [ title := "URL" ]);
 
   persontype->CreateEntity([ wrd_contact_email := "temp@beta.webhare.net"], [ temp := TRUE ]);
@@ -105,7 +106,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
       , outputcolumns := [ "*" ]
       ]);
   TestEq(testpersonrec.wrd_fullname, testpersonrec4.wrd_title);
-  TestEq(37,Length(UnpackRecord(testpersonrec4)));
+  TestEq(38,Length(UnpackRecord(testpersonrec4)));
 
   //Verify the getentityfields counterpart
   RECORD testpersonrec5 := persontype->GetEntityFields(testpersonid, [ "*" ]);
@@ -254,6 +255,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
                                                 , fsref := destlink->id
                                                 ]
                               , testintextlink := [ internallink := destlink->id, externallink := "", append := "#jantje" ]
+                              , testlink := destlink->id
                               ] );
   }
   schemaobj->SetSchemaSetting("wrd:debug.answer", 42);

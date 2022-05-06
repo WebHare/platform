@@ -3496,6 +3496,7 @@ STATIC OBJECTTYPE WRDDBPaymentValue EXTEND WRDDBIncomparableValue
     query->RequestAdditionalColumns(settings_source, [ "id", "rawdata", "blobdata", "setting" ]);
   }
 >;
+
 STATIC OBJECTTYPE WRDDBIntExtLinkValue EXTEND WRDDBIncomparableValue
 <
   OBJECT linkgetter;
@@ -3526,6 +3527,45 @@ STATIC OBJECTTYPE WRDDBIntExtLinkValue EXTEND WRDDBIncomparableValue
     query->RequestAdditionalColumns(settings_source, [ "id", "rawdata" ]);
   }
 >;
+
+STATIC OBJECTTYPE WRDDBWHFSLinkValue EXTEND WRDDBIncomparableValue
+<
+  OBJECT linkgetter;
+  OBJECT whfsmapper;
+
+  MACRO NEW(OBJECT type, RECORD attr, RECORD options)
+  : WRDDBIncomparableValue(type, attr)
+  {
+    this->linkgetter := options.linkgetter;
+    this->whfsmapper := options.whfsmapper;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+  {
+    IF(ObjectExists(this->whfsmapper))
+      RETURN "";
+    ELSE
+      RETURN 0;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
+  {
+    RECORD retval;
+    IF(settings_start != settings_limit)
+      retval := ReadWRDWHFSIntExtLink(entity_settings[settings_start], this->linkgetter, this->whfsmapper);
+
+    IF(ObjectExists(this->whfsmapper))
+      RETURN RecordExists(retval) ? retval.internallink : "";
+    ELSE
+      RETURN RecordExists(retval) ? retval.internallink : 0;
+  }
+
+  PUBLIC UPDATE MACRO RequestNeededColumns(OBJECT query, STRING settings_source)
+  {
+    query->RequestAdditionalColumns(settings_source, [ "id" ]);
+  }
+>;
+
 
 STATIC OBJECTTYPE WRDDBAuthenticationSettingsValue EXTEND WRDDBIncomparableValue
 < PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
@@ -3773,6 +3813,9 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBStatusRecordValue(wrd_type, attrinfo); }
   CASE 28 /* AUTHENTICATIONSETTINGS */
     { RETURN NEW WRDDBAuthenticationSettingsValue(wrd_type, attrinfo); }
+
+  CASE 29 /* WHFSLINK */
+    { RETURN NEW WRDDBWHFSLinkValue(wrd_type, attrinfo, options); }
 
   DEFAULT
     { THROW NEW Exception(`Type ${GetAttributeTypeNameByTypeId(attributetype)} has not been implemented in the query interface yet`); }

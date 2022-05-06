@@ -450,6 +450,12 @@ STATIC OBJECTTYPE WRDTableFile EXTEND TableFile
           rec := CellDelete(rec, attr.localtag);
           rec := CellInsert(rec, attr.localtag, Detokenize(data,'; '));
         }
+        CASE 29 //WHFSLINK - exporting as integer (as none of the other WHFS types have mapping either)
+        {
+          INTEGER data := GetCell(rec, attr.localtag);
+          rec := CellDelete(rec, attr.localtag);
+          rec := CellInsert(rec, attr.localtag, Tostring(data));
+        }
         DEFAULT
         {
           IF(TYpeID(Getcell(rec,attr.localtag))=TypeID(RECORD))
