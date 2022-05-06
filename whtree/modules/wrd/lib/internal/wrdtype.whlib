@@ -566,7 +566,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     IF(NOT RecordExists(this->__typerec))
     {
-      //we fallback to the last known typerec to prevent WRDType from crashing if it gets deleted
       this->__typerec := RECORD(SELECT * FROM wrd.types WHERE id = this->__id);
       IF(NOT RecordExists(this->__typerec))
         THROW NEW Exception(`Type ${this->tag} (#${this->id}) of schema ${this->wrdschema->tag} (#${this->wrdschema->id}) appears to be deleted`);
