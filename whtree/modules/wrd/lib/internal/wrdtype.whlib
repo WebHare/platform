@@ -474,6 +474,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   INTEGER ARRAY __consiliolinkcheckattrs;
   INTEGER ARRAY __whfslinkattrs;
   INTEGER __id;
+  STRING __tag;
   BOOLEAN typeinfoloaded;
 
   //Wraps __typerec and loads on demand
@@ -490,7 +491,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PUBLIC PROPERTY title(__GetTyperecTitle, -);
 
   /// @type(string) Tag of this type
-  PUBLIC PROPERTY tag(__GetTyperecTag, -);
+  PUBLIC PROPERTY tag(__tag, -);
 
   /// @type(object %WRDSchema2017) WRD schema object
   PUBLIC PROPERTY wrdschema(pvt_wrdschema, -);
@@ -525,6 +526,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     this->pvt_wrdschema := wrdschema;
     this->__id := typerec.id;
+    this->__tag := typerec.tag;
     this->__typerec := typerec;
   }
 
@@ -563,7 +565,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   RECORD FUNCTION GetTypeRec()
   {
     IF(NOT RecordExists(this->__typerec))
-      this->__typerec := SELECT * FROM wrd.types WHERE id = this->__id;
+    {
+      this->__typerec := RECORD(SELECT * FROM wrd.types WHERE id = this->__id);
+      IF(NOT RecordExists(this->__typerec))
+        THROW NEW Exception(`Type ${this->tag} (#${this->id}) of schema ${this->wrdschema->tag} (#${this->wrdschema->id}) appears to be deleted`);
+    }
     RETURN this->__typerec;
   }
   INTEGER ARRAY FUNCTION GetChildTypeIds()
@@ -579,10 +585,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   STRING FUNCTION __GetTyperecTitle()
   {
     RETURN this->typerec.title;
-  }
-  STRING FUNCTION __GetTyperecTag()
-  {
-    RETURN this->typerec.tag;
   }
   BOOLEAN FUNCTION __GetTyperecAbstract()
   {

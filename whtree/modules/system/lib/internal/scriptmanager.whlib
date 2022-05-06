@@ -126,7 +126,7 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
         IF (tag IN existing_tags)
           CONTINUE;
 
-        STRING library := script->GetAttribute("library");
+        STRING library := MakeAbsoluteResourcePath(GetModuleDefinitionXMLResourceName(modname), script->GetAttribute("library"));
         STRING tid := script->GetAttribute("tid");
         STRING title := script->GetAttribute("title");
         STRING portname := script->GetAttribute("portname");
@@ -147,25 +147,25 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
         INSERT tag INTO existing_tags AT END;
 
         RECORD scriptrec :=
-            [ id :=             LENGTH(newscripts) + 1
-            , tag :=            tag
-            , library :=        "mod::" || modname || "/scripts/" || library
-            , mode :=           mode
-            , portname :=       portname
-            , portobjectname := portobjectname
-            , globalport :=     globalport
-            , screen :=         screen
-            , job :=            DEFAULT OBJECT
-            , status :=         "none"
-            , since :=          DEFAULT DATETIME
-            , started :=        DEFAULT DATETIME
-            , next_restart :=   mode="alwayson" ? DEFAULT DATETIME : MAX_DATETIME
-            , messages :=       DEFAULT RECORD ARRAY
-            , tid :=            (tid!="" AND tid NOT LIKE "*:*" ? modname || ":" || tid : tid)
-            , title :=          title
-            , persistonreset := persistonreset
-            , releaseonreset := releaseonreset
-            ];
+            CELL[ id :=             LENGTH(newscripts) + 1
+                , tag
+                , library
+                , mode
+                , portname
+                , portobjectname
+                , globalport
+                , screen
+                , job :=            DEFAULT OBJECT
+                , status :=         "none"
+                , since :=          DEFAULT DATETIME
+                , started :=        DEFAULT DATETIME
+                , next_restart :=   mode="alwayson" ? DEFAULT DATETIME : MAX_DATETIME
+                , messages :=       DEFAULT RECORD ARRAY
+                , tid :=            (tid!="" AND tid NOT LIKE "*:*" ? modname || ":" || tid : tid)
+                , title
+                , persistonreset
+                , releaseonreset
+                ];
 
         INSERT scriptrec INTO newscripts AT END;
       }
