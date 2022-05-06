@@ -135,7 +135,12 @@ ASYNC MACRO TestShortURLAPP_AsUser()
   TestEq("My First URL", TT("description")->value);
   TT("description")->value := "The short url";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TT("searchfor")->value := "link6";
+  TTClick(":Search");
+  TestEqMembers([[ targeturl := "https://www.webhare.dev/link6" ]], TT("shorturls")->rows, "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close app
 }
 
 ASYNC MACRO TestShortURLAPP_AsSysop_2()

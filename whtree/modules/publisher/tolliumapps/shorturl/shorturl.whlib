@@ -90,7 +90,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF( ^searchfor->value != "" )
     {
       STRING searchterm := "*" || ToUpperCase(^searchfor->value) || "*";
-      rows := SELECT * FROM rows WHERE ToUpperCase(shorturl) LIKE searchterm OR ToUpperCase(target) LIKE searchterm;
+      rows := SELECT * FROM rows WHERE ToUpperCase(shorturl) LIKE searchterm OR ToUpperCase(targeturl) LIKE searchterm;
     }
 
     RETURN (SELECT *, modifiedby := modifiedby != 0 ? this->rightsapi->GetUserDisplayName(modifiedby) : "" FROM rows);
