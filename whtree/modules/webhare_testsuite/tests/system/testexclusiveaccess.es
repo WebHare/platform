@@ -34,11 +34,12 @@ test.registerTests(
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
-      test.eqMatch(/30 seconds/, test.qS(".mydialog").textContent);
+      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       await test.selectFrame("main");
       await test.wait(() => test.qS("#status").textContent == "ReleaseRequest");
-      test.eqMatch(/30 seconds/, test.qS(".mydialog").textContent);
+      console.error(test.qS(".mydialog").textContent);
+      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       test.click(`*[data-messagebox-result=no]`);
       test.eq(null, test.qS(".mydialog"), "Dialog should disappear");
@@ -65,11 +66,11 @@ test.registerTests(
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
-      test.eqMatch(/30 seconds/, test.qS(".mydialog").textContent);
+      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       await test.selectFrame("main");
       await test.wait(() => test.qS("#status").textContent == "ReleaseRequest");
-      test.eqMatch(/30 seconds/, test.qS(".mydialog").textContent);
+      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "LockStolen");
