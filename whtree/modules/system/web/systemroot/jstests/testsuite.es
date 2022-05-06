@@ -33,9 +33,10 @@ class TestFramework
   {
     this.currentscript = '';
     this.tests = [];
-    this.pageframedoc = null;
-    this.pageframewin = null;
-    this.scriptframe = null;
+
+    this.testframes = [];
+    this.currenttestframe = "main";
+
     this.autoadvancetest = true;
     this.catchexceptions = !window.location.href.match(/nocatch=1/);
     this.reportid = '';
@@ -87,6 +88,14 @@ class TestFramework
 
     document.getElementById('stoptests').addEventListener('click', function(e) { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); e.target.disabled = "disabled"; }.bind(this));
     qS('#logmoreinfo').addEventListener('click', () => document.documentElement.classList.add('testframework--showfullerror'));
+    qS('#testframetabs').addEventListener(`click`, evt =>
+    {
+      if (evt.target.classList.contains("testframetab"))
+      {
+        this.currenttestframe = evt.target.dataset.name;
+        this.rebuildFrameTabs();
+      }
+    });
 
     //for debugging, offer access to 'test' and 'testfw' in the main frame
     window.testfw = this;
@@ -117,23 +126,50 @@ class TestFramework
   {
     this.runAllTests(this.currenttest+1);
   }
+  getFrameRecord(name, { allowmissing } = {})
+  {
+    name = name ?? this.currenttestframe;
+    let rec = this.testframes.find(r => r.name == name);
+    if (!rec && !allowmissing)
+      throw new Error(`No such testframe with name ${JSON.stringify(name)}`);
+    return rec;
+  }
   resetPageFrame()
   {
-    this.pageframedoc=null;
-    this.pageframewin=null;
-
-    dompack.empty(document.getElementById('testframeholder'));
+    const rec = this.getFrameRecord();
+    rec.win = null;
+    rec.doc = null;
+    dompack.empty(rec.holder);
+  }
+  rebuildFrameTabs()
+  {
+    const tabsnode = document.getElementById("testframetabs");
+    dompack.empty(tabsnode);
+    for (const f of this.testframes)
+    {
+      tabsnode.append(<div data-name={f.name} class={[ "testframetab", ...f.name==this.currenttestframe?["testframetab--selected"]:[] ]}>{f.name}</div>);
+      f.holder && f.holder.classList.toggle("testframeholder--selected", f.name==this.currenttestframe);
+      if (f.name==this.currenttestframe)
+        f.holder.setAttribute("id", "testframeholder");
+      else
+        f.holder.removeAttribute("id");
+    }
+    tabsnode.style.display = this.testframes.length > 1 ? "block" : "none";
   }
   resetTest()
   {
-    // Reset test & output iframes
-    this.resetPageFrame();
-    dompack.empty(document.getElementById('testscriptholder'));
+    this.testframes = [];
+    dompack.empty(document.getElementById("testframes"));
+    this._setFrame("main", "add", { select: true });
+    this.rebuildFrameTabs();
 
+    // Reset test & output iframes
     this.scriptframe = null;
     this.scriptframewin = null;
     this.scriptframedoc = null;
   }
+
+
 
   /// Constuct an error with a fixed stack trace
   constructErrorWithTrace(errormsg)
@@ -364,9 +400,6 @@ class TestFramework
     if (this.stop)
       return;
 
-    if(! (this.currentsteps[0] && this.currentsteps[0].loadpage)) //no loadpage in first step? then init blak
-      await this.doLoadPage({loadpage:"about:blank"},null);
-
     // Schedule all steps sequentially
     for(let idx = 0; idx < this.currentsteps.length; ++idx)
       await this.runTestStep(this.currentsteps[idx], idx);
@@ -423,7 +456,7 @@ class TestFramework
       this.scriptframewin.onerror = onerrorhandler;
 
     // Signals to detect if a page load happens (all properties are promises)
-    this.currentsignals = { pageload: null };
+    this.getFrameRecord().currentsignals = { pageload: null };
 
     // Loadpage? Execute it first
     if (step.loadpage)
@@ -433,22 +466,25 @@ class TestFramework
     result = result.then(function()
       {
         // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
-        this.currentsignals.pageload = this.waitForPageFrameLoad({ timeout: -1, onerrorhandler: onerrorhandler }); // no timeout
+        this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: onerrorhandler }); // no timeout
 
-        // Install an onerror handler if not present yet
-        if (this.pageframewin)
+        // Install an onerror handlers if not present yet
+        for (let f of this.testframes)
         {
           try
           {
-            if (this.pageframewin.Error && this.pageframewin.Error.stackTraceLimit)
-              this.pageframewin.Error.stackTraceLimit = 50;
-            if(! (dompack.debugflags.ner))
-              this.pageframewin.onerror = onerrorhandler;
-            this.pageframewin_setonerror = true;
+            if (f.win && !f.in_setonerror)
+            {
+              if (f.win.Error && f.win.Error.stackTraceLimit)
+                f.win.Error.stackTraceLimit = 50;
+              if(! (dompack.debugflags.ner))
+                f.win.onerror = onerrorhandler;
+              f.win_setonerror = true;
+            }
           }
           catch (e)
           {
-            console.warn('Could not set onerror handler due to the following exception: ', e);
+            console.warn(`Could not set onerror handler in frame ${JSON.stringify(f.name)} due to the following exception: `, e);
           }
         }
       }.bind(this));
@@ -464,20 +500,21 @@ class TestFramework
 
     // Schedule all waits serially after the tests. Clears signals if it uses them
     if (step.waits)
-      step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.currentsignals)); }.bind(this));
+      step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.getPageFrame().currentsignals)); }.bind(this));
 
     // After the waits have all executed, see if a page load happened we did'nt expect
     result = result.then(() =>
       {
         // A 'pageload' wait clears signals.pageload. If not cleared, error out when the load happens
-        if (this.currentsignals.pageload)
-        {
-          var err = new Error("Page load happened but was not expected");
-          var errorfunc = function() { throw err; };
-          // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
-          // it should win the race, ignoring the second Promise.resolve().
-          return Promise.race([ this.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve() ]);
-        }
+        for (const f of this.testframes)
+          if (f.currentsignals.pageload)
+          {
+            var err = new Error(`Page load happened in frame ${f.name} but was not expected`);
+            var errorfunc = function() { throw err; };
+            // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
+            // it should win the race, ignoring the second Promise.resolve().
+            return Promise.race([ f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve() ]);
+          }
       });
 
     // Mix in errors from onerror handlers
@@ -500,15 +537,17 @@ class TestFramework
     // Remove the onerror handler
     result = result.finally(function()
       {
-        this.currentsignals = null;
+//        for (const f of this.testframes)
+//          f.currentsignals = null;
         test.runsteps = test.runsteps || [];
         test.runsteps.push({ stepname: step.name||'', stepnr:idx });
 
-        if (this.pageframewin_setonerror && this.pageframewin)
-        {
-          this.pageframewin.onerror = null;
-          this.pageframewin_setonerror = false;
-        }
+        for (let f of this.testframes)
+          if (f.win && f.win_setonerror)
+          {
+            f.win.onerror = null;
+            f.win_setonerror = false;
+          }
       }.bind(this));
 
     // Handle success / exceptions of the test
@@ -655,20 +694,28 @@ class TestFramework
     if(typeof step.loadpage == 'string')
       loadpage = step.loadpage;
     else if(typeof step.loadpage == 'function')
-      loadpage = step.loadpage(this.pageframedoc, this.pageframewin);
+    {
+      const framerec = this.getFrameRecord();
+      loadpage = step.loadpage(framerec.doc, framerec.win);
+    }
 
     if (dompack.debugflags.testfw)
       console.log('[testfw] doLoadPage: ' + loadpage);
 
     this.resetPageFrame();
-    var iframe = dompack.create("iframe", { "id": "testframe", "name": "testframe" });
-    document.getElementById('testframeholder').appendChild(iframe);
-    iframe.src = loadpage;
+    const framerec = this.getFrameRecord();
+
+    let name = framerec.name == "main" ? "testframe" : `testframe-${framerec.name}`;
+    framerec.iframe = dompack.create("iframe", { "id": name, "name": name });
+    framerec.holder.appendChild(framerec.iframe);
+    framerec.iframe.src = loadpage;
+    if (framerec.holder.dataset.width)
+      framerec.iframe.style.width = `${framerec.holder.dataset.width}px`;
 
     document.getElementById('currentwait').textContent = "Wait: pageload";
     document.getElementById('currentwait').style.display = "inline-block";
 
-    return this.waitForPageFrameLoad({ onerrorhandler: onerrorhandler }).finally(function()
+    return this.waitForPageFrameLoad(framerec, { onerrorhandler: onerrorhandler }).finally(function()
     {
       document.getElementById('currentwait').style.display = "none";
     });
@@ -678,36 +725,37 @@ class TestFramework
       @param options
       @cell(boolean) options.timeout Timeout override
   */
-  waitForPageFrameLoad(options)
+  waitForPageFrameLoad(framerec, options)
   {
-    var iframe = document.getElementById('testframe');
+    //var iframe = this.getFrameRecord().iframe;
     var deferred = dompack.createDeferred();
-    if (!iframe)
+    if (!framerec.iframe)
       return deferred.promise;
 
     if (!options || !options.timeout || options.timeout >= 0)
       this.timedReject(deferred, "Timeout waiting for test frame to load", (options||{}).timeout || this.loadtimeout);
 
     // Split setting events from event creation
-    iframe.addEventListener("load", deferred.resolve);
-    iframe.addEventListener("error", deferred.reject);
+    framerec.iframe.addEventListener("load", deferred.resolve);
+    framerec.iframe.addEventListener("error", deferred.reject);
 
     // Remove both load/error events when receiving one of them
     deferred.promise.finally(() =>
       {
-        iframe.removeEventListener("load", deferred.resolve);
-        iframe.removeEventListener("error", deferred.reject);
+        framerec.iframe.removeEventListener("load", deferred.resolve);
+        framerec.iframe.removeEventListener("error", deferred.reject);
       });
 
     // When the iframe has loaded, process it to get the doc & window. Just error out when loading failed.
-    return deferred.promise.then(this.processLoadedTestFrame.bind(this, iframe, options));
+    return deferred.promise.then(this.processLoadedTestFrame.bind(this, framerec, options));
   }
 
   canAccessTestframe()
   {
     try
     {
-      this.pageframewin.document;
+      const framerec = this.getFrameRecord();
+      framerec.win.document;
       return true;
     }
     catch(ignore)
@@ -717,26 +765,26 @@ class TestFramework
   }
 
   /// Get & store the win.doc from the pageframe
-  processLoadedTestFrame(pageframe, options)
+  processLoadedTestFrame(framerec, options)
   {
-    this.pageframedoc = pageframe.contentDocument;
-    this.pageframewin = pageframe.contentWindow;
+    framerec.doc = framerec.iframe.contentDocument;
+    framerec.win = framerec.iframe.contentWindow;
     if (dompack.debugflags.testfw)
-      console.log('[testfw] loaded page: ' + this.pageframewin.location.href);
+      console.log('[testfw] loaded page: ' + framerec.win.location.href);
 
     if(!this.canAccessTestframe())
       return;
 
-    this._recordAssetpacks(this.pageframewin);
+    this._recordAssetpacks(framerec.win);
 
-    if (options && options.onerrorhandler && !this.pageframewin.onerror)
+    if (options && options.onerrorhandler && !framerec.win.onerror)
     {
       if(! (dompack.debugflags.ner))
-        this.pageframewin.onerror = options.onerrorhandler;
-      this.pageframewin_setonerror = true;
+        framerec.win.onerror = options.onerrorhandler;
+      framerec.win_setonerror = true;
     }
 
-    var focusable = domfocus.getFocusableComponents(this.pageframedoc.documentElement);
+    var focusable = domfocus.getFocusableComponents(framerec.doc.documentElement);
     for (var i=0;i<focusable.length;++i)
     {
       if(focusable[i].autofocus)
@@ -747,7 +795,7 @@ class TestFramework
     }
     try
     {
-      var doctitle = this.pageframedoc.title;
+      var doctitle = framerec.doc.title;
       if(doctitle == '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
     }
@@ -756,8 +804,8 @@ class TestFramework
       throw new Error("Exception accessing child frame, assuming security error" + e);
     }
 
-    if (this.pageframewin.Promise && Promise.__disabletrycatch)
-      this.pageframewin.Promise.__disabletrycatch = Promise.__disabletrycatch;
+    if (framerec.win.Promise && Promise.__disabletrycatch)
+      framerec.win.Promise.__disabletrycatch = Promise.__disabletrycatch;
   }
 
   _setSubName(step, name)
@@ -785,14 +833,66 @@ class TestFramework
     return promise.finally(() => this.activeasyncerr = null);
   }
 
+  async _setFrame(name, action, { width } = {})
+  {
+    let rec = this.getFrameRecord(name, { allowmissing: true });
+    switch (action)
+    {
+      case "add":
+      {
+        if (rec)
+          throw new Error(`A frame with the name ${JSON.stringify(name)} already exists`);
+        let holder = <div class="testframeholder" data-name={name}></div>;
+        holder.dataset.width = width || "";
+        const currentsignals = {};
+        this.testframes.push({ name, holder, currentsignals });
+        document.getElementById("testframes").append(holder);
+        this.currenttestframe = name;
+        this.rebuildFrameTabs();
+        await this.doLoadPage({ loadpage: "about:blank" }, null);
+        currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+      } break;
+      case "update":
+      {
+        if (!rec)
+          throw new Error(`No frame with the name ${JSON.stringify(name)} exists`);
+        if (width !== undefined)
+        {
+          rec.holder.dataset.width = width || "";
+          rec.iframe && (rec.iframe.style.width = width ? `${width}px` : `auto`);
+        }
+      } break;
+      case "delete":
+      {
+        if (name == "main")
+          throw new Error(`Cannot delete main test iframe`);
+        rec.holder.remove();
+        this.testframes = this.testframes.filter(f => f.name != name);
+        if (this.currenttestframe == name)
+          this.currenttestframe = this.testframes[0].name;
+      } break;
+      case "select":
+      {
+        this.currenttestframe = name;
+      } break;
+      default:
+      {
+        throw new Error(`Unknown frame action ${action}`);
+      }
+    }
+
+    this.rebuildFrameTabs();
+  }
+
   setCallbacks(step)
   {
     if (!this.setcallbacksfunc)
       return;
     if (step)
       this.setcallbacksfunc(
-          { executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.currentsignals))
+          { executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.getFrameRecord().currentsignals))
           , subtest: name => this._setSubName(step, name)
+          , setFrame: (name, type, options) => this._checkClientAsync(this._setFrame(name, type, options))
         });
     else
     {
@@ -820,7 +920,8 @@ class TestFramework
 
     this.setCallbacks(step);
 
-    returnvalue = func(this.pageframedoc, this.pageframewin, callback);
+    const framerec = this.getFrameRecord();
+    returnvalue = func(framerec.doc, framerec.win, callback);
 
     //this.uiwasbusy = this.pageframewin && this.pageframewin.$wh && this.pageframewin.$wh.busycount > 0;
     if (step.wait || (returnvalue && returnvalue.then))
@@ -930,7 +1031,7 @@ class TestFramework
     deferred.promise.catch(function()
       {
         if (this.animationframerequest)
-          this.pageframewin.cancelAnimationFrame(this.animationframerequest);
+          cancelAnimationFrame(this.animationframerequest);
         this.animationframerequest = 0;
       }.bind(this));
 
@@ -960,7 +1061,8 @@ class TestFramework
     if (typeof item == "function")
     {
       // function in waits has signature func(doc, win)
-      let promise = this.repeatedFunctionTest(step, item.bind(null, this.pageframedoc, this.pageframewin));
+      const framerec = this.getFrameRecord();
+      let promise = this.repeatedFunctionTest(step, item.bind(null, framerec.doc, framerec.win));
       if (dompack.debugflags.bus)
         promise = promise.then(x => { console.debug("Finished wait for '" + item + "'"); this.currentwaitstack = null; return x; });
       return promise.finally(this.executeWaitFinish.bind(this));
@@ -1011,11 +1113,12 @@ class TestFramework
       } break;
       case "uploadprogress":
       {
-        if (!this.pageframewin.__todd)
+        const framerec = this.getFrameRecord();
+        if (!framerec.win.__todd)
           throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
         console.log('start wait for upload');
-        this.pageframewin.__todd.waitForUploadProgress(deferred.resolve);
+        framerec.win.__todd.waitForUploadProgress(deferred.resolve);
         deferred.promise.then(function() { console.log('upload done'); });
         deferred.promise.then(() => this.currentwaitstack = null);
 
@@ -1024,9 +1127,10 @@ class TestFramework
 
       case "animationframe":
       {
-        if (!this.pageframewin.requestAnimationFrame)
+        const framerec = this.getFrameRecord();
+        if (!framerec.win.requestAnimationFrame)
           throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-        this.pageframewin.requestAnimationFrame(deferred.resolve);
+        framerec.win.requestAnimationFrame(deferred.resolve);
         deferred.promise.then(() => this.currentwaitstack = null);
         this.timedReject(deferred, "Timeout when waiting for animation frame", step.timeout || this.waittimeout);
       } break;
@@ -1039,6 +1143,7 @@ class TestFramework
 
         this.timedReject(deferred, "Timeout when waiting for pageload", step.timeout || this.waittimeout);
 
+        const framerec = this.getFrameRecord();
         let promise = signals.pageload;
         signals.pageload = null;
         try
@@ -1049,21 +1154,22 @@ class TestFramework
         }
         finally
         {
-          this.currentsignals.pageload = this.waitForPageFrameLoad({ timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+          signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
           this.executeWaitFinish();
         }
       }
       case "scroll":
       {
+        let win = this.getFrameRecord().win;
         var scrollwaiter = function()
         {
           //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
           setTimeout(deferred.resolve, 0);
           this.currentwaitstack = null;
-          this.pageframewin.removeEventListener("scroll", scrollwaiter);
+          win.removeEventListener("scroll", scrollwaiter);
         }.bind(this);
-        this.pageframewin.addEventListener("scroll", scrollwaiter);
-        this.timedReject(deferred, "Timeout when waiting for scrolle vent", step.timeout || this.waittimeout);
+        win.addEventListener("scroll", scrollwaiter);
+        this.timedReject(deferred, "Timeout when waiting for scroll event", step.timeout || this.waittimeout);
       } break;
 
       default:
@@ -1288,19 +1394,21 @@ class TestFramework
   }
   doWaitForUploadProgress()
   {
+    const framerec = this.getFrameRecord();
     this.waitforuploadprogress = false;
-    if(!this.pageframewin.__todd)
+    if(!framerec.win.__todd)
       throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
-    this.pageframewin.__todd.waitForUploadProgress(this.startNextStepNow.bind(this));
+    framerec.win.__todd.waitForUploadProgress(this.startNextStepNow.bind(this));
   }
   doWaitForAnimationFrame()
   {
+    const framerec = this.getFrameRecord();
     this.waitforanimationframe=false;
-    if(!this.pageframewin.requestAnimationFrame)
+    if(!framerec.win.requestAnimationFrame)
       throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
 
-    this.pageframewin.requestAnimationFrame(this.startNextStepNow.bind(this));
+    framerec.win.requestAnimationFrame(this.startNextStepNow.bind(this));
   }
 
   getCurrentStep()

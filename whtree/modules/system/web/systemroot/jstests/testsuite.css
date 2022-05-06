@@ -22,20 +22,57 @@ body
   flex: 1 0 0px;
   overflow:auto;
 }
-html:not(.testframework--testsstarted) #testframeholder
+html:not(.testframework--testsstarted) #testframes
 {
   display:none;
 }
-#testframeholder
+div.testframetab
 {
-  border-top: 1px solid black;
-  flex: 0 0 768px;
+  display: inline-block;
+  border: 1px solid black;
+  margin: 2px;
+  padding: 2px 2px;
 }
-
+div.testframetab--selected
+{
+  background-color: #000000;
+  color: #ffffff;
+}
 #teststatus
 {
 }
-#testframeholder iframe
+#testframes
+{
+  border-top: 1px solid black;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  column-gap: 5px;
+}
+.testframeholder
+{
+  position: relative;
+  row-gap: 5px;
+  border: 1px solid black;
+  border-top: 0px;
+  order: 1;
+}
+.testframeholder.testframeholder--selected
+{
+  order: 0;
+}
+.testframeholder::after
+{
+  position: absolute;
+  border: 1px solid black;
+  border-top: 0;
+  content: attr(data-name);
+  height: 20px;
+  bottom: -21px;
+  left: calc(100% - 70px);
+  padding: 0 3px;
+}
+.testframeholder iframe
 {
   width:1024px;
   height:768px;

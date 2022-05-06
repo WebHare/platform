@@ -23,7 +23,9 @@
       <div id="logmoreinfo">(more info)...</div>
       <div id="fullerror"></div>
     </div>
-    <div id="testframeholder">
+    <div id="testframetabs">
+    </div>
+    <div id="testframes">
     </div>
     <div id="testscriptpart">
       testscripts:
