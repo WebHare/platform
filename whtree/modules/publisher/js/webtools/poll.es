@@ -159,7 +159,7 @@ export default class PollWebtool
   // if unixtimestamps is set, this is the initial poll load getting results
   _applyPollResults(poll, unixtimestampnow)
   {
-    let pollnode = document.querySelector('[data-toolid="' + poll.toolid + '"]');
+    let pollnode = document.querySelector(`[data-toolid="${CSS.escape(poll.toolid)}"]`);
     if (!pollnode)
       return;
 
@@ -196,7 +196,7 @@ export default class PollWebtool
 
     for (let polloption of poll.options)
     {
-      let polloptionnode = pollnode.querySelector('[data-polloption="' + polloption.guid + '"]');
+      let polloptionnode = pollnode.querySelector(`[data-polloption="${CSS.escape(polloption.guid)}"]`);
       // FIXME: what to do about this? this might indicate the option was deleted after it was added in a statically published page.
       if (!polloptionnode)
       {
@@ -235,13 +235,19 @@ function scheduleFetchResults(poll)
 async function fetchResults(lock)
 {
   //clear the list
-  let tofetch = pollstofetch;
-  pollstofetch = [];
+  try
+  {
+    let tofetch = pollstofetch;
+    pollstofetch = [];
 
-  let toolids = tofetch.map(poll => poll._getToolId());
-  let result = await pollrpc.getResultsForPolls(toolids);
-  lock.release();
+    let toolids = tofetch.map(poll => poll._getToolId());
+    let result = await pollrpc.getResultsForPolls(toolids);
 
-  let unixtimestampnow = Date.now();
-  tofetch.forEach( (poll,idx) => poll._applyPollResults(result[idx], unixtimestampnow));
+    let unixtimestampnow = Date.now();
+    tofetch.forEach( (poll,idx) => poll._applyPollResults(result[idx], unixtimestampnow));
+  }
+  finally
+  {
+    lock.release();
+  }
 }
