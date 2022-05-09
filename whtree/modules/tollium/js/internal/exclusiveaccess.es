@@ -16,11 +16,12 @@ import "./exclusiveaccess.lang.json";
 */
 class AlreadyLockedController extends EventTarget
 {
-  constructor(fifo, info)
+  constructor(fifo, info, isself)
   {
     super();
     this._fifo = fifo;
     this.info = info;
+    this.isself = isself;
   }
 
   /** Called when the dialog needs to close (either answered or because the
@@ -146,37 +147,28 @@ class LockController extends EventTarget
   }
 }
 
-export async function getExclusiveAccessPromise(tag, userinfo, { onAlreadyLocked, onWaitingForOwner, onReleaseRequest, onLockStolen, onReleaseRequestDenied })
-{
-  return new Promise((resolve, reject) => getExclusiveAccess(tag, userinfo,
-      { onAlreadyLocked
-      , onWaitingForOwner
-      , onReleaseRequest
-      , onLockStolen
-      , onReleaseRequestDenied
-      , onLocked: (ctrl) => resolve(ctrl)
-      , onFailed: () => reject(new Error(`Failed to get the lock`))
-      }));
-}
-
 /** Get exclusive access for a resource
     @param(string) tag Tag identifying the resource
     @param(record) userinfo User info
     @cell(integer) userinfo.entityid
     @cell(string) userinfo.login
     @cell(string) userinfo.realname
-    @cell(function ptr) options.onalreadylocked Called when the resource is already
+    @cell(function ptr) options.onAlreadyLocked Called when the resource is already
       locked by another user. Signature: void onalreadylocked(ctrl: AlreadyLockedControl)
-    @cell(function ptr) options.onrequestingclose Called when the user has requested
+    @cell(function ptr) options.onWaitingForOwner Called when the user has requested
       the resource from the other user, synchronously with the 'close' event on
       the LockAlreadyOwned controller passed to the onalreadylocked callback
-    @cell(function ptr) options.ongetlock Called when the lock has been granted.
+    @cell(function ptr) options.onLocked Called when the lock has been granted.
       Signature: void onalreadylocked(ctrl: ExclusivityLock)
-    @cell(function ptr) options.onfailed Called when getting the lock failed
+    @cell(function ptr) options.onFailed Called when getting the lock failed
       (cancelled takeover, takeover denied)
-    @cell(function ptr) options.ongotreleaserequest Called when a release request has
+    @cell(function ptr) options.onReleaseRequest Called when a release request has
       been received. Signature: void onalreadylocked(ctrl: ReleaseOwnLockRequest)
-    @cell(function ptr) options.onlockstolen Called when the lock has been stolen
+    @cell(function ptr) options.onLockStolen Called when the lock has been stolen
+    @cell(function ptr) options.onReleaseRequestDenied Called when the request to release
+      the lock has been denied.
+    @return Returns when the lock has been closed or getting the lock failed. No
+      value is returned.
 */
 export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked, onWaitingForOwner, onLocked, onFailed, onReleaseRequest, onLockStolen, onReleaseRequestDenied })
 {
@@ -236,14 +228,12 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
   {
     await fifo.waitSignalled();
     let item = fifo.shift();
-    console.log(`handle item ${item.type}`, item);
 
     switch (item.type)
     {
       case "local-cancel":
       {
         resetDialogs();
-        console.log(`close socket`);
         if (lock_ctrl)
         {
           socket.send(JSON.stringify({ type: "release" }));
@@ -256,7 +246,6 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
       }
       case "local-requestLock":
       {
-        console.log(`send requestLock`);
         socket.send(JSON.stringify({ type: "requestLock" }));
 
         // The info about the current owner can change
@@ -268,12 +257,11 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
         resetDialogs();
         if (onAlreadyLocked)
         {
-          alreadylocked_ctrl = new AlreadyLockedController(fifo, item.info);
+          alreadylocked_ctrl = new AlreadyLockedController(fifo, item.info, item.isself);
           onAlreadyLocked(alreadylocked_ctrl);
         }
         else
         {
-          console.log(`close socket`);
           socket.close();
           onFailed();
           return;
@@ -312,7 +300,6 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
         resetDialogs();
         if (onReleaseRequestDenied)
           onReleaseRequestDenied();
-        console.log(`close socket`);
         socket.close();
         onFailed();
       } break;
@@ -350,7 +337,6 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
           lock_ctrl._gotClose();
         lock_ctrl = null;
         onLockStolen(item.info);
-        console.log(`close socket`);
         socket.close();
       } break;
       case "lockDenied":
@@ -358,7 +344,6 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
         resetDialogs();
         if (onReleaseRequestDenied)
           onReleaseRequestDenied();
-        console.log(`close socket`);
         socket.close();
         onFailed();
       } break;
@@ -366,13 +351,36 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
   }
 }
 
-function formatName(info, atstart)
+/** Get exclusive access for a resource
+    @param(string) tag Tag identifying the resource
+    @param(record) userinfo User info
+    @cell(integer) userinfo.entityid
+    @cell(string) userinfo.login
+    @cell(string) userinfo.realname
+    @cell(function ptr) options.onAlreadyLocked Called when the resource is already
+      locked by another user. Signature: void onalreadylocked(ctrl: AlreadyLockedControl)
+    @cell(function ptr) options.onWaitingForOwner Called when the user has requested
+      the resource from the other user, synchronously with the 'close' event on
+      the LockAlreadyOwned controller passed to the onalreadylocked callback
+    @cell(function ptr) options.onReleaseRequest Called when a release request has
+      been received. Signature: void onalreadylocked(ctrl: ReleaseOwnLockRequest)
+    @cell(function ptr) options.onLockStolen Called when the lock has been stolen
+    @cell(function ptr) options.onReleaseRequestDenied Called when the request to release
+      the lock has been denied.
+    @return Returns a LockController when the lock is obtained, or throws when
+      it could not be obtained.
+*/
+export async function getExclusiveAccessPromise(tag, userinfo, { onAlreadyLocked, onWaitingForOwner, onReleaseRequest, onLockStolen, onReleaseRequestDenied })
 {
-  if (info.realname && info.login)
-    return `${atstart ? `User` : `user`} ${info.realname} (${info.login})`;
-  if (info.realname || info.login)
-    return `${atstart ? `User` : `user`} ${info.realname || info.login}`;
-  return null;
+  return new Promise((resolve, reject) => getExclusiveAccess(tag, userinfo,
+      { onAlreadyLocked
+      , onWaitingForOwner
+      , onReleaseRequest
+      , onLockStolen
+      , onReleaseRequestDenied
+      , onLocked: (ctrl) => resolve(ctrl)
+      , onFailed: () => reject(new Error(`Failed to get the lock`))
+      }));
 }
 
 function getSecsToDeadline(deadline)
@@ -380,16 +388,44 @@ function getSecsToDeadline(deadline)
   return (deadline - Date.now() + 10) / 1000 | 0;
 }
 
+/** Get exclusive access with dialogs using the dialog API
+    @param(string) tag Tag identifying the resource
+    @param(record) userinfo User info
+    @cell(integer) userinfo.entityid User entity ID. If set, resources owned by the same entityid will
+      be released immediately.
+    @cell(string) userinfo.login User login
+    @cell(string) userinfo.realname User real name
+    @cell options.onAlreadyLocked Called when the dialog must be shown that indicates the item has
+      already been locked. Parameters: object with members { login, realname, isself }. Return a
+      HTML node to override the default dialog contents.
+    @cell options.onAlreadyLocked Called when the dialog must be shown that indicates that the
+      user is waiting for the current owner of the lock to releas it. Parameters: object with
+      members { login, realname, timeleft (timeout in milliseconds) }. Return a
+      HTML node to override the default dialog contents.
+    @cell options.onAlreadyLocked Called when the dialog must be shown that indicates that the
+      request to another user to release the lock has been denied Parameters: object with
+      members { login, realname }. Return a HTML node to override the default dialog contents.
+    @cell options.onReleaseRequest Called when the dialog must be shown that indicates another
+      user wants the current user to release the lock. Parameters: object with members { login,
+      realname, timeleft (timeout in milliseconds) }. Return a HTML node to override the default
+      dialog contents.
+    @cell options.onLockStolen Called when the dialog must be shown that indicates the lock has been
+      stolen by another user. Parameters: object with members { login, realname }. Return a HTML
+      node to override the default dialog contents.
+    @cell options.onLockStolenShown Called when the 'lock stolen' dialog has been shown and
+      the user closed it.
+    @return Promise that will resolve to a LockController object, or rejected if the lock
+      can't be obtained.
+*/
 export async function getExclusiveAccessWithDialog(identifier, userinfo,
-    { onLockStolen
-    , onAlreadyLocked
+    { onAlreadyLocked
     , onWaitingForOwner
-    , onReleaseRequest
     , onReleaseRequestDenied
+    , onReleaseRequest
+    , onLockStolen
+    , onLockStolenShown
     } = {})
 {
-  console.log(`getExclusiveAccessWithDialog`);
-
   return await getExclusiveAccessPromise(identifier,
       userinfo,
       { onAlreadyLocked: async (ctrl) =>
@@ -397,10 +433,14 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
           let actrl = new AbortController;
           ctrl.addEventListener("close", () => actrl.abort());
 
-          let message = (onAlreadyLocked && onAlreadyLocked({ login: ctrl.info.login, realname: ctrl.info.realname, isown: ctrl.isown })) ||
-            <div>
-              {getTid("tollium:exclusive.frontend.alreadylocked", ctrl.info.login || ctrl.info.realname, ctrl.info.realname)}
-            </div>;
+          let message = (onAlreadyLocked && onAlreadyLocked({ login: ctrl.info.login, realname: ctrl.info.realname, isself: ctrl.isself })) ||
+            ctrl.isself
+              ? <div>
+                  {getTid("tollium:exclusive.frontend.alreadyselflocked")}
+                </div>
+              : <div>
+                  {getTid("tollium:exclusive.frontend.alreadylocked", ctrl.info.login || ctrl.info.realname, ctrl.info.realname)}
+                </div>;
 
           let res = await dialogapi.runMessageBox(message, [ { title:"yes", result: "yes" }, { title:"no" } ], { signal: actrl.signal, allowcancel: false });
           if (res == "yes")
@@ -443,6 +483,9 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
             </div>;
 
           await dialogapi.runMessageBox(message, [ { title:"close" } ]);
+
+          if (onLockStolenShown)
+            onLockStolenShown();
         }
       , onReleaseRequestDenied: async() =>
         {

@@ -76,6 +76,7 @@ test.registerTests(
       test.eq("no", test.qS("#locked").textContent);
       test.eqMatch(/taken over this/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
+      await test.wait(() => test.qS("#status").textContent == "LockStolenShown");
 
       await test.selectFrame("second");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
@@ -142,6 +143,7 @@ test.registerTests(
       await test.selectFrame("fourth");
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "AlreadyLocked");
+      test.eqMatch(/another browser tab/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "Got lock");
       test.click("#releaselock");
