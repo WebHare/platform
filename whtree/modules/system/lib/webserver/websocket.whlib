@@ -322,7 +322,9 @@ STATIC OBJECTTYPE WebserverWebSocketHandler EXTEND WebserverWebSocketConnection
 
   PUBLIC MACRO Run()
   {
-    WaitForPromise(this->ReceiveLoop());
+    TRY
+      WaitForPromise(this->ReceiveLoop());
+    CATCH (OBJECT< OperationCancelledException > e); // is thrown when closing the loop, no need to propagate
   }
 
   UPDATE PUBLIC MACRO Close()

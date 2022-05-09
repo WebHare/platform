@@ -24,6 +24,7 @@ async function requestAccess()
       , onWaitingForOwner: () => void(document.getElementById("status").textContent = "WaitingForOwner")
       , onReleaseRequest: () => void(document.getElementById("status").textContent = "ReleaseRequest")
       , onReleaseRequestDenied: () => void(document.getElementById("status").textContent = "ReleaseRequestDenied")
+      , onLockStolenShown: () => void(document.getElementById("status").textContent = "LockStolenShown")
       }
       );
 
@@ -54,6 +55,5 @@ async function requestAccess()
 dompack.register("#startexclusiveaccesstest", node => node.addEventListener("click", () => requestAccess()));
 dompack.register("#releaselock", node => node.addEventListener("click", () =>
 {
-  console.log(`release`, lock);
   lock && lock.release();
 }));

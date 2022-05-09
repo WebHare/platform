@@ -62,6 +62,7 @@ PUBLIC STATIC OBJECTTYPE WebExclusivityHandler EXTEND ExclusivityHandlerBase
     this->handler->fifo->Push(
         [ type := "local-alreadyLocked"
         , info := CELL[ data.msg.login, data.msg.realname ]
+        , isself := data.msg.entityid = this->userdata.entityid
         ]);
 
     // create a promise to record the client's response
@@ -280,7 +281,7 @@ OBJECTTYPE LockHandler
         }
         CASE "local-alreadyLocked"
         {
-          this->sendmessage(CELL[ type := "alreadyLocked", item.info ]);
+          this->sendmessage(CELL[ type := "alreadyLocked", item.info, item.isself ]);
         }
         CASE "requestLock"
         {
