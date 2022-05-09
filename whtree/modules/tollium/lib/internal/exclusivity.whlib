@@ -455,6 +455,12 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandlerBase
     // If forced closing, give our closer a bit of head-start to open its own port
     IF (RecordExists(this->exitmessage))
       Sleep(100);
+    ELSE IF (IsValueSet(this->links))
+    {
+      // Give the first waiter a head-start
+      this->CloseLink(this->links[0]);
+      Sleep(100);
+    }
 
     WHILE (LENGTH(this->links) != 0)
       this->CloseLink(this->links[0]);
