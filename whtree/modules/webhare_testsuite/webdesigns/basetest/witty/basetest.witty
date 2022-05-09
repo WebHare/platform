@@ -52,3 +52,11 @@
 [component emptywidget]
 <div id="emptywidget"></div>
 [/component]
+
+[component widgetblockwidget]
+  <div class="widgetblockwidget">
+    [forevery items]
+      <div class="widgetblockwidget__widget">[contents]</div>
+    [/forevery]
+  </div>
+[/component]

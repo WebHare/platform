@@ -39,21 +39,19 @@ PUBLIC OBJECTTYPE EditPoll EXTEND FSObjectEditScreenBase
   // (although we on submit also check, it's nicer to warn now even though between)
   BOOLEAN FUNCTION OnRowDelete(RECORD row)
   {
-    RECORD sel := this->options->value;
-
     // Check whether this poll options has been selected
     // FIXME: check the polloptions, the pollvotes or use pollapi->getVotes(optionguid) or pollapi->getPollOptionStatistics() ??
     RECORD polloption :=
         SELECT *
           FROM publisher.polloptions
-         WHERE guid = sel.guid;
+         WHERE guid = row.guid;
 
     IF (RecordExists(polloption) AND polloption.votes > 0)
     {
-      this->owner->RunMessageBox("publisher:objectprops/webtools-poll.cannotdeleteusedpolloption", ToString(polloption.votes));
+      this->RunSimpleScreen("error", GetTid("publisher:webtools.editpoll.messageboxes.cannotdeleteusedpolloption"));
       RETURN FALSE;
     }
-    ABORT("?");
+    RETURN TRUE;
   }
 >;
 

@@ -397,6 +397,28 @@
     </newtab>
   </tabsextension>
 
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
+              editextension="#widgetblock"
+              renderobjectname="lib/basetest.whlib#WidgetBlockWidget"
+              title="Widget block"
+              wittycomponent="witty/basetest.witty:widgetblockwidget">
+    <members>
+      <whfsrefarray name="widgets" />
+    </members>
+  </widgettype>
+
+  <tabsextension name="widgetblock" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="none">
+    <newtab>
+      <p:browseforobjectarray cellname="widgets"
+                              sortable="true"
+                              orderable="true"
+                              acceptfolders="false"
+                              acceptfiles="true"
+                              required="true"
+                              composition="contentdata"/>
+    </newtab>
+  </tabsextension>
+
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1"
            allownewwindowlinks="true"
            htmlclass="gohtml">

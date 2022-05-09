@@ -2,6 +2,9 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
@@ -39,7 +42,7 @@ RECORD ARRAY myoptions :=
   ];
 RECORD ARRAY myoptions_enriched;
 
-
+OBJECT pollfile;
 
 PUBLIC MACRO Prepare()
 {
@@ -50,14 +53,14 @@ PUBLIC MACRO Prepare()
   testfw->BeginWork();
 
   //The poll webtool holds the actual poll results. Destroy it!
-  OBJECT pollwebtoolfile := webtoolsfolder->OpenByName("pollwebtool");
-  IF(ObjectExists(pollwebtoolfile))
-    pollwebtoolfile->DeleteSelf();
+  pollfile := webtoolsfolder->OpenByName("pollwebtool");
+  IF(ObjectExists(pollfile))
+    pollfile->DeleteSelf();
 
   /* Set up the poll. As the publisher requires you to manually create the pollfile
      in the right spot, there's no real need to offer a special API for that here */
   OBJECT pollwebtooltype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pollwebtool");
-  OBJECT pollfile := webtoolsfolder->CreateFile( [ name := "pollwebtool", type := pollwebtooltype->id, publish := FALSE]);
+  pollfile := webtoolsfolder->CreateFile( [ name := "pollwebtool", type := pollwebtooltype->id, publish := FALSE]);
 
   /* Open the poll by ID */
   OBJECT pollwebtool := OpenPoll(pollfile->id);
@@ -120,64 +123,36 @@ PUBLIC MACRO Prepare()
   RECORD vote_result;
 
 
-  BOOLEAN fail;
-
-
   // Blank votes should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*blank vote*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , DEFAULT STRING ARRAY
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail on blank votes.");
+                  ));
 
 
   // Using an unknown option GUID should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*option*does not*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , ["IDONOTEXISTASOPTION"]
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail on a non-existant option GUID.");
-
+                  ));
 
 
   // Multiple selected options on singlechoice poll should THROW
-  fail := FALSE;
-  TRY
-  {
-    vote_result := testfw->browser->CallJSONRPC(
+  TestThrowsLike("*multiple votes*"
+        , PTR testfw->browser->CallJSONRPC(
                     GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                   , pollwebtool->toolid
                   , [ STRING(options[1].guid), options[0].guid ]
-                  );
-  }
-  CATCH(OBJECT err)
-  {
-    fail := TRUE;
-  }
-  TestEq(fail, TRUE, "RPC CastVote should fail when trying to vote for multiple options on a singleselect poll.");
+                  ));
 
 
   RECORD hidden_option := SELECT * FROM options WHERE hide;
   TestThrowsLike( "*not available*"
-                , PTR testfw->browser->CallJSONRPC(
+       , PTR testfw->browser->CallJSONRPC(
                       GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
                     , pollwebtool->toolid
                     , [ STRING(hidden_option.guid) ] //STRING(options[1].guid) ]
@@ -232,8 +207,6 @@ PUBLIC MACRO Prepare()
   // when we request the statistics again we expect only one change:
   // the "votes" field for the second option must now be 1 instead of 0
   RECORD results2 := pollwebtool->GetResults();
-  //DumpValue(results.options, "tree");
-  //DumpValue(results2.options, "tree");
   TestEq(results.options, results2.options, "GetResults().options didn't return what we expected after having used the RPC CastVote.");
 
 
@@ -284,5 +257,24 @@ PUBLIC MACRO Prepare()
 
 }
 
-RunTestframework([ PTR Prepare ]);
+ASYNC MACRO TestPollEdit()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := STRING[ pollfile->whfspath ] ]));
+  TestEq(5, Length(TT("options")->value));
+  TT("options")->SetSelectedRows([1]);
+  AWAIT ExpectAndAnswerMessagebox("ok", PTR TTClick(":Delete"), [ messagemask := "*been voted on*" ]);
+  TestEq(5, Length(TT("options")->value));
+
+  TT("options")->SetSelectedRows([2]); //3rd option has no votes so should be deletable
+  TTClick(":Delete");
+  TestEq(4, Length(TT("options")->value));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+}
+
+RunTestframework([ PTR Prepare
+                 , PTR TestPollEdit
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
 

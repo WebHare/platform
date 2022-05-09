@@ -6,22 +6,12 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 
-// The publisher's moduledefinition.xml defined this namespace + tagname ("pollsettings")
-// so <apply> rules can pass settings.
-STRING webtoolsns := "http://www.webhare.net/xmlns/publisher/siteprofile";
-
-
-/* Public API for polls */
-
-OBJECT polltype;
-OBJECT polltemplate;
-
-
-OBJECTTYPE PollWebtool
+STATIC OBJECTTYPE PollWebtool
 <
   RECORD fileinfo;
   RECORD polldata;
@@ -29,18 +19,11 @@ OBJECTTYPE PollWebtool
   PUBLIC PROPERTY id(this->fileinfo.id, -);
   PUBLIC PROPERTY toolid(GetToolId, -);
   PUBLIC PROPERTY ismultiplechoice(this->polldata.ismultiplechoice, -); //SetMultipleChoice);
-//PUBLIC PROPERTY allowvotestill(this->polldata.allowvotestill, -);
-
 
   MACRO NEW(RECORD fileinfo)
   {
     this->fileinfo := fileinfo;
-
-    IF (NOT ObjectExists(polltype))
-      polltype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pollwebtool");
-
-    this->polldata := polltype->GetInstanceData(this->id);
-    //ABORT(AnyToString(this->polldata, "tree"));
+    this->polldata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pollwebtool")->GetInstanceData(this->id);
   }
 
   STRING FUNCTION GetToolId()
@@ -113,13 +96,7 @@ OBJECTTYPE PollWebtool
       INSERT CELL ismultiplechoice := settings.ismultiplechoice INTO updatefields;
     }
 
-    polltype->SetInstanceData(this->id, updatefields);
-
-    // ADDME: fire an event... what would be the best nice for the event?
-    //GetPrimary()->BroadcastOnCommit("publisher.webtoolspoll." || this->id, DEFAULT RECORD);
-
-    // Return the options including the newly generated GUIDs
-    //RETURN [ options := options ];
+    OpenWHFSType("http://www.webhare.net/xmlns/publisher/pollwebtool")->SetInstanceData(this->id, updatefields);
   }
 
 
@@ -177,20 +154,13 @@ OBJECTTYPE PollWebtool
 
     // Find all apply's where webtools settings are changed
     // (note: we could take the last one, but in case we will have multiple settings which can be overridden we do this instead)
-    RECORD ARRAY settings := GetCustomSiteProfileSettings(webtoolsns, "pollsettings", this->fileinfo.id);
+    RECORD ARRAY settings := GetCustomSiteProfileSettings(whconstant_xmlns_publisher, "pollsettings", this->fileinfo.id);
     FOREVERY(RECORD setting FROM settings)
     {
       STRING voteafter := setting.node->GetAttribute("allowvotingagainafter");
       IF (voteafter != "")
         pollsettings.allowvotingagainafter := ParseXSInt(voteafter);
     }
-
-    /*
-    ABORT([ toolid := this->fileinfo.id
-          , applies := settings
-          , pollsettings := pollsettings
-          ]);
-    */
 
     RETURN [ toolid           := this->toolid
            , ismultiplechoice := this->ismultiplechoice
@@ -216,9 +186,6 @@ OBJECTTYPE PollWebtool
   */
   PUBLIC MACRO Render(OBJECT context)
   {
-    IF (NOT ObjectExists(polltemplate))
-      polltemplate := LoadWittyLibrary("mod::publisher/lib/webtools/internal/renderpoll.witty", "HTML-NI");
-
     // NOTE: we return DEFAULT FUNCTION PTR for an empty richdocument (DEFAULT RECORD)
     //       so any templates can detect those richdocuments are empty and leave out containers for those richdocuments.
     RECORD wittyfields := this->GetWittyFields();
@@ -228,10 +195,7 @@ OBJECTTYPE PollWebtool
              , messageaftervoting := context->GetRTDBody(this->polldata.messageaftervoting)
           FROM [ Record(wittyfields) ];
 
-    // FIXME: debug code
-    INSERT CELL debugdata := PTR DumpValue(wittyfields, "htmltree") INTO wittyfields;
-
-    polltemplate->RunComponent("renderpoll", wittyfields);
+    EmbedWittyComponent("mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll", wittyfields);
   }
 
 
@@ -270,13 +234,9 @@ OBJECTTYPE PollWebtool
     ELSE
     {
       // Validate that indeed this is an option for this poll
-      RECORD polldata := polltype->GetInstanceData(this->id);
-
-      RECORD option := SELECT * FROM polldata.options WHERE COLUMN guid = VAR optionguid;
+      RECORD option := SELECT * FROM this->polldata.options WHERE COLUMN guid = VAR optionguid;
       IF (NOT RecordExists(option))
         THROW NEW Exception("The specified option does not exist.");
-
-//abort(anytostring(polldata, "tree"));
 
       IF (option.hide)
         THROW NEW Exception("The specified option is not available.");
