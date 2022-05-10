@@ -1168,7 +1168,7 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
     ELSE IF(this->type = "checkbox")
     {
       rendering := CELL[ ...rendering
-                       , type := "checkbox"
+                       , type := "checkboxes"
                        , orientation := this->orientation
                        ];
     }

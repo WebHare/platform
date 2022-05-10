@@ -1,4 +1,4 @@
-/** @import: import * as texttype from 'dompack/types/text';
+/** @import: import * as text from 'dompack/types/text';
 */
 
 export function encodeTextNode(str)
