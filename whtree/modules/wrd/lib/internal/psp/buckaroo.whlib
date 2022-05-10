@@ -202,7 +202,6 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
       RETURN; //have nothing to poll
 
     RECORD callresult := DoBuckarooRequest(this->settings, `Transaction/Status/${EncodeURL(this->paymentdata.transactionkey)}`, DEFAULT RECORD, this->paymentdata.culture, "Web");
-    dumpvalue(callresult,'tree');
 
     IF(callresult.status != 200)
       THROW NEW Exception(`Unexpected status: ${callresult.status}`);
