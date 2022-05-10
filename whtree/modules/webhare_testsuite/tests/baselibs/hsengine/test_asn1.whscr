@@ -290,7 +290,7 @@ MACRO TestChoiceInSequence()
   TestEQ(TRUE, CellExists(parsed.value.protocolop, "SEARCHRESREF"));
 }
 
-MACRO TestDecoding()
+MACRO TestEnDecoding()
 {
   OBJECT parser := GetASN1Parser();
   parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
@@ -308,6 +308,14 @@ MACRO TestDecoding()
       , data :=         DecodeBase16("2080")
       , enumvalues :=   [ "keyEncipherment", "decipherOnly" ]
       ], asndescription->ParseData(NEW StaticBERDecoder(DecodeBase16("0303072080")), "KeyUsage").value);
+
+  // Test GeneralTime
+  OBJECT timeresult := NEW BEREncoder();
+  asndescription->EncodeData(timeresult, "Time", [ generaltime := "20500904000000Z" ]);
+  STRING encoded := timeresult->GetRequest();
+  TestEQ("180F32303530303930343030303030305A", EncodeBase16(encoded));
+  VARIANT parsed := asndescription->ParseData(NEW StaticBERDecoder(encoded), "Time");
+  TestEQ([ __field := "generalTime", generaltime := "20500904000000Z" ], parsed.value);
 }
 
 
@@ -317,4 +325,4 @@ TestCRTCSRDecoding();
 TestCertificateEncoding();
 TestCertificateFixup();
 TestChoiceInSequence();
-TestDecoding();
+TestEnDecoding();
