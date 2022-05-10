@@ -63,6 +63,7 @@ PUBLIC MACRO FillInForm()
 
   //Verify the form contents through the rendertree
   RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+  ValidateFormRenderTree(rendertree);
 
   TestEqMembers([ classes := STRING[]
                 , pages :=
@@ -99,6 +100,7 @@ PUBLIC MACRO FillInForm()
                                  , type := "textarea"
                                  ]
                                 ,[ htmltitle := "Checkboxes"
+                                 , type := "checkboxes"
                                  , options := [[ value := "copt1", htmltitle := "CheckboxOpt1" ]
                                               ,[ value := "copt2", htmltitle := "CheckboxOpt2" ]
                                               ,[ value := "copt3", htmltitle := "CheckboxOpt3" ]
@@ -117,9 +119,7 @@ PUBLIC MACRO FillInForm()
                                  ]
                                 ,[ htmltitle := "Checkbox"
                                  , type := "checkbox"
-                                 , options := [[ value := "yes", htmltitle := "" ]
-                                              ]
-                                 , orientation := "vertical"
+                                 , htmllabel := "&#60;checkbox-label&#62;"
                                  ]
                                 ,[ type := "select"
                                  , htmltitle := "Pulldown req"

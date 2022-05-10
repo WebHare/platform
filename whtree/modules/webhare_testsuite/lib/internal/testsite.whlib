@@ -428,6 +428,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     addedcheckboxfield := formpage->AppendComponent("checkbox");
     addedcheckboxfield->SetAttribute("name","checkboxfield");
     addedcheckboxfield->SetAttribute("title","Checkbox");
+    addedcheckboxfield->SetAttribute("label","<checkbox-label>");
 
     IF(options.addconditions)
     {

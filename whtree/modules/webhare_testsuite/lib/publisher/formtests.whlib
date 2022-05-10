@@ -30,9 +30,17 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
         IF(field.type = "checkbox")
         {
           //A checkbox is in the forms either a <select type=checkbox> (group of checkboxes) or <checkbox> but when rendering, equalize those!
-          TestEq(FALSE, CellExists(field,'value'), "No 'value' in a checkbox");
+          TestEq("BOOLEAN", GetTypeName(TYPEID(field.value)));
           TestEq(FALSE, CellExists(field,'label'), "No 'label' in a checkbox");
-          TestEq(FALSE, CellExists(field,'htmllabel'), "No 'htmllabel' in a checkbox");
+          TestEq("STRING", GetTypeName(TYPEID(field.htmllabel)));
+          TestEq(FALSE, CellExists(field,'options'));
+          TestEq(FALSE, CellExists(field,'orientation'));
+        }
+        IF(field.type = "checkboxes")
+        {
+          TestEq(FALSE, CellExists(field,'value'), "No 'value' in a 'checkboxes'");
+          TestEq(FALSE, CellExists(field,'label'), "No 'label' in a 'checkboxes'");
+          TestEq(FALSE, CellExists(field,'htmllabel'), "No 'htmllabel' in a 'checkboxes'");
           TestEq("RECORD ARRAY", GetTypeName(TYPEID(field.options)));
           TestEq(TRUE, field.orientation IN ["horziontal","vertical"]);
         }
@@ -42,5 +50,4 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
       TestEq(TRUE, SearchSubstring(field.qname,'?') = -1, "Qname shouldn't contain a ?");
     }
   }
-
 }
