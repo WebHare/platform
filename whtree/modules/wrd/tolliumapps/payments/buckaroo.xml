@@ -28,15 +28,8 @@
 
   <screen name="payinfo" title="">
     <body>
-      <text name="transactionid" />
-
-<!-- <text name="orderid" selectable="true" />
-      <text name="paymentid" selectable="true" />
-      <text name="paymentmethod" />
-      <text name="brand" />
-      <text name="status" />
-      <text name="ncerror" />
- -->
+      <text name="transactionkey" />
+      <text name="paymentkey" />
     </body>
   </screen>
 

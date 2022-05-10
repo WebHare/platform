@@ -992,8 +992,9 @@
         <text tid="portefeuilleid">PortefeuilleID</text>
       </textgroup>
       <textgroup gid="buckaroo">   <!-- tolliumapps.payments.buckaroo -->
+        <text tid="paymentkey">Betaalsleutel</text>
         <text tid="secretid">Secret ID</text>
-        <text tid="transactionid">Transactie ID</text>
+        <text tid="transactionkey">Transactiesleutel</text>
         <text tid="websiteid">Website ID</text>
       </textgroup>
       <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->

@@ -7,8 +7,10 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 
 
@@ -88,16 +90,28 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
              ];
 }
 
-PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase
+PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V2
 <
-  STRING transactionid;
-
   MACRO NEW(RECORD settings)
-  : WRDPaymentProviderBase("wrd:buckaroo", "redirect", settings)
+  : WRDPaymentProviderBase_V2("wrd:buckaroo", "redirect", settings, [ responsekey := "", transactionkey := "" ])
   {
     this->needspaymentref := TRUE;
   }
 
+  UPDATE PUBLIC RECORD FUNCTION GetPSPStatus()
+  {
+    TRY
+    {
+      IF(NOT CheckBuckarooMerchant(this->settings))
+        RETURN [ success := FALSE, unknown := FALSE, message := "Credentials appear to be invalid" ];
+
+      RETURN [ success := TRUE, unknown := FALSE, message := "" ];
+    }
+    CATCH(OBJECT e)
+    {
+      RETURN [ success := FALSE, unknown := FALSE, message := e->what ];
+    }
+  }
 
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
   {
@@ -115,14 +129,99 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase
     }
     RETURN methods;
   }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+
+    RECORD customerinfo := this->GetCustomerInfo(paymentmethod);
+    this->paymentdata := CELL[ customerinfo.ipaddress
+                             , culture := ToUppercase(paymentmethod.language) = "DE" ? "de-DE"
+                                         : ToUppercase(paymentmethod.language) = "NL" ? "nl-NL"
+                                         : "en-US"
+                             ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , complete := FALSE
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    /* Payment fields are listed here! https://dev.buckaroo.nl/Apis
+       And JSON structure is here - https://testcheckout.buckaroo.nl/json/Docs/Api/POST-json-Transaction
+       Note: docs says 'Order' number is ignored so we need to transmit payment ref in the Invoice field
+       Limitations of invoice field are unclear. "This can be a combination of numbers and letters" but
+       then their example says "testinvoice 123"
+    */
+    RECORD ARRAY parameters;
+    IF(this->issuer != "")
+      parameters := [[ name := "issuer", value := this->issuer ]];
+
+    RECORD paymentrequest :=
+      CELL[ currency := "EUR"
+          , amountdebit := this->amountpayable //Yes, transmitted as float :=(
+          , invoice := this->paymentref
+          , description := this->orderid
+          , returnurl := GetInternalReturnURL(paymenttok)
+          , services := [ servicelist := [[ name := this->paymentoptiontag
+                                          , action := "Pay"
+                                          , parameters := parameters
+                                         ]]
+                        ]
+          , pushurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ])
+          ];
+
+    IF(this->paymentdata.ipaddress != "")
+    {
+      INSERT CELL clientip := [ type := this->paymentdata.ipaddress LIKE "*:*" ? 1 : 0 //1=ipv6, 0=ipv4
+                              , address := this->paymentdata.ipaddress
+                              ] INTO paymentrequest;
+    }
+
+    RECORD callresult := DoBuckarooRequest(this->settings, "Transaction", paymentrequest, this->paymentdata.culture, "Web");
+
+    IF(callresult.status != 200)
+      THROW NEW Exception(`Unexpected status: ${callresult.status}`);
+
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ transactionkey := callresult.response."key"
+                                      , paymentkey := callresult.response.paymentkey
+                                      ]);
+    GetPrimary()->CommitWork();
+
+    result.submitinstruction := [ type := "redirect", url := callresult.response.requiredaction.redirecturl ];
+    RETURN result;
+  }
+
+  UPDATE MACRO PollStatus()
+  {
+    IF(this->paymentdata.transactionkey = "")
+      RETURN; //have nothing to poll
+
+    RECORD callresult := DoBuckarooRequest(this->settings, `Transaction/Status/${EncodeURL(this->paymentdata.transactionkey)}`, DEFAULT RECORD, this->paymentdata.culture, "Web");
+    dumpvalue(callresult,'tree');
+
+    IF(callresult.status != 200)
+      THROW NEW Exception(`Unexpected status: ${callresult.status}`);
+
+    //statuscodes are documented at https://dev.buckaroo.nl/PaymentMethods
+    IF(callresult.response.status.code.code = 190)
+      this->pvt_status := "approved";
+    ELSE IF(callresult.status IN [490,491,492,890,891,690])
+      this->pvt_status := "failed";
+    ELSE
+      this->pvt_status := "pending";
+  }
 >;
 
-PUBLIC BOOLEAN FUNCTION CheckBuckarooMerchant(STRING websiteid, STRING secretid, BOOLEAN testmode)
+PUBLIC BOOLEAN FUNCTION CheckBuckarooMerchant(RECORD methodsettings)
 {
-  IF(websiteid = "" OR secretid = "")
+  IF(methodsettings.websiteid = "" OR methodsettings.secretid = "")
     RETURN FALSE;
 
-  RECORD config := CELL[ websiteid, secretid, testmode ];
-  RECORD result := DoBuckarooRequest(config, "/json/Transaction/Specification/ideal?serviceVersion=1.0", DEFAULT RECORD, "nl-NL","Web");
+  RECORD result := DoBuckarooRequest(methodsettings, "/json/Transaction/Specification/ideal?serviceVersion=1.0", DEFAULT RECORD, "nl-NL","Web");
   RETURN result.status = 200 AND result.response.name = "ideal";
 }

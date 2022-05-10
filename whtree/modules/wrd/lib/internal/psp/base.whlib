@@ -394,3 +394,43 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   }
 >;
 
+
+PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase_V2 EXTEND WRDPaymentProviderBase
+<
+  RECORD paymentdata;
+  RECORD paymentdatastructure;
+
+  MACRO NEW(STRING type, STRING interactiontype, RECORD settings, RECORD paymentdatastructure)
+  : WRDPaymentProviderBase(type, interactiontype, settings)
+  {
+    this->paymentdatastructure := paymentdatastructure;
+//FIXME should all payment methods enforce this now?    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->paymentdata := EnforceStructure(this->paymentdatastructure, payment.__paymentdata.m);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN EnforceStructure(this->paymentdatastructure, this->paymentdata);
+  }
+
+  MACRO PollStatus()
+  {
+    THROW NEW Exception(`The payment method '${this->pvt_psptype}' does not implement PollStatus`);
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    this->PollStatus();
+    RETURN TRUE;
+  }
+>;

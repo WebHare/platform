@@ -24,7 +24,7 @@ PUBLIC STATIC OBJECTTYPE ConfigBuckaroo EXTEND PSPSettingsExtensionBase
   }
   MACRO DoConnect()
   {
-    IF(NOT CheckBuckarooMerchant(^websiteid->value, ^secretid->value, ^testmode->value))
+    IF(NOT CheckBuckarooMerchant(^methodsettings->value))
     {
       this->owner->RunSimpleScreen("error", GetTid("wrd:tolliumapps.payments.common.incorrectcredentials"));
       RETURN;
@@ -38,7 +38,8 @@ PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     RECORD meta := data.payment->__GetPaymentData();
-    ^transactionid->value := meta.transactionid;
+    ^transactionkey->value := meta.transactionkey;
+    ^paymentkey->value := meta.paymentkey;
   }
 >;
 
