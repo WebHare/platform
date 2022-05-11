@@ -991,6 +991,12 @@
         <text tid="merchantid">Merchant ID</text>
         <text tid="portefeuilleid">PortefeuilleID</text>
       </textgroup>
+      <textgroup gid="buckaroo">   <!-- tolliumapps.payments.buckaroo -->
+        <text tid="paymentkey">Betaalsleutel</text>
+        <text tid="secretid">Secret ID</text>
+        <text tid="transactionkey">Transactiesleutel</text>
+        <text tid="websiteid">Website ID</text>
+      </textgroup>
       <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
         <text tid="disablenoissuer">Bied de "no issuer" optie niet aan</text>
         <text tid="disablewithissuer">Bied de "with issuer" optie niet aan</text>

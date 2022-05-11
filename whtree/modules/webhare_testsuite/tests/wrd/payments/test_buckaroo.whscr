@@ -1,0 +1,136 @@
+<?wh
+/* Test buckaroo
+   WebHare.bv developers can obtain test credentials using:
+   Q secrets/load-test-environment buckaroo
+*/
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_BUCKAROO_WEBSITEID") = "" OR GetEnvironmentVariable("TESTSECRET_BUCKAROO_SECRETID") = "";
+
+ASYNC MACRO SetupBuckaroo()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:buckaroo";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TT(":Website ID")->value := GetEnvironmentVariable("TESTSECRET_BUCKAROO_WEBSITEID") ?? "dummy-id";
+  TT(":Secret ID")->value := GetEnvironmentVariable("TESTSECRET_BUCKAROO_SECRETID") ?? "dummy-secret";
+  TT("paymentextension->testmode")->value := TRUE;
+  IF(NOT offlineonly)
+  {
+    AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  }
+
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq(TRUE, TT("paymentextension->testmode")->value);
+  TestEq(["iDEAL"], SELECT AS STRING ARRAY title FROM TT("{select}:Methods")->selection);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+}
+
+ASYNC MACRO TestPaymentBuckaroo()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(1,Length(methods));
+  TestEq("iDEAL", methods[0].title);
+  TEstEq(TRUE, Length(methods[0].issuers) > 8);
+
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := methods[0].paymentprovider
+                          , paymentoptiontag := methods[0].paymentoptiontag
+                          , issuer := methods[0].issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 219.57, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  //abort(); //ABORT here if you want to visit the payment URL yourself
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+  //precheck status
+  paymentapi->ForceRecheckPayment(entity->id);
+  TestEq("pending", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  //////////// use chrome headless to execute the payment (buckaroo does a pointless redirect and sends highly broken HTML... let a browser deal with that)
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+
+  AWAIT pageobj->Init();
+  AWAIT pageobj->Navigate(payurl);
+
+  OBJECT submitbutton := AWAIT WaitForChromeElement(conn, pageobj, "input[value='Submit status']");
+  AWAIT submitbutton->Click();
+
+  WHILE(pageobj->mainframe->url NOT LIKE "*wrd/paymentinfo*")
+  {
+    Print("Now on: " || pageobj->mainframe->url || "\n");
+    AWAIT navwatcher->WaitForNavigation();
+  }
+
+  Print("Buckaroo returned to: " || pageobj->mainframe->url || "\n");
+  TestEq(TRUE, testfw->browser->GotoWebPage(pageobj->mainframe->url));
+
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("approved", status.payinfo.status);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+}
+
+IF(offlineonly)
+  Print("*** Skipping some tests as TESTSECRET_BUCKAROO_WEBSITEID and TESTSECRET_BUCKAROO_SECRETID are unset\n\n");
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR SetupBuckaroo
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentBuckaroo
+                 ]);

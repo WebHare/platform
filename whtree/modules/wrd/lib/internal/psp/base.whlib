@@ -11,6 +11,22 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
 
+PUBLIC CONSTANT RECORD ARRAY wrd_payments_idealbanks
+ := [[ rowkey := "ABNANL2A", title := "ABN AMRO" ]
+    ,[ rowkey := "RABONL2U", title := "Rabobank" ]
+    ,[ rowkey := "INGBNL2A", title := "ING" ]
+    ,[ rowkey := "SNSBNL2A", title := "SNS Bank" ]
+    ,[ rowkey := "ASNBNL21", title := "ASN Bank" ]
+    ,[ rowkey := "RBRBNL21", title := "Regio Bank" ]
+    ,[ rowkey := "TRIONL2U", title := "Triodos bank" ]
+    ,[ rowkey := "FVLBNL22", title := "Van Landschot Bankiers" ]
+    ,[ rowkey := "KNABNL2H", title := "Knab" ]
+    ,[ rowkey := "BUNQNL2A", title := "Bunq" ]
+    ,[ rowkey := "HANDNL2A", title := "Handelsbanken" ]
+    ,[ rowkey := "REVOLT21", title := "Revolut" ]
+    ];
+
+
 PUBLIC RECORD paymentbaseoptions :=
   [ paymentoptiontag := ""
   , paymenthandler := ""
@@ -378,3 +394,43 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   }
 >;
 
+
+PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase_V2 EXTEND WRDPaymentProviderBase
+<
+  RECORD paymentdata;
+  RECORD paymentdatastructure;
+
+  MACRO NEW(STRING type, STRING interactiontype, RECORD settings, RECORD paymentdatastructure)
+  : WRDPaymentProviderBase(type, interactiontype, settings)
+  {
+    this->paymentdatastructure := paymentdatastructure;
+//FIXME should all payment methods enforce this now?    this->needspaymentref := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->paymentdata := EnforceStructure(this->paymentdatastructure, payment.__paymentdata.m);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN EnforceStructure(this->paymentdatastructure, this->paymentdata);
+  }
+
+  MACRO PollStatus()
+  {
+    THROW NEW Exception(`The payment method '${this->pvt_psptype}' does not implement PollStatus`);
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    this->PollStatus();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    this->PollStatus();
+    RETURN TRUE;
+  }
+>;

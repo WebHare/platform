@@ -226,24 +226,7 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
     IF(this->settings.mode="test")
       RETURN [[ rowkey := "9999%2BTST", title := "iDEAL simulator" ]]; //suspect. %2B = +, and + = space
 
-    RETURN [[ rowkey := "ABNANL2A", title := "ABN AMRO" ]
-           ,[ rowkey := "RABONL2U", title := "Rabobank" ]
-           ,[ rowkey := "INGBNL2A", title := "ING" ]
-           ,[ rowkey := "SNSBNL2A", title := "SNS Bank" ]
-           ,[ rowkey := "ASNBNL21", title := "ASN BANK" ]
-           ,[ rowkey := "RBRBNL21", title := "Regio Bank" ]
-           ,[ rowkey := "TRIONL2U", title := "Triodos bank" ]
-           ,[ rowkey := "FVLBNL22", title := "Van Landschot Bankiers" ]
-           ,[ rowkey := "KNABNL2H", title := "KNAB Bank" ]
-           ,[ rowkey := "BUNQNL2A", title := "Bunq" ]
-           ];
-    /* ADDME want a dynamic list
-
-    //We need to get the list from buckaroo. we'll assume it's merchantkey specific and not related to the test flag (though that's all unspecified)
-    RETURN SELECT value := issuercode
-                , title := name
-             FROM GetAdhocCached([type:="issuers", merchantkey := this->settings.merchantkey], PTR this->GetcacheableIssuers);
-          */
+    RETURN wrd_payments_idealbanks;
   }
 
   UPDATE PUBLIC RECORD FUNCTION __GetMetadata()

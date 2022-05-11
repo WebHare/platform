@@ -449,6 +449,13 @@ PUBLIC MACRO RunStandardPaymentMethodTests()
   RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
   TestEq(TRUE, Length(methods)>0, "There must be some payment methods configured");
 
+  FOREVERY(RECORD method FROM methods)
+  {
+    OBJECT psp := paymentapi->__InstantiatePSP(method.paymentprovider);
+    RECORD status := psp->GetPSPStatus();
+    TestEq(TRUE, status.success OR status.unknown, "Status check failed: " || EncodeJSON(status));
+  }
+
   //Test against crash when setting up payment but not configuring it (ie test MakePaymentMethod)
   testfw->BeginWork();
   FOREVERY(RECORD method FROM methods)
