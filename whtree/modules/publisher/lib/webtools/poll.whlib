@@ -20,6 +20,7 @@ STATIC OBJECTTYPE PollWebtool
   PUBLIC PROPERTY id(this->fileinfo.id, -);
   PUBLIC PROPERTY toolid(GetToolId, -);
   PUBLIC PROPERTY ismultiplechoice(this->polldata.ismultiplechoice, -);
+  PUBLIC PROPERTY title(this->polldata.title, -);
 
   MACRO NEW(RECORD fileinfo)
   {
@@ -51,8 +52,15 @@ STATIC OBJECTTYPE PollWebtool
   // function instead of property setters because we need something explicit because we need an transaction
   PUBLIC MACRO UpdateSettings(RECORD settings)
   {
+    settings := ValidateOptions(CELL[ options := RECORD[]
+                                    , ismultiplechoice := FALSE
+                                    , title := ""
+                                    ], settings, [ title := "settings"
+                                                 , optional := ["*"]
+                                                 ]);
+
     BOOLEAN updatedoptions := CellExists(settings, "options");
-    RECORD updatefields; // fields which will be fed to SetInstanceData
+    RECORD updatefields := PickCells(settings, ["title", "ismultiplechoice"]);
 
     IF (updatedoptions)
     {
@@ -90,13 +98,8 @@ STATIC OBJECTTYPE PollWebtool
       INSERT CELL options := settings.options INTO updatefields;
     }
 
-    IF (CellExists(settings, "ismultiplechoice"))
-    {
-      this->polldata.ismultiplechoice := settings.ismultiplechoice;
-      INSERT CELL ismultiplechoice := settings.ismultiplechoice INTO updatefields;
-    }
-
     OpenWHFSType("http://www.webhare.net/xmlns/publisher/pollwebtool")->SetInstanceData(this->id, updatefields);
+    this->polldata := CELL[...this->polldata, ...updatefields];
   }
 
 
