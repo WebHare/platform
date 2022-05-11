@@ -798,7 +798,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   {
     ArrayListEditBase::RefreshActions();
     ^add->enabled := ^add->enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
-    ^list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR AND this->onrowsdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
+    ^list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
   }
 
   MACRO SetMaxRows(INTEGER newmaxrows)

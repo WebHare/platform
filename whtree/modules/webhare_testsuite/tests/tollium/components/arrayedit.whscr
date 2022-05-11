@@ -172,6 +172,23 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" implementation="none">
+      <body>
+        <arrayedit name="notifications" buttons="add delete" onrowedit="mod::webhare_testsuite/lib/tollium/handlers.whlib#oneditrow"
+                                                             onrowsdelete="mod::webhare_testsuite/lib/tollium/handlers.whlib#ondeleterows">
+          <column name="title" type="text" />
+        </arrayedit>
+      </body>
+    </screen>`)));
+
+  TT("notifications")->value := [[ title := "X1" ], [title := "X2" ], [title := "X3" ], [title := "X4" ]];
+
+  TT("notifications")->SetSelectedRows([1,3]);
+  TestEq([1,3], TT("notifications")->GetSelectedRows());
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   RETURN TRUE;
 }
 
