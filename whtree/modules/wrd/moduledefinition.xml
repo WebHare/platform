@@ -383,7 +383,7 @@
 
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="authkey" />
+
       <d:datetime name="creationdate">
         <d:documentation>When was this schema created (4.19 and up)</d:documentation>
       </d:datetime>
@@ -437,13 +437,6 @@
         </d:documentation>
       </d:integer>
 
-
-      <!-- These 2 are obsolete (is being saved in types).. can we delete without hesitation? -->
-      <d:obsoletecolumn name="required_fields"/>
-      <d:obsoletecolumn name="unique_fields"/>
-      <d:obsoletecolumn name="languages" />
-      <d:obsoletecolumn name="worldinfo" />
-      <d:obsoletecolumn name="schemadata_xml" />
       <d:index name="uniquename" columns="name" unique="true" uppercase="true" />
     </d:table>
 
@@ -493,9 +486,6 @@
         </d:documentation>
       </d:varchar>
 
-      <d:obsoletecolumn name="required_fields"/>
-      <d:obsoletecolumn name="unique_fields"/>
-
       <d:integer name="wrd_schema" nullable="0" references=".schemas" ondelete="cascade">
         <d:documentation>
           Schema to which this type belongs.
@@ -541,7 +531,7 @@
 
         </d:documentation>
       </d:blob>
-      <d:obsoletecolumn name="type" />
+
       <d:index name="keyfinder" columns="wrd_schema name" unique="true" uppercase="true">
         <d:documentation>
 
@@ -560,8 +550,7 @@
 
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="title" />
-      <d:obsoletecolumn name="description" />
+
       <d:blob name="query" nullable="false">
         <d:documentation>
 
@@ -597,7 +586,7 @@
       <d:varchar name="error" maxlength="512">
         <d:documentation>Last payment error</d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="onpayment"/>
+
       <d:index name="uuidindex" columns="uuid(22)">
         <d:documentation>Allow us to quickly lookup transactions by their uuid</d:documentation>
       </d:index>

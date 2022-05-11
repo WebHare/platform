@@ -464,7 +464,7 @@ Initial path to which this access rule applies. Rule applies to path and all con
           Webserver to which this access rule applies. If 0, applies to all webservers
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="transtype" />
+
       <d:integer name="redirectcode">
         <d:documentation>
 
@@ -475,7 +475,7 @@ Initial path to which this access rule applies. Rule applies to path and all con
           Try to fix lowercase/uppercase issues in URLs
         </d:documentation>
       </d:boolean>
-      <d:obsoletecolumn name="applysource" />
+
     </d:table>
     <d:table name="access_externalusers">
       <d:documentation>This table contains the external users that can access a certain path. It is only applicable when 'authlist' on the access rule is set to true.</d:documentation>
@@ -595,7 +595,7 @@ True if this port should support virtual hosting.
           Describe this port
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="portmode" />
+
     </d:table>
 
     <d:table name="proxies" primarykey="id">
@@ -866,7 +866,7 @@ True if this port should support virtual hosting.
 
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="oninstallationtype"/>
+
       <d:integer name="timeout">
         <d:documentation>
           Time (in minutes) after which the task is forcibly terminated. Set to 0 use the default timeout
@@ -883,7 +883,7 @@ True if this port should support virtual hosting.
 
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="description" />
+
       <d:integer name="parent" references=".authobjects" ondelete="cascade" nullable="true">
         <d:documentation>Authobject's parent, used to reconstruct unit tree</d:documentation>
       </d:integer>
@@ -937,15 +937,14 @@ True if this port should support virtual hosting.
 
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="altdefaultpages" />
+
       <d:varchar name="baseurl" maxlength="256">
         <d:documentation>
 URL where the webserver starts. It must start with the protocol (usually "http:") and end with a forward slash. (/)
 
         </d:documentation>
       </d:varchar> <!-- webserver with empty baseurl is ignored -->
-      <d:obsoletecolumn name="defaultpage" />
-      <d:obsoletecolumn name="defaultweb" />
+
       <d:varchar name="diskfolder" maxlength="256">
         <d:documentation>
 Folder on disk, referring to the files of baseurl on disk. Paths must always be stored using forward slashes, and must end with a forward slash. (/)
@@ -976,7 +975,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       <d:integer name="type">
         <d:documentation>Entry type: 0 output website, 1 for backend, 6 for webserver group</d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="forcelowercase" />
+
       <d:datetime name="lastseen">
         <d:documentation>
           Last time checkwebservers.whscr has seen this webserver point to us
@@ -1048,7 +1047,6 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       <d:datetime name="time" nullable="0" />
       <d:integer name="hits" nullable="0" />
       <d:integer name="serverfails" />
-      <d:obsoletecolumn name="clientfails" />
       <d:integer name="highpagetime" />
       <d:integer name="failips" />
       <d:integer64 name="download" />
@@ -1186,7 +1184,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Since when is this field orphaned
         </d:documentation>
       </d:datetime>
-      <d:obsoletecolumn name="publish" />
+
       <d:integer name="type" nullable="0">
         <d:documentation>What type of content this member contains. See whconstant_whfstype_membertypes for posssible values</d:documentation>
       </d:integer>
@@ -1294,15 +1292,13 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="assetbundle" />
-      <d:obsoletecolumn name="assetpack" />
-      <d:obsoletecolumn name="metadata"/>
+
       <d:varchar name="scandata" maxlength="512">
         <d:documentation>
           File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="limitaccess" />
+
       <d:integer name="modifiedby" references=".authobjects" ondelete="set default">
         <d:documentation>
           The id of the user that modified this item last.
@@ -1323,7 +1319,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Relative ordering of this file
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="owner" />
+
       <d:integer name="parent" references=".fs_objects" ondelete="cascade">
         <d:documentation>
           Id of the folder containing this file
@@ -1334,7 +1330,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The parent of the selected item
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="profile"/>
+
       <d:boolean name="publish" internalcolumnname="PUBLISH">
         <d:documentation>
           Checks if the document needs to be published or not
@@ -1345,11 +1341,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Status en flags indicating the current publishing, task and error status of the file.
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="requireprofile" />
-      <d:obsoletecolumn name="requireprofileinsubfolders" />
-      <d:obsoletecolumn name="requiretemplate" />
-      <d:obsoletecolumn name="requiretemplateinsubfolders" />
-      <d:obsoletecolumn name="template"/>
+
       <d:varchar name="title" maxlength="256">
         <d:documentation>
           The title of the currently selected item
@@ -1381,10 +1373,6 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Also used to enforce unique names within folders.
         </d:documentation>
       </d:index>
-
-      <d:obsoletecolumn name="parentsite" />
-      <d:obsoletecolumn name="canedit" />
-      <d:obsoletecolumn name="access" />
     </d:table>
 
     <d:table name="fs_settings" primarykey="id" >
@@ -1488,7 +1476,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:boolean>
-      <d:obsoletecolumn name="needsprofile" />
+
       <d:boolean name="ispublishedassubdir">
         <d:documentation>
 
@@ -1528,7 +1516,6 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Since when is this type orphaned
         </d:documentation>
       </d:datetime>
-      <d:obsoletecolumn name="searchprovider" />
     </d:table>
 
     <d:table name="fs_history" primarykey="id">
@@ -1698,8 +1685,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="altdefaultpages" />
-      <d:obsoletecolumn name="defaultpage" />
+
       <d:varchar name="description" maxlength="2048">
         <d:documentation>
 A short description of the contents of the site
@@ -1724,7 +1710,7 @@ The name for this site, as displayed in the site overview
 
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="outputextension" />
+
       <d:varchar name="outputfolder" maxlength="256">
         <d:documentation>
 The subfolder in which the site should be published inside the specified webserver. This folder's name always ends in a slash
@@ -1894,8 +1880,7 @@ The full base URL on which this site will be published, calculated by combining 
           Creation date of the asset pack
         </d:documentation>
       </d:datetime>
-      <d:obsoletecolumn name="lastuse" />
-      <d:obsoletecolumn name="designfolder" />
+
       <d:varchar name="entrypoint" nullable="false" maxlength="256">
         <d:documentation>
           Requested entry point

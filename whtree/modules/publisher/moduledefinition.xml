@@ -246,7 +246,6 @@
           SHA1 hash of the normalized URL, used for indexing
         </d:documentation>
       </d:bytea>
-      <d:obsoletecolumn name="expirydate" /> <!-- created but never appeared in dbschema.whlib -->
     </d:table>
 
     <d:obsoletetable name="compileddesigns" />
@@ -602,7 +601,6 @@
           WRD type with which posters are associated.
         </d:documentation>
       </d:integer>
-      <d:obsoletecolumn name="emailto" />
     </d:table>
 
     <d:table name="subforums" primarykey="id">
