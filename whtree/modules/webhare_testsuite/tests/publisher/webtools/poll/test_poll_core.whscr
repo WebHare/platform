@@ -273,7 +273,16 @@ MACRO TestPollAPI()
                 ,[ title := "Optie 4", votes := 1 ]
                 ], thetool->GetResults().options, "*");
 
+  //TODO allow <pollsettings> to require voter ids and prevent unique vrotes
+  TestEq([ success := TRUE ], pollwebtool->CastVote(STRING[thetool->GetResults().options[1].guid], [ voterid := 'user1' ]));
+  TestEq([ success := FALSE, errorcode := "alreadyvoted" ], pollwebtool->CastVote(STRING[thetool->GetResults().options[2].guid], [ voterid := 'user1' ]));
+  TestEq([ success := TRUE ], pollwebtool->CastVote(STRING[thetool->GetResults().options[3].guid], [ voterid := 'user2' ]));
 
+  TestEqMembers([[ title := "Optie 1", votes := 1 ]
+                ,[ title := "Optie 2", votes := 3 ]
+                ,[ title := "Optie 3", votes := 0 ]
+                ,[ title := "Optie 4", votes := 2 ]
+                ], thetool->GetResults().options, "*");
 }
 
 ASYNC MACRO TestPollEdit()

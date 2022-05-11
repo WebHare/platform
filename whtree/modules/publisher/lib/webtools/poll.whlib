@@ -244,11 +244,13 @@ STATIC OBJECTTYPE PollWebtool
     DELETE FROM publisher.pollvoters WHERE poll_fsobject = this->id;
   }
 
-  /** @short Cast a vote on the option with the specified optionguid. */
+  /** @short Cast a vote on the option with the specified optionguid.
+      @cell(string) options.voterid If set, prevent duplicate votes from this user/voter (will be hashed into the database) */
   PUBLIC RECORD FUNCTION CastVote(STRING ARRAY optionguids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(CELL[ ipaddress := ""
                                    , useragent := ""
+                                   , voterid := ""
                                    ], options);
     IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
       THROW NEW Exception("Voting requires a primary transaction without open work");
@@ -269,6 +271,21 @@ STATIC OBJECTTYPE PollWebtool
 
     GetPrimary()->BeginLockedWork("publisher:webtools_poll." || this->id);
 
+    STRING idhash;
+    IF(options.voterid != "")
+    {
+      /* We add the id of this poll to the hash to make it a slight bit harder to correlate votes. However until we offer
+         an option to eliminate ipadress/useragent from the votelog there will be an easy correlation there, so we realize
+         this has its limitations (even without considering correlation through accesslogs or that the 'voterid' search space
+         is likely small enough to brute force). */
+      idhash := GetHashForString(this->id || "." || options.voterid, "SHA-256");
+      IF(RecordExists(SELECT FROM publisher.pollvoters WHERE poll_fsobject = this->id AND pollvoters.idhash = VAR idhash))
+      {
+        GetPrimary()->RollbackWork();
+        RETURN [ success := FALSE, errorcode := "alreadyvoted" ];
+      }
+    }
+
     INTEGER pollvoterid  := MakeAutoNumber(publisher.pollvoters, "id");
 
     INSERT CELL[ id := pollvoterid
@@ -276,6 +293,7 @@ STATIC OBJECTTYPE PollWebtool
                , when := GetCurrentDateTime()
                , options.ipaddress
                , useragent := LimitUTF8Bytes(options.useragent, 512)
+               , idhash
                ] INTO publisher.pollvoters;
 
     FOREVERY(STRING optionguid FROM optionguids)
@@ -287,7 +305,7 @@ STATIC OBJECTTYPE PollWebtool
     }
     GetPrimary()->CommitWork();
 
-    RETURN DEFAULT RECORD;
+    RETURN [ success := TRUE ];
   }
 >;
 
