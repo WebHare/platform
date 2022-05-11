@@ -342,7 +342,7 @@
         </d:documentation>
       </d:integer>
 
-      <d:varchar name="ipaddress" maxlength="64"><!-- FIXME: maxlength -->
+      <d:varchar name="ipaddress" maxlength="64">
         <d:documentation>
           Under which IP address did we receive the vote?
         </d:documentation>
@@ -354,11 +354,23 @@
         </d:documentation>
       </d:varchar>
 
+      <d:bytea name="idhash" maxlength="32">
+        <d:documentation>
+          Hashed of identifying vote field, for example based on e-mail address or login name
+        </d:documentation>
+      </d:bytea>
+
       <d:datetime name="when" nullable="false">
         <d:documentation>
           When did we receive this vote?
         </d:documentation>
       </d:datetime>
+
+      <d:index name="voteridindex" columns="poll_fsobject idhash(32)" nonullstores="true">
+        <d:documentation>
+          Prevent duplicate votes, fast check if someone voted before
+        </d:documentation>
+      </d:index>
     </d:table>
 
 

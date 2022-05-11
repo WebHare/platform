@@ -70,6 +70,10 @@ PUBLIC MACRO Prepare()
   OBJECT pollwebtoolbypollid := OpenPollByToolid(pollwebtool->toolid);
   TestEq(pollfile->id, pollwebtoolbypollid->id);
 
+  pollwebtool->UpdateSettings([ title := "The Title" ]);
+  TestEq("The Title", pollwebtool->title);
+  TestEq("The Title", OpenPoll(pollfile->id)->title, 'verify persistence of the title setting');
+
   TestEq(pollwebtoolbypollid->toolid, pollwebtool->toolid, "Toolid should always be the same to allow adhoc caching on toolid");
 
   // We get our options back, enriched with a GUID and hide field for options which didn't have them yet
@@ -250,11 +254,35 @@ PUBLIC MACRO Prepare()
 
   testfw->BeginWork();
 
+  TestEq(FALSE, pollwebtool->ismultiplechoice);
   pollwebtool->UpdateSettings([ ismultiplechoice := TRUE ]);
+  TestEq(TRUE, pollwebtool->ismultiplechoice);
 
   testfw->CommitWork();
+}
 
+MACRO TestPollAPI()
+{
+  OBJECT pollwebtool := OpenPoll(pollfile->id);
 
+  //frontend APIs are supposed to take the pollwebtool->toolid for actual votes
+  OBJECT thetool := OpenPollByToolid(pollwebtool->toolid);
+  TestEqMembers([[ title := "Optie 1", votes := 1 ]
+                ,[ title := "Optie 2", votes := 2 ]
+                ,[ title := "Optie 3", votes := 0 ]
+                ,[ title := "Optie 4", votes := 1 ]
+                ], thetool->GetResults().options, "*");
+
+  //TODO allow <pollsettings> to require voter ids and prevent unique vrotes
+  TestEq([ success := TRUE ], pollwebtool->CastVote(STRING[thetool->GetResults().options[1].guid], [ voterid := 'user1' ]));
+  TestEq([ success := FALSE, errorcode := "alreadyvoted" ], pollwebtool->CastVote(STRING[thetool->GetResults().options[2].guid], [ voterid := 'user1' ]));
+  TestEq([ success := TRUE ], pollwebtool->CastVote(STRING[thetool->GetResults().options[3].guid], [ voterid := 'user2' ]));
+
+  TestEqMembers([[ title := "Optie 1", votes := 1 ]
+                ,[ title := "Optie 2", votes := 3 ]
+                ,[ title := "Optie 3", votes := 0 ]
+                ,[ title := "Optie 4", votes := 2 ]
+                ], thetool->GetResults().options, "*");
 }
 
 ASYNC MACRO TestPollEdit()
@@ -273,6 +301,7 @@ ASYNC MACRO TestPollEdit()
 }
 
 RunTestframework([ PTR Prepare
+                 , PTR TestPollAPI
                  , PTR TestPollEdit
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]

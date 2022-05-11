@@ -49,7 +49,7 @@ PUBLIC RECORD ARRAY FUNCTION RPC_GetResultsForPolls(STRING ARRAY toolids)
 }
 
 
-/** @short cast a vote
+/** @short cast a vote and get the results back
 */
 PUBLIC RECORD FUNCTION RPC_CastVote(STRING toolid, STRING ARRAY optionguids)
 {
@@ -59,31 +59,14 @@ PUBLIC RECORD FUNCTION RPC_CastVote(STRING toolid, STRING ARRAY optionguids)
   IF (NOT ObjectExists(poll))
     THROW NEW Exception("Unknown poll");
 
-  RETURN __CastVote(poll, optionguids);
-}
+   RECORD result := poll->CastVote(optionguids,
+    CELL[ ipaddress := GetClientRemoteIp()
+        , useragent := GetWebHeader("User-agent")
+        ]);
 
-
-/** @short cast a vote and get the results back
-*/
-PUBLIC RECORD FUNCTION RPC_CastVoteAndReturnResults(STRING toolid, STRING ARRAY optionguids)
-{
-  OBJECT trans := OpenPrimary();
-
-  OBJECT poll := OpenPollByToolid(toolid);
-  IF (NOT ObjectExists(poll))
-    THROW NEW Exception("Unknown poll");
-
-  RECORD result := __CastVote(poll, optionguids);
-  IF (result.success)
-  {
-    RETURN [ success     := TRUE
-           , pollresults := poll->GetResults()
-           ];
-  }
-  ELSE
-  {
-    RETURN result; // FIXME
-  }
+  RETURN [ success     := TRUE
+         , pollresults := poll->GetResults()
+         ];
 }
 
 

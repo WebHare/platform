@@ -69,7 +69,7 @@ PUBLIC SCHEMA
     , INTEGER  "poll_fsobject" NULL := 0
     , STRING   "ipaddress"
     , STRING   "useragent"
-  //, STRING   "userguid"
+    , STRING   "idhash" __ATTRIBUTES__(BINARY)
     , DATETIME "when"
     ; KEY id
     > pollvoters
