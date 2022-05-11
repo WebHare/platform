@@ -126,7 +126,7 @@ export default class PollWebtool
 
     try
     {
-      let result = await pollrpc.castVoteAndReturnResults(toolid, optionguids);
+      let result = await pollrpc.castVote(toolid, optionguids);
       toolnode.classList.remove("wh-poll--submitting");
 
       if (result.success)
@@ -140,7 +140,7 @@ export default class PollWebtool
         localStorage["wh-webtools-votetime:"+toolid] = Date.now();
 
         toolnode.classList.add("wh-poll--voted", "wh-poll--justvoted");
-        this._applyPollResults(result.pollresults, null); //null indicates this is not the initial poll/fetch
+        this._applyPollResults(toolid, result.pollresults, null); //null indicates this is not the initial poll/fetch
       }
     }
     catch(e)
@@ -157,9 +157,9 @@ export default class PollWebtool
   }
 
   // if unixtimestamps is set, this is the initial poll load getting results
-  _applyPollResults(poll, unixtimestampnow)
+  _applyPollResults(toolid, poll, unixtimestampnow)
   {
-    let pollnode = document.querySelector(`[data-toolid="${CSS.escape(poll.toolid)}"]`);
+    let pollnode = document.querySelector(`[data-toolid="${CSS.escape(toolid)}"]`);
     if (!pollnode)
       return;
 
@@ -244,7 +244,7 @@ async function fetchResults(lock)
     let result = await pollrpc.getResultsForPolls(toolids);
 
     let unixtimestampnow = Date.now();
-    tofetch.forEach( (poll,idx) => poll._applyPollResults(result[idx], unixtimestampnow));
+    tofetch.forEach( (poll,idx) => poll._applyPollResults(toolids[idx], result[idx], unixtimestampnow));
   }
   finally
   {

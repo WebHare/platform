@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -18,7 +19,7 @@ STATIC OBJECTTYPE PollWebtool
 
   PUBLIC PROPERTY id(this->fileinfo.id, -);
   PUBLIC PROPERTY toolid(GetToolId, -);
-  PUBLIC PROPERTY ismultiplechoice(this->polldata.ismultiplechoice, -); //SetMultipleChoice);
+  PUBLIC PROPERTY ismultiplechoice(this->polldata.ismultiplechoice, -);
 
   MACRO NEW(RECORD fileinfo)
   {
@@ -28,7 +29,6 @@ STATIC OBJECTTYPE PollWebtool
 
   STRING FUNCTION GetToolId()
   {
-    //wt=webtool
     STRING toolid := "poll:" || EncryptForThisServer("publisher:poll", [ i := this->fileinfo.id, c := this->fileinfo.creationdate ], [ algorithm := "SHA-1,BLOWFISH+CBC,0" ]);
     RETURN toolid;
   }
@@ -137,8 +137,7 @@ STATIC OBJECTTYPE PollWebtool
              FROM polloptions
             WHERE NOT hide;
 
-    RETURN [ toolid         := this->toolid
-           , amountofvoters := amountofvoters
+    RETURN [ amountofvoters := amountofvoters
            , options        := options
            ];
   }
@@ -199,23 +198,7 @@ STATIC OBJECTTYPE PollWebtool
   }
 
 
-  /** @short Cast a vote on the option with the specified optionguid.
-             Callers should use a locked work around this
-
-  FIXME: what should a CastVote in the generic API look like? (the RPC one adds ipaddress and useragent)
-         Maybe some kind of origin..?
-
-  PUBLIC STRING FUNCTION __CastVote(STRING optionguid)
-  {
-    INTEGER polloptionid := this->__IncrementPollOptionVoteCount(optionguid);
-    INSERT INTO publisher.pollvotes
-                ("option",     "when")
-         VALUES (polloptionid, GetCurrentDateTime());
-  }
-  */
-
-
-  PUBLIC INTEGER FUNCTION __IncrementPollOptionVoteCount(STRING optionguid)
+  INTEGER FUNCTION IncrementPollOptionVoteCount(STRING optionguid)
   {
     RECORD polloption := SELECT * FROM publisher.polloptions WHERE COLUMN guid = VAR optionguid;
     IF (RecordExists(polloption))
@@ -257,10 +240,56 @@ STATIC OBJECTTYPE PollWebtool
     UPDATE publisher.polloptions SET votes := 0 WHERE poll_fsobject = this->id;
     DELETE FROM publisher.pollvoters WHERE poll_fsobject = this->id;
   }
+
+  /** @short Cast a vote on the option with the specified optionguid. */
+  PUBLIC RECORD FUNCTION CastVote(STRING ARRAY optionguids, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ ipaddress := ""
+                                   , useragent := ""
+                                   ], options);
+    IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("Voting requires a primary transaction without open work");
+
+    IF (Length(optionguids) = 0)
+      THROW NEW Exception("(we don't allow blank votes)");
+
+    // ADDME: test whether voting is allowed
+    //        (poll active, voting open, voting closedate not reached yet, ...)
+
+    IF (NOT this->ismultiplechoice AND Length(optionguids) > 1)
+      THROW NEW Exception("Casting multiple votes is only allow for multiple choice polls.");
+
+    // Make sure the selected options are unique (to prevent )
+    STRING ARRAY uniqueoptionguids := SELECT AS STRING ARRAY DISTINCT(guid) FROM ToRecordArray(optionguids, "guid");
+    IF (Length(optionguids) != Length(uniqueoptionguids))
+      THROW NEW Exception("Duplicate optionguids specified");
+
+    GetPrimary()->BeginLockedWork("publisher:webtools_poll." || this->id);
+
+    INTEGER pollvoterid  := MakeAutoNumber(publisher.pollvoters, "id");
+
+    INSERT CELL[ id := pollvoterid
+               , poll_fsobject := this->id
+               , when := GetCurrentDateTime()
+               , options.ipaddress
+               , useragent := LimitUTF8Bytes(options.useragent, 512)
+               ] INTO publisher.pollvoters;
+
+    FOREVERY(STRING optionguid FROM optionguids)
+    {
+      INTEGER polloptionid := this->IncrementPollOptionVoteCount(optionguid);
+      INSERT CELL[ voter := pollvoterid
+                 , option := polloptionid
+                 ] INTO publisher.pollvotes;
+    }
+    GetPrimary()->CommitWork();
+
+    RETURN DEFAULT RECORD;
+  }
 >;
 
 
-PUBLIC RECORD FUNCTION __DecodeToolId(STRING toolid)
+RECORD FUNCTION DecodeToolId(STRING toolid)
 {
   IF(toolid NOT LIKE "poll:*")
     RETURN DEFAULT RECORD;
@@ -291,7 +320,7 @@ PUBLIC OBJECT FUNCTION OpenPoll(INTEGER fileid)
 */
 PUBLIC OBJECT FUNCTION OpenPollByToolid(STRING toolid)
 {
-  RECORD decrypteddata := __DecodeToolId(toolid);
+  RECORD decrypteddata := DecodeToolId(toolid);
   IF (NOT RecordExists(decrypteddata))
     THROW NEW Exception(`Invalid poll webtool id '${toolid}'`);
 
@@ -311,7 +340,7 @@ PUBLIC OBJECT FUNCTION OpenPollByToolid(STRING toolid)
 // for internal use (in services.whlib)
 PUBLIC OBJECT FUNCTION __OpenPollByToolid_nocheck(STRING toolid)
 {
-  RECORD decrypteddata := __DecodeToolId(toolid);
+  RECORD decrypteddata := DecodeToolId(toolid);
   IF (NOT RecordExists(decrypteddata))
     RETURN DEFAULT OBJECT;
 
