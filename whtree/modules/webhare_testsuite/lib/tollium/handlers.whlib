@@ -10,3 +10,13 @@ PUBLIC RECORD ARRAY FUNCTION MapRowsAddIsEven(OBJECT contexts, RECORD ARRAY inro
 {
   RETURN SELECT *, iseven := (#inrows+1) % 2 = 0 FROM inrows;
 }
+
+PUBLIC RECORD FUNCTION OnEditRow(OBJECT contexts, RECORD row)
+{
+  RETURN CELL[ ...row, title := "X123" ];
+}
+
+PUBLIC BOOLEAN FUNCTION OnDeleteRows(OBJECT contexts, RECORD ARRAY rows)
+{
+  RETURN TRUE;
+}
