@@ -1015,7 +1015,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
   /** Update this WRD schema's metadata
       @cell(string) options.schemaresource Schema resource to use (if not set, we'll use the moduldedefinition's specified schema)
       @cell(boolean) options.force Always update, even if the schema resources haven't changed
-      @cell(boolean) options.reportupdates Log update informatino to stderr
+      @cell(boolean) options.reportupdates Log updated schemas to stderr
+      @cell(boolean) options.reportskips Log skipped schemas to stderr
       @cell(boolean) options.fromexternal Set to true if the source is an external server
       @cell(boolean) options.applysettings Apply schema settings (defaults to TRUE)
       @cell(boolean) options.skipmigrations Skip any migrations (note that we never run migrations if fromexternal is set)
@@ -1025,6 +1026,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
     options := ValidateOptions([ schemaresource := ""
                                , force := FALSE
                                , reportupdates := FALSE
+                               , reportskips := FALSE
                                , skipmigrations := FALSE
                                , fromexternal := FALSE
                                , applysettings := TRUE
@@ -1060,7 +1062,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
           AND NOT options.force
           AND NOT this->TestSchemaResourcesChanged(schemaresource))
       {
-        IF(options.reportupdates)
+        IF(options.reportskips)
           Print(`Not updating '${this->tag}': schema definition not changed\n`);
         RETURN;
       }
