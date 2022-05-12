@@ -5,3 +5,14 @@ PUBLIC MACRO IncCallCounter(OBJECT contexts)
 {
   callcounter := callcounter + 1;
 }
+
+PUBLIC RECORD FUNCTION OnEditRow(OBJECT contexts, RECORD row)
+{
+  RETURN CELL[ ...row, title := "X123" ];
+}
+
+PUBLIC BOOLEAN FUNCTION OnDeleteRows(OBJECT contexts, RECORD ARRAY rows)
+{
+  RETURN TRUE;
+}
+
