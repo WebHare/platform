@@ -4,6 +4,7 @@
 */
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/asn1.whlib";
 LOADLIB "wh::internal/ber.whlib";
@@ -71,7 +72,16 @@ RECORD FUNCTION GetCachedASN1Description()
   RETURN cached_asn1_description;
 }
 
-
+DATETIME FUNCTION ParseTime(RECORD rec)
+{
+  // Time ::= CHOICE { utcTime UTCTime, generalTime GeneralizedTime }
+  IF (CellExists(rec, "UTCTime"))
+    RETURN rec.utctime;
+  DATETIME retval := MakeDateFromText(`${Left(rec.generaltime, 8)}T${SubString(rec.generaltime, 8)}`);
+  IF (rec.generaltime != "" AND retval = DEFAULT DATETIME)
+    THROW NEW Exception(`Could not parse generaltime ${EncodeJSON(rec.generaltime)}`);
+  RETURN retval;
+}
 
 /** @param certdata Base64 encoded certdata, without ------BEGIN
 */
@@ -91,9 +101,7 @@ RECORD FUNCTION DecodeCertificate(STRING certdata)
   RECORD ARRAY extensions;
   FOREVERY (RECORD ext FROM decoded.value.tbscertificate.extensions)
   {
-    OBJECT extn_decoder := NEW StaticBERDecoder(ext.extnvalue);
     STRING extn_type;
-
     SWITCH (ext.extnid)
     {
       CASE "1.3.6.1.5.5.7.1.1"  { extn_type := "AuthorityInfoAccessSyntax"; }
@@ -110,6 +118,7 @@ RECORD FUNCTION DecodeCertificate(STRING certdata)
     RECORD extn_decoded;
     IF (extn_type != "")
     {
+      OBJECT extn_decoder := NEW StaticBERDecoder(ext.extnvalue);
       extn_decoded := decoder->ParseData(extn_decoder, extn_type);
       INSERT CELL decoded := extn_decoded.value INTO ext;
     }
@@ -184,8 +193,8 @@ RECORD FUNCTION DecodeCertificate(STRING certdata)
       , subjectfields :=          subjectfields
       , issuer :=                 GetDNPrettyName(issuerfields)
       , subject :=                GetDNPrettyName(subjectfields)
-      , valid_from :=             decoded.value.tbscertificate.validity.notbefore.utctime
-      , valid_until :=            decoded.value.tbscertificate.validity.notafter.utctime
+      , valid_from :=             ParseTime(decoded.value.tbscertificate.validity.notbefore)
+      , valid_until :=            ParseTime(decoded.value.tbscertificate.validity.notafter)
       , signaturealgorithm :=     signaturealgorithm
       , signature :=              decoded.value.signature
       , subjectpublickeytype :=   subjectpublickeytype

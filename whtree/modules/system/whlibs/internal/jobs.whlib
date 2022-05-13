@@ -147,6 +147,9 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
   // Constructor
   //
 
+  /** Constructs a new IPCLinkEndpoint
+      @param endpointid Handle of the IPC link
+  */
   MACRO NEW(INTEGER endpointid)
   : __HS_INTERNAL_OutputObject(endpointid, FALSE)
   {
@@ -160,10 +163,10 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
   /** Sends a message to the other endpoint of the link
       @param message Message to send
       @return Result of send action
-      @cell return.status One of the following codes:
+      @cell(string) return.status One of the following codes:
                 'ok': message sent successfully
                 'gone': other endpoint of the link has been closed
-      @cell return.msgid Id of the sent message
+      @cell(integer64) return.msgid Id of the sent message
   */
   PUBLIC RECORD FUNCTION SendMessage(RECORD message)
   {
@@ -175,10 +178,10 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
       @param message Message to send
       @param replyto Id of the message this is a reply to
       @return Result of send action
-      @cell return.status One of the following codes:
+      @cell(string) return.status One of the following codes:
                 'ok': message sent successfully
                 'gone': other endpoint of the link has been closed
-      @cell return.msgid Id of the sent message (type: INTEGER64)
+      @cell(integer64) return.msgid Id of the sent message
   */
   PUBLIC RECORD FUNCTION SendReply(RECORD message, INTEGER64 replyto)
   {
@@ -207,10 +210,10 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
          receiving side will only throw when it has autothrow enabled.
       @param replyto Id of the message this is a reply to
       @return Result of send action
-      @cell return.status One of the following codes:
+      @cell(string) return.status One of the following codes:
                 'ok': message sent successfully
                 'gone': other endpoint of the link has been closed
-      @cell return.msgid Id of the sent message
+      @cell(integer64) return.msgid Id of the sent message
   */
   PUBLIC RECORD FUNCTION SendExceptionReply(OBJECT e, INTEGER64 replyto)
   {
@@ -225,8 +228,9 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
                 'ok': message received successfully
                 'timeout': no message was present
                 'gone': other endpoint of the link has been closed
-      @cell return.msg The received message (only when status = 'ok')
-      @cell return.msgid Id of the message (only when status = 'ok')
+      @cell(record) return.msg The received message (only when status = 'ok')
+      @cell(integer64) return.msgid Id of the message (only when status = 'ok')
+      @cell(integer64) return.replyto Id message this item is a reply to (0 if not a reply)
   */
   PUBLIC RECORD FUNCTION ReceiveMessage(DATETIME wait_until)
   {
@@ -254,7 +258,14 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
   /** Receive a message, returns a promise that will be fulfilled when the message arives. Resolves
       with same status messages as ReceiveMessage
       @param wait_until Resolve with status 'timeout' if the message hasn't arrived at this time.
-      @return promise
+      @return(object %PromiseBase) Result for the result of the action
+      @cell return.status One of the following codes:
+                'ok': message received successfully
+                'timeout': no message was present
+                'gone': other endpoint of the link has been closed
+      @cell(record) return.msg The received message (only when status = 'ok')
+      @cell(integer64) return.msgid Id of the message (only when status = 'ok')
+      @cell(integer64) return.replyto Id message this item is a reply to (0 if not a reply)
   */
   PUBLIC OBJECT FUNCTION AsyncReceiveMessage(DATETIME wait_until)
   {
@@ -265,12 +276,13 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
   /** Sends a message and waits for the reply. Throws if a reply to another messages comes in.
       @param message Message to send
       @return Result of the action
-      @cell return.status One of the following codes:
+      @cell(string) return.status One of the following codes:
                 'ok': message received successfully
                 'timeout': no message was received before
                 'gone': other endpoint of the link has been closed
-      @cell return.msg The received message (only when status = 'ok')
-      @cell return.msgid Id of the message (only when status = 'ok', INTEGER64)
+      @cell(record) return.msg The received message (only when status = 'ok')
+      @cell(integer64) return.msgid Id of the reply (only when status = 'ok')
+      @cell(integer64) return.replyto Id of the orginal message (only when status = 'ok')
   */
   PUBLIC RECORD FUNCTION DoRequest(RECORD message)
   {
@@ -290,13 +302,14 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
 
   /** Sends a message and waits for the reply. Throws if a reply to another messages comes in.
       @param message Message to send
-      @return Result of the action
-      @cell return.status One of the following codes:
+      @return(object %PromiseBase)  Promsise for the result of the action
+      @cell(string) return.status One of the following codes:
                 'ok': message received successfully
                 'timeout': no message was received before
                 'gone': other endpoint of the link has been closed
-      @cell return.msg The received message (only when status = 'ok')
-      @cell return.msgid Id of the message (only when status = 'ok', INTEGER64)
+      @cell(record) return.msg The received message (only when status = 'ok')
+      @cell(integer64) return.msgid Id of the reply (only when status = 'ok')
+      @cell(integer64) return.replyto Id of the orginal message (only when status = 'ok')
   */
   PUBLIC OBJECT FUNCTION AsyncDoRequest(RECORD message)
   {
@@ -305,9 +318,6 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
       RETURN CreateResolvedPromise(rec);
 
     RETURN NEW MessageWaiter(PRIVATE this, MAX_DATETIME, rec.msgid)->promise;
-
-//    INTEGER64 msgid := rec.msgid;
-//    RETURN this->InternalAsyncReceiveMessage(MAX_DATETIME, rec.msgid);
   }
 
 
@@ -370,6 +380,10 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   // Constructor
   //
 
+  /** Create an new Job object
+      @param jobid Job handle
+      @param groupid Job group id
+  */
   MACRO NEW(INTEGER jobid, STRING groupid)
   : __HS_INTERNAL_OutputObject(jobid, FALSE)
   {
@@ -388,6 +402,7 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   // Public interface
   //
 
+  /// Start execution of the job
   PUBLIC MACRO Start()
   {
     IF (this->pvt_handle = 0)
@@ -410,6 +425,9 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
     __HS_SETGROUPPRIORITY(this->pvt_handle, priority = "high");
   }
 
+  /** Set the console arguments for the job
+      @param arguments Console arguments
+  */
   PUBLIC MACRO SetConsoleArguments(STRING ARRAY arguments)
   {
     IF (this->pvt_handle = 0)
@@ -439,7 +457,8 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
     RETURN __HS_CAPTUREJOBOUTPUT(this->pvt_handle);
   }
 
-
+  /** Releases ownership of the job, letting it continue as standalone
+  */
   PUBLIC MACRO Release()
   {
     IF (this->pvt_handle = 0)
@@ -627,12 +646,15 @@ OBJECTTYPE __PipeMarshaller
 
     PRIVATE MACRO SetMarshaller() __ATTRIBUTES__(EXTERNAL);
 
-
+    /** Creates a new pipe marshaller object
+        @param pipe Pipe handle
+    */
     PUBLIC MACRO NEW(INTEGER pipe)
     {
       this->pvt_pipe := pipe;
       this->SetMarshaller();
     }
+    /// @type(integer) Pipe handle
     PUBLIC PROPERTY pipe(pvt_pipe, -);
   >;
 
@@ -685,44 +707,8 @@ INTEGER FUNCTION WaitUntilAnyHandleIsSignalled(INTEGER ARRAY handles, DATETIME w
   }
 }
 
-
-/** Does a request to a port handled by a porthandler object
-    @param port Port
-    @param msg Message to send
-    @param send_async Whether the message can be sent asynchronously
-    @param timeout Time before which the reply must have arrived
-    @return
-    @cell return.success Whether the porthandler has sent a reply
-    @cell return.error If the request didn't manage to send a reply, describes the error
-    @cell return.reply The reply of the porthandler
-* /
-PUBLIC RECORD FUNCTION DoIPCRequestToHandler(OBJECT link, VARIANT msg, BOOLEAN send_async, DATETIME timeout)
-{
-  RECORD res := SendIPCMessage(port, msg, TRUE, send_async, timeout);
-  IF (res.status != "OK")
-  {
-    RETURN
-        [ success := FALSE
-        , error   := "Could not send message to port handler, code: " || res.status
-        , reply   := DEFAULT RECORD
-        ];
-  }
-
-  res := ReceiveIPCReply(port, res.msgid, timeout);
-  IF (res.status != "OK")
-  {
-    RETURN
-        [ success := FALSE
-        , error   := "Error receiving reply from port handler, code: " || res.status
-        , reply   := DEFAULT RECORD
-        ];
-  }
-  RETURN res.msg;
-}
-*/
-
 /** Sets the cancellbility status of this job
-    @param newcancellable Whether the jo0b can be cancelled
+    @param newcancellable Whether the job can be cancelled
 */
 PUBLIC MACRO SetCancellable(BOOLEAN newcancellable)
 {

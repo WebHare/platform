@@ -104,10 +104,17 @@ OBJECT FUNCTION GetCertificateBERDecoder(BLOB certblob)
   RETURN NEW StaticBERDecoder(cert);
 }
 
+STRING FUNCTION SkipComments(BLOB certblob)
+{
+  STRING cert := BlobToString(certblob);
+  RETURN SubString(cert, SearchSubString(cert, "-----BEGIN CERTIFICATE-----"));
+}
+
 MACRO TestCertificateDecoding()
 {
   OBJECT parser := GetASN1Parser();
-  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
+  parser->ParseDocument(SkipComments(GetHarescriptResource("whres::asn1/x509.asn1")));
+  parser->ParseDocument(SkipComments(GetHarescriptResource("whres::asn1/certsupport.asn1")));
 
   OBJECT utcertroot := GetCertificateBERDecoder(OpenTestFile("asn1_cert-utwente.crt"));
 
@@ -143,6 +150,26 @@ MACRO TestCertificateDecoding()
   TestEQ([ "www.utwente.nl", "utwente.nl", "webhare.civ.utwente.nl", "webhare.utsp.utwente.nl", "webhare.utwente.nl" ],
        SELECT AS STRING ARRAY dnsname
          FROM decoder->ParseData(ber_altnames_decoder, "SubjectAltName").value);
+
+  OBJECT yubikeycert := GetCertificateBERDecoder(OpenTestFile("asn1_cert-yubikey.crt"));
+
+  RECORD yubikey_decoded := decoder->ParseData(yubikeycert, "Certificate");
+  TestEQMembers(
+      [ tbscertificate :=
+            [ validity :=
+                  [ notbefore :=  [ utctime := MakeDateTime(2014,8,1,0,0,0) ]
+                  , notafter :=   [ generaltime := "20500904000000Z" ]
+                  ]
+            , subjectpublickeyinfo :=
+                  [ algorithm :=
+                        [ algorithm := "1.2.840.10045.2.1"
+                        , parameters :=
+                              [ namedcurve := "1.2.840.10045.3.1.7"
+                              ]
+                        ]
+                  ]
+            ]
+      ], yubikey_decoded.value, "*");
 }
 
 MACRO TestCRTCSRDecoding()
@@ -290,7 +317,7 @@ MACRO TestChoiceInSequence()
   TestEQ(TRUE, CellExists(parsed.value.protocolop, "SEARCHRESREF"));
 }
 
-MACRO TestDecoding()
+MACRO TestEnDecoding()
 {
   OBJECT parser := GetASN1Parser();
   parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
@@ -308,6 +335,14 @@ MACRO TestDecoding()
       , data :=         DecodeBase16("2080")
       , enumvalues :=   [ "keyEncipherment", "decipherOnly" ]
       ], asndescription->ParseData(NEW StaticBERDecoder(DecodeBase16("0303072080")), "KeyUsage").value);
+
+  // Test GeneralTime
+  OBJECT timeresult := NEW BEREncoder();
+  asndescription->EncodeData(timeresult, "Time", [ generaltime := "20500904000000Z" ]);
+  STRING encoded := timeresult->GetRequest();
+  TestEQ("180F32303530303930343030303030305A", EncodeBase16(encoded));
+  VARIANT parsed := asndescription->ParseData(NEW StaticBERDecoder(encoded), "Time");
+  TestEQ([ __field := "generalTime", generaltime := "20500904000000Z" ], parsed.value);
 }
 
 
@@ -317,4 +352,4 @@ TestCRTCSRDecoding();
 TestCertificateEncoding();
 TestCertificateFixup();
 TestChoiceInSequence();
-TestDecoding();
+TestEnDecoding();

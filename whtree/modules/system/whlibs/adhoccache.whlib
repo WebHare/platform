@@ -161,14 +161,15 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
 /** Lower level api: lookup a value in the cache
     @param cachetag Tag that uniquely identifies the result (local per calling whlib)
     @return Existing record if the value has been found, DEFAULT RECORD if not
-    @cell value Stored value
+    @cell return.value Stored value
+    @cell return.hash Base16 encoded internal hash for this item
 */
 PUBLIC RECORD FUNCTION LookupAdhocCached(RECORD cachetag)
 {
   RECORD value := GetAdhocCacheData(cachetag);
   IF(NOT value.found) //we don't have it yet
     RETURN DEFAULT RECORD;
-  RETURN value;
+  RETURN CELL[ ...value, DELETE found ];
 }
 
 /** Lower level api: store a value directly in the cache

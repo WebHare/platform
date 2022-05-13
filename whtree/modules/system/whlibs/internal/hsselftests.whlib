@@ -6,6 +6,7 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq,
                                        TestEqLike,
+                                       TestEqMembers,
                                        TestEqFloat,
                                        TestThrows,
                                        TestThrowsLike,

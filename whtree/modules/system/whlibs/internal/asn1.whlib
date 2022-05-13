@@ -1325,6 +1325,10 @@ STATIC OBJECTTYPE ASN1BERDecoder
           INTEGER year := ToInteger(Left(data, 2), 0);
           RETURN MakeDateFromText((year < 80 ? "20" : "19") || Left(data, 6) || "T" || SubString(data, 6));
         }
+      CASE "0:24" // GeneralizedTime
+        {
+          RETURN berdecoder->ReadOctetString();
+        }
     }
 
     this->AddError("No decoder yet for '" || type.name || "', tag " || type.rawtag, path);
@@ -1539,10 +1543,13 @@ STATIC OBJECTTYPE ASN1BERDecoder
         berencoder->EndConstruction();
         RETURN idx;
       }
-
       CASE "0:23"
       {
         RETURN berencoder->AddUTCTime(value);
+      }
+      CASE "0:24" // GeneralizedTime (ISO8601 basic format datetime with timezone info)
+      {
+        idx := berencoder->AddOctetString(value);
       }
 
       DEFAULT
