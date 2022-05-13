@@ -181,7 +181,7 @@ PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
       @cell(string) return.status One of the following codes:
                 'ok': message sent successfully
                 'gone': other endpoint of the link has been closed
-      @cell(integer64) return.msgid Id of the sent message (type: INTEGER64)
+      @cell(integer64) return.msgid Id of the sent message
   */
   PUBLIC RECORD FUNCTION SendReply(RECORD message, INTEGER64 replyto)
   {
