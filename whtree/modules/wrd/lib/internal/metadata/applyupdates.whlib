@@ -33,6 +33,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, STRING resource
   options := ValidateOptions(
       [ force :=    FALSE
       , reportupdates := FALSE
+      , reportskips := FALSE
       ], options);
 
   GetPrimary()->BeginWork([ mutex := GetUpdateSchemaLockName(candidate) ]);
@@ -62,6 +63,7 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
 {
   options := ValidateOptions([ schemamasks := STRING[]
                              , reportupdates := FALSE
+                             , reportskips := FALSE
                              , force := FALSE
                              ], options);
 
@@ -78,7 +80,7 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
       CONTINUE;
 
     anymatch := TRUE;
-    IF(NOT UpdateACandidateSchema(candidate, "", CELL[ options.force, options.reportupdates ]))
+    IF(NOT UpdateACandidateSchema(candidate, "", CELL[ options.force, options.reportupdates, options.reportskips ]))
       allsuccess := FALSE;
   }
   IF(NOT anymatch AND options.reportupdates)

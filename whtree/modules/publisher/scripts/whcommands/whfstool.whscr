@@ -2,6 +2,7 @@
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -14,13 +15,15 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", ty
                                                      , [ name := "restoreurlhistory", type := "switch" ]
                                                      , [ name := "__restoremodificationdatefromurlhistory", type := "switch" ]
                                                      , [ name := "unpin", type := "switch" ]
+                                                     , [ name := "reindex", type := "switch" ]
                                                      , [ name := "dryrun", type := "switch" ]
+                                                     , [ name := "debug", type := "switch" ]
                                                      , [ name := "paths", type := "paramlist" ]
                                                      ]);
 IF (NOT RecordExists(args) OR Length(args.paths) = 0)
 {
   Print("Usage: wh publisher:whfstool path [path ...]\n");
-  Print("       path         The whfs path(s) to process, wildcards are permitted\n");
+  Print("       path         The whfs path(s) to process\n");
   SetConsoleExitCode(1);
   RETURN;
 }
@@ -33,23 +36,28 @@ IF(args.pin AND args.unpin)
 
 OBJECT trans := OpenPrimary();
 OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
-BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory OR args.striprtdextension);
-INTEGER ARRAY startobjids;
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory OR args.striprtdextension OR args.reindex);
 
 IF((args.restoreurlhistory OR args.__restoremodificationdatefromurlhistory) AND args.saveurlhistory)
   TerminateScriptWithError("save and restore cannot be mixed");
 
+INTEGER ARRAY startobjids;
 FOREVERY(STRING path FROM args.paths)
 {
-  OBJECT dest := OpenWHFSObjectByPath(path);
-  IF(NOT ObjectExists(dest))
+  INTEGER objid := ToInteger(path, 0);
+  IF (objid > 0)
+    INSERT objid INTO startobjids AT END;
+  ELSE
   {
-    Print("Invalid path: " || path || "\n");
-    SetConsoleExitCode(1);
-    RETURN;
+    OBJECT dest := OpenWHFSObjectByPath(path);
+    IF(NOT ObjectExists(dest))
+    {
+      Print("Invalid path: " || path || "\n");
+      SetConsoleExitCode(1);
+      RETURN;
+    }
+    INSERT dest->id INTO startobjids AT END;
   }
-
-  INSERT dest->id INTO startobjids AT END;
 }
 
 RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchparent)
@@ -59,8 +67,9 @@ RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchpar
           WHERE (matchparent ? (parent IN objids) : (id IN objids));
 }
 
-MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
+RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
 {
+  INTEGER ARRAY updatedids;
   IF(listonly)
   {
     FOREVERY(RECORD path FROM objects)
@@ -76,6 +85,7 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
       {
         Print( (args.pin ? "Pin: " : "Unpin: ") || topin.whfspath || "\n");
         OpenWHFSObject(topin.id)->UpdateMetadata( [ ispinned := args.pin ]);
+        INSERT topin.id INTO updatedids AT END;
       }
     }
     IF(args.striprtdextension)
@@ -94,7 +104,9 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
         ELSE
         {
           Print(`Renaming ${tofix.whfspath} to ${newname}\n`);
-          UPDATE system.fs_objects SET name := newname WHERE id = tofix.id;
+          //UPDATE system.fs_objects SET name := newname WHERE id = tofix.id;
+          OpenWHFSObject(tofix.id)->UpdateMetadata([ name := newname ]);
+          INSERT tofix.id INTO updatedids AT END;
         }
       }
     }
@@ -129,6 +141,7 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
           , targetpath := (SELECT AS STRING whfspath FROM targeturls WHERE id = obj.originalid)
           , urlhistory := (SELECT creationdate, url FROM history WHERE fsobject = obj.originalid)
           ], [ isvisibleedit := FALSE ]);
+        INSERT obj.originalid INTO updatedids AT END;
       }
     }
     IF(args.restoreurlhistory)
@@ -136,14 +149,21 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
       objects := saveurlhistorytype->Enrich(objects, "ID", [ "urlhistory" ]);
       FOREVERY(RECORD obj FROM objects)
         FOREVERY(RECORD row FROM obj.urlhistory)
+        {
           AddURLHistoryEntry(obj.id, row.url LIKE "//*" ? "https:" || row.url : row.url);
+          INSERT obj.id INTO updatedids AT END;
+        }
     }
     IF(args.__restoremodificationdatefromurlhistory)
     {
       objects := saveurlhistorytype->Enrich(objects, "ID", [ "modificationdate" ]);
       FOREVERY(RECORD obj FROM objects)
         IF(obj.modificationdate != DEFAULT DATETIME)
-          UPDATE system.fs_objects SET modificationdate := obj.modificationdate WHERE id = obj.id;
+        {
+          //UPDATE system.fs_objects SET modificationdate := obj.modificationdate WHERE id = obj.id;
+          OpenWHFSObject(obj.id)->UpdateMetadata([ modificationdate := obj.modificationdate ]);
+          INSERT obj.id INTO updatedids AT END;
+        }
     }
 
     IF(args.dryrun)
@@ -152,15 +172,37 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
       GetPrimary()->CommitWork();
   }
 
+  RECORD ARRAY reindexobjs := SELECT * FROM objects WHERE id NOT IN updatedids;
   IF(NOT recursive)
-    RETURN;
+    RETURN reindexobjs;
 
   INTEGER ARRAY folderids := SELECT AS INTEGER ARRAY id FROM objects WHERE isfolder;
   IF(Length(folderids)=0)
-    RETURN;
+    RETURN reindexobjs;
 
-  ExecuteAction(GetInterestingStuff(folderids, TRUE), recursive);
+  RETURN reindexobjs CONCAT ExecuteAction(GetInterestingStuff(folderids, TRUE), recursive);
 }
 
+RECORD ARRAY toprocess := GetInterestingStuff(startobjids, FALSE);
+RECORD ARRAY to_reindex := ExecuteAction(toprocess, args.recursive);
+IF (args.reindex AND NOT args.dryrun)
+{
+  to_reindex :=
+      (SELECT id
+            , isfolder
+            , isdelete := FALSE
+         FROM to_reindex)
+      CONCAT
+      (SELECT id
+            , isfolder := TRUE // If unknown, assume it was a folder
+            , isdelete := TRUE
+         FROM ToRecordArray(startobjids, "id")
+        WHERE id NOT IN (SELECT AS INTEGER ARRAY id FROM toprocess));
 
-ExecuteAction(GetInterestingStuff(startobjids, FALSE), args.recursive);
+  IF (Length(to_reindex) > 0)
+  {
+    RECORD ARRAY results := ReindexWHFSChanges(to_reindex, CELL[ args.debug, progress := TRUE ]);
+    IF (args.debug AND Length(results) > 0)
+      DumpValue(results, "tree");
+  }
+}
