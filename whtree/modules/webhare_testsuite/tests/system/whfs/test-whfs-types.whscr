@@ -537,19 +537,22 @@ MACRO TestDirectInstanceData()
   testfw->CommitWork();
 
   // instances at object
-  testfw->BeginWork();
 
   // Update instance
+  testfw->BeginWork();
   testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2",
       [ str2 := "str2"
       ]);
+  testfw->CommitWork();
 
   rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2");
   irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = 0 AND fsobject = testfile->id;
   TestEQ(rec, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
 
   DATETIME now := GetCurrentDateTime();
+  testfw->BeginWork();
   whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ str2 := "str2" ]);
+  testfw->CommitWork();
 
   TestEQ([ str2 := "str2" ], whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
   testfile->Refresh();
@@ -557,14 +560,14 @@ MACRO TestDirectInstanceData()
 
   Sleep(1);
   now := GetCurrentDateTime();
+  testfw->BeginWork();
   whfstype_instance1->SetInstanceDataByDirectRef(irec.directref, [ str1 := "str1" ], [ isvisibleedit := FALSE ]);
+  testfw->CommitWork();
   TestEQ([ str1 := "str1" ], whfstype_instance1->GetInstanceData(testfile->id));
   TestEQ([ str2 := "" ], whfstype_instance2->GetInstanceData(testfile->id));
   TestEQ([ str2 := "" ], whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
   testfile->Refresh();
   TestEQ(TRUE, testfile->modificationdate < now); // no update to modificationdate
-
-  testfw->CommitWork();
 }
 
 RunTestframework([ PTR Prepare

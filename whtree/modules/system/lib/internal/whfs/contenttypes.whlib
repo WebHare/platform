@@ -1764,9 +1764,9 @@ STATIC OBJECTTYPE WHFSType
       IF (directref.__token._i != this->typedef.id)
       {
         OBJECT oldtype := OpenWHFSTypeById(INTEGER(directref.__token._i));
-        oldtype->SetInstanceData(directref.__token._o, oldtype->defaultinstance);
+        oldtype->SetInstanceData(directref.__token._o, oldtype->defaultinstance, options);
       }
-      this->SetInstanceData(directref.__token._o, data);
+      this->SetInstanceData(directref.__token._o, data, options);
     }
     ELSE
     {
