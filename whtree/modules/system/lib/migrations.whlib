@@ -77,7 +77,7 @@ RECORD ARRAY FUNCTION SortByDepth(RECORD ARRAY todolist)
     @cell(function ptr) options.mapcallback Callback to invoke on instance records for conversion. If it returns a DEFAULT RECORD, this instance will not be converted
     @cell(string) options.desttype Destination type. If empty, assumed to equal the source type
     @cell(boolean) options.sourceorphans Open source type and data as an oprhan (access deleted types and members)
-    @return Conversion information (suitable for passing into %RepublishWHFSObjectReferences)
+    @return A list of fsobjects converted, suitable for passing into %RepublishWHFSObjectReferences
     @cell(integer array) return.fsobject fsobject ID containing the instance
     */
 PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -106,10 +106,6 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
     IF(NOT RecordExists(data))
       THROW NEW Exception("Instance disappeared during conversion!"); //is our bottom-up approach broken?
 
-    INSERT [ fsobject := instance.fsobject ] INTO refs AT END;
-
-    DELETE CELL whfsfileid, whfssetingid, whfstype FROM instance;
-
     IF(options.mapcallback != DEFAULT FUNCTION PTR)
     {
       data := options.mapcallback(data, CELL[ fsobject := instance.fsobject
@@ -117,6 +113,9 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
       IF(NOT RecordExists(data))
         CONTINUE;
     }
+
+    INSERT [ fsobject := instance.fsobject ] INTO refs AT END;
+    DELETE CELL whfsfileid, whfssetingid, whfstype FROM instance;
 
     IF(CellExists(data, 'whfstype'))
       data.whfstype := desttype->namespace;
