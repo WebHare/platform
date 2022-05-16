@@ -842,7 +842,7 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
 
     IF (RecordExists(tabextension))
     {
-      RECORD loadresult := this->proptabs->LoadTabsExtension(tabextension.resource, tabextension.name);
+      RECORD loadresult := this->proptabs->LoadTabsExtension(tabextension.resource || "#" || tabextension.name);
       FOREVERY (OBJECT comp FROM loadresult.components)
         IF (comp EXTENDSFROM TolliumTabsExtensionBase AND MemberExists(comp, "ViewHistoryForDraft"))
           this->historyextcomp := comp;
