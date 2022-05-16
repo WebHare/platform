@@ -24,8 +24,8 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
 
   RECORD FUNCTION GetResourceRef(RECORD resourceref)
   {
-    RETURN CELL[ link := this->interfaceurl || "?app=system:openineditor(" || EncodeURL(EncryptForThisServer("system:openineditor", CELL[ resourceref.filename, resourceref.line, resourceref.col ])) || ")"
-               ];
+    //TODO we can probably simplify the PrintHSErrors&Co and remove this callback entirely now, as long as we don't leak it to non-dtapstage development
+    RETURN resourceref;
   }
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
