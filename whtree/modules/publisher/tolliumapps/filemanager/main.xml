@@ -33,7 +33,7 @@
           allowresize="true"
           menubar="menubar"
           icon="tollium:filemgr/mydocuments"
-          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults havewhconnect haveopenineditor"
+          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults haveopenineditor"
           gid=".app"
           tid=".apptitle"
           onshow="onshow">
@@ -312,10 +312,6 @@
       <windowopenaction name="openeditinseparatetab" onwindowopen="doopeneditinseparatetab" frameflags="issysop" >
         <enableon source="filelist" min="1" max="1"  checkflags="canopen" requirefocus="true" />
       </windowopenaction>
-      <action name="reveal" onexecute="doreveal" frameflags="issysop havewhconnect">
-        <enableon source="foldertree" min="1" max="1" />
-        <enableon source="filelist" min="1" max="1" />
-      </action>
       <action name="openineditor" onexecute="doopenineditor" frameflags="issysop haveopenineditor">
         <enableon source="filelist" min="1" max="1" checkflags="candownload canedit canwrite" requirefocus="true" />
       </action>
@@ -456,7 +452,6 @@
           <item action="openinseparatetab" />
           <item action="openeditinseparatetab"/>
           <divider />
-          <item action="reveal" />
           <item action="openineditor" />
           <divider />
           <item action="managewhfsregister" disablemode="hidden" />

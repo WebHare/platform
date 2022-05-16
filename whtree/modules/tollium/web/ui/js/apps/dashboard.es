@@ -1,7 +1,6 @@
 /* globals $shell */
 import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
-import * as whconnect from '@mod-system/js/wh/connect';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import $todd from '../support';
@@ -82,7 +81,10 @@ class DashboardApp
                                          , tabmodifier: 'dashboard'
                                          });
     this.updateShellSettings();
-    this.updateShellHaveConnect();
+
+    if(whintegration.config.dtapstage == 'development')
+      this.app.appmenu.push({ title: getTid("tollium:shell.dashboard.resetimagecache"), cmd: { type: "shell:resetimagecache" } });
+
     callback();
   }
 
@@ -281,31 +283,6 @@ class DashboardApp
       dompack.qSA(contentdiv,'a').forEach(link => link.target="_blank");
     });
   }
-  updateShellHaveConnect()
-  {
-    if(whconnect.isJustConnected())
-    {
-      let notification = { description: getTid("tollium:shell.dashboard.connect-success")
-                         , timeout: 60 * 1000
-                         , icon: "tollium:messageboxes/information"
-                         , title: getTid("tollium:shell.dashboard.connect-title")
-                         };
-      $todd.towl.showNotification(notification);
-    }
-
-    if(whconnect.hasConnect())
-    {
-      this.app.appmenu = [{ title: getTid("tollium:shell.dashboard.mountwebhare"), cmd: { type: "shell:reveal", folder: "/" } }
-                         ];
-    }
-    else
-    {
-      this.app.appmenu = [];
-    }
-
-    if(whintegration.config.dtapstage == 'development')
-      this.app.appmenu.push({ title: getTid("tollium:shell.dashboard.resetimagecache"), cmd: { type: "shell:resetimagecache" } });
-  }
   _onMenuClick(event, instr)
   {
     dompack.stop(event);
@@ -326,7 +303,7 @@ class DashboardApp
     if(response == 'yes')
       this.shell.doLogoff();
   }
-};
+}
 
 
 registerJSApp('tollium:builtin.dashboard', DashboardApp);

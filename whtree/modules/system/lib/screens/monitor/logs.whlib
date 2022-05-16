@@ -132,7 +132,7 @@ PUBLIC OBJECTTYPE Overview EXTEND TolliumScreenBase
     this->SetDateOptions();
     this->RefreshLogList();
 
-    this->frame->flags.havewhconnect := this->tolliumcontroller->IsConnectEnabled();
+    this->frame->flags.haveopenineditor := CanOpenInEditor(this);
   }
 
   MACRO DoApplySettingsAction()

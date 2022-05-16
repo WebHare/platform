@@ -8,7 +8,6 @@ const getTid = require("@mod-tollium/js/gettid").getTid;
 const focusZones = require('../components/focuszones');
 const preload = require('dompack/extra/preload');
 const utilerror = require('@mod-system/js/wh/errorreporting');
-import * as whconnect from '@mod-system/js/wh/connect';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import LinkEndPoint from './comm/linkendpoint.es';
@@ -529,31 +528,11 @@ export class ApplicationBase
         : "";
   }
 
-  _onMsgShellReveal(path)
-  {
-    whconnect.revealInFinder(path);
-  }
-
-  async _onMsgOpenInEditor(path, loc, options)
-  {
-    let opener = whconnect.openInEditor(path, loc);
-    if(options && options.closewindow)
-    {
-      await opener;
-      this._onMsgCloseWindow();
-    }
-  }
-
   _onMsgOpenDocumentation(url, edittoken)
   {
     if (!this.docpanel)
       this.docpanel = new DocPanel(this, this.appnodes.docpanel);
     this.docpanel.load(url, edittoken);
-  }
-
-  _onMsgAskWebHareConnect(message)
-  {
-    return whconnect.postToConnect(message);
   }
 
   _onMsgClearIconCache()

@@ -117,7 +117,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->frame->flags.secureconnection := this->tolliumcontroller->secure;
     this->frame->flags.showpinning := this->showtemplatedev OR this->tolliumuser->HasRight("publisher:pinning");
     this->frame->flags.haveopenineditor := CanOpenInEditor(this);
-    this->frame->flags.havewhconnect := this->tolliumcontroller->IsConnectEnabled();
 
     // Generate a unique preview browser frame name (so a publisher opened in the preview browser of another publisher will
     // not replace itself)
@@ -710,49 +709,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     this->tolliumuser->SetRegistryKey("publisher.prefs.hidepreview", NOT this->tolliumuser->GetRegistryKey("publisher.prefs.hidepreview", FALSE));
     this->ApplyUserPrefs(TRUE);
-  }
-
-  STRING FUNCTION GetWebdavPathForObject(INTEGER obj)
-  {
-    // Calculate the user visible webdav relative path.
-    STRING destpath;
-    INTEGER current := obj;
-    WHILE (current != 0)
-    {
-      RECORD info :=
-          SELECT id
-               , name
-               , parent
-            FROM system.fs_objects
-           WHERE id = current;
-
-      // File removed?
-      IF (NOT RecordExists(info))
-        RETURN "";
-
-      IF (NOT this->tolliumuser->HasRightOn("system:fs_browse", info.parent))
-      {
-        /* The root folder can have renamed items (when the user has root rights on multiple folders with
-           the same name. Use GetInnerObjectListing to get the names.
-        */
-        RECORD ARRAY rootitems := GetWHFSInfo().roots;
-
-        STRING rootitemname :=
-            SELECT AS STRING name
-              FROM rootitems
-             WHERE id = current;
-
-        IF (rootitemname = "")
-          RETURN "";
-
-        destpath := "/" || rootitemname || destpath;
-        BREAK;
-      }
-
-      destpath := "/" || info.name || destpath;
-      current := info.parent;
-    }
-    RETURN destpath;
   }
 
   MACRO FolderTreePropsTail(RECORD obj)
@@ -2303,14 +2259,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     OBJECT liveobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
     OBJECT screen := this->LoadScreen("mod::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
     screen->RunModal();
-  }
-
-  MACRO DoReveal()
-  {
-    STRING destpath := this->GetWebdavPathForObject(this->GetCurrentlySelectedFSobject());
-    IF(destpath="")
-      RETURN;
-    this->tolliumcontroller->ExecuteClientCall("ShellReveal", "/publisher" || destpath);
   }
 
   MACRO DoManageFoldersync()

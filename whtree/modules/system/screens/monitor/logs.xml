@@ -43,14 +43,14 @@
     </body>
   </screen>
 
-  <screen name="overview" tid=".title" width="120x" height="50x" allowresize="true" savestate="true" gid=".logs.overview" flags="havewhconnect">
+  <screen name="overview" tid=".title" width="120x" height="50x" allowresize="true" savestate="true" gid=".logs.overview" flags="haveopenineditor">
     <actions>
       <action name="applysettingsaction" onexecute="doapplysettingsaction" title="" />
       <action name="download" onexecute="dodownloadfile" />
       <action name="openstacktrace" onexecute="doopenstacktrace">
         <enableon source="stacktrace" min="1" />
       </action>
-      <action name="openineditor" onexecute="doopenineditor" frameflags="havewhconnect" tid="~openineditor">
+      <action name="openineditor" onexecute="doopenineditor" frameflags="haveopenineditor" tid="~openineditor">
         <enableon source="stacktrace" min="1" max="1" requirefocus="true" />
       </action>
     </actions>

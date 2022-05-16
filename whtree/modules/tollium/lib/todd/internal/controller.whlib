@@ -274,7 +274,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   : TolliumControllerBase(userapi, wrdauthplugin, FALSE)
   {
     this->options := options;
-    this->pvt_connectenabled := options.hasconnect;
     this->pvt_wrdauthplugin := wrdauthplugin;
     this->debugging := options.params.debug; //FIXME ensure that debugging is ONLY enabled if the appservice permitted this user to debug
     this->profiling := options.profile ? 3 : options.memoryprofile ? 4 : 0;

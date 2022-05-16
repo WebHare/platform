@@ -796,8 +796,6 @@
     <text tid="frontendclose">Application sessions have expired</text>
     <text tid="frontendclose_description">The connection between your browser and WebHare was broken. The impacted applications have been closed.</text>
     <text tid="loadingapp">Starting application...</text>
-    <text tid="nowebhareconnect">WebHare connect unavailable</text>
-    <text tid="nowebhareconnect_description">You have enabled WebHare connect for this server, but the service could not be contacted on <param p="1"/></text>
     <text tid="offline">Connection lost</text>
     <text tid="offline_description">The connection to the server has been lost. Please wait for it to recover.</text>
     <text tid="openedas">Opened as '<param p="1"/>'</text>
@@ -894,7 +892,6 @@
         <text tid="missing_scopes">No scopes have been specified.</text>
         <text tid="unknownclient">Client '<param p="1"/>' has not been registered in Webhare Connect.</text>
         <text tid="unknownerror">An unknown error has occurred. Please try again, and if this error keeps occurring please contact the system administrator.</text>
-        <text tid="webhareconnecterror">Could not connect to Webhare Connect. Please contact your system administrator if this problem persists.</text>
       </textgroup>
     </textgroup>
     <textgroup gid="towl">   <!-- shell.towl -->
