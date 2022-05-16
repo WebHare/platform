@@ -3,20 +3,34 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
 LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
+
+STRING ARRAY FUNCTION GetNonlocalIps()
+{
+  RETURN
+      SELECT AS STRING ARRAY ip
+        FROM ToRecordArray(GetLocalIPs(), "IP")
+       WHERE ip NOT IN [ "127.0.0.1", "::1" ]
+         AND ip NOT LIKE "fc*:*" // IPv6 ULA
+         AND ip NOT LIKE "fd*:*" // IPv6 ULA
+         AND ip NOT LIKE "fd*:*"
+         AND ip NOT LIKE "fe*:*"; // IPv6 local addresses (should be fe80::/10)
+}
 
 
 PUBLIC RECORD FUNCTION RPC_Connect()
@@ -295,3 +309,57 @@ STATIC OBJECTTYPE FolderRepo EXTEND RemotableObject
     RETURN res;
   }
 >;
+
+PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING item, RECORD data)
+{
+  OBJECT user := GetEffectiveUser();
+
+  STRING apppassword;
+  IF (ObjectExists(user))
+  {
+    //Do we have a working app password?
+    apppassword := DecodeBase64(user->GetRegistryKey("system.webhareconnect.webdavpassword", ""));
+    GetPrimary()->BeginWork();
+    IF(apppassword != "")
+    {
+      RECORD status := GetPrimaryWebhareUserApi()->TryAppPasswordLogin("system:webdav", user->login, apppassword, TRUE);
+      IF(NOT RecordExists(status))
+        apppassword := "";
+    }
+    IF(apppassword = "") //generate one
+    {
+      apppassword := user->CreateAppPassword("system:webdav","WebHare Connect").password;
+      user->SetRegistryKey("system.webhareconnect.webdavpassword", EncodeBase64(apppassword));
+    }
+    GetPrimary()->CommitWork();
+  }
+
+  //TODO do we need this path resolution? we're now copying it from the todd version just because it was there
+  IF(CellExists(data,'componentpath'))
+  {
+    RECORD resolved := ResolveComponentPath(item, data.componentpath);
+    item := resolved.resourcename;
+    data := CELL[ resolved.line, resolved.col ];
+  }
+
+  STRING resourcepath := Tokenize(item,'#')[0]; //remove any screen reference
+
+  STRING file := resourcepath;
+  IF(file LIKE "wh::*")
+    file := "/system/modules/system/whlibs/" || Substring(file,4);
+  IF(file LIKE "mod::*/*")
+    file := "/system/modules/" || __GetModuleNameFromResourcePath(file) || "/" || Substring(file, SearchSubstring(file,'/')+1);
+
+  RECORD config := GetWebhareConfiguration();
+
+  RETURN [ login := ObjectExists(user) ? user->login : ""
+         , password := apppassword
+         , item := file
+         , data := data
+         , localdata :=
+              [ ips :=      GetNonlocalIps()
+              , wh :=       MergePath(config.installationroot, "bin/wh")
+              , dataroot := config.basedataroot
+              ]
+         ];
+}

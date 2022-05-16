@@ -7,6 +7,7 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
@@ -189,6 +190,30 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
     //FIXME check our scopes are in that list
     RETURN NEW RemoteWebHareConnection(url, "", "bearer:" || peer.currenttoken.token);
   }
+}
+
+PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRING url)
+{
+  url := ResolveToAbsoluteURL(url,"/");
+
+  STRING baseurl := GetPrimaryWebHareInterfaceURL();
+  RECORD defer := CreateDeferredPromise();
+  OBJECT tokprom := NEW TokenPromise(defer.resolve, defer.reject, url, userentity);
+
+  STRING redirecturl := UpdateURLVariables(baseurl,
+      [ oauth_responseid :=    tokprom->requestid
+      ]);
+
+  url := UpdateURLVariables(url,
+        [ app :=            "tollium:builtin.oauth"
+        , oauth_clientid := baseurl
+        , oauth_scopes :=   "webhare"
+        , oauth_redirect := redirecturl
+        ]);
+
+  RETURN [ requesturl := url
+         , tokenpromise := defer.promise
+         ];
 }
 
 PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)

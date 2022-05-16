@@ -280,6 +280,7 @@ STRING ARRAY FUNCTION GetNonlocalIps()
          AND ip NOT LIKE "fe*:*"; // IPv6 local addresses (should be fe80::/10)
 }
 
+//DEPRECATED! Adminservice offers a new version which will be compatible with setup through wh:dev
 PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECORD data)
 {
   OpenPrimary();
