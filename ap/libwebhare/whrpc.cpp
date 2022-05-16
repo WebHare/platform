@@ -280,7 +280,7 @@ void TCPConnection::PopPacket(LockedAData::WriteRef &lock, IOBuffer *iobuf)
         iobuf->GetInternalIOBuffer()->assign(&lock->incoming[0],&lock->incoming[msglen]);
         lock->incoming.erase(lock->incoming.begin(), lock->incoming.begin() + msglen);
 
-        IOCLIENTDEBUGPRINT("TCP conn " << this << ": Received packet " << WHResponseOpcode::GetName((WHResponseOpcode::Type)iobuf->GetOpcode()) << ", len: " << iobuf->GetRawLength());
+        IOCLIENTDEBUGPRINT("TCP conn " << this << ": Received packet " << WHMResponseOpcode::GetName((WHMResponseOpcode::Type)iobuf->GetOpcode()) << ", len: " << iobuf->GetRawLength());
 
         iobuf->ResetReadPointer();
         if (iobuf->IsException())
@@ -314,7 +314,7 @@ bool TCPConnection::SendPacket (IOBuffer const &buf, Blex::DateTime timeout)
             throw Exception(ErrorDisconnect,"Connection has already failed on RPC-level, sending not permitted.");
 
         {
-                IOCLIENTDEBUGPRINT("TCP conn " << this << ": Queueing packet " << RequestOpcode::GetName((RequestOpcode::Type)buf.GetOpcode()) << ", len: " << buf.GetRawLength());
+                IOCLIENTDEBUGPRINT("TCP conn " << this << ": Queueing packet " << WHMRequestOpcode::GetName((WHMRequestOpcode::Type)buf.GetOpcode()) << ", len: " << buf.GetRawLength());
                 LockedAData::WriteRef lock(adata);
                 lock->outgoing.insert(lock->outgoing.end(), buf.GetRawBegin(), buf.GetRawLimit());
 
@@ -333,7 +333,7 @@ bool TCPConnection::AsyncSendPacket (IOBuffer const &buf)
             throw Exception(ErrorDisconnect,"Connection has already failed on RPC-level, sending not permitted.");
 
         {
-                IOCLIENTDEBUGPRINT("TCP conn " << this << ": Async queueing packet " << RequestOpcode::GetName((RequestOpcode::Type)buf.GetOpcode()) << ", len: " << buf.GetRawLength());
+                IOCLIENTDEBUGPRINT("TCP conn " << this << ": Async queueing packet " << WHMRequestOpcode::GetName((WHMRequestOpcode::Type)buf.GetOpcode()) << ", len: " << buf.GetRawLength());
                 LockedAData::WriteRef lock(adata);
                 lock->outgoing.insert(lock->outgoing.end(), buf.GetRawBegin(), buf.GetRawLimit());
 
