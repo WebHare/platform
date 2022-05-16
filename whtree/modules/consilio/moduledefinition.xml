@@ -202,7 +202,6 @@
       <d:varchar name="definedby" maxlength="512">
         <d:documentation>Source where we last saw this contentsource</d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="publishercontent" />
     </d:table>
 
     <d:obsoletetable name="mapping" />
@@ -416,7 +415,7 @@
           The name of the index manager
         </d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="prefix" />
+
       <d:integer name="type" nullable="0">
         <d:documentation>
           1: consilio, 2: elasticsearch
