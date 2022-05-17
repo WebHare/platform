@@ -49,11 +49,6 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    this->contexts->controller->ExecuteClientCall("AskWebHareConnect", [ method := "getRegisteredServers" ] )->Then(PTR this->GotRegisteredServers);
-  }
-  MACRO GotRegisteredServers(VARIANT servers) //JS Call, so careful with what we process
-  {
-    ^peer->options := SELECT title := url FROM EnforceStructure([[title:=""]], servers);
   }
   ASYNC MACRO OnConnect(OBJECT urlreceiver)
   {

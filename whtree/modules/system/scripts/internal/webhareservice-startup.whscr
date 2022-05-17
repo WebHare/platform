@@ -3,6 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -117,3 +119,4 @@ FOREVERY(STRING err FROM GetModuleDependencyIssues())
   Print(err||"\n");
 
 SetWHServiceState("started", [ start := start, finished := GetCurrentDatetime() ]);
+LogAuditEvent("system:startup", versioninfo);

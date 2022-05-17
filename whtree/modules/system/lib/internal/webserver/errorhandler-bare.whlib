@@ -14,16 +14,11 @@ MACRO PrintResourceRef(RECORD resref, FUNCTION PTR getresourceref)
   IF(getresourceref != DEFAULT FUNCTION PTR)
     refinfo := getresourceref(resref);
 
+  Print(`<span`);
   IF(RecordExists(refinfo))
-    Print(`<a href="${EncodeValue(refinfo.link)}" target="_blank"`);
-  ELSE
-    Print('<span');
+    Print(` class="wh-hserror__resourceref" data-resourceref="${EncodeValue(EncodeJSON(refinfo))}"`);
 
-  Print(` class="wh-hserror__resourceref"`);
-  IF(RecordExists(refinfo))
-    Print(` data-resourceref="${EncodeValue(EncodeJSON(CELL[...refinfo, DELETE link]))}"`);
-
-  Print(`>${EncodeHTML(resref.filename)} ${resref.line},${resref.col}</${RecordExists(refinfo)?"a":"span"}>`);
+  Print(`>${EncodeHTML(resref.filename)} ${resref.line},${resref.col}</span"}>`);
 }
 
 PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors, FUNCTION PTR getresourceref)

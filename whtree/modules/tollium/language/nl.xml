@@ -776,8 +776,6 @@
     <text tid="frontendclose">Applicatiesessies zijn verlopen</text>
     <text tid="frontendclose_description">De verbinding tussen uw browser en WebHare is verbroken. De betreffende applicaties in WebHare zijn gesloten.</text>
     <text tid="loadingapp">Applicatie starten...</text>
-    <text tid="nowebhareconnect">WebHare connect niet beschikbaar</text>
-    <text tid="nowebhareconnect_description">U heeft WebHare connect ingeschakeld voor deze server, maar de service kon niet bereikt worden op <param p="1"/></text>
     <text tid="offline">Verbinding verbroken</text>
     <text tid="offline_description">De verbinding met de server is verbroken. Wacht a.u.b. tot deze weer hersteld is.</text>
     <text tid="openedas">Geopend als '<param p="1"/>'</text>
@@ -874,7 +872,6 @@
         <text tid="missing_scopes">Er zijn geen scopes opgegeven.</text>
         <text tid="unknownclient">Client '<param p="1"/>' is niet in Webhare Connect geregistreerd.</text>
         <text tid="unknownerror">Er is een onbekende fout opgetreden. Probeer het a.u.b. opnieuw. Als deze foutmelding dan weer terugkomt, neem dan a.u.b contact op met de systembeheerder.</text>
-        <text tid="webhareconnecterror">Kon niet met Webhare Connect verbinden. Neem a.u.b. contact op met systeembeheerder als dit probleem blijft voorkomen.</text>
       </textgroup>
     </textgroup>
     <textgroup gid="towl">   <!-- shell.towl -->

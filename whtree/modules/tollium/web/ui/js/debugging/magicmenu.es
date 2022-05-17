@@ -2,7 +2,6 @@ import * as dompack from 'dompack';
 import { qS } from 'dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as whintegration from '@mod-system/js/wh/integration';
-import * as whconnect from '@mod-system/js/wh/connect';
 import $todd from '@mod-tollium/web/ui/js/support';
 
 let magicmenuactive = !whintegration.config.islive;
@@ -36,9 +35,7 @@ async function editElement(component)
     component = component.parentNode.closest('*[data-name]');
   }
 
-  // Only run the devhook if whconnect fails (openInEditor returns null after failure)
-  if (!await whconnect.openInEditor(screennode.dataset.tolliumscreen, { componentpath }))
-    $todd.getActiveApplication().queueEventNoLock("$devhook", { action: "openineditor", screen: screennode.dataset.tolliumscreen, componentpath });
+  $todd.getActiveApplication().queueEventNoLock("$devhook", { action: "openineditor", screen: screennode.dataset.tolliumscreen, componentpath });
 }
 
 function onMagicMenu(event)

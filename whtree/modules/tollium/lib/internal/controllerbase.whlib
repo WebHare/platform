@@ -1377,7 +1377,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   OBJECT ARRAY asyncobjects;
 
   BOOLEAN pvt_isvalidation;
-  BOOLEAN pvt_connectenabled;
   OBJECT pvt_contexts;
 
   ///experimental: directly execute app actions
@@ -1684,11 +1683,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
              ] INTO items AT END;
     }
     RETURN items;
-  }
-
-  PUBLIC BOOLEAN FUNCTION IsConnectEnabled()
-  {
-    RETURN this->pvt_connectenabled;
   }
 
   /** Would we trust this user with the debugger or other 'raw' access ? */

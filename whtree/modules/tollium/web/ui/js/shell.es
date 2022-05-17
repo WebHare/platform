@@ -33,7 +33,6 @@ import './debugging/magicmenu';
 var EventServerConnection = require('@mod-system/js/net/eventserver');
 var JSONRPC = require('@mod-system/js/net/jsonrpc');
 var MenuComponent = require('../components/basecontrols/menu');
-import * as whconnect from '@mod-system/js/wh/connect';
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
@@ -158,7 +157,6 @@ class IndyShell
               , shortunknowntids: whintegration.config.obj.shortunknowntids
               , params: whintegration.config.obj.appserviceparams
               , webvars: webvars
-              , hasconnect: whconnect.hasConnect()
               };
 
     if(!options.isloginapp && location.hash.startsWith('#go='))
@@ -465,9 +463,6 @@ class IndyShell
       curapp.setAppTitle(curapp.title);
 
     setupWHCheck(settings.checkinterval);
-
-    if(whconnect.hasConnect())
-      whconnect.postToConnect({ method:'register', version: settings.version, servername: settings.servername });
   }
   sendApplicationMessage(app, target, message, reuse_instance, inbackground, appoptions)
   {
@@ -527,13 +522,6 @@ class IndyShell
     if(instr.type=='windowopen')
     {
       window.open(instr.link,'_blank');
-      return;
-    }
-
-    if(instr.type=='shell:reveal') //mount + open in finder
-    {
-      //ADDME handle directly, don't pass through shell
-      whconnect.revealInFinder(instr.folder);
       return;
     }
 
@@ -824,17 +812,6 @@ function debugApp(crashdialog, app, data, x, ondone)
   ondone();
 }
 
-function onWebHareConnectError(error)
-{
-  $todd.towl.showNotification({ id: "tollium:shell.nowebhareconnect"
-                              , icon: "tollium:messageboxes/warning"
-                              , title: getTid("tollium:shell.nowebhareconnect")
-                              , description: getTid("tollium:shell.nowebhareconnect_description", whconnect.getConnectURL())
-                              , timeout: 15000
-                              , persistent: true
-                              });
-}
-
 var PlaceholderApp = class
 { constructor(appinterface, callback)
   {
@@ -849,5 +826,4 @@ window.$tollium =
 , componentsToMessages: $todd.componentsToMessages
 };
 
-whconnect.setup({ onError: onWebHareConnectError });
 module.exports = IndyShell;
