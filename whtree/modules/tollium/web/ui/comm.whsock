@@ -164,10 +164,6 @@ MACRO OnData(STRING data)
               , ispersistentlink := TRUE
               , frontendids := [ STRING(request.msg.frontendid) ]
               ]);
-//
-//              [ type :=       "appmessage"
-//              , data :=       request.msg
-//              ]);
         }
         ELSE IF (__debugwebsockets)
           LogDebug("tollium", "websocket", "WHSOCK no such port " || portid);

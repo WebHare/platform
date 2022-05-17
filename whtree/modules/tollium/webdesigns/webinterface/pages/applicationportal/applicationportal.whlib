@@ -44,7 +44,7 @@ RECORD FUNCTION GetRawAppLaunchInstruction(STRING appname)
          , app := appname
          , target := DEFAULT RECORD
          , message := DEFAULT RECORD
-         , reuse_instance := TRUE
+         , reuse_instance := "always"
          ];
 }
 RECORD FUNCTION GetAppLaunchInstruction(STRING manualbaseurl, RECORD app)
@@ -66,7 +66,7 @@ RECORD FUNCTION GetAppLaunchInstruction(STRING manualbaseurl, RECORD app)
          , app := app.name
          , target := DEFAULT RECORD
          , message := DEFAULT RECORD
-         , reuse_instance := NOT app.openmultipleinstances
+         , reuse_instance := app.openmultipleinstances ? "never" : "always"
          ];
 }
 
@@ -609,7 +609,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                         , app := favorite.app
                         , target  := favorite.target
                         , message := favorite.message
-                        , reuse_instance := NOT matchingapp.openmultipleinstances
+                        , reuse_instance := matchingapp.openmultipleinstances ? "never" : "always"
                         ]
              , icon := matchingapp.icon
              , link := matchingapp.link

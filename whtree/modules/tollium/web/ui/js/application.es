@@ -918,8 +918,8 @@ export class BackendApplication extends ApplicationBase
       {
         var instrname = instr.instr;
 
-        if(instrname == "sendappmessage")
-          this.shell.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse);
+        if(instrname == "shellinstruction")
+          this.shell.executeInstruction(instr);
         else if(instrname == "reply")
           pendingreplies.push(instr);
         else if(instrname == "appdebuginfo")
