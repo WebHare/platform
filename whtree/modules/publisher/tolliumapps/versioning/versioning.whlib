@@ -458,15 +458,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD sel := this->actionlist->selection;
     STRING previewlink;
     IF(RecordExists(sel))
-    {
-      previewlink := CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", sel.live_object, sel.draft_object);
-      IF(previewlink = "")
-        this->previewbrowser->SetPreview(sel.draft_object);
-      ELSE
-        this->previewbrowser->SetPreviewURL(previewlink);
-    }
+      ^previewbrowser->SetPreview(sel.live_object, [ contentfile := sel.draft_object]);
     ELSE
-      this->previewbrowser->SetPreviewURL("");
+      ^previewbrowser->SetPreviewURL("");
   }
 
   // ---------------------------------------------------------------------------
@@ -848,7 +842,7 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
 
     IF (RecordExists(tabextension))
     {
-      RECORD loadresult := this->proptabs->LoadTabsExtension(tabextension.resource, tabextension.name);
+      RECORD loadresult := this->proptabs->LoadTabsExtension(tabextension.resource || "#" || tabextension.name);
       FOREVERY (OBJECT comp FROM loadresult.components)
         IF (comp EXTENDSFROM TolliumTabsExtensionBase AND MemberExists(comp, "ViewHistoryForDraft"))
           this->historyextcomp := comp;
@@ -925,10 +919,9 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
       this->requestdescription->value := sel.comment;
       this->modifications->rows := GetModifications(sel.rowkey);
 
-      previewlink := CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", sel.live_object, sel.draft_object);
       IF (ObjectExists(this->historyextcomp))
         this->historyextcomp->ViewHistoryForDraft(sel.draft_object);
-      this->previewbrowser->SetPreviewURL(previewlink);
+      ^previewbrowser->SetPreview(sel.live_object, [ contentfile := sel.draft_object]);
     }
     ELSE
     {

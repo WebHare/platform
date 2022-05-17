@@ -40,7 +40,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   //
 
   STRING lastsethtmlvalue;
+  ///'official' target we preview, eg where we take apply rules from (targetobject)
   INTEGER previewfileid;
+  ///actual content to preview
+  INTEGER contentfileid;
   ///Actual URL we want to show
   STRING currenturl;
   BOOLEAN currentsandbox;
@@ -180,7 +183,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                 ]);
   }
 
-  RECORD FUNCTION GetPreviewData(INTEGER fileid)
+  RECORD FUNCTION GetPreviewData(INTEGER fileid, INTEGER usecontentfile)
   {
     /* Determine the viewer to use. In order we'll try:
        - any explicit previewsetting: <preview browserurl=...> - this will handle eg. images
@@ -200,6 +203,15 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     RECORD contentfile := selectedfile;
     INTEGER targetfiletype := selectedfile.type;
 
+    IF(usecontentfile != 0)
+    {
+      RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERE id = usecontentfile;
+      IF(RecordExists(target))
+      {
+        targetfiletype := target.type;
+        contentfile := target;
+      }
+    }
     IF(selectedfile.type IN [ whconstant_whfstype_internallink, whconstant_whfstype_contentlink ])
     {
       // Find internal or content link target
@@ -352,7 +364,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       RECORD fileinfo := DescribeContentTypeById(targetfiletype, [ isfolder := selectedfile.isfolder, mockifmissing := TRUE ]);
       IF(fileinfo.needstemplate OR fileinfo.id = whconstant_whfstype_dynamicfoldercontents) //dynamic folder contents
       {
-        this->currenturl := selectedfile.link;
+        IF(usecontentfile = 0) //we can show the live version
+          this->currenturl := selectedfile.link;
+        ELSE //generate a preview (used by versioning app)
+          this->currenturl := CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", selectedfile.id, usecontentfile);
       }
       ELSE
       {
@@ -515,15 +530,15 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
     ELSE
     {
-      this->SetFileId(this->previewfileid, reloadmessages, reloadsource);
+      this->SetFileId(this->previewfileid, reloadmessages, reloadsource, this->contentfileid);
     }
   }
 
   // Set the currently previewed file
-  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource)
+  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource, INTEGER contentfile)
   {
     BOOLEAN was_iframe_interaction;
-    IF (fileid = this->previewfileid AND NOT reloadmessages AND NOT reloadsource)
+    IF (fileid = this->previewfileid AND contentfile = this->contentfileid AND NOT reloadmessages AND NOT reloadsource)
     {
       // Always update the versioning messages, a save of a denied draft changes its message
       this->FillVersioningMessages();
@@ -558,8 +573,9 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     IF(RecordExists(previewfile) AND previewfile.id != 0)
     {
-      RECORD previewdata := this->GetPreviewData(previewfile.id);
+      RECORD previewdata := this->GetPreviewData(previewfile.id, contentfile);
       this->previewfileid := previewdata.fileid;
+      this->contentfileid := contentfile;
       this->currentsandbox := previewdata.sandbox;
 
       INTEGER warninglevel := SELECT AS INTEGER MAX(level) FROM this->previewmessages;
@@ -577,6 +593,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                ] INTO this->previewmessages AT END;
       }
       this->previewfileid := 0;
+      this->contentfileid := 0;
       ^previewlistener->masks := DEFAULT STRING ARRAY;
       this->suppressrendering := TRUE;
     }
@@ -730,7 +747,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     FOREVERY (RECORD event FROM events)
       FOREVERY (RECORD file FROM event.data.files)
       {
-        IF (file.file = this->previewfileid)
+        IF (file.file = this->previewfileid) //TODO or watch contentfileid ?
         {
           file_updated := file_updated OR "update" IN file.events;
           IF ((this->refresh_unpublished AND "update" IN file.events)
@@ -773,7 +790,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoPreviewRefresh()
   {
-    this->SetFileId(this->previewfileid, TRUE, TRUE); //force reresh of both frame and the error messages
+    this->SetFileId(this->previewfileid, TRUE, TRUE, this->contentfileid); //force reresh of both frame and the error messages
   }
 
   MACRO ClearForNewURL(STRING url)
@@ -825,10 +842,11 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Public API
   //
 
-  PUBLIC MACRO SetPreview(INTEGER objid)
+  PUBLIC MACRO SetPreview(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ contentfile := 0], options);
     Print(`Owner asked previewbrowser to go to #${objid} ${SELECT AS STRING "(" || whfspath || ")" FROM system.fs_objects WHERE id=objid}\n`);
-    this->SetFileId(objid, FALSE, FALSE);
+    this->SetFileId(objid, FALSE, FALSE, options.contentfile);
   }
 
   PUBLIC MACRO SetPreviewURL(STRING newurl)
