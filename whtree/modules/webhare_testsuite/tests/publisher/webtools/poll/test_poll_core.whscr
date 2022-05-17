@@ -79,6 +79,8 @@ PUBLIC MACRO Prepare()
   // We get our options back, enriched with a GUID and hide field for options which didn't have them yet
   pollwebtool->SetOptions(myoptions);
   RECORD ARRAY options := pollwebtool->GetOptions();
+  TestEq(4, Length(options));
+  TestEq(5, Length(pollwebtool->GetOptions([gethiddenoptions := TRUE ])));
 
   //ABORT(anytostring(options, "tree"));
 
@@ -106,7 +108,7 @@ PUBLIC MACRO Prepare()
   // - we want all set options to be there
   // - we don't want GetOptions() to filter on 'hide' (only GetResults() and GetWittyFields() should not return hidden options)
   // - we want to options to be there (correctly cached after SetOptions AND whether SetOptions saves it correctly and GetOptions returns it correctly)
-  TestEq(Length(myoptions), Length(options), "Expected GetOptions to return all options we set, including hiddes ones");
+  TestEq(Length(myoptions)-1, Length(options), "Expected GetOptions to return all options we set");
   TestEq(options, options_fromnewinstance, "Expected the result of GetOptions to be the same as the enriched options returned by SetOptions");
 
 
@@ -154,7 +156,7 @@ PUBLIC MACRO Prepare()
                   ));
 
 
-  RECORD hidden_option := SELECT * FROM options WHERE hide;
+  RECORD hidden_option := SELECT * FROM pollwebtool->GetOptions([gethiddenoptions := TRUE ]) WHERE hide;
   TestThrowsLike( "*not available*"
        , PTR testfw->browser->CallJSONRPC(
                       GetPrimaryWebhareInterfaceURL() || "wh_services/publisher/poll", "CastVote"
@@ -278,10 +280,22 @@ MACRO TestPollAPI()
   TestEq([ success := FALSE, errorcode := "alreadyvoted" ], pollwebtool->CastVote(STRING[thetool->GetResults().options[2].guid], [ voterid := 'user1' ]));
   TestEq([ success := TRUE ], pollwebtool->CastVote(STRING[thetool->GetResults().options[3].guid], [ voterid := 'user2' ]));
 
-  TestEqMembers([[ title := "Optie 1", votes := 1 ]
-                ,[ title := "Optie 2", votes := 3 ]
-                ,[ title := "Optie 3", votes := 0 ]
-                ,[ title := "Optie 4", votes := 2 ]
+  TestEqMembers([[ title := "Optie 1", votes := 1, votepercentage := 17 ]
+                ,[ title := "Optie 2", votes := 3, votepercentage := 50 ]
+                ,[ title := "Optie 3", votes := 0, votepercentage := 0 ]
+                ,[ title := "Optie 4", votes := 2, votepercentage := 33 ]
+                ], thetool->GetResults().options, "*");
+
+  testfw->BeginWork();
+  RECORD ARRAY opts := thetool->GetOptions([ gethiddenoptions := TRUE ]);
+  UPDATE opts SET hide := TRUE WHERE title = "Optie 4";
+  thetool->SetOptions(opts);
+  testfw->CommitWork();
+
+  //Not recovering the votes from Optie 4. It would be very hard to do for multiplechoice, doable for singlechoice if we want to fix this..
+  TestEqMembers([[ title := "Optie 1", votes := 1, votepercentage := 17 ]
+                ,[ title := "Optie 2", votes := 3, votepercentage := 50 ]
+                ,[ title := "Optie 3", votes := 0, votepercentage := 0 ]
                 ], thetool->GetResults().options, "*");
 }
 
