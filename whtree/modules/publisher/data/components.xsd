@@ -364,13 +364,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="rowselect">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>We always select the whole row since 4.03</sc:deprecated>
-        </xs:appinfo>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="emptytid" type="sc:Tid" default="publisher:components.foldertree.empty">
       <xs:annotation>
         <xs:documentation>
@@ -517,13 +510,6 @@
         <xs:documentation>
           <!-- Fixme: doc -->
         </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="rowselect">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>We always select the whole row since 4.03</sc:deprecated>
-        </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptytid" type="sc:Tid" default="publisher:components.filelist.empty">
