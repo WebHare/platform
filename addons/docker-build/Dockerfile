@@ -56,7 +56,6 @@ RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
     /bin/bash /setup-awssdk.sh "1.7.231"
 
 # Let's do the NPM work first, for better caching
-# RUN cd /opt/wh/whtree && npm install --no-save && npm prune && npm dedupe && npm cache clear --force && rm -rf ~/.ccache /tmp/*
 RUN --mount=type=tmpfs,target=/tmp/,readwrite \
     --mount=type=tmpfs,target=/root/,readwrite \
     --mount=type=cache,id=npmcache,target=/tmp/npmcache \
