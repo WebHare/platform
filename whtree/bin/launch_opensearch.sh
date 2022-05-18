@@ -52,11 +52,13 @@ if [ "$MAXIMUMMEMORY" == "0" ]; then
 fi
 
 #Workaround JDK 18 requiring this option for opensearch right now..
-export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -Djava.security.manager=allow"
+export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   CHPST="chpst -u opensearch:opensearch:whdata "
+else
+  _JAVA_OPTIONS="$_JAVA_OPTIONS -Djava.security.manager=allow"    #linux opensearch 1.3.2 doesn't seem to like securitymanager anymore but brew does
 fi
 
 exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
