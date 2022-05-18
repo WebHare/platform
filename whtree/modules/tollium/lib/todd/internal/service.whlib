@@ -6,16 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
-
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
-LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
-LOADLIB "mod::wrd/lib/auth.whlib";
 
 // Wait max 4.5 minutes on a message (should _just_ be enough to avoid a 5 min TCP/NAT timeout)
 INTEGER maxmessagewait := 270 * 1000;
@@ -278,60 +270,4 @@ STRING ARRAY FUNCTION GetNonlocalIps()
          AND ip NOT LIKE "fd*:*" // IPv6 ULA
          AND ip NOT LIKE "fd*:*"
          AND ip NOT LIKE "fe*:*"; // IPv6 local addresses (should be fe80::/10)
-}
-
-//DEPRECATED! Adminservice offers a new version which will be compatible with setup through wh:dev
-PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECORD data)
-{
-  OpenPrimary();
-  OBJECT authplugin := GetWRDAuthPlugin(GetWebOriginURL(pathname));
-  OBJECT user := authplugin->GetCurrentWebhareUser();
-
-  STRING apppassword;
-  IF (ObjectExists(user))
-  {
-    //Do we have a working app password?
-    apppassword := DecodeBase64(user->GetRegistryKey("system.webhareconnect.webdavpassword", ""));
-    GetPrimary()->BeginWork();
-    IF(apppassword != "")
-    {
-      RECORD status := authplugin->userapi->TryAppPasswordLogin("system:webdav", user->login, apppassword, TRUE);
-      IF(NOT RecordExists(status))
-        apppassword := "";
-    }
-    IF(apppassword = "") //generate one
-    {
-      apppassword := user->CreateAppPassword("system:webdav","WebHare Connect").password;
-      user->SetRegistryKey("system.webhareconnect.webdavpassword", EncodeBase64(apppassword));
-    }
-    GetPrimary()->CommitWork();
-  }
-
-  IF(CellExists(data,'componentpath'))
-  {
-    RECORD resolved := ResolveComponentPath(item, data.componentpath);
-    item := resolved.resourcename;
-    data := CELL[ resolved.line, resolved.col ];
-  }
-
-  STRING resourcepath := Tokenize(item,'#')[0]; //remove any screen reference
-
-  STRING file := resourcepath;
-  IF(file LIKE "wh::*")
-    file := "/system/modules/system/whlibs/" || Substring(file,4);
-  IF(file LIKE "mod::*/*")
-    file := "/system/modules/" || GetModuleNameFromResourcePath(file) || "/" || Substring(file, SearchSubstring(file,'/')+1);
-
-  RECORD config := GetWebhareConfiguration();
-
-  RETURN [ login := ObjectExists(user) ? user->login : ""
-         , password := apppassword
-         , item := file
-         , data := data
-         , localdata :=
-              [ ips :=      GetNonlocalIps()
-              , wh :=       MergePath(config.installationroot, "bin/wh")
-              , dataroot := config.basedataroot
-              ]
-         ];
 }

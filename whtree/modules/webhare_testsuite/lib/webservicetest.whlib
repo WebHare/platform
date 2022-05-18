@@ -130,7 +130,7 @@ PUBLIC RECORD FUNCTION RPC_TestMinimalConfig()
   RECORD fullconfig := DownloadWebserverConfig();
   ReloadPreviousConfig(fullconfig);
 
-  RETURN CELL [ success := TRUE ];
+  RETURN CELL [ success := TRUE, login := GetEffectiveUser()->login ];
 }
 
 PUBLIC RECORD FUNCTION RPC_ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD newdata)

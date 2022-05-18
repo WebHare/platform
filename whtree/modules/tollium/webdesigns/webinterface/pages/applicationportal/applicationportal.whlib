@@ -725,7 +725,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , apps := this->GetAppMenu(webcontext)
             , newsitems := this->GetNewsItems(webcontext)
 
-            , dashboard := this->dashboard
+            , dashboard := this->dashboard AND GetWebVariable("appmode") != "singleapp" //TODO singleapp should hide entire menubar
             , dashboardbg := this->GetDashboardBackground()
             , loginbg := this->GetLoginBackground()
             , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")

@@ -650,14 +650,14 @@ PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
           '<html><body>' ||
           '<script nonce="[nonce]">' || target || '.postMessage([message:none], "*");' ||
           (target = "opener" ? "window.close();" : "") ||
-          '</script></body></html>');
+          '</script><p>You can safely close this window</p></body></html>');
 
       BLOB data := witty->RunToBlob(CELL[ message := EncodeJSON(instr.message), nonce ]);
       SendWebFile(data);
     }
     CASE "close"
     {
-      SendWebFile(StringToBlob(`<html><body><script nonce="${nonce}">window.close();</script></body></html>`));
+      SendWebFile(StringToBlob(`<html><body><script nonce="${nonce}">window.close();</script><p>You can safely close this window</p></body></html>`));
     }
     DEFAULT
     {
