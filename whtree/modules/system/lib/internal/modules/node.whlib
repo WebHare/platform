@@ -85,7 +85,7 @@ RECORD FUNCTION GetLockFileV2Versions(STRING packagedir, RECORD ARRAY actualnode
 
   RECORD hidden_lockfile_props := GetDiskFileProperties(hidden_lockfile_path);
   IF (hidden_lockfile_props.modified < max_modified)
-    INSERT [ error := `The installed packages have been modified after the last install. Please re-run 'npm install'` ] INTO issues AT 0;
+    INSERT [ error := `The installed packages have been modified after the last install. Please re-run 'wh fixmodules'` ] INTO issues AT 0;
   ELSE
   {
     VARIANT data := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path), DEFAULT RECORD, [ wrapobjects := TRUE ]);
@@ -203,16 +203,16 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       IF(Length(UnpackRecord(deps)) = 0)
         RETURN issues; //No dependencies. Then it's okay to have no package-lock.json
 
-      RETURN [ ...issues, [ error := `package-lock.json file missing. Please run 'npm install'` ] ];
+      RETURN [ ...issues, [ error := `package-lock.json file missing. Please run 'wh fixmodules'` ] ];
     }
 
     IF (NOT packagelockjson->HasProp("lockfileVersion"))
     {
-      RETURN [ ...issues, [ error := `package-lock.json missing version. Please run 'npm install'` ] ];
+      RETURN [ ...issues, [ error := `package-lock.json missing version. Please run 'wh fixmodules'` ] ];
     }
     ELSE IF(packagelockjson->GetProp("lockfileVersion") < 2)
     {
-      RETURN [ ...issues, [ error := `package-lock.json version '${packagelockjson->GetProp("lockfileVersion")}' not supported. Please run 'npm install'` ] ];
+      RETURN [ ...issues, [ error := `package-lock.json version '${packagelockjson->GetProp("lockfileVersion")}' not supported. Please run 'wh fixmodules'` ] ];
     }
     ELSE
     {
@@ -227,10 +227,10 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
         lockrootdeps_deps := SELECT name, range := value FROM lockrootdeps->GetProp("dependencies", [ fallback := CELL[] ])->Unpack();
       }
       ELSE IF(Length(flatmodules) > 0)
-        RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'npm install'" ] ];
+        RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'wh fixmodules'" ] ];
 
       IF (EncodeHSON(lockrootdeps_deps) != EncodeHSON(SELECT name, range FROM flatmodules ORDER BY name))
-        RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'npm install'" ] ];
+        RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'wh fixmodules'" ] ];
 
       // Get the list of all installed packages on disk
       RECORD ARRAY ondiskpackages := SELECT * FROM ListActualV2Packages(nodefolder.modulespath, "node_modules") ORDER BY name;

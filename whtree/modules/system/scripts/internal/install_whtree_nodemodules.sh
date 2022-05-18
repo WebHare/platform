@@ -4,7 +4,7 @@
 
 # We are in whtree/modules/system/scripts/internal, we need to find whtree, so 4 up!
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1
-npm install --no-save --ignore-scripts
+npm install --no-save --ignore-scripts --omit=peer
 
 # run scripts we trust and need explicitly
 node node_modules/esbuild/install.js
