@@ -1281,7 +1281,7 @@ PUBLIC ASYNC MACRO TTLaunchApp(STRING appname, RECORD options DEFAULTSTO DEFAULT
 /** Launch the most recently requested application (eg after a click) */
 PUBLIC ASYNC MACRO TTLaunchStartedApp()
 {
-  RECORD ARRAY applaunchinstructions := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="sendappmessage";
+  RECORD ARRAY applaunchinstructions := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="shellinstruction" AND type="appmessage";
   IF(NOT RecordExists(applaunchinstructions))
     THROW NEW Exception(`No applaunch pending`);
 

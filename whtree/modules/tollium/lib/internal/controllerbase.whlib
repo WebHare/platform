@@ -1673,7 +1673,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
              , cmd :=
                     [ type := "appmessage"
                     , app := "system:debugger"
-                    , reuse := FALSE
+                    , reuse_instance := "never"
                     , target := DEFAULT RECORD
                     , message :=
                             [ groupid := GetCurrentGroupId()
@@ -1936,11 +1936,12 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       THROW NEW Exception(`Illegal reusemode '${options.reusemode}', allowed: 'always', 'whennotbusy'`);
 
     this->QueueInstruction(
-        [ instr :=    "sendappmessage"
+        [ instr :=    "shellinstruction"
+        , type :=     "appmessage"
         , app :=      app
-        , reuse :=    options.reusemode
         , target :=   apptarget
         , message :=  messagedata
+        , reuse_instance := options.reusemode
         ]);
   }
 

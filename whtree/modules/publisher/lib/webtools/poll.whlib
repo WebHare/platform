@@ -93,8 +93,6 @@ STATIC OBJECTTYPE PollWebtool
         }
       }
 
-      this->polldata.options := settings.options;
-
       INSERT CELL options := settings.options INTO updatefields;
     }
 
@@ -104,10 +102,14 @@ STATIC OBJECTTYPE PollWebtool
 
 
   /** @short get the options of a poll (including hidden ones)
+      @cell(boolean) options.gethiddenoptions Return hidden options too
   */
-  PUBLIC RECORD ARRAY FUNCTION GetOptions()
+  PUBLIC RECORD ARRAY FUNCTION GetOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN SELECT title, guid, hide FROM this->polldata.options;
+    options := ValidateOptions([ gethiddenoptions := FALSE ], options);
+    RETURN SELECT title, guid, hide
+             FROM this->polldata.options
+            WHERE VAR options.gethiddenoptions ? TRUE : hide = FALSE;
   }
 
 
@@ -117,7 +119,6 @@ STATIC OBJECTTYPE PollWebtool
   PUBLIC RECORD FUNCTION GetResults() //GetOptionsWithStatistics()
   {
     RECORD ARRAY polloptions := this->GetOptions();
-
     INTEGER amountofvoters := Length(SELECT FROM publisher.pollvoters WHERE poll_fsobject = this->id);
 
     // get all relevant option entry's (which contain the total vote counts)

@@ -122,12 +122,18 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
     RETURN TolliumControllerBase::RunMessageBox(name, p1, p2, p3, p4);
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GrabInstructions()
+  /** @short Flush and retrieve Tollium rendering instructions
+      @cell(boolean) options.peek Peek only - don't remove the instructions from the queue
+  */
+  PUBLIC RECORD ARRAY FUNCTION GrabInstructions(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([peek := FALSE], options);
+
     this->TransmitDirtyComponents();
 
     RECORD ARRAY retval := this->instructions;
-    this->instructions := DEFAULT RECORD ARRAY;
+    IF(NOT options.peek)
+      this->instructions := RECORD[];
     RETURN retval;
   }
 

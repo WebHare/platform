@@ -512,7 +512,7 @@ class IndyShell
   }
   executeInstruction(instr)
   {
-    if(instr.type=='appmessage')
+    if(instr.type == 'appmessage')
     {
       //ADDME background flag is now missing with initial launches, but i think it should just be specified by caller
       this.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse_instance, instr.inbackground);
