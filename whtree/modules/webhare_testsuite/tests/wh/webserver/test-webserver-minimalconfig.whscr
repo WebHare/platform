@@ -33,7 +33,9 @@ MACRO TestMinimalConfig()
 
   RECORD port := testfw->GetLocalhostWebinterface();
   STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
-  TestEq(TRUE, InvokeRemoteFunctionWithBrowser(testfw->browser, url || "testminimalconfig").success);
+  RECORD res := InvokeRemoteFunctionWithBrowser(testfw->browser, url || "testminimalconfig");
+  TestEq("sysop@beta.webhare.net", res.login);
+  TestEq(TRUE, res.success);
 }
 
 RunTestFramework([ PTR TestMinimalConfig_NoDatabase

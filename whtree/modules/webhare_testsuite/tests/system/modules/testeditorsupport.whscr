@@ -15,6 +15,14 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
 
+RECORD FUNCTION AuthHandler(STRING realm, STRING url)
+{
+  dumpvalue(cell[realm,url]);
+  RETURN
+      [ username := testfw->GetUserLogin("sysop")
+      , password := testfw->GetUserPassword("sysop")
+      ];
+}
 
 INTEGER FUNCTION SearchSourceElementLine(STRING resource, STRING ARRAY searchparts)
 {
@@ -30,27 +38,26 @@ INTEGER FUNCTION SearchSourceElementLine(STRING resource, STRING ARRAY searchpar
   RETURN LENGTH(Tokenize(Left(data, pos), "\n"));
 }
 
-MACRO TestToddService()
+MACRO TestAdminService()
 {
-  STRING portal := OpenTestsuiteSite()->webroot || 'portal1/';
-  STRING toddrpc := ResolveToAbsoluteURL(portal, "/wh_services/tollium/todd");
-  STRING wrdauthrpc := ResolveToAbsoluteURL(portal, "/wh_services/wrd/auth");
+  RECORD port := testfw->GetLocalhostWebinterface(); //to ensure our wrdschema applies for webhare account lookups
+  STRING adminservice := ResolveToAbsoluteURL(port.baseurl, "/wh_services/system/admin");
 
-  TestEq(TRUE, testfw->browser->CallJSONRPC(wrdauthrpc, "Login", portal, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"), FALSE).success);
+  testfw->browser->onauth := PTR AuthHandler;
 
-  RECORD searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${toddrpc}/GetWebdavOpenInfo`, portal, 'wh::system.whlib', DEFAULT RECORD);
+  RECORD searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${adminservice}/GetWebdavOpenInfo`, 'wh::system.whlib', DEFAULT RECORD);
   //FIXME should be able to get 'local' paths
   TestEq("/system/modules/system/whlibs/system.whlib", searchres.item);
   TestEq(testfw->GetUserLogin("sysop"), searchres.login);
   TestEqLike("????-????-????-????", searchres.password);
 
-  searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${toddrpc}/GetWebdavOpenInfo`, portal, 'mod::system/screens/userrights/userrights.xml#main',
+  searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${adminservice}/GetWebdavOpenInfo`, 'mod::system/screens/userrights/userrights.xml#main',
                                                [ componentpath := [ "todd0000000001:xxunknownelement", "todd0000000001:unitcontents!userandrolelist"] ]);
   //dumpvalue(searchres);
   TestEq('/system/modules/system/screens/userrights/parts/unitcontents.xml', searchres.item); // should give the <list>
   Testeq(SearchSourceElementLine("mod::system/screens/userrights/parts/unitcontents.xml", [ '<list name="userandrolelist"', '>']), searchres.data.line);
 
-  searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${toddrpc}/GetWebdavOpenInfo`, portal, 'mod::system/screens/userrights/userrights.xml#main',
+  searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${adminservice}/GetWebdavOpenInfo`, 'mod::system/screens/userrights/userrights.xml#main',
                                                [ componentpath := [ "todd0000000001:xxunknownelement" ] ]);
   //dumpvalue(searchres);
   TestEq('/system/modules/system/screens/userrights/userrights.xml', searchres.item); //should give us the <screen>
@@ -77,7 +84,7 @@ MACRO TestNoticeLog()
   TestEq("Exception: test-notice-log", errors[0].data.errors[0].message);
 }
 
-RunTestFramework([ PTR TestToddService
+RunTestFramework([ PTR TestAdminService
                  , PTR TestNoticeLog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "homer" ]
