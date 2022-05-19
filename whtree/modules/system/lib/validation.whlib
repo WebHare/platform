@@ -133,6 +133,8 @@ RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
 */
 PUBLIC RECORD FUNCTION ScanModuleTids(RECORD validationconfig, STRING module)
 {
+  __EnableTidCacheInvalidation();
+
   STRING ARRAY scanlist := GetValidatableFiles(validationconfig, module);
   RECORD scanresult := [ tids := RECORD[], warnings := RECORD[] ];
   RECORD ARRAY warnings;
@@ -222,6 +224,8 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
 
 RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD options)
 {
+  __EnableTidCacheInvalidation();
+
   //README: When adding a validator or tidscanner, use `wh validate [--tids] <path>` to test
   IF(IsHareScriptFile(resourcename))
     RETURN RunHSValidator(doc_blob, resourcename, options);

@@ -7,6 +7,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::witty.whlib";
@@ -276,6 +277,25 @@ RECORD FUNCTION GetCompiledLanguageFile(STRING module, STRING langcode)
          , ttl := 60 * 60 * 1000
          , eventmasks := GetResourceEventMasks([resname])
          ];
+}
+
+BOOLEAN invalidation_enabled;
+
+MACRO ClearLocalTidCache(STRING event, RECORD ARRAY data)
+{
+  langfilecache := DEFAULT RECORD;
+}
+
+/// Enable auto-invalidation of the local tid cache when the language files change
+PUBLIC MACRO __EnableTidCacheInvalidation()
+{
+  IF (NOT invalidation_enabled)
+  {
+    RegisterMultiEventCallback("system:modulesupdate", PTR ClearLocalTidCache);
+    RegisterMultiEventCallback("system:modulefolder.mod::*/language/", PTR ClearLocalTidCache);
+    langfilecache := DEFAULT RECORD;
+    invalidation_enabled := TRUE;
+  }
 }
 
 RECORD FUNCTION GetLanguageFile(STRING module, STRING langcode)
