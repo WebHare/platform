@@ -1225,7 +1225,7 @@ void HS_SetFilePointer(VirtualMachine *vm)
         int64_t newpointer = HSVM_Integer64Get(*vm, HSVM_Arg(1));
         if (newpointer < 0)
         {
-                HSVM_ThrowException(*vm, "Cannot set a negative file pointer");
+                HSVM_ThrowException(*vm, ("Cannot set a negative file pointer (" + Blex::AnyToString(newpointer) + ")").c_str());
                 return;
         }
 

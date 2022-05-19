@@ -84,7 +84,7 @@ void SetStreamPointer(VirtualMachine *vm)
         int32_t streamid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
         int64_t offset = HSVM_Integer64Get(*vm, HSVM_Arg(1));
         if (offset < 0)
-            HSVM_ThrowException(*vm, "Cannot set the blob stream offset to a negative value");
+            HSVM_ThrowException(*vm, ("Cannot set the blob stream offset to a negative value (" + Blex::AnyToString(offset) + ")").c_str());
         if (!HSVM_SetStreamOffset(*vm, streamid, offset))
             HSVM_ThrowException(*vm, "Could not set blob stream offset");
 }
