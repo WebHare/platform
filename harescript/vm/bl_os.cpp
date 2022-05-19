@@ -547,7 +547,7 @@ void OSContext::SetDiskFilelength(int filehandle, Blex::FileOffset filesize)
         file->eof=false;
         if (!file->can_write || !file->diskfile || !file->diskfile->SetFileLength(filesize))
             file->io_failure=true;
-        else if (file->diskfile->GetOffset() > static_cast< unsigned >(filesize)) // Cast allowed due to max(0, ..)
+        else if (file->diskfile->GetOffset() > filesize)
             file->diskfile->SetOffset(filesize);
 }
 Blex::FileOffset OSContext::GetFilePointer(HSVM *vm, int filehandle)
@@ -1222,8 +1222,15 @@ void HS_SetConsoleEcho(VirtualMachine *vm)
 }
 void HS_SetFilePointer(VirtualMachine *vm)
 {
+        int64_t newpointer = HSVM_Integer64Get(*vm, HSVM_Arg(1));
+        if (newpointer < 0)
+        {
+                HSVM_ThrowException(*vm, "Cannot set a negative file pointer");
+                return;
+        }
+
         Baselibs::SystemContext context(vm->GetContextKeeper());
-        context->os.SetFilePointer(*vm, HSVM_IntegerGet(*vm, HSVM_Arg(0)), HSVM_Integer64Get(*vm, HSVM_Arg(1)));
+        context->os.SetFilePointer(*vm, HSVM_IntegerGet(*vm, HSVM_Arg(0)), newpointer);
 }
 void HS_SetDiskFileLength(VirtualMachine *vm)
 {
