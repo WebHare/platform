@@ -821,6 +821,12 @@ MACRO ScanBlobTest()
   imgl1 := ScanBlob(OpenTestFile("exif/landscape_1.jpg"),"",[mimetype := "text/html"]);
   TestEq(0, imgl1.width);
   TestEq("text/html", imgl1.mimetype);
+
+  // Test decoding a non-zip file with .zip extension
+  TestEQMembers(
+      [ mimetype := "application/octet-stream"
+      ], ScanBlob(StringToBlob("PK\x03\x04" || RepeatText("\x00", 256)), "test.zip"),
+      "*");
 }
 
 MACRO TestRelativePath()

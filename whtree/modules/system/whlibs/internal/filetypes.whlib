@@ -206,6 +206,10 @@ RECORD FUNCTION DetectZipFile(BLOB indata, STRING ext)
       filetype := MakeFile("application/x-webhare-archive");
     }
   }
+  CATCH (OBJECT e)
+  {
+    RETURN MakeFile("application/octet-stream");
+  }
   FINALLY
   {
     IF (ObjectExists(zip))
