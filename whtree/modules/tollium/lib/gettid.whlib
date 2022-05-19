@@ -429,7 +429,7 @@ PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2
 }
 
 /** Get the text for a tid for a specific language
-    @param langcode Language code
+    @param languagecode Language code
     @param tid Tid to get
     @param p1 Parameter 1
     @param p2 Parameter 2
@@ -451,7 +451,7 @@ PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING
 }
 
 /** Get the HTML text for a tid in the current language
-    @param langcode Language code
+    @param languagecode Language code
     @param tid Tid to get
     @param p1 Parameter 1
     @param p2 Parameter 2

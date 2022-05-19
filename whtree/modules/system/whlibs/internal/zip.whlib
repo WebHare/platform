@@ -228,6 +228,7 @@ RECORD FUNCTION ConvertFileName(STRING name)
 }
 
 /** Writes a ZIP file
+    @private Not publicly exposed, use Archive
 */
 PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
 < /// Destination file stream
@@ -877,6 +878,7 @@ INTEGER64 FUNCTION FindEndOfDirectoryRecord(INTEGER file)
 }
 
 /** ZIP file archive reader
+    @private Not publicly exposed, use Archive
 */
 PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
 < /// Archive
