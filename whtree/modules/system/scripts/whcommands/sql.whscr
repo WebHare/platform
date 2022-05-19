@@ -75,7 +75,8 @@ MACRO GetSchemaAndTableDecls()
                                 FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
                    FROM GetPrimary()->GetTableListing(s.schema_name) AS t
         FROM GetPrimary()->GetSchemaListing() AS s
-       WHERE ToUppercase(schema_name) != "PUBLIC";
+             //Perhaps we should only be returning known WebHare-managed schemas? ie anything you can't define TABLE<>s for we can't manage with 'wh sql' anyway
+       WHERE ToUppercase(schema_name) NOT IN ["PUBLIC","PG_CATALOG","INFORMATION_SCHEMA"];
 
   FOREVERY (RECORD f_schema FROM schemas)
   {

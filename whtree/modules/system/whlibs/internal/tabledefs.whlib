@@ -1,14 +1,13 @@
 <?wh
 
-STRING FUNCTION GetHarescriptType(STRING dbase_type)
+STRING FUNCTION GetHarescriptType(STRING schemaname, STRING tablename, STRING columnname, STRING dbase_type)
 {
   IF(dbase_type LIKE "varchar(*") //postgresql 'varchar(nnn)'
     RETURN "STRING";
 
   SWITCH(dbase_type)
   {
-    //postgresql types
-    CASE "_text","name","text"
+    CASE "_text","name","text","char","bytea" //FIXME bytea should have the BINARY annotation
     {
       RETURN "STRING";
     }
@@ -20,7 +19,7 @@ STRING FUNCTION GetHarescriptType(STRING dbase_type)
     {
       RETURN "FLOAT";
     }
-    CASE "oid", "int2", "int4"
+    CASE "oid", "int2", "int4", "regproc"
     {
       RETURN "INTEGER";
     }
@@ -42,7 +41,7 @@ STRING FUNCTION GetHarescriptType(STRING dbase_type)
     }
     DEFAULT
     {
-      RETURN "STRING";
+      THROW NEW Exception(`Unrecognized PG data type '${dbase_type}' for ${schemaname}.${tablename}.${columnname}`);
     }
   }
 }
@@ -59,17 +58,17 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
   IF (trans->type = "postgresql" AND table_schema = "system")
   {
     IF (tabledef.table_name = "sites")
-      INSERT [ column_name := "webroot", data_type := "VARCHAR" ] INTO columns AT END;
+      INSERT [ column_name := "webroot", data_type := "text" ] INTO columns AT END;
     ELSE IF (tabledef.table_name = "fs_objects")
     {
       columns := columns CONCAT
-          [ [ column_name := "fullpath", data_type := "VARCHAR" ]
-          , [ column_name := "highestparent", data_type := "INTEGER", referenced_table_name := "" ]
-          , [ column_name := "indexurl", data_type := "STRING" ]
-          , [ column_name := "isactive", data_type := "BOOLEAN" ]
-          , [ column_name := "publish", data_type := "BOOLEAN" ]
-          , [ column_name := "url", data_type := "VARCHAR" ]
-          , [ column_name := "whfspath", data_type := "VARCHAR" ]
+          [ [ column_name := "fullpath", data_type := "text" ]
+          , [ column_name := "highestparent", data_type := "int4", referenced_table_name := "" ]
+          , [ column_name := "indexurl", data_type := "text" ]
+          , [ column_name := "isactive", data_type := "bool" ]
+          , [ column_name := "publish", data_type := "bool" ]
+          , [ column_name := "url", data_type := "text" ]
+          , [ column_name := "whfspath", data_type := "text" ]
           ];
     }
   }
@@ -77,14 +76,14 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
   IF (table_schema = "system" AND tabledef.table_name = "sites")
   {
     tabledef.columns := columns CONCAT
-        [ [ column_name := "id", data_type := "INTEGER", rename := "root" ] ];
+        [ [ column_name := "id", data_type := "int4", rename := "root" ] ];
   }
   IF (table_schema = "system" AND tabledef.table_name = "fs_objects")
   {
     columns := columns CONCAT
-        [ [ column_name := "highestparent", data_type := "INTEGER", rename := "parentsite", referenced_table_name := ""  ]
-        , [ column_name := "indexurl", data_type := "STRING", rename := "link" ]
-        , [ column_name := "url", data_type := "VARCHAR", rename := "objecturl" ]
+        [ [ column_name := "highestparent", data_type := "int4", rename := "parentsite", referenced_table_name := ""  ]
+        , [ column_name := "indexurl", data_type := "text", rename := "link" ]
+        , [ column_name := "url", data_type := "text", rename := "objecturl" ]
         ];
   }
 
@@ -93,7 +92,7 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
     IF(#col>0)
       hs_tabledef := hs_tabledef || "\n" || indent || ", ";
 
-    STRING hstype := GetHarescriptType(col.data_type);
+    STRING hstype := GetHarescriptType(table_schema, tabledef.table_name, col.column_name, col.data_type);
     hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
     IF (CellExists(col, "rename"))
       hs_tabledef := hs_tabledef || ` AS "${EncodeJava(col.rename)}"`;
