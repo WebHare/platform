@@ -2,7 +2,7 @@
 # DL instructions from https://opensearch.org/docs/latest/opensearch/install/tar/
 # DL packages from here - https://opensearch.org/downloads.html
 
-GETFILE=opensearch-1.2.0-linux-x64.tar.gz
+GETFILE=opensearch-1.3.2-linux-x64.tar.gz
 DLPATH=/tmp/downloads/$GETFILE
 
 if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
