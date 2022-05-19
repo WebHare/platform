@@ -1065,7 +1065,7 @@ OBJECTTYPE WHFSObject
     RETURN GetWHFSTree(this->id, this->parentsite);
   }
 
-  /** Returns thether this object is a parent of another object
+  /** Returns whether this object is a parent of another object
       @param otherobj The potential child object
       @return TRUE if this object is the parent of otherobj
   */
@@ -1074,7 +1074,7 @@ OBJECTTYPE WHFSObject
     RETURN IsParentObjectOf(this->id, otherobj);
   }
 
-  /** Returns thether this object is a child of another object
+  /** Returns whether this object is a child of another object
       @param otherobj The potential parent object
       @return TRUE if this object is the child of otherobj
   */
