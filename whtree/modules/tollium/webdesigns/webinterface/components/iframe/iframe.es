@@ -92,7 +92,15 @@ export default class ObjIFrame extends ComponentBase
       else if(msg.type == "calljs")
       {
         var cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
-        this.iframe.contentWindow.eval(cmd);
+        try
+        {
+          this.iframe.contentWindow.eval(cmd);
+        }
+        catch(e)
+        {
+          console.error("calljs failure",e);
+          //and ignore. don't break the UI
+        }
       }
       else
         this.iframe.contentWindow.postMessage(msg, '*');
