@@ -53,6 +53,7 @@ CONSTANT RECORD zip_structs :=
           [ packet :=     "signature:r4,disknumber:S,dirdisk:S,diskentries:S,direntries:S,dirsize:L,reloffset:L,commentlen:S"
           , len :=        22
           , signature :=  "\x50\x4b\x05\x06"
+          , converti64 := [ "dirsize", "reloffset" ]
           ]
     , zip64_endofcentraldirectorylocator :=
           [ packet :=     "signature:r4,dirdisk:L,reloffset:B,totaldisks:L"
@@ -227,6 +228,7 @@ RECORD FUNCTION ConvertFileName(STRING name)
 }
 
 /** Writes a ZIP file
+    @private Not publicly exposed, use Archive
 */
 PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
 < /// Destination file stream
@@ -876,6 +878,7 @@ INTEGER64 FUNCTION FindEndOfDirectoryRecord(INTEGER file)
 }
 
 /** ZIP file archive reader
+    @private Not publicly exposed, use Archive
 */
 PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
 < /// Archive

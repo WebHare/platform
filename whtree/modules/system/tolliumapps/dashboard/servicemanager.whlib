@@ -25,6 +25,12 @@ PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
     ^listener->enabled := FALSE;
   }
 
+  UPDATE MACRO OnMessage(RECORD msg)
+  {
+    IF (CellExists(msg, "service"))
+      ^applit->value := msg.service;
+  }
+
   MACRO OnAppRunnerRefreshEvent(RECORD ARRAY events)
   {
     this->RefreshDashboardPanel();

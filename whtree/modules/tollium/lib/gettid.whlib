@@ -7,6 +7,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::witty.whlib";
@@ -278,6 +279,25 @@ RECORD FUNCTION GetCompiledLanguageFile(STRING module, STRING langcode)
          ];
 }
 
+BOOLEAN invalidation_enabled;
+
+MACRO ClearLocalTidCache(STRING event, RECORD ARRAY data)
+{
+  langfilecache := DEFAULT RECORD;
+}
+
+/// Enable auto-invalidation of the local tid cache when the language files change
+PUBLIC MACRO __EnableTidCacheInvalidation()
+{
+  IF (NOT invalidation_enabled)
+  {
+    RegisterMultiEventCallback("system:modulesupdate", PTR ClearLocalTidCache);
+    RegisterMultiEventCallback("system:modulefolder.mod::*/language/", PTR ClearLocalTidCache);
+    langfilecache := DEFAULT RECORD;
+    invalidation_enabled := TRUE;
+  }
+}
+
 RECORD FUNCTION GetLanguageFile(STRING module, STRING langcode)
 {
   STRING langkey := module || ":" || langcode;
@@ -409,7 +429,7 @@ PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2
 }
 
 /** Get the text for a tid for a specific language
-    @param langcode Language code
+    @param languagecode Language code
     @param tid Tid to get
     @param p1 Parameter 1
     @param p2 Parameter 2
@@ -431,7 +451,7 @@ PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING
 }
 
 /** Get the HTML text for a tid in the current language
-    @param langcode Language code
+    @param languagecode Language code
     @param tid Tid to get
     @param p1 Parameter 1
     @param p2 Parameter 2

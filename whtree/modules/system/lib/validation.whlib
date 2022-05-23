@@ -72,8 +72,8 @@ BOOLEAN FUNCTION IsTidTranslatedAnywhere(STRING tid)
 }
 
 /** Returns warnings for missing or invalid tid references
-    @param resourcename Resource where the tids were defined
     @param tids List of tids to check
+    @cell(string) tids.resource Resource where the tid is defined
     @cell(string) tids.tid Tid to check
     @cell(integer) tids.line Line number
     @cell(integer)  tids.col Column number
@@ -133,6 +133,8 @@ RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
 */
 PUBLIC RECORD FUNCTION ScanModuleTids(RECORD validationconfig, STRING module)
 {
+  __EnableTidCacheInvalidation();
+
   STRING ARRAY scanlist := GetValidatableFiles(validationconfig, module);
   RECORD scanresult := [ tids := RECORD[], warnings := RECORD[] ];
   RECORD ARRAY warnings;
@@ -222,6 +224,8 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
 
 RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD options)
 {
+  __EnableTidCacheInvalidation();
+
   //README: When adding a validator or tidscanner, use `wh validate [--tids] <path>` to test
   IF(IsHareScriptFile(resourcename))
     RETURN RunHSValidator(doc_blob, resourcename, options);
@@ -422,8 +426,6 @@ PUBLIC RECORD FUNCTION ValidateSingleFile(STRING resourcename, RECORD options DE
     RETURN ValidateDocument(resourcename, options).value;
   ELSE
     RETURN GetAdhocCached(CELL[ resourcename, options.onlytids, options.documentation ], PTR ValidateDocument(resourcename, options));
-
-
 }
 
 /** Returns the string for a validation error from an XML (without column number)
@@ -480,7 +482,12 @@ PUBLIC MACRO PrintValidationMessages(RECORD file)
 }
 
 
-/** Validate a single file using the module configuration for validation options */
+/** Validate a single file using the module configuration for validation options
+    @param resname resource name
+    @cell(boolean) options.documentation Validate documentation, defaults to TRUE
+    @cell(blob) options.overridedata If present, use this data as the source data
+    @return %includecelldef #ValidateSingleFile.return
+*/
 PUBLIC RECORD FUNCTION ValidateSingleFileAdhoc(STRING resname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ documentation := FALSE

@@ -1,4 +1,4 @@
-﻿<?wh (* ISSYSTEMLIBRARY *)
+<?wh (* ISSYSTEMLIBRARY *)
 
 PUBLIC STRING FUNCTION GetCallingLibrary(BOOLEAN skip_system) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING FUNCTION __DoEvpCrypt(STRING algo, BOOLEAN encrypt, STRING keydata, STRING data, STRING iv) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, CONSTANT);
@@ -45,7 +45,7 @@ PUBLIC INTEGER          FUNCTION __HS_EVENT_CREATECOLLECTOR(STRING ARRAY masks) 
 PUBLIC                  MACRO    __HS_EVENT_CLOSECOLLECTOR(INTEGER id) __ATTRIBUTES__(EXTERNAL);
 PUBLIC                  MACRO    __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(INTEGER id, STRING ARRAY add, STRING ARRAY remove, BOOLEAN reset) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING ARRAY     FUNCTION __HS_EVENT_COLLECTORREAD(INTEGER id) __ATTRIBUTES__(EXTERNAL);
-PUBLIC                  MACRO    __HS_EVENT_BROADCAST(STRING event, RECORD data, BOOLEAN local) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    __HS_EVENT_BROADCAST(STRING event, RECORD data, BOOLEAN local) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short Get the path to the current directory
     @topic harescript-core/os
@@ -175,7 +175,7 @@ PUBLIC INTEGER FUNCTION RecordUpperBound(RECORD ARRAY list, RECORD element, STRI
     @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
     @param newpos New position for the file pointer, in bytes
     @see OpenBlobAsFile,%OpenDiskFile,%CreateDiskFile*/
-PUBLIC                  MACRO    SetFilePointer(INTEGER filehandle, INTEGER64 newpos) __ATTRIBUTES__(EXTERNAL);
+PUBLIC                  MACRO    SetFilePointer(INTEGER filehandle, INTEGER64 newpos) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short   Returns an array of strings by splitting a string into sub strings.
     @long    Tokenize splits a string into substrings, divided on the place of the seperator.
