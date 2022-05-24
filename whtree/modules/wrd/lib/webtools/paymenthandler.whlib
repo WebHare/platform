@@ -190,7 +190,7 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
                                                                                  , paymenthandler := Resolve("#ProcessPaymentStatus")
                                                                                  , orderid := this->settings.orderid
                                                                                  , userdata := [ //TODO can we replace this with formtarget?
-                                                                                                 formtarget := this->form->__GetFormTarget()
+                                                                                                 formtarget := this->form->GetFormTarget()
                                                                                                , result := this->form->resultguid
                                                                                                , handler := this->__handlerinfo.handler.guid
                                                                                                ]

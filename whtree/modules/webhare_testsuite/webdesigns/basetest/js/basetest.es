@@ -5,6 +5,7 @@ import PollWebtool from "@mod-publisher/js/webtools/poll";
 import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
 import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
 import * as forms from '@mod-publisher/js/forms';
+import * as formrpc from '@mod-publisher/js/forms/rpc';
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import * as whintegration from "@mod-system/js/wh/integration";
@@ -143,3 +144,4 @@ adaptivecontent.setup(window.__testdcoptions);
 window.geoip_getCountryCode = geoip.getCountryCode;
 window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
+window.formrpc_submitForm = formrpc.submitForm;

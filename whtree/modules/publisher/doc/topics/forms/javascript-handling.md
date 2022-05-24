@@ -121,3 +121,34 @@ Please note that most properties you can modify inside a RPC handler are not
 reflected back to the form being filled in on the frontend. Future WebHare
 versions may improve support for this.
 
+## Direct submission
+If you want to directly communicate with Webtool forms without using the standard form rendering, you can build a RPC which:
+- Manually opens the form (eg using OpenFormByTarget or OpenWebtoolForm)
+- Assigns a value to the fields (setting them individually or using `formvalue`)
+- Invokes FormExecuteSubmit to do the submission
+- Handles any feedback itself
+
+For example
+```harescript
+  OBJECT form := OpenWebtoolForm(<id>);
+  form->formvalue := DecodeJSONBlob(GetRequestBody()).formvalue;
+  RECORD submitresult := form->FormExecuteSubmit();
+```
+
+You will need to ensure that the values you're setting match the expected types (eg, a fileedit component will want a wrapped blob).
+
+You can also directly communicate with the formservice endpoint from JavaScript by using the `submitForm` function from `@mod-publisher/js/forms/rpc`:
+```javascript
+import * as formrpc from "@mod-publisher/js/forms/rpc";
+
+let result = formrpc.submitForm(target, { email: "directsubmit@beta.webhare.net" });
+if(result.success)
+  ...
+```
+
+You can retrieve the form target using eg `OpenWebtoolForm(this->targetobject->id)->GetFormTarget()`. Keep in mind that exposing
+this value will also allow the user to craft his own form submissions using the token. But if you would have otherwise published
+the form as a standard Publisher form the token would have been available too.
+
+When using submitForm the submitted values should match the formats as expected by updateFromJS in the field types (eg, a
+fileedit component will want an object containing a `link` and a `filename`)

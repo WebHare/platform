@@ -7,10 +7,59 @@ import RPCClient from '@mod-system/js/wh/rpc';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
+import * as pxl from '@mod-consilio/js/pxl.es';
 
 function supportsScrollIntoViewBehavior() //http://caniuse.com/#feat=scrollintoview
 {
   return ["firefox","chrome"].includes(browser.getName());
+}
+
+function getServiceSubmitInfo(formtarget)
+{
+    return { url: location.href.split('/').slice(3).join('/')
+           , target: formtarget || ''
+           };
+}
+
+/** Directly submit a RPC form to WebHare
+ *  @param target Formtarget as obtained from
+ */
+export async function submitForm(target, formvalue, options)
+{
+  let eventtype = 'publisher:formsubmitted';
+  let fields = { ds_formmeta_jssource: 'submitForm'
+               };
+  let submitstart = Date.now();
+
+  try
+  {
+    let submitparameters = { ...getServiceSubmitInfo(target)
+                           , fields: formvalue
+                           , extrasubmit: options?.extrasubmit || null
+                           };
+
+    let formservice = new RPCClient("publisher:forms");
+    let retval = await formservice.invoke("callFormService", "submit", submitparameters);
+    if(!retval.success)
+    {
+      let failedfields = retval.errors.map(error => error.name || "*").sort().join(" ");
+      fields.ds_formmeta_errorfields = failedfields;
+      fields.ds_formmeta_errorsource = 'server';
+    }
+    return retval;
+  }
+  catch(e)
+  {
+    eventtype = 'publisher:formexception';
+    fields.ds_formmeta_exception = String(e);
+    fields.ds_formmeta_errorsource = 'server';
+    throw e;
+  }
+  finally
+  {
+    fields.dn_formmeta_waittime = Date.now() - submitstart;
+    pxl.sendPxlEvent(eventtype, fields);
+  }
 }
 
 export default class RPCFormBase extends FormBase
@@ -45,11 +94,7 @@ export default class RPCFormBase extends FormBase
 
   getServiceSubmitInfo() //submitinfo as required by some RPCs
   {
-    //formid is only used by already published pre-4.35 formwidgets. 4.35+ uses target, and everyone uses 'url' for GetFormRequestURL() and GetFormVariable()
-    return { formid: this.__formhandler.formid
-           , url: this.__formhandler.url
-           , target: this.__formhandler.target || ''
-           };
+    return getServiceSubmitInfo(this.__formhandler.target);
   }
 
   //Invoke a function on the form on the server
@@ -72,7 +117,7 @@ export default class RPCFormBase extends FormBase
       let rpc = this.formservice.invoke( options || {}
                                        , "callFormService"
                                        , "invoke"
-                                       , { ...this.getServiceSubmitInfo()
+                                       , { ...getServiceSubmitInfo(this.__formhandler.target)
                                          , fields: formvalue
                                          , methodname: methodname
                                          , args: invokeargs
@@ -201,7 +246,7 @@ export default class RPCFormBase extends FormBase
       */
       await this._flushPendingRPCs();
       dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", { bubbles:true, cancelable: false, detail: { extrasubmit: extrasubmit } });
-      let submitparameters = { ...this.getServiceSubmitInfo()
+      let submitparameters = { ...getServiceSubmitInfo(this.__formhandler.target)
                              , fields: formvalue
                              , extrasubmit: extrasubmit
                              };
