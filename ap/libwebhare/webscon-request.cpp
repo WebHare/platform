@@ -18,7 +18,6 @@
  #define DISKRES_ONLY(x)
 #endif
 
-
 namespace WebServer
 {
 
@@ -277,9 +276,15 @@ void Connection::DoDiskPathRewrites(std::string const &testpath, WebSite const *
                 disk_file_path = entry.resource;
                 base_file_path.clear();
 
-                DISKRES_PRINT("  Base resource: " << entry.resource << " => " << disk_file_path);
+                DISKRES_PRINT("  Base resource: " << entry.resource << " => " << disk_file_path << ", tag: " << entry.tag);
                 if (disk_file_path.empty())
                     continue;
+
+                if (!entry.tag.empty() && std::find(request->header_debugtags.begin(), request->header_debugtags.end(), entry.tag) != request->header_debugtags.end())
+                {
+                        DISKRES_PRINT("  Skipped by debug tag");
+                        continue;
+                }
 
                 bool expand_to_defaultpage = false;
                 switch (entry.method)

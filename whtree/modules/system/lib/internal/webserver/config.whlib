@@ -16,6 +16,7 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -51,7 +52,7 @@ PUBLIC RECORD FUNCTION GetBaseWebserverConfigRecord()
       , keep_process_history := 60000
       , stripextensions := STRING[]
       , errors := RECORD[]
-      , debugurlmasks := STRING[]
+      , debugurltag := ""
       ];
 }
 
@@ -756,14 +757,34 @@ OBJECTTYPE WebConfigBuilder
     RETURN rules;
   }
 
+  RECORD ARRAY FUNCTION EncodeDatastorageTags(RECORD ARRAY rules, STRING debugsecret)
+  {
+    FOREVERY (RECORD rule FROM rules)
+      FOREVERY (RECORD datastorage FROM rule.datastorage)
+      {
+        IF (NOT CellExists(datastorage, "tag"))
+          INSERT CELL tag := "" INTO rules[#rule].datastorage[#datastorage];
+        ELSE
+        {
+          rules[#rule].datastorage[#datastorage].tag := (datastorage.tag != "" AND debugsecret != "")
+              ? Left(EncodeUFS(GetHashForString("system:webserver-skiptry." || datastorage.tag || debugsecret, "SHA-256")), 10)
+              : "";
+        }
+      }
+    RETURN rules;
+  }
+
   PUBLIC MACRO Run()
   {
     BOOLEAN autodenyipv6 := TRUE;
     STRING useciphersuite;
+    STRING debugsecret;
+
     IF(NOT this->minimalconfig)
     {
       autodenyipv6 := ReadRegistryKey("system.webserver.security.autodenyipv6");
       useciphersuite := ReadRegistryKey("system.webserver.security.ciphersuite");
+      debugsecret := GetClusterKeyBase("debugsecret");
     }
 
     //NGINX mode?
@@ -1021,6 +1042,7 @@ OBJECTTYPE WebConfigBuilder
                CONCAT this->GenerateShortURLConfig(hosts);
       rules := this->LookupDataStoragePaths(rules, hosts);
     }
+    rules := this->EncodeDatastorageTags(rules, debugsecret);
 
     STRING ARRAY interfaceorigins := SELECT AS STRING ARRAY DISTINCT UnpackURL(baseurl).origin
                                        FROM hosts
@@ -1075,15 +1097,7 @@ OBJECTTYPE WebConfigBuilder
 
     IF(NOT this->minimalconfig)
     {
-      this->finalconfig.debugurlmasks := ParseCommaList(ReadRegistryKey("system.webserver.global.debugurls"));
-      IF (LENGTH(this->finalconfig.debugurlmasks) != 0)
-      {
-        INSERT
-            [ source :=   ""
-            , error :=    "Header accessrule and path debugging is enabled on the webserver"
-            , jumpto :=   [ app := "system:dashboard", panel := "system:registry", registrykey := "system.webserver.global.debugurls" ] //TODO move to webserver tweaks and jump there!
-            ] INTO this->finalconfig.errors AT END;
-      }
+      this->finalconfig.debugurltag := Left(EncodeUFS(GetHashForString("system:webserver-urldebugging" || debugsecret, "SHA-256")), 10);
 
       FOREVERY(STRING tok FROM Tokenize(ReadRegistryKey("system.webserver.global.proxyservers.trustxforwardedfor"),","))
       {

@@ -125,6 +125,8 @@ IF (IsDatabaseWritable())
       secret := GenerateUFS128BitId()||GenerateUFS128BitId();
     WriteRegistryKey("system.webserver.security.elasticsecret", secret);
   }
+  IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
+    WriteRegistryKey("system.webserver.security.debugsecret", GenerateUFS128BitId()||GenerateUFS128BitId());
   trans->CommitWork();
 
   trans->BeginWork();

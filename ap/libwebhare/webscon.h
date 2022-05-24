@@ -170,6 +170,8 @@ struct BLEXLIB_PUBLIC Request : RequestRoute
         std::string scheme;
         //Header debugging enabled for this request
         bool header_debugging;
+        //Other debugging tags
+        std::vector< std::string > header_debugtags;
 
         // Request parser
         RequestParser reqparser;

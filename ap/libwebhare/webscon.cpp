@@ -35,6 +35,8 @@
 namespace WebServer
 {
 
+using namespace std::literals::string_view_literals;
+
 namespace
 {
 const unsigned int WebSocketBufferSize = 65536;
@@ -339,17 +341,24 @@ void Connection::RedirectIntoDirectory()
 
 void Connection::CheckHeaderDebugging()
 {
-        if (connection.config->debugurlmasks.empty())
-            return;
+        for (auto &cookie: GetRequestParser().GetCookies())
+        {
+                if (cookie.first != "wh-debugwebserver"sv)
+                    continue;
 
-        std::string serverrequesturl = request->GetRequestURL(RequestURLType::ForServer);
-        for (auto &itr: connection.config->debugurlmasks)
-            if (Blex::StrCaseLike(serverrequesturl, itr))
-            {
-                    AddHeader("X-WH-ServerRequestURL", serverrequesturl, false);
-                    request->header_debugging = true;
-                    break;
-            }
+                Blex::TokenizeString(cookie.second, '.', &request->header_debugtags);
+                for (auto &tag: request->header_debugtags)
+                {
+                        DEBUGPRINT("Enabled debug tag: " << tag);
+                        if (tag == connection.config->debugurltag)
+                        {
+                                DEBUGPRINT("  Full debugging enabled");
+                                std::string serverrequesturl = request->GetRequestURL(RequestURLType::ForServer);
+                                AddHeader("X-WH-ServerRequestURL", serverrequesturl, false);
+                                request->header_debugging = true;
+                        }
+                }
+        }
 }
 
 void Connection::ProcessRequestHeader()
@@ -1088,6 +1097,7 @@ void Request::Reset()
         request_start = 0;
         accept_contentencoding_gzip = false;
         header_debugging = false;
+        header_debugtags.clear();
 }
 
 void Request::ErrorLog(std::string const &error) const

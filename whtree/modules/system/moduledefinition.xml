@@ -321,7 +321,7 @@
              match="initial"
              cachecontrol="public, max-age=31536000, immutable"
              priority="after">
-      <tryfolder resolver="sha256b16_directory" path="whdata::ephemeral/system.uc2/"  />
+      <tryfolder resolver="sha256b16_directory" path="whdata::ephemeral/system.uc2/" tag="system:unifiedcache" />
       <tryfile path="mod::system/web/unifiedcache/404.shtml" />
     </webrule>
 
@@ -1991,7 +1991,7 @@ The full base URL on which this site will be published, calculated by combining 
             <string name="trustxforwardedfor" description="A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" />
             <string name="verificationcode" description="Verification code for webhare nginx proxy servers" />
           </node>
-          <string name="debugurls" description="Supply header debug info for these urls, glob masks, comma-separated" />
+          <obsoletekey name="debugurls" />
         </node>
         <node name="nginx">
           <obsoletekey name="isfrontend" />
@@ -2000,6 +2000,7 @@ The full base URL on which this site will be published, calculated by combining 
           <string name="cachesecret" description="Secret key used to sign image cache URLs" />
           <string name="cookiesecret" description="Secret key used to encrypt/sign cookies" />
           <string name="elasticsecret" description="Secret key used for Elasticsearch" />
+          <string name="debugsecret" description="Secret key used to debugging" />
           <boolean name="autodenyipv6" description="Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" initialval="true" />
           <string name="ciphersuite" description="Override OpenSSL ciphersuite list for webserver listening ports" />
           <string name="fullaccessips" description="List of IP addresses that bypass access rule login requirements, comma-separated" />
