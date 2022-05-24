@@ -500,7 +500,7 @@ class TestFramework
 
     // Schedule all waits serially after the tests. Clears signals if it uses them
     if (step.waits)
-      step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.getPageFrame().currentsignals)); }.bind(this));
+      step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.getFrameRecord().currentsignals)); }.bind(this));
 
     // After the waits have all executed, see if a page load happened we did'nt expect
     result = result.then(() =>

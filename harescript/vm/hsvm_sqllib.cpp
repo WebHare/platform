@@ -1388,8 +1388,14 @@ void HS_SQL_SortArray(VarId id_set, VirtualMachine *vm)
         if (!(type & VariableTypes::Array))
             throw VMRuntimeError (Error::TypeNotArray);
 
-        Blex::PodVector< VarId > ids;
         unsigned rec_count = HSVM_ArrayLength(*vm, list);
+        if(rec_count < 2) //nothing to sort if array is empty or has only one element
+        {
+                stackm.CopyFrom(id_set, list);
+                return;
+        }
+
+        Blex::PodVector< VarId > ids;
         for (unsigned idx = 0; idx < rec_count; ++idx)
             ids.push_back(stackm.ArrayElementGet(list, idx));
 

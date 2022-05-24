@@ -12,6 +12,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 
+BOOLEAN did_calljs_warning;
+
 PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
@@ -518,8 +520,12 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   {
     IF(GetDtapStage() = "development")
     {
-      DumpValue(GetStackTrace(),'boxed');
-      this->owner->RunSimpleScreen("info", "Future versions of WebHare will remove CallJavascript as it is not compatible with our Content-Security-Policy. Use PostMessage");
+      IF(NOT did_calljs_warning)
+      {
+        DumpValue(GetStackTrace(),'boxed');
+        this->owner->RunSimpleScreen("info", "Future versions of WebHare will remove CallJavascript as it is not compatible with our Content-Security-Policy. Use PostMessage");
+        did_calljs_warning := TRUE;
+      }
     }
     this->QueueOutboundMessage("JS", [ funcname := funcname, args := args ]);
   }

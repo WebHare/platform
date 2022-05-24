@@ -857,9 +857,9 @@ PUBLIC OBJECTTYPE EventManager
 
   /** Broadcasts an event to all listeners that have registered an interest in events of that name
       @param event Name of the event
-      @param msg Message to add
+      @param msg Message to send (optional. must be simple, no blobs or objects allowed)
   */
-  PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg)
+  PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg DEFAULTSTO DEFAULT RECORD)
   {
     BroadcastEvent(event, msg);
   }
