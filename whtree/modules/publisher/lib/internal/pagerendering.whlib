@@ -53,7 +53,7 @@ RECORD FUNCTION InvokeWebpageFunctionWDS(INTEGER fileid, OBJECT pageobject, STRI
   RETURN webdesign->pagewitty->CallWithScope(PTR DoCheckedVarArgsCall(func, args, method), pageconfig);
 }
 
-MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid, RECORD options)
+PUBLIC MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid, RECORD options)
 {
   OBJECT applytester := GetApplyTesterForObject(fileid);
   IF (NOT ObjectExists(applytester))
@@ -63,7 +63,9 @@ MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid, RECO
   IF(NOT RecordExists(webdesigninfo))
     THROW NEW Exception("Unable to locate the <webdesign> for fsobject #" || fileid);
 
-  INSERT CELL webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, contentobjectid != 0 AND contentobjectid != fileid ? OpenWHFSObject(contentobjectid) : DEFAULT OBJECT, DEFAULT OBJECT, FALSE, options) INTO __pageinfo;
+  __pageinfo := CELL[ ...__pageinfo
+                    , webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, contentobjectid != 0 AND contentobjectid != fileid ? OpenWHFSObject(contentobjectid) : DEFAULT OBJECT, DEFAULT OBJECT, FALSE, options)
+                    ];
   __pageinfo.webdesign->__is_newstyle_pageobject := TRUE;
 }
 
