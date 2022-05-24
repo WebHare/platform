@@ -1,6 +1,10 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
@@ -12,6 +16,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 
 PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
 <
@@ -44,6 +49,15 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
         IF(opt!="")
           INSERT opt INTO debugopts AT END;
       }
+
+      STRING ARRAY webserverskiptry := ArrayDelete(Tokenize(GetWebVariable("webserverskiptries"), " "), [ "" ]);
+      IF (IsValueSet(webserverskiptry))
+      {
+        STRING opt := `wst=${Detokenize(webserverskiptry, ",")}`;
+        IF(opt LIKE "*.*")
+          THROW NEW Exception("Debugoptions may not contain dots");
+        INSERT opt INTO debugopts AT END;
+      }
     }
 
     IF("debugmode" IN debugopts)
@@ -64,6 +78,11 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       UpdateWebCookie("wh-debug", GetSignedWHDebugOptions(debugopts), cookieopts);
     ELSE
       UpdateWebCookie("wh-debug", Detokenize(debugopts,'.'), cookieopts);
+
+    IF(this->issupervisor)
+      UpdateWebCookie("wh-debugwebserver", GetWebserverDebugCookie(debugopts));
+    ELSE
+      UpdateWebCookie("wh-debugwebserver", "");
 
     Redirect("/" || GetWebVariable("b"));
   }
@@ -122,10 +141,16 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       optionspergroup[#grp] := grp;
     }
 
-    STRING ARRAY extraopts := SELECT AS STRING ARRAY val FROM ToRecordArray(currentopts,"val") WHERE val NOT IN knownopts AND val NOT LIKE "sig=*";
+    STRING ARRAY extraopts := SELECT AS STRING ARRAY val FROM ToRecordArray(currentopts,"val") WHERE val NOT IN knownopts AND val NOT LIKE "sig=*" AND val NOT LIKE "wst=*";
+    STRING ARRAY webserverskiptries;
+    FOREVERY (STRING opt FROM currentopts)
+      IF (opt LIKE "wst=*")
+        webserverskiptries := ArrayDelete(Tokenize(SubString(opt, 4), ","), [ "" ]);
+
     STRING feedbackurl := UpdateURLVariables( GetClientRequestURL(), [ back := "", b := UnpackURL(fromurl).urlpath ]);
     RECORD wittydata := CELL[ optgroups := optionspergroup
                             , extraoptions := Detokenize(extraopts," ")
+                            , webserverskiptries := Detokenize(webserverskiptries," ")
                             , feedbackurl := feedbackurl
                             , userwarning := userwarning
                             , wrdauthpluginerror := ""

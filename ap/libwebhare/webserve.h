@@ -111,6 +111,7 @@ struct BLEXLIB_PUBLIC DataStorage
         std::string resource;
         bool is_folder;
         DiskLookupMethod method;
+        std::string tag;
 };
 
 /** Single access rule */
@@ -266,8 +267,8 @@ struct BLEXLIB_PUBLIC ServerConfig
         ///Global acces rules
         AccessRules globalrules;
 
-        // debug url masks
-        std::vector< std::string > debugurlmasks;
+        // debug url tag
+        std::string debugurltag;
 
         private:
         typedef std::map<std::string, int32_t, Blex::StrCaseLess<std::string> > ExactSiteMatches;

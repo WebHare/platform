@@ -350,6 +350,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
         [ isfolder :=     node->localname = "tryfolder"
         , method :=       (node->localname = "tryfolder" ? resolver : "") ?? "direct"
         , resource :=     node->GetAttribute("path")
+        , tag :=          node->GetAttribute("tag")
         ] INTO rule.datastorage AT END;
   }
 
@@ -490,7 +491,7 @@ PUBLIC STRING FUNCTION ParseGid(STRING module, STRING gid, OBJECT element)
 
 /** Prefix name with module names, unless it already has a module name OR contains a wildcard
     @param qualification Prefix to add
-    @parma name Name to check
+    @param name Name to check
     @return qualified name */
 PUBLIC STRING FUNCTION QualifyName(STRING qualification, STRING name)
 {
@@ -512,7 +513,7 @@ STRING FUNCTION GetTIDPtrFromTid(STRING module, STRING tid)
 
 /** Parse a xs:list (%ParseXSList) and %QualifyName the entries
     @param qualification Prefix to add
-    @parma xmllist List to parse and qualify
+    @param xmllist List to parse and qualify
     @return qualified names */
 PUBLIC STRING ARRAY FUNCTION ParseAndQualifyXMLList(STRING qualification, STRING xmllist)
 {

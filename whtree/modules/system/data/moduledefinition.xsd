@@ -1112,6 +1112,14 @@
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>
+              <xs:attribute name="tag">
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <!-- no dots, spaces or commas allowed. -->
+                    <xs:pattern value="[-a-zA-Z0-9:_]*" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
             </xs:complexType>
           </xs:element>
           <xs:element name="tryfile">
@@ -1121,6 +1129,14 @@
                   <xs:restriction base="xs:string">
                     <!-- allow mod::*/*, siteoutput::*/*, whdata::*/*, relative path (without ':') -->
                     <xs:pattern value="((mod|siteoutput|whdata)::[^/]+/.*|[^:]+)" />
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="tag">
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <!-- no dots, spaces or commas allowed. -->
+                    <xs:pattern value="[-a-zA-Z0-9:_]*" />
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>

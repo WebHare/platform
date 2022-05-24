@@ -724,6 +724,7 @@ void LoadConfigRules(HSVM *hsvm, HSVM_VariableId rules, WebServer::ServerConfig 
                                 WebServer::DataStorage loc;
                                 loc.resource = HSVM_LoadCell<std::string>(hsvm, var_location, "RESOURCE");
                                 loc.is_folder = HSVM_LoadCell<bool>(hsvm, var_location, "ISFOLDER");
+                                loc.tag = HSVM_LoadCell<std::string>(hsvm, var_location, "TAG");
                                 std::string lookupmethod = HSVM_LoadCell<std::string>(hsvm, var_location, "METHOD");
                                 if (lookupmethod == "direct")
                                     loc.method = WebServer::DiskLookupMethod::Direct;
@@ -815,7 +816,7 @@ void WebHareServer::LoadConfig(HSVM *hsvm, HSVM_VariableId retval, HSVM_Variable
                 LoadConfigTypes(hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "TYPES")), &*newconfig, shtml.get(), eventserver.get());
                 LoadConfigRules(hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "RULES")), &*newconfig);
                 LoadConfigXforwardTrust(hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "TRUST_XFORWARDEDFOR")), &*newconfig);
-                HSVM_LoadCellIn(newconfig->debugurlmasks, hsvm, config, "DEBUGURLMASKS");
+                HSVM_LoadCellIn(newconfig->debugurltag, hsvm, config, "DEBUGURLTAG");
 
                 errorlog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "ERRORLOG"));
                 accesslog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "ACCESSLOG"));

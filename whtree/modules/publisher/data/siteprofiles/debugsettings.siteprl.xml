@@ -48,6 +48,7 @@
       <option tag="key" title="Dompack Keyboard" />
       <option tag="pro" title="Trace promises for unhandled rejections" />
       <option tag="testfw" title="Testframework" />
+      <option tag="wud" title="Webserver url debugging" />
     </debugsettings>
   </apply>
 

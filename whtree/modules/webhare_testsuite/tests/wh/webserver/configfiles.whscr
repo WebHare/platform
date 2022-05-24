@@ -21,6 +21,7 @@ MACRO WebserverConfig()
       [ [ resource :=       GetModuleInstallationRoot("webhare_testsuite") || "scripts/urls/xyz.shtml"
         , method :=         "direct"
         , isfolder :=       FALSE
+        , tag :=            ""
         ]
       ], appliedrule_xyz.datastorage);
 }

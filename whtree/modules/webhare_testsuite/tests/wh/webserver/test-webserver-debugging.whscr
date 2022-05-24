@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestDebugging()
+{
+  testfw->BeginWork();
+
+  OBJECT root := GetTestsuiteTempFolder();
+  STRING baseurl := ResolveToAbsoluteURL(root->objecturl,"/tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml");
+  BLOB toupload := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg");
+
+  OBJECT kikkertje := root->CreateFile( [ data := toupload, publish := FALSE, name := "kwaak.jpg" ]);
+  STRING goodkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25]);
+
+  testfw->CommitWork();
+
+  testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie([ "wud" ]));
+
+  // first retrieval, should fail in cache, fall back to 404
+  testfw->browser->GotoWebPage(goodkikkerlink);
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
+
+  // second retrieval, cache hit
+  testfw->browser->GotoWebPage(goodkikkerlink);
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
+
+  // disable the disk cache by debugging tag
+  testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie([ "wud", "wst=system:unifiedcache" ]));
+  testfw->browser->GotoWebPage(goodkikkerlink);
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
+
+  testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie(STRING[]));
+  testfw->browser->GotoWebPage(goodkikkerlink);
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
+}
+
+RunTestframework([ PTR TestDebugging
+                 ]);

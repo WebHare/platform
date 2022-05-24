@@ -2,6 +2,7 @@
 /** @topic sitedev/dynamic
 */
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
@@ -38,7 +39,10 @@ MACRO ProcessWHDebugVariables(BOOLEAN skipchecks)
   }
 }
 
-/** Generate a signed debug setting string, suitable for the wh-debug cookie */
+/** Generate a signed debug setting string, suitable for the wh-debug cookie
+    @param opts Debug options
+    @return Signed cookie data
+*/
 PUBLIC STRING FUNCTION GetSignedWHDebugOptions(STRING ARRAY opts)
 {
   IF(Length(opts) = 0)
@@ -46,6 +50,28 @@ PUBLIC STRING FUNCTION GetSignedWHDebugOptions(STRING ARRAY opts)
 
   STRING debugcookie := Detokenize(opts,'.');
   RETURN debugcookie|| ".sig=" || GetSignatureForThisServer("publisher:wh-debug",debugcookie); //adding .sig is backwards compatible with old dompacks, as it tokenizes on '.'
+}
+
+/** Generate the debug cookie for the webserver
+    @param opts Debug options
+    @return wh-webserverdebug cookie contents
+*/
+PUBLIC STRING FUNCTION GetWebserverDebugCookie(STRING ARRAY opts)
+{
+  STRING ARRAY webserver_hashtokens;
+  STRING debugsecret := GetClusterKeyBase("debugsecret");
+
+  FOREVERY (STRING opt FROM opts)
+  {
+    IF (opt = "wud")
+      INSERT Left(EncodeUFS(GetHashForString("system:webserver-urldebugging" || debugsecret, "SHA-256")), 10) INTO webserver_hashtokens AT END;
+    ELSE IF (opt LIKE "wst=*")
+    {
+      FOREVERY (STRING s FROM Tokenize(SubString(opt, 4), ","))
+        INSERT Left(EncodeUFS(GetHashForString("system:webserver-skiptry." || s || debugsecret, "SHA-256")), 10) INTO webserver_hashtokens AT END;
+    }
+  }
+  RETURN Detokenize(webserver_hashtokens, ".");
 }
 
 /** Explicitly accept wh-debug settings without checking. Should only be used for testing, as this can cause eg information leaks and captcha avoidance! */
