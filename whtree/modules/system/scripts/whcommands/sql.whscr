@@ -75,7 +75,8 @@ MACRO GetSchemaAndTableDecls()
                                 FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
                    FROM GetPrimary()->GetTableListing(s.schema_name) AS t
         FROM GetPrimary()->GetSchemaListing() AS s
-       WHERE ToUppercase(schema_name) != "PUBLIC";
+             //Perhaps we should only be returning known WebHare-managed schemas? ie anything you can't define TABLE<>s for we can't manage with 'wh sql' anyway
+       WHERE ToUppercase(schema_name) NOT IN ["PUBLIC","PG_CATALOG","INFORMATION_SCHEMA"];
 
   FOREVERY (RECORD f_schema FROM schemas)
   {
@@ -111,11 +112,16 @@ BLOB FUNCTION GetScript(STRING line, BOOLEAN withrecordshow, STRING ARRAY loadli
     PrintTo(blobid, decl.name || ":=BindTransactionToSchema(trans,'" || EncodeJava(decl.dbname) || "');");
   }
   PrintTo(blobid, "} ");
+  PrintTo(blobid, "PUBLIC MACRO PrintRaw(VARIANT inp) { IF(TYPEID(inp) = TYPEID(STRING)) Print(inp||'\\n'); ELSE Print(EncodeJSON(inp)||'\\n'); }");
   PrintTo(blobid, "PUBLIC RECORD FUNCTION SQLHook(RECORD __state){SetPrimaryWebhareTransaction(__state.transid);__BindTables(__state.transid);INTEGER __trans:=__state.transid;");
-  IF (withrecordshow)
+  IF(showmode = "raw")
+    PrintTo(blobid, "PrintRaw((");
+  ELSE IF (withrecordshow)
     PrintTo(blobid, "DumpValue((");
   PrintTo(blobid, "\n" || line || "//*/\n");
-  IF (withrecordshow)
+  IF(showmode = "raw")
+    PrintTo(blobid, "));");
+  ELSE IF (withrecordshow)
     PrintTo(blobid, "),[name:='',format:='"||EncodeJava(showmode)||"']);");
   PrintTo(blobid, ";return __state;}");
 
@@ -348,6 +354,7 @@ MACRO Run(STRING ARRAY loadlibs)
 RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
                                                      , [ name := "showmode", type := "stringopt" ]
                                                      , [ name := "t", type := "switch" ]
+                                                     , [ name := "r", type := "switch" ]
                                                      , [ name := "query", type := "param", required := FALSE ]
                                                      , [ name := "logcommands", type := "switch" ]
                                                      ]);
@@ -360,6 +367,8 @@ IF(call.showmode != "")
   showmode := call.showmode;
 ELSE IF(call.t)
   showmode := "tree";
+ELSE IF(call.r)
+  showmode := "raw";
 
 BOOLEAN havecmd := call.query != "";
 
