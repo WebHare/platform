@@ -476,24 +476,24 @@ MACRO DoBroadcastEvent(STRING event, RECORD msg, BOOLEAN islocal)
 
 /** Broadcasts an event
     @param event Name of the event
-    @param msg Message to send (must be simple, no blobs or objects allowed)
+    @param msg Message to send (optional. must be simple, no blobs or objects allowed)
     @topic harescript-core/ipc
     @public
     @loadlib wh::ipc.whlib
 */
-PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg)
+PUBLIC MACRO BroadcastEvent(STRING event, RECORD msg DEFAULTSTO DEFAULT RECORD)
 {
   DoBroadcastEvent(event, msg, FALSE);
 }
 
 /** Broadcasts an event only in this process (not in other processes)
     @param event Name of the event
-    @param msg Message to send (must be simple, no blobs or objects allowed)
+    @param msg Message to send (optional. must be simple, no blobs or objects allowed)
     @topic harescript-core/ipc
     @public
     @loadlib wh::ipc.whlib
 */
-PUBLIC MACRO BroadcastLocalEvent(STRING event, RECORD msg)
+PUBLIC MACRO BroadcastLocalEvent(STRING event, RECORD msg DEFAULTSTO DEFAULT RECORD)
 {
   DoBroadcastEvent(event, msg, TRUE);
 }
