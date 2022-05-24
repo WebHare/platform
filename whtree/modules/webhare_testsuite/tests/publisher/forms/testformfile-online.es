@@ -85,4 +85,18 @@ test.registerTests(
 
       //FIXME test with a 'tagged' field (should have a predictable name instead of accesing through formresult.fields[0].name)
     }
+
+  , 'Submitform api'
+  , async function()
+    {
+      let target = test.getDoc().documentElement.dataset.rpcformtarget;
+      let result = await test.getWin().formrpc_submitForm(target, { email: "directsubmit@beta.webhare.net"} );
+      test.eqMembers([{message: "This value is required.", name: "requiredpulldownfield"}], result.errors);
+      test.eq(false, result.success);
+
+      result = await test.getWin().formrpc_submitForm(target, { email: "directsubmit@beta.webhare.net", requiredpulldownfield: "yes"} );
+      test.eq(true, result.success);
+      test.eq([], result.errors);
+      test.true(result.result.resultsguid.length > 10);
+    }
   ]);

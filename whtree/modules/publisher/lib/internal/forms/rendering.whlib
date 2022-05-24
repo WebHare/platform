@@ -940,7 +940,7 @@ PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 {
   RETURN [ backlink := form->formbacklink
          , handler := form->formjshandler
-         , target := form->__GetFormTarget()
+         , target := form->GetFormTarget()
          ];
 }
 PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)

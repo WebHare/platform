@@ -39,7 +39,7 @@ PUBLIC MACRO TestAddressField()
   RECORD formdata := [ extrasubmit :=     DEFAULT RECORD
                      , fields :=          DEFAULT RECORD
                      //can formapi give us this data?
-                     , target :=          addressform->__GetFormTarget()
+                     , target :=          addressform->GetFormTarget()
                      , url :=             "testoutput/webhare_testsuite.testsite/testpages/formtest/?address=1"
                      ];
 

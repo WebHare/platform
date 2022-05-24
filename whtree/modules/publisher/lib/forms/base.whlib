@@ -603,7 +603,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
     }
   }
 
-  PUBLIC STRING FUNCTION __GetFormTarget()
+  PUBLIC STRING FUNCTION GetFormTarget()
   {
     STRING extformname := this->__form.externalformname;
     INTEGER fsobj := this->formcontext->targetobject->id;

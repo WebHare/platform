@@ -15,7 +15,7 @@ The hooks can pass 'hidden fields' with form submissions which allow you to
 set and pass additional fields with the form results. For example
 
 ```harescript
-PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
+PUBLIC STATIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
   MACRO NEW()
   {
@@ -28,6 +28,7 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
       prize->value := DecryptForThisServer("myexample:prize", GetFormWebVariable("prize"));
     }
   }
+>;
 ```
 
 You need to wrap `GetFormVariable` calls inside `IsRequest()` to make sure it's

@@ -9,6 +9,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/forum.whlib";
 
@@ -37,6 +38,11 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
       IF(this->targetobject->name="static.html" AND compareroot || "%5Estatic.html/test.txt" != deeperlink) //expect the link without 'http:'
         ABORT("Incorrect deeperlink, got '" || deeperlink ||"' want '" || compareroot || "%5Estatic.html/test.txt'");
       this->CreateStaticFile("test.txt", PTR Print(RepeatText("dit was een test\n", 10)));
+    }
+
+    IF(this->targetobject->typens = "http://www.webhare.net/xmlns/publisher/formwebtool")
+    {
+      INSERT CELL rpcformtarget := OpenWebtoolForm(this->targetobject->id)->GetFormTarget() INTO this->htmldata;
     }
   }
 
