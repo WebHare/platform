@@ -321,8 +321,10 @@ void Connection::DoDiskPathRewrites(std::string const &testpath, WebSite const *
                                         static const char slash='/';
                                         std::string::const_iterator dotpos = std::find_end(subpath_start, testpath.end(), &dot, &dot + 1);
                                         std::string::const_iterator slashpos = std::find_end(subpath_start, testpath.end(), &slash, &slash + 1);
-                                        if (slashpos == testpath.end() || dotpos > slashpos)
+                                        if (dotpos != testpath.end() && (slashpos == testpath.end() || dotpos > slashpos)) //url ends in slash or continas a dot
                                             sha256b16hash.append(dotpos, testpath.end());
+                                        else
+                                            sha256b16hash += ".html";
                                 }
 
                                 if(disk_file_path[disk_file_path.size()-1] != '/')
