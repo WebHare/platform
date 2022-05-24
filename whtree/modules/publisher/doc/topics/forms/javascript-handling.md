@@ -137,7 +137,7 @@ For example
 
 You will need to ensure that the values you're setting match the expected types (eg, a fileedit component will want a wrapped blob).
 
-You can also directly communicatie with the formservice endpoint from JavaSCript by using the `submitForm` function from `@mod-publisher/js/forms/rpc`:
+You can also directly communicate with the formservice endpoint from JavaScript by using the `submitForm` function from `@mod-publisher/js/forms/rpc`:
 ```javascript
 import * as formrpc from "@mod-publisher/js/forms/rpc";
 
@@ -147,7 +147,7 @@ if(result.success)
 ```
 
 You can retrieve the form target using eg `OpenWebtoolForm(this->targetobject->id)->GetFormTarget()`. Keep in mind that exposing
-this value will also allow the user to craft his own form submissions using the token.. but if you would have otherwise published
+this value will also allow the user to craft his own form submissions using the token. But if you would have otherwise published
 the form as a standard Publisher form the token would have been available too.
 
 When using submitForm the submitted values should match the formats as expected by updateFromJS in the field types (eg, a
