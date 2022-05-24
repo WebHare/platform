@@ -1113,7 +1113,6 @@ OBJECTTYPE WebConfigBuilder
       this->finalconfig.keep_process_history := ReadRegistryKey("system.webserver.global.historyseconds") * 1000;
       this->finalconfig.stripextensions := ParseXSList(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions")));
       this->finalconfig.types := GetCacheableMimeTypes().value;
-
     }
   }
 

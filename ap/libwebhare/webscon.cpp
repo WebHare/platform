@@ -350,13 +350,13 @@ void Connection::CheckHeaderDebugging()
                 for (auto &tag: request->header_debugtags)
                 {
                         DEBUGPRINT("Enabled debug tag: " << tag);
-                    if (tag == connection.config->debugurltag)
-                    {
-                            DEBUGPRINT("  Full debugging enabled");
-                            std::string serverrequesturl = request->GetRequestURL(RequestURLType::ForServer);
-                            AddHeader("X-WH-ServerRequestURL", serverrequesturl, false);
-                            request->header_debugging = true;
-                    }
+                        if (tag == connection.config->debugurltag)
+                        {
+                                DEBUGPRINT("  Full debugging enabled");
+                                std::string serverrequesturl = request->GetRequestURL(RequestURLType::ForServer);
+                                AddHeader("X-WH-ServerRequestURL", serverrequesturl, false);
+                                request->header_debugging = true;
+                        }
                 }
         }
 }
