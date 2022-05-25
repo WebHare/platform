@@ -1380,6 +1380,7 @@
         <text tid="targetlang-nlen">Nederlands- en Engelstalige gebruikers</text>
       </textgroup>
       <textgroup gid="timedtasks">   <!-- tolliumapps.dashboard.timedtasks -->
+        <text tid="commandline">Opdrachtregel</text>
         <text tid="defaulttimeout">Standaard timeout (<param p="1"/>)</text>
         <text tid="description">Omschrijving</text>
         <text tid="enabled">Ingeschakeld</text>
@@ -1390,7 +1391,6 @@
         <text tid="notasksrunning">Er draaien geen taken</text>
         <text tid="notavailable">Niet beschikbaar</text>
         <text tid="nowrunning">Nu actief</text>
-        <text tid="parameters">Argumenten</text>
         <text tid="properties">Eigenschappen</text>
         <text tid="running">Draait</text>
         <text tid="scheduletasknow">Plan taak nu in</text>

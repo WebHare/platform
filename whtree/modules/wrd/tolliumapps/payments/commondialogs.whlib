@@ -250,7 +250,7 @@ PUBLIC STATIC OBJECTTYPE PaymentInfo EXTEND TolliumScreenBase
     IF(NOT RecordExists(pspinfo))
       THROW NEW Exception(`The payment provider '${payment->psptype}' is unknown`);
 
-    ^paymentprovider->value := pspinfo.title;
+    ^paymentprovider->value := GetTid(pspinfo.title);
     IF(pspinfo.payinfoscreen != "")
     {
       OBJECT payinfoscreen := this->LoadScreen(pspinfo.payinfoscreen, [ payment := payment ]);
