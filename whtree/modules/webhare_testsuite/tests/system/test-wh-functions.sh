@@ -15,8 +15,6 @@ testEq()
 
 testDockerTagCalculation()
 {
-  __SKIP_getbaseversioninfo=1
-
   CI_REGISTRY_IMAGE=gitlab-registry.webhare.com/webhare-opensource/platform
   DOCKERHUB_REGISTRY_USER=exampleuser
   DOCKERHUB_REGISTRY_PASSWORD=topsecret
