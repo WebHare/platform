@@ -4,6 +4,7 @@ cd `dirname $0`
 
 source $WEBHARE_DIR/lib/wh-functions.sh
 get_finaltag
+list_finaltag
 
 if [ "$PUSH_BUILD_IMAGES" != "1" ]; then
   echo "Nothing to deploy"

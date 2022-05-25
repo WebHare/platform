@@ -57,6 +57,7 @@ if [ -n "$CI_COMMIT_SHA" ]; then
 fi
 
 get_finaltag
+list_finaltag
 
 pushd ../.. >/dev/null 2>&1
 if [ ! -f base_makefile ]; then

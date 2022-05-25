@@ -27,10 +27,14 @@ export -f estimate_buildj
 getbaseversioninfo()
 {
   local WHNUMERICVERSION
-  WHNUMERICVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION_NUMBER / { print $3 }' < $WEBHARE_CHECKEDOUT_TO/blex/branding.h)`
-  if [ -z "$WHNUMERICVERSION" ]; then
-    echo "Unable to retrieve version # from branding.h"
-    exit 1
+  if [ -n "$__MOCK_WHNUMERICVERSION" ]; then
+    WHNUMERICVERSION="$__MOCK_WHNUMERICVERSION"
+  else
+    WHNUMERICVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION_NUMBER / { print $3 }' < $WEBHARE_CHECKEDOUT_TO/blex/branding.h)`
+    if [ -z "$WHNUMERICVERSION" ]; then
+      echo "Unable to retrieve version # from branding.h"
+      exit 1
+    fi
   fi
 
   WEBHARE_VERSION=${WHNUMERICVERSION:0:1}.$((${WHNUMERICVERSION:1:2})).$((${WHNUMERICVERSION:3:2}))
@@ -246,6 +250,7 @@ get_finaltag()
   PUSH_BUILD_IMAGES=
 
   local MAINTAG
+  local ADDTAGS
   getbaseversioninfo
 
   # are we running on CI?
@@ -284,23 +289,47 @@ get_finaltag()
       exit 1
     fi
 
+    # When building 'master', also build the corresponding release-x-y tag
+    if [ "$MAINTAG" == "master" ]; then
+    echo $WEBHARE_VERSION
+      ADDTAGS="release-$(echo "$WEBHARE_VERSION" | cut -d. -f1)-$(echo "$WEBHARE_VERSION" | cut -d. -f2)"
+    fi
+
     BUILD_IMAGE="$CI_REGISTRY_IMAGE:$MAINTAG-$CI_COMMIT_SHA"
 
     BRANCH_IMAGES="$(trim $BRANCH_IMAGES $CI_REGISTRY_IMAGE:$MAINTAG)"
 
-    if [ -n "$PUBLIC_REGISTRY_IMAGE" ]; then # PUBLIC_REGISTRY_IMAGE is only set for protected branches/tags
-      PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $PUBLIC_REGISTRY_IMAGE:$MAINTAG)"
-    fi
+    local TAG
+    for TAG in $MAINTAG $ADDTAGS; do
+      if [ -n "$PUBLIC_REGISTRY_IMAGE" ]; then # PUBLIC_REGISTRY_IMAGE is only set for protected branches/tags
+        PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $PUBLIC_REGISTRY_IMAGE:$TAG)"
+      fi
 
-    if [ -n "$FALLBACK_REGISTRY_IMAGE" ]; then # FALLBACK_REGISTRY_IMAGE is only set for protected branches/tags
-      PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $FALLBACK_REGISTRY_IMAGE:$MAINTAG)"
-    fi
+      if [ -n "$FALLBACK_REGISTRY_IMAGE" ]; then # FALLBACK_REGISTRY_IMAGE is only set for protected branches/tags
+        PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $FALLBACK_REGISTRY_IMAGE:$TAG)"
+      fi
+    done
   else
     # local build. No pushes or deploys
 
     BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
     WEBHARE_VERSION=${WEBHARE_VERSION}-dev
   fi
+
+  if [ -n "$PUBLIC_IMAGES" ]; then
+    if [ -z "$DOCKERHUB_REGISTRY_USER" ]; then
+      echo "Public images set but no DOCKERHUB_REGISTRY_USER environment received - deploy will fail"
+      exit 1
+    fi
+    if [ -z "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
+      echo "Public images set but no DOCKERHUB_REGISTRY_PASSWORD environment received - deploy will fail"
+      exit 1
+    fi
+  fi
+}
+
+list_finaltag()
+{
 
   echo "Semantic version:     $WEBHARE_VERSION"
   echo ""
@@ -316,17 +345,6 @@ get_finaltag()
   echo "Images to be deployed after tests succeed"
   echo "PUBLIC_IMAGES=        $PUBLIC_IMAGES"
   echo ""
-
-  if [ -n "$PUBLIC_IMAGES" ]; then
-    if [ -z "$DOCKERHUB_REGISTRY_USER" ]; then
-      echo "Public images set but no DOCKERHUB_REGISTRY_USER environment received - deploy will fail"
-      exit 1
-    fi
-    if [ -z "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
-      echo "Public images set but no DOCKERHUB_REGISTRY_PASSWORD environment received - deploy will fail"
-      exit 1
-    fi
-  fi
 }
 
 # Version compare
