@@ -673,6 +673,7 @@ ASYNC MACRO TestPaymentReversal()
 
   //Make sure the details dialog doesn't crash
   AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog(GetTestController(), pd->id));
+  TestEq("External", TT("paymentprovider")->value);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 }
 
