@@ -14,10 +14,7 @@ import "@mod-publisher/js/internal/polyfills/modern.es";
 
 if(document.documentElement.classList.contains('wh-tollium--app'))
 {
-  if(!document.all && ("max" in document.createElement("progress")) && !document.documentElement.classList.contains("previewframe")) //IE < 11
-  {
-    window.$shell = new IndyShell;
-  }
+  window.$shell = new IndyShell;
 }
 else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual"))
 {
