@@ -43,6 +43,7 @@ PUBLIC CONSTANT RECORD __whs_basedatastoragerecord  :=
     [ resource :=       ""
     , method :=         ""
     , isfolder :=       FALSE
+    , tag :=            ""
     ];
 
 /** @short Get the directory a module is installed in
