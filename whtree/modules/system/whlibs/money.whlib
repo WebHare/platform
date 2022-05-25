@@ -29,7 +29,7 @@ thousand separator.
     @param round       Indicates if the value needs to be rounded or expanded
 
     @return The string formatted @italic value
-    @see Tomoney, MoneyToInteger, MoneyToFloat
+    @see ToMoney, MoneyToInteger
     @example
 // This will print: 10,001.3
 // FormatMoney has rounded this value
@@ -113,7 +113,7 @@ PUBLIC STRING FUNCTION FormatJSFinmathMoney(MONEY indata)
     @param value The STRING value to read the MONEY value from
     @param defval The MONEY value to return when the string could not be converted
     @return The money value read from @italic value
-    @see FormatMoney, Substitute
+    @see FormatMoney, %Substitute
     @example
 // The MONEY value m will be: 1345.4
 MONEY m := ToMoney("1.345,4", 0);
@@ -225,7 +225,7 @@ PUBLIC MONEY FUNCTION ToMoney(STRING value, MONEY defval)
            should make sure the FLOAT value is in the MONEY range.
     @param value The FLOAT value to be converted
     @return The MONEY value of value
-    @see MoneyToFloat, FloatToInteger
+    @see float.whlib#FloatToInteger
     @example
 // The MONEY value will be 1.2345
 MONEY m := FloatToMoney(1.2345);
@@ -247,7 +247,6 @@ PUBLIC MONEY FUNCTION FloatToMoney(FLOAT value)
            within the INTEGER range to avoid an overflow. Decimals in a MONEY value will be truncated during the conversion.
     @param value The MONEY value to be converted
     @return The INTEGER value of @italic value
-    @see IntegerToMoney, MoneyToFloat
     @example
 // The INTEGER value will be 17
 INTEGER i := MoneyToInteger(17.0);

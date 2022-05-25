@@ -5,6 +5,7 @@
 
 #include "hsvm_varmemory.h"
 #include <blex/logfile.h>
+#include <cmath>
 
 //#define CONTEXTS
 
@@ -2024,7 +2025,7 @@ int64_t VarMemory::GetInteger64(VarId id) const
 void VarMemory::SetFloat (VarId id, F64 f)
 {
         VarFloat *var = &RecycleVariable(id,VariableTypes::Float,0)->data.floatvar;
-        var->val=f;
+        var->val = f == 0 && std::signbit(f) ? -f : f; // change -0 to +0, need to defeat clang optimization
 }
 
 F64 VarMemory::GetFloat(VarId id) const

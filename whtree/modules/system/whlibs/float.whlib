@@ -23,7 +23,7 @@ FLOAT FUNCTION __HS_StringToFloat(STRING val, FLOAT defval) __ATTRIBUTES__(EXTER
     @param value    The FLOAT value to format
     @param decimals The INTEGER number of decimals (range 0 to 20)
     @return The @italic value in string format
-    @see FloatToInteger, FloatToMoney, ToFloat
+    @see FloatToInteger, ToFloat
     @example
 // This will print: 3.14159265
 PRINT (FormatFloat(3.14159265, 8));
@@ -88,7 +88,6 @@ PUBLIC FLOAT FUNCTION ToFloat(STRING value, FLOAT defval)
           FLOAT value will be truncated.
     @param value The FLOAT value to be converted
     @return The INTEGER value of @italic value
-    @see IntegerToMoney, MoneyToFloat
     @example
 // The INTEGER value will be 17
 INTEGER i := FloatToInteger(17.0);
