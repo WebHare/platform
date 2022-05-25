@@ -727,10 +727,17 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
   }
 }
 
-PUBLIC MACRO TestAssert(INTEGER testno, BOOLEAN to_assert, STRING if_failed) __ATTRIBUTES__(SKIPTRACE)
+/** Compare two values by value
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+    @param to_assert Value that must be TRUE
+    @param annotation Message to display when the test fails
+*/
+PUBLIC MACRO TestAssert(BOOLEAN to_assert, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
 {
-  IF(NOT to_assert)
-    ReportError("Assertion failed: " || if_failed, DEFAULT RECORD ARRAY,"");
+  IF (NOT to_assert)
+    ReportError("Assertion failed", DEFAULT RECORD ARRAY, annotation);
 }
 
 MACRO dumpcells(RECORD expected, RECORD actual)
