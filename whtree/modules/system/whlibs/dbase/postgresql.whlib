@@ -1485,12 +1485,12 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     RETURN JoinArrays(columns, "column_name", is_cols, [ autonumber_start := 0i64, column_default := "" ]);
   }
 
-  UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutoNumber(STRING schemaname, STRING tablename, STRING columnname)
   {
     RETURN this->MakeAutoNumbers(schemaname, tablename, columnname, 1)[0];
   }
 
-  UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutonumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
     IF (amount < 1)
       RETURN INTEGER[];
@@ -1503,10 +1503,10 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(STRING schemaname, STRING tablename, STRING columnname)
   {
-    RETURN this->MakeAutoNumber64s(schemaname, tablename, columnname, 1)[0];
+    RETURN this->MakeAutoNumbers64(schemaname, tablename, columnname, 1)[0];
   }
 
-  UPDATE PUBLIC INTEGER64 ARRAY FUNCTION MakeAutonumber64s(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  UPDATE PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
     IF (amount < 1)
       RETURN INTEGER64[];

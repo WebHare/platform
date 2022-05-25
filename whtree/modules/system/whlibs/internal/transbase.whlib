@@ -815,7 +815,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     THROW NEW Exception("MakeAutonumber not supported by this transaction of type " || GetObjectTypeName(this));
   }
 
-  /** Returns an list of autonumbers for a column in the specified table
+  /** Returns a list of autonumbers for a column in the specified table
       @param schemaname Name of the schema
       @param tablename Name of the table
       @param columnname Name of the column (case insensitive)
@@ -851,7 +851,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       @return New 64-bit autonumbers (numbers that are guaranteed to be unique in that column when inserted, while
          this transaction exists)
   */
-  PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumber64s(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
     INTEGER64 ARRAY result;
     FOR (INTEGER idx := 0; idx < amount; idx := idx + 1)

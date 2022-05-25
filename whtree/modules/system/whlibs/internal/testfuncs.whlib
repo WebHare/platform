@@ -727,7 +727,7 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
   }
 }
 
-/** Compare two values by value
+/** Test if an expression is TRUE
     @topic testframework/api
     @public
     @loadlib mod::system/lib/testframework.whlib

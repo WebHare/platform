@@ -2659,7 +2659,7 @@ PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(TABLE gettable, STRING columnname,
 */
 PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(TABLE gettable, STRING columnname)
 {
-  RETURN MakeAutonumber64s(gettable, columnname, 1)[0];
+  RETURN MakeAutonumbers64(gettable, columnname, 1)[0];
 }
 
 /** @short Get a list of the next 64-bit autonumber IDs for a table
@@ -2671,7 +2671,7 @@ PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(TABLE gettable, STRING columnname)
     @param amount Number of autonumber values to get
     @return The next available autonumber values
 */
-PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumber64s(TABLE gettable, STRING columnname, INTEGER amount)
+PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(TABLE gettable, STRING columnname, INTEGER amount)
 {
   RECORD binding := GetBindingFromTable(gettable);
 
@@ -2680,7 +2680,7 @@ PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumber64s(TABLE gettable, STRING columnn
   IF(Length(toks)=1)
     RETURN trans->MakeAutoNumber64s("", binding.tablename, columnname, amount);
   ELSE
-    RETURN trans->MakeAutoNumber64s(toks[0], toks[1], columnname, amount);
+    RETURN trans->MakeAutoNumbers64(toks[0], toks[1], columnname, amount);
 }
 
 
