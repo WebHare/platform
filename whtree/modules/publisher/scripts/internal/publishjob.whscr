@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT trans := OpenPrimary();
-trans->EnsurePrivileged();
 
 DATETIME start;
 

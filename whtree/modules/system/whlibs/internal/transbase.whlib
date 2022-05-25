@@ -1069,85 +1069,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
   /*@}*/
 
-  /** \defgroup Roles Role support.
-  */
-  /*@{*/
-
-  /** Returns the ID of a role (form: 'schemaname.rolename')
-      @param rolename Name of the role
-      @return Id of the role (-1 for _SYSTEM, -2 for PUBLIC)
-  */
-  PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename)
-  {
-    IF(ToUppercase(rolename)="_SYSTEM")
-      RETURN -1;
-    IF(ToUppercase(rolename)="PUBLIC")
-      RETURN -2;
-
-    THROW NEW Exception("GetRoleId not supported by this transaction of type " || GetObjectTypeName(this));
-  }
-
-
-  /** Restricts the list of current roles (FIXME: active/enabled???)
-      @param roles List of roles
-      @return Whether the setting of the roles succeeded
-  */
-  PUBLIC BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roles)
-  {
-    THROW NEW Exception("RestrictRoles not supported by this transaction of type " || GetObjectTypeName(this));
-  }
-
-
-  /** Returns whether a role is currently enabled
-      @param roleid Id of the role
-      @return Whether the role is enabled
-  */
-  PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
-  {
-    RETURN roleid IN this->GetEnabledRoles();
-  }
-
-  /** Returns whether a role by name is currently enabled
-      @param roleid Id of the role
-      @return Whether the role is enabled
-  */
-  PUBLIC BOOLEAN FUNCTION IsRoleNameEnabled(STRING rolename)
-  {
-    RETURN this->IsRoleEnabled(this->GetRoleId(rolename));
-  }
-
-  /** Throw if the specified role is missing */
-  PUBLIC MACRO EnsureRoleEnabled(STRING rolename)
-  {
-    IF(NOT this->IsRoleNameEnabled(rolename))
-      THROW NEW Exception("The required role '" || rolename || "' is not enabled");
-  }
-
-  PUBLIC BOOLEAN FUNCTION IsPrivileged()
-  {
-    RETURN -1 IN  this->GetEnabledRoles();
-  }
-  PUBLIC MACRO EnsurePrivileged()
-  {
-    IF(-1 NOT IN this->GetEnabledRoles())
-      THROW NEW Exception("A privileged transaction is requred");
-  }
-
-
-  /** Returns the list of enabled roles
-      @return Ids of all enabled roles
-  */
-  PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
-  {
-    THROW NEW Exception("GetEnabledRoles not supported by this transaction of type " || GetObjectTypeName(this));
-  }
-
   PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
   {
     THROW NEW Exception("Dynamic queries not supported by this transaction of type " || GetObjectTypeName(this));
   }
-
-  /*@}*/
 
   PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
   {

@@ -198,29 +198,9 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
     this->itf := DEFAULT RECORD;
   }
 
-  UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename)
-  {
-    RETURN this->itf.GetRoleId(rolename);
-  }
-
-  UPDATE PUBLIC BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roleids)
-  {
-    RETURN this->itf.RestrictRoles(roleids);
-  }
-
-  UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
-  {
-    RETURN this->itf.IsRoleEnabled(roleid);
-  }
-
   UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
   {
     RETURN this->itf.hasworksupport;
-  }
-
-  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
-  {
-    RETURN this->itf.GetEnabledRoles();
   }
   UPDATE PUBLIC MACRO CreateTable(STRING s, STRING t, RECORD ts)
   {
@@ -432,25 +412,6 @@ MACRO WLT_Close(INTEGER transid)
   DELETE FROM transobjects WHERE id = transid;
 }
 
-INTEGER FUNCTION WLT_GetRoleId(INTEGER transid, STRING rolename)
-{
-  RETURN GetTransObject(transid)->GetRoleId(rolename);
-}
-
-BOOLEAN FUNCTION WLT_RestrictRoles(INTEGER transid, INTEGER ARRAY roleids)
-{
-  RETURN GetTransObject(transid)->RestrictRoles(roleids);
-}
-
-BOOLEAN FUNCTION WLT_IsRoleEnabled(INTEGER transid, INTEGER roleid)
-{
-  RETURN GetTransObject(transid)->IsRoleEnabled(roleid);
-}
-
-INTEGER ARRAY FUNCTION WLT_GetEnabledRoles(INTEGER transid)
-{
-  RETURN GetTransObject(transid)->GetEnabledRoles();
-}
 MACRO WLT_CreateTable(INTEGER transid, STRING s, STRING t, RECORD ts)
 {
   GetTransObject(transid)->CreateTable(s,t,ts);
@@ -503,10 +464,6 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , commit :=               PTR WLT_Commit(id)
       , rollback :=             PTR WLT_Rollback(id)
       , close :=                PTR WLT_Close(id)
-      , getroleid :=            PTR WLT_GetRoleId(id, #1)
-      , restrictroles :=        PTR WLT_RestrictRoles(id, #1)
-      , isroleenabled :=        PTR WLT_IsRoleEnabled(id, #1)
-      , getenabledroles :=      PTR WLT_GetEnabledRoles(id)
 
       , createschema :=         PTR WLT_CreateSchema(id, #1, #2, #3)
       , createtable :=          PTR WLT_CreateTable(id, #1, #2, #3)

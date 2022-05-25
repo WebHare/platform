@@ -335,29 +335,6 @@ PUBLIC OBJECTTYPE ForwardingTransaction EXTEND BuiltinTransactionBase
     this->forwardto->DropTable(schemaname, tablename);
   }
 
-  PUBLIC UPDATE INTEGER FUNCTION GetRoleId(STRING rolename)
-  {
-    RETURN this->forwardto->GetRoleId(rolename);
-  }
-
-
-  PUBLIC UPDATE BOOLEAN FUNCTION RestrictRoles(INTEGER ARRAY roles)
-  {
-    RETURN this->forwardto->RestrictRoles(roles);
-  }
-
-
-  PUBLIC UPDATE BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
-  {
-    RETURN this->forwardto->IsRoleEnabled(roleid);
-  }
-
-
-  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetEnabledRoles()
-  {
-    RETURN this->forwardto->GetEnabledRoles();
-  }
-
   PUBLIC UPDATE MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
   {
     this->forwardto->CreateSchema(schemaname, ownerschema, ownerrole);

@@ -32,9 +32,6 @@ MACRO TestPrimary()
   // GetPrimary works?
   TestEq(trans->id, GetPrimary()->id);
 
-  // Privielged
-  TestEq(TRUE, -1 IN trans->GetEnabledRoles());
-
   // No nested primary transactions
   TestThrowsLike('*already*opened*',PTR OpenPrimary);
 

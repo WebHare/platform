@@ -1579,21 +1579,6 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     this->__ExecSQL(`DROP TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}`);
   }
 
-  UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
-  {
-    THROW NEW Exception("GetRoleId yet not supported for PostgreSQL");
-  }
-
-  UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
-  {
-    THROW NEW Exception("IsRoleEnabled yet not supported for PostgreSQL");
-  }
-
-  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
-  {
-    RETURN [ -1 ]; // always privileged
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
   {
     STRING table_name := GetBindingFromTable(tbl).tablename;
