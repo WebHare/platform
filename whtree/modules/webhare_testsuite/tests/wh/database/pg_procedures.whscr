@@ -168,6 +168,23 @@ MACRO TestAutoNumbers()
   TestEQ(RECORD[], GetPrimary()->__ExecSQL(`SELECT * FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'`));
   TestThrowsLike("*not*outside*work*", PTR MakeAutonumber(system.fs_objects, "ID"));
   TestEQ(RECORD[], GetPrimary()->__ExecSQL(`SELECT * FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'`), "MakeAutoNumber left lock when giving an error");
+
+  testfw->BeginWork();
+
+  // Autonumbers should be increasing
+  INTEGER a := MakeAutonumber(system.fs_objects, "ID");
+  INTEGER ARRAY bs := MakeAutonumbers(system.fs_objects, "ID", 2);
+  TestEQ(2, LENGTH(bs));
+  TestAssert(a < bs[0]);
+  TestAssert(bs[0] < bs[1]);
+
+  INTEGER64 a64 := MakeAutonumber64(system.fs_settings, "ID");
+  INTEGER64 ARRAY b64s := MakeAutoNumbers64(system.fs_settings, "ID", 2);
+  TestEQ(2, LENGTH(b64s));
+  TestAssert(a64 < b64s[0]);
+  TestAssert(b64s[0] < b64s[1]);
+
+  testfw->RollbackWork();
 }
 
 RunTestframework([ PTR TestProcedures

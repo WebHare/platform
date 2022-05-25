@@ -174,38 +174,40 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   /// Component that controls this component (may only be set once)
   PUBLIC PROPERTY supercomponent(pvt_supercomponent, SetSuperComponent);
 
-  /** Sets the subcomponent that will be activated when the label of this component
+  /** @type(string) Sets the subcomponent that will be activated when the label of this component
       is clicked on. For internal use only.
   */
   PUBLIC PROPERTY titleforsubcomponent(pvt_titleforsubcomponent, SetTitleForSubcomponent);
 
+  /** @type(boolean) Whether these value is required (the user must enter a non-default value) */
   PUBLIC PROPERTY required(pvt_required, SetRequired);
 
+  /** @type(string) Name to show for this component in errors */
   PUBLIC PROPERTY errorlabel(pvt_errorlabel, pvt_errorlabel);
 
   /** The parent panel of this component.
   */
   PUBLIC PROPERTY parentpanel(GetParentPanel, -); //FIXME what's the rationale for this?
 
-  /// Whether this component is enabled
+  /// @type(boolean) Whether this component is enabled
   PUBLIC PROPERTY enabled(pvt_enabled, SetEnabled);
 
-  /// Whether this component is visible
+  /// @type(boolean) Whether this component is visible
   PUBLIC PROPERTY visible(pvt_visible, SetVisible);
 
-  /// Whether this component is readonly
+  /// @type(boolean) Whether this component is readonly
   PUBLIC PROPERTY readonly(pvt_readonly, SetReadonly);
 
-  /// Title of this component
+  /// @type(string) Title of this component
   PUBLIC PROPERTY title(pvt_title, SetTitle);
 
-  /// Title of the component as rendered
+  /// @type(string) Title of the component as rendered
   PUBLIC PROPERTY renderedtitle(pvt_title, -);
 
-  /// Hint for the component
+  /// @type(string) Hint for the component
   PUBLIC PROPERTY hint(pvt_hint, SetHint);
 
-  /// Whether this component hides its title. Should only be set in NEW(). May be deprecatd inthe future
+  /// @type(boolean) Whether this component hides its title. Should only be set in NEW(). May be deprecatd inthe future
   PUBLIC PROPERTY invisibletitle(pvt_invisibletitle, pvt_invisibletitle);
 
   /// Button that must be activated when this component is focused and enter is pushed.
@@ -229,6 +231,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   /// Whether the component and its (grand*)parents are visible
   PUBLIC PROPERTY isnowvisible(pvt_isnowvisible, -);
 
+  /** @type(boolean) Whether the component has pending updates to send to the frontend
+      @private
+  */
   PUBLIC PROPERTY tolliumweb_dirty(TolliumGetDirty, -);
 
   /// XML Element type, either the localname or namespace#localname if not a tollium screens component
@@ -346,16 +351,26 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN `${this->elementtype} ${this->name} in ${ObjectExists(this->owner) ? this->owner->frame->screenname : 'unknown'}`;
   }
 
+  /** Initialize a component with it parsed defintioon from an XML
+      @param def Component configuration
+  */
   PUBLIC MACRO StaticInit(RECORD def)
   {
     this->TolliumComponentBase_StaticInit(def);
   }
 
+  /** Returns whether this component is showing its own content. If FALSE, isnowvisible is always FALSE
+      @return Whether this component shows its own content. When this component changes its return value
+        of this function, it needs to call RecursiveUpdateIsNowVisible on itself.
+  */
   PUBLIC BOOLEAN FUNCTION IsShowingOwnContents()
   {
     RETURN TRUE;
   }
 
+  /** Calculates the current value of isnowvisible
+      @return Whether this component is now visible
+  */
   BOOLEAN FUNCTION CalculateIsNowVisible()
   {
     RETURN ObjectExists(this->pvt_owner)
@@ -366,6 +381,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
            AND (NOT Objectexists(this->pvt_supercomponent) OR this->pvt_supercomponent->isnowvisible);
   }
 
+  /** Recursively updates the value of isnowvisible. Call this function when any of the dependencies for that
+      value has changed.
+  */
   PUBLIC MACRO RecursiveUpdateIsNowVisible()
   {
     BOOLEAN newvisible := this->CalculateIsNowVisible();
@@ -391,7 +409,11 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   //
 
   //ADDME: Private, but we need to rename when creating a replaceable panel :-/
-  /*FIXME: PRIVATE*/PUBLIC MACRO EnsurePreInit()
+  /*FIXME: PRIVATE*/
+  /** FIXME: PRIVATE
+      @private
+  */
+  PUBLIC MACRO EnsurePreInit()
   {
     IF(NOT this->pvt_havepreinited)
     {
@@ -403,7 +425,11 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       comp->EnsurePreInit();
   }
 
-  /*FIXME: PRIVATE*/PUBLIC BOOLEAN FUNCTION EnsurePreShow()
+  /** FIXME: PRIVATE
+      @return Whether PreShowComponent was executed
+      @private
+  */
+  PUBLIC BOOLEAN FUNCTION EnsurePreShow()
   {
     IF(this->pvt_havepreshown)
       RETURN FALSE;
@@ -415,7 +441,10 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN TRUE;
   }
 
-  /*FIXME: PRIVATE*/PUBLIC MACRO EnsurePostInit()
+  /** FIXME: PRIVATE
+      @private
+  */
+  PUBLIC MACRO EnsurePostInit()
   {
     IF(NOT this->pvt_havepostinited AND (Objectexists(this->parent) OR Memberexists(this, "__is_tollium_frame") ))
     {

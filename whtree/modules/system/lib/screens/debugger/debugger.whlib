@@ -70,7 +70,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   /** List of vms, and libraries per vm
       @cell(integer) vm VM id
-      @cell(recordarray) libraries
+      @cell(record array) libraries
       @cell(string) libraries.liburi URI of the library
       @cell(integer) libraries.globalvarlocation Position of the global variable section of this library on the heap
       @cell(datetime) libraries.sourcetime Source modificationdate of this library
@@ -92,7 +92,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   /** Configuration for current step operation
       @cell(integer) minstacksize Stop when stacksize falls below this value (0 for don't stop). Relative to currstatus.stacksize
       @cell(integer) maxstacksize Stop when stacksize gets above this value (-1 for don't stop). Relative to currstatus.stacksize
-      @cell(recordarray) breakpoints Extra breakpoints to add to user breakpoints
+      @cell(record array) breakpoints Extra breakpoints to add to user breakpoints
       @cell(integer) breakpoints.vm VM id
       @cell(string) breakpoints.liburi URI of the library
       @cell(string) breakpoints.compile_id Compile-id of the compiled library

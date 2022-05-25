@@ -111,8 +111,10 @@ PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
   // Public properties
   //
 
+  /// @type(object %TolliumControllerBase) Tollium controller
   PUBLIC PROPERTY tolliumcontroller(this->pvt_owner->tolliumcontroller, -);
 
+  /// @type(object) %TolliumUser Tollium user
   PUBLIC PROPERTY tolliumuser(this->pvt_owner->tolliumuser, -);
 
   /// Access all components through ^
@@ -123,6 +125,7 @@ PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
   // Constructor
   //
 
+  /// Construct a new fragment
   MACRO NEW()
   {
     EXTEND this BY TolliumScope;
@@ -793,6 +796,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       @long Create a new component, which has been supplied by a different module
       @param namespace Namespace containing the custom component
       @param type Type of the component to create
+      @cell(string) options.namebase Base prefix for the generated anonymous name for the new component
       @return The new object, or a default object if the requested component type was not known */
   PUBLIC OBJECT FUNCTION CreateCustomComponent(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {

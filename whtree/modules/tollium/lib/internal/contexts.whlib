@@ -26,6 +26,7 @@ RECORD inheritupdates :=
 /** Container for context objects. Contexts are set on a screen/controller, and are inherited by
     children screens (and can be overridden there). Use contexts->^mycontextname for private
     contexts.
+    @public
     @topic tollium/appdev
 */
 PUBLIC OBJECTTYPE TolliumContexts

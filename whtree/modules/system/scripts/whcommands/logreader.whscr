@@ -297,6 +297,7 @@ RECORD info := ParseArguments(GetConsoleArguments(),
                               , [ name := "x", type := "switch" ]
                               , [ name := "n", type := "stringopt" ]
                               , [ name := "s", type := "stringlist" ]
+                              , [ name := "g", type := "stringlist" ]
                               , [ name := "logfile", type := "param" ]
                               ]);
 
@@ -310,6 +311,7 @@ IF(NOT RecordExists(info))
   Print("  -n lines  Show the last <lines> lines (defaults to all lines, or last 5 when -f is present)\n");
   Print("  -x        Reformat HTTP body (rpc log only)\n");
   Print("  -s mask   Show only those RPC's whose source match these masks (rpc log only)\n");
+  Print("  -g groupmask Show only the lines for these group ids\n");
   Print("\n");
   SetConsoleExitCode(1);
   RETURN;
@@ -367,6 +369,10 @@ IF (info.format = "" AND logfilepath LIKE "*audit.*")
 IF(info.format NOT IN ["rpc", "debug", "notice", "audit"])
   ABORT("Unrecognized logformat '" || info.format || "'. Please use --format with eg 'rpc'");
 
+FOREVERY (STRING g FROM info.g)
+  IF (SearchSubstring(g, "*") = -1)
+    info.g[#g] := `${g}*`;
+
 OBJECT linereader;
 SWITCH (info.format)
 {
@@ -380,6 +386,7 @@ linereader->AddData(firstline); //throw in the line we already had
 STRING ARRAY lastlines := [ "" ];
 BOOLEAN cache := lastlinescount != -1;
 BOOLEAN filtersources := LENGTH(info.s) != 0;
+BOOLEAN filtergroups := LENGTH(info.g) != 0;
 BOOLEAN lastmultiline := FALSE;
 
 WHILE(TRUE)
@@ -476,6 +483,20 @@ WHILE(TRUE)
           BOOLEAN have_match;
           FOREVERY (STRING mask FROM info.s)
             have_match := have_match OR line.source LIKE mask;
+          IF (NOT have_match)
+          {
+            IF (info.d)
+              PRINT("Ignored line from source " || line.source || "\n");
+
+            lastlines[END-1] := "";
+            CONTINUE;
+          }
+        }
+        IF (filtergroups)
+        {
+          BOOLEAN have_match;
+          FOREVERY (STRING mask FROM info.g)
+            have_match := have_match OR line.srhid LIKE mask;
           IF (NOT have_match)
           {
             IF (info.d)
