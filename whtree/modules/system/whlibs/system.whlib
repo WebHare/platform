@@ -4794,7 +4794,9 @@ PUBLIC STATIC OBJECTTYPE JSONObject
     RETURN this->props;
   }
 
-  /** Returns the list of all set properties */
+  /** Returns the list of all set properties
+      @return List of all set properties
+  */
   PUBLIC STRING ARRAY FUNCTION GetKeys()
   {
     RETURN SELECT AS STRING ARRAY name FROM this->props;

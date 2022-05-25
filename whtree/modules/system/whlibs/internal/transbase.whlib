@@ -296,6 +296,7 @@ PUBLIC OBJECTTYPE TransactionFinishHandlerBase
 <
 
   /** Called before the commit will be attempted
+      @param transaction Transaction that will be committed
   */
   PUBLIC MACRO OnPreCommit(OBJECT transaction)
   {
@@ -391,8 +392,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Commit handlers.
-      @cell tag
-      @cell handler Signature: MACRO handler(BOOLEAN iscommit)
+      @cell tag Commit handler tag
+      @cell handler Commit handler. Signature: MACRO handler(BOOLEAN iscommit)
   */
   RECORD ARRAY pvt_commithandlers;
 
@@ -463,6 +464,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   //
 
   /** Registers the transaction object, so it can be found by MakeAutoNumber(TABLE)
+      @param id Id of the transaction
   */
   MACRO RegisterTransaction(INTEGER id)
   {
@@ -485,13 +487,17 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     UnregisterTransaction(PRIVATE this);
   }
 
-  /** @short Does this transction have any commit handlers/actions ? */
+  /** @short Does this transction have any commit handlers/actions ?
+      @return TRUE if any handlers have been set.
+  */
   PUBLIC BOOLEAN FUNCTION AnyCommitHandlers()
   {
     RETURN Length(this->pvt_commitevents) > 0 OR Length(this->pvt_commithandlers) > 0 OR Length(this->pvt_commithandlerobjects) > 0;
   }
 
-  /** Calls all precommit handlers before a commit or rollback. */
+  /** Calls all precommit handlers before a commit or rollback.
+      @param iscommitattempt TRUE for commits, FALSE for rollbacks
+  */
   PUBLIC MACRO __CallPrecommitHandlers(BOOLEAN iscommitattempt)
   {
     RECORD ARRAY objhandlers := this->pvt_commithandlerobjects;
@@ -549,6 +555,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Returns the type of this transaction
+      @return Type of this transaction (eg 'postgreqsql', 'ldap')
   */
   STRING FUNCTION GetType()
   {
@@ -561,6 +568,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   //
 
   /** Returns whether this transaction has support for opening work
+      @return TRUE if this transaction supports opening work
   */
   PUBLIC BOOLEAN FUNCTION HasWorkSupport()
   {
@@ -569,6 +577,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Return whether work is open
+      @return TRUE if work is currently open
   */
   PUBLIC BOOLEAN FUNCTION IsWorkOpen()
   {
@@ -609,7 +618,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     RETURN this->CommitWork();
   }
 
-  /** Execute code inside work */
+  /** Execute code inside work. Note: does not support asynchronous functions.
+      @param todo Function pointer to execute. Signature: VARIANT FUNCTION todo().
+      @return Return value of the called function pointer.
+  */
   PUBLIC VARIANT FUNCTION ExecuteInWork(MACRO PTR todo)
   {
     this->BeginWork();
@@ -626,7 +638,11 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     }
   }
 
-  /** Execute code inside work */
+  /** Execute code inside work, with a locked mutex. Note: does not support asynchronous functions.
+      @param mutexname Name of the mutex to lock.
+      @param todo Function pointer to execute. Signature: VARIANT FUNCTION todo().
+      @return Return value of the called function pointer.
+  */
   PUBLIC VARIANT FUNCTION ExecuteInLockedWork(STRING mutexname, MACRO PTR todo)
   {
     this->BeginLockedWork(mutexname);
@@ -696,7 +712,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
   /** Try to lock an additional mutex when we already have work open. If succesful,
        this lock will be released at commit/rollback
-      @param mutename */
+      @param mutexname Name of the mutex to lock
+      @param wait_until Timeout
+      @return TRUE if the mutex was locked
+  */
   PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
   {
     OBJECT result := this->__DoTryLockMutex(mutexname,  wait_until);
@@ -705,6 +724,9 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     RETURN ObjectExists(result);
   }
 
+  /** Starts work with a locked mytex
+      @param mutexname Name of the mutex to lock
+  */
   PUBLIC MACRO BeginLockedWork(STRING mutexname)
   {
     this->BeginWork([ mutexes := [mutexname] ]);
@@ -758,7 +780,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     RETURN errors;
   }
 
-/** Rollbacks work
+  /** Rollbacks work
   */
   PUBLIC MACRO RollbackWork()
   {
@@ -838,6 +860,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /** Commits and closes the entire transaction
+      @return Commit errors (FIXME: cells? does this function throw instead?)
   */
   PUBLIC RECORD ARRAY FUNCTION Commit()
   {
@@ -914,6 +937,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
   /** Returns a commit handler object
       @param tag Tag of the object
+      @return(object #TransactionFinishHandlerBase) Commit handler object, DEFAULT OBJECT if not found
   */
   PUBLIC OBJECT FUNCTION GetFinishHandler(STRING tag)
   {
@@ -926,7 +950,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Sets a commit handler object, throws if it already exists
-      @param name Name of the object
+      @param tag Tag of the object
+      @param(object #TransactionFinishHandlerBase) obj Commit handler object
   */
   PUBLIC MACRO SetFinishHandler(STRING tag, OBJECT obj)
   {
@@ -949,19 +974,17 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
   /** Returns a list of all schemas
       @return All tables
-      @cell return.schema_name
+      @cell return.schema_name Name of the schema
       @cell return.is_system_schema The schema is part of the database's metadata, not user created (it should not be migrated between databases)
   */
-
   PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
   {
     THROW NEW Exception("GetSchemaListing not supported by this transaction of type " || GetObjectTypeName(this));
   }
 
   /** Returns whether a specific schema exists
-      @param schemaname
-      @param columnname Name of the column (case insensitive)
-      @return Whether the column exists
+      @param schemaname Schema to test
+      @return Whether the schema exists
   */
   PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
   {
@@ -973,9 +996,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /** Returns a list of all tables in a schema
+      @param schemaname Schema to return the tables for
       @return All tables
-      @cell return.schema_name
-      @cell return.table_name
+      @cell return.schema_name Schema of the table
+      @cell return.table_name Name of the table
   */
   PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
   {
@@ -984,9 +1008,11 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Returns the list of columns in a table
-      @return
-      @cell return.column_name
-      @cell return.type
+      @param schemaname Schema of the table
+      @param tablename Name of the table
+      @return List of columns
+      @cell return.column_name Name of the column
+      @cell return.type Type of the colum
   */
   PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
   {
@@ -995,7 +1021,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Returns whether a specific column in a table exists
-      @param tablename Name of the table (in the form "schema.table")
+      @param schemaname Schema of the table
+      @param tablename Name of the table
       @param columnname Name of the column (case insensitive)
       @return Whether the column exists
   */
@@ -1012,7 +1039,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   /** Returns whether a specific index exists for table
       @param schemaname Name of the schema
       @param tablename Name of the table
-      @param columnname Name of the index (case insensitive)
+      @param indexname Name of the index (case insensitive)
       @return Whether the index exists
   */
   PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
@@ -1022,6 +1049,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Drop a table from the database schema
+      @param schemaname Name of the schema
+      @param tablename Name of the table
   */
   PUBLIC UPDATE MACRO DropTable(STRING schemaname, STRING tablename)
   {
@@ -1029,6 +1058,9 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /** Drop a column from the database schema
+      @param schemaname Name of the schema
+      @param tablename Name of the table
+      @param columnname Name of the column
   */
   PUBLIC UPDATE MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
   {
@@ -1135,11 +1167,21 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     THROW NEW Exception("DropSchema not supported by this transaction of type " || GetObjectTypeName(this));
   }
 
-  /** Helper object to specify/manage table structures */
+  /** Get a helper object to create a table
+      @param schemaname Schema of the table
+      @param tablename Name of the table to add
+      @return(object #TableStructure) Table structure object
+  */
   PUBLIC OBJECT FUNCTION PrepareCreateTable(STRING schemaname, STRING tablename)
   {
     RETURN NEW TableStructure(this, schemaname, tablename, TRUE);
   }
+
+  /** Get a helper object to alter table structures
+      @param schemaname Schema of the table
+      @param tablename Name of the table to add
+      @return(object #TableStructure) Table structure object
+  */
   PUBLIC OBJECT FUNCTION PrepareAlterTable(STRING schemaname, STRING tablename)
   {
     RETURN NEW TableStructure(this, schemaname, tablename, FALSE);
@@ -1150,16 +1192,16 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       @param tablename Table containing the database row which we're renumbering
       @param renumberfrom Current id
       @param renumberto ID to renumber to
-      @options Options Options
       @cell options.exceptions List of columns to skip
       @cell options.exceptions.schemaname Schema of the table with the column to skip
       @cell options.exceptions.tablename Table with the column to skip
       @cell options.exceptions.columnname Name of the column to skip
-      @cell(boolean) options.reportmodifiedrows
+      @cell(boolean) options.reportmodifiedrows List of tables to report modifications on
       @cell options.reportmodifiedrows.schemaname Schema of the table to report modifications on
       @cell options.reportmodifiedrows.tablename Table to report modifications on
       @cell options.reportmodifiedrows.columns List of the columns to give back for modified rows
-      @cell return.modifications
+      @return Renumbering results
+      @cell return.modifications List of modified rows
       @cell return.modifications.schemaname Schema of table with modified column
       @cell return.modifications.tablename Table with the modified column
       @cell return.modifications.columnname Modified column
@@ -1237,8 +1279,9 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /** Process an updated database debug configuration
-      @param newconfig.readonly Readonly. Already handled by BeginWork, no need to process
-      @param newconfig.logstacktraces Log stack traces
+      @param newconfig New configuration
+      @cell(boolean) newconfig.readonly Readonly. Already handled by BeginWork, no need to process
+      @cell(boolean) newconfig.logstacktraces Log stack traces
   */
   PUBLIC MACRO __UpdateDebugConfig(RECORD newconfig)
   {

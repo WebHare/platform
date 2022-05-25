@@ -14,7 +14,8 @@ LOADLIB "wh::internal/transservices.whlib" EXPORT
     SetupPrimaryTransactionBinder;
 LOADLIB "wh::internal/transbase.whlib" EXPORT
     TransactionFinishHandlerBase,
-    DatabaseException;
+    DatabaseException,
+    DatabaseReadonlyException;
 
 
 /** The TransactionCursorBase objecttype defines an object which can used for cursoring through
