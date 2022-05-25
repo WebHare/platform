@@ -289,7 +289,7 @@ get_finaltag()
       exit 1
     fi
 
-    # When building 'master', also build the correspsonding release-x-y tag
+    # When building 'master', also build the corresponding release-x-y tag
     if [ "$MAINTAG" == "master" ]; then
     echo $WEBHARE_VERSION
       ADDTAGS="release-$(echo "$WEBHARE_VERSION" | cut -d. -f1)-$(echo "$WEBHARE_VERSION" | cut -d. -f2)"
