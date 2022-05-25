@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
@@ -1428,6 +1429,7 @@ MACRO TestWHPubPreview()
 MACRO TestDataStorage()
 {
   STRING basedatadir := GetWebHareConfiguration().basedataroot;
+  browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie([ "wud" ]));
 
   // Delete the files we'll generate in this test
   DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"));
@@ -1452,6 +1454,14 @@ MACRO TestDataStorage()
   StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"), StringToBlob(`I'm a hash page`));
   TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
   TestEQLike("*I'm a hash page*", BlobToString(browser->content));
+  TestEq("text/html; charset=UTF-8", browser->GetResponseHeader("Content-Type"));
+
+  //requesting file without extension should trigger a server side .html append
+  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/ea9/"), TRUE);
+  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/ea9/bea083004b07894cd5e435c42e2672d7f37eb0bd01c70cc1a2742b0486248.html"), StringToBlob(`I'm an extensionless URL`));
+  TestEq(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/red"));
+  TestEqLike("*I'm an extensionless URL*", BlobToString(browser->content));
+  TestEq("text/html; charset=UTF-8", browser->GetResponseHeader("Content-Type"));
 
   CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/"), TRUE);
   StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"), StringToBlob(`<body><body>I'm a blue page</body></html>");`));
@@ -1529,7 +1539,7 @@ tests := [ PTR Setup
          , PTR TestAuthenticateWebsession
          , PTR TestIPChecks
          , PTR TestWHPubPreview()
-         , PTR TestDataStorage()
+         , PTR TestDataStorage
          , PTR TestGlobalAccessRules()
          ];
 
