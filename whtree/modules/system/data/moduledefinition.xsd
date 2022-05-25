@@ -1110,6 +1110,7 @@
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>
+              <xs:attribute name="tag" /> <!-- 5.0 compatibility -->
             </xs:complexType>
           </xs:element>
           <xs:element name="tryfile">
