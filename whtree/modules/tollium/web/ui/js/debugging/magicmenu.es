@@ -3,8 +3,14 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as whintegration from '@mod-system/js/wh/integration';
 import $todd from '@mod-tollium/web/ui/js/support';
 
-let magicmenuactive = !whintegration.config.islive;
+let magicmenuactive;
 let clicks = [];
+
+///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
+function isActive()
+{
+  return !whintegration.config.dtapstage == 'development' || magicmenuactive;
+}
 
 function onTopbarClick(event)
 {
@@ -39,11 +45,10 @@ async function editElement(component)
 
 function onMagicMenu(event)
 {
-  if(!event.shiftKey || !event.altKey || !magicmenuactive)
+  if(!event.shiftKey || !event.altKey || !isActive())
     return;
 
-  event.preventDefault();
-  event.stopPropagation();
+  dompack.stop(event);
 
   let component = event.target.closest( '*[data-name]');
   let submenu = dompack.create("ul");
