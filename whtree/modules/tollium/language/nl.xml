@@ -765,6 +765,12 @@
       <text tid="releaserequest"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> wil dit item overnemen. Niet-opgeslagen gegevens zullen verloren gaan. <br/><br/>Wilt u dit toestaan? Na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> zal de overname automatisch worden toegestaan.</text>
       <text tid="releaserequestdenied">Uw verzoek om het scherm over te mogen nemen is afgewezen.</text>
       <text tid="waitingforowner">Aan het wachten op een reactie van <ifparam p="1" value="">de andere gebruiker<else/><ifparam p="2" value=""><param p="1"/><else/>gebruiker <param p="2"/> (<param p="1"/>)</ifparam></ifparam>. <br/><br/>Wanneer deze niet reageert geeft wordt de overname na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> automatisch toegestaan.</text>
+      <textgroup gid="buttons">   <!-- exclusive.frontend.buttons -->
+        <text tid="cancel">Annuleren</text>
+        <text tid="close">Sluiten</text>
+        <text tid="no">Nee</text>
+        <text tid="yes">Ja</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->

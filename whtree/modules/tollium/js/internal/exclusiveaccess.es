@@ -414,6 +414,11 @@ function getSecsToDeadline(deadline)
       node to override the default dialog contents.
     @cell options.onLockStolenShown Called when the 'lock stolen' dialog has been shown and
       the user closed it.
+    @cell options.buttontitles Overrides for button titles
+    @cell options.buttontitles.yes Override for button "yes"
+    @cell options.buttontitles.no Override for button "no"
+    @cell options.buttontitles.cancel Override for button "cancel"
+    @cell options.buttontitles.close Override for button "close"
     @return Promise that will resolve to a LockController object, or rejected if the lock
       can't be obtained.
 */
@@ -424,6 +429,7 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
     , onReleaseRequest
     , onLockStolen
     , onLockStolenShown
+    , buttontitles = {}
     } = {})
 {
   return await getExclusiveAccessPromise(identifier,
@@ -442,7 +448,10 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
                   {getTid("tollium:exclusive.frontend.alreadylocked", ctrl.info.login || ctrl.info.realname, ctrl.info.realname)}
                 </div>;
 
-          let res = await dialogapi.runMessageBox(message, [ { title:"yes", result: "yes" }, { title:"no" } ], { signal: actrl.signal, allowcancel: false });
+          let res = await dialogapi.runMessageBox(message,
+              [ { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" }
+              , { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
+              ], { signal: actrl.signal, allowcancel: false });
           if (res == "yes")
             ctrl.requestLock();
           else
@@ -458,7 +467,9 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
               {getTid("tollium:exclusive.frontend.waitingforowner", ctrl.info.login || ctrl.info.realname, ctrl.info.realname, getSecsToDeadline(ctrl.deadline))}
             </div>;
 
-          await dialogapi.runMessageBox(message, [ { title:"cancel" } ], { signal: actrl.signal, allowcancel: false });
+          await dialogapi.runMessageBox(message,
+              [ { title: buttontitles.cancel || getTid("tollium:exclusive.frontend.buttons.cancel"), result: "cancel" }
+              ], { signal: actrl.signal, allowcancel: false });
           if (!actrl.signal.aborted)
             ctrl.cancel();
         }
@@ -472,7 +483,10 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
               {getTid("tollium:exclusive.frontend.releaserequest", ctrl.info.login || ctrl.info.realname, ctrl.info.realname, getSecsToDeadline(ctrl.deadline))}
             </div>;
 
-          let res = await dialogapi.runMessageBox(message, [ { title:"yes", result: "yes" }, { title:"no" } ], { signal: actrl.signal, allowcancel: false });
+          let res = await dialogapi.runMessageBox(message,
+              [ { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" }
+              , { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
+              ], { signal: actrl.signal, allowcancel: false });
           ctrl.respond(res == "yes");
         }
       , onLockStolen: async (info) =>
@@ -482,7 +496,8 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
               {getTid("tollium:exclusive.frontend.lockstolen", info.login, info.realname)}
             </div>;
 
-          await dialogapi.runMessageBox(message, [ { title:"close" } ]);
+          await dialogapi.runMessageBox(message,
+              [ { title: buttontitles.close || getTid("tollium:exclusive.frontend.buttons.close"), result: "close" } ]);
 
           if (onLockStolenShown)
             onLockStolenShown();
@@ -494,7 +509,8 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
               {getTid("tollium:exclusive.frontend.releaserequestdenied")}
             </div>;
 
-          await dialogapi.runMessageBox(message, [ { title:"close" } ]);
+          await dialogapi.runMessageBox(message,
+              [ { title: buttontitles.close || getTid("tollium:exclusive.frontend.buttons.close"), result: "close" } ]);
         }
       });
 }
