@@ -1487,11 +1487,34 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
-    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
+    RETURN this->MakeAutoNumbers(schemaname, tablename, columnname, 1)[0];
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutonumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    IF (amount < 1)
+      RETURN INTEGER[];
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
     RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
-    IF (NOT RecordExists(result))
-      THROW NEW Exception(`No value returned by MakeAutonumber`);
-    RETURN INTEGER(result.value);
+    IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
+      THROW NEW Exception(`No value returned by MakeAutonumbers generator`);
+    RETURN INTEGER ARRAY(result.value);
+  }
+
+  UPDATE PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->MakeAutoNumber64s(schemaname, tablename, columnname, 1)[0];
+  }
+
+  UPDATE PUBLIC INTEGER64 ARRAY FUNCTION MakeAutonumber64s(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    IF (amount < 1)
+      RETURN INTEGER64[];
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
+    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
+    IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
+      THROW NEW Exception(`No value returned by MakeAutonumber generator`);
+    RETURN INTEGER64 ARRAY(result.value);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)

@@ -793,6 +793,49 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     THROW NEW Exception("MakeAutonumber not supported by this transaction of type " || GetObjectTypeName(this));
   }
 
+  /** Returns an list of autonumbers for a column in the specified table
+      @param schemaname Name of the schema
+      @param tablename Name of the table
+      @param columnname Name of the column (case insensitive)
+      @param amount Number of autonumbers to return
+      @return New autonumbers (numbers that are guaranteed to be unique in that column when inserted, while
+         this transaction exists)
+  */
+  PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    INTEGER ARRAY result;
+    FOR (INTEGER idx := 0; idx < amount; idx := idx + 1)
+      INSERT this->MakeAutoNumber(schemaname, tablename, columnname) INTO result AT END;
+    RETURN result;
+  }
+
+  /** Returns a 64-bit autonumber for a column in the specified table
+      @param schemaname Name of the schema
+      @param tablename Name of the table
+      @param columnname Name of the column (case insensitive)
+      @return New 64-bit autonumber (number that is guaranteed to be unique in that column when inserted, while
+         this transaction exists)
+  */
+  PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    THROW NEW Exception("MakeAutoNumber64 not supported by this transaction of type " || GetObjectTypeName(this));
+  }
+
+  /** Returns an list of 64-bit autonumbers for a column in the specified table
+      @param schemaname Name of the schema
+      @param tablename Name of the table
+      @param columnname Name of the column (case insensitive)
+      @param amount Number of autonumbers to return
+      @return New 64-bit autonumbers (numbers that are guaranteed to be unique in that column when inserted, while
+         this transaction exists)
+  */
+  PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumber64s(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    INTEGER64 ARRAY result;
+    FOR (INTEGER idx := 0; idx < amount; idx := idx + 1)
+      INSERT this->MakeAutoNumber64(schemaname, tablename, columnname) INTO result AT END;
+    RETURN result;
+  }
 
   /** Commits and closes the entire transaction
   */
