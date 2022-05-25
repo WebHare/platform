@@ -174,6 +174,7 @@ fi
 
 if [ -z "$WEBHAREIMAGE" ]; then
   get_finaltag
+  list_finaltag
   WEBHAREIMAGE=$BUILD_IMAGE
   if [ "$WEBHAREIMAGE" == "webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}" ]; then
     NOPULL=1

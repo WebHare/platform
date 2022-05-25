@@ -1,4 +1,5 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test-wh-functions.sh" />
   <test name="testfw" path="testfw/" />
   <test name="dompack" path="dompack/" />
   <test name="email" path="email/" />

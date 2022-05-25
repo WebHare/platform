@@ -246,7 +246,7 @@ get_finaltag()
   PUSH_BUILD_IMAGES=
 
   local MAINTAG
-  getbaseversioninfo
+  [ -z "$__SKIP_getbaseversioninfo" ] && getbaseversioninfo
 
   # are we running on CI?
   if [ -n "$CI_COMMIT_SHA" ]; then
@@ -302,6 +302,21 @@ get_finaltag()
     WEBHARE_VERSION=${WEBHARE_VERSION}-dev
   fi
 
+  if [ -n "$PUBLIC_IMAGES" ]; then
+    if [ -z "$DOCKERHUB_REGISTRY_USER" ]; then
+      echo "Public images set but no DOCKERHUB_REGISTRY_USER environment received - deploy will fail"
+      exit 1
+    fi
+    if [ -z "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
+      echo "Public images set but no DOCKERHUB_REGISTRY_PASSWORD environment received - deploy will fail"
+      exit 1
+    fi
+  fi
+}
+
+list_finaltag()
+{
+
   echo "Semantic version:     $WEBHARE_VERSION"
   echo ""
   echo "Building images with tags:"
@@ -316,17 +331,6 @@ get_finaltag()
   echo "Images to be deployed after tests succeed"
   echo "PUBLIC_IMAGES=        $PUBLIC_IMAGES"
   echo ""
-
-  if [ -n "$PUBLIC_IMAGES" ]; then
-    if [ -z "$DOCKERHUB_REGISTRY_USER" ]; then
-      echo "Public images set but no DOCKERHUB_REGISTRY_USER environment received - deploy will fail"
-      exit 1
-    fi
-    if [ -z "$DOCKERHUB_REGISTRY_PASSWORD" ]; then
-      echo "Public images set but no DOCKERHUB_REGISTRY_PASSWORD environment received - deploy will fail"
-      exit 1
-    fi
-  fi
 }
 
 # Version compare
