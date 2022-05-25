@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
@@ -54,6 +55,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
                                  , enabled  //raw from the database
                                  , isenabled := isenabled //this one is conditional on 'inapplicable'
                                  , listrowclasses := isenabled ? STRING[] : STRING["grayedout"]
+                                 , tag := Substitute(tag, '.', ':') //database records them with a '.' because that's how old WebHares initially stored the tags
                               FROM system_internal.tasks;
 
     RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
@@ -117,9 +119,20 @@ PUBLIC STATIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
     this->id := data.id;
 
     RECORD taskinfo := SELECT * FROM system_internal.tasks WHERE id=data.id;
+    STRING commandline := `wh run ${taskinfo.script}`;
+    IF(taskinfo.parameters LIKE " |params| *")
+    {
+      STRING ARRAY cmdlineargs := DecodeHSON(Substring(taskinfo.parameters,10));
+      FOREVERY(STRING arg FROM cmdlineargs)
+        IF(arg = GetSafeName(arg)) //crude detection whether it needs an escape
+          commandline := commandline || " " || arg;
+        ELSE
+          commandline := commandline || ' "' || EncodeJava(arg) || '"';
+    }
+
     ^scriptname->value := taskinfo.script;
     ^description->value := taskinfo.description;
-    ^parameters->value := taskinfo.parameters;
+    ^commandline->value := commandline;
     ^tag->value := taskinfo.tag;
     ^lastmessages->value := taskinfo.error;
     ^nexttime->value := taskinfo.nexttime;

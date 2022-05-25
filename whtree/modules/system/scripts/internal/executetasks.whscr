@@ -191,21 +191,9 @@ MACRO LaunchTask(RECORD task)
     cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
   INSERT task.script INTO cmdlineargs AT END;
 
-  //HACK for quick paramter parsing
+  //HACK for quick parameter parsing (use because older task had different formats)
   IF(task.parameters LIKE " |params| *")
-  {
     cmdlineargs := cmdlineargs CONCAT DecodeHSON(Substring(task.parameters,10));
-  }
-  ELSE IF(task.parameters != "")
-  {
-    //HACK for quick parameter parsing - can go away once manually entered tasks are gone
-    STRING params := Substitute(task.parameters,"\\ ","<<<<<ESCAPED_SPACE>>>>>");
-    IF (params != "")
-    {
-      FOREVERY(STRING param FROM Tokenize(params,' '))
-        INSERT DecodeJava(Substitute(param,"<<<<<ESCAPED_SPACE>>>>>","\\ ")) INTO cmdlineargs AT END;
-    }
-  }
 
   INTEGER pid := StartProcess( runscriptname
                              , cmdlineargs

@@ -1,70 +1,71 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="timedtasks.whlib"
-         gid="tolliumapps.dashboard.timedtasks">
+         gid="tolliumapps.dashboard.timedtasks"
+         library="timedtasks.whlib">
 
   <screen name="timedtasks">
     <actions>
-      <action name="taskproperties" onexecute="dotaskproperties" tid="tollium:common.actions.properties">
+      <action name="taskproperties" onexecute="dotaskproperties" tid="~properties">
         <enableon source="tasks" min="1" max="1" />
       </action>
       <action name="scheduletasknow" onexecute="doscheduletasknow">
-        <enableon source="tasks" max="1" min="1" checkflags="isenabled" />
+        <enableon source="tasks" min="1" max="1" checkflags="isenabled" />
       </action>
     </actions>
+
     <menus>
       <menu name="taskmenu">
         <item action="taskproperties" />
         <item action="scheduletasknow" />
       </menu>
     </menus>
+
     <body height="1pr">
       <split type="vertical">
         <part height="1pr">
           <list name="tasks"
-                selectmode="single"
                 borders="top right"
+                flags="isenabled"
                 openaction="taskproperties"
                 selectcontextmenu="taskmenu"
-                flags="isenabled">
-            <column type="text" name="script" iconname="icon" />
+                selectmode="single">
+            <column name="tag" type="text" width="1pr" iconname="icon" tid="~tag" />
             <column name="running" type="icon" />
-            <column type="datetime" name="nexttime" storeutc="true" width="16x" />
-            <column type="text" name="description" />
+            <column name="nexttime" type="datetime" width="16x" storeutc="true" />
+            <column name="description" type="text" width="2pr" />
           </list>
         </part>
         <part height="10x">
           <heading tid=".nowrunning" />
-          <list name="runningtasks"
-                selectmode="single"
-                borders="top right bottom"
-                sortcolumn="starttime">
+          <list name="runningtasks" borders="top right bottom" selectmode="single" sortcolumn="starttime">
             <column name="script" type="text" />
             <column name="tag" type="text" />
-            <column type="datetime" name="starttime" precision="seconds" storeutc="true" width="18x" />
-            <column type="datetime" name="killtime" precision="seconds" storeutc="true" width="18x" />
+            <column name="starttime" type="datetime" width="18x" precision="seconds" storeutc="true" />
+            <column name="killtime" type="datetime" width="18x" precision="seconds" storeutc="true" />
           </list>
         </part>
       </split>
     </body>
   </screen>
 
-  <screen name="taskproperties" allowresize="true" savestate="size" footerbuttons="ok cancel">
+  <screen name="taskproperties" allowresize="true" footerbuttons="ok cancel" savestate="size">
     <body layout="left">
-      <box tid=".properties" layout="form">
+      <box layout="form" tid=".properties">
         <text name="scriptname" />
+        <textedit name="commandline" width="1pr" enabled="false" />
         <text name="description" tid="~description" />
-        <text name="parameters" />
         <text name="tag" tid="~tag" />
         <text name="timeout" />
       </box>
-      <box name="enabled" enablecomponents="nexttime" checkbox="true" >
+      <box name="enabled" checkbox="true" enablecomponents="nexttime">
         <text name="inapplicable" />
         <datetime name="nexttime" type="datetime" storeutc="true" />
       </box>
-      <!--      <box tid=".lastmessages" height="1pr" layout="left"> -->
-        <text tid=".lastmessages" />
-        <textarea name="lastmessages" title="" enabled="false" minheight="15x" height="1pr" width="1pr" />
-        <!--      </box> -->
+
+      <!-- <box tid=".lastmessages" height="1pr" layout="left"> -->
+      <text tid=".lastmessages" />
+      <textarea name="lastmessages" width="1pr" height="1pr" minheight="15x" enabled="false" title="" />
+
+      <!-- </box> -->
     </body>
   </screen>
 

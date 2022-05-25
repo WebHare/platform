@@ -1562,6 +1562,7 @@
         <text tid="targetlang-nlen">Dutch and English speaking users</text>
       </textgroup>
       <textgroup gid="timedtasks">   <!-- tolliumapps.dashboard.timedtasks -->
+        <text tid="commandline">Command line</text>
         <text tid="defaulttimeout">Default timeout (<param p="1"/>)</text>
         <text tid="description">Description</text>
         <text tid="enabled">Enabled</text>
@@ -1572,7 +1573,6 @@
         <text tid="notasksrunning">No tasks are running</text>
         <text tid="notavailable">Not available</text>
         <text tid="nowrunning">Now active</text>
-        <text tid="parameters">Parameters</text>
         <text tid="properties">Properties</text>
         <text tid="running">Running</text>
         <text tid="scheduletasknow">Schedule task now</text>
