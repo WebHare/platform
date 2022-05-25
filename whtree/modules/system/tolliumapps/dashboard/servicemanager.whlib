@@ -28,7 +28,7 @@ PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
   UPDATE MACRO OnMessage(RECORD msg)
   {
     IF (CellExists(msg, "service"))
-      ^applit->value := msg.service;
+      ^applist->value := msg.service;
   }
 
   MACRO OnAppRunnerRefreshEvent(RECORD ARRAY events)
