@@ -801,6 +801,7 @@
     <text tid="editfavorites">Manage</text>
     <text tid="frontendclose">Application sessions have expired</text>
     <text tid="frontendclose_description">The connection between your browser and WebHare was broken. The impacted applications have been closed.</text>
+    <text tid="isrestoredwebhare">This WebHare has been restored from backup</text>
     <text tid="loadingapp">Starting application...</text>
     <text tid="offline">Connection lost</text>
     <text tid="offline_description">The connection to the server has been lost. Please wait for it to recover.</text>

@@ -27,6 +27,14 @@ body
   min-height: 100vh;
 }
 
+// "Restore info" etc banner. Only in the DOM if set
+.wh-backend__banner
+{
+  background-color: #fefedd;
+  padding: 5px;
+  text-align: center;
+}
+
 // Top bar, also trigger for debug mode
 .wh-backend__topbar
 {
