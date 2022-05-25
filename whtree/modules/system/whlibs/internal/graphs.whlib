@@ -13,7 +13,7 @@
 // Objecttypes
 //
 
-/** A graphobject describes a graph contains a number of vertices (nodes)
+/** A graph object describes a graph contains a number of vertices (nodes)
 */
 PUBLIC STATIC OBJECTTYPE GraphObject
 < // -----------------------------------------------------------------------------
@@ -29,6 +29,7 @@ PUBLIC STATIC OBJECTTYPE GraphObject
   // Properties
   //
 
+  /// #@type(object array #GraphVertex) List of vertices
   PUBLIC PROPERTY vertices(pvt_vertices, -);
 
   // -----------------------------------------------------------------------------
@@ -37,6 +38,7 @@ PUBLIC STATIC OBJECTTYPE GraphObject
   //
 
   /** Adds a vertex to the graph
+      @param(object #GraphVertex) vertex Vertex to add
   */
   PUBLIC MACRO AddVertex(OBJECT vertex)
   {
@@ -45,6 +47,7 @@ PUBLIC STATIC OBJECTTYPE GraphObject
 
 
   /** Deletes a vertex from the graph; also removes all the edges of the vertex
+      @param(object #GraphVertex) vertex Vertex to delete
   */
   PUBLIC MACRO DeleteVertex(OBJECT vertex)
   {
@@ -66,9 +69,16 @@ PUBLIC STATIC OBJECTTYPE GraphVertex
   // Variables (only public to make manipulation cheap, don't use them yourself!)
   //
 
+  /// @private List of edges pointing from this vertex to other vertices
   PUBLIC OBJECT ARRAY pvt_edges;
+
+  /// @private List of edges pointing from other vertices to this vertex
   PUBLIC OBJECT ARRAY pvt_reverse_edges;
+
+  /// @private Scratch-space for alhgorithm implementations
   PUBLIC RECORD pvt_algo_data;
+
+  /// @private Data storage
   PUBLIC RECORD pvt_data;
 
   // -----------------------------------------------------------------------------
@@ -90,18 +100,51 @@ PUBLIC STATIC OBJECTTYPE GraphVertex
   /// Data for private storage by the user
   PUBLIC PROPERTY data(pvt_data, pvt_data);
 
+  // -----------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Construct a new vertex
+      @cell(record) options.data Initial filling for data property
+      @cell(object #GraphObject) options.graph If set, auto-add to this graph
+  */
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ data :=   DEFAULT RECORD
+        , graph :=  DEFAULT OBJECT
+        ], options);
+    this->pvt_data := options.data;
+    IF (ObjectExists(options.graph))
+      options.graph->AddVertex(this);
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // API
+  //
+
+  /** Add an edge from this vertex to another vertex
+      @param vertex_to Other vertex
+  */
   PUBLIC MACRO AddSimpleEdge(OBJECT vertex_to)
   {
     INSERT vertex_to INTO this->pvt_edges AT END;
     INSERT this INTO vertex_to->pvt_reverse_edges AT END;
   }
 
+  /** Delete an edge from this vertex to another vertex
+      @param vertex_to Other vertex
+  */
   PUBLIC MACRO DeleteSimpleEdge(OBJECT vertex_to)
   {
     DELETE FROM this->pvt_edges AT SearchElement(this->pvt_edges, vertex_to);
     DELETE FROM vertex_to->pvt_reverse_edges AT SearchElement(vertex_to->pvt_reverse_edges, this);
   }
 
+  /** Deletes all edges
+  */
   PUBLIC MACRO DeleteAllEdges()
   {
     FOREVERY (OBJECT vertex_to FROM this->pvt_edges)
@@ -116,6 +159,10 @@ PUBLIC STATIC OBJECTTYPE GraphVertex
 // Algorithms
 //
 
+/** Executes the topological sort algorithm on a graph
+    @param(object #GraphObject) graph Graph
+    @return(object #GraphVertex) List of all vertices, sorted topologically
+*/
 PUBLIC OBJECT ARRAY FUNCTION TopologicalSort(OBJECT graph)
 {
   /* http://en.wikipedia.org/wiki/Topological_sorting
@@ -166,6 +213,10 @@ PUBLIC OBJECT ARRAY FUNCTION TopologicalSort(OBJECT graph)
   RETURN l;
 }
 
+/** Executes the topological sort algorithm on a graph
+    @param(object #GraphObject) graph Graph
+    @return(object #GraphVertex) List of all vertices, sorted topologically
+*/
 PUBLIC RECORD ARRAY FUNCTION GetTreeLevels(OBJECT graph)
 {
   // Get topological sort, so the graph is in increasing tree depth and there are no cycles.
@@ -235,6 +286,9 @@ OBJECTTYPE TarjanExecutor
 < INTEGER idx;
   OBJECT ARRAY stack;
 
+  /** List of strongly connected components
+      @cell(object array #GraphVertex) vertices List of vertices in this strongly connected component
+  */
   PUBLIC RECORD ARRAY sccs;
 
   MACRO NEW(OBJECT graph)
@@ -318,9 +372,10 @@ PUBLIC STRING FUNCTION DebugGetGraphDisplay(OBJECT graph, FUNCTION PTR display_n
 
 
 /** Breaks all cycles in a graph by deleting edges
-    @return
-    @cell return.edge_from
-    @cell return.edge_to
+    @param(object #GraphObject) graph Graph
+    @return List of removed edges
+    @cell return.edge_from Vertex the removed edge started
+    @cell return.edge_to Vertex the removed edge pointed to
 */
 PUBLIC RECORD ARRAY FUNCTION BreakGraphCycles(OBJECT graph)
 {
@@ -427,9 +482,9 @@ Link(node p, node n)=
 */
 
 /** Calculate all dominators in a graph, starting at a source node
-    @param graph
-    @param sourcenode
-    @return
+    @param(object #GraphObject) graph Graph
+    @param(object #GraphVertex) sourcenode Source node to start at
+    @return Dominators for every node
     @cell return.node Node
     @cell return.dominator Dominator of that node
 */

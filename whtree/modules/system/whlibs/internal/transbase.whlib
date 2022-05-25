@@ -782,7 +782,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
 
   /** Returns an autonumber for a column in the specified table
-      @param tablename Name of the table (in the form "schema.table")
+      @param schemaname Name of the schema
+      @param tablename Name of the table
       @param columnname Name of the column (case insensitive)
       @return New autonumber (number that is guaranteed to be unique in that column when inserted, while
          this transaction exists)
