@@ -10,7 +10,7 @@
     document.write('<p style="position:absolute;top:0;bottom:0;left:0;right:0;padding:20%;text-align:center;z-index:999999;background:#ffffff"><b>Unsupported browser</b><br /><br />Unfortunately, your browser is not supported by WebHare. Please upgrade to a more recent version.<br/><br/></p>');
   </script>
 
-  <div id="tolliumbody" spellcheck="false">
+  <div class="wh-shell__root" spellcheck="false">
     [if not frontendmode]
       <div class="t-apptabs" id="t-apptabs">
         <div id="openinfo"></div>

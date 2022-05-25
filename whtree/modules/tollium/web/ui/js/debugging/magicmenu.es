@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import { qS } from 'dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as whintegration from '@mod-system/js/wh/integration';
 import $todd from '@mod-tollium/web/ui/js/support';
@@ -16,8 +15,8 @@ function onTopbarClick(event)
   if(clicks.length==3 && (clicks[2]-clicks[0])<1000)
   {
     magicmenuactive = true;
-    qS('#topbar').classList.add('topbar--play');
-    window.setTimeout(() => qS('#topbar').classList.remove('topbar--play'), 1);
+    dompack.qS('.wh-backend__topbar').classList.add('wh-backend__topbar--play');
+    window.setTimeout(() => dompack.qS('.wh-backend__topbar').classList.remove('wh-backend__topbar--play'), 1);
   }
 }
 
@@ -60,4 +59,4 @@ function onMagicMenu(event)
 }
 
 window.addEventListener("contextmenu", onMagicMenu, true);
-dompack.register('#topbar', node => node.addEventListener("click", onTopbarClick));
+dompack.register('.wh-backend__topbar', node => node.addEventListener("click", onTopbarClick));
