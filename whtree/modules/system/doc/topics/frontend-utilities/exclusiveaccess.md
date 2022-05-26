@@ -34,6 +34,7 @@ try
     { realname: "Henk Testuser", entityid: 7 },
     { onAlreadyLocked: (realname, login) => <div>Already locked by {realname || login}. Take over?<div>
     , onLockStolenShown: () => { /* lock was stolen and the user acknowledged it, navigate away */ }
+    , buttontitles: { yes: "YES!" }
     });
 }
 catch (e)
