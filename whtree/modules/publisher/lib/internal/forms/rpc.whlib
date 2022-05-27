@@ -79,7 +79,11 @@ RECORD FUNCTION Submit(RECORD submitinfo)
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
   form->formcheckratelimits := TRUE;
-  form->__FormSetData(submitinfo.fields);
+  IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
+    form->__FormSetData(submitinfo.fields);
+  ELSE
+    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE ]);
+
   RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
   RECORD submitres := form->FormExecuteSubmit(CELL[extradata]);
   submitres.errors :=  SELECT name := Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
@@ -91,7 +95,10 @@ VARIANT FUNCTION Invoke(RECORD submitinfo)
 {
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
-  form->__FormSetData(submitinfo.fields);
+  IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
+    form->__FormSetData(submitinfo.fields);
+  ELSE
+    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE ]);
   RETURN form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
 }
 

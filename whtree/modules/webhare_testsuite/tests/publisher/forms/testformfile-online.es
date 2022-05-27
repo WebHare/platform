@@ -90,11 +90,11 @@ test.registerTests(
   , async function()
     {
       let target = test.getDoc().documentElement.dataset.rpcformtarget;
-      let result = await test.getWin().formrpc_submitForm(target, { email: "directsubmit@beta.webhare.net"} );
+      let result = await test.getWin().formrpc_submitForm(target, { } );
       test.eqMembers([{message: "This value is required.", name: "requiredpulldownfield"}], result.errors);
       test.eq(false, result.success);
 
-      result = await test.getWin().formrpc_submitForm(target, { email: "directsubmit@beta.webhare.net", requiredpulldownfield: "yes"} );
+      result = await test.getWin().formrpc_submitForm(target, { requiredpulldownfield: "yes"} );
       test.eq(true, result.success);
       test.eq([], result.errors);
       test.true(result.result.resultsguid.length > 10);
