@@ -453,7 +453,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->rundata := this->GetRunData();
     webdesign->jsobjconfig := this->rundata.config;
 
-    INSERT "wh-tollium--app" INTO webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface
+    INSERT "wh-shell" INTO webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface (TODO should indyshell apply it after succesful startup, and should that hide the 'webhare starting' root witty?)
 
     //do not allow us to be embedded into iframes
     IF(NOT this->allowinframe)

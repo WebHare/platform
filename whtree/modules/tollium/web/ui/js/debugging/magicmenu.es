@@ -1,11 +1,16 @@
 import * as dompack from 'dompack';
-import { qS } from 'dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import * as whintegration from '@mod-system/js/wh/integration';
 import $todd from '@mod-tollium/web/ui/js/support';
 
-let magicmenuactive = !whintegration.config.islive;
+let magicmenuactive;
 let clicks = [];
+
+///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
+function isActive()
+{
+  return !whintegration.config.dtapstage == 'development' || magicmenuactive;
+}
 
 function onTopbarClick(event)
 {
@@ -16,8 +21,8 @@ function onTopbarClick(event)
   if(clicks.length==3 && (clicks[2]-clicks[0])<1000)
   {
     magicmenuactive = true;
-    qS('#topbar').classList.add('topbar--play');
-    window.setTimeout(() => qS('#topbar').classList.remove('topbar--play'), 1);
+    dompack.qS('.wh-backend__topbar').classList.add('wh-backend__topbar--play');
+    window.setTimeout(() => dompack.qS('.wh-backend__topbar').classList.remove('wh-backend__topbar--play'), 1);
   }
 }
 
@@ -40,11 +45,10 @@ async function editElement(component)
 
 function onMagicMenu(event)
 {
-  if(!event.shiftKey || !event.altKey || !magicmenuactive)
+  if(!event.shiftKey || !event.altKey || !isActive())
     return;
 
-  event.preventDefault();
-  event.stopPropagation();
+  dompack.stop(event);
 
   let component = event.target.closest( '*[data-name]');
   let submenu = dompack.create("ul");
@@ -60,4 +64,4 @@ function onMagicMenu(event)
 }
 
 window.addEventListener("contextmenu", onMagicMenu, true);
-dompack.register('#topbar', node => node.addEventListener("click", onTopbarClick));
+dompack.register('.wh-backend__topbar', node => node.addEventListener("click", onTopbarClick));

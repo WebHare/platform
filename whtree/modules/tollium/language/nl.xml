@@ -781,6 +781,7 @@
     <text tid="editfavorites">Beheren</text>
     <text tid="frontendclose">Applicatiesessies zijn verlopen</text>
     <text tid="frontendclose_description">De verbinding tussen uw browser en WebHare is verbroken. De betreffende applicaties in WebHare zijn gesloten.</text>
+    <text tid="isrestoredwebhare">Deze WebHare is uit een backup hersteld</text>
     <text tid="loadingapp">Applicatie starten...</text>
     <text tid="offline">Verbinding verbroken</text>
     <text tid="offline_description">De verbinding met de server is verbroken. Wacht a.u.b. tot deze weer hersteld is.</text>

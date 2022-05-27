@@ -46,15 +46,6 @@ body div.wh-rtd-editor
 }
 
 
-/* #tolliumbody is the div we place as content, usually into a main, but we expect
-   our callers to format us ! */
-#tolliumbody
-{
-  position:relative;
-  height:100%;
-  width:100%;
-}
-
 input, textarea, select
 {
   font: inherit;

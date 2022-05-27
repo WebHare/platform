@@ -43,9 +43,18 @@
   <body>
     <div id="bg">
       <div id="msg">
-        <h1>This page will stop working in the future!</h1>
-        <p> This file is using the deprecated 'prebuilt file type'.<br>
-            To restore the preview, create a more specific filetype.</p>
+        <h1>[gettid "publisher:components.previewbrowser.showmessage.notviewable-title"]</h1>
+        <p>[gettid "publisher:components.previewbrowser.showmessage.notviewable-message" type]</p>
+        <p><a href="[url]" target="_blank">[gettid "publisher:components.previewbrowser.showmessage.notviewable-urlmessage"]</a></p>
+
+        [if warning_namespace]
+          <br>
+          <br>
+          <p>
+            If you expected a preview for this &lt;dynamicexecution&gt; file you should specify kind="virtualfile" or needstemplate="true"
+            for filetype [warning_namespace]
+          </p>
+        [/if]
       </div>
     </div>
   </body>

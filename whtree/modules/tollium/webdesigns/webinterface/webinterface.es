@@ -6,18 +6,14 @@ import './pages/harescripterror';
 import 'font-awesome/css/font-awesome.css';
 import '@mod-wrd/js/auth';
 import * as whintegration from '@mod-system/js/wh/integration';
-
-import IndyShell from '@mod-tollium/web/ui/js/shell';
+import startTolliumShell from '@mod-tollium/shell';
 
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
 import "@mod-publisher/js/internal/polyfills/modern.es";
 
-if(document.documentElement.classList.contains('wh-tollium--app'))
+if(document.documentElement.classList.contains('wh-shell'))
 {
-  if(!document.all && ("max" in document.createElement("progress")) && !document.documentElement.classList.contains("previewframe")) //IE < 11
-  {
-    window.$shell = new IndyShell;
-  }
+  startTolliumShell(); //TODO perhaps
 }
 else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual"))
 {

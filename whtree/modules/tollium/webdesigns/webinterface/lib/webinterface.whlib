@@ -1,5 +1,10 @@
 <?wh
+
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
@@ -27,7 +32,12 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
         AND this->targetfolder->typens = "http://www.webhare.net/xmlns/tollium/manual")
       INSERT "wh-tollium--manual" INTO this->htmlclasses AT END;
 
-    RETURN
+    STRING banner;
+    STRING restoreinfo := GetEnvironmentVariable("WEBHARE_ISRESTORED");
+    IF(restoreinfo != "")
+      banner := GetTid("tollium:shell.isrestoredwebhare") || (restoreinfo != "1" ? ": " || restoreinfo : "");
+
+    RETURN CELL
         [ favicon :=
           [ touchicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/apple-touch-icon.png")
           , icon32 := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/favicon-32x32.png")
@@ -38,6 +48,7 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
           , iconcolor := "#3091dd"
           , themecolor := "#4a4a4a"
           ]
+        , banner
         ];
   }
 

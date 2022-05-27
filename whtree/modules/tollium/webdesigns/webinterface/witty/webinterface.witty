@@ -11,10 +11,12 @@
 [/component]
 
 [component htmlbody]
-  <div id="topbar"></div>
-  <main [if isstandardcontentpage]class="standardcontentpage"[/if]>
+  [if banner]<div class="wh-backend__banner">[banner]</div>[/if]
+  <div class="wh-backend__topbar"></div>
+  <main class="wh-backend__main">
     [contents]
   </main>
+  <div class="wh-backend__bottombar"></div>
 [/component]
 
 [component rootfailure] [! this must be a selfcontained page, no external dependencies !]

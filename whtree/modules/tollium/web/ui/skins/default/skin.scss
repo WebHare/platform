@@ -5,12 +5,6 @@
  * Basic layout
  */
 
-#tolliumbody
-{
-  background-color: #3b3b3b;
-
-}
-
 /* line 56, http://webhare.moe.sf.b-lex.com/.tollium/ui/skins/default/skin.less */
 *
 {
@@ -725,52 +719,6 @@ progress[value]
   z-index: 5;
 }
 
-
-/****************************************************************************************************************************
- * Preview frames
- */
-html.previewframe body
-{
-  background-color: #ffffff;
-  background-position: center, top left;
-  background-repeat: no-repeat, repeat;
-  background-size: auto, auto;
-}
-
-html.previewframe #bg
-{
-  background: url("~@mod-system/web/global/direct/publisher/rabbit-placeholder.png") no-repeat center;
-  background-size: contain;
-  position: absolute;
-  height:50%;
-  left:25%;
-  width:50%;
-  top:25%;
-  z-index: -1;
-}
-
-html.previewframe #msg
-{
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 10%;
-  text-align: center;
-  width: 75%;
-  z-index: 0;
-}
-
-html.previewframe h1
-{
-  /* Copied from skin.css */
-  color: #308fe2;
-  font: 13px roboto;
-  font-weight: 600;
-}
-
-html.previewframe a
-{
-  color: inherit;
-}
 
 
 /****************************************************************************************************************************
