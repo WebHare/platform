@@ -45,12 +45,9 @@ PUBLIC MACRO FillInForm()
                                ]
                               ,[ htmltitle := 'TestWithIssuer (test mode)'
                                , subfields := [[ type := "select"
-                                               , options := [[ enabled := FALSE
-                                                             , HTMLTITLE := 'Select bank'
-                                                             , SELECTED := TRUE
-                                                             , subfields := RECORD[]
-                                                             ]
-                                                            ,[ enabled := TRUE
+                                               , placeholder := "Select bank"
+                                               , placeholderisset := TRUE
+                                               , options := [[ enabled := TRUE
                                                              , htmltitle := 'BoerenLeenBank'
                                                              ]
                                                             ,[ enabled := TRUE
