@@ -18,7 +18,7 @@ MACRO PrintResourceRef(RECORD resref, FUNCTION PTR getresourceref)
   IF(RecordExists(refinfo))
     Print(` class="wh-hserror__resourceref" data-resourceref="${EncodeValue(EncodeJSON(refinfo))}"`);
 
-  Print(`>${EncodeHTML(resref.filename)} ${resref.line},${resref.col}</span"}>`);
+  Print(`>${EncodeHTML(resref.filename)} ${resref.line},${resref.col}</span>`);
 }
 
 PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors, FUNCTION PTR getresourceref)
