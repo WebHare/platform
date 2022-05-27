@@ -263,6 +263,14 @@ test.registerTests(
       test.eq(plaintextlen, counternode.textContent);
     }
 
+  , "textcontent count mode"
+  , async function()
+    {
+      test.setTodd("toplaintextmethod","textcontent");
+      await test.wait("ui");
+      test.eq('1091', test.compByName('editor').querySelector('.wh-counter__count').textContent);
+    }
+
   , "Copy paste with <style>"
   , async function()
     {

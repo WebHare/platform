@@ -412,14 +412,24 @@ function getTolliumDebugVariables()
 
 function setTodd(name, value)
 {
-  var textedit = getCurrentScreen().getToddElement(name).querySelector('input,textarea');
+  let toddel = getCurrentScreen().getToddElement(name);
+  if(!toddel)
+    throw new Error(`Can't find toddElement '${toddel}'`);
+
+  var textedit = toddel.querySelector('input,textarea');
   if(textedit)
   {
     test.fill(textedit, value);
     return;
   }
 
-  throw new Error("Can't find '" + name + "'");
+  if(toddel.matches('select'))
+  {
+    test.fill(toddel, value);
+    return;
+  }
+
+  throw new Error(`Don't know how to set toddElement '${toddel}'`);
 }
 
 function clickToddButton(buttonlabel)
