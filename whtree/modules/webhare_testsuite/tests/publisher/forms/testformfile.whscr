@@ -61,9 +61,8 @@ PUBLIC MACRO FillInForm()
   emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   TestEq(TRUE, emailfieldname!="", "Email field not found");
 
-  //Verify the form contents through the rendertree
+  //Verify the form contents through the rendertree. Note that BuildWebtoolForm already implied ValidateFormRenderTree
   RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
-  ValidateFormRenderTree(rendertree);
 
   TestEqMembers([ classes := STRING[]
                 , pages :=

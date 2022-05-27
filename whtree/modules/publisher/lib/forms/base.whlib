@@ -861,8 +861,8 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   /** Append a new field to the form
       @param parent Owner of the new field. DEFAULT OBJECT if the field will be a toplevel field
-      @param type Type of the new field. If not specified a random name is set.
-      @param name Field name to use in the form
+      @param type Type of the new field
+      @param name Field name to use in the form. If not specified a random name is set.
       @cell(record) options.match Settings needed to select the proper field subtype
       @cell(string) options.valuetype Requests a specific valuetype from a <textedit> (shorthand for `[match := [valuetype := "..." ]]`)
       @cell(boolean) options.ishidden Creates a hidden field that will still be visible for results, merging and conditions just like static fields
@@ -899,6 +899,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
     field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
     field.name := name ?? "dynamic$" || Length(this->__formfields); //FIXME dedupe
+    field.qname := comptype.namespace || "#" || comptype.name;
     field.type := comptype.parsertype;
     field.ishidden := options.ishidden;
     IF(field.ishidden)

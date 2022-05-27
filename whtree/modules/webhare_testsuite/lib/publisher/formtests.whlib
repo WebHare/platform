@@ -2,6 +2,9 @@
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
+/** Validate the form
+    @long This is not intended to be an exhaustive validation, but just points out common/regressed test issues. Passing validation doesn't prove anything
+    */
 PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
 {
   TestEq(FALSE, CellExists(rendertree,'config'), "top-level onfig was eliminated");
@@ -16,38 +19,49 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'label'), "Fields should have 'htmllabel' not 'label'");
 
     FOREVERY(RECORD field FROM page.fields)
+      ValidateRenderTreeField(field);
+
+  }
+}
+
+PUBLIC MACRO ValidateRenderTreeField(RECORD field)
+{
+  //Ensure that fields, if they exist, have the expected type
+  TestEq("STRING", GetTypeName(TYPEID(field.htmltitle)));
+  TestEq("RECORD", GetTypeName(TYPEID(field.groupdataset)));
+  TestEq("RECORD", GetTypeName(TYPEID(field.visiblecondition)));
+
+  TestEqLike("?*#?*", field.qname, "Must be a valid qname");
+  TestEq(TRUE, SearchSubstring(field.qname,'?') = -1, "Qname shouldn't contain a ?");
+
+  IF(CellExists(field,'orientation'))
+    TestEq(TRUE, field.orientation IN ['horizontal','vertical'], "orientation has invalid value '" || field.orientation || "'");
+
+  IF(CellExists(field,'type')) //TODO or should ALL fields have types?
+  {
+    IF(field.type = "checkbox")
     {
-      //Ensure that fields, if they exist, have the expected type
-      TestEq("STRING", GetTypeName(TYPEID(field.htmltitle)));
-      TestEq("RECORD", GetTypeName(TYPEID(field.groupdataset)));
-      TestEq("RECORD", GetTypeName(TYPEID(field.visiblecondition)));
-
-      IF(CellExists(field,'orientation')) //TODO or should ALL fields have orientations?
-        TestEq(TRUE, field.orientation IN ['horizontal','vertical']);
-
-      IF(CellExists(field,'type')) //TODO or should ALL fields have types?
-      {
-        IF(field.type = "checkbox")
-        {
-          //A checkbox is in the forms either a <select type=checkbox> (group of checkboxes) or <checkbox> but when rendering, equalize those!
-          TestEq("BOOLEAN", GetTypeName(TYPEID(field.value)));
-          TestEq(FALSE, CellExists(field,'label'), "No 'label' in a checkbox");
-          TestEq("STRING", GetTypeName(TYPEID(field.htmllabel)));
-          TestEq(FALSE, CellExists(field,'options'));
-          TestEq(FALSE, CellExists(field,'orientation'));
-        }
-        IF(field.type = "checkboxes")
-        {
-          TestEq(FALSE, CellExists(field,'value'), "No 'value' in a 'checkboxes'");
-          TestEq(FALSE, CellExists(field,'label'), "No 'label' in a 'checkboxes'");
-          TestEq(FALSE, CellExists(field,'htmllabel'), "No 'htmllabel' in a 'checkboxes'");
-          TestEq("RECORD ARRAY", GetTypeName(TYPEID(field.options)));
-          TestEq(TRUE, field.orientation IN ["horziontal","vertical"]);
-        }
-      }
-
-      TestEqLike("?*#?*", field.qname, "Must be a valid qname");
-      TestEq(TRUE, SearchSubstring(field.qname,'?') = -1, "Qname shouldn't contain a ?");
+      //A checkbox is in the forms either a <select type=checkbox> (group of checkboxes) or <checkbox> but when rendering, equalize those!
+      TestEq("BOOLEAN", GetTypeName(TYPEID(field.value)));
+      TestEq(FALSE, CellExists(field,'label'), "No 'label' in a checkbox");
+      TestEq("STRING", GetTypeName(TYPEID(field.htmllabel)));
+      TestEq(FALSE, CellExists(field,'options'));
+      TestEq(FALSE, CellExists(field,'orientation'));
     }
+    IF(field.type IN ["checkboxes","radio"])
+    {
+      TestEq(FALSE, CellExists(field,'value'), "No 'value' in a 'checkboxes/radio'");
+      TestEq(FALSE, CellExists(field,'label'), "No 'label' in a 'checkboxes/radio'");
+      TestEq(FALSE, CellExists(field,'htmllabel'), "No 'htmllabel' in a 'checkboxes/radio'");
+      TestEq("RECORD ARRAY", GetTypeName(TYPEID(field.options)));
+      TestEq(TRUE, field.orientation IN ["horizontal","vertical"]);
+
+      FOREVERY(RECORD opt FROM field.options)
+        FOREVERY(RECORD subfield FROM opt.subfields)
+          ValidateRenderTreeField(subfield);
+    }
+    IF(field.type = "composed")
+      FOREVERY(RECORD line FROM field.lines)
+        ValidateRenderTreeField(line);
   }
 }
