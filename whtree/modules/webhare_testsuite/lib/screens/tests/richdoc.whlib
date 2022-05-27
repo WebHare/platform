@@ -245,6 +245,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->GetCurrentRTE()->showcounter := ^showcounter->value;
   }
 
+  MACRO GotToPlainTextMethodChange()
+  {
+    this->GetCurrentRTE()->toplaintextmethod := ^toplaintextmethod->value;
+  }
+
   MACRO DoEditrawhtml()
   {
     RECORD val := this->GetCurrentRTE()->value;
