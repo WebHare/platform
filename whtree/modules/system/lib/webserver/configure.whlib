@@ -43,6 +43,7 @@ PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
 {
   RECORD unpackedurl := UnpackURL(url);
   RECORD matchwebserver := GetWebserver(url);
+  STRING pathmask := `/${unpackedurl.urlpath}*`;
 
   RECORD ARRAY rules := SELECT rowkey := "db:" || id
                              , ruletype := hostingsrc = 6 ? "webruleset" : "legacy"
@@ -54,7 +55,7 @@ PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
                           FROM system_internal.access
                          WHERE access.webserver = matchwebserver.id
                                AND NOT disabled
-                               AND (unpackedurl.urlpath = "" OR ToUppercase(path) LIKE "/" || unpackedurl.urlpath || "*")
+                               AND ToUppercase(path) LIKE ToUppercase(pathmask)
                       ORDER BY path;
 
   RETURN rules;

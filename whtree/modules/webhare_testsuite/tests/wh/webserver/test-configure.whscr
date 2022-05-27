@@ -41,8 +41,8 @@ MACRO TestManageAccessRules()
                 ,[ matchtype := "initial", path := "/path2/subpath3/", url := testport.baseurl || "path2/subpath3/"]
                 ], (SELECT * FROM ListAccessRules(testport.baseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
 
-  ///verify that even alternative references to the same webserver return normalized url
-  STRING trybaseurl := testport.baseurl || "PATH2/";
+  ///verify that even alternative references to the same webserver return normalized url. verify proper case-insensitiveness
+  STRING trybaseurl := testport.baseurl || "PAth2/";
   IF(trybaseurl LIKE "http:*")
     trybaseurl  := Substitute(trybaseurl, 'http:', 'https:');
   ELSE IF(trybaseurl LIKE "https:*")
@@ -52,6 +52,9 @@ MACRO TestManageAccessRules()
 
   TestEqMembers([[ matchtype := "initial", path := "/path2/subpath3/", url := testport.baseurl || "path2/subpath3/"]
                 ], (SELECT * FROM ListAccessRules(trybaseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
+
+  TestEqMembers([[ matchtype := "initial", path := "/path2/subpath3/", url := testport.baseurl || "path2/subpath3/"]
+                ], (SELECT * FROM ListAccessRules(testport.baseurl || "PATH2") WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
 
   TestEq(RECORD[], (SELECT * FROM ListAccessRules(testport.baseurl || "/PATH2/")), "Dupe // in path shouldn't return aynthing");
 
