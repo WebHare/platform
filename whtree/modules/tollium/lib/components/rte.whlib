@@ -7,6 +7,7 @@ LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -652,8 +653,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   {
     IF (this->pvt_toplaintextmethod = newvalue)
       RETURN;
-    IF (newvalue NOT IN [ "converthtmltoplaintext" ])
-      THROW NEW Exception("Illegal value for 'ToPlainTextMethod': '" || EncodeJava(newvalue) || "'. Allowed: 'converthtmltoplaintext");
+
+    CONSTANT STRING ARRAY validplaintextmethod := [ "converthtmltoplaintext", "textcontent" ];
+    IF (newvalue NOT IN validplaintextmethod)
+      THROW NEW Exception(`Illegal value for 'ToPlainTextMethod': '${newvalue}'. Allowed: '${Detokenize(validplaintextmethod,"', '")}'`);
 
     this->pvt_toplaintextmethod := newvalue;
     this->ExtUpdatedComponent();
@@ -679,14 +682,28 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     IF (NOT RecordExists(value))
       RETURN "";
 
-    BOOLEAN suppress_urls := "suppress_urls" IN this->pvt_toplaintextmethodoptions;
-    BOOLEAN unix_newlines := "unix_newlines" IN this->pvt_toplaintextmethodoptions;
-    RETURN BlobToString(ConvertHtmlToPlainText(value.htmltext, CELL
-        [ imagehandling :=  1
-        , encoding :=       "utf-8"
-        , suppress_urls
-        , unix_newlines
-        ]));
+    SWITCH(this->pvt_toplaintextmethod)
+    {
+      CASE "converthtmltoplaintext"
+      {
+        BOOLEAN suppress_urls := "suppress_urls" IN this->pvt_toplaintextmethodoptions;
+        BOOLEAN unix_newlines := "unix_newlines" IN this->pvt_toplaintextmethodoptions;
+        RETURN BlobToString(ConvertHtmlToPlainText(value.htmltext, CELL
+            [ imagehandling :=  1
+            , encoding :=       "utf-8"
+            , suppress_urls
+            , unix_newlines
+            ]));
+      }
+      CASE "textcontent"
+      {
+        RETURN MakeXMLDocumentFromHTML(value.htmltext)->body->textcontent;
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unsupported toplaintextmethod '${this->pvt_toplaintextmethod}'`);
+      }
+    }
   }
 
   STRING FUNCTION GetWarnLengthExceededWarningTid()

@@ -916,6 +916,10 @@ export class RTE
         const unix_newlines = options.includes("unix_newlines");
         return convertHtmlToPlainText(this.bodydiv, { suppress_urls, unix_newlines });
       }
+      case "textcontent":
+      {
+        return this.bodydiv.textContent;
+      }
     }
     throw new Error("Unsupported method for plaintext conversion: " + method);
   }

@@ -2922,6 +2922,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:simpleType>
         <xs:restriction base="xs:string">
           <xs:enumeration value="converthtmltoplaintext"/>
+          <xs:enumeration value="textcontent"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
