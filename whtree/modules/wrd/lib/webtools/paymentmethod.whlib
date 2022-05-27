@@ -23,7 +23,7 @@ PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD
   RETURN fielddef;
 }
 
-PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
+PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 <
   OBJECT pvt_paymentapi;
   RECORD ARRAY paymentoptions;
@@ -168,7 +168,8 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     }
 
     issuerpulldown->type := "pulldown";
-    issuerpulldown->options := [[ rowkey := "", title := GetTid("wrd:site.forms.payments.selectbank"), enabled := FALSE ]] CONCAT paymentopt.issuers;
+    issuerpulldown->placeholder := GetTid("wrd:site.forms.payments.selectbank");
+    issuerpulldown->options := paymentopt.issuers;
     issuerpulldown->required := TRUE;
     RETURN [issuerpulldown];
   }

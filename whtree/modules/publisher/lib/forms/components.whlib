@@ -695,6 +695,19 @@ PUBLIC STATIC OBJECTTYPE ComposedFormFieldBase EXTEND FormFieldBase
     THROW NEW Exception(`Composition problem - RenderIntoSubField may not be directly invoked (field: ${this->name})`);
   }
 
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD renderinfo := CELL[ ...FormFieldBase::GetRenderTree()
+                             , type := "composed"
+                             , lines := RECORD[]
+                             ];
+
+    FOREVERY(OBJECT line FROM this->__composed_fields)
+      INSERT line->GetRenderTree() INTO renderinfo.lines AT END;
+
+    RETURN renderinfo;
+  }
+
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
     FOREVERY(OBJECT line FROM this->__composed_fields)

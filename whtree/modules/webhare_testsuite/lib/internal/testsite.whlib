@@ -1153,7 +1153,9 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   FillTestFormFile(formfile, options);
   GetPrimary()->PopWork();
 
-  ValidateFormRenderTree(OpenWebtoolForm(formfile->id)->GetRenderTree());
+  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+  //DumpValue(rendertree, 'tree');
+  ValidateFormRenderTree(rendertree);
 
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);

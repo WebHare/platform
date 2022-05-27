@@ -1,6 +1,8 @@
 <?wh
 
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -33,6 +35,30 @@ PUBLIC MACRO FillInForm()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   IF(testfw->debug)
     Print('Form URL: ' || formfile->url||'\n');
+
+  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+  RECORD pmfield := SELECT * FROM rendertree.pages[0].fields WHERE name = "pm";
+  TestEqMembers(
+     [ type := "composed"
+     , lines := [[ type := 'radio'
+                 , options := [[ htmltitle := 'TestNoIssuer (test mode)'
+                               ]
+                              ,[ htmltitle := 'TestWithIssuer (test mode)'
+                               , subfields := [[ type := "select"
+                                               , placeholder := "Select bank"
+                                               , placeholderisset := TRUE
+                                               , options := [[ enabled := TRUE
+                                                             , htmltitle := 'BoerenLeenBank'
+                                                             ]
+                                                            ,[ enabled := TRUE
+                                                             , htmltitle := 'DurePakkenBank'
+                                                             ]
+                                                            ]
+                                              ]]
+                             ]]
+                ]]
+    ], pmfield, '*');
+
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
   OBJECT ARRAY radios := testfw->browser->document->GetElements('input[name="pm.paymentmethod"]');

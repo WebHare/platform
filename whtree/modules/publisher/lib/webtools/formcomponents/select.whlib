@@ -794,6 +794,7 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
     {
       this->pvt_rowkeytype := "string";
       this->pvt_type := "pulldown";
+      this->orientation := "vertical";
     }
   }
 
@@ -1140,11 +1141,20 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
     RETURN base;
   }
 
+  RECORD ARRAY FUNCTION GetSubFieldsTree(RECORD option)
+  {
+    RETURN SELECT AS RECORD ARRAY sub->GetRenderTree()
+             FROM ToRecordArray(option.subfields, 'sub');
+  }
+
   UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
   {
     RECORD ARRAY options := SELECT htmltitle
                                  , value := isoptgroup ? "" : UnmapValueType(this->rowkeytype, rowkey, "", FALSE)
-                              FROM this->pvt_options;
+                                 , subfields := this->GetSubFieldsTree(inopt)
+                                 , selected
+                                 , enabled := inopt.enabled AND NOT (this->type="pulldown" AND this->field.required AND IsDefaultvalue(inopt.rowkey))
+                              FROM this->pvt_options AS inopt;
 
     RECORD rendering := CELL[ ...FormFieldBase::GetRenderTree()
                             , options

@@ -10,15 +10,33 @@
 </html>
 
 [component testoverview]<!DOCTYPE html>
-<h1>Javascript tests overview</h1>
+  <h1>Javascript tests overview</h1>
+  <h2>By module/group</h2>
   <ul>
     [forevery testsbygroup]
-      <li>[if link]<a href="[link]">[title]</a>[else][title][/if]
+      <li>[if link]<a href="[link]">[title]</a> ([num])[else][title][/if]
         [if sites]
           <ul>
             [forevery sites]
               <li>
-                <a href="[link]">[title]</a>
+                <a href="[link]">[title]</a> ([num])
+              </li>
+            [/forevery]
+          </ul>
+        [/if]
+      </li>
+    [/forevery]
+  </ul>
+
+  <h2>By tag</h2>
+  <ul>
+    [forevery testsbytag]
+      <li>[if link]<a href="[link]">[title]</a> ([num])[else][title][/if]
+        [if sites]
+          <ul>
+            [forevery sites]
+              <li>
+                <a href="[link]">[title]</a> ([num])
               </li>
             [/forevery]
           </ul>
