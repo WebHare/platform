@@ -2,6 +2,7 @@
 
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
@@ -15,9 +16,11 @@ OBJECT trans := OpenPrimary();
 OBJECT testrunner := NEW RunTests;
 RECORD ARRAY tests := testrunner->GatherAllTests(DEFAULT STRING ARRAY, DEFAULT STRING ARRAY);
 
-RECORD ARRAY testsbygroup;
-
+RECORD ARRAY testsbygroup, testsbytag;
+STRING ARRAY alltags;
 tests := SELECT *, topgroup := Tokenize(testname,'.')[0] FROM tests WHERE type = "jstest";
+FOREVERY(RECORD test FROM SELECT * FROM tests WHERE Length(tags) > 0)
+  alltags := ArrayUnion(alltags, test.tags);
 
 FOREVERY(STRING groupname FROM SELECT AS STRING ARRAY DISTINCT topgroup FROM tests)
 {
@@ -33,13 +36,15 @@ FOREVERY(STRING groupname FROM SELECT AS STRING ARRAY DISTINCT topgroup FROM tes
     INSERT [ link := persite[0].link
            , title := groupname
            , sites := RECORD[]
+           , num := Length(persite[0].tests)
            ] INTO testsbygroup AT END;
   }
   ELSE
   {
     INSERT [ link := ""
            , title := groupname
-           , sites := (SELECT title := sitename, link
+           , num := 0
+           , sites := (SELECT title := sitename, link, num := Length(persite.tests)
                          FROM persite)
            ] INTO testsbygroup AT END;
   }
@@ -47,5 +52,38 @@ FOREVERY(STRING groupname FROM SELECT AS STRING ARRAY DISTINCT topgroup FROM tes
 
 testsbygroup := SELECT * FROM testsbygroup ORDER BY ToUppercase(title);
 
+FOREVERY(STRING tag FROM alltags)
+{
+  RECORD ARRAY persite := SELECT sitename
+                               , link := ResolveToAbsoluteURL(ANY(baseurl), `/.system/jstests/?site=${EncodeURL(ANY(sitename))}&tags=${EncodEURL(tag)}.*`)
+                               , tests := GroupedValues(tests)
+                            FROM tests
+                           WHERE tag IN tags
+                        GROUP BY sitename;
+
+  IF(Length(persite) = 1)
+  {
+    INSERT [ link := persite[0].link
+           , title := tag
+           , sites := RECORD[]
+           , num := Length(persite[0].tests)
+           ] INTO testsbytag AT END;
+  }
+  ELSE
+  {
+    INSERT [ link := ""
+           , title := tag
+           , num := 0
+           , sites := (SELECT title := sitename, link, num := Length(persite.tests)
+                         FROM persite)
+           ] INTO testsbytag AT END;
+  }
+}
+
+testsbytag := SELECT * FROM testsbytag ORDER BY ToUppercase(title);
+
 OBJECT webdesign := GetWebdesign(whconstant_whfsid_webharebackend);
-webdesign->RunPageWithContents(PTR LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->RunComponent("testoverview",[ testsbygroup := testsbygroup ]));
+webdesign->RunPageWithContents(PTR LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->RunComponent("testoverview",
+  [ testsbygroup := testsbygroup
+  , testsbytag := testsbytag
+  ]));
