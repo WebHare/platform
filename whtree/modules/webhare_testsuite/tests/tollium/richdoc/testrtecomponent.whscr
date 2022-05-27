@@ -252,6 +252,19 @@ MACRO TestRequired()
   TestEq(TRUE, scr->TolliumExecuteSubmit());
 }
 
+ASYNC MACRO TestCounters()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:anycomponent", [ params := ["richdocument"]]));
+
+  topscreen->comp->showcounter := TRUE;
+  topscreen->comp->TolliumWeb_FormUpdate(`<html><body><p class="normal">Text with \u00a0\u00a0\u00a0\u00a0non-breaking spaces\u00a0\u00a0\u00a0\u00a0</p></body></html>`);
+  TestEq("Text with non-breaking spaces ",topscreen->comp->plaintext);
+  topscreen->comp->toplaintextmethod := "textcontent";
+  TestEq("Text with \u00a0\u00a0\u00a0\u00a0non-breaking spaces\u00a0\u00a0\u00a0\u00a0",topscreen->comp->plaintext);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
 MACRO TestStructuredBlocksRTE()
 {
   OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
@@ -387,6 +400,7 @@ ASYNC MACRO TestRichDocument()
 }
 
 RunTestFramework( [ PTR TestRequired
+                  , PTR TestCounters
                   , PTR RTEDocumentTypes
                   , PTR TestRegressionTruncation
                   , PTR TEstStructuredRTE
@@ -394,4 +408,6 @@ RunTestFramework( [ PTR TestRequired
                   , PTR TagFilterKeepBR
                   , PTR TagFilterKeepNewLines
                   , PTR TestRichDocument
-                  ]);
+                  ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

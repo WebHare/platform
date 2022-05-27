@@ -52,13 +52,16 @@
     </body>
     <footer>
       <line layout="left">
-        <textedit title="Lose selection in IE" width="1x" />
         <checkbox name="editorvisible" onchange="togglevisible" label="Visible" />
         <checkbox name="editorenabled" onchange="toggleenabled" label="Enabled" />
         <checkbox name="editorreadonly" onchange="togglereadonly" label="Readonly" />
         <checkbox name="suppress_urls" onchange="GotPlaintextConversionOptionsChange" title="" label="Suppress urls" />
         <checkbox name="unix_newlines" onchange="GotPlaintextConversionOptionsChange" title="" label="Unix newlines" />
         <checkbox name="showcounter" onchange="GotShowCounterChange" title="" label="Show counter" />
+        <select name="toplaintextmethod" onchange="GotToPlainTextMethodChange" title="ToPlainText" type="pulldown">
+          <option rowkey="converthtmltoplaintext" title="converthtmltoplaintext" />
+          <option rowkey="textcontent" title="textcontent" />
+        </select>
       </line>
       <line layout="left">
         <button name="openhtmlbutton" action="openhtml" />
