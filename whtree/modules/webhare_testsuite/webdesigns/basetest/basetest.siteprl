@@ -492,6 +492,7 @@
 
   <apply>
     <to type="file" pathmask="/webtools/paymenthandlerform" />
+    <to type="file" pathmask="/webtools/apipayment" />
     <formpayments xmlns="http://www.webhare.net/xmlns/wrd"
                   paymentfield="paydata.data"
                   providerfield="payprov.method"
