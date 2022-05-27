@@ -54,9 +54,13 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                                , ispending := FALSE
                                ], options);
 
+    //We *always* store pagedata now, we can't optimize it out or would run the risk of crashing if someone ever creates a field named 'pagedata' with no guid.
+    //Unless at some points we're confident that those storeresults would have expired
     RECORD storerow := [ __formmeta := CELL[ setfields := STRING[]
+                                           , form->pagedata
                                            ]
                        ];
+
     IF(RecordExists(extradata))
       INSERT CELL extradata := extradata INTO storerow.__formmeta;
 
@@ -81,9 +85,6 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                           , question := field.guid ?? field.name
                        FROM tostorage.attachments;
     }
-
-    IF(MemberExists(form, "pagedata") AND RecordExists(form->pagedata))
-      INSERT CELL pagedata := form->pagedata INTO storerow;
 
     // Store encoded results as blob if too large for string field
     RECORD store := PrepareAnyForDatabase(storerow);
