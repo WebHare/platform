@@ -21,6 +21,11 @@ function getServiceSubmitInfo(formtarget)
            };
 }
 
+function unpackObject(formvalue)
+{
+  return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
+}
+
 /** Directly submit a RPC form to WebHare
  *  @param target Formtarget as obtained from
  */
@@ -34,7 +39,7 @@ export async function submitForm(target, formvalue, options)
   try
   {
     let submitparameters = { ...getServiceSubmitInfo(target)
-                           , fields: formvalue
+                           , vals: unpackObject(formvalue)
                            , extrasubmit: options?.extrasubmit || null
                            };
 
@@ -118,7 +123,7 @@ export default class RPCFormBase extends FormBase
                                        , "callFormService"
                                        , "invoke"
                                        , { ...getServiceSubmitInfo(this.__formhandler.target)
-                                         , fields: formvalue
+                                         , vals: unpackObject(formvalue)
                                          , methodname: methodname
                                          , args: invokeargs
                                          });

@@ -527,6 +527,11 @@ MACRO TestDirectFormSubmission()
   TestEq("Your Form Was Filled", ownermail[0].subject);
   TestEq("Your Form Was Filled", ownermail[1].subject);
   TestEq(["copt1+jstest@beta.webhare.net","mailresult+jstest@beta.webhare.net"], SELECT AS STRING ARRAY receiver FROM ownermail ORDER BY receiver);
+
+  TestThrowsLike('*Attempting*twice*', PTR form->SetFormValues([[ name := "Firstname", value := "Pjuter" ], [ name := "FirstName", value := "Pjuter2" ]]));
+  TestThrowsLike('*No such*', PTR form->SetFormValues([[ name := "badname", value := "Pjuter" ]]));
+  form->SetFormValues([[ name := "address.city", value := "Brussel" ]]);
+  TestEq("Brussel", form->^address->value.city);
 }
 
 MACRO TestFormAnchors()

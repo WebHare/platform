@@ -36,11 +36,12 @@ MACRO DirectFormStorage1()
   RECORD source := WrapBlob(GetWebHareResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg");
   liveform->^upload->value := source;
 
-  RECORD res := liveform->FormExecuteSubmit();
+  RECORD res := liveform->FormExecuteSubmit([ extradata := [x := 42] ]);
   TestEq(1, formresults->GetResultsCount());
 
   RECORD submitted := formresults->GetSingleResult(res.result.resultsguid);
   TestEqLike("mod::webhare_testsuite/*", submitted.useragent);
+  TestEq([ x := 42], submitted.extradata);
 
   //Open in edit mode
   liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);

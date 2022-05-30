@@ -20,11 +20,12 @@ OBJECT pm2;
 PUBLIC MACRO BuildForm()
 {
   OBJECT paymentapi := GetWRDTestPaymentAPI();
-  BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
-  BuildWebtoolForm([filename := "custompaymentfield", addpaymentmethod := TRUE, addpaymenthandler := TRUE, addtslinecomp := TRUE]);
+  BuildWebtoolForm([ emailfieldname := "email", addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
+  BuildWebtoolForm([ emailfieldname := "email", filename := "custompaymentfield", addpaymentmethod := TRUE, addpaymenthandler := TRUE, addtslinecomp := TRUE]);
+  BuildWebtoolForm([ emailfieldname := "email", filename := "apipayment", addpaymentmethod := TRUE, addpaymenthandler := TRUE ]);
 
-  BuildCustomWebtoolForm2([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE]);
-  BuildCustomWebtoolForm2([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE, filename := "paymenthandlerform"]);
+  BuildCustomWebtoolForm2([ emailfieldname := "email", addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE]);
+  BuildCustomWebtoolForm2([ emailfieldname := "email", addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE, filename := "paymenthandlerform"]);
 
   pm2 := testfw->wrdschema->^payprov->GetEntity(testfw->wrdschema->^payprov->Search("wrd_title", "TestMethod"));
 }
@@ -80,13 +81,12 @@ PUBLIC MACRO FillInForm()
   TestEq(TRUE, RecordExists(SELECT FROM fields WHERE title = ":Pay using"), "payment field not in formfields!");
   TestEq(FALSE, RecordExists(SELECT FROM fields WHERE ToUppercase(name)="PM.PAYMENTMETHOD"), "PM.PAYMENTMETHOD should not leak into fields"); //it never did here, though
 
-  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
   RECORD submitrec := [ firstname := "Pietje"
                       , "pm.paymentmethod" := STRING[radios[0]->GetAttribute("value")]
+                      , email := "testfw+formtest@beta.webhare.net"
                       ];
 
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
 
@@ -127,8 +127,6 @@ PUBLIC MACRO FillInForm()
 
   //Test an export
   OBJECT exporter := webtoolresults->CreateExporter();
-  IF(testfw->debug)
-    dumpvalue(exporter->columns,'boxed');
 
   RECORD ARRAY exportrows := exporter->ExportAllResults();
   STRING col_payusing  := SELECT AS STRING name FROM exporter->columns WHERE title="Pay using";
@@ -164,11 +162,10 @@ MACRO CustomForm()
   OBJECT ARRAY radios_pm := testfw->browser->document->GetElements('input[name="pm.paymentmethod"]');
   RECORD submitrec := [ firstname := "Pietje"
                       , "pm.paymentmethod" := STRING[radios_pm[0]->GetAttribute("value")]
+                      , email := "testfw+formtest@beta.webhare.net"
                       ];
 
   //Submit to trigger a bug when fields are added to non-issuer payment methods
-  STRING emailfieldname := testfw->browser->QS(`input[type=email]`)->GetAttribute("name");
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
 }
@@ -194,11 +191,45 @@ ASYNC MACRO TestEditPaymentHandler()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+MACRO TestThroughFormValueAPI()
+{
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/apipayment");
+  OBJECT form := OpenWebtoolForm(formfile->id);
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+  OBJECT exporter := webtoolresults->CreateExporter();
+
+  RECORD rendertree := form->GetRenderTree();
+  RECORD pmfield := (SELECT * FROM rendertree.pages[0].fields WHERE name = "pm").lines[0];
+  TestEq("TestWithIssuer (test mode)", pmfield.options[1].htmltitle);
+
+  form->SetFormValues([[ name := "firstname", value := "FNTest" ]
+                      ,[ name := "email", value := "testfw+apipayment@beta.webhare.net" ]
+                      ,[ name := pmfield.name, value := pmfield.options[1].value ]
+                      ,[ name := pmfield.options[1].subfields[0].name, value := "DPB" ]
+                      ]);
+
+  TestEqMembers([ issuer := "DPB"
+                , paymentoptiontag := "WITHISSUER"
+                ], form->^pm->value, '*');
+
+  RECORD res := form->FormExecuteSubmit();
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(res.result.submitinstruction));
+
+  TestEq(0, Length(exporter->ExportAllResults()));
+
+  PushWRDTestPaymentButton("approved");
+
+  RECORD ARRAY exportrows := exporter->ExportAllResults();
+  STRING col_payusing  := SELECT AS STRING name FROM exporter->columns WHERE title="Pay using";
+  TestEq("TestWithIssuer (DPB)", GetCell(exportrows[END-1], col_payusing));
+}
+
 RunTestframework([ PTR CreateWRDTestSchema([withpayment := STRING["noissuer","withissuer"] ])
                  , PTR BuildForm
                  , PTR FillInForm
                  , PTR CustomForm
                  , PTR TestEditPaymentHandler
+                 , PTR TestThroughFOrmValueAPI
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

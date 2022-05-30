@@ -177,7 +177,7 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     STRING methodtag := paymentapi->providertype->GetEntityField(pmfield->value.paymentprovider,"WRD_TAG");
     RECORD data := [ r := this->form->resultguid, h := this->__handlerinfo.handler.guid ];
 
-    STRING returnurl := UpdateURLVariables(GetFormRequestURL(), [ confirm := EncryptForThisServer("publisher:confirmation", EncodeHSON(data))
+    STRING returnurl := UpdateURLVariables(this->form->formurl, [ confirm := EncryptForThisServer("publisher:confirmation", EncodeHSON(data))
                                                                 ]);
 
     GetPrimary()->BeginWork();
