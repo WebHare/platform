@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
@@ -47,6 +48,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     this->frame->flags.right_schemacreate := this->tolliumuser->HasRight("wrd:createschema");
     this->frame->flags.right_superuser := this->tolliumuser->HasRight("system:sysop");
+
+    IF(IsProductionOrAsIf())
+      ^delschema->enableon[0].max := 1;
   }
 
   MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
