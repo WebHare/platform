@@ -316,6 +316,8 @@ calculatecoverage:
 
 deploydocker:
   stage: deploy
+  # "If you do not use dependencies, all artifacts from previous stages are passed to each job." - we don't need the deploy stages to download all these artifcats..
+  dependencies: []
   except:
     - schedules
     - /^docs\/.*$/
@@ -325,6 +327,7 @@ deploydocker:
 
 updatetestscripts:
   stage: deploy
+  dependencies: []
   only:
     refs:
       - master
@@ -335,4 +338,3 @@ updatetestscripts:
     - /^docs\/.*$/
   script:
     - addons/deploy_testscripts.sh
-
