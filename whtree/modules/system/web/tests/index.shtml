@@ -55,7 +55,7 @@ testsbygroup := SELECT * FROM testsbygroup ORDER BY ToUppercase(title);
 FOREVERY(STRING tag FROM alltags)
 {
   RECORD ARRAY persite := SELECT sitename
-                               , link := ResolveToAbsoluteURL(ANY(baseurl), `/.system/jstests/?site=${EncodeURL(ANY(sitename))}&tags=${EncodEURL(tag)}.*`)
+                               , link := ResolveToAbsoluteURL(ANY(baseurl), `/.system/jstests/?site=${EncodeURL(ANY(sitename))}&tags=${EncodEURL(tag)}`)
                                , tests := GroupedValues(tests)
                             FROM tests
                            WHERE tag IN tags
