@@ -555,6 +555,21 @@ if [ -n "$TESTFW_TWOHARES" ]; then
 fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
+  # assetpack compiles are much more complex and may rely on siteprofiles etc working, so it's best to find any validation errors first.
+  # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
+  if [ -z "$RUNEXPLICITTESTS" ]; then
+    echo "$(date) Check module"
+    # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --filemask '*' --color $TESTINGMODULENAME ; then
+      testfail "wh checkmodule failed"
+    fi
+
+    echo "$(date) System-wide check (eg against siteprofile inconsistencies)"
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkwebhare ; then
+      testfail "wh checkwebhare failed"
+    fi
+  fi
+
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "$(date) Check assetpacks"
@@ -570,19 +585,6 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
       fi
     else
       testfail "wait assetpacks failed (errorcode $?)"
-    fi
-  fi
-
-  if [ -z "$RUNEXPLICITTESTS" ]; then
-    echo "`date` Check module"
-    # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --filemask '*' --color $TESTINGMODULENAME ; then
-      testfail "wh checkmodule failed"
-    fi
-
-    echo "`date` System-wide check (eg against siteprofile inconsistencies)"
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkwebhare ; then
-      testfail "wh checkwebhare failed"
     fi
   fi
 fi
