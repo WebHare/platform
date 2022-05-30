@@ -789,7 +789,10 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     }
   }
 
-  //EXPERIMENTAL SetProxyFor - little or no test coverage yet
+  /** EXPERIMENTAL SetProxyFor - little or no test coverage yet
+      @param proxy Addres of the proxy (must start with 'socks4://')
+      @param urlmask Mask for urls to route through the proxy
+  */
   PUBLIC MACRO SetProxyFor(STRING proxy, STRING urlmask)
   {
     IF(proxy NOT LIKE "socks4://*")
