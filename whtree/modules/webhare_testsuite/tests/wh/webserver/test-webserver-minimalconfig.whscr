@@ -7,14 +7,24 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
+MACRo ValidateConfig(RECORD inconfig)
+{
+  RECORD whsock := SELECT * FROM inconfig.types WHERE extension = "whsock";
+  RECORD shtml := SELECT * FROM inconfig.types WHERE extension = "shtml";
+
+  TestEq("application/x-webhare-websocket", whsock.mimetype);
+  TestEq(4, whsock.parsetype);
+  TestEq("text/html; charset=UTF-8", shtml.mimetype);
+  TestEq(1, shtml.parsetype);
+}
+
 MACRO TestMinimalConfig_NoDatabase()
 {
   //First test WITHOUT database... to ensure minimial config generation doesn't require one
   TestEq(FALSE, HavePrimaryTransaction());
 
   RECORD minimal := CreateMinimalWebserverConfig();
-  //dumpvalue(minimal,'tree');
-
+  ValidateConfig(minimal);
   TestEq(FALSE, HavePrimaryTransaction());
 }
 
@@ -38,11 +48,19 @@ MACRO TestMinimalConfig()
   TestEq(TRUE, res.success);
 }
 
+MACRO TestFullConfigCompliance()
+{
+  //even full config should have the minimal configuration
+  RECORD config := DownloadWebserverConfig();
+  ValidateConfig(config);
+}
+
 RunTestFramework([ PTR TestMinimalConfig_NoDatabase
                  ], [ usedatabase := FALSE ]);
 
 testfw := DEFAULT OBJECT;
 RunTestFramework([ PTR TestMinimalConfig
+                 , PTR TestFullConfigCompliance
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

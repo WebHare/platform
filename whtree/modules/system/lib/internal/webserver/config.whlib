@@ -5,7 +5,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -25,6 +24,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/webserver/mimetypes.whlib";
 //webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as long as it exists:
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder;
 
@@ -164,27 +164,6 @@ RECORD ARRAY FUNCTION ProcessIPList(RECORD ARRAY ips, BOOLEAN autodenyipv6)
   RETURN retval;
 }
 
-RECORD FUNCTION GetCacheableMimeTypes()
-{
-  RECORD ARRAY types := SELECT mimetype, extension, parsetype, forcedispositionattachment FROM system.mimetypes;
-  types := types CONCAT
-      [ [ mimetype :=     "x-webhare-builtin/eventserver"
-        , extension :=    ""
-        , parsetype :=    5
-        , forcedispositionattachment := FALSE
-        ]
-      ];
-
-  RETURN [ ttl := 15 * 60 * 1000
-         , value := types
-         , eventmasks := [ "system:internal.webserver.didconfigreload" ]
-         ];
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetMimeTypes()
-{
-  RETURN GetAdhocCached( [ type := "mimetypes" ], PTR GetCacheableMimeTypes);
-}
 
 PUBLIC RECORD ARRAY FUNCTION AddVaryCookieHeader(RECORD ARRAY headers)
 {
@@ -1112,7 +1091,11 @@ OBJECTTYPE WebConfigBuilder
       this->finalconfig.script_timeout := ReadRegistryKey("system.webserver.global.scripttimeout");
       this->finalconfig.keep_process_history := ReadRegistryKey("system.webserver.global.historyseconds") * 1000;
       this->finalconfig.stripextensions := ParseXSList(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions")));
-      this->finalconfig.types := GetCacheableMimeTypes().value;
+      this->finalconfig.types := GetDatabaseMimetypes();
+    }
+    ELSE
+    {
+      this->finalconfig.types := GetMinimalMimetypes();
     }
   }
 
