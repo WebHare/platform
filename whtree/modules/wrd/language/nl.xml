@@ -833,7 +833,7 @@
     </textgroup>
     <textgroup gid="messageboxes">   <!-- schemamanager.messageboxes -->
       <text tid="deleteschema">Weet je zeker dat je schema '<param p="1"/>' wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
-      <text tid="deleteschemas">Weet je zeker dat je de geselecteerde schemas wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
+      <text tid="deleteschemas">Weet je zeker dat je de geselecteerde <param p="1"/> schemas wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
       <text tid="import_schema_errors">De volgende fouten zijn opgetreden bij het importeren van het schema:<br/><param p="1"/></text>
       <text tid="import_schema_norights">U heeft onvoldoende rechten om het schema '<param p="1"/>' te mogen vervangen.</text>
       <text tid="import_schema_protected">Het schema '<param p="1"/>' is beschermd en kan niet vervangen worden.</text>
@@ -1122,6 +1122,14 @@
       </textgroup>
       <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
         <text tid="methodtitle">Niet beschikbaar</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="schemamanager">   <!-- tolliumapps.schemamanager -->
+      <textgroup gid="deleteschemaprod">   <!-- tolliumapps.schemamanager.deleteschemaprod -->
+        <text tid="confirmdeletion">Bevestig verwijdering van WRD schema '<param p="1"/>'</text>
+        <text tid="confirmmoduleowneddeletion">Ja, ik wil een schema verwijderen waaraan module '<param p="1"/>' nog steeds refereert</text>
+        <text tid="deleteschema">Verwijder schema '<param p="1"/>'</text>
+        <text tid="prodwarning">Dit is een productieomgeving. Verzeker je ervan dat je je op de juiste server bevindt en het juiste schema geselecteerd hebt om te verwijderen.</text>
       </textgroup>
     </textgroup>
   </textgroup>

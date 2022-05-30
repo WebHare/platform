@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
@@ -15,6 +16,7 @@ LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 
 
 RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck)
@@ -104,20 +106,26 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       IF(sch.isprotected)
       {
-        OBJECT work := this->BeginWork();
-        work->AddError(GetTid("wrd:browser.messages.schema_protected_delete", sch.tag));
-        work->Finish();
+        this->RunSimpleScreen("error", GetTid("wrd:browser.messages.schema_protected_delete", sch.tag));
         RETURN;
       }
     }
 
-    IF ((Length(tokill) = 1 ? this->RunMessageBox(".deleteschema", tokill[0].tag) : this->RunMessageBox(".deleteschemas")) = "yes")
+    IF(IsProductionOrAsIf()) //NOTE in this case we can only delete one schema at a time
     {
-      OBJECT work := this->BeginWork();
-      FOREVERY(RECORD kill FROM tokill)
-        OpenWRDSchemaById(kill.rowkey)->DeleteSelf();
-      work->Finish();
+      this->RunScreen("#deleteschemaprod", [ tag := tokill[0].tag ]);
+      RETURN;
     }
+
+    STRING msg := Length(tokill) = 1 ? GetTid("wrd:schemamanager.messageboxes.deleteschema", tokill[0].tag)
+                                     : GetTid("wrd:schemamanager.messageboxes.deleteschemas", ToString(Length(tokill)));
+    IF(this->RunSimpleScreen("verify", msg) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    FOREVERY(RECORD kill FROM tokill)
+      OpenWRDSchemaById(kill.rowkey)->DeleteSelf();
+    work->Finish();
   }
 
   MACRO OnImport(RECORD infile)
@@ -436,5 +444,31 @@ PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
     OBJECT selectedpeer := RunConnectRemoteWebHareDialog(this);
     IF(ObjectExists(selectedpeer))
       ^peer->value := selectedpeer->url;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE DeleteSchemaProd EXTEND TolliumScreenBase
+<
+  STRING tag;
+
+  MACRO Init(RECORD data)
+  {
+    this->tag := data.tag;
+    this->frame->title := this->GetTid(".confirmdeletion", this->tag);
+    ^warndeletion->value := GetTid("wrd:schemamanager.messageboxes.deleteschema", this->tag);
+    ^deleteschema->title := this->GetTid(".deleteschema", this->tag);
+
+    RECORD schemadef := GetModuleWRDSchemaDefinition(this->tag);
+    IF(RecordExists(schemadef) AND schemadef.isexact)
+      ^confirmmoduleowneddeletion->label := this->GetTid(".confirmmoduleowneddeletion", schemadef.sourcemodule);
+    ELSE
+      ^confirmmoduleowneddeletion->visible := FALSE;
+
+    this->OnConfirmChange();
+  }
+
+  MACRO OnConfirmChange()
+  {
+    ^deleteschema->enabled := ^confirmmoduleowneddeletion->value OR ^confirmmoduleowneddeletion->visible = FALSE;
   }
 >;

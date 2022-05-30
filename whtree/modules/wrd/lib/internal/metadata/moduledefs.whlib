@@ -36,6 +36,7 @@ RECORD ARRAY FUNCTION ParseSchemas(OBJECT xmldef, STRING modulename)
                               //look for autocreate. for 4.28 integrated wrdschema, it defaults to true unless disabled
           , autocreate     := isexact AND ParseXSBoolean(schemanode->GetAttribute("autocreate") ?? "true")
           , title          := schemanode->GetAttribute("title")
+          , sourcemodule   := modulename
           ];
     INSERT schemarec INTO schemas AT END;
   }
