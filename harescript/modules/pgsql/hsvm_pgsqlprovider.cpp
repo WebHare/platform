@@ -1608,7 +1608,6 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 , allowwriteerrordelay(false)
 , logstacktraces(options.logstacktraces)
 , logcommands(0)
-, commandlog(0)
 , command_timeout_secs(default_command_timeout_secs)
 {
         assumeblobsexist = Blex::GetEnvironVariable("WEBHARE_PGSQL_ASSUMEBLOBSEXIST") == "1";
@@ -1631,9 +1630,6 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 
 PGSQLTransactionDriver::~PGSQLTransactionDriver()
 {
-        if(commandlog)
-            HSVM_DeallocateVariable(*vm, commandlog);
-
         cancel.reset();
         PQfinish(conn);
 }
@@ -2452,17 +2448,14 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
         if (PGSQLTransactionDriver::GetLastResult().second)
             return PGPtr< PGresult >();
 
-        HSVM_VariableId logentry = 0;
-        if(commandlog != 0)
-            logentry = HSVM_ArrayAppend(*vm, commandlog);
+        const bool fullstacktrace = false;
+        std::vector< StackTraceElement > elements;
 
         std::string logprefix;
-        if (logstacktraces > 0)
+        if (logstacktraces > 0 || logcommands > 0)
         {
                 logprefix = "/*whlog:t[";
 
-                std::vector< StackTraceElement > elements;
-                const bool fullstacktrace = false;
                 vm->GetStackTrace(&elements, true, fullstacktrace);
 
                 int32_t eltcount = 0;
@@ -2475,12 +2468,6 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                         logprefix += itr.filename + "#" + Blex::AnyToString(itr.position.line) + "#" + Blex::AnyToString(itr.position.column) + "(" + itr.func + ")";
                 }
                 logprefix += "]*/";
-
-                if(logentry)
-                {
-                        HSVM_VariableId col_stacktrace = HSVM_RecordCreate(*vm, logentry, HSVM_GetColumnId(*vm, "STACKTRACE"));
-                        GetVMStackTraceFromElements(vm, col_stacktrace, elements, vm, fullstacktrace);
-                }
         }
 
         Blex::SHA1 sha1;
@@ -2520,6 +2507,26 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                 }
         }
 
+        if (logcommands != 0)
+        {
+                HSVM_OpenFunctionCall(*vm, 2);
+                HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), sqllib_transid);
+
+                VarId lastcommand = HSVM_CallParam(*vm, 1);
+                HSVM_SetDefault(*vm, lastcommand, HSVM_VAR_Record);
+                HSVM_VariableId var_query = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "QUERY"));
+                HSVM_StringSetSTD(*vm, var_query, query.querystr);
+                HSVM_VariableId var_stacktrace = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "STACKTRACE"));
+                GetVMStackTraceFromElements(vm, var_stacktrace, elements, vm, fullstacktrace);
+
+                const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Record };
+                int obj = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__HandleRunCommand", 0, 2, args);
+                if (obj)
+                    HSVM_CloseFunctionCall(*vm);
+                else
+                    return PGPtr< PGresult >();
+        }
+
         int res = 0;
         if (!prep.name.empty() && logprefix.empty())
         {
@@ -2547,11 +2554,6 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                     !query.astext);
         }
 
-        if(logentry)
-        {
-                HSVM_VariableId col_query = HSVM_RecordCreate(*vm, logentry, HSVM_GetColumnId(*vm, "QUERY"));
-                HSVM_StringSetSTD(*vm, col_query, query.querystr);
-        }
 
         if (!res)
         {
@@ -3056,12 +3058,6 @@ void PGSQL_GetDebugSettings(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGSTACKTRACES")), driver->logstacktraces);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGCOMMANDS")), driver->logcommands);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "COMMANDTIMEOUT")), driver->command_timeout_secs);
-
-        HSVM_VariableId commandlog = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "COMMANDLOG"));
-        if(driver->commandlog != 0)
-            HSVM_CopyFrom(hsvm, commandlog, driver->commandlog);
-        else
-            HSVM_SetDefault(hsvm, commandlog, HSVM_VAR_RecordArray);
 }
 
 void PGSQL_UpdateDebugSettings(HSVM *hsvm)
@@ -3078,17 +3074,6 @@ void PGSQL_UpdateDebugSettings(HSVM *hsvm)
         driver->logstacktraces = HSVM_IntegerGet(hsvm, HSVM_Arg(1));
         driver->logcommands = HSVM_IntegerGet(hsvm, HSVM_Arg(2));
         driver->command_timeout_secs = HSVM_IntegerGet(hsvm, HSVM_Arg(3));
-
-        if(driver->logcommands > 0 && !driver->commandlog) //create the log
-        {
-                driver->commandlog = HSVM_AllocateVariable(hsvm);
-                HSVM_SetDefault(hsvm, driver->commandlog, HSVM_VAR_RecordArray);
-        }
-        else if(driver->logcommands <= 0 && driver->commandlog) //remove the log
-        {
-                HSVM_DeallocateVariable(hsvm, driver->commandlog);
-                driver->commandlog = 0;
-        }
 }
 
 

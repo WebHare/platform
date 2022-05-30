@@ -330,7 +330,7 @@ BOOLEAN FUNCTION Connect(BOOLEAN logcommands)
     IF(trans->type != "postgresql")
       THROW NEW Exception(`Option --logcommands is only available on postgresql`);
 
-    trans->__UpdateDebugConfig([ logcommands := 1, logstacktraces := 1 ]);
+    trans->__SetKeepCommandLog(TRUE);
   }
 
   RETURN TRUE;

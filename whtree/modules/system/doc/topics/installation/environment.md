@@ -103,6 +103,9 @@ Set debug flags:
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
 - `handles`: Record stack traces when handles are created (currently only outputobjects)
+- `postgresql:auto_explain`: Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log
+- `postgresql:logcommands`: Log all SQL queries sent to the PostgreSQL database to the debug log
+- `postgresql:noerrordelay`: Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
