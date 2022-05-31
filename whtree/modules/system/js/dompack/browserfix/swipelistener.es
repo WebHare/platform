@@ -56,15 +56,15 @@ class SwipeDetect
 
   touchEnabled()
   {
-    return ("createTouch" in document);
+    return ("ontouchstart" in window);
   }
 
   onTouchStart(ev)
   {
     this.swipeinfo = { starttime : new Date().getTime()
                      , endtime   : -1
-                     , start     : { x : ev.pageX, y : ev.pageY }
-                     , end       : { x : ev.pageX, y : ev.pageY }
+                     , start     : { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY }
+                     , end       : { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY }
                      , target    : ev.target
                      , direction : ""
                      };
@@ -74,7 +74,7 @@ class SwipeDetect
   {
     if(!this.swipeinfo)
       return;
-    this.swipeinfo.end = { x : ev.pageX, y : ev.pageY };
+    this.swipeinfo.end = { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY };
   }
 
   onTouchEnd(ev)
