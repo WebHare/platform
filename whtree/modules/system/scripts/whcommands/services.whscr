@@ -52,7 +52,7 @@ MACRO HandleWildcards(MACRO PTR func, STRING servicemask)
   }
 }
 
-MACRO DebugService(STRING servicename)
+MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
 {
   RECORD app := WaitForPromise(link->SetEnabled(servicename,FALSE));
 
@@ -63,9 +63,9 @@ MACRO DebugService(STRING servicename)
   {
     STRING ARRAY debugargs := app.args;
     IF(app.app LIKE "*/appserver")
-      debugargs := ["--debug"] CONCAT debugargs;
+      debugargs := ["--debug"] CONCAT debugargs CONCAT serviceargs;
     ELSE
-      debugargs := debugargs CONCAT ["--debug"];
+      debugargs := debugargs CONCAT ["--debug"] CONCAT serviceargs;
 
     OBJECT proc := CreateProcess(app.app, debugargs,
       [ take_input := FALSE
@@ -126,11 +126,17 @@ MACRO Main()
   link := WaitForPromise(OpenWebHareService("system:apprunner"));
 
   trans := OpenPrimary();
-  RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "cmd", type := "param",     required := FALSE ]
-                                                       , [ name := "service", type := "param", required := FALSE ]
+  RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "cmd",         type := "param" ]
+                                                       , [ name := "service",     type := "param" ]
+                                                       , [ name := "serviceargs", type := "paramlist" ]
                                                        ]);
 
-  SWITCH(call.cmd)
+  IF(RecordExists(call) AND Length(call.serviceargs) > 0 AND call.cmd NOT IN ["debug"])
+  {
+    TerminateScriptWithError(`This subcommand does not support arguments to the sevice`);
+  }
+
+  SWITCH(RecordExists(call) ? call.cmd : "help")
   {
     CASE "", "list"
     {
@@ -154,11 +160,20 @@ MACRO Main()
     }
     CASE "debug"
     {
-      DebugService(call.service);
+      DebugService(call.service, call.serviceargs);
     }
     DEFAULT
     {
-      ABORT("Unrecognized command '" || call.cmd || "'");
+      Print("Syntax: wh services <command>\n");
+      Print("  list             List all services\n");
+      Print("  reload           Reload service list\n");
+      Print("  start <service>  Start the specified service(s) (wildcards accepted)\n");
+      Print("  stop <service>   Stop the specified service(s) (wildcards accepted)\n");
+      Print("  stop <service>   Stop the specified service(s) (wildcards accepted)\n");
+      IF(RecordExists(call))
+        TerminateScript();
+      ELSE
+        TerminateScriptWithError("Invalid syntax");
     }
   }
 }
