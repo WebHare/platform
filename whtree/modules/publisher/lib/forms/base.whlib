@@ -610,10 +610,13 @@ PUBLIC STATIC OBJECTTYPE FormBase
       @param vals List of values to set
       @cell(string) vals.name Element name to set
       @cell vals.value Value to set
-      @cell(boolean) options.rpcjs Set to TRUE if the value are coming from the RPC JS API (and thus need UpdateFromJS) */
+      @cell(boolean) options.rpcjs Set to TRUE if the value are coming from the RPC JS API (and thus need UpdateFromJS)
+      @cell(boolean) options.ignorenonexisting Ignore non-existing fields (by default an exception is thrown) */
   PUBLIC MACRO SetFormValues(RECORD ARRAY vals, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ rpcjs := FALSE ], options);
+    options := ValidateOptions( [ rpcjs := FALSE
+                                , ignorenonexisting := FALSE
+                                ], options);
 
     vals := SELECT *, seen := FALSE FROM vals;
     FOREVERY(RECORD field FROM this->__formfields)
@@ -633,9 +636,12 @@ PUBLIC STATIC OBJECTTYPE FormBase
       vals[matchvals[0]].seen := TRUE;
     }
 
-    STRING ARRAY unset := SELECT AS STRING ARRAY name FROM vals WHERE NOT seen;
-    IF(Length(unset) > 0)
-      THROW NEW Exception(`No such fields: '${Detokenize(unset, "', '")}'`);
+    IF(NOT options.ignorenonexisting)
+    {
+      STRING ARRAY unset := SELECT AS STRING ARRAY name FROM vals WHERE NOT seen;
+      IF(Length(unset) > 0)
+        THROW NEW Exception(`No such fields: '${Detokenize(unset, "', '")}'`);
+    }
   }
 
   PUBLIC STRING FUNCTION GetFormTarget()
