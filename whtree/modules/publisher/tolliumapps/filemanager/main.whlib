@@ -1102,7 +1102,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   }
   MACRO OnReportURLHistory_filelist()
   {
-    RunURLHistoryExport(this, ^filelist->valeu[0]);
+    RunURLHistoryExport(this, ^filelist->value[0]);
   }
 
   MACRO DoNewInstance()
