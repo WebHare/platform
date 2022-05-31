@@ -1,5 +1,13 @@
 <?wh
 
+/* Drives the headless chrome instance used for our devtools integration (eg printer.whlib))
+
+   You can make this Chrome instance visible (sometimes useful for debugging, but unfortunately Chrome currently requires
+   headless mode for PDF Printing) by using
+
+   wh services debug system:chromeheadlessrunner --noheadless
+*/
+
 LOADLIB "wh::async.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";

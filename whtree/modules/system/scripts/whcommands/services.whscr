@@ -13,16 +13,6 @@ MACRO ListServices()
   DumpValue( (SELECT name, enabled, running, since FROM report.report ORDER BY name),'boxed');
 }
 
-MACRO WatchServices()
-{
-  WHILE(TRUE)
-  {
-    //ADDME overwrite screen, only listen for events, show errors
-    ListServices();
-    Sleep(3000);
-  }
-}
-
 MACRO RestartService(STRING servicename)
 {
   RECORD res := WaitForPromise(link->Restart(servicename));
@@ -62,7 +52,7 @@ MACRO HandleWildcards(MACRO PTR func, STRING servicemask)
   }
 }
 
-MACRO DebugService(STRING servicename)
+MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
 {
   RECORD app := WaitForPromise(link->SetEnabled(servicename,FALSE));
 
@@ -73,9 +63,9 @@ MACRO DebugService(STRING servicename)
   {
     STRING ARRAY debugargs := app.args;
     IF(app.app LIKE "*/appserver")
-      debugargs := ["--debug"] CONCAT debugargs;
+      debugargs := ["--debug"] CONCAT debugargs CONCAT serviceargs;
     ELSE
-      debugargs := debugargs CONCAT ["--debug"];
+      debugargs := debugargs CONCAT ["--debug"] CONCAT serviceargs;
 
     OBJECT proc := CreateProcess(app.app, debugargs,
       [ take_input := FALSE
@@ -136,11 +126,17 @@ MACRO Main()
   link := WaitForPromise(OpenWebHareService("system:apprunner"));
 
   trans := OpenPrimary();
-  RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "cmd", type := "param",     required := FALSE ]
-                                                       , [ name := "service", type := "param", required := FALSE ]
+  RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "cmd",         type := "param" ]
+                                                       , [ name := "service",     type := "param" ]
+                                                       , [ name := "serviceargs", type := "paramlist" ]
                                                        ]);
 
-  SWITCH(call.cmd)
+  IF(RecordExists(call) AND Length(call.serviceargs) > 0 AND call.cmd NOT IN ["debug"])
+  {
+    TerminateScriptWithError(`This subcommand does not support arguments to the sevice`);
+  }
+
+  SWITCH(RecordExists(call) ? call.cmd : "help")
   {
     CASE "", "list"
     {
@@ -150,11 +146,11 @@ MACRO Main()
     {
       BroadcastEvent("system:apprunner.internal.rescan", DEFAULT RECORD);
     }
-    CASE "disable", "stop"
+    CASE "stop"
     {
       HandleWildcards(PTR DisableService, call.service);
     }
-    CASE "enable", "start"
+    CASE "start"
     {
       HandleWildcards(PTR EnableService, call.service);
     }
@@ -162,17 +158,22 @@ MACRO Main()
     {
       HandleWildcards(PTR RestartService, call.service);
     }
-    CASE "watch"
-    {
-      WatchServices();
-    }
     CASE "debug"
     {
-      DebugService(call.service);
+      DebugService(call.service, call.serviceargs);
     }
     DEFAULT
     {
-      ABORT("Unrecognized command '" || call.cmd || "'");
+      Print("Syntax: wh services <command>\n");
+      Print("  list               List all services\n");
+      Print("  reload             Reload service list\n");
+      Print("  start <service>    Start the specified service(s) (wildcards accepted)\n");
+      Print("  stop <service>     Stop the specified service(s) (wildcards accepted)\n");
+      Print("  restart <service>  Restart the specified service(s) (wildcards accepted)\n");
+      IF(RecordExists(call))
+        TerminateScript();
+      ELSE
+        TerminateScriptWithError("Invalid syntax");
     }
   }
 }
