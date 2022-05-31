@@ -81,8 +81,8 @@ RECORD FUNCTION Submit(RECORD submitinfo)
   form->formcheckratelimits := TRUE;
   IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
     form->__FormSetData(submitinfo.fields);
-  ELSE
-    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE ]);
+  ELSE //ignoring non-existent fields.. might be client/server out of sync but not worth rejecting a submissionover
+    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
 
   RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
   RECORD submitres := form->FormExecuteSubmit(CELL[extradata]);
@@ -97,8 +97,8 @@ VARIANT FUNCTION Invoke(RECORD submitinfo)
   OBJECT form := GetFormObject(submitinfo);
   IF(CellExists(submitinfo,'fields')) // older form (pre- WH 5.0)
     form->__FormSetData(submitinfo.fields);
-  ELSE
-    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE ]);
+  ELSE //ignoring non-existent fields.. might be client/server out of sync but not worth rejecting a submissionover
+    form->SetFormValues(RECORD ARRAY(submitinfo.vals), [ rpcjs := TRUE, ignorenonexisting := TRUE ]);
   RETURN form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
 }
 

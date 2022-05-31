@@ -95,6 +95,7 @@ Set debug flags:
 - `apr`: All new started scripts make a function CPU profile
 - `cov`: All new started scripts make a coverage profile
 - `que`: Log task/queue actions
+- `asprod`: As production - used to trigger some production-only dialogs/workflows (%IsProductionOrAsIf will evaluate to TRUE)
 - `consilio:queues`: Consilio queue management
 - `consilio:searches`: Consilio searches
 - `consilio:traffic`: Consilio RPC traffic

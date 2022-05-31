@@ -94,7 +94,7 @@ test.registerTests(
       test.eqMembers([{message: "This value is required.", name: "requiredpulldownfield"}], result.errors);
       test.eq(false, result.success);
 
-      result = await test.getWin().formrpc_submitForm(target, { requiredpulldownfield: "yes"} );
+      result = await test.getWin().formrpc_submitForm(target, { requiredpulldownfield: "yes", nosuchfield: 42 } );
       test.eq(true, result.success);
       test.eq([], result.errors);
       test.true(result.result.resultsguid.length > 10);
