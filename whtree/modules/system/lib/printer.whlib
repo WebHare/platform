@@ -212,6 +212,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                                                     , options.headertemplate
                                                     , options.footertemplate
                                                     , options.margin
+                                                    , options.delay
                                                     ]), options.timeout));
     }
     RETURN WrapBlob(filedata, options.filename);
