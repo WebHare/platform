@@ -165,11 +165,11 @@ MACRO Main()
     DEFAULT
     {
       Print("Syntax: wh services <command>\n");
-      Print("  list             List all services\n");
-      Print("  reload           Reload service list\n");
-      Print("  start <service>  Start the specified service(s) (wildcards accepted)\n");
-      Print("  stop <service>   Stop the specified service(s) (wildcards accepted)\n");
-      Print("  stop <service>   Stop the specified service(s) (wildcards accepted)\n");
+      Print("  list               List all services\n");
+      Print("  reload             Reload service list\n");
+      Print("  start <service>    Start the specified service(s) (wildcards accepted)\n");
+      Print("  stop <service>     Stop the specified service(s) (wildcards accepted)\n");
+      Print("  restart <service>  Restart the specified service(s) (wildcards accepted)\n");
       IF(RecordExists(call))
         TerminateScript();
       ELSE
