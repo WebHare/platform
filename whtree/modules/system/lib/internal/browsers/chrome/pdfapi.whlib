@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::filetypes/html.whlib";
@@ -244,8 +245,9 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       RETURN DEFAULT BLOB;
 
     OBJECT arc := CreateNewArchive("zip");
+    DATETIME now := GetCurrentDateTime();
     FOREVERY(RECORD file FROM filelist)
-      arc->AddFile(file.path, file.data, DEFAULT DATETIME);
+      arc->AddFile(file.path = "/.contents" ? "/contents.html" : file.path, file.data, now);
 
     BLOB result := arc->MakeBlob();
     arc->Close();
