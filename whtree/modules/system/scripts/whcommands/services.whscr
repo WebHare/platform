@@ -13,16 +13,6 @@ MACRO ListServices()
   DumpValue( (SELECT name, enabled, running, since FROM report.report ORDER BY name),'boxed');
 }
 
-MACRO WatchServices()
-{
-  WHILE(TRUE)
-  {
-    //ADDME overwrite screen, only listen for events, show errors
-    ListServices();
-    Sleep(3000);
-  }
-}
-
 MACRO RestartService(STRING servicename)
 {
   RECORD res := WaitForPromise(link->Restart(servicename));
@@ -161,10 +151,6 @@ MACRO Main()
     CASE "restart"
     {
       HandleWildcards(PTR RestartService, call.service);
-    }
-    CASE "watch"
-    {
-      WatchServices();
     }
     CASE "debug"
     {
