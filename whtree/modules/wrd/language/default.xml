@@ -833,7 +833,7 @@
     </textgroup>
     <textgroup gid="messageboxes">   <!-- schemamanager.messageboxes -->
       <text tid="deleteschema">Are you sure you want to delete schema '<param p="1"/>'? This operation cannot be undone.</text>
-      <text tid="deleteschemas">Are you sure you want to delete the selected schemas? This operation cannot be undone.</text>
+      <text tid="deleteschemas">Are you sure you want to delete the <param p="1"/> selected schemas? This operation cannot be undone.</text>
       <text tid="import_schema_errors">The following errors occured importing the schema:<br/><param p="1"/></text>
       <text tid="import_schema_norights">You do not have sufficient rights to replace the schema '<param p="1"/>'.</text>
       <text tid="import_schema_protected">The schema '<param p="1"/>' is protected and cannot be replaced.</text>
@@ -1122,6 +1122,14 @@
       </textgroup>
       <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
         <text tid="methodtitle">Unavailable</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="schemamanager">   <!-- tolliumapps.schemamanager -->
+      <textgroup gid="deleteschemaprod">   <!-- tolliumapps.schemamanager.deleteschemaprod -->
+        <text tid="confirmdeletion">Confirm deletion of WRD schema '<param p="1"/>'</text>
+        <text tid="confirmmoduleowneddeletion">Yes, I want to delete a schema that's still referenced by module '<param p="1"/>'</text>
+        <text tid="deleteschema">Delete schema '<param p="1"/>'</text>
+        <text tid="prodwarning">This is a production environment. Verify you're on the right server and have selected the right schema for deletion.</text>
       </textgroup>
     </textgroup>
   </textgroup>

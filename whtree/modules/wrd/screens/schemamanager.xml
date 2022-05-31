@@ -9,8 +9,6 @@
     <messagebox name="import_schema_protected"   icon="error" buttons="ok" />
     <messagebox name="import_schema_norights"   icon="error" buttons="ok" />
     <messagebox name="import_schema_errors" icon="error" buttons="ok" />
-    <messagebox name="deleteschema" buttons="yes no"/>
-    <messagebox name="deleteschemas" buttons="yes no"/>
   </messageboxes>
 
   <screen name="main"
@@ -169,4 +167,33 @@
       <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
+
+  <screen name="deleteschemaprod" defaultbutton="cancelbutton" gid="tolliumapps.schemamanager.deleteschemaprod" title="">
+    <actions>
+      <action name="deleteschema" onexecute="submit" title="" />
+    </actions>
+
+    <body spacers="none">
+      <statuspanel name="prodwarning" type="warning">
+        <text valuetid=".prodwarning" wordwrap="true" />
+      </statuspanel>
+      <grid>
+        <cell spacers="top bottom left">
+          <image name="pvt_icon" width="32px" height="32px" value="tollium:messageboxes/warning" title="" />
+        </cell>
+        <cell layout="left" spacers="all"  minwidth="50x">
+          <text name="warndeletion" title=""/>
+          <checkbox name="confirmmoduleowneddeletion" onchange="onconfirmchange" title="" />
+        </cell>
+      </grid>
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button action="deleteschema" />
+        <button name="cancelbutton" tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
 </screens>
