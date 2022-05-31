@@ -401,10 +401,11 @@ MACRO ArchiveTest()
   }
 
   {
+    DATETIME start := GetCurrentDatetime();
     OBJECT newarchive := CreateNewArchive("zip");
     newarchive->AddFile("file1", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
     newarchive->AddFolder("folder1", MakeDate(2003,4,5));
-    newarchive->AddFile("folder1/file2", StringToBlob("File nummer 2"), MakeDate(2002,2,3));
+    newarchive->AddFile("folder1/file2", StringToBlob("File nummer 2"), DEFAULT DATETIME);
     newarchive->AddFolder("folder2", MakeDate(2004,5,6));
     newarchive->AddFolder("folder2/folder3", MakeDate(2005,6,7));
 
@@ -417,12 +418,13 @@ MACRO ArchiveTest()
     RECORD ARRAY results := UnpackArchive(archive);
     results := SELECT * FROM results ORDER BY path, name;
 
+    TestEq(TRUE, results[2].modtime >= GetRoundedDatetime(start, 2000), "modtime should have been set to 'now' if unspecified");
     TestEq([ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
-                 , [ path := "folder1", name := "", modtime := MakeDate(2003,4,5), data := DEFAULT BLOB ]
-                 , [ path := "folder1", name := "file2", modtime := MakeDate(2002,2,3), data := StringToBlob("File nummer 2") ]
-                 , [ path := "folder2", name := "", modtime := MakeDate(2004,5,6), data := DEFAULT BLOB ]
-                 , [ path := "folder2/folder3", name := "", modtime := MakeDate(2005,6,7), data := DEFAULT BLOB ]
-                 ], results);
+           , [ path := "folder1", name := "", modtime := MakeDate(2003,4,5), data := DEFAULT BLOB ]
+           , [ path := "folder1", name := "file2", modtime := results[2].modtime, data := StringToBlob("File nummer 2") ]
+           , [ path := "folder2", name := "", modtime := MakeDate(2004,5,6), data := DEFAULT BLOB ]
+           , [ path := "folder2/folder3", name := "", modtime := MakeDate(2005,6,7), data := DEFAULT BLOB ]
+           ], results);
   }
 
 
