@@ -140,11 +140,11 @@ MACRO Main()
     {
       BroadcastEvent("system:apprunner.internal.rescan", DEFAULT RECORD);
     }
-    CASE "disable", "stop"
+    CASE "stop"
     {
       HandleWildcards(PTR DisableService, call.service);
     }
-    CASE "enable", "start"
+    CASE "start"
     {
       HandleWildcards(PTR EnableService, call.service);
     }
