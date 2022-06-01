@@ -540,6 +540,9 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
         , ...options
         ]);
 
+    IF(modtime = DEFAULT DATETIME)
+      modtime := GetCurrentDatetime();
+
     RECORD convertres := ConvertFileName(name);
 
     INTEGER64 headeroffset := GetStreamPointer(this->dest);
