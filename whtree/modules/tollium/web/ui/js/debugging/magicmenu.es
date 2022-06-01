@@ -9,7 +9,7 @@ let clicks = [];
 ///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
 function isActive()
 {
-  return !whintegration.config.dtapstage == 'development' || magicmenuactive;
+  return whintegration.config.dtapstage == 'development' || magicmenuactive;
 }
 
 function onTopbarClick(event)
