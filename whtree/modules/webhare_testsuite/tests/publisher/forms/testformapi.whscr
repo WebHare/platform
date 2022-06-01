@@ -14,6 +14,27 @@ MACRO TestCoreFormAPI()
   OBJECT webdesign := GetWebDesign(testfile->id);
   OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
 
+  // this textedit has no value=""
+  TestEq(0,coreform->^number->value);
+  TestEq('',coreform->^number->textvalue);
+  TestEq('', coreform->^number->__GetRenderData().value);
+  TestEq(0, coreform->^number->GetRenderTree().value);
+  TestEq('', coreform->^number->GetRenderTree().textvalue);
+
+  // assigning the same value shouldn't set it
+  TestEq(0,coreform->^number->value);
+  TestEq('',coreform->^number->textvalue);
+  TestEq('',coreform->^number->__GetRenderData().value);
+  TestEq(0, coreform->^number->GetRenderTree().value);
+  TestEq('', coreform->^number->GetRenderTree().textvalue);
+
+  // this textedit value="0" emptyvalue=0" does set a textvale
+  TestEq('0',coreform->^numberemptyvalue->textvalue);
+  //and SHOULD be fowarded for consistency (we didn't do this up to 4.35.1)
+  TestEq('0',coreform->^numberemptyvalue->__GetRenderData().value);
+  TestEq(0, coreform->^numberemptyvalue->GetRenderTree().value);
+  TestEq('0', coreform->^numberemptyvalue->GetRenderTree().textvalue);
+
   TestEq(FALSE, coreform->^number->emptyvalueisset);
   TestEq(0, coreform->^number->emptyvalue);
 
@@ -21,6 +42,8 @@ MACRO TestCoreFormAPI()
   TestEq(0, coreform->^numberemptyvalue->emptyvalue);
   coreform->^numberemptyvalue->emptyvalue := -3;
   TestEq(-3, coreform->^numberemptyvalue->emptyvalue);
+
+  TestEq('0',coreform->^numberemptyvalue->textvalue);
 }
 
 MACRO FormApitest()

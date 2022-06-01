@@ -22,8 +22,6 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   // Variables
   //
 
-  STRING textvalue;
-
   /// Text representation of the value that should be given back when the inputted text is empty
   STRING __emptyvalue;
 
@@ -40,6 +38,9 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   //
 
   PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// The literal value we're exchanging with the <input> field
+  PUBLIC STRING textvalue;
 
   /// The value that is converted to an empty textedit (and vv). Only used when @a emptyvalueisset is TRUE.
   PUBLIC PROPERTY emptyvalue(GetEmptyValue, SetEmptyValue);
@@ -109,6 +110,15 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
 
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    IF(this->trimwhitespace)
+      jsdata := TrimWhitespace(jsdata);
+
+    this->textvalue := jsdata;
+    this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
+  }
+
   VARIANT FUNCTION GetEmptyValue()
   {
     RETURN MapValueType(this->valuetype, this->__emptyvalue, this->__emptyvalue);
@@ -130,16 +140,13 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   {
     RECORD base := CELL[ ...this->GetBaseRenderData()
                        , type := "textedit"
-                       , value := ""
+                       , value := this->textvalue
                        , validationchecks := this->validationchecks
                        , placeholder := this->placeholder
                        , range := this->range
                        , minlength := this->minlength
                        , maxlength := this->maxlength
                        ];
-
-    IF(this->textvalue != this->__emptyvalue OR NOT this->emptyvalueisset)
-      base.value := this->textvalue;
 
     RETURN base;
   }
@@ -151,6 +158,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
                              , type := "text"
                              , maxlength := CellExists(this->field, 'maxlength') ? this->field.maxlength : 0
                              , this->value
+                             , this->textvalue
                              ];
 
     IF(CellExists(this->field,'password') AND this->field.password)
@@ -191,19 +199,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
   {
-    RETURN NOT IsDefaultValue(this->value);
-  }
-
-  MACRO SetVal(STRING indata)
-  {
-    IF(this->trimwhitespace)
-      indata := trimwhitespace(indata);
-    this->value := MapValueType(this->valuetype, indata, this->__emptyvalue);
-  }
-
-  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
-  {
-    this->SetVal(jsdata);
+    RETURN this->textvalue != "";
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
