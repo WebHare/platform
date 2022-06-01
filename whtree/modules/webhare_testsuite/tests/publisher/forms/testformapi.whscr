@@ -15,35 +15,41 @@ MACRO TestCoreFormAPI()
   OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
 
   // this textedit has no value=""
+  TestEq("", coreform->^number->emptyvalue);
+
   TestEq(0,coreform->^number->value);
   TestEq('',coreform->^number->textvalue);
   TestEq('', coreform->^number->__GetRenderData().value);
   TestEq(0, coreform->^number->GetRenderTree().value);
   TestEq('', coreform->^number->GetRenderTree().textvalue);
 
-  // assigning the same value shouldn't set it
-  TestEq(0,coreform->^number->value);
-  TestEq('',coreform->^number->textvalue);
-  TestEq('',coreform->^number->__GetRenderData().value);
+  // re-assigning the same value (0) will set it (we also considered it not having side-effects at all but we assume that explicitly setting 0 means you want it to be filled with that (eg a prefill?)
+  coreform->^number->value := coreform->^number->value;
+  TestEq('0',coreform->^number->textvalue);
+  TestEq('0',coreform->^number->__GetRenderData().value);
   TestEq(0, coreform->^number->GetRenderTree().value);
-  TestEq('', coreform->^number->GetRenderTree().textvalue);
+  TestEq('0', coreform->^number->GetRenderTree().textvalue);
 
-  // this textedit value="0" emptyvalue=0" does set a textvale
+  // this textedit value="0" emptyvalue=0" explicitly sets a value
+  TestEq("0", coreform->^numberemptyvalue->emptyvalue);
   TestEq('0',coreform->^numberemptyvalue->textvalue);
   //and SHOULD be fowarded for consistency (we didn't do this up to 4.35.1)
   TestEq('0',coreform->^numberemptyvalue->__GetRenderData().value);
   TestEq(0, coreform->^numberemptyvalue->GetRenderTree().value);
   TestEq('0', coreform->^numberemptyvalue->GetRenderTree().textvalue);
 
-  TestEq(FALSE, coreform->^number->emptyvalueisset);
-  TestEq(0, coreform->^number->emptyvalue);
+  // setting its value to the value referred by emptyvalue will clear the text value. so here self-set ... will do the reverse from above
+  coreform->^numberemptyvalue->value := coreform->^numberemptyvalue->value;
+  TestEq('',coreform->^numberemptyvalue->textvalue);
+  TestEq('',coreform->^numberemptyvalue->__GetRenderData().value);
+  TestEq(0, coreform->^numberemptyvalue->GetRenderTree().value);
+  TestEq('', coreform->^numberemptyvalue->GetRenderTree().textvalue);
 
-  TestEq(TRUE, coreform->^numberemptyvalue->emptyvalueisset);
-  TestEq(0, coreform->^numberemptyvalue->emptyvalue);
-  coreform->^numberemptyvalue->emptyvalue := -3;
-  TestEq(-3, coreform->^numberemptyvalue->emptyvalue);
-
-  TestEq('0',coreform->^numberemptyvalue->textvalue);
+  coreform->^numberemptyvalue->emptyvalue := "-1";
+  TestEq('',coreform->^numberemptyvalue->textvalue);
+  TestEq('',coreform->^numberemptyvalue->__GetRenderData().value);
+  TestEq(-1, coreform->^numberemptyvalue->GetRenderTree().value);
+  TestEq('', coreform->^numberemptyvalue->GetRenderTree().textvalue);
 }
 
 MACRO FormApitest()

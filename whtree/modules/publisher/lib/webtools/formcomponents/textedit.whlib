@@ -22,9 +22,6 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   // Variables
   //
 
-  /// Text representation of the value that should be given back when the inputted text is empty
-  STRING __emptyvalue;
-
   /// Trim whitespace on incoming data?
   BOOLEAN trimwhitespace;
 
@@ -42,11 +39,8 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   /// The literal value we're exchanging with the <input> field
   PUBLIC STRING textvalue;
 
-  /// The value that is converted to an empty textedit (and vv). Only used when @a emptyvalueisset is TRUE.
-  PUBLIC PROPERTY emptyvalue(GetEmptyValue, SetEmptyValue);
-
-  /// If the empty value is set. Needs to be set explicitly otherwise we can't tell whether emptyvalue==0 means its set
-  PUBLIC BOOLEAN emptyvalueisset;
+  /// The value that is converted to an empty textedit
+  PUBLIC STRING emptyvalue;
 
   /// Validation checks
   PUBLIC STRING ARRAY validationchecks;
@@ -101,12 +95,12 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   VARIANT FUNCTION GetValue()
   {
-    RETURN MapValueType(this->valuetype, this->textvalue, this->__emptyvalue);
+    RETURN MapValueType(this->valuetype, this->textvalue, this->emptyvalue);
   }
 
   MACRO SetValue(VARIANT newval)
   {
-    this->textvalue := UnmapValueType(this->valuetype, newval, this->__emptyvalue, this->emptyvalueisset);
+    this->textvalue := UnmapValueType(this->valuetype, newval, this->emptyvalue, TRUE);
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
 
@@ -118,17 +112,6 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     this->textvalue := jsdata;
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
-
-  VARIANT FUNCTION GetEmptyValue()
-  {
-    RETURN MapValueType(this->valuetype, this->__emptyvalue, this->__emptyvalue);
-  }
-
-  MACRO SetEmptyValue(VARIANT newvalue)
-  {
-    this->__emptyvalue := UnmapValueType(this->valuetype, newvalue, "", FALSE);
-  }
-
 
 
   // ---------------------------------------------------------------------------
@@ -443,7 +426,6 @@ PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD pa
 
   INSERT CELL value := parsecontext.parsexmltidptr(node, "value") INTO fielddef;
   INSERT CELL emptyvalue := parsecontext.parsexmltidptr(node, "emptyvalue") INTO fielddef;
-  INSERT CELL emptyvalueisset := node->HasAttribute("emptyvalue") INTO fielddef;
   INSERT CELL trimwhitespace := node->HasAttribute("trimwhitespace") ? ParseXSBoolean(node->GetAttribute("trimwhitespace")) : TRUE INTO fielddef;
 
   IF(node->HasAttribute("validationchecks"))
@@ -509,8 +491,7 @@ PUBLIC STATIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
     IF(field.isstatic)
     {
       this->valuetype := field.valuetype;
-      this->__emptyvalue := GetTid(field.emptyvalue);
-      this->emptyvalueisset := field.emptyvalueisset;
+      this->emptyvalue := GetTid(field.emptyvalue);
       this->UpdateFromJS(GetTid(field.value));
     }
   }
@@ -537,8 +518,7 @@ PUBLIC STATIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
     IF(field.isstatic)
     {
       this->valuetype := field.valuetype;
-      this->__emptyvalue := GetTid(field.emptyvalue) ?? "0";
-      this->emptyvalueisset := field.emptyvalueisset;
+      this->emptyvalue := GetTid(field.emptyvalue);
       this->UpdateFromJS(GetTid(field.value));
     }
     ELSE IF(CellExists(field,'valuetype')) //dynamic creation
