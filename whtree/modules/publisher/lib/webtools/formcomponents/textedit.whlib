@@ -25,10 +25,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   STRING textvalue;
 
   /// Text representation of the value that should be given back when the inputted text is empty
-  STRING emptyvalue;
-
-  /// If the empty value is defined
-  BOOLEAN emptyvalueisset;
+  STRING __emptyvalue;
 
   /// Trim whitespace on incoming data?
   BOOLEAN trimwhitespace;
@@ -43,6 +40,12 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   //
 
   PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// The value that is converted to an empty textedit (and vv). Only used when @a emptyvalueisset is TRUE.
+  PUBLIC PROPERTY emptyvalue(GetEmptyValue, SetEmptyValue);
+
+  /// If the empty value is set. Needs to be set explicitly otherwise we can't tell whether emptyvalue==0 means its set
+  PUBLIC BOOLEAN emptyvalueisset;
 
   /// Validation checks
   PUBLIC STRING ARRAY validationchecks;
@@ -97,14 +100,25 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   VARIANT FUNCTION GetValue()
   {
-    RETURN MapValueType(this->valuetype, this->textvalue, this->emptyvalue);
+    RETURN MapValueType(this->valuetype, this->textvalue, this->__emptyvalue);
   }
 
   MACRO SetValue(VARIANT newval)
   {
-    this->textvalue := UnmapValueType(this->valuetype, newval, this->emptyvalue, this->emptyvalueisset);
+    this->textvalue := UnmapValueType(this->valuetype, newval, this->__emptyvalue, this->emptyvalueisset);
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
+
+  VARIANT FUNCTION GetEmptyValue()
+  {
+    RETURN MapValueType(this->valuetype, this->__emptyvalue, this->__emptyvalue);
+  }
+
+  MACRO SetEmptyValue(VARIANT newvalue)
+  {
+    this->__emptyvalue := UnmapValueType(this->valuetype, newvalue, "", FALSE);
+  }
+
 
 
   // ---------------------------------------------------------------------------
@@ -124,7 +138,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
                        , maxlength := this->maxlength
                        ];
 
-    IF(this->textvalue != this->emptyvalue OR NOT this->emptyvalueisset)
+    IF(this->textvalue != this->__emptyvalue OR NOT this->emptyvalueisset)
       base.value := this->textvalue;
 
     RETURN base;
@@ -184,7 +198,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   {
     IF(this->trimwhitespace)
       indata := trimwhitespace(indata);
-    this->value := MapValueType(this->valuetype, indata, this->emptyvalue);
+    this->value := MapValueType(this->valuetype, indata, this->__emptyvalue);
   }
 
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
@@ -510,7 +524,7 @@ PUBLIC STATIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
     IF(field.isstatic)
     {
       this->valuetype := field.valuetype;
-      this->emptyvalue := GetTid(field.emptyvalue);
+      this->__emptyvalue := GetTid(field.emptyvalue);
       this->emptyvalueisset := field.emptyvalueisset;
       this->UpdateFromJS(GetTid(field.value));
     }
@@ -538,7 +552,7 @@ PUBLIC STATIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
     IF(field.isstatic)
     {
       this->valuetype := field.valuetype;
-      this->emptyvalue := GetTid(field.emptyvalue) ?? "0";
+      this->__emptyvalue := GetTid(field.emptyvalue) ?? "0";
       this->emptyvalueisset := field.emptyvalueisset;
       this->UpdateFromJS(GetTid(field.value));
     }
