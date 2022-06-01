@@ -3,10 +3,27 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
-PUBLIC MACRO FormApitest()
+MACRO TestCoreFormAPI()
+{
+  OBJECT testfile := OpenTestsuiteSite()->OpenBypath("testpages/formtest");
+  OBJECT webdesign := GetWebDesign(testfile->id);
+  OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
+
+  TestEq(FALSE, coreform->^number->emptyvalueisset);
+  TestEq(0, coreform->^number->emptyvalue);
+
+  TestEq(TRUE, coreform->^numberemptyvalue->emptyvalueisset);
+  TestEq(0, coreform->^numberemptyvalue->emptyvalue);
+  coreform->^numberemptyvalue->emptyvalue := -3;
+  TestEq(-3, coreform->^numberemptyvalue->emptyvalue);
+}
+
+MACRO FormApitest()
 {
   RECORD res := BuildCustomWebtoolForm2( [ addgtmdatalayer := "muhdata", addtslinecomp := TRUE, addtslinecompascustom := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE,checkboxes := TRUE, checkboxfieldconditions := FALSE, setmailresultsfields := TRUE, checkboxsubs := TRUE, addconditions := TRUE]);
 
@@ -55,5 +72,6 @@ PUBLIC MACRO FormApitest()
   TestEq(formdefs->GetConditionAttribute(checkboxes_option2, "visibleconditionid"), formdefs->GetConditionAttribute(checkboxes2_option2, "visibleconditionid") );
 }
 
-RunTestframework([ PTR FormApitest
+RunTestframework([ PTR TestCoreFormAPI
+                 , PTR FormApitest
                  ]);
