@@ -357,25 +357,21 @@ PUBLIC OBJECTTYPE FormEmail EXTEND FormComponentExtensionBase
 PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
 <
   STRING valuetype;
+  RECORD ARRAY emptyattributemap;
 
   UPDATE PUBLIC MACRO PostInitExtension()
   {
     this->valuetype := this->node->GetAttribute("valuetype");
+    this->emptyattributemap := [[ name := "min", comp := ^minvalue ]
+                               ,[ name := "max", comp := ^maxvalue ]
+                               ,[ name := "emptyvalue", comp := ^emptyvalue ]
+                               ];
 
-    IF (this->node->HasAttribute("min"))
-      this->minvalue->value := ParseXSInt(this->node->GetAttribute("min"));
-    ELSE IF(this->existing)
-      this->minvalue->value := this->minvalue->emptyvalue;
-    IF (this->node->HasAttribute("max"))
-      this->maxvalue->value := ParseXSInt(this->node->GetAttribute("max"));
-    ELSE IF(this->existing)
-      this->maxvalue->value := this->maxvalue->emptyvalue;
-    IF (this->node->HasAttribute("emptyvalue"))
-      this->emptyvalue->value := ParseXSInt(this->node->GetAttribute("emptyvalue"));
-    ELSE IF (this->existing)
-      this->emptyvalue->value := this->emptyvalue->emptyvalue;
-    ELSE
-      this->emptyvalue->value := 0; // Initialize emptyvalue to 0 for new components
+    //"Older" numeric textedits (pre 4.35.2) will have their emptyvalue set to 0 but there's really no use in that. Let's just not set it
+    FOREVERY(RECORD attr FROM this->emptyattributemap)
+      IF (this->node->HasAttribute(attr.name))
+        attr.comp->value := ParseXSInt(this->node->GetAttribute(attr.name));
+
     this->emptyvalue->visible := this->contexts->formcomponentapi->showadvanced;
   }
 
@@ -388,18 +384,11 @@ PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
       ELSE
         this->node->RemoveAttribute("valuetype");
 
-      IF (this->minvalue->value != this->minvalue->emptyvalue)
-        this->node->SetAttribute("min", ToString(this->minvalue->value));
-      ELSE
-        this->node->RemoveAttribute("min");
-      IF (this->maxvalue->value != this->maxvalue->emptyvalue)
-        this->node->SetAttribute("max", ToString(this->maxvalue->value));
-      ELSE
-        this->node->RemoveAttribute("max");
-      IF (this->emptyvalue->value != this->emptyvalue->emptyvalue)
-        this->node->SetAttribute("emptyvalue", ToString(this->emptyvalue->value));
-      ELSE
-        this->node->RemoveAttribute("emptyvalue");
+      FOREVERY(RECORD attr FROM this->emptyattributemap)
+        IF(attr.comp->value != attr.comp->emptyvalue)
+          this->node->SetAttribute(attr.name, ToString(attr.comp->value));
+        ELSE
+          this->node->RemoveAttribute(attr.name);
     }
   }
 >;
