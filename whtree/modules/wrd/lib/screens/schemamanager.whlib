@@ -471,4 +471,11 @@ PUBLIC STATIC OBJECTTYPE DeleteSchemaProd EXTEND TolliumScreenBase
   {
     ^deleteschema->enabled := ^confirmmoduleowneddeletion->value OR ^confirmmoduleowneddeletion->visible = FALSE;
   }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    OpenWRDSchema(this->tag)->DeleteSelf();
+    RETURN work->Finish();
+  }
 >;

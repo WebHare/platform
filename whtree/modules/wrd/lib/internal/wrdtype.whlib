@@ -2636,7 +2636,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
       INTEGER64 ARRAY expiredsettings :=
           (SELECT AS INTEGER64 ARRAY id FROM change.modifications.settings) CONCAT
-          change.modifications.deletedsettings;
+          INTEGER64 ARRAY(change.modifications.deletedsettings);
 
       // Reconstruct all the list of new settings (mods + old - deletes)
       RECORD ARRAY newsettings :=
