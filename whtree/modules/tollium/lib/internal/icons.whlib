@@ -6,8 +6,8 @@ LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 STRING iconnamespace := "http://www.webhare.net/xmlns/tollium/icons";
 STRING svgnamespace := "http://www.w3.org/2000/svg";
@@ -57,7 +57,7 @@ RECORD ARRAY FUNCTION GetIconTypes(STRING icon, STRING ARRAY colors)
   //FIXME: should cache which images exist
   STRING imgmask := "/img/" || icon || ".*";
   STRING imgpath := GetDirectoryFromPath(imgmask);
-  STRING diskpath := GetDirectoryFromPath(GetModuleInstallationRoot(module) || "web" || imgmask);
+  STRING diskpath := GetDirectoryFromPath(GetWebHareResourceDiskPath(`mod::${module}/web${imgmask}`));
   imgmask := GetNameFromPath(imgmask);
 
   RECORD ARRAY imgtypes;
@@ -148,7 +148,8 @@ RECORD ARRAY FUNCTION GetIconTypes(STRING icon, STRING ARRAY colors)
       RETURN colormatches CONCAT SELECT * FROM imgtypes WHERE type = "text/xml";
   }
 
-  RETURN SELECT * FROM imgtypes WHERE imgtypes.color=""; //don't return images with mismatched color
+  imgtypes := SELECT * FROM imgtypes WHERE imgtypes.color=""; //don't return images with mismatched color
+  RETURN imgtypes;
 }
 
 // Get image info for one icon with a given name and specified width and height
@@ -169,8 +170,8 @@ RECORD FUNCTION GetIconType(STRING findicon, INTEGER width, INTEGER height, STRI
   STRING imgpath := "/img/" || icon || "." || width || "x" || height;
   IF(color != "")
     imgpath := imgpath || "." || color;
-  STRING diskpath := GetModuleInstallationRoot(module) || "web";
 
+  STRING diskpath := GetWebHareResourceDiskPath(`mod::${module}/web`);
   FOREVERY (RECORD type FROM [ [ extension := ".png", mimetype := "image/png" ]
                              , [ extension := ".gif", mimetype := "image/gif" ]
                              , [ extension := ".jpg", mimetype := "image/jpeg" ]
@@ -197,7 +198,7 @@ PUBLIC RECORD FUNCTION GetModuleIcon(STRING iconname, INTEGER width, INTEGER hei
   IF (iconname LIKE "wrd:countryflags/*" OR iconname LIKE "tollium:countryflags/*")
   {
     STRING countrycode := Substring(iconname, SearchSubstring(iconname, "/") + 1);
-    STRING diskpath := MergePath(GetInstallationRoot(), "node_modules/flag-icon-css/flags/1x1/" || countrycode || ".svg");
+    STRING diskpath := MergePath(__SYSTEM_WHCOREPARAMETERS().installationroot, "node_modules/flag-icon-css/flags/1x1/" || countrycode || ".svg");
     TRY
     {
       RETURN [ type := "image/svg+xml"

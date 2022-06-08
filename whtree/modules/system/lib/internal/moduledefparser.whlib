@@ -941,6 +941,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                                , accesstoken :=    subchild->GetAttribute("accesstoken")
                                , supportedlanguages := ParseXSList(subchild->GetAttribute("supportedlanguages"))
                                , shortcut :=       ParseShortcut(subchild->GetAttribute("shortcut"))
+                               , line :=           subchild->linenum
                                ];
 
                 app := MakeMergedRecord(app, this->ParseApp(subchild));
@@ -1205,7 +1206,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
       FOREVERY (RECORD app FROM this->moduledef.portal.applications)
         FOREVERY(STRING err FROM CheckAccessChecks(modulename, app.accesscheck, rightnames, TRUE))
-          this->AddError(DEFAULT OBJECT, err);
+          this->AddErrorForLine(app.line, err);
     }
 //    DELETE FROM this->moduledef.captured_tids WHERE NOT RecordExists(captured_tids);
     RETURN this->moduledef;
