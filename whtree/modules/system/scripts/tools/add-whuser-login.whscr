@@ -10,7 +10,7 @@ OpenPrimary()->BeginWork();
 
 OBJECT wrdschema := OpenWRDSchema("system:usermgmt");
 IF(NOT RecordExists(wrdschema->accounttype->GetAttribute("WHUSER_LOGIN")))
-  wrdschema->accounttype->CreateAttribute("FREE","WHUSER_LOGIN", [ isunique := TRUE ]);
+  wrdschema->accounttype->CreateAttribute("WHUSER_LOGIN", "FREE", [ isunique := TRUE ]);
 wrdschema->UpdateMetadata([ accountlogintag := "WHUSER_LOGIN" ]);
 
 FOREVERY(RECORD user FROM wrdschema->accounttype->RunQuery(
