@@ -17,7 +17,7 @@ PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
   MACRO Init()
   {
     this->wrdschema := this->contexts->userapi->wrdschema;
-    this->announcement_type := this->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+    this->announcement_type := this->wrdschema->^whuser_announcement;
     this->ReloadNews(TRUE);
   }
 
@@ -45,10 +45,11 @@ PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
                                                                                       , "PUBLISH_UNTIL"
                                                                                       ]
                                                                    ] );
+    newsentries := this->wrdschema->^wrd_person->Enrich(newsentries, "announcement_author", [ createdby_string := "WRD_TITLE" ], [ rightouterjoin := TRUE, historymode := "all" ]);
 
     this->newslist->rows := SELECT title := announcement_title
                                  , creationdate := wrd_creationdate
-                                 , createdby_string := (announcement_author = 0) ? GetTid("system:sysmgmt.systemnews.unknown") : this->contexts->userapi->GetUserDisplayName(this->contexts->userapi->GetTolliumUserFromEntityId(announcement_author)->authobjectid)
+                                 , createdby_string
                                  , rowkey := wrd_id
                                  , id := wrd_id
                                  , listrowclasses := this->GetNewsStyle(now, publish_from, publish_until)
