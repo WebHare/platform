@@ -76,6 +76,10 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         this->VerifyFunctionExistenceForScope([ resourcename := this->respath, line := app.linenum, col := 0], app.appfunction);
     }
 
+
+    FOREVERY(RECORD app FROM md.portal.applications)
+      this->ValidateIcon(CELL[ app.line ], app.icon, "b,w");
+
     FOREVERY(RECORD task FROM md.tasks)
     {
       IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")

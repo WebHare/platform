@@ -8,6 +8,8 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/witty.whlib";
 LOADLIB "mod::system/lib/internal/modules/version.whlib";
 
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
+
 STRING FUNCTION GetNodeType(OBJECT node)
 {
   IF(node->namespaceuri = whconstant_xmlns_screens AND node->localname IN ["tabsextension","screen","fragment"])
@@ -162,6 +164,12 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   */
   PUBLIC MACRO AddErrorForScope(RECORD scope, STRING error)
   {
+    scope := CELL[ resourcename := this->respath
+                 , col := 0
+                 , line := 0  //defaults
+                 , ...scope
+                 ];
+
     INSERT CELL[ scope.resourcename
                , scope.line
                , scope.col
@@ -438,6 +446,17 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       objtype := matchobj.objectextend LIKE "#*" ? objtoks[0] || matchobj.objectextend : matchobj.objectextend;
     }
     RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO ValidateIcon(RECORD scope, STRING iconname, STRING colors, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[], options);
+    IF(iconname = "")
+      RETURN;
+
+    FOREVERY(STRING icon FROM Tokenize(iconname,'+'))
+      IF(NOT RecordExists(GetImage(icon, 24, 24, "", colors, [ nobroken := TRUE ])))
+        this->AddErrorForScope(scope, `No such icon '${icon}'`);
   }
 
   PUBLIC MACRO ValidateLocalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope, STRING objtype)
