@@ -62,7 +62,7 @@
       </panel>
     </insert>
     <insert position="advanced" where="after">
-      <textedit name="emptyvalue" valuetype="integer" width="12x" emptyvalue="-1000000001" minvalue="-1000000000" maxvalue="1000000000" />
+      <textedit name="emptyvalue" valuetype="integer" width="12x" emptyvalue="-1000000001" minvalue="-1000000000" maxvalue="1000000000" value="-1000000001" />
     </insert>
   </tabsextension>
 

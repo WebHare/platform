@@ -22,14 +22,6 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   // Variables
   //
 
-  STRING textvalue;
-
-  /// Text representation of the value that should be given back when the inputted text is empty
-  STRING emptyvalue;
-
-  /// If the empty value is defined
-  BOOLEAN emptyvalueisset;
-
   /// Trim whitespace on incoming data?
   BOOLEAN trimwhitespace;
 
@@ -43,6 +35,12 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   //
 
   PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// The literal value we're exchanging with the <input> field
+  PUBLIC STRING textvalue;
+
+  /// The value that is converted to an empty textedit
+  PUBLIC STRING emptyvalue;
 
   /// Validation checks
   PUBLIC STRING ARRAY validationchecks;
@@ -102,7 +100,16 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   MACRO SetValue(VARIANT newval)
   {
-    this->textvalue := UnmapValueType(this->valuetype, newval, this->emptyvalue, this->emptyvalueisset);
+    this->textvalue := UnmapValueType(this->valuetype, newval, this->emptyvalue, TRUE);
+    this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    IF(this->trimwhitespace)
+      jsdata := TrimWhitespace(jsdata);
+
+    this->textvalue := jsdata;
     this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
   }
 
@@ -116,16 +123,13 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   {
     RECORD base := CELL[ ...this->GetBaseRenderData()
                        , type := "textedit"
-                       , value := ""
+                       , value := this->textvalue
                        , validationchecks := this->validationchecks
                        , placeholder := this->placeholder
                        , range := this->range
                        , minlength := this->minlength
                        , maxlength := this->maxlength
                        ];
-
-    IF(this->textvalue != this->emptyvalue OR NOT this->emptyvalueisset)
-      base.value := this->textvalue;
 
     RETURN base;
   }
@@ -137,6 +141,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
                              , type := "text"
                              , maxlength := CellExists(this->field, 'maxlength') ? this->field.maxlength : 0
                              , this->value
+                             , this->textvalue
                              ];
 
     IF(CellExists(this->field,'password') AND this->field.password)
@@ -177,19 +182,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
   {
-    RETURN NOT IsDefaultValue(this->value);
-  }
-
-  MACRO SetVal(STRING indata)
-  {
-    IF(this->trimwhitespace)
-      indata := trimwhitespace(indata);
-    this->value := MapValueType(this->valuetype, indata, this->emptyvalue);
-  }
-
-  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
-  {
-    this->SetVal(jsdata);
+    RETURN this->textvalue != "";
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
@@ -347,25 +340,21 @@ PUBLIC OBJECTTYPE FormEmail EXTEND FormComponentExtensionBase
 PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
 <
   STRING valuetype;
+  RECORD ARRAY emptyattributemap;
 
   UPDATE PUBLIC MACRO PostInitExtension()
   {
     this->valuetype := this->node->GetAttribute("valuetype");
+    this->emptyattributemap := [[ name := "min", comp := ^minvalue ]
+                               ,[ name := "max", comp := ^maxvalue ]
+                               ,[ name := "emptyvalue", comp := ^emptyvalue ]
+                               ];
 
-    IF (this->node->HasAttribute("min"))
-      this->minvalue->value := ParseXSInt(this->node->GetAttribute("min"));
-    ELSE IF(this->existing)
-      this->minvalue->value := this->minvalue->emptyvalue;
-    IF (this->node->HasAttribute("max"))
-      this->maxvalue->value := ParseXSInt(this->node->GetAttribute("max"));
-    ELSE IF(this->existing)
-      this->maxvalue->value := this->maxvalue->emptyvalue;
-    IF (this->node->HasAttribute("emptyvalue"))
-      this->emptyvalue->value := ParseXSInt(this->node->GetAttribute("emptyvalue"));
-    ELSE IF (this->existing)
-      this->emptyvalue->value := this->emptyvalue->emptyvalue;
-    ELSE
-      this->emptyvalue->value := 0; // Initialize emptyvalue to 0 for new components
+    //"Older" numeric textedits (pre 4.35.2) will have their emptyvalue set to 0 but there's really no use in that. Let's just not set it
+    FOREVERY(RECORD attr FROM this->emptyattributemap)
+      IF (this->node->HasAttribute(attr.name))
+        attr.comp->value := ParseXSInt(this->node->GetAttribute(attr.name));
+
     this->emptyvalue->visible := this->contexts->formcomponentapi->showadvanced;
   }
 
@@ -378,18 +367,11 @@ PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
       ELSE
         this->node->RemoveAttribute("valuetype");
 
-      IF (this->minvalue->value != this->minvalue->emptyvalue)
-        this->node->SetAttribute("min", ToString(this->minvalue->value));
-      ELSE
-        this->node->RemoveAttribute("min");
-      IF (this->maxvalue->value != this->maxvalue->emptyvalue)
-        this->node->SetAttribute("max", ToString(this->maxvalue->value));
-      ELSE
-        this->node->RemoveAttribute("max");
-      IF (this->emptyvalue->value != this->emptyvalue->emptyvalue)
-        this->node->SetAttribute("emptyvalue", ToString(this->emptyvalue->value));
-      ELSE
-        this->node->RemoveAttribute("emptyvalue");
+      FOREVERY(RECORD attr FROM this->emptyattributemap)
+        IF(attr.comp->value != attr.comp->emptyvalue)
+          this->node->SetAttribute(attr.name, ToString(attr.comp->value));
+        ELSE
+          this->node->RemoveAttribute(attr.name);
     }
   }
 >;
@@ -444,7 +426,6 @@ PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD pa
 
   INSERT CELL value := parsecontext.parsexmltidptr(node, "value") INTO fielddef;
   INSERT CELL emptyvalue := parsecontext.parsexmltidptr(node, "emptyvalue") INTO fielddef;
-  INSERT CELL emptyvalueisset := node->HasAttribute("emptyvalue") INTO fielddef;
   INSERT CELL trimwhitespace := node->HasAttribute("trimwhitespace") ? ParseXSBoolean(node->GetAttribute("trimwhitespace")) : TRUE INTO fielddef;
 
   IF(node->HasAttribute("validationchecks"))
@@ -511,7 +492,6 @@ PUBLIC STATIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
     {
       this->valuetype := field.valuetype;
       this->emptyvalue := GetTid(field.emptyvalue);
-      this->emptyvalueisset := field.emptyvalueisset;
       this->UpdateFromJS(GetTid(field.value));
     }
   }
@@ -538,8 +518,7 @@ PUBLIC STATIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
     IF(field.isstatic)
     {
       this->valuetype := field.valuetype;
-      this->emptyvalue := GetTid(field.emptyvalue) ?? "0";
-      this->emptyvalueisset := field.emptyvalueisset;
+      this->emptyvalue := GetTid(field.emptyvalue);
       this->UpdateFromJS(GetTid(field.value));
     }
     ELSE IF(CellExists(field,'valuetype')) //dynamic creation

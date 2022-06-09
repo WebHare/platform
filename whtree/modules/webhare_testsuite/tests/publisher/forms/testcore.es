@@ -4,6 +4,19 @@ import FormBase from '@mod-publisher/js/forms/formbase';
 
 var urlappend = test.getTestArgument(0)=='replacedcomponents' ? '?dompackpulldown=1' : '';
 
+function quickFillDefaultRequiredFields()
+{
+  //fill required fields so we can submit
+  test.fill(test.qS('#coretest-agree'), true);
+  test.fill(test.qS('#coretest-email'),'pietje@example.com');
+  test.fill(test.qS('#coretest-setvalidator'),'validated');
+  test.click('#coretest-requiredradio-x');
+  test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex=2;
+  test.fill('#coretest-address\\.country', "NL");
+  test.fill("#coretest-address\\.nr_detail", "296");
+  test.fill("#coretest-address\\.zip", "7521AM");
+}
+
 test.registerTests(
   [ 'Study page fields'
   , { test: async function()
@@ -96,10 +109,10 @@ test.registerTests(
         test.eq('number', field_number.type);
         test.eq('-2', field_number.min);
         test.eq('2', field_number.max);
-        test.eq('0', field_number.value);
+        test.eq('', field_number.value);
         test.eq('-2', field_numberemptyvalue.min);
         test.eq('2', field_numberemptyvalue.max);
-        test.eq('', field_numberemptyvalue.value);
+        test.eq('0', field_numberemptyvalue.value);
 
         test.eq('21', field_namelijk[0].value);
         test.eq('coretest-radiotestnamelijk', field_namelijk[0].id);
@@ -443,20 +456,37 @@ test.registerTests(
       test.eq(5542, JSON.parse(test.qS('#coreformsubmitresponse').textContent).extradata.submitextradata);
     }
 
+  , 'Test core'
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue');
+
+      test.eq('', test.qS('input[name=number]').value);
+      test.eq('0', test.qS('input[name=numberemptyvalue]').value);
+      quickFillDefaultRequiredFields();
+      test.click('#submitbutton');
+      await test.wait('ui');
+
+      test.true(test.qS('[data-wh-form-group-for="number"]').classList.contains("wh-form__fieldgroup--error"), "number should be in error");
+      test.fill('input[name=number]','0');
+      test.fill('input[name=numberemptyvalue]','');
+
+      test.click('#submitbutton');
+      await test.wait('ui');
+      test.true(test.qS('[data-wh-form-group-for="numberemptyvalue"]').classList.contains("wh-form__fieldgroup--error"), "numberemptyvalue should be in error");
+
+      test.fill('input[name=numberemptyvalue]','0');
+      test.click('#submitbutton');
+      await test.wait('ui');
+      test.eq(0, JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.numberemptyvalue);
+    }
+
   , 'Test unlocking disabled fields'
   , async function()
     {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
-      //quickfill fields so we can submit
-      test.fill(test.qS('#coretest-agree'), true);
-      test.fill(test.qS('#coretest-email'),'pietje@example.com');
-      test.fill(test.qS('#coretest-setvalidator'),'validated');
-      test.click('#coretest-requiredradio-x');
-      test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex=2;
-      test.fill('#coretest-address\\.country', "NL");
-      test.fill("#coretest-address\\.nr_detail", "296");
-      test.fill("#coretest-address\\.zip", "7521AM");
+      quickFillDefaultRequiredFields();
 
       // Update the value of the disabled pulldown from "touch" to "this"
       test.qS('#coretest-disabledpulldowntest').selectedIndex = 2;
@@ -481,14 +511,7 @@ test.registerTests(
       test.true(test.qS('[name=checkboxes][value="3"]').checked);
 
       //Fill the remaining required fields so we can submit
-      test.fill(test.qS('#coretest-setvalidator'),'validated');
-      test.click('#coretest-requiredradio-x');
-      test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex=2;
-      test.fill('#coretest-address\\.country', "NL");
-      test.fill("#coretest-address\\.nr_detail", "296");
-      test.fill("#coretest-address\\.zip", "7521AM");
-      test.qS('#coretest-disabledpulldowntest').selectedIndex = 2;
-      test.fill(test.qS('#coretest-agree'), true);
+      quickFillDefaultRequiredFields();
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
 
