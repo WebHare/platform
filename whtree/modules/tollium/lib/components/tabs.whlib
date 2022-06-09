@@ -2,7 +2,6 @@
 /** @topic tollium-components/base */
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
@@ -39,8 +38,8 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
       @cell(boolean) done_postinit Whether PostInitExtension has been called
       @cell(object array) compositions List of compositions
       @cell(record) rootnode Parsed node
-      @cell(object array) List of all components
-      @cell(object array) List of added tabs
+      @cell(object array) components List of all components
+      @cell(object array) addedtabs List of added tabs
       @cell(object) fragment TolliumTabsExtensionBase object
   */
   RECORD ARRAY loaded_extensions;
@@ -57,8 +56,8 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   PUBLIC INTEGER extendposition;
 
   /** Insertion points
-      @cell(object) name
-      @cell(object) component
+      @cell(string) name Name of the insert point
+      @cell(object) component Component this insert point refers to
   */
   PUBLIC RECORD ARRAY insertpoints;
 
@@ -233,7 +232,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   // Getters & setters
   //
 
-  /// Set the new selected page
+  /** Set the new selected page
+      @param newpage Page to select
+  */
   MACRO SetSelectedPage(OBJECT newpage)
   {
     FOREVERY (OBJECT page FROM this->pvt_pages)
@@ -422,7 +423,10 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     }
   }
 
-  /// Set the selected tab by component name
+  /** Set the selected tab by component name
+      @param newname Name of the tab
+      @param matchlocalname If TRUE, use the name property of the component, otherwiser use the toddname
+  */
   MACRO SetSelectedPageByName(STRING newname, BOOLEAN matchlocalname)
   {
     FOREVERY (OBJECT page FROM this->pvt_pages)
@@ -702,7 +706,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   }
 
   /** Returns a list of currently loaded extensions
-      @return
+      @return List of extensions
       @cell return.extension Extension object
   */
   PUBLIC RECORD ARRAY FUNCTION ListExtensions()
@@ -710,7 +714,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     RETURN SELECT extension := fragment FROM this->loaded_extensions;
   }
 
-  /** @return The component. Can still be a DEFAULT OBJECT if nothing was inserted!  */
+  /** @param objname Name of the component
+      @return The component. Can still be a DEFAULT OBJECT if nothing was inserted!
+  */
   PUBLIC OBJECT FUNCTION GetExtendComponent(STRING objname)
   {
     RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);

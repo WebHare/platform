@@ -75,14 +75,15 @@ PUBLIC MACRO LogWebserverError(STRING message)
 /** @short Standard HareScript error generator */
 PUBLIC MACRO CreateHarescriptErrorPage(RECORD ARRAY errors, RECORD ARRAY stacktrace)
 {
-  errors := SELECT file
+  // GetRequestErrorInfo returns errors with 'filename', so test if that cell is present
+  errors := SELECT file :=        CellExists(errors, "filename") ? filename : file
                  , line
                  , col
                  , code
                  , text := GetHareScriptMessageText(TRUE, code, param1, param2)
               FROM errors;
 
-  stacktrace := SELECT file
+  stacktrace := SELECT file :=        CellExists(errors, "filename") ? filename : file
                       , line
                       , col
                       , code

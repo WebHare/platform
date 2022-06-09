@@ -1124,6 +1124,12 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   /// Whether a commit is in progress
   BOOLEAN pvt_committing;
 
+  /// Whether to keep a local command log
+  BOOLEAN pvt_keepcommandlog;
+
+  /// Current command log
+  RECORD ARRAY pvt_commandlog;
+
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
   PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
 
@@ -1145,7 +1151,9 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     this->pvt_transactionisolationlevel := "read committed";
     this->pvt_blobhandler := blobhandler;
 
-    this->SetAllowErrorDelay(TRUE);
+    this->__UpdateDebugConfig(DEFAULT RECORD);
+
+    this->SetAllowErrorDelay(NOT IsDebugTagEnabled("postgresql:noerrordelay"));
 
     IF(this->pvt_isauto)
     {
@@ -1652,20 +1660,41 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     RETURN retval;
   }
 
+  PUBLIC MACRO __SetKeepCommandLog(BOOLEAN logcommands)
+  {
+    this->pvt_keepcommandlog := logcommands;
+    this->__UpdateDebugConfig(DEFAULT RECORD);
+    IF (NOT logcommands)
+      this->pvt_commandlog := RECORD[];
+  }
+
   PUBLIC RECORD ARRAY FUNCTION __GetCommandLog()
   {
-    RETURN __PGSQL_GETDEBUGSETTINGS(this->id).commandlog;
+    RETURN this->pvt_commandlog;
   }
 
   UPDATE PUBLIC MACRO __UpdateDebugConfig(RECORD newconfig)
   {
-    RECORD curconfig := __PGSQL_GETDEBUGSETTINGS(this->id);
-    newconfig := ValidateOptions(CELL[ curconfig.logstacktraces
-                                     , curconfig.logcommands
-                                     , curconfig.commandtimeout
-                                     , readonly := FALSE //ignored
-                                     ], newconfig);
-    __PGSQL_UPDATEDEBUGSETTINGS(this->id, newconfig.logstacktraces, newconfig.logcommands, newconfig.commandtimeout);
+    newconfig := ValidateOptions(CELL[ commandtimeout := 0
+                                     , logstacktraces := 0
+                                     , readonly := FALSE //ignored on update
+                                     ], newconfig,
+                                     [ optional := [ "commandtimeout", "logstacktraces" ]
+                                     ]);
+
+    RECORD cursettings := __PGSQL_GETDEBUGSETTINGS(this->id);
+    cursettings := CELL[ ...cursettings, ...newconfig ];
+    cursettings.logcommands := this->pvt_keepcommandlog OR IsDebugTagEnabled("postgresql:logcommands") ? 1 : 0;
+    __PGSQL_UPDATEDEBUGSETTINGS(this->id, cursettings.logstacktraces, cursettings.logcommands, cursettings.commandtimeout);
+  }
+
+  /** Called (via c++ callback) when a command is executed and the logcommands debugsetting is enabled
+      @param command Command data
+  */
+  PUBLIC MACRO __GotRunCommand(RECORD command)
+  {
+    IF (this->pvt_keepcommandlog)
+      INSERT command INTO this->pvt_commandlog AT END;
   }
 >;
 
@@ -1888,6 +1917,9 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 {
   OBJECT trans := GetTransactionObjectByIdInternal(transid); // is privileged pointer
 
+  IF (message.severity = "NOTICE")
+    LogDebug("wh:postgresql.notice", CELL[ message, stacktrace := GetAsyncStackTrace() ]);
+
   // FIXME: Delaying errors for queries other than commits is disabled until we have worked out a consistent model
   IF (NOT trans->pvt_committing)
     RETURN TRUE;
@@ -1898,10 +1930,15 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
     RETURN FALSE;
   }
 
-  DumpValue(message);
-  //DumpValue(GetStackTrace());
-
   RETURN TRUE;
+}
+
+PUBLIC MACRO __HandleRunCommand(INTEGER transid, RECORD command) __ATTRIBUTES__(SKIPTRACE)
+{
+  IF (IsDebugTagEnabled("postgresql:logcommands"))
+    LogDebug("wh:postgresql.command", command);
+  OBJECT trans := GetTransactionObjectById(transid);
+  trans->__GotRunCommand(command);
 }
 
 /** Places a new blob into blob storage, annotates the blob with the location

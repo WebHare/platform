@@ -4,10 +4,12 @@
 */
 
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/transservices.whlib";
 
 STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 INTEGER Function Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+BOOLEAN FUNCTION ObjectExists(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
 STRING FUNCTION GetExternalSessionData() __ATTRIBUTES__(EXTERNAL);
 RECORD ARRAY FUNCTION GetStackTrace() __ATTRIBUTES__(EXTERNAL);
 STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -88,6 +90,10 @@ PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
 
   __debugconfig.tags := GetSortedset(__debugconfig.tags);
   __HS_INTERNAL_SETDEBUGGINGTAGS(__debugconfig.tags);
+  IF (ObjectExists(GetPrimaryWebhareTransactionObject()))
+    GetPrimaryWebhareTransactionObject()->__UpdateDebugConfig(DEFAULT RECORD);
   RETURN __debugconfig;
 }
+
+
 

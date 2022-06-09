@@ -761,12 +761,6 @@ class BLEXLIB_PUBLIC Process
         /** Forcibly terminate the process */
         void Kill();
 
-        /** For POSIX, get the process PID, required for some direct use of apis */
-        pid_t GetPosixPid() const
-        {
-                return pid;
-        }
-
         ///Create a separate process group (ie to prevent ctrl+c on terminal to reach this process). defaultsto false
         bool separate_processgroup;
         ///Keep stdin connected to ours

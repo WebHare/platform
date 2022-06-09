@@ -15,7 +15,7 @@ STRING FUNCTION GetHarescriptType(STRING schemaname, STRING tablename, STRING co
     {
       RETURN "MONEY";
     }
-    CASE "float4","_float4"
+    CASE "float4","_float4", "float8"
     {
       RETURN "FLOAT";
     }

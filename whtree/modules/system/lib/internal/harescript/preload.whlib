@@ -97,6 +97,8 @@ MACRO ReadDebugConfig()
           , context :=          ""
           ], systemconfig.debugconfig);
       __HS_INTERNAL_SETDEBUGGINGTAGS(__debugconfig.tags);
+      IF (ObjectExists(GetPrimaryWebhareTransactionObject()))
+        GetPrimaryWebhareTransactionObject()->__UpdateDebugConfig(DEFAULT RECORD);
       RETURN;
     }
     CATCH
