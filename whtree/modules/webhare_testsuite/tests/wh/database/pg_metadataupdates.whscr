@@ -152,10 +152,24 @@ MACRO TestMultiColumnUniqueIndex()
   TestEQLike("ERROR:*duplicate key value violates unique constraint*", (errors??[[message := "no error"]])[0].message);
 }
 
+MACRO Cleanup()
+{
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:obsoletetable name="attrtest" />
+    <d:obsoletetable name="byteaconversiontest" />
+    <d:obsoletetable name="colcreatetest" />
+    <d:obsoletetable name="indextext1" />
+    <d:obsoletetable name="mcindextest" />
+  </databaseschema>
+`);
+}
+
 RunTestframework([ PTR SetupTempSchema
                  , PTR TestByteaConversion
                  , PTR TestIndexDrops
                  , PTR TestColumnCreate()
                  , PTR TestColumnAttributes
                  , PTR TestMultiColumnUniqueIndex
+                 , PTR Cleanup
                  ]);

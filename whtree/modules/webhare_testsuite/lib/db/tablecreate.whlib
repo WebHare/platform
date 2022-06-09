@@ -50,6 +50,9 @@ PUBLIC MACRO ApplyTempDatabaseSchema(STRING s)
   // Parse it back into a schema definition record
   RECORD parsed := ParseWHDBSchemaSpec("webhare_testsuite_temp", dbschema);
 
+  // Should be no messages in parse result
+  TestEQ(RECORD[], parsed.msgs);
+
   // Apply on the existing schema
   RECORD cmd := GenerateDependentSQLCommands([ parsed ], GetPrimary());
 
@@ -59,6 +62,16 @@ PUBLIC MACRO ApplyTempDatabaseSchema(STRING s)
 
   // no updates should be necessary afterwards
   TestEQ(RECORD[], GenerateDependentSQLCommands([ parsed ], GetPrimary()).commands);
+
+  // And now the postupdate commands
+  cmd := GeneratePostupdateSQLCommands([ parsed ], GetPrimary());
+
+  testfw->BeginWork();
+  ExecuteSQLUpdates(GetPrimary(), cmd.commands);
+  testfw->CommitWork();
+
+  // no updates should be necessary afterwards
+  TestEQ(RECORD[], GeneratePostupdateSQLCommands([ parsed ], GetPrimary()).commands);
 }
 
 PUBLIC MACRO SetupTempSchema()
