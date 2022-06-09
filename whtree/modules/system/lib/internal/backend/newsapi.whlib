@@ -24,7 +24,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 */
 PUBLIC RECORD FUNCTION GetNewsItem(INTEGER id, OBJECT controller)
 {
-  OBJECT announcement_type := controller->userapi->wrdschema->GetType("WHUSER_ANNOUNCEMENT");
+  OBJECT announcement_type := controller->userapi->wrdschema->^whuser_announcement;
   RECORD ARRAY newsentries := announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
                                                                               , "ANNOUNCEMENT_TITLE"
                                                                               , "ANNOUNCEMENT_AUTHOR"
@@ -38,11 +38,10 @@ PUBLIC RECORD FUNCTION GetNewsItem(INTEGER id, OBJECT controller)
                                                                                 , value := id
                                                                               ] ]
                                                            ] );
+  newsentries := announcement_type->wrdschema->^wrd_person->Enrich(newsentries, "announcement_author", [ createdby_string := "WRD_TITLE" ], [ rightouterjoin := TRUE, historymode := "all" ]);
   RETURN SELECT title := announcement_title
               , creationdate := wrd_creationdate
-              , createdby_string := (announcement_author = 0) ?
-                                    GetTid("system:sysmgmt.systemnews.unknown") :
-                                    controller->userapi->GetUserDisplayName(controller->userapi->GetTolliumUserFromEntityId(announcement_author)->authobjectid)
+              , createdby_string
               , rowkey := wrd_id
               , id := wrd_id
               , publish_from
