@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
@@ -80,6 +81,19 @@ STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
   RETURN script;
 }
 
+STRING ARRAY FUNCTION GetDebugTagStringParts(RECORD debugconfig)
+{
+  IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
+    RETURN STRING[];
+
+  STRING ARRAY tags := debugconfig.tags;
+  IF(debugconfig.outputsession != "default")
+    INSERT "session=" || debugconfig.outputsession INTO tags AT END;
+  IF(debugconfig.context != "")
+    INSERT "context=" || debugconfig.context INTO tags AT END;
+  RETURN tags;
+}
+
 MACRO ShowDebugConfig(RECORD debugconfig)
 {
   IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
@@ -88,13 +102,7 @@ MACRO ShowDebugConfig(RECORD debugconfig)
   }
   ELSE
   {
-    STRING tags := Detokenize(debugconfig.tags, ",");
-    IF(debugconfig.outputsession != "default")
-      tags := tags || ",session=" || debugconfig.outputsession;
-    IF(debugconfig.context != "")
-      tags := tags || ",context=" || debugconfig.context;
-
-    PRINT(`Enabled debug features: ${tags}\n`);
+    PRINT(`Enabled debug features: ${Detokenize(GetDebugTagStringParts(debugconfig), ",")}\n`);
   }
 }
 
@@ -328,15 +336,24 @@ Executed instrs.:   ${stats.instructions}
     }
     CASE "setconfig"
     {
-      STRING ARRAY tags;
       ParseSubArgs(
-            [ [ name := "tags", type := "paramlist" ]
+            [ [ name := "a", type := "switch" ]
+            , [ name := "r", type := "switch" ]
+            , [ name := "tags", type := "paramlist" ]
             ]);
 
+      STRING ARRAY tags := GetDebugTagStringParts(__debugconfig);
+      IF (args.a)
+        tags := tags CONCAT args.tags;
+      ELSE IF (args.r)
+        tags := ArrayDelete(tags, args.tags);
+      ELSE
+        tags := args.tags;
+
       //we'll accept both space and comma seperated
-      RECORD debugconfig := ReadDebugSetting(Detokenize(args.tags,','));
+      RECORD debugconfig := ReadDebugSetting(Detokenize(tags,','));
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
-        Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only have effect on processes that don't have it set.\n");
+        Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");
 
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
       ShowDebugConfig(debugconfig);
