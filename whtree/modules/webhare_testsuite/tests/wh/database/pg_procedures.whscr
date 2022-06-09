@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/db/tablecreate.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
@@ -185,9 +186,77 @@ MACRO TestAutoNumbers()
   TestAssert(b64s[0] < b64s[1]);
 
   testfw->RollbackWork();
+
+  // make sure a pre-existing autonumberwraptest table isn't reused
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:obsoletetable name="autonumberwraptest" />
+  </databaseschema>
+`);
+
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="autonumberwraptest">
+      <d:integer name="a32" autonumberstart="2147483645"/>
+      <d:integer64 name="a64" autonumberstart="2147483645"/>
+    </d:table>
+  </databaseschema>
+`);
+
+  GetPrimary()->BeginWork();
+
+  // Test 32-bit integer wraparound
+  TABLE< INTEGER a32, INTEGER64 a64 > tbl_autonumberwraptest := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_temp.autonumberwraptest");
+  TestEQ(2147483645, MakeAutoNumber(tbl_autonumberwraptest, "a32"));
+  TestEQ(2147483646, MakeAutoNumber(tbl_autonumberwraptest, "a32"));
+  TestEQ(2147483647, MakeAutoNumber(tbl_autonumberwraptest, "a32"));
+  TestEQ(2147483645, MakeAutoNumber(tbl_autonumberwraptest, "a32"));
+  TestEQ([ 2147483646, 2147483647 ], MakeAutoNumbers(tbl_autonumberwraptest, "a32", 2));
+  TestEQ([ 2147483645, 2147483646 ], MakeAutoNumbers(tbl_autonumberwraptest, "a32", 2));
+  TestEQ([ 2147483647, 2147483645 ], MakeAutoNumbers(tbl_autonumberwraptest, "a32", 2));
+
+  // Test integer wraparound isn't used for integer64 columns
+  TestEQ(2147483645i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  TestEQ(2147483646i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  TestEQ(2147483647i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  TestEQ(2147483648i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  TestEQ(2147483649i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+
+  GetPrimary()->__ExecSQL(`ALTER SEQUENCE "webhare_testsuite_temp"."webhare_seq_autonumberwraptest_a64" RESTART`);
+  TestEQ(2147483645i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  TestEQ([ 2147483646i64, 2147483647i64, 2147483648i64, 2147483649i64 ], MakeAutoNumbers64(tbl_autonumberwraptest, "a64", 4));
+
+  GetPrimary()->__ExecSQL(`ALTER SEQUENCE "webhare_testsuite_temp"."webhare_seq_autonumberwraptest_a64" RESTART`);
+  TestEQ([ 2147483645i64, 2147483646i64, 2147483647i64 ], MakeAutoNumbers64(tbl_autonumberwraptest, "a64", 3));
+  TestEQ(2147483648i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+
+  GetPrimary()->CommitWork();
+
+  // Test skipping over existing values
+  GetPrimary()->BeginWork();
+  GetPrimary()->__ExecSQL(`ALTER SEQUENCE "webhare_testsuite_temp"."webhare_seq_autonumberwraptest_a64" RESTART`);
+  INSERT INTO tbl_autonumberwraptest(a64) VALUES (2147483646i64);
+  TestEQ([ 2147483645i64, 2147483647i64, 2147483648i64 ], MakeAutoNumbers64(tbl_autonumberwraptest, "a64", 3));
+  TestEQ(2147483649i64, MakeAutoNumber64(tbl_autonumberwraptest, "a64"));
+  GetPrimary()->CommitWork();
+
+  // Test table full
+  GetPrimary()->BeginWork();
+  INSERT INTO tbl_autonumberwraptest(a32) VALUES (2147483645);
+  INSERT INTO tbl_autonumberwraptest(a32) VALUES (2147483646);
+  INSERT INTO tbl_autonumberwraptest(a32) VALUES (2147483647);
+  TestThrowsLike("*Table webhare_testsuite_temp.autonumberwraptest is full, no more autonumbers available*", PTR MakeAutoNumber(tbl_autonumberwraptest, "a32"));
+  GetPrimary()->CommitWork();
+
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:obsoletetable name="autonumberwraptest" />
+  </databaseschema>
+`);
 }
 
-RunTestframework([ PTR TestProcedures
+RunTestframework([ PTR SetupTempSchema
+                 , PTR TestProcedures
                  , PTR TestURL
                  , PTR TestWebroot
                  , PTR TestAutoNumbers
