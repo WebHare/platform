@@ -1736,16 +1736,22 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         ` levelactive ${Substitute(AnyToString(elt.levelactive, "tree"), "\n", "")}` ||
         ` nodeactive ${Substitute(AnyToString(elt.nodeactive, "tree"), "\n", "")}\n`);
 //*/
+    BOOLEAN nosiblingcombinatoractive := TRUE;
     FOREVERY (INTEGER i FROM elt.levelactive CONCAT elt.nodeactive)
     {
       RECORD rec := selectorparts[i];
 
-      // Skip final rule parts when the current node may not be given back
-      IF (rec.combinator = "" AND (depth < min_return_depth OR (depth < scopepath.pathlen AND NOT inscopepath)))
-        CONTINUE;
+      // If we're in the scope path at the depth, we can jump directly to the scope node of this level if no sibling combinators are active
+      IF ((rec.combinator != "+" AND rec.combinator != "~") AND depth < scopepath.pathlen)
+      {
+        IF (NOT inscopepath)
+          CONTINUE;
+      }
+      ELSE
+        nosiblingcombinatoractive := FALSE;
 
-      // skip rule parts that need to descend the tree when that part of the tree lies outside of the scope
-      IF ((rec.combinator = " " OR rec.combinator = ">") AND NOT inscopepath AND depth < scopepath.pathlen)
+      // Skip final rule parts when the current node may not be given back
+      IF (rec.combinator = "" AND depth < min_return_depth)
         CONTINUE;
 
       // Test the rule part
@@ -1808,9 +1814,16 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         RETURN retval;
     }
 
-    // prepare for processing the next node at this level
+    /* prepare for processing the next node at this level
+       If there is a scope path node at this depth, all results must be in the
+       scope path. If there are no '+' or '~' rules active at this level, we
+       can just jump to the scope path node. And if we have just visited that
+       node, we can stop at this depth.
+    */
     stack[depth].nodeactive := newnodeactive;
-    stack[depth].node := testnode->nextelementsibling;
+    stack[depth].node := inscopepath
+        ? DEFAULT OBJECT
+        : nosiblingcombinatoractive ? scopepath.path[depth] : testnode->nextelementsibling;
 
     // Any rules are active at the children, we can try to recurse into them
     // We need to be in the scope path, or if we're allowed to recurse into childen of the scope
