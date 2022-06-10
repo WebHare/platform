@@ -169,7 +169,8 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
-
+  TestEq("WHFS Path", SELECT AS STRING title FROM TT("shorturls")->columns WHERE name = "testbeagle2_whfspath");
+  TestEq(["/webhare-private/system/shorturl/test2.bea.gl/testje"], SELECT AS STRING ARRAY testbeagle2_whfspath FROM TT("shorturls")->rows);
 
   testfw->browser->autofollow := FALSE;
   TestEq(TRUE, testfw->browser->GotoWebPage(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/testje"));

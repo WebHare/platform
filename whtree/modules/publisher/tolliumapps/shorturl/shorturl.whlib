@@ -1,21 +1,39 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/shorturl.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+RECORD FUNCTION GetShortURLAppSettings(STRING domain)
+{
+  RECORD settings := CELL[ urllisthook := "" ];
+  FOREVERY(RECORD setting FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "shorturls"))
+    IF(setting.node->GetAttribute("domain") = domain)
+    {
+      IF(setting.node->HasAttribute("urllisthook"))
+        settings.urllisthook := MakeAbsoluteResourcePath(setting.resource, setting.node->GetAttribute("urllisthook"));
+    }
+
+  RETURN settings;
+}
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   OBJECT rightsapi;
   STRING originaltitle;
+  RECORD appsettings;
 
   MACRO NEW()
   {
@@ -51,6 +69,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->title := this->contexts->^shortdomain->domain || " - " || this->originaltitle;
     ^shorturls->eventmasks := ["system:whfs.folder." || this->contexts->^shortdomain->id];
     ^shorturls->Invalidate(); //ensure it's reloaded as #selectdomain above can trigger an initial(empty) load
+
+    this->appsettings := GetShortURLAppSettings(this->contexts->^shortdomain->domain);
+    IF(this->appsettings.urllisthook != "")
+      MakeFunctionPtr(this->appsettings.urllisthook)(^shorturls);
   }
 
   MACRO OnView(OBJECT browser)
