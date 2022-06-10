@@ -315,6 +315,7 @@
     <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot" type="folder" fallback="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot-fallback"/>
 
     <searchcontentprovider name="testprovider" objectname="lib/publisher/publishersearch.whlib#testprovider" version="1.0.0" />
+    <shorturls domain="test2.bea.gl" urllisthook="tests/publisher/shorturl/shorturltests.whlib#HookURLList" />
   </publisher>
 
   <consilio>

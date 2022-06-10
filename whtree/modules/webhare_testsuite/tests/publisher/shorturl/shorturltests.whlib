@@ -1,9 +1,26 @@
 <?wh
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/shorturl.whlib";
 
+RECORD ARRAY FUNCTION AddWHFSPath(FUNCTION PTR prevongetrows)
+{
+  RECORD ARRAY inrows := prevongetrows();
+  inrows := SELECT *, testbeagle2_whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = inrows.id) FROM inrows;
+  RETURN inrows;
+}
+
+PUBLIC MACRO HookURLList(OBJECT urllist)
+{
+  urllist->ongetrows := PTR AddWHFSPath(urllist->ongetrows);
+  DELETE FROM urllist->columns WHERE name ="testbeagle2_whfspath";
+  INSERT CELL[ name := "testbeagle2_whfspath"
+             , type := "text"
+             , title := "WHFS Path"
+             ] INTO urllist->columns AT END;
+}
 
 PUBLIC MACRO CleanupShortURLTests()
 {
