@@ -138,6 +138,11 @@
     <xs:attributeGroup ref="tc:IsComposable" />
 
     <xs:attribute name="typedef" type="xs:string" />
+    <xs:attribute name="fsobject" type="tc:ComponentRef">
+      <xs:annotation>
+        <xs:documentation>Links the instance to an fsobject so it will be filled/applied when that object is loaded or stored</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
 
@@ -1456,4 +1461,17 @@
       <xs:attribute name="fragment" type="tc:ScreenFragmentReference" use="required" />
     </xs:complexType>
   </xs:element>
+
+  <xs:element name="fsobject">
+    <xs:annotation>
+      <xs:documentation>Wraps a fsobject, usually the one being added/edited</xs:documentation>
+      <xs:appinfo>
+        <tai:tolliumcomponent placement="composition" objecttype="/tolliumcomponents/fsobject.whlib#fsobject" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:CompositionBase" />
+    </xs:complexType>
+  </xs:element>
+
 </xs:schema>
