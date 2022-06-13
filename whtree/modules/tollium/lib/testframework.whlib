@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/components/action.whlib";
 LOADLIB "mod::tollium/lib/components/button.whlib";
 LOADLIB "mod::tollium/lib/components/text.whlib";
@@ -1528,7 +1529,7 @@ PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING co
             RETURN DEFAULT OBJECT;
           THROW NEW Exception(`${pathstr} has no member ${compname}`);
         }
-        IF(NOT options.findinvisible AND NOT ptrsofar EXTENDSFROM TolliumTabsExtensionBase AND NOT ptrsofar->isnowvisible) //tabsextensionbases are not marked as visible, not sure why but just exclude them from testing now
+        IF(NOT options.findinvisible AND NOT ptrsofar EXTENDSFROM TolliumTabsExtensionBase AND NOT ptrsofar EXTENDSFROM TolliumSpecialComponent AND NOT ptrsofar->isnowvisible) //tabsextensionbases are not marked as visible, not sure why but just exclude them from testing now
           THROW NEW Exception(`${pathstr} member '${compname}' is not visible`);
       }
       pathstr := `${pathstr}->${pathentry}`;
