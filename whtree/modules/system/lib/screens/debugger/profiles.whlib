@@ -215,6 +215,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           {
             // Send immediately
             link->SendReply([ type := "ack" ], res.msgid);
+            IF (res.msg.source = "webserver" AND res.msg.command = "system:profiles")
+              RETURN;
 
             OBJECT handler := this->GetHandler(res.msg.type);
 
