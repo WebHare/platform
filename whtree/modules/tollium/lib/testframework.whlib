@@ -131,11 +131,11 @@ MACRO OnScreenChange(RECORD event)
   }
 
   IF (debug_expects)
-    PRINT("- OnScreenChange " || (event.isopening ? "+1" : "-1") || " " || event.screen->frame->screenname || "\n");
+    PRINT("- OnScreenChange " || (event.isopening ? "+1" : "-1") || " " || GetCompactResourceName(event.screen->frame->screenname) || "\n");
   IF(testfw->debug)
   {
     Print(RepeatText(">", Length(controller->windowstack) + (event.isopening ? 0 : 1))
-         || (event.isopening ? " Opening " : " Closing ") || "screen " || event.screen->frame->screenname || " (" || event.screen->frame->title || ")\n");
+         || (event.isopening ? " Opening " : " Closing ") || "screen " || GetCompactResourceName(event.screen->frame->screenname) || " (" || event.screen->frame->title || ")\n");
     IF (event.isopening AND event.screen->frame->screenname = "mod::tollium/screens/commondialogs.xml#showmessagebox")
     {
       OBJECT comp_message := __LookupComponentByTestReference(event.screen, "MESSAGE");

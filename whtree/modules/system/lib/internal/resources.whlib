@@ -511,3 +511,13 @@ PUBLIC STRING FUNCTION FormatHarescriptStackTrace(RECORD ARRAY trace)
   RETURN text;
 }
 
+PUBLIC STRING FUNCTION GetCompactResourceName(STRING resourcename)
+{
+  IF(resourcename LIKE "inline-base64::*") //tehse can be extremely long..
+  {
+    STRING suffix := resourcename LIKE "*#*" ? "#" || Tokenize(resourcename,'#')[1] : "";
+    RETURN UCTruncate(resourcename,20) || suffix;
+  }
+  RETURN resourcename;
+}
+

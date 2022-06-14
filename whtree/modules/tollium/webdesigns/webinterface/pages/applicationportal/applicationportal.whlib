@@ -287,7 +287,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     {
       this->isoverriding := overridetoken != "";
       IF(this->isoverriding AND NOT VerifyOverrideToken(overridetoken))
-        THROW NEW Exception("The specified overridetoken is not, or no longer, valid");
+        AbortWithHTTPError(403, "The specified overridetoken is not, or no longer, valid", [ htmlbody := "<p>The specified overridetoken is not, or no longer, valid</p>" ]);
 
       IF(this->isoverriding)
       {
@@ -948,21 +948,3 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN ExecuteAction(this->wrdauthplugin->userapi, this->currentuser, action);
   }
 >;
-
-MACRO RunThePage()
-{
-  STRING overridetoken := GetWebVariable("overridetoken");
-  IF(overridetoken != "" AND NOT VerifyOverrideToken(overridetoken))
-  {
-    Print("The specified overridetoken is not, or no longer, valid");
-    RETURN;
-  }
-
-  OBJECT interfacepage := NEW TolliumInterfacePage();
-  interfacepage->RunPage();
-}
-
-PUBLIC MACRO RunApplicationPortal()
-{
-  RunThePage();
-}

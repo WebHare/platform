@@ -27,7 +27,7 @@ function checkForAnonymizeIp(expect)
 
 export function getAnalyticsHits(regex)
 {
-  return test.getWin().performance.getEntries().filter(entry => entry.name.startsWith('https://www.google-analytics.com/g/collect') && entry.name.match(regex));
+  return test.getWin().performance.getEntries().filter(entry => entry.name.match(/^https:\/\/.*\.google-analytics\.com\/g\/collect/) && entry.name.match(regex));
 }
 export function hasAnalyticsHit(regex)
 {

@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
@@ -348,7 +349,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   PUBLIC STRING FUNCTION GetComponentIdentification()
   {
-    RETURN `${this->elementtype} ${this->name} in ${ObjectExists(this->owner) ? this->owner->frame->screenname : 'unknown'}`;
+    RETURN `${this->elementtype} ${this->name} in ${ObjectExists(this->owner) ? GetCompactResourceName(this->owner->frame->screenname) : 'unknown'}`;
   }
 
   /** Initialize a component with it parsed defintioon from an XML

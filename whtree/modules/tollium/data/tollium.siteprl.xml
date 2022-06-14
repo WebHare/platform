@@ -6,14 +6,13 @@
             isacceptableindex="true"
             ispublishedassubdir="true"
             webhare_builtintypeid="36">
-    <dynamicexecution startmacro="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#RunApplicationPortal"
-                      webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage" />
+    <dynamicexecution webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage" />
   </filetype>
 
   <apply priority="50">
     <to type="file" filetype="http://www.webhare.net/xmlns/tollium/applicationportal" />
 
-    <!-- Setup default webdesign. Sync with webinterface.siteprl.xml -->
+    <!-- Setup default webdesign. Sync with webinterface.siteprl.xml. Can't be embedded into <filetype> due to priority= -->
     <webdesign assetpack="webinterface"
                async="false"
                designfolder="mod::tollium/webdesigns/webinterface"
