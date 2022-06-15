@@ -121,7 +121,8 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
       loc->SetInstanceDataByType(this->type, this->GetUpdateValue());
   }
 
-  //Set the <fsobject> maintaining
+  //Set the <fsobject> maintaining our load/store target
+
   MACRO SetFSObject(OBJECT fsobject)
   {
     IF(this->__fsobject = fsobject)
