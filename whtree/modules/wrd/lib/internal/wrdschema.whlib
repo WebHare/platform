@@ -2,6 +2,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -534,7 +535,10 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     STRING tag := SubString(propname, 1);
     OBJECT wrdtype := this->__GetTypeByTag(tag, TRUE); //'->^typetag' is ALWAYS a 2017 definition
     IF (NOT ObjectExists(wrdtype))
-      THROW NEW Exception(`No such type '${tag}' exists in this schema`);
+    {
+      STRING bestmatch := GetBestMatch(tag, SELECT AS STRING ARRAY COLUMN tag FROM this->ListTypes());
+      THROW NEW Exception(`No such type ${EncodeJSON(tag)} exists in this schema${bestmatch=""?"":`, did you mean ${EncodeJSON(bestmatch)}?`}`);
+    }
 
     // Save for quick re-access
     INSERT ToUppercase(wrdtype->tag) INTO this->currenthats AT END;
