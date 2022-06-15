@@ -1,0 +1,67 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+ASYNC MACRO TestFSObjectComponent()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <compositions>
+      <p:fsobject name="fsobj" />
+      <p:whfsinstance name="instance" fsobject="fsobj" typedef="http://www.webhare.net/xmlns/beta/test" />
+    </compositions>
+    <body>
+      <textedit composition="instance" cellname="stringtest" value="default" title="StringTest" />
+    </body>
+  </screen>`)));
+
+  TestEq("default", TT(":StringTest")->value);
+  TT("fsobj")->Load(0); //is new init, has no effect on loaded values
+  TestEq("default", TT(":StringTest")->value);
+  TT(":StringTest")->value := "val1";
+
+  OBJECT work, newfile;
+
+  //Run a work, but cancel it to verify fsobj properly resetting its state (wrd:entity does!)
+  work := topscreen->BeginWork();
+  newfile := GetTestsuiteTempFolder()->EnsureFile([ name := "new file" ]);
+  TestThrowsLike("*Requires a fs object*", PTR TT("fsobj")->Store(work));
+  TestEq(newfile->id, TT("fsobj")->Store(work, [ fsobjectid := newfile->id ]));
+  work->Cancel();
+
+  //Run a work, this one we'll finish
+  work := topscreen->BeginWork();
+  newfile := GetTestsuiteTempFolder()->EnsureFile([ name := "new file" ]);
+  TestThrowsLike("*Requires a fs object*", PTR TT("fsobj")->Store(work));
+  TestEq(newfile->id, TT("fsobj")->Store(work, [ fsobjectid := newfile->id ]));
+  work->Finish();
+
+  TestEq("val1", newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringtest);
+
+  //Test loading
+  TT(":StringTest")->value := "val0";
+  TT("fsobj")->Load(0); //still has no effect on loaded values
+  TestEq("val0", TT(":StringTest")->value);
+
+  TT("fsobj")->Load(newfile->id);
+  TestEq("val1", TT(":StringTest")->value);
+  TT(":StringTest")->value := "val2";
+
+  work := topscreen->BeginWork();
+  TestEq(newfile->id, TT("fsobj")->Store(work));
+  work->Finish();
+
+  TestEq("val2", newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringtest);
+
+  AWAIT ExpectScreenChange(-1 , PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestFSObjectComponent
+                 ],
+                 [ testusers := [[ login := "user", grantrights := DEFAULT STRING ARRAY ]]
+                 ]);

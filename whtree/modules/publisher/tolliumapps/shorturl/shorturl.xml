@@ -97,12 +97,20 @@
   </screen>
 
   <screen name="urlprops" footerbuttons="ok cancel">
-    <body>
-      <p:intextlink name="target" width="1pr" required="true" />
-      <textedit name="shortname" width="1pr" minwidth="60x" tid=".shorturl" />
-      <datetime name="expirationdate" type="datetime" storeutc="true" />
-      <text name="modified" title="" visible="false" />
-      <textarea name="description" width="1pr" minheight="5gr" tid="~description" />
+    <compositions>
+      <p:fsobject name="fsobject" />
+    </compositions>
+    <body spacers="none">
+      <tabs name="tabs">
+        <tab tid=".urlprops">
+          <p:intextlink name="target" width="1pr" required="true" />
+          <textedit name="shortname" width="1pr" minwidth="60x" tid=".shorturl" />
+          <datetime name="expirationdate" type="datetime" storeutc="true" />
+          <text name="modified" title="" visible="false" />
+          <textarea name="description" width="1pr" minheight="5gr" tid="~description" />
+          <panel name="extensionpoint" visible="false" />
+        </tab>
+      </tabs>
     </body>
   </screen>
 
