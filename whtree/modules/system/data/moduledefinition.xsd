@@ -1660,6 +1660,11 @@
                 <xs:documentation>Callback which can extend the list of URLs to add columns</xs:documentation>
               </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="urlpropsextension">
+              <xs:annotation>
+                <xs:documentation>Extension for the short URL editor</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
           </xs:complexType>
         </xs:element>
       </xs:choice>
