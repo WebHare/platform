@@ -18,12 +18,16 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 RECORD FUNCTION GetShortURLAppSettings(STRING domain)
 {
-  RECORD settings := CELL[ urllisthook := "" ];
+  RECORD settings := CELL[ urllisthook := ""
+                         , urlpropsextension := ""
+                         ];
   FOREVERY(RECORD setting FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "shorturls"))
     IF(setting.node->GetAttribute("domain") = domain)
     {
       IF(setting.node->HasAttribute("urllisthook"))
         settings.urllisthook := MakeAbsoluteResourcePath(setting.resource, setting.node->GetAttribute("urllisthook"));
+      IF(setting.node->HasAttribute("urlpropsextension"))
+        settings.urlpropsextension := MakeAbsoluteResourcePath(setting.resource, setting.node->GetAttribute("urlpropsextension"));
     }
 
   RETURN settings;
@@ -131,12 +135,18 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoEditUrl()
   {
-    this->RunScreen("#urlprops", CELL[ id := ^shorturls->value[0]]);
+    this->RunScreen("#urlprops", CELL[ id := ^shorturls->value[0]
+                                     , this->appsettings.urlpropsextension
+                                     ]);
   }
 
   MACRO DoAddUrl()
   {
-    INTEGER newurl := this->RunScreen("#urlprops", [ id := 0 ]);
+    INTEGER newurl := this->RunScreen("#urlprops",
+      CELL[ id := 0
+          , this->appsettings.urlpropsextension
+          ]);
+
     IF(newurl != 0)
     {
       this->frame->focused := ^shorturls;
@@ -181,6 +191,12 @@ PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     ^shortname->prefix := this->contexts->^shortdomain->baseurl;
+    ^tabs->extendcomponents := [ [ name := "fsobject", component := ^fsobject ] ];
+    ^tabs->insertpoints := [ [ name := "extensionpoint", component := ^extensionpoint ] ];
+    IF(data.urlpropsextension != "")
+      ^tabs->LoadTabsExtension(data.urlpropsextension);
+
+    ^fsobject->Load(data.id);
 
     IF(data.id != 0)
     {
@@ -199,6 +215,11 @@ PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
       //we only show the placeholder if we're not going to require the field
       ^shortname->placeholder := this->GetTid(".shortname-placeholder");
     }
+
+    ^tabs->RunExtensionsPostInit();
+
+    IF(^tabs->GetNumVisiblePages() <= 1)
+      ^tabs->type := "server";
   }
 
   INTEGER FUNCTION Submit()
@@ -252,7 +273,13 @@ PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
         this->contexts->^shortdomain->UpdateShortUrl(this->urlid,
            CELL[ ...setmetadata, target := ^target->value ]);
       }
+
+      ^fsobject->Store(work, [ fsobjectid := RecordExists(newurl) ? newurl.id : this->urlid ]);
     }
+
+    IF(NOT work->HasFailed())
+      ^tabs->SubmitExtensions(work);
+
     RETURN work->Finish() ? this->urlid != 0 ? this->urlid : newurl.id : 0;
   }
 >;
