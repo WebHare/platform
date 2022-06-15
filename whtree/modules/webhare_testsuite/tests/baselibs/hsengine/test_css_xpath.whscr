@@ -44,6 +44,11 @@ MACRO TestDomStyleRewriter()
 //  PRINT(nodelist->item(0)->getAttribute("style") || "\n");
   TestEq('text-decoration: underline; margin: 0; padding: 0; font-size: 15px; line-height: 22px; font-family: Arial, Helvetica, Sans-Serif; color: #c60c30 !important;', node->getAttribute("style"));
 
+  // Tests rewrite crash when rewriting without any active selectors
+  dom := MakeXMLDocument(StringToBlob(`<html><body><style></style><p class="normal">Hi Pietje</p></body></html>`));
+  css := StringToBlob(dom->GetElementsByTagName('style')->textcontent);
+  cssom := MakeCSSStyleSheet(css);
+  dom := cssom->RewriteDomStyles(dom);
 
   CloseTest("TestDomStyleRewriter");
 }

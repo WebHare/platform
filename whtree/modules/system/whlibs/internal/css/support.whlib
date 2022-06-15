@@ -1670,6 +1670,10 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
 {
   RECORD ARRAY retval;
 
+  // No need to run when where are no startrules, and this way we can keep the invariant that levelactive is never empty
+  IF (IsDefaultValue(startrules))
+    RETURN retval;
+
   // Current depth in nodes, :root is depth 0
   INTEGER depth := 0;
 
@@ -1736,6 +1740,8 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         ` levelactive ${Substitute(AnyToString(elt.levelactive, "tree"), "\n", "")}` ||
         ` nodeactive ${Substitute(AnyToString(elt.nodeactive, "tree"), "\n", "")}\n`);
 //*/
+
+    // INV: elt.levelaction is always filled, so nosiblingcombinatoractive can only remain TRUE when depth < scopepath.pathlen
     BOOLEAN nosiblingcombinatoractive := TRUE;
     FOREVERY (INTEGER i FROM elt.levelactive CONCAT elt.nodeactive)
     {
