@@ -34,7 +34,7 @@ MACRO PrepIt()
   WaitForPromise(indexpromise);
 }
 
-OBJECT ASYNC FUNCTION Search()
+ASYNC MACRO Search()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
   TestEq(TRUE, RecordExists(TT("foldertree")->selection));
@@ -48,7 +48,8 @@ OBJECT ASYNC FUNCTION Search()
             ]
           ]
       ], searchscreen->GetFilterData());
-
+  
+  //=== Search by filetype
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";
   //Open the screen, ensure the list doesn't crash on eg tolliumicon...
   AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
@@ -68,8 +69,26 @@ OBJECT ASYNC FUNCTION Search()
   TestEq(1,Length(rows));
   TestEq(linksrtdfile->id, rows[0].rowkey);
 
+  //=== Search by widget type
+  searchscreen->filtercomps[0]->^filtertype->value := "publisher:widgettype";
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
+  TT("groups")->value := "http://www.webhare.net/xmlns/publisher/generalwidgets";
+  TT("contenttypes")->value := "http://www.webhare.net/xmlns/publisher/embedvideo";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //Search within test folder
+  searchscreen->filtercomps[0]->^addfilterbutton->TolliumClick();
+  searchscreen->filtercomps[1]->^filtertype->value := "publisher:whfsfolder";
+  searchscreen->filtercomps[1]->^matchtype->value := "site";
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[1]->^selectqueryselectbutton->TolliumClick);
+  TT("sites")->selection := SELECT * FROM TT("sites")->rows WHERE name = "webhare_testsuite.testsite";
+  TestEq(TRUE, RecordExists(TT("sites")->selection));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TT("filelist")->filter->TolliumClick();
+  TestEq([ "consenttest.rtd", "simpletest.rtd", "v2videotest.rtd" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
-  RETURN TRUE;
 }
 
 RunTestframework([ PTR PrepIt

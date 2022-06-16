@@ -729,6 +729,7 @@
         <text tid="whfsobject-files">bestand</text>
         <text tid="whfsobject-folders">map</text>
         <text tid="whfstype">Type</text>
+        <text tid="widgettype">Bevat widget</text>
       </textgroup>
       <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
         <text tid="query">Zoeken naar bestanden en mappen...</text>

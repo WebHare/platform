@@ -63,8 +63,6 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
         Print("Ignoring type '" || newtype.namespace || "', it is not a <widgettype>\n");
         CONTINUE;
       }
-      IF(newtype.namespace = "http://www.webhare.net/xmlns/publisher/embedvideo")
-        CONTINUE; //ignore, we have a button for this
 
       IF(RecordExists(SELECT FROM contenttypes WHERE contenttypes.namespace = newtype.namespace))
         CONTINUE; //dupe

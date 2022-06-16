@@ -749,7 +749,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       CASE "object-insert"
       {
-        STRING widgettype := this->owner->RunScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ widgets := this->GetAllowedWidgetTypes() ]);
+        RECORD ARRAY allowedtypes := SELECT * FROM this->GetAllowedWidgetTypes() WHERE type != "http://www.webhare.net/xmlns/publisher/embedvideo";
+        STRING widgettype := this->owner->RunScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ widgets := allowedtypes ]);
         IF (widgettype != "")
         {
           RECORD insertvalue := DoEditWidget(this->owner, this, widgettype, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "", DEFAULT RECORD);

@@ -729,6 +729,7 @@
         <text tid="whfsobject-files">file</text>
         <text tid="whfsobject-folders">folder</text>
         <text tid="whfstype">Type</text>
+        <text tid="widgettype">Contains widget</text>
       </textgroup>
       <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
         <text tid="query">Search files and folders...</text>
