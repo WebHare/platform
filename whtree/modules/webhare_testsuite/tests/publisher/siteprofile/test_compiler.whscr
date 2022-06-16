@@ -76,7 +76,7 @@ MACRO TestCompiler()
   RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(gathersp);
   RECORD testsuitesite := SELECT * FROM activeprofiles WHERE id = OpenTestsuiteSite()->id;
   TestEq(2, Length(testsuitesite.siteprofileids));
-  TestEq("mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl", gathersp.siteprofiles[testsuitesite.siteprofileids[0]-1]);
+  TestEq("mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml", gathersp.siteprofiles[testsuitesite.siteprofileids[0]-1]);
   TestEq("mod::webhare_testsuite/webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml", gathersp.siteprofiles[testsuitesite.siteprofileids[1]-1]);
 
   RECORD test1_only;
