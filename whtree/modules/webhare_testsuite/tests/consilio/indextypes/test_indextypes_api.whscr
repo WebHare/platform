@@ -4,16 +4,18 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 
-LOADLIB "mod::/publisher/lib/search/richdocuments.whlib";
+LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
+LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/inspect/consilio.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
-
 
 RECORD testdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</h1>'  //h1s[0]
                                           || '<div class="wh-rtd-embeddedobject" data-instanceid="level2doc">noise</div>'
@@ -43,20 +45,19 @@ MACRO TestIndexTypeAPIs()
   OBJECT applytester := GetApplytesterForObject(testrtd->id);
   TestEq(DEFAULT RECORD, GetRichDocumentIndexableContent(DEFAULT RECORD, CELL[applytester]));
 
-  RECORD indexable := GetRichDocumentIndexableContent(testdoc, CELL[applytester]);
-  TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.htmltext));
-  TestEq(1, Length(indexable.indextypes));
-  TestEq(1, Length(indexable.indexversions));
+  RECORD indexable := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd->id), FALSE);
+  TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.subfiles[0].data));
+  TestEq(2, Length(indexable.indextypes));
+  TestEq(2, Length(indexable.indexversions));
 
   RECORD testdoc_noinstances := CELL[...testdoc, instances := RECORD[]];
   testrtd_noinstances := testloc->CreateFile([name := "noinstances.rtd", type := richdoctype->id ]);
   richdoctype->SetInstanceData(testrtd_noinstances->id, [ data := testdoc_noinstances ] );
 
-  RECORD indexable_noinstances := GetRichDocumentIndexableContent(testdoc_noinstances,
-                                                                  CELL[applytester]);
-  //No subcontent, so no indextypes or versions
-  TestEq(STRING[], indexable_noinstances.indextypes);
-  TestEq(STRING[], indexable_noinstances.indexversions);
+  RECORD indexable_noinstances := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd_noinstances->id), FALSE);
+  //No subcontent, so no indextypes or versions other than the file itself
+  TestEq(1, Length(indexable_noinstances.indextypes));
+  TestEq(1, Length(indexable_noinstances.indexversions));
 
   testfw->CommitWork();
 
@@ -90,7 +91,7 @@ MACRO TestPublisherIndex()
   RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ indextypes := STRING[], indexversions := STRING[] ]]);
   TestEq(2, Length(result.results[0].indextypes));
   TestEq(2, Length(result.results[0].indexversions));
-  TestEq(1,Length(result.results));
+  TestEq(1, Length(result.results));
   TestEqLike("*Eerste kop*Tweede kop*", result.results[0].summary);
 }
 
