@@ -24,6 +24,7 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 
   RECORD savedvalue;
   STRING ARRAY pvt_extracells;
+  OBJECT __fsobject;
 
   // ---------------------------------------------------------------------------
   //
@@ -36,6 +37,8 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   PUBLIC BOOLEAN pvt_publisher_iswhfsinstance; //bit of a hack to detect whfsinstance in commondialogs.whlib
 
   PUBLIC PROPERTY basefsobject(pvt_basefsobject, SetBaseFSObject);
+  ///The <fsobject> maintaining our load/store target
+  PUBLIC PROPERTY fsobject(__fsobject, SetFSObject);
   PUBLIC PROPERTY applytester(pvt_applytester, -);
   PRIVATE STRING delayed_type_init;
 
@@ -54,6 +57,7 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   {
     TolliumCompositionBase::StaticInit(def);
     this->delayed_type_init := def.typedef; //delay it, as we may not have DB connectivity yet
+    this->SetFSObject(def.fsobject);
   }
 
   STRING FUNCTION GetTypeNS()
@@ -115,6 +119,25 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
     OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type) AND ObjectExists(loc))
       loc->SetInstanceDataByType(this->type, this->GetUpdateValue());
+  }
+
+  //Set the <fsobject> maintaining our load/store target
+
+  MACRO SetFSObject(OBJECT fsobject)
+  {
+    IF(this->__fsobject = fsobject)
+      RETURN;
+
+    IF(this->__fsobject != DEFAULT OBJECT)
+    {
+      this->__fsobject->RemoveLoadStoreListener(this);
+      this->__fsobject := DEFAULT OBJECT;
+    }
+    IF(fsobject != DEFAULT OBJECT)
+    {
+      fsobject->AddLoadStoreListener(this);
+      this->__fsobject := fsobject;
+    }
   }
 
   MACRO SetBaseFSObject(OBJECT obj)

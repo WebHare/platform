@@ -46,6 +46,7 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
   TestEq(MakeIntExtExternalLink("https://beta.webhare.net/"), TT("target")->value);
   OBJECT newtarget := OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af");
   TT("target")->value := MakeIntExtInternalLink(newtarget->id, "?appendstuff");
+
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq(newtarget->link || "?appendstuff", TT("shorturls")->selection.targeturl);
@@ -104,6 +105,22 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
 
   TestEq([[ shortname := "testje" ]], SELECT shortname FROM TT("shorturls")->rows ORDER BY shortname);
   TestEqLike("*test2.bea.gl*", topscreen->frame->title);
+
+  //Test list extension
+  TestEq("WHFS Path", SELECT AS STRING title FROM TT("shorturls")->columns WHERE name = "testbeagle2_whfspath");
+  TestEq(["/webhare-private/system/shorturl/test2.bea.gl/testje"], SELECT AS STRING ARRAY testbeagle2_whfspath FROM TT("shorturls")->rows);
+
+  //Test the window extensions
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("target")->value := MakeIntExtExternalLink("https://beta.webhare.net/sublink");
+  TT(":StringTest")->value := "Val1";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("Val1", TT(":StringTest")->value);
+  TT(":StringTest")->value := "Val2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -170,6 +187,13 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
 
+  //test domain whitelist
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.net/");
+  TT(":StringTest")->value := "Val1";
+  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*domain*gamma.webhare.net*" ]);
+  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.dev/");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   testfw->browser->autofollow := FALSE;
   TestEq(TRUE, testfw->browser->GotoWebPage(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/testje"));
@@ -182,13 +206,7 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
-  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.net/");
-  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*domain*gamma.webhare.net*" ]);
-  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.dev/");
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-
-  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //app autocloses once last domain is deleted
 }
 
 RunTestFramework([ PTR CleanupShortURLTests

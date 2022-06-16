@@ -1,0 +1,75 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// WHFSObject 'wrapper'
+//
+
+PUBLIC STATIC OBJECTTYPE FSObject EXTEND TolliumSpecialComponent
+<
+  WEAKOBJECT ARRAY loadstorelisteners;
+  INTEGER __fsobjectid;
+
+  PUBLIC PROPERTY fsobjectid(__fsobjectid, -);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumSpecialComponent::StaticInit(def);
+  }
+
+  PUBLIC MACRO AddLoadStoreListener(OBJECT obj)
+  {
+    IF(obj NOT IN this->GetLoadStoreListeners())
+      INSERT WEAKOBJECT(obj) INTO this->loadstorelisteners AT END;
+  }
+
+  PUBLIC MACRO RemoveLoadStoreListener(OBJECT obj)
+  {
+    INTEGER pos := SearchElement(this->loadstorelisteners, obj);
+    IF(pos >= 0)
+      DELETE FROM this->loadstorelisteners AT pos;
+  }
+
+  OBJECT ARRAY FUNCTION GetLoadStoreListeners()
+  {
+    OBJECT ARRAY list;
+    FOREVERY(WEAKOBJECT weaklistener FROM this->loadstorelisteners)
+    {
+      OBJECT listener := OBJECT(weaklistener);
+      IF(ObjectExists(listener))
+        INSERT listener INTO list AT END;
+    }
+    RETURN list;
+  }
+
+  PUBLIC MACRO Load(INTEGER id)
+  {
+    this->__fsobjectid := id;
+    IF(id != 0)
+      FOREVERY(OBJECT listener FROM this->GetLoadStoreListeners())
+        listener->Load(id);
+  }
+
+  PUBLIC INTEGER FUNCTION Store(OBJECT work, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ fsobjectid := 0
+        ], options);
+
+    INTEGER storeid := options.fsobjectid ?? this->fsobjectid;
+    IF(storeid = 0)
+      THROW NEW TolliumException(this, `FSObject::Store requires a fs object id set through either ->Load or passed as an 'fsobjectid' option`);
+
+    FOREVERY(OBJECT listener FROM this->GetLoadStoreListeners())
+      listener->Store(work, storeid);
+
+    RETURN storeid;
+  }
+>;
