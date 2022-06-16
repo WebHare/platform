@@ -15,13 +15,6 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   // ---------------------------------------------------------------------------
   //
-  // Public properties
-  //
-
-  PUBLIC PROPERTY value(GetValue, SetValue);
-
-  // ---------------------------------------------------------------------------
-  //
   // Init
   //
 
@@ -35,22 +28,6 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
       ^groups->SetValueIfValid("http://www.webhare.net/xmlns/publisher/generalwidgets");
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // Getters & setters
-  //
-
-  STRING FUNCTION GetValue()
-  {
-    RETURN ^contenttypes->value;
-  }
-
-  MACRO SetValue(STRING newvalue)
-  {
-    STRING groupns := SELECT AS STRING primarygroup.namespace FROM this->allcontenttypes WHERE namespace = newvalue;
-    ^groups->value := groupns;
-    ^contenttypes->value := newvalue;
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -139,5 +116,10 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
         SELECT *
           FROM this->allcontenttypes
          WHERE primarygroup.namespace = ^groups->value;
+  }
+
+  STRING FUNCTION Submit()
+  {
+    RETURN ^contenttypes->value;
   }
 >;
