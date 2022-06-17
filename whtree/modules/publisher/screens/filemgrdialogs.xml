@@ -63,7 +63,7 @@
         <col />
         <row>
           <cell layout="left">
-            <checkbox name="showalltypes" title="" labeltid=".showalltypes" onchange="onalltypeschange" />
+            <checkbox name="showalltypes" title="" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" />
           </cell>
           <cell layout="right">
             <line>

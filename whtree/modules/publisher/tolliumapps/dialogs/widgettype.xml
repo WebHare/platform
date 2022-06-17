@@ -3,7 +3,7 @@
          gid="tolliumapps.dialogs.widgettype"
          library="widgettype.whlib">
 
-  <screen name="choosetype" allowresize="true" savestate="size" width="120x" height="15gr">
+  <screen name="choosetype" width="120x" height="15gr" allowresize="true" savestate="size">
     <actions>
       <action name="choose" onexecute="submit">
         <enableon source="contenttypes" min="1" />
@@ -41,10 +41,17 @@
     </body>
 
     <footer>
-      <line layout="right">
-        <button action="choose" tid="~ok" />
-        <button tid="~cancel" tolliumresult="cancel" />
-      </line>
+      <grid>
+        <cell layout="left">
+          <checkbox name="showalltypes" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" title="" />
+        </cell>
+        <cell width="1pr">
+          <line layout="right">
+            <button action="choose" tid="~ok" />
+            <button tid="~cancel" tolliumresult="cancel" />
+          </line>
+        </cell>
+      </grid>
     </footer>
   </screen>
 

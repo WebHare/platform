@@ -826,7 +826,6 @@
       <text tid="newfile">Nieuw bestand</text>
       <text tid="newfolder">Nieuwe map</text>
       <text tid="notypes">Er zijn geen geldige types beschikbaar</text>
-      <text tid="showalltypes">Toon alle geinstalleerde types</text>
       <text tid="template">Template id</text>
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
@@ -1624,6 +1623,9 @@
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
         <text tid="revealinpublisher">Openen in Publisher</text>
       </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.common.settings -->
+        <text tid="showalltypes">Toon alle geinstalleerde types</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
@@ -1711,6 +1713,7 @@
         <text tid="groups">Groep</text>
         <text tid="other">Niet ingedeelde types</text>
         <text tid="title">Kies soort widget</text>
+        <text tid="unsupportedwidgettype">Widgets van type '<param p="1"/>' lijken niet beschikbaar te zijn in deze context .Weet u zeker dat u deze wil invoegen?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->

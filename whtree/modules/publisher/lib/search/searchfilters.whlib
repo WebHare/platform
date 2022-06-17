@@ -673,17 +673,15 @@ PUBLIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
 
   UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
   {
-    RECORD csp := GetCachedSiteProfiles();
-    RECORD ARRAY allwidgets := SELECT type := namespace, title FROM csp.contenttypes WHERE type="widgettype";
-    STRING widgettype := this->context->filterscreen->RunScreen("mod::publisher/tolliumapps/dialogs/widgettype.xml#choosetype", [ widgets := allwidgets ]);
+    RECORD widgettype := this->context->filterscreen->RunScreen("mod::publisher/tolliumapps/dialogs/widgettype.xml#choosetype");
 
-    IF(widgettype != "")
+    IF(RecordExists(widgettype))
     {
       RETURN
           CELL[ ...value
               , selectquery :=
-                  CELL[ widgettype
-                      , showvalue := (SELECT AS STRING GetTid(title) FROM allwidgets WHERE type = widgettype)
+                  CELL[ widgettype := widgettype.namespace
+                      , showvalue := widgettype.title
                       ]
               ];
     }

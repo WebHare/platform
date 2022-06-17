@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 PUBLIC RECORD __pvt_widget_passthrough;
 
-RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttypens)
+PUBLIC RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttypens)
 {
   RECORD pos := RecordLowerBound(csp.contenttypes, [ namespace := contenttypens ], [ "NAMESPACE" ]);
   IF (pos.found)

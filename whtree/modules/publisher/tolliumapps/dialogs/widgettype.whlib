@@ -2,6 +2,7 @@
 
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -24,7 +25,8 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
   // Variables
   //
 
-  RECORD ARRAY widgets;
+  BOOLEAN islimited;
+  STRING ARRAY limittypes;
 
   // ---------------------------------------------------------------------------
   //
@@ -33,12 +35,26 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->widgets := data.widgets;
+    data := ValidateOptions([ limittypes := STRING[] ], data, [ optional := ["limittypes"] ]);
+    IF(CellExists(data, 'limittypes'))
+    {
+      this->islimited := TRUE;
+      this->limittypes := GetSortedSet(data.limittypes);
+    }
+
     this->RefreshList();
-    IF(Length(^groups->rows)=1)
+
+    IF(Length(^groups->rows) = 1)
+    {
       ^groups->selection := ^groups->rows[0];
+    }
     ELSE IF(NOT RecordExists(^groups->selection))
+    {
       ^groups->SetValueIfValid("http://www.webhare.net/xmlns/publisher/generalwidgets");
+    }
+
+    BOOLEAN showdeveloper := this->tolliumuser->HasRight("system:supervisor");
+    ^showalltypes->visible := showdeveloper AND this->tolliumuser->HasRightOn("system:fs_browse", 0);
   }
 
 
@@ -58,49 +74,30 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
   //
   RECORD ARRAY FUNCTION GetApplicableTypes()
   {
-    RECORD ARRAY contenttypes;
-
-    FOREVERY (RECORD rec FROM this->widgets)
-    {
-      STRING lookuptype := rec.type;
-      RECORD newtype := LookupContentType(lookuptype);
-
-      IF(NOT RecordExists(newtype))
-      {
-        Print("The type '" || lookuptype || "' did not match any installed type\n");
-        CONTINUE;
-      }
-
-      IF(NOT newtype.isembeddedobjecttype)
-      {
-        Print("Ignoring type '" || newtype.namespace || "', it is not a <widgettype>\n");
-        CONTINUE;
-      }
-
-      IF(RecordExists(SELECT FROM contenttypes WHERE contenttypes.namespace = newtype.namespace))
-        CONTINUE; //dupe
-      INSERT newtype INTO contenttypes AT END;
-    }
-    RETURN contenttypes;
-  }
-
-  MACRO RefreshList()
-  {
-    RECORD ARRAY contenttypes := this->GetApplicableTypes();
     RECORD default_group :=
         [ namespace :=          "_default_group"
         , title :=              ":" || this->GetTid(".other")
         , tolliumicon :=        "database/schema"
         ];
+    RECORD csp := GetCachedSiteProfiles();
+    BOOLEAN limitit := this->islimited AND ^showalltypes->value = FALSE;
 
+    RETURN SELECT rowkey := namespace
+                , title :=         GetTid(title)
+                , primarygroup :=  GetContentTypePrimaryGroup(csp, namespace) ?? default_group
+                , tolliumicon
+                , module :=        GetModuleNameFromResourcePath(siteprofile)
+             FROM csp.contenttypes
+            WHERE type = "widgettype"
+                  AND (limitit ? BinaryFind(this->limittypes, namespace) >= 0 : TRUE);
+  }
+
+  MACRO RefreshList()
+  {
     RECORD ARRAY allwidgettypes :=
         SELECT *
-             , rowkey :=        namespace
-             , title :=         GetTid(title)
-             , primarygroup :=  primarygroup ?? default_group
              , icon :=          tolliumicon != "" ? ^contenttypes->GetIcon(tolliumicon) : 0
-             , module :=        GetModuleNameFromResourcePath(siteprofile)
-          FROM contenttypes;
+          FROM this->GetApplicableTypes();
 
      // Build the initial group list
      RECORD ARRAY groups := SELECT rowkey :=        Any(primarygroup.namespace)
@@ -161,7 +158,6 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
     IF (Length(grouprows) = 1)
     {
-      ^groups->selection := grouprows[0];
       ^groupspart->visible := FALSE;
       ^contenttypes->borders.left := TRUE;
     }
@@ -177,8 +173,20 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
     ^contenttypes->rows := RecordExists(^groups->selection) ? ^groups->selection.widgettypes : RECORD[];
   }
 
-  STRING FUNCTION Submit()
+  RECORD FUNCTION Submit()
   {
-    RETURN ^contenttypes->value;
+    RECORD sel := ^contenttypes->selection;
+    IF(this->islimited AND BinaryFind(this->limittypes, sel.rowkey) = -1)
+    {
+      IF(this->RunSimpleScreen("verify", this->GetTid(".unsupportedwidgettype", sel.title)) != "yes")
+        RETURN DEFAULT RECORD;
+    }
+
+    RETURN CELL[ namespace := sel.rowkey, title := sel.title ];
+  }
+
+  MACRO OnAllTypesChange()
+  {
+    this->RefreshList();
   }
 >;

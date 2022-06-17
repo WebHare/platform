@@ -826,7 +826,6 @@
       <text tid="newfile">New File</text>
       <text tid="newfolder">New Folder</text>
       <text tid="notypes">There are no valid types available</text>
-      <text tid="showalltypes">Show all installed types</text>
       <text tid="template">Template id</text>
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
@@ -1625,6 +1624,9 @@
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
         <text tid="revealinpublisher">Open in Publisher</text>
       </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.common.settings -->
+        <text tid="showalltypes">Show all installed types</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
@@ -1712,6 +1714,7 @@
         <text tid="groups">Group</text>
         <text tid="other">Miscellaneous</text>
         <text tid="title">Choose widget type</text>
+        <text tid="unsupportedwidgettype">Widgets of type '<param p="1"/>' do not appear to be available in this context. Are you sure you want to insert it?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
