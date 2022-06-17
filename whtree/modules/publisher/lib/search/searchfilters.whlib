@@ -675,7 +675,7 @@ PUBLIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
   {
     RECORD csp := GetCachedSiteProfiles();
     RECORD ARRAY allwidgets := SELECT type := namespace, title FROM csp.contenttypes WHERE type="widgettype";
-    STRING widgettype := this->context->filterscreen->RunScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", [ widgets := allwidgets ]);
+    STRING widgettype := this->context->filterscreen->RunScreen("mod::publisher/tolliumapps/dialogs/widgettype.xml#choosetype", [ widgets := allwidgets ]);
 
     IF(widgettype != "")
     {

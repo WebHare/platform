@@ -1,9 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         gid="commondialogs.embeddedobject"
-         library="/lib/screens/commondialogs/embeddedobjects.whlib">
+         gid="tolliumapps.dialogs.widgettype"
+         library="widgettype.whlib">
 
-  <screen name="choosetype" allowresize="true" gid=".choosetype">
+  <screen name="choosetype" allowresize="true">
     <actions>
       <action name="choose" onexecute="submit">
         <enableon source="contenttypes" min="1" />

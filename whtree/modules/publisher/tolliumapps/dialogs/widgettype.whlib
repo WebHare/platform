@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 

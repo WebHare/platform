@@ -57,15 +57,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
-    <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
-      <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
-        <text tid="choose">Choose</text>
-        <text tid="choosetype">Object type</text>
-        <text tid="groups">Group</text>
-        <text tid="other">Miscellaneous</text>
-        <text tid="title">Choose object type</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="cannotfindobjecteditor">The '<param p="1"/>' object editor should be used for this object, but it could not be found or invoked.</text>
       <text tid="cannotopencontentlisting">A content listing has no contents that can be modified or downloaded.</text>
@@ -1714,6 +1705,13 @@
           <text tid="list">List</text>
           <text tid="thumbnails">Thumbnails</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="widgettype">   <!-- tolliumapps.dialogs.widgettype -->
+        <text tid="choose">Choose</text>
+        <text tid="choosetype">Object type</text>
+        <text tid="groups">Group</text>
+        <text tid="other">Miscellaneous</text>
+        <text tid="title">Choose object type</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
