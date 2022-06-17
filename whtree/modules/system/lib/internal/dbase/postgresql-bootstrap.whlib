@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
 {
   EnsureExtensions(trans);
+  EnsureSettings(trans);
   EnsureBlobTable(trans);
   EnsureStoredProcedures(trans);
 }
@@ -32,6 +33,13 @@ MACRO EnsureExtensions(OBJECT trans)
       trans->__ExecSQL(`CREATE EXTENSION ${ext}`);
       trans->CommitWork();
     }
+}
+
+MACRO EnsureSettings(OBJECT trans)
+{
+  trans->BeginWork();
+  trans->__ExecSQL(`ALTER USER CURRENT_USER SET default_transaction_read_only = on`);
+  trans->CommitWork();
 }
 
 MACRO EnsureBlobTable(OBJECT trans)

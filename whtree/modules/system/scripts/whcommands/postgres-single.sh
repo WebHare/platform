@@ -17,4 +17,4 @@ else
   PSBIN="/usr/pgsql-11/bin/"
 fi
 
- exec $RUNAS $PSBIN/postgres --single -c "default_transaction_read_only=off" -D $PSROOT/db webhare
+ exec $RUNAS $PSBIN/postgres --single -D $PSROOT/db webhare
