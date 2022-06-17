@@ -1,8 +1,22 @@
 <?wh
 
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+// Return record array of string arrays as a deduped record array
+// Eg: [[ sa := ["a"],["b"] ], sa := ["a"],"c"] ] will return [ "a","b","c" ]
+STRING ARRAY AGGREGATE FUNCTION DedupeStringArrays(RECORD ARRAY inarray)
+{
+  STRING ARRAY resultset;
+  FOREVERY(RECORD row FROM inarray)
+    resultset := resultset CONCAT row.sa;
+  RETURN GetSortedSet(resultset);
+}
 
 PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
@@ -10,7 +24,6 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
   // Variables
   //
 
-  RECORD ARRAY allcontenttypes;
   RECORD ARRAY widgets;
 
   // ---------------------------------------------------------------------------
@@ -80,24 +93,75 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
         , tolliumicon :=        "database/schema"
         ];
 
-    this->allcontenttypes :=
+    RECORD ARRAY allwidgettypes :=
         SELECT *
              , rowkey :=        namespace
              , title :=         GetTid(title)
              , primarygroup :=  primarygroup ?? default_group
              , icon :=          tolliumicon != "" ? ^contenttypes->GetIcon(tolliumicon) : 0
+             , module :=        GetModuleNameFromResourcePath(siteprofile)
           FROM contenttypes;
-     ^groups->rows :=
-        SELECT rowkey :=        Any(primarygroup.namespace)
-             , namespace :=     Any(primarygroup.namespace)
-             , title :=         GetTid(Any(primarygroup.title))
-             , icon :=          Any(primarygroup.tolliumicon) != "" ? ^groups->GetIcon(Any(primarygroup.tolliumicon)) : 0
-          FROM this->allcontenttypes
-      GROUP BY primarygroup.namespace;
 
-    IF (Length(^groups->rows) = 1)
+     // Build the initial group list
+     RECORD ARRAY groups := SELECT rowkey :=        Any(primarygroup.namespace)
+                                 , namespace :=     Any(primarygroup.namespace)
+                                 , title :=         GetTid(Any(primarygroup.title))
+                                 , icon :=          Any(primarygroup.tolliumicon) != "" ? ^groups->GetIcon(Any(primarygroup.tolliumicon)) : 0
+                                 , widgettypes :=   GroupedValues(allwidgettypes)
+                                 , modules :=       (SELECT AS STRING ARRAY DISTINCT module FROM GroupedValues(allwidgettypes))
+                              FROM allwidgettypes
+                          GROUP BY primarygroup.namespace;
+
+
+     // Gather groups that already have a duplicate title
+     // If these groups cover multiple modules, they need to be split
+     // (because otherwise splitting this group doesn't solve anything, but the module owner should be able to fix it)
+     STRING ARRAY dupegrouptitles := SELECT AS STRING ARRAY ANY(ToUppercase(title))
+                                         FROM groups
+                                     GROUP BY namespace, ToUppercase(title)
+                                       HAVING Length(GroupedValues(namespace)) > 1
+                                              AND Length(DedupeStringArrays(CELL[ sa := modules ])) > 1;
+
+     // If any widget title is duplicate and these dupes come from two different modules, we split the offending group
+     // First build a list of duplicate titles and group their modules
+     RECORD ARRAY dupetitles := SELECT primarygroup := ANY(primarygroup)
+                                     , modules := GroupedValues(module)
+                                  FROM allwidgettypes
+                              GROUP BY primarygroup.namespace, ToUppercase(title)
+                                HAVING Count(*) > 1;
+
+     // Then get the groups with dupe titles that cover more than one module
+     // (because otherwise splitting this group doesn't solve anything, but the module owner should be able to fix it)
+     STRING ARRAY groupwithdupes := SELECT AS STRING ARRAY ANY(primarygroup.namespace)
+                                         FROM dupetitles
+                                        WHERE Length(GetSortedSet(modules)) > 1
+                                     GROUP BY primarygroup.namespace;
+
+     // We have both lists, build the list of groups
+     RECORD ARRAY grouprows;
+     FOREVERY(RECORD grouprec FROM groups)
+     {
+       IF(grouprec.namespace NOT IN groupwithdupes AND ToUppercase(grouprec.title) NOT IN dupegrouptitles) //If a group is sufficiently unique, copy one-by-one
+       {
+         INSERT grouprec INTO grouprows AT END;
+         CONTINUE;
+       }
+
+       //This group needs to be split per module
+       FOREVERY(RECORD modulepart FROM SELECT module, widgettypes := GroupedValues(widgettypes) FROM grouprec.widgettypes GROUP BY module)
+         INSERT CELL[ rowkey := grouprec.rowkey || "#" || modulepart.module
+                    , grouprec.namespace
+                    , title := `${grouprec.title} (${modulepart.module})`
+                    , grouprec.icon
+                    , modulepart.widgettypes
+                    ] INTO grouprows AT END;
+     }
+
+     ^groups->rows := grouprows;
+
+    IF (Length(grouprows) = 1)
     {
-      ^groups->selection := ^groups->rows[0];
+      ^groups->selection := grouprows[0];
       ^groupspart->visible := FALSE;
       ^contenttypes->borders.left := TRUE;
     }
@@ -110,10 +174,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   MACRO OnGroupSelect()
   {
-    ^contenttypes->rows :=
-        SELECT *
-          FROM this->allcontenttypes
-         WHERE primarygroup.namespace = ^groups->value;
+    ^contenttypes->rows := RecordExists(^groups->selection) ? ^groups->selection.widgettypes : RECORD[];
   }
 
   STRING FUNCTION Submit()

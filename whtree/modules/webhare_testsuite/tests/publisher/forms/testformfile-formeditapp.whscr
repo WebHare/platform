@@ -186,7 +186,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "Ëmail pretty plz";
   AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
   TestEq(2, Length(TT("contenttypes")->rows)); //expecting the merge field and the custom form widget
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/formmergefield";
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
 
@@ -241,7 +241,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
   AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/formmergefield";
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
 
   TestEq(3, Length(TT(":Field")->options));

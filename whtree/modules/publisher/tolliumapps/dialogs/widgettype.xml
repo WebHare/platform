@@ -3,7 +3,7 @@
          gid="tolliumapps.dialogs.widgettype"
          library="widgettype.whlib">
 
-  <screen name="choosetype" allowresize="true">
+  <screen name="choosetype" allowresize="true" savestate="size" width="120x" height="15gr">
     <actions>
       <action name="choose" onexecute="submit">
         <enableon source="contenttypes" min="1" />
@@ -29,7 +29,7 @@
         <part width="1pr">
           <list name="contenttypes"
                 minwidth="30x"
-                minheight="10gr"
+                minheight="6gr"
                 borders="top right bottom"
                 openaction="choose"
                 rowkeytype="string"

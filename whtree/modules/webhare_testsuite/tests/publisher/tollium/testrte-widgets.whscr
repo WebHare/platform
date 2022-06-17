@@ -39,7 +39,7 @@ ASYNC MACRO TestEmptyWidget()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
 
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget";
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
@@ -102,7 +102,7 @@ ASYNC MACRO TestAnchorWidget()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
 
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/anchor";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE title = "Anchor";
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
