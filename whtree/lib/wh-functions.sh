@@ -75,7 +75,7 @@ getwhparameters()
     exit 1
   fi
   eval `$WEBHARE_DIR/bin/webhare printparameters`
-  export STORAGEPATH="$WEBHARE_DATAROOT/postgresql"
+  export WEBHARE_DATABASEPATH="$WEBHARE_DATAROOT/postgresql"
 }
 
 getmoduledir_nofail()

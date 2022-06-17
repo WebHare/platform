@@ -10,7 +10,7 @@ if [ -f "$BACKUPDEST/dbase/translog.whdb" ] || [ -f "$BACKUPDEST/postgresql/db/p
 fi
 
 getwhparameters
-if [ -z "$STORAGEPATH" ];then
+if [ -z "$WEBHARE_DATABASEPATH" ];then
   die "Failed to retrieve database configuration"
 fi
 
@@ -18,7 +18,7 @@ if ! is_webhare_running; then
   die "WebHare must be running for a backup"
 fi
 
-echo "STORAGEPATH: $STORAGEPATH"
+echo "STORAGEPATH: $WEBHARE_DATABASEPATH"
 echo "BACKUP DESTINATION: $BACKUPDEST"
 
 if [ "$(uname)" == "Darwin" ]; then
@@ -45,9 +45,9 @@ function control_c()
 
 [ "$VERBOSE" == "1" ] && echo "Making copy of the blobs"
 for BLOBBASEFOLDER in blob ; do
-  if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
+  if [ -d "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" ]; then
     mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-    rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+    rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
 
     RSYNCRETVAL="$?"
     if [ "$RSYNCRETVAL" != "0" ]; then
@@ -71,9 +71,9 @@ fi
 
 [ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
 for BLOBBASEFOLDER in blob ; do
-  if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
+  if [ -d "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" ]; then
     mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-    rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+    rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
 
     RSYNCRETVAL="$?"
     if [ "$RSYNCRETVAL" != "0" ]; then

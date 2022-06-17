@@ -720,7 +720,7 @@ case $INSTR in
     echo "Rescue port:   http://127.0.0.1:$(($WEBHARE_BASEPORT + 9))/" # whwebserverconfig_rescueportoffset
     echo ""
     echo "Data root:     $WEBHARE_DATAROOT"
-    echo "Database data: $STORAGEPATH"
+    echo "Database data: $WEBHARE_DATABASEPATH"
     echo ""
     set|grep ^WEBHARE_
     ;;
