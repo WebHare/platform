@@ -72,7 +72,7 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   # Set the configuration file
-  cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/tmp_initdb/postgresql.conf"
+  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/tmp_initdb/postgresql.conf"
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
@@ -101,7 +101,14 @@ else
   fi
 
   # Ensure configuration file is set
-  cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/db/postgresql.conf"
+  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/db/postgresql.conf"
+fi
+
+# Ensure user configuration is set
+if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
+  cp "$WEBHARE_DIR/etc/pg_hba-docker.conf" "$PSROOT/db/pg_hba.conf"
+else
+  cp "$WEBHARE_DIR/etc/pg_hba-sourceinstall.conf" "$PSROOT/db/pg_hba.conf"
 fi
 
 echo "Starting PostgreSQL"

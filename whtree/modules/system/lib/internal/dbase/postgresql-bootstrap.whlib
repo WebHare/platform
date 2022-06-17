@@ -39,6 +39,8 @@ MACRO EnsureSettings(OBJECT trans)
 {
   trans->BeginWork();
   trans->__ExecSQL(`ALTER USER CURRENT_USER SET default_transaction_read_only = on`);
+  //Always block any password at startup, password-access to webhare's user should only be temporary
+  trans->__ExecSQL(`ALTER USER CURRENT_USER PASSWORD NULL`);
   trans->CommitWork();
 }
 

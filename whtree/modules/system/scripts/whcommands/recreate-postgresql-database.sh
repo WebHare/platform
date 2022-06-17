@@ -58,7 +58,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
 fi
 
 $RUNAS $PSBIN/initdb -D ${WEBHARE_DATAROOT}/postgresql/db.localefix --auth-local=trust --encoding "UTF-8" --locale=C -U postgres
-cp $WEBHARE_DIR/etc/initial_postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.localefix/postgresql.conf
+cp $WEBHARE_DIR/etc/postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.localefix/postgresql.conf
 
 $RUNAS $PSBIN/postmaster -p 7777 -D ${WEBHARE_DATAROOT}/postgresql/db.localefix &
 POSTMASTER_PID=$!
