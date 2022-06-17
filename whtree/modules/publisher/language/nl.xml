@@ -1707,10 +1707,10 @@
       </textgroup>
       <textgroup gid="widgettype">   <!-- tolliumapps.dialogs.widgettype -->
         <text tid="choose">Kies</text>
-        <text tid="choosetype">Objecttype</text>
+        <text tid="choosetype">Soort widget</text>
         <text tid="groups">Groep</text>
         <text tid="other">Niet ingedeelde types</text>
-        <text tid="title">Kies het objecttype</text>
+        <text tid="title">Kies soort widget</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
