@@ -1,9 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         gid="commondialogs.embeddedobject"
-         library="/lib/screens/commondialogs/embeddedobjects.whlib">
+         gid="tolliumapps.dialogs.widgettype"
+         library="widgettype.whlib">
 
-  <screen name="choosetype" allowresize="true" gid=".choosetype">
+  <screen name="choosetype" width="120x" height="15gr" allowresize="true" savestate="size">
     <actions>
       <action name="choose" onexecute="submit">
         <enableon source="contenttypes" min="1" />
@@ -29,7 +29,7 @@
         <part width="1pr">
           <list name="contenttypes"
                 minwidth="30x"
-                minheight="10gr"
+                minheight="6gr"
                 borders="top right bottom"
                 openaction="choose"
                 rowkeytype="string"
@@ -41,10 +41,17 @@
     </body>
 
     <footer>
-      <line layout="right">
-        <button action="choose" tid="~ok" />
-        <button tid="~cancel" tolliumresult="cancel" />
-      </line>
+      <grid>
+        <cell layout="left">
+          <checkbox name="showalltypes" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" title="" />
+        </cell>
+        <cell width="1pr">
+          <line layout="right">
+            <button action="choose" tid="~ok" />
+            <button tid="~cancel" tolliumresult="cancel" />
+          </line>
+        </cell>
+      </grid>
     </footer>
   </screen>
 

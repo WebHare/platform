@@ -107,7 +107,7 @@ ASYNC MACRO TestAdaptiveContentTriggerBeaconWidget()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "beacondoc" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TT("doceditor")->contents->rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon";
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
 

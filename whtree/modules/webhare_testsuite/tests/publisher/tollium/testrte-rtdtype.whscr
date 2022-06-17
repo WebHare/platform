@@ -48,7 +48,7 @@ ASYNC MACRO TestAllowedWidgets()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/other.rtd" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
 
-  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
+  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
@@ -56,7 +56,7 @@ ASYNC MACRO TestAllowedWidgets()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/lvl1.rtd" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
 
-  TestEq(TRUE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be there");
+  TestEq(TRUE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be there");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
@@ -85,8 +85,8 @@ OBJECT ASYNC FUNCTION NewFileProps()
   TestEqLIke("*DUMMY-TEXT-TO-VERIFY-RTD.CSS-GOT-INCLUDED*", BlobToString(rte->__Debug_GetCSSState().cssdata));
 
   AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
-  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
-  RECORD lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(FALSE, RecordExists(SELECT FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/embedhtml"), "HTML should be disabled");
+  RECORD lvl1type := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
   TestEq(TRUE, RecordExists(lvl1type), "Need the /embedlvl1 type");
   TT("contenttypes")->selection := lvl1type;
 

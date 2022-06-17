@@ -640,7 +640,7 @@ ASYNC MACRO TestFormApp()
   TT("builtincomponents")->value := "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler";
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
-  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/formmergefield";
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
   TestEq("Page 1 \u2013 Checkboxes \u2013 CheckboxOpt3", SELECT AS STRING title FROM TT(":Field")->options WHERE title LIKE "*CheckboxOpt3", "Ensure the textedit is prefixed with the option's name");

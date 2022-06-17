@@ -57,15 +57,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
-    <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
-      <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
-        <text tid="choose">Choose</text>
-        <text tid="choosetype">Object type</text>
-        <text tid="groups">Group</text>
-        <text tid="other">Miscellaneous</text>
-        <text tid="title">Choose object type</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="cannotfindobjecteditor">The '<param p="1"/>' object editor should be used for this object, but it could not be found or invoked.</text>
       <text tid="cannotopencontentlisting">A content listing has no contents that can be modified or downloaded.</text>
@@ -835,7 +826,6 @@
       <text tid="newfile">New File</text>
       <text tid="newfolder">New Folder</text>
       <text tid="notypes">There are no valid types available</text>
-      <text tid="showalltypes">Show all installed types</text>
       <text tid="template">Template id</text>
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
@@ -1634,6 +1624,9 @@
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
         <text tid="revealinpublisher">Open in Publisher</text>
       </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.common.settings -->
+        <text tid="showalltypes">Show all installed types</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
@@ -1714,6 +1707,14 @@
           <text tid="list">List</text>
           <text tid="thumbnails">Thumbnails</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="widgettype">   <!-- tolliumapps.dialogs.widgettype -->
+        <text tid="choose">Choose</text>
+        <text tid="choosetype">Widget type</text>
+        <text tid="groups">Group</text>
+        <text tid="other">Miscellaneous</text>
+        <text tid="title">Choose widget type</text>
+        <text tid="unsupportedwidgettype">Widgets of type '<param p="1"/>' do not appear to be available in this context. Are you sure you want to insert it?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->

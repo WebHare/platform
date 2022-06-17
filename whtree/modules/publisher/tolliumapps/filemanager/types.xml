@@ -50,7 +50,7 @@
       <grid>
         <cell width="1pr">
           <button tid="~upload" />
-            <!-- <checkbox name="showalltypes" title="" labeltid=".showalltypes" onchange="onalltypeschange" /> -->
+            <!-- <checkbox name="showalltypes" title="" labeltid="tolliumapps.common.settings.showalltypes" onchange="onalltypeschange" /> -->
         </cell>
         <cell>
           <line>
