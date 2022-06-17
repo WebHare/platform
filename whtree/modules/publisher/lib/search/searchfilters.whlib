@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -656,6 +657,46 @@ PUBLIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
   {
     IF (RecordExists(value.selectquery))
       RETURN CQMatch("whfstype", "IN", value.selectquery.whfstypes);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ matchlabel := ""
+        , selectquery := DEFAULT RECORD
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
+  {
+    RECORD csp := GetCachedSiteProfiles();
+    RECORD ARRAY allwidgets := SELECT type := namespace, title FROM csp.contenttypes WHERE type="widgettype";
+    STRING widgettype := this->context->filterscreen->RunScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", [ widgets := allwidgets ]);
+
+    IF(widgettype != "")
+    {
+      RETURN
+          CELL[ ...value
+              , selectquery :=
+                  CELL[ widgettype
+                      , showvalue := (SELECT AS STRING GetTid(title) FROM allwidgets WHERE type = widgettype)
+                      ]
+              ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
+  {
+    IF (RecordExists(value.selectquery))
+    {
+      STRING indextype := EncodeBase16(GetSHA1Hash(`widget:${value.selectquery.widgettype}`));
+      RETURN CQMatch("indextypes", "CONTAINS", indextype);
+    }
     RETURN DEFAULT RECORD;
   }
 >;

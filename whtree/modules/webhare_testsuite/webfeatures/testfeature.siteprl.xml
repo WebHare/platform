@@ -1,5 +1,4 @@
-<siteprofile
-   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <apply>
     <to type="all" />

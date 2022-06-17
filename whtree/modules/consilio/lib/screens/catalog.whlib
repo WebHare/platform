@@ -831,14 +831,17 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
   }
 >;
 
+//Any standard fields must be listed here to be visible in consilio result inspect
 RECORD previewbasefields :=
   [ indexid         := 0
   , objectid        := ""
   , date_indexed    := DEFAULT DATETIME
   , contentprovider := ""
   , contentsource   := 0
-  , _score           := 0f
-  , _summary         := ""
+  , indextypes      := ""
+  , indexversions   := ""
+  , _score          := 0f
+  , _summary        := ""
   , date_indexdate  := DEFAULT DATETIME
   ];
 

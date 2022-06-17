@@ -1067,6 +1067,11 @@
     <searchfilter name="modificationdate" tid="filemanager.search.filtertypes.modificationdate" filterobject="lib/search/searchfilters.whlib#modificationdatefilter" />
     <searchfilter name="whfsfolder" tid="filemanager.search.filtertypes.whfsfolder" filterobject="lib/search/searchfilters.whlib#whfsfolderfilter" />
     <searchfilter name="whfstype" tid="filemanager.search.filtertypes.whfstype" filterobject="lib/search/searchfilters.whlib#whfstypefilter" />
+    <searchfilter name="widgettype" tid="filemanager.search.filtertypes.widgettype" filterobject="lib/search/searchfilters.whlib#widgettypefilter">
+      <accesscheck>
+        <requireright right="system:supervisor" />
+      </accesscheck>
+    </searchfilter>
 
     <!-- The fsobject contentprovider simply returns the fs_objects.data member (ie assumes 'blobiscontent') -->
     <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#SearchProviderBase" version="1.0.0" />

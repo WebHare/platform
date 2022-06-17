@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/lookups.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -113,6 +114,26 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
     }
     ELSE
       INSERT DEFAULT RECORD INTO subfiles AT END;
+  }
+
+  //Gather versions of any embedded widgets
+  INTEGER ARRAY instancetypes :=
+     SELECT AS INTEGER ARRAY DISTINCT fs_settings.instancetype
+       FROM system.fs_settings
+          , system.fs_instances
+      WHERE fs_instances.fs_object = fsobj.id
+            AND instancetype != 0
+            AND fs_settings.fs_instance = fs_instances.id;
+
+  IF(Length(instancetypes) > 0)
+  {
+    RECORD csp := GetCachedSiteProfiles();
+    FOREVERY(RECORD widget FROM SELECT * FROM csp.contenttypes WHERE id IN instancetypes AND type = "widgettype")
+    {
+      STRING indextype := EncodeBase16(GetSHA1Hash(`widget:${widget.namespace}`));
+      INSERT indextype INTO indextypes AT END;
+      INSERT EncodeBase16(GetSHA1Hash(`${indextype} ${widget.filetype.indexversion}`)) INTO indexversions AT END;
+    }
   }
 
   RETURN

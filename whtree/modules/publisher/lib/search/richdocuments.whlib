@@ -15,7 +15,6 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
                                  ], options);
 
   BLOB htmltext;
-  STRING ARRAY indextypes, indexversions;
 
   IF(NOT RecordExists(richdoc))
     RETURN DEFAULT RECORD;
@@ -36,9 +35,6 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
     {
       SetTIDLanguage(options.applytester->GetSiteLanguage());
       htmltext := GetPrintedAsBlob(PTR context->RenderRTD(richdoc));
-
-      indexversions := context->__GetIndexInfo().indexversions;
-      indextypes := context->__GetIndexInfo().indextypes;
     }
     FINALLY
     {
@@ -47,8 +43,6 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
   }
 
   RETURN CELL[ htmltext
-             , indextypes
-             , indexversions
              ];
 }
 

@@ -47,10 +47,6 @@ PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
     IF(NOT RecordExists(content))
       RETURN DEFAULT RECORD ARRAY;
 
-    RETURN [ CELL[ ...WrapBlob(content.htmltext, "richdocumentfile.html")
-                 , indextypes := content.indextypes
-                 , indexversions := content.indexversions
-                 ]
-           ];
+    RETURN [ WrapBlob(content.htmltext, "richdocumentfile.html") ];
   }
 >;

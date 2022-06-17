@@ -846,8 +846,6 @@ PUBLIC STATIC OBJECTTYPE FormBase
       output := 0;
 
       RETURN CELL [ ...WrapBlob(data, "form.html")
-                  , indexversions := context->__GetIndexInfo().indexversions
-                  , indextypes := context->__GetIndexInfo().indextypes
                   ];
     }
     FINALLY
