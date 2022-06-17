@@ -1,4 +1,6 @@
 ﻿<?wh
+
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -856,8 +858,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       THROW NEW Exception("Unsupported returntype for onRowEdit.");
   }
 
-
-
   RECORD ARRAY FUNCTION DoRowEdit(RECORD inrow)
   {
     IF(this->onrowedit != DEFAULT MACRO PTR)
@@ -900,27 +900,12 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
 
     // When editting we only support editting a single row
     //RECORD ARRAY newdata;
-    RECORD newdata;
+    STRING screen := this->GetRowEditScreenName(inrow, rowtype);
 
-    OBJECT editor;
-    TRY
-    {
-      editor := this->GetRowEditScreen(inrow, rowtype);
-    }
-    CATCH(OBJECT err)
-    {
-      // in case we crash we aren't in an invalid state... we just aren't able to add or edit.
-      // inform there is a problem and then let the user/develop continue
-      RunExceptionReportDialog(this->owner, err);
-      RETURN DEFAULT RECORD ARRAY; // act as if editting was cancelled
-    }
-
-    IF (NOT ObjectExists(editor)) // if loading a screen failed we already thew an exception. if we get here it's because of a datatype without edit screen.
+    IF (screen = "") // if loading a screen failed we already thew an exception. if we get here it's because of a datatype without edit screen.
       RETURN [ CellInsert(DEFAULT RECORD, this->rowtypename, rowtype) ];
 
-    IF(editor->RunModal() = "ok")
-      newdata := editor->GetUpdatedRow();
-
+    RECORD newdata := this->RunRowEditScreen(screen, inrow);
     IF (NOT RecordExists(newdata)) // edit dialog cancelled (or dialog not found?)
       RETURN DEFAULT RECORD ARRAY;
 
@@ -1099,11 +1084,11 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   }
 
 
-  /** @short
-      @param row
+  /** @short Return the edit screen to use for the given row
+      @param row Row being edited
       @param rowtype required if datatypes are used and row is DEFAULT RECORD (a new row is being added)
   */
-  OBJECT FUNCTION GetRowEditScreen(RECORD row, STRING rowtype)
+  STRING FUNCTION GetRowEditScreenName(RECORD row, STRING rowtype)
   {
     STRING roweditscreen;
 
@@ -1128,9 +1113,19 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
         THROW NEW Exception("No datatype for type \""||currentrow_type||"\"");
 
       roweditscreen := datatype.screen;
-      IF(roweditscreen = "") //this datatype has nothing to edit
-        RETURN DEFAULT OBJECT;
     }
+
+    RETURN roweditscreen;
+  }
+
+  /** @short Invoke a row editor (a screen deriving from TolliumRowEditScreenBase)
+      @param roweditscreen Screen to use
+      @param row Row to edit (default record if we're adding a new row)
+      @cell(record) options.userdata Additional data to pass to the screen
+      @return The edited row or a DEFAULT RECORD if cancelled */
+  PUBLIC RECORD FUNCTION RunRowEditScreen(STRING roweditscreen, RECORD row, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ userdata := DEFAULT RECORD ], options);
 
     RECORD screenopts := [ parent := this->owner
                          , screen := roweditscreen
@@ -1141,16 +1136,29 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
                                      ]
                          ];
 
-    OBJECT editor := this->owner->tolliumcontroller->PVT_LoadScreen(screenopts);
-    IF(NOT ObjectExists(editor))
-      THROW NEW TolliumException(this, "Screen '" || roweditscreen || "' could not be loaded");
+    TRY
+    {
+      OBJECT editor := this->owner->tolliumcontroller->PVT_LoadScreen(screenopts);
+      IF(NOT ObjectExists(editor))
+        THROW NEW TolliumException(this, `Screen '${roweditscreen}' could not be loaded`);
 
-    IF (editor NOT EXTENDSFROM TolliumRowEditScreenBase)
-      THROW NEW TolliumException(this, "Screen '" || roweditscreen || "' must extend from TolliumRowEditScreenBase");
+      IF (editor NOT EXTENDSFROM TolliumRowEditScreenBase)
+        THROW NEW TolliumException(this, `Screen '${roweditscreen}' must extend from TolliumRowEditScreenBase`);
 
-    RETURN editor;
+      IF(editor->RunModal() != "ok")
+        RETURN DEFAULT RECORD;
+
+      RETURN editor->GetUpdatedRow();
+    }
+    CATCH(OBJECT err)
+    {
+      // in case we crash we aren't in an invalid state... we just aren't able to add or edit.
+      // inform there is a problem and then let the user/develop continue
+      LogHarescriptException(err);
+      RunExceptionReportDialog(this->owner, err);
+      RETURN DEFAULT RECORD; // act as if editting was cancelled
+    }
   }
-
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
