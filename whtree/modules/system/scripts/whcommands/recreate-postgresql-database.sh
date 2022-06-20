@@ -58,7 +58,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
 fi
 
 $RUNAS $PSBIN/initdb -D ${WEBHARE_DATAROOT}/postgresql/db.localefix --auth-local=trust --encoding "UTF-8" --locale=C -U postgres
-cp $WEBHARE_DIR/etc/initial_postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.localefix/postgresql.conf
+cp $WEBHARE_DIR/etc/postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.localefix/postgresql.conf
 
 $RUNAS $PSBIN/postmaster -p 7777 -D ${WEBHARE_DATAROOT}/postgresql/db.localefix &
 POSTMASTER_PID=$!
@@ -68,7 +68,6 @@ until $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres -c 
   sleep .2
 done
 
-export PGOPTIONS="-c default_transaction_read_only=off"
 $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres << HERE
 CREATE DATABASE webhare;
 CREATE USER root;
@@ -83,8 +82,7 @@ if [ "$WHBUILD_PLATFORM" = "darwin" ]; then
   RESTOREOPTIONS="--no-owner"
 fi
 
-export PGOPTIONS="-c default_transaction_read_only=off"
-$RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore $RESTOREOPTIONS -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
+$RUNAS $PSBIN/pg_restore $RESTOREOPTIONS -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
 ERRORCODE="$?"
 if [ "$ERRORCODE" != "0" ]; then
   echo "restore failed with errorcode $ERRORCODE"

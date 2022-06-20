@@ -72,20 +72,20 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   # Set the configuration file
-  cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/tmp_initdb/postgresql.conf"
+  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/tmp_initdb/postgresql.conf"
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
-  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" -c "default_transaction_read_only=off" postgres ; then
+  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" postgres ; then
     echo DB create db failed
     exit 1
   fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb"  -c "default_transaction_read_only=off" $WEBHARE_DBASENAME ; then
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" $WEBHARE_DBASENAME ; then
     echo DB create user failed
     exit 1
   fi
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    if ! echo "GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb"  -c "default_transaction_read_only=off" $WEBHARE_DBASENAME ; then
+    if ! echo "GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" $WEBHARE_DBASENAME ; then
       echo DB adding rights failed
       exit 1
     fi
@@ -101,7 +101,14 @@ else
   fi
 
   # Ensure configuration file is set
-  cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/db/postgresql.conf"
+  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/db/postgresql.conf"
+fi
+
+# Ensure user configuration is set
+if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
+  cp "$WEBHARE_DIR/etc/pg_hba-docker.conf" "$PSROOT/db/pg_hba.conf"
+else
+  cp "$WEBHARE_DIR/etc/pg_hba-sourceinstall.conf" "$PSROOT/db/pg_hba.conf"
 fi
 
 echo "Starting PostgreSQL"
