@@ -85,6 +85,7 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
                            , response := ""
                            , success := FALSE
                            , sender := mail.sender
+                           , finalsender := mail.sender
                            , finalreceiver := mail.receiver
                            ];
 
@@ -113,6 +114,8 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
   {
     RETURN CELL[ ...baseretval, nextaction := "retry", response := `Sender '${senderemail}' is not whitelisted` ];
   }
+
+  baseretval.finalsender := mail.sender;
 
   RECORD route := smtpmgr->GetMailroute(senderemail, mail.receiver, options.origin);
   IF(NOT RecordExists(route)) //this used to be 'Cancel' but tempfail makes more sense.. just add a final explicit null-route if you wanted this

@@ -182,16 +182,17 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
 
 >;
 
-PUBLIC OBJECTTYPE Result EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Result EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
     RECORD task := DescribeManagedTask(data.id);
-    this->lasterror->value := task.lasterrors;
-    this->serverip->value := CellExists(task.retval, "serverip") ? task.retval.serverip : "";
-    this->route->value := CellExists(task.retval, "route") ? task.retval.route : "";
-    this->response->value := CellExists(task.retval, "response") ? task.retval.response : "";
-    this->sender->value := CellExists(task.retval, "sender") ? task.retval.sender : "";
-    this->finalreceiver->value := CellExists(task.retval, "finalreceiver") ? task.retval.finalreceiver : "";
+    ^lasterror->value := task.lasterrors;
+    ^serverip->value := CellExists(task.retval, "serverip") ? task.retval.serverip : "";
+    ^route->value := CellExists(task.retval, "route") ? task.retval.route : "";
+    ^response->value := CellExists(task.retval, "response") ? task.retval.response : "";
+    ^sender->value := CellExists(task.retval, "sender") ? task.retval.sender : "";
+    ^finalsender->value := CellExists(task.retval, "finalsender") ? task.retval.finalsender : "";
+    ^finalreceiver->value := CellExists(task.retval, "finalreceiver") ? task.retval.finalreceiver : "";
   }
 >;
