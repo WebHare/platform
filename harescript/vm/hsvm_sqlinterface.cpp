@@ -287,6 +287,7 @@ void FreeNullDefaults(StackMachine &stackm, DatabaseQuery &query)
 
 DatabaseTransactionDriverInterface::DatabaseTransactionDriverInterface(VirtualMachine *vm)
 : vm(vm)
+, sqllib_transid(0)
 , description() // value-initialize, so everything is set to default value
 {
 }
