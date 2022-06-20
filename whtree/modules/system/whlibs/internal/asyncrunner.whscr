@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 
 
 __withinasyncrunner := TRUE;
@@ -22,6 +23,9 @@ SWITCH (rec.msg.task)
       CallMacroPtrVA(func, rec.msg.args);
     ELSE
       retval := CallFunctionPtrVA(func, rec.msg.args);
+
+    IF (TypeID(retval) = TypeID(OBJECT) AND retval EXTENDSFROM PromiseBase)
+      retval := WaitForPromise(retval);
 
     link->SendReply(
         [ task :=   "reply"
