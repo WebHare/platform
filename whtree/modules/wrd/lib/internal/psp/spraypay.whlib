@@ -29,7 +29,6 @@ OBJECT FUNCTION GetBrowser()
     RETURN spraypaybrowser;
 
   spraypaybrowser := NEW WebBrowser;
-  spraypaybrowser->debug := TRUE;
   LogRPCForWebbrowser("wrd:payments.spraypay", "", spraypaybrowser);
 
   RETURN spraypaybrowser;

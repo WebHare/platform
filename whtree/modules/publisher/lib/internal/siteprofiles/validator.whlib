@@ -187,7 +187,7 @@ STATIC OBJECTTYPE Validating
 
 PUBLIC RECORD FUNCTION ValidateSiteProfiles(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ debug := TRUE
+  options := ValidateOptions([ debug := FALSE
                              , reportmissing := FALSE
                              ], options);
 

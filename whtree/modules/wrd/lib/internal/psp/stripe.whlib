@@ -17,7 +17,6 @@ OBJECT FUNCTION GetBrowser()
     RETURN stripebrowser;
 
   stripebrowser := NEW WebBrowser;
-  stripebrowser->debug := TRUE;
   LogRPCForWebbrowser("wrd:payments.stripe", "", stripebrowser);
 
   RETURN stripebrowser;

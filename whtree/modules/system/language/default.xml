@@ -1440,6 +1440,7 @@
         </textgroup>
         <textgroup gid="result">   <!-- tolliumapps.dashboard.mailqueue.result -->
           <text tid="finalreceiver">Final receiver</text>
+          <text tid="finalsender">Final sender</text>
           <text tid="lasterror">Last error</text>
           <text tid="response">SMTP response</text>
           <text tid="result">Send result</text>
