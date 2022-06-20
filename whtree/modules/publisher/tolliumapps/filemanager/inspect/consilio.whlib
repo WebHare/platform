@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/pagelists.whlib";
@@ -87,8 +88,9 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
 
       IF(Length(this->subfiles) > 0)
       {
-        ^subfile->options := SELECT rowkey := #subfiles
-                                  , title := (RecordExists(subfiles) ? filename : "") || " (#" || #subfiles || ")"
+        ^subfile->options := SELECT rowkey := #subfiles + 1
+                                  , title := RecordExists(subfiles) ? `${filename} (${this->contexts->user->FormatFileSize(Length64(data), 0, FALSE)})`
+                                                                    : `#${#subfiles}` //not sure what case triggers this?
                                   , groupid := "fsobj_" || this->objid || (#subfiles > 0 ? "_" || #subfiles: "")
                                FROM this->subfiles;
       }
@@ -108,14 +110,15 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
       this->subfilespromise := DEFAULT OBJECT;
     }
 
-    ^subfile->readonly := Length(^subfile->options) = 1;
+    //Only make the control readonly if we have no data: makes it a bit clearer more options would exist if more than one file is present
+    ^subfile->readonly := NOT RecordExists(SELECT FROM ^subfile->options WHERE rowkey > 0);
   }
 
   MACRO OnSubfileChange()
   {
-    RECORD matchfile := ^subfile->value < Length(this->subfiles) ? this->subfiles[^subfile->value] : DEFAULT RECORD;
+    RECORD matchfile := ^subfile->value <= Length(this->subfiles) ? this->subfiles[^subfile->value - 1] : DEFAULT RECORD;
     IF(RecordExists(matchfile))
-      ^subfilecontent->blobvalue := matchfile.data;
+      ^subfilecontent->blobvalue := MakeSlicedBlob(matchfile.data, 0, 50*1024); //showing 50KB is more than enough
     ELSE
       ^subfilecontent->blobvalue := DEFAULT BLOB;
   }
