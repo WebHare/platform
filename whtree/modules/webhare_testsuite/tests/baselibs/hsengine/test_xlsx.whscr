@@ -51,6 +51,11 @@ MACRO TestXLSX_columnfiles()
 {
   OpenTest("TestXLSX_columnfiles");
 
+  TestThrowsLike("*'timezone'*storeutc*", PTR GenerateXLSXFile(CELL[ rows := reftestrows, columns := SELECT *, storeutc := TRUE FROM columns WHERE type = "datetime" ]));
+  TestThrowsLike("*'timezone'*storeutc*", PTR GenerateXLSXFile(CELL[ rows := reftestrows, columns := SELECT * FROM columns WHERE type = "date" ]));
+  TestThrowsLike("*'timezone'*storeutc*", PTR GenerateXLSXFile(CELL[ rows := reftestrows, columns := SELECT * FROM columns WHERE type = "time" ]));
+  TestThrowsLike("*'timezone'*storeutc*", PTR GenerateXLSXFile(CELL[ rows := reftestrows, columns ]));
+
   RECORD output2 := GenerateXLSXFile(CELL[ rows := reftestrows, columns, timezone := "CET" ]);
   TestEqLike("*.xlsx", output2.filename);
 

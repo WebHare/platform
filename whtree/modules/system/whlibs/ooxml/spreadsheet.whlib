@@ -1465,7 +1465,7 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
                        ]
             ]) FROM options.columns AS col;
 
-  IF(options.timezone = "" AND RecordExists(SELECT FROM options.columns WHERE type IN ["datetime,date","time"] AND storeutc))
+  IF(options.timezone = "" AND RecordExists(SELECT FROM options.columns WHERE type IN ["datetime","date","time"] AND storeutc))
     THROW NEW Exception(`The 'timezone' option must be set if the export contains any columns with storeutc=true`);
 
   //backwards compatibility... 'string' was often used but actually ignored and then defaulted to 'text'. let's tolerate that...
