@@ -2120,11 +2120,7 @@ OBJECT ASYNC FUNCTION PublisherLimitedRightsActions()
 
   testfw->BeginWork();
   OBJECT limitedroot := testfw->GetTestSite()->rootobject->CreateFolder([ name := "limited" ]);
-  testfw->GetUserObject("sysop")->GrantRightToOn(
-      "system:fs_fullaccess",
-      testfw->GetUserObject("limited"),
-      limitedroot->id,
-      FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", limitedroot->id, testfw->GetUserObject("limited"));
   testfw->CommitWork();
 
   testfw->SetTestUser("limited");
@@ -2138,11 +2134,7 @@ OBJECT ASYNC FUNCTION PublisherLimitedRightsActions()
   testfw->BeginWork();
   testfile := limitedroot->CreateFile([ name := "tomove.txt" ]);
   testfolder := limitedroot->CreateFolder([ name := "dest" ]);
-  testfw->GetUserObject("sysop")->GrantRightToOn(
-      "system:fs_fullaccess",
-      testfw->GetUserObject("limited"),
-      limitedroot->id,
-      FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", limitedroot->id, testfw->GetUserObject("limited"));
   testfw->CommitWork();
 
   // Execute 'move to... ' action. Gets an error, ok it

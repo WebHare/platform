@@ -12,8 +12,8 @@ ASYNC MACRO TestOpenSchema()
                                                                     , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
                                                                     ]);
 
-  testfw->GetUserObject("sysop")->GrantRightToOn("wrd:readwrite", testfw->GetUserObject("marge"), testfw->GetWRDSchema()->id, FALSE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("wrd:readwrite", testfw->GetUserObject("marge"), wrdschema2->id, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "wrd:readwrite", testfw->GetWRDSchema()->id, testfw->GetUserObject("marge"));
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "wrd:readwrite", wrdschema2->id, testfw->GetUserObject("marge"));
 
   testfw->CommitWork();
 

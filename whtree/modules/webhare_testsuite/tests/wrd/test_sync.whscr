@@ -58,7 +58,7 @@ MACRO PrepareSchemaContent()
   testfw->BeginWork();
 
   //fix rights
-  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), testfw->wrdschema->id, FALSE, TRUE);
+  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata", testfw->wrdschema->id, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
 
   // Add a payment
   RECORD keypair := testfw->GenerateKeyPair("payments");
@@ -105,7 +105,7 @@ MACRO TestSync()
         [ title := "webhare_testsuite schema, sync target"
         , description := "The webhare_testsuite WRD schema sync target"
         ]);
-  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), synctarget->id, FALSE, TRUE);
+  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata", synctarget->id, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
 
   OBJECT linktometype := testfw->GetWRDSchema()->CreateDomain("ZZ_LAST");
   OBJECT linktome1 := linktometype->CreateEntity([wrd_tag := "LINKTOME1"]);
@@ -129,7 +129,7 @@ MACRO TestSync()
   testfw->RollbackWork();
 
   testfw->BeginWork();
-  testfw->GetUserObject("wrd_readrights")->GrantRightToOn("wrd:read", testfw->GetUserObject("wrd_readrights"), testfw->wrdschema->id, FALSE, TRUE);
+  testfw->GetUserObject("wrd_readrights")->UpdateGrant("grant", "wrd:read", testfw->wrdschema->id, testfw->GetUserObject("wrd_readrights"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
@@ -352,8 +352,8 @@ MACRO TestSyncHistory()
         ]);
 
   //done with schema-specific grants, we'll just give our accounts access to all schemas now
-  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), 0, FALSE, TRUE);
-  testfw->GetUserObject("wrd_readrights")->GrantRightToOn("wrd:read", testfw->GetUserObject("wrd_readrights"), 0, FALSE, TRUE);
+  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata",  0, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("wrd_readrights")->UpdateGrant("grant", "wrd:read",  0, testfw->GetUserObject("wrd_readrights"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   STRING org_creationsource := synctarget->creationsource;

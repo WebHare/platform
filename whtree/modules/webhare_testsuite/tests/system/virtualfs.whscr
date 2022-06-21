@@ -305,8 +305,8 @@ MACRO PublisherTestsAsMarge()
 
   OBJECT testsite := testfw->GetTestSite();
   OBJECT testdir := testsite->rootobject;
-  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("marge"), testfw->GetWHFSTestRoot()->id, FALSE, TRUE);
-  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), testdir->id, FALSE, TRUE);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_browse",  testfw->GetWHFSTestRoot()->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess",  testdir->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   PublisherTests("marge", testdir->whfspath, Substring(testdir->whfspath, Length("/webhare-tests")));
@@ -329,7 +329,7 @@ MACRO DataTests()
   INSERT INTO system.webdav_datafolders(id, foldername,diskfolder)
          VALUES(webdavfolderid, tempwebdavfolder, tempdiskfolder);
 
-  testfw->GetUserObject("homer")->GrantRightToOn("system:webdav_fullaccess", testfw->GetUserObject("homer"), webdavfolderid, FALSE, TRUE);
+  testfw->GetUserObject("homer")->UpdateGrant("grant", "system:webdav_fullaccess", webdavfolderid, testfw->GetUserObject("homer"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -351,7 +351,7 @@ MACRO MacForkLayer()
   INSERT INTO system.webdav_datafolders(id, foldername,diskfolder)
          VALUES(webdavfolderid, tempwebdavfolder, tempdiskfolder);
 
-  testfw->GetUserObject("homer")->GrantRightToOn("system:webdav_fullaccess", testfw->GetUserObject("homer"), webdavfolderid, FALSE, TRUE);
+  testfw->GetUserObject("homer")->UpdateGrant("grant", "system:webdav_fullaccess", webdavfolderid, testfw->GetUserObject("homer"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   OBJECT user := testfw->GetUserObject("homer");

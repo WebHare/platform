@@ -76,7 +76,7 @@ PUBLIC OBJECTTYPE ImportArchive EXTEND TolliumBackgroundTask
     IF(NOT work->HasFailed())
     {
       IF (NOT this->user->HasRightOn("wrd:metadata", newschemaid))
-        this->user->GrantRightToOn("wrd:metadata", this->user, newschemaid, TRUE);
+        this->user->UpdateGrant("grant", "wrd:metadata", newschemaid, this->user, [ allowselfassignment := TRUE ]);
     }
 
     IF(NOT work->Finish())

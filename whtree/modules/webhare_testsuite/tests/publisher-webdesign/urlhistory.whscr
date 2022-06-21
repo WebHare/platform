@@ -284,8 +284,8 @@ ASYNC MACRO TestHistoryUI()
   testfw->SetTestUser("limited");
 
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse",testfw->GetUserObject("limited"),testfw->GetTestsite()->id,FALSE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess",testfw->GetUserObject("limited"),testfw->GetTestsite()->OpenByPath("tmp")->id,FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", testfw->GetTestsite()->id, testfw->GetUserObject("limited"));
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", testfw->GetTestsite()->OpenByPath("tmp")->id, testfw->GetUserObject("limited"));
   testfw->Commitwork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(basefile->id) ], target := DEFAULT RECORD ]));

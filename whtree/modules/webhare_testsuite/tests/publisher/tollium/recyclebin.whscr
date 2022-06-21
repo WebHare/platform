@@ -15,7 +15,7 @@ MACRO PrepIt()
 {
   testfw->BeginWork();
   testfw->SetupTestWebdesignWebsite(); //even though it's slower, a separate site ensures a clean recycle bin
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", testfw->GetTestSite()->rootobject->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   testfw->BeginWork();

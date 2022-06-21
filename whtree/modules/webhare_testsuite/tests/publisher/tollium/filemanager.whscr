@@ -18,7 +18,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_browse",  OpenTestsuiteSite()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 }
 

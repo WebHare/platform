@@ -65,7 +65,7 @@ PUBLIC RECORD FUNCTION TestInvoke_GrantSomeRights(STRING email)
 
   GetPrimary()->BeginWork();
   OBJECT user := GetWRDAuthUserAPI(wrdschema)->GetUser(id);
-  user->GrantRightTo("system:sysop", user, TRUE, TRUE);
+  user->UpdateGrant("grant", "system:sysop", 0, user, [ withgrantoption := TRUE, allowselfassignment := TRUE ]);
   GetPrimary()->CommitWork();
 
   RETURN DEFAULT RECORD;

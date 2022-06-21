@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
@@ -1399,6 +1400,9 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   */
   PUBLIC MACRO GrantRightTo(STRING rightname, OBJECT grantee, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "", RECORD grantoruserdata DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateGrant in WH 4.32+`);
+
     RECORD right := GetRightByNameInternal(rightname);
     IF (right.allowobjref)
       THROW NEW Exception("GrantRightTo can only be used for global rights");
@@ -1423,6 +1427,9 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   */
   PUBLIC MACRO GrantRightToOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "", RECORD grantoruserdata DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateGrant in WH 4.32+`);
+
     RECORD right := GetRightByNameInternal(rightname);
     IF (NOT right.allowobjref)
       THROW NEW Exception("GrantRightToOn can only be used for object rights");
@@ -1445,6 +1452,9 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   */
   PUBLIC MACRO RevokeRightFrom(STRING rightname, OBJECT grantee, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateGrant in WH 4.32+`);
+
     RECORD right := GetRightByNameInternal(rightname);
     IF (right.allowobjref)
       THROW NEW Exception("RevokeRightFrom can only be used for global rights");
@@ -1465,6 +1475,9 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   */
   PUBLIC MACRO RevokeRightFromOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateGrant in WH 4.32+`);
+
     RECORD right := GetRightByNameInternal(rightname);
     IF (NOT right.allowobjref)
       THROW NEW Exception("RevokeRightFromOn can only be used for object rights");
@@ -1555,11 +1568,17 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   */
   PUBLIC MACRO GrantRoleTo(INTEGER roleid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateRoleGrant in WH 4.32+`);
+
     this->UpdateRoleGrant("grant", roleid, grantee, options);
   }
 
   PUBLIC MACRO RevokeRoleFrom(INTEGER roleid, OBJECT grantee)
   {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception(`Switch to UpdateRoleGrant in WH 4.32+`);
+
     this->UpdateRoleGrant("revoke", roleid, grantee);
   }
 

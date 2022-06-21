@@ -51,7 +51,7 @@ MACRO DeleteTest()
   OBJECT fshortfolder := testsite->rootobject->CreateFolder( [ name := "for", type := 0 ]); //test against bug that didn't allow us to delete 'for' if 'foreign' was present
   OBJECT nfolder := testsite->rootobject->CreateFolder( [ name := "normal", type := 0 ]);
 
-  testfw->GetUserObject("deleter")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("deleter"), testsite->root, FALSE, TRUE);
+  testfw->GetUserObject("deleter")->UpdateGrant("grant", "system:fs_fullaccess", testsite->root, testfw->GetUserObject("deleter"), [ allowselfassignment := TRUE ]);
 
   OBJECT innersite1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_innersite1"]);
   OBJECT innersite1 := CreateSiteFromFolder(innersite1root->id);
@@ -74,7 +74,7 @@ MACRO DeleteTest()
   OBJECT innersite2root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_innersite2"]);
   OBJECT innersite2 := CreateSiteFromFolder(innersite2root->id);
   innersite2->SetPrimaryOutput(testfw->GetTestOutputServer(), testsite->outputfolder||"foreign/innersite2/");
-  testfw->GetUserObject("deleter")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("deleter"), innersite2->root, FALSE, TRUE);
+  testfw->GetUserObject("deleter")->UpdateGrant("grant", "system:fs_browse", innersite2->root, testfw->GetUserObject("deleter"), [ allowselfassignment := TRUE ]);
 
   //Try to set up deletion of normal and foreign.
   analysis := SELECT * FROM AnalyzeContents([ INTEGER(ffolder->id), INTEGER(fshortfolder->id), INTEGER(nfolder->id) ]) ORDER BY errordata;

@@ -15,7 +15,7 @@ ASYNC MACRO TestLinkCheckTab()
   testfw->BeginWork();
 
   OBJECT basefolder := GetTestsuiteTempFolder();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", OpenTestsuiteSite()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
 
   OBJECT testextralink := basefolder->CreateFile( [ name := "testextralink", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE]);
   OBJECT testfile := basefolder->CreateFile([name := "richtest", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE]);

@@ -50,9 +50,9 @@ MACRO Setup()
 
   testfw->BeginWork();
 
-  testfw->GetUserObject("bart")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("bart"), fullrightfolder->id, FALSE, TRUE);
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), fullrightfolder->id, FALSE, TRUE);
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("bart")->UpdateGrant("grant", "system:fs_fullaccess", fullrightfolder->id, testfw->GetUserObject("bart"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", fullrightfolder->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", lisasfolder->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
 
   testfw->CommitWork();
 }
@@ -107,7 +107,7 @@ MACRO RecyclebinSearch()
 
   testfw->BeginWork();
   // Revoke lisa's right on her folder, her deletes should still be visible because she is the deleting user
-  testfw->GetUserObject("lisa")->RevokeRightFromOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("revoke", "system:fs_fullaccess", lisasfolder->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   DATETIME deletiondate_end := AddTimeToDate(1, GetCurrentDateTime());
