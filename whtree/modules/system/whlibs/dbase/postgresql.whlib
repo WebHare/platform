@@ -1500,6 +1500,8 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`BeginWork must be called before modifying the database`);
     IF (amount < 1)
       RETURN INTEGER[];
     STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
@@ -1516,6 +1518,8 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`BeginWork must be called before modifying the database`);
     IF (amount < 1)
       RETURN INTEGER64[];
     STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;

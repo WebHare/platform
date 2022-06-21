@@ -2135,6 +2135,12 @@ void PGSQLTransactionDriver::ExecuteInsertInternal(DatabaseQuery const &query, V
 {
         StackMachine &stackm = vm->GetStackMachine();
 
+        if (!isworkopen)
+        {
+                HSVM_ThrowException(*vm, "BeginWork must be called before modifying the database");
+                return;
+        }
+
         unsigned rows = is_array ? stackm.ArraySize(data) : 1;
         if (!rows)
             return;
@@ -2206,6 +2212,12 @@ DatabaseTransactionDriverInterface::CursorId PGSQLTransactionDriver::OpenCursor(
 {
         CursorId id = queries.Set(QueryData(*this));
         QueryData &querydata = *queries.Get(id);
+
+        if (cursortype != DatabaseTransactionDriverInterface::Select && !isworkopen)
+        {
+                HSVM_ThrowException(*vm, "BeginWork must be called before modifying the database");
+                return 0;
+        }
 
         if (!BuildQueryString(querydata, query, cursortype))
              return 0;
