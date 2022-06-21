@@ -34,7 +34,7 @@ MACRO CreateProblemRight()
   <meta>
     <version>0.1.0</version>
     <description>Test module</description>
-    <packaging download="true" requireversion="42700" />
+    <packaging download="true" webhareversion=">= 5.0.0" />
     <validation options="nowarnings" />
   </meta>
 

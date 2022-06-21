@@ -4,7 +4,7 @@
   <meta>
     <version>0.1.0</version>
     <description>[description]</description>
-    <packaging download="true" requireversion="42700">
+    <packaging download="true" webhareversion=">= 4.35.0">
     </packaging>
     <validation options="nowarnings">
     </validation>

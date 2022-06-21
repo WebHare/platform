@@ -120,9 +120,6 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
   IF(restrictions.webhareversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.webhareversion))
     RETURN `WebHare version '${semver}' does not match required version '${restrictions.webhareversion}'`;
 
-  IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
-    RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
-
   FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,';'))
   {
     mod := TrimWhitespace(mod);
@@ -163,13 +160,7 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
 {
   options := ValidateOptions([prefix := ""], options);
 
-  STRING webhareversion := xmlnode->GetAttribute(options.prefix || "webhareversion");
-  INTEGER requireversion := ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"));
-  IF(webhareversion = "" AND requireversion >= 20000)
-    webhareversion := `>= ${GetSemVerFromClassicVersion(requireversion)}`;
-
-  RETURN [ webhareversion :=     webhareversion
-         , beforeversion :=      ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"))
+  RETURN [ webhareversion :=     xmlnode->GetAttribute(options.prefix || "webhareversion")
          , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
          , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
          , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
