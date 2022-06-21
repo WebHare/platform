@@ -116,6 +116,11 @@ else
 include '$PGCONFIGFILE'
 include_if_exists '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'
 HERE
+
+  if [ -f "$PSROOT/db/pg_hba.conf" ]; then
+    # previous webhares created this file, remove it because it is now unused
+    rm -f "$PSROOT/db/pg_hba.conf"
+  fi
 fi
 
 
