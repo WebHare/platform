@@ -98,17 +98,14 @@ if [ ! -d "$PSROOT/db" ]; then
     echo DB create db failed
     exit 1
   fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
+  DOCKERGRANTS=
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then
+    DOCKERGRANTS="GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;"
+  fi
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
     echo DB create user failed
     exit 1
   fi
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    if ! echo "GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
-      echo DB adding rights failed
-      exit 1
-    fi
-  fi
-
   mv "$PSROOT/tmp_initdb/" "$PSROOT/db/"
 else
 
