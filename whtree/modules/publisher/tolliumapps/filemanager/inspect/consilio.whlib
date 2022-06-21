@@ -116,7 +116,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
 
   MACRO OnSubfileChange()
   {
-    RECORD matchfile := ^subfile->value <= Length(this->subfiles) ? this->subfiles[^subfile->value - 1] : DEFAULT RECORD;
+    RECORD matchfile := ^subfile->value > 0 AND ^subfile->value <= Length(this->subfiles) ? this->subfiles[^subfile->value - 1] : DEFAULT RECORD;
     IF(RecordExists(matchfile))
       ^subfilecontent->blobvalue := MakeSlicedBlob(matchfile.data, 0, 50*1024); //showing 50KB is more than enough
     ELSE

@@ -50,6 +50,8 @@ loadshellconfig
 setup_node
 
 FAILED=0
+# --silent also kills error logging, so just try to prevent as much as possible
+NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore-scripts --no-progress --omit=peer"
 
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
   if [ -n "$ONLYINSTALLEDMODULES" ]; then
@@ -71,7 +73,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
     cd "$WEBHARE_DIR" || exit 1
-    $DRYRUNPREFIX npm install --no-update-notifier --silent --no-save --ignore-scripts --omit=peer
+    $DRYRUNPREFIX npm install $NPMOPTIONS
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $RETVAL
@@ -82,7 +84,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
     cd "$MODULEDIR" || exit 1
     if [ -f package.json ]; then
       echo "Installing npm modules for module '$MODULENAME'"
-      $DRYRUNPREFIX npm install --no-update-notifier --silent --ignore-scripts --no-save --omit=peer
+      $DRYRUNPREFIX npm install $NPMOPTIONS
     fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
@@ -90,7 +92,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
         echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
         if [ -f package.json ]; then
-          $DRYRUNPREFIX npm install --no-update-notifier --silent --ignore-scripts --no-save --omit=peer
+          $DRYRUNPREFIX npm install $NPMOPTIONS
           RETVAL=$?
           if [ "$RETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $RETVAL
