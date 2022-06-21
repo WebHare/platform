@@ -122,12 +122,12 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   STRING authvalue := jwt_token->GetAuthorizationValue();
   TestEq("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.", authvalue);
 
-  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), [ alg := [ "none" ], translations := test_payload_translations ]));
+  TestThrowsLike("Invalid signature \'AQ\' for algorithm \'none\' for JWT token", PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), [ alg := [ "none" ], translations := test_payload_translations ]));
   OBJECT verified := VerifyJSONWebToken(authvalue, [ alg := [ "none" ], translations := test_payload_translations ]);
   TestEq(test_payload, verified->payload);
 
   // HS256
-  TestThrows(PTR TestMakeJSONWebToken("HS256", "secret_key")); // key length mismatch
+  TestThrowsLike("Invalid key size 10 for algorithm \'HS256\'", PTR TestMakeJSONWebToken("HS256", "secret_key")); // key length mismatch
   jwt_token := NEW JSONWebToken("HS256", hs256_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
@@ -142,15 +142,15 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq("eyJhbGciOiJIUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.xNOz29jFiXuLciNdU-RtnBdo5wzCS-7O2IMDIRtXS5I", authvalue);
 
   // Test secret/key callback
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations ]));
+  TestThrowsLike("Empty secret or key is not accepted for JWT token alg \'HS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations ]));
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, hs256_key, #1) ]);
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", hs256_key, #1) ]));
+  TestThrowsLike("Invalid key size 7 for algorithm \'HS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", hs256_key, #1) ]));
 
   // This token has 'loggedInAs' and 'iat' in the payload and 'typ' and 'kid' in the header not in alphabetical order
   verified := VerifyJSONWebToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3RrZXkifQ.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.-c4uv4U6W-SVJojikw5WtPxQB3I36qIpJBWZ7O2Ku2A", [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
 
   // HS384
-  TestThrows(PTR TestMakeJSONWebToken("HS384", hs256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 256 for algorithm \'HS384\'", PTR TestMakeJSONWebToken("HS384", hs256_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("HS384", hs384_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
@@ -165,8 +165,8 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq("eyJhbGciOiJIUzM4NCIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.WuozBCUC8AfOnv5ABnsk5GY_1WNwoSf_dresfPg5yRr6XWzrHq5f5Eu90WQhUNqC", authvalue);
 
   // HS512
-  TestThrows(PTR TestMakeJSONWebToken("HS512", hs256_key)); // key length mismatch
-  TestThrows(PTR TestMakeJSONWebToken("HS512", hs384_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 256 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 384 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs384_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("HS512", hs512_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
@@ -181,8 +181,8 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq("eyJhbGciOiJIUzUxMiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.CWtMaGY8l4N-0__mpdxfDfF5sODqV0ntHPBmBySvgl3-arjfzkPizIUNJRt3KNjKKTi4Ncl7euf_TJ9qgG3NfA", authvalue);
 
   // RS256
-  TestThrows(PTR TestMakeJSONWebToken("RS256", ec256_key)); // key type mismatch
-  TestThrows(PTR TestMakeJSONWebToken("RS256", rsa1024_key)); // key length mismatch
+  TestThrowsLike("Invalid key type \'EC\' for algorithm \'RS256\'", PTR TestMakeJSONWebToken("RS256", ec256_key)); // key type mismatch
+  TestThrowsLike("Invalid key size 1024 for algorithm \'RS256\'", PTR TestMakeJSONWebToken("RS256", rsa1024_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("RS256", rsa2048_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
@@ -204,9 +204,9 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq("eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.oE7S48l_V4hSJjMh9Jz-hf12kCEnAQkWBBgkJRLHxyM3k6vsDrWWawWDCPEbfUb8h-idcPYg9oIBMj0wCq8N30Bau5VohHJdtlcP-fzgl2PtZWpEYJdMQmKDrmv8dc3knSI8Gx5_E2AMbUsCH2eXv_3YZggtti4GapRUi_hCOpM5rPSc0nIYFfUoP8Dq6CVjLeaA9tsQDfRVtDEnFw0PK7dfTw6r8scxCmuP64_8Vqbt2nywgEd1bPnXOtb1mrBrbdMRVJHBp8R0gebGg00fUN41ifCr_zNxCxD6-IeoMP5UdOZ0ivWYhCbfSeK7xZtadp92U9zmqbt0aObMxD-kBQ", authvalue);
 
   // Test secret/key callback
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations ]));
+  TestThrowsLike("Empty secret or key is not accepted for JWT token alg \'RS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations ]));
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, rsa2048_key_pub, #1) ]);
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", rsa2048_key_pub, #1) ]));
+  TestThrowsLike("Could not read secret key", PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", rsa2048_key_pub, #1) ]));
 
   // RS384
   jwt_token := NEW JSONWebToken("RS384", rsa2048_key);
@@ -239,7 +239,7 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   // ES256
   verified := VerifyJSONWebToken("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg", CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]);
   TestEq(FALSE, verified->verifyonly);
-  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg"), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrowsLike("Invalid signature \'kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlw\' for algorithm \'ES256\' for JWT token", PTR VerifyJSONWebToken(MakeAuthValueInvalid("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg"), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
 
   // Verify using public key
   verified := VerifyJSONWebToken("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg", CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key_pub, #1) ]);
@@ -249,24 +249,24 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq(TRUE, jwt_token->verifyonly);
   TestEq("", jwt_token->GetAuthorizationValue());
 
-  TestThrows(PTR TestMakeJSONWebToken("ES256", rsa2048_key)); // key type mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES256", ec384_key)); // key length mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES256", ec521_key)); // key length mismatch
+  TestThrowsLike("Invalid key type \'RSA\' for algorithm \'ES256\'", PTR TestMakeJSONWebToken("ES256", rsa2048_key)); // key type mismatch
+  TestThrowsLike("Invalid key size 384 for algorithm \'ES256\'", PTR TestMakeJSONWebToken("ES256", ec384_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 521 for algorithm \'ES256\'", PTR TestMakeJSONWebToken("ES256", ec521_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("ES256", ec256_key);
   TestEq(FALSE, jwt_token->verifyonly);
-  TestThrows(PTR TestSetJWTAlg(jwt_token, "RS256")); // cannot change algorithm, key type mismatch
-  TestThrows(PTR TestSetJWTAlg(jwt_token, "ES384")); // cannot change algorithm, key length mismatch
+  TestThrowsLike("Invalid key type \'EC\' for algorithm \'RS256\'", PTR TestSetJWTAlg(jwt_token, "RS256")); // cannot change algorithm, key type mismatch
+  TestThrowsLike("Invalid key size 256 for algorithm \'ES384\'", PTR TestSetJWTAlg(jwt_token, "ES384")); // cannot change algorithm, key length mismatch
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
   TestEq(FALSE, authvalue = jwt_token->GetAuthorizationValue()); // should generate a new signature each time
 
-  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
+  TestThrowsLike("Invalid signature \'*\' for algorithm \'ES256\' for JWT token", PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrowsLike("Unexpected JWT token alg \'ES256\', expected one of \'RS256\'", PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrowsLike("Unexpected JWT token alg \'ES256\', expected one of \'ES384\'", PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrowsLike("Invalid key type \'RSA\' for algorithm \'ES256\'", PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]));
+  TestThrowsLike("Invalid key size 384 for algorithm \'ES256\'", PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
+  TestThrowsLike("Invalid key size 521 for algorithm \'ES256\'", PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
   verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
@@ -274,22 +274,22 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   authvalue := jwt_token->GetAuthorizationValue();
 
   // Test secret/key callback
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations ]));
+  TestThrowsLike("Empty secret or key is not accepted for JWT token alg \'ES256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations ]));
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, ec256_key_pub, #1) ]);
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", ec256_key_pub, #1) ]));
+  TestThrowsLike("Could not read secret key", PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", ec256_key_pub, #1) ]));
 
   // ES384
   verified := VerifyJSONWebToken("eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.z1cV2zVGxejaQ7oz79M114AxY5G0jfSwDO17WZ7m7109S_WNwbmKHsQZtVF_ReRyH6rzxD4ZroIZvaM5E4_bLkD-Qa229-7J7JlvZ9MD7O3eEl9uZ29XHp-YzfYoW8M4", CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]);
 
-  TestThrows(PTR TestMakeJSONWebToken("ES384", rsa2048_key)); // key type mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES384", ec256_key)); // key length mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES384", ec521_key)); // key length mismatch
+  TestThrowsLike("Invalid key type \'RSA\' for algorithm \'ES384\'", PTR TestMakeJSONWebToken("ES384", rsa2048_key)); // key type mismatch
+  TestThrowsLike("Invalid key size 256 for algorithm \'ES384\'", PTR TestMakeJSONWebToken("ES384", ec256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 521 for algorithm \'ES384\'", PTR TestMakeJSONWebToken("ES384", ec521_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("ES384", ec384_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
 
-  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
+  TestThrowsLike("Invalid signature \'*\' for algorithm \'ES384\' for JWT token", PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
   verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
@@ -297,15 +297,15 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   authvalue := jwt_token->GetAuthorizationValue();
 
   // ES512
-  TestThrows(PTR TestMakeJSONWebToken("ES512", rsa2048_key)); // key type mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES512", ec256_key)); // key length mismatch
-  TestThrows(PTR TestMakeJSONWebToken("ES512", ec384_key)); // key length mismatch
+  TestThrowsLike("Invalid key type \'RSA\' for algorithm \'ES512\'", PTR TestMakeJSONWebToken("ES512", rsa2048_key)); // key type mismatch
+  TestThrowsLike("Invalid key size 256 for algorithm \'ES512\'", PTR TestMakeJSONWebToken("ES512", ec256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 384 for algorithm \'ES512\'", PTR TestMakeJSONWebToken("ES512", ec384_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("ES512", ec521_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
 
-  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
+  TestThrowsLike("Invalid signature \'*\' for algorithm \'ES512\' for JWT token", PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
   verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
@@ -315,61 +315,61 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   // Test against bypassing authorization value check by setting the alg value to "none"
   jwt_token := NEW JSONWebToken("none", "");
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // "none" is not accepted if a secret key is supplied
+  TestThrowsLike("Non-empty secret or key is not accepted for JWT token alg \'none\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // "none" is not accepted if a secret key is supplied
 
   // Check algorithm
   jwt_token := NEW JSONWebToken("HS256", hs256_key);
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue)); // alg is required
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "hs256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS384" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := STRING[], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "nonexisting" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestThrowsLike("Missing required cell \'ALG\' in options", PTR VerifyJSONWebToken(authvalue)); // alg is required
+  TestThrowsLike("No valid algorithm values supplied: \'hs256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "hs256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Unexpected JWT token alg \'HS256\', expected one of \'HS384\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS384" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Unexpected JWT token alg \'HS256\', expected one of \'RS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("No valid algorithm value supplied: \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := STRING[], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestThrowsLike("No valid algorithm values supplied: \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestThrowsLike("No valid algorithm values supplied: \'nonexisting\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "nonexisting" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
 
   // Check issuer
-  TestThrows(PTR jwt_token->SetPayload([ iss := "" ])); // cannot be empty when specified
-  TestThrows(PTR jwt_token->SetPayload([ iss := ":test" ])); // invalid uri
-  TestThrows(PTR jwt_token->SetPayload([ iss := "test:" ])); // invalid uri
+  TestThrowsLike("Invalid value \'\' for field \'ISS\'", PTR jwt_token->SetPayload([ iss := "" ])); // cannot be empty when specified
+  TestThrowsLike("Invalid value \':test\' for field \'ISS\'", PTR jwt_token->SetPayload([ iss := ":test" ])); // invalid uri
+  TestThrowsLike("Invalid value \'test:\' for field \'ISS\'", PTR jwt_token->SetPayload([ iss := "test:" ])); // invalid uri
   jwt_token->payload := [ iss := "test" ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Invalid value \'test\' for field \'iss\', expected one of \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'test\' for field \'iss\', expected one of \'Test\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
 
   // Check subject
-  TestThrows(PTR jwt_token->SetPayload([ sub := "" ])); // cannot be empty when specified
-  TestThrows(PTR jwt_token->SetPayload([ sub := ":test" ])); // invalid uri
-  TestThrows(PTR jwt_token->SetPayload([ sub := "test:" ])); // invalid uri
+  TestThrowsLike("Invalid value \'\' for field \'SUB\'", PTR jwt_token->SetPayload([ sub := "" ])); // cannot be empty when specified
+  TestThrowsLike("Invalid value \':test\' for field \'SUB\'", PTR jwt_token->SetPayload([ sub := ":test" ])); // invalid uri
+  TestThrowsLike("Invalid value \'test:\' for field \'SUB\'", PTR jwt_token->SetPayload([ sub := "test:" ])); // invalid uri
   jwt_token->payload := [ sub := "test" ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Invalid value \'test\' for field \'sub\', expected one of \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'test\' for field \'sub\', expected one of \'Test\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
 
   // Check audience, either single value or array of values
-  TestThrows(PTR jwt_token->SetPayload([ aud := "" ])); // cannot be empty when specified
-  TestThrows(PTR jwt_token->SetPayload([ aud := ":test" ])); // invalid uri
-  TestThrows(PTR jwt_token->SetPayload([ aud := "test:" ])); // invalid uri
-  TestThrows(PTR jwt_token->SetPayload([ aud := [ "", "test:" ] ])); // cannot be empty when specified, invalid uri
-  TestThrows(PTR jwt_token->SetPayload([ aud := [ "", "test" ] ])); // cannot be empty when specified
+  TestThrowsLike("Invalid value \'\' for field \'AUD\'", PTR jwt_token->SetPayload([ aud := "" ])); // cannot be empty when specified
+  TestThrowsLike("Invalid value \':test\' for field \'AUD\'", PTR jwt_token->SetPayload([ aud := ":test" ])); // invalid uri
+  TestThrowsLike("Invalid value \'test:\' for field \'AUD\'", PTR jwt_token->SetPayload([ aud := "test:" ])); // invalid uri
+  TestThrowsLike("Invalid value \'\' for field \'AUD\'", PTR jwt_token->SetPayload([ aud := [ "", "test:" ] ])); // cannot be empty when specified, invalid uri
+  TestThrowsLike("Invalid value \'\' for field \'AUD\'", PTR jwt_token->SetPayload([ aud := [ "", "test" ] ])); // cannot be empty when specified
   jwt_token->payload := [ aud := "test" ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Invalid value \'test\' for field \'aud\', expected one of \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'test\' for field \'aud\', expected one of \'Test\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
   jwt_token->payload := [ aud := [ "test", "other" ] ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "Other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Invalid value \'test\' for field \'aud\', expected one of \'\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'other\' for field \'aud\', expected one of \'test\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'test\' for field \'aud\', expected one of \'other\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrowsLike("Invalid value \'test\' for field \'aud\', expected one of \'Test\', \'other\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrowsLike("Invalid value \'other\' for field \'aud\', expected one of \'test\', \'Other\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "Other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "other", "third" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
 
@@ -409,16 +409,16 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000, AddDaysToDate(1, now)), grace_period := 31000 ])));
 
   // Check JWT ID
-  TestThrows(PTR jwt_token->SetPayload([ jti := "" ])); // cannot be empty when specified
+  TestThrowsLike("Invalid value \'\' for field \'JTI\'", PTR jwt_token->SetPayload([ jti := "" ])); // cannot be empty when specified
   jwt_token->payload := [ jti := "abcdef01" ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "test" ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "ABCDEF01" ])); // case sensitive
+  TestThrowsLike("Invalid value \'abcdef01\' for field \'jti\', expected \'\'", PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ]));
+  TestThrowsLike("Invalid value \'abcdef01\' for field \'jti\', expected \'test\'", PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "test" ]));
+  TestThrowsLike("Invalid value \'abcdef01\' for field \'jti\', expected \'ABCDEF01\'", PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "ABCDEF01" ])); // case sensitive
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "abcdef01" ])));
   jwt_token->payload := DEFAULT RECORD;
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "abcdef01" ])); // missing jti
+  TestThrowsLike("Missing value for field \'jti\'", PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "abcdef01" ])); // missing jti
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ])));
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "" ])));
 }

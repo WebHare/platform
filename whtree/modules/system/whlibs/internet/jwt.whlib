@@ -543,7 +543,7 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
     secret_or_pubkey := options.secret_callback(header.kid);
   // The secret can only be empty if the algorithm is "none"
   IF ((secret_or_pubkey = "") != (header.alg = "none"))
-    THROW NEW Exception(`${secret_or_pubkey = "" ? "Empty " : "Non-empty "} secret or key is not accepted for JWT token alg '${header.alg}'`);
+    THROW NEW Exception(`${secret_or_pubkey = "" ? "Empty" : "Non-empty"} secret or key is not accepted for JWT token alg '${header.alg}'`);
 
   // Initialize the JWT token
   OBJECT token := NEW JSONWebToken(header.alg, secret_or_pubkey);
