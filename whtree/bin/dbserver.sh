@@ -49,6 +49,15 @@ if [ -n "$WEBHARE_POSTGRESQL_MIGRATION" ]; then
   ARGS="-c wal_level=minimal -c fsync=off"
 fi
 
+
+cd "${BASH_SOURCE%/*}/../etc/"
+if [ -n "$WEBHARE_IN_DOCKER" ]; then
+  PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-docker.conf"
+else
+  PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-sourceinstall.conf"
+fi
+
+
 mkdir -p "$PSROOT"
 
 if [ ! -d "$PSROOT/db" ]; then
@@ -59,20 +68,23 @@ if [ ! -d "$PSROOT/db" ]; then
     rm -rf "$PSROOT/tmp_initdb"
   fi
 
-  mkdir $PSROOT/tmp_initdb/
+  mkdir "$PSROOT/tmp_initdb/"
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown postgres $PSROOT $PSROOT/tmp_initdb
+    chown postgres "$PSROOT" "$PSROOT/tmp_initdb"
   fi
 
   echo "Prepare PostgreSQL database in $PSROOT"
-  if ! $RUNAS $PSBIN/initdb -U postgres -D $PSROOT/tmp_initdb --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
+  if ! $RUNAS $PSBIN/initdb -U postgres -D "$PSROOT/tmp_initdb" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
     echo DB initdb failed
     exit 1
   fi
 
   # Set the configuration file
-  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/tmp_initdb/postgresql.conf"
+  cat <<- HERE > "$PSROOT/tmp_initdb/postgresql.conf"
+include '$PGCONFIGFILE'
+include_if_exists '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'
+HERE
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
@@ -80,18 +92,18 @@ if [ ! -d "$PSROOT/db" ]; then
     echo DB create db failed
     exit 1
   fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" $WEBHARE_DBASENAME ; then
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
     echo DB create user failed
     exit 1
   fi
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    if ! echo "GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" $WEBHARE_DBASENAME ; then
+    if ! echo "GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
       echo DB adding rights failed
       exit 1
     fi
   fi
 
-  mv $PSROOT/tmp_initdb/ $PSROOT/db/
+  mv "$PSROOT/tmp_initdb/" "$PSROOT/db/"
 else
 
   if [ -d "$PSROOT/db.switchto" ]; then
@@ -100,17 +112,13 @@ else
     mv "$PSROOT/db.switchto" "$PSROOT/db"
   fi
 
-  # Ensure configuration file is set
-  cp "$WEBHARE_DIR/etc/postgresql.conf" "$PSROOT/db/postgresql.conf"
+  cat <<- HERE > "$PSROOT/db/postgresql.conf"
+include '$PGCONFIGFILE'
+include_if_exists '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'
+HERE
 fi
 
-# Ensure user configuration is set
-if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
-  cp "$WEBHARE_DIR/etc/pg_hba-docker.conf" "$PSROOT/db/pg_hba.conf"
-else
-  cp "$WEBHARE_DIR/etc/pg_hba-sourceinstall.conf" "$PSROOT/db/pg_hba.conf"
-fi
 
 echo "Starting PostgreSQL"
-echo $$ > $WEBHARE_DATAROOT/.dbserver.pid
+echo $$ > "$WEBHARE_DATAROOT/.dbserver.pid"
 exec $RUNAS $PSBIN/postmaster -D "$PSROOT/db" 2>&1
