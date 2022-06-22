@@ -47,19 +47,13 @@ if [ ! -d "$TORESTORE" ] ; then
   exit 1
 fi
 
-# ADDME Support other restore formats, eg full backup files without blobs (no easy way to recognize them from outside though? just assume if there's no blob folder ?)
-if [ -f "$TORESTORE/backup/backup.bk000" ] ; then
-  RESTORE_DB=dbserver
-  if [ -z "$RESTORETO" ]; then
-    RESTORETO="$WEBHARE_DATAROOT/dbase"
-  fi
-elif [ -f "$TORESTORE/backup/base.tar.gz" ] ; then
+if [ -f "$TORESTORE/backup/base.tar.gz" ] ; then
   RESTORE_DB=postgresql
   if [ -z "$RESTORETO" ]; then
     RESTORETO="$WEBHARE_DATAROOT/postgresql"
   fi
 else
-  echo "Cannot find $TORESTORE/backup/base.tar.gz or $TORESTORE/backup/backup.bk000"
+  echo "Cannot find $TORESTORE/backup/base.tar.gz"
   exit 1
 fi
 
@@ -86,12 +80,7 @@ export WEBHARE_BASEPORT=$WEBHARE_BASEPORT
 EOF
 fi
 
-if [ "$RESTORE_DB" == "dbserver" ]; then
-  if ! $WEBHARE_DIR/bin/dbserver --restore "$TORESTORE/backup/backup.bk000" --restoreto "$RESTORETO" --blobimportmode $BLOBIMPORTMODE ; then
-    echo "Restore failed (errorcode $?)"
-    exit $?
-  fi
-elif [ "$RESTORE_DB" == "postgresql" ]; then
+if [ "$RESTORE_DB" == "postgresql" ]; then
   # Remove previous restore
   rm -rf "$WEBHARE_DATAROOT/postgresql.restore/"
 

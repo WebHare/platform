@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
@@ -18,3 +21,5 @@ IF(Length(legacytasks) > 0)
   GetPrimary()->CommitWork();
 }
 
+// 5.0.0 - Cleanup stray pid files
+DeleteDiskFile(GetWebhareConfiguration().varroot || ".dbserver.pid");

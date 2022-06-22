@@ -128,5 +128,4 @@ fi
 
 
 echo "Starting PostgreSQL"
-echo $$ > "$WEBHARE_DATAROOT/.dbserver.pid"
 exec $RUNAS $PSBIN/postmaster -D "$PSROOT/db" 2>&1

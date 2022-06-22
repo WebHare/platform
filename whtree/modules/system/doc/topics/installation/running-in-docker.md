@@ -50,7 +50,7 @@ By appending `/bin/bash` to a docker started with `-ti` you can manually
 control the startup. Once in the container, run `/opt/container/launch.sh` to
 start WebHare.
 
-You can also `wh exec dbserver` to start just the postgres database and then
+You can also `wh exec postgres` to start just the postgres database and then
 use `wh psql` to connect to this database if you need to fix pre-launch issues.
 
 If you cannot startup the database server, use `wh postgres-single` to launch
