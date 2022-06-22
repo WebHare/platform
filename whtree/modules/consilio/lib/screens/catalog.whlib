@@ -127,7 +127,7 @@ PUBLIC RECORD FUNCTION GetConsilioStatus()
                    , lasterrors := RECORD[]
                    ];
 
-  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.indices WHERE type != whconstant_consilio_catalogtype_fieldgroup AND name NOT LIKE "$consilio$deleted$*")
+  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.indices WHERE name NOT LIKE "$consilio$deleted$*")
     status.catalogsizes := CellInsert(status.catalogsizes, catalog.name, GetIndexManagerSize(catalog.id));
   IF (NOT RecordExists(status.catalogsizes))
   {
@@ -484,7 +484,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
         SELECT *
           FROM consilio.indices
          WHERE id > 0
-               AND type != whconstant_consilio_catalogtype_fieldgroup
                AND this->tolliumuser->HasRightOn("consilio:read", id)
                AND name NOT LIKE "$consilio$deleted$*"
          ORDER BY ToUppercase(name), id;

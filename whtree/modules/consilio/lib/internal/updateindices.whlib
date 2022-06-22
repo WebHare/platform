@@ -200,7 +200,6 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
     RETURN; //consilio is not initialized yet!
 
   trans->BeginWork();
-  DELETE FROM consilio.indices WHERE type = whconstant_consilio_catalogtype_fieldgroup; //clear any 4.25 created fieldgroups
 
   //gather requested indices
   RECORD ARRAY allindices;
