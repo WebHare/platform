@@ -19,6 +19,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -245,14 +246,20 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  //Combines three generations of index generation. hopefully we can replace everything with UpdateModuleCatalogs in the future
-
   options := ValidateOptions(
       [ reportmissing := FALSE
       ], options);
 
-  UpdateModuleCatalogs(CELL[options.reportmissing]);
-  UpdateModuleIndices(CELL[options.reportmissing]);
+  OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
+  TRY
+  {
+    UpdateModuleCatalogs(CELL[options.reportmissing]);
+    UpdateModuleIndices(CELL[options.reportmissing]);
+  }
+  FINALLY
+  {
+    lock->Release();
+  }
 
   // Broadcast indexfields event to reset cached module index fields (publisher search)
   BroadcastEvent("consilio:indexfields", DEFAULT RECORD);//TODO is this still needed? but UpdateConsilioIndices, now removed, broadcasted it
