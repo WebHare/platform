@@ -15,7 +15,7 @@ STRING embeddableurl;
 
 MACRO TestEmbedGTM()
 {
-  TestThrows(PTR DownloadEmbeddableScript("GTM", "TN7QQM"));
+  TestThrowsLike('Code*is not*valid*',PTR DownloadEmbeddableScript("GTM", "TN7QQM"));
 
   DeleteEmbeddableScript("GTM", ourgtmtestcontainer); //GTM-TN7QMM is managed by WebHare bv's GTM account
 

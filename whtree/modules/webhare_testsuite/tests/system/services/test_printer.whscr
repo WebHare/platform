@@ -82,7 +82,7 @@ MACRO TestPDFs()
   testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 
   //test empty concat
-  TestThrows (PTR ConcatenatePDFs(BLOB[]));
+  TestThrowsLike("Empty PDF*", PTR ConcatenatePDFs(BLOB[]));
 
   //test identity concat
   BLOB collection := ConcatenatePDFs(BLOB[result.data]);

@@ -48,7 +48,7 @@ MACRO ImgCacheTest()
 
   TestEQ(legacy_badkikkerlink, Substitute(badkikkerlink,"kwaak.jpg","data.jpg"));
   //Detect API misuse, accidentally using getcachedfilelink
-  TestThrows(PTR GetCachedFileLink(kikkertje->GetWrapped(), [ method := "scale", setwidth:=25, setheight:=25, baseurl := baseurl]));
+  TestThrowsLike("A cached file cannot have a scale method.*", PTR GetCachedFileLink(kikkertje->GetWrapped(), [ method := "scale", setwidth:=25, setheight:=25, baseurl := baseurl]));
 
   // invalidate legacy_badkikkerlink and badkikkerlink by updating the creationdate
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;

@@ -24,9 +24,8 @@ MACRO TestGeoCoder()
          VALUES("client.testframework.beta.webhare.net", 1, GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"));
   testfw->CommitWork();
 
-  TestThrows(PTR MakeGeoCoder);
-  TestThrows(PTR MakeGeoCoder([ requesturl := "client.testframework.beta.webhare.net" ])); //keytype does not match
-  TestThrows(PTR MakeGeoCoder([ requesturl := "client.testframework.beta.webhare.net" ])); //keytype does not match
+  TestThrowsLike("*requires*API key*",PTR MakeGeoCoder);
+  TestThrowsLike("Unable to find the proper*",PTR MakeGeoCoder([ requesturl := "client.testframework.beta.webhare.net" ])); //keytype does not match
 
   OBJECT geocoder := MakeGeoCoder([ requesturl := "backend.testframework.beta.webhare.net" ]);
   TestEq(GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"), geocoder->apikey);

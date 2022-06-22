@@ -5,7 +5,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 ASYNC MACRO MultilineComponent()
 {
   //attempt to insert a block container into a <select><option>. currently throws immediately. should either throw or generate lastloaderrors
-  TestThrows(PTR GetTestController()->LoadScreen("webhare_testsuite:tests/addons.block_multilinecomponent"));
+  TestThrowsLike('*block*inline context*', PTR GetTestController()->LoadScreen("webhare_testsuite:tests/addons.block_multilinecomponent"));
 
   //attempt to insert a inline container into a <select><option> which actually contains multiple lines
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/addons.inline_multilinecomponent"));

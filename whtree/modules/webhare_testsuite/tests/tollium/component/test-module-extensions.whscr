@@ -34,8 +34,8 @@ ASYNC MACRO TestUserAttributes()
   TestEq("Hello, world", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myattr"));
   TestEq(DEFAULT OBJECT, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
   TestEq(0m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
-  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
-  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/unknown", "myunknown"));
+  TestThrowsLike("No such attribute \'myunknown\' in namespace \'http://www.webhare.net/xmlns/webhare_testsuite/testcomponents\'", PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
+  TestThrowsLike("No such component namespace \'http://www.webhare.net/xmlns/webhare_testsuite/unknown\'", PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/unknown", "myunknown"));
 
   TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 5);
   TestEq(5m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));

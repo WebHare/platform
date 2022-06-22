@@ -127,7 +127,7 @@ MACRO TestSAMLSigning()
   webdata.signature := "";
   webdata.sigalg := "";
   decoded := DecodeSAMLMessage(webdata, TRUE);
-  TestThrows(PTR decoded.validate(
+  TestThrowsLike('The SAML document is not signed',PTR decoded.validate(
       [ [ acceptuntil :=    MakeDate(2100, 1, 1)
         , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
         ]

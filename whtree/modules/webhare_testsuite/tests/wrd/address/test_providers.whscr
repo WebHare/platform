@@ -8,7 +8,7 @@ LOADLIB "mod::wrd/lib/address.whlib";
 MACRO TestPostcodeAPiNU()
 {
   testfw->BeginWork();
-  TestThrows(PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu" ]));
+  TestThrowsLike('Missing*APIKEY*',PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu" ]));
 
   SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu"
                                                       , apikey := "loopback"

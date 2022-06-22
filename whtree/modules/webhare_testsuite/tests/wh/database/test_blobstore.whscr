@@ -28,7 +28,7 @@ MACRO TestDiskBlobResolver()
   TestEQ(StringToBlob("testblob2"), resolver->ReadBlobPart(test2id, 9));
 
   resolver->DeleteBlobParts([ test2id ]);
-  TestThrows(PTR resolver->ReadBlobPart(test2id, 9));
+  TestThrowsLike("No such disk file*", PTR resolver->ReadBlobPart(test2id, 9));
 
   RECORD ARRAY list := SELECT * FROM resolver->ListBlobParts() ORDER BY size;
   TestEQMembers(
@@ -166,7 +166,7 @@ MACRO TestBlobHandler()
   TestEQ(StringToBlob("testblob2"), handler->LookupBlob(test2, 9));
 
   handler->DeleteBlobParts(handler->GetBlobPartIdsFromBlobIds([ test2 ]));
-  TestThrows(PTR handler->LookupBlob(test2, 9));
+  TestThrowsLike("No such disk file*", PTR handler->LookupBlob(test2, 9));
 
   RECORD ARRAY list := SELECT * FROM handler->ListBlobParts() ORDER BY size;
   TestEQMembers(

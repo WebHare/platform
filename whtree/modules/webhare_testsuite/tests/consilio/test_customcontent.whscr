@@ -75,7 +75,7 @@ MACRO TestCustomContent()
       , discardsummaries :=     TRUE
       ]);
 
-  TestThrows(PTR AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
+  TestThrowsLike("*contentsource*already exists*",PTR AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
       [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
       , maxgroupobjects :=      1000
       , discardsummaries :=     TRUE

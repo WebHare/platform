@@ -71,7 +71,7 @@ ASYNC MACRO TestLibraryObjects()
   TestEq(1, Length(TT(":LibraryObjects")->options));
 
   // testparent3: cannot go up out of site
-  TestThrows(PTR SetTestparent("testparent3"));
+  TestThrowsLike('*tries to escape*',PTR SetTestparent("testparent3"));
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 

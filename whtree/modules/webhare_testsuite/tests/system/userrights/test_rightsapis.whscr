@@ -205,7 +205,7 @@ MACRO GrantTest()
   TestEq(FALSE, limited_user->HasRight("system:sysop"));
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
   // The following tests now fails because it is now legal to grant from any user (FIXME: check if this is what arnold meant to do)
-  //TestThrows(PTR sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", limited_user, FALSE));
+  //TestThrowsLike("REPORT", PTR sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", limited_user, FALSE));
 
   testfw->CommitWork();
 
@@ -322,7 +322,7 @@ MACRO GrantTest()
   TestEq(FALSE, limited2_user->CanManageRightOn("webhare_testsuite:objectflatright", 1));
   TestEq(FALSE, limited2_user->CanManageRightOn("webhare_testsuite:objectflatright", 7));
 
-  // no longer throws as it is a no-op TestThrows(PTR limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", limited2_user, 1, FALSE));
+  // no longer throws as it is a no-op TestThrowsLike("REPORT", PTR limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", limited2_user, 1, FALSE));
   limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 0, limited2_user);
 
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 0));

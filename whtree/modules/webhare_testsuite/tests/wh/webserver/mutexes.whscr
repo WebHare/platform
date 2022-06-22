@@ -42,7 +42,7 @@ MACRO RunscriptMutexes()
   OBJECT m2 := lockmgr->TryLockMutex("webhare_testsuite:test.mutex2", DEFAULT DATETIME);
   TestEQ(TRUE, ObjectExists(m2));
   TestEQ(TRUE, lockmgr->HasLockedMutex("webhare_testsuite:test.mutex2"));
-  TestThrows(PTR lockmgr->LockMutex("webhare_testsuite:test.mutex1"));
+  TestThrowsLike("*already been locked*", PTR lockmgr->LockMutex("webhare_testsuite:test.mutex1"));
 
   mutex->Close();
   m2->Close();
@@ -80,7 +80,7 @@ MACRO RunscriptInterlockingMutexes()
   // Receive unlock message
   TestEQ(DEFAULT RECORD, link_a->ReceiveMessage(MAX_DATETIME).msg);
 
-  TestThrows(PTR link_b->DoRequest([ type := "lock", mutexname := "webhare_testsuite:test.mutex1" ]));
+  TestThrowsLike("*already been locked*", PTR link_b->DoRequest([ type := "lock", mutexname := "webhare_testsuite:test.mutex1" ]));
 
   job_a->Close();
   job_b->Close();

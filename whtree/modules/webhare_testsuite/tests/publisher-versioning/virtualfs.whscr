@@ -67,7 +67,7 @@ MACRO TestVirtualFS()
   TestEq(initialnumentries, Length(entries));
 
   //Create a file in the testfolder (throws)
-  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is gf1.txt"), FALSE));
+  ex := TestThrowsLike("No write access", PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is gf1.txt"), FALSE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
 
   // Create the file directly
@@ -79,19 +79,19 @@ MACRO TestVirtualFS()
   TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
 
   //Try to create a new file with the same name but without the overwrite flag. Should throw a VirtualFSException
-  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
+  ex := TestThrowsLike("No write access", PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Dit is een geupdate gf1"), FALSE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
   TestEq(TRUE, ex->IsAccessDenied());
 
   TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
 
-  ex := TestThrows(PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Deze overwite mag niet lukken"), TRUE));
+  ex := TestThrowsLike("No write access", PTR vfs->PutFile(basepath || "gf1.txt", StringToBlob("Deze overwite mag niet lukken"), TRUE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
   TestEq(TRUE, ex->IsAccessDenied());
   TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
 
   //Read a nonexisting file
-  ex := TestThrows(PTR vfs->GetFile(basepath || "gf2.txt"));
+  ex := TestThrowsLike("File does not exist", PTR vfs->GetFile(basepath || "gf2.txt"));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException);
   TestEq(FALSE, ex->IsAlreadyExists());
   TestEq(TRUE, ex->IsBadPath());
@@ -112,7 +112,7 @@ MACRO TestVirtualFS()
   //In-folder rename
   TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
   TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
-  ex := TestThrows(PTR vfs->Move(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
+  ex := TestThrowsLike("No write access at source", PTR vfs->Move(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
   TestEq(TRUE, Recordexists(vfs->GetPathInfo(basepath||"gf1.txt")));
   TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
@@ -120,13 +120,13 @@ MACRO TestVirtualFS()
   TestEq(StringToBlob("Dit is gf1.txt"), vfs->GetFile(basepath||"gf1.txt"));
 
   //In-folder copy
-  ex := TestThrows(PTR vfs->Copy(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
+  ex := TestThrowsLike("No write access at destination", PTR vfs->Copy(basepath||"gf1.txt", basepath||"gf2.txt", FALSE));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
   TestEq(FALSE, Recordexists(vfs->GetPathInfo(basepath||"gf2.txt")));
 
   //Make us a directory!
   TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
-  ex := TestThrows(PTR vfs->MakeDir(basepath || "newdir"));
+  ex := TestThrowsLike("No write access", PTR vfs->MakeDir(basepath || "newdir"));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
 
   // Create the folder directly
@@ -137,7 +137,7 @@ MACRO TestVirtualFS()
   TestEq(TRUE, vfs->IsValidDirectory(basepath||"newdir"));
 
   //Delete a directory
-  ex := TestThrows(PTR vfs->DeletePath(basepath||"newdir"));
+  ex := TestThrowsLike("No write access", PTR vfs->DeletePath(basepath||"newdir"));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
   TestEq(TRUE, vfs->IsValidDirectory(basepath||"newdir"));
 
@@ -148,11 +148,11 @@ MACRO TestVirtualFS()
   TestEq(FALSE, vfs->IsValidDirectory(basepath||"newdir"));
 
   //Set a modification date on gf1.txt
-  ex := TestThrows(PTR vfs->SetMetadata(basepath||"gf1.txt", [ modificationdate := MakeDate(2010,6,15) ]));
+  ex := TestThrowsLike("No write access", PTR vfs->SetMetadata(basepath||"gf1.txt", [ modificationdate := MakeDate(2010,6,15) ]));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
 
   //Delete gf1
-  ex := TestThrows(PTR vfs->DeletePath(basepath||"gf1.txt"));
+  ex := TestThrowsLike("No write access", PTR vfs->DeletePath(basepath||"gf1.txt"));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
 
   entries := vfs->GetDirectoryListing(basepath);
@@ -162,7 +162,7 @@ MACRO TestVirtualFS()
   // Test: cannot delete the parent of a versioned site
 
   STRING parentpath := "/publisher" || testsite->rootobject->parentobject->whfspath;
-  ex := TestThrows(PTR vfs->DeletePath(parentpath));
+  ex := TestThrowsLike("No write access", PTR vfs->DeletePath(parentpath));
   TestEq(TRUE, ex EXTENDSFROM VirtualFSException AND ex->IsAccessDenied());
 }
 

@@ -142,17 +142,17 @@ ASYNC MACRO TestAsyncReceiveCancel()
   OBJECT p := rec.conn->AsyncReceivePacket(MAX_DATETIME);
   AWAIT CreateSleepPromise(100);
   p->Cancel();
-  TestThrows(PTR WaitForPromise(p));
+  TestThrowsLike("The operation has been cancelled",PTR WaitForPromise(p));
 
   p := rec.conn->AsyncReceivePacketBlob(MAX_DATETIME);
   AWAIT CreateSleepPromise(100);
   p->Cancel();
-  TestThrows(PTR WaitForPromise(p));
+  TestThrowsLike("The operation has been cancelled",PTR WaitForPromise(p));
 
   // auto-cancel on close
   p := rec.conn->AsyncReceivePacketBlob(MAX_DATETIME);
   rec.conn->Close();
-  TestThrows(PTR WaitForPromise(p));
+  TestThrowsLike("The operation has been cancelled",PTR WaitForPromise(p));
 }
 
 RunTestFramework([ PTR TestEchoAndPing

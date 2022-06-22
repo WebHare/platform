@@ -280,7 +280,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
   // Must be applied directly to live file
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
   AWAIT rec.expectcallreturn();
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned-file-nodraft2.html doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
   TestEQ("Nodraft 2", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
 
   DeleteFSObjects([ testfile ]);
@@ -578,7 +578,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve convert to versioned content" ]);
   testfw->CommitWork();
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned-file-nodraft7.html doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
   TestEQ("changed value twice", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/versionedctype").str);
   TestEQ("changed value twice", testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/unversionedctype").str);
 
@@ -1161,7 +1161,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
       ]));
 
   // No draft, file data is replaced in live version
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished_versioned.doc doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
   TestEQ(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), testfile->data);
 
   // Cleanup
@@ -1405,7 +1405,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
   // Test not published, no public draft
   testfile2 := testfolder->parentobject->OpenByName("testfile2.zip");
   TestEQ(0, testfile2->published);
-  TestThrows(PTR GetValidatePublicDraft(testfile2));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/testfile2.zip doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile2));
 
   // Cleanup
   TT("foldertree")->value := testfolder->parent;
