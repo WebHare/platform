@@ -122,19 +122,36 @@ MACRO TestESCreationAPIs()
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
+  testfw->CommitWork();
+
   TestThrowsLike("Duplicate property name*", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
+  testfw->CommitWork();
+
   TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
+
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
+  testfw->CommitWork();
   TestEq(TRUE, ObjectExists(catalog));
+
   TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
+  testfw->CommitWork();
+
   TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
 }
 
