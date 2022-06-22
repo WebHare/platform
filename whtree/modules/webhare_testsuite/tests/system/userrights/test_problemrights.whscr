@@ -34,7 +34,7 @@ MACRO CreateProblemRight()
   <meta>
     <version>0.1.0</version>
     <description>Test module</description>
-    <packaging download="true" requireversion="42700" />
+    <packaging download="true" webhareversion=">= 5.0.0" />
     <validation options="nowarnings" />
   </meta>
 
@@ -63,8 +63,8 @@ MACRO CreateProblemRight()
   my_rights_tree := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_temp.rights_tree");
   INSERT INTO my_rights_tree(id,name,parent) VALUES(1,"Test 1",0);
   INSERT INTO my_rights_tree(id,name,parent) VALUES(2,"Test 1.2",1);
-  testfw->GetUserObject("sysop")->GrantRightTo("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("webhare_testsuite_temp:danglingright2", testfw->GetUserObject("lisa"), 2, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite_temp:danglingright", 0, testfw->GetUserObject("lisa"), [ withgrantoption := TRUE ]);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite_temp:danglingright2", 2, testfw->GetUserObject("lisa"), [ withgrantoption := TRUE ]);
   testfw->CommitWork();
 }
 
@@ -95,7 +95,7 @@ ASYNC MACRO TestProblemRights()
 
   __ResetRightsCaches();
   //there's no way to revoke a broken right as we can't find its storage tables.
-  TestThrowsLike("Right*does not exist*", PTR testfw->GetUserObject("sysop")->RevokeRightFrom("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE));
+  TestThrowsLike("Right*does not exist*", PTR testfw->GetUserObject("sysop")->UpdateGrant("revoke", "webhare_testsuite_temp:danglingright", 0, testfw->GetUserObject("lisa")));
   DELETE FROM my_rights_tree; //this should cascade danglingright2
   CleanupObsoleteRights(); //should now clean the danglingright2
 

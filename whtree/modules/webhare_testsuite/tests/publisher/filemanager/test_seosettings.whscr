@@ -18,8 +18,8 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
+  testfw->GetUserObject("marge")->UpdateGrant("grant", "system:fs_fullaccess",  OpenTestsuiteSite()->rootobject->id, testfw->GetUserObject("marge"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess",  OpenTestsuiteSite()->rootobject->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 }
 

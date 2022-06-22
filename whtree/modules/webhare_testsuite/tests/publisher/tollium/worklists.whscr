@@ -52,9 +52,9 @@ MACRO Setup()
       ]);
 
   // Grant testuser 'lisa' browse right on the test website
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testroot->id, FALSE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisaresolveroot->id, FALSE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetRoleObject("powerplantmanagers"), lisaresolveroot->id, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse",  testroot->id, testfw->GetUserObject("lisa"));
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess",  lisaresolveroot->id, testfw->GetUserObject("lisa"));
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess",  lisaresolveroot->id, testfw->GetRoleObject("powerplantmanagers"));
 
   // Let the sysop create a work list
   testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);

@@ -890,7 +890,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                       STRING name := subsubchild->GetAttribute("module");
                       INSERT
                           [ name :=            ToLowercase(TrimWhitespace(name))
-                          , moduleversion :=   subsubchild->GetAttribute("moduleversion") ?? subsubchild->GetAttribute("requireversion")
+                          , moduleversion :=   subsubchild->GetAttribute("moduleversion")
                           ] INTO this->moduledef.requiredmodules AT END;
                     }
                     CASE "exclude"

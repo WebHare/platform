@@ -403,16 +403,6 @@
         <xs:documentation>Require this version of the dependency, assumes [semantic versioning range](https://www.npmjs.com/package/semver#ranges). Supported since 4.27</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="requireversion" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>Minimum version number. Semantic version expected, but an integer (e.g. 41002) will be interpreted as >= 4.10.2 (matching 4.10.02 and up). Deprecated since 4.27</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="beforeversion" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>Limit version number, eg a rule specifying beforeversion=41002 matches up and until 4.10.01, but not to 4.10.02 and up. This field is deprecated, you can express 'before' using 'requireversion'</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="minservertype" type="ServerType">
       <xs:annotation>
         <xs:documentation>Minimum server type, eg minservertype=acceptance will only apply this node to acceptance and production stages</xs:documentation>

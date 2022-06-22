@@ -176,7 +176,7 @@ PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
       newschemaid := wrdschema->id;
 
       IF (NOT this->tolliumuser->HasRightOn("wrd:metadata", newschemaid))
-        this->tolliumuser->GrantRightToOn("wrd:metadata", this->tolliumuser, newschemaid, TRUE);
+        this->tolliumuser->UpdateGrant("grant", "wrd:metadata", newschemaid, this->tolliumuser, [ allowselfassignment := TRUE ]);
     }
 
     IF(NOT work->Finish())

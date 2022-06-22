@@ -18,7 +18,7 @@ MACRO Setup()
   fullrightfolder := testbase->CreateFolder([ name := "fullrightfolder" ]);
   lisasfolder := testbase->CreateFolder([ name := "lisasfolder", modifiedby := testfw->GetUserAuthobjectid("lisa") ]);
 
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisasfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", lisasfolder->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
 
   fullrightfolder->CreateFile([name := "preexisting.whlib", type := 16, data := StringToBlob("<?wh abort('mycode'); ?>") ]);
 
@@ -69,7 +69,7 @@ MACRO CheckPublication()
   testfw->BeginWork();
 
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), siteroot->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", siteroot->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
 
   OBJECT testvalidshtml := siteroot->CreateFile([ name := "valid.shtml", data := StringToBlob("<?wh Print('valid shtml'); ?>"), publish := TRUE ]);
   TestEq(25, testvalidshtml->type);

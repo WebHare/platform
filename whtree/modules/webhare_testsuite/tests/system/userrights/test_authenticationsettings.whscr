@@ -142,8 +142,8 @@ ASYNC MACRO TestAuditLog()
 
   // grant necessary rights to manage lisa's unit to supervisor and unitmanager
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("supervisor"), 0, TRUE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("unitmanager"), 0, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:manageunit", 0, testfw->GetUserObject("supervisor"), [ withgrantoption := TRUE ]);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:manageunit", 0, testfw->GetUserObject("unitmanager"), [ withgrantoption := TRUE ]);
   testfw->CommitWork();
 
   // STORY: non-supervisor can see audit log

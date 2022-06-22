@@ -72,7 +72,7 @@ PUBLIC MACRO ConvertToVersionedContent(OBJECT fsobject)
 
   fsobject->Refresh();
   TestEQ(TRUE, policy->HasVersionEvents(fsobject));
-  TestThrows(PTR GetValidatePublicDraft(fsobject));
+  TestThrowsLike("*doesn't have a public draft*", PTR GetValidatePublicDraft(fsobject));
   TestEQ(FALSE, TestFlagFromPublished(fsobject->published, PublishedFlag_HasPublicDraft));
 }
 

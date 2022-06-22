@@ -170,7 +170,7 @@ MACRO Setup()
   INTEGER userrule := MakeAutonumber(system.access,"id");
   INSERT INTO system.access(id, webserver, path, matchtype, authrequirement, authtype, authlist)
          VALUES(userrule, testport.webserverid, "/webserver-beta-testing/userfilter/", 1/*initial*/, TRUE, 0, TRUE);
-  testfw->GetUserObject("user1")->GrantRightToOn("system:urlaccess", testfw->GetUserObject("user1"), userrule, FALSE, TRUE);
+  testfw->GetUserObject("user1")->UpdateGrant("grant", "system:urlaccess", userrule, testfw->GetUserObject("user1"), [ allowselfassignment := TRUE ]);
   INSERT INTO system.access_externalusers(accessid, username, userpassword)
          VALUES(userrule, "homersimpson", "donut:good");
 

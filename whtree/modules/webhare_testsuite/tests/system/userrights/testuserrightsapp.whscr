@@ -30,7 +30,7 @@ ASYNC MACRO Setup()
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTLaunchApp("system:userrights"), [ messagemask := "You don't have access to this application*lisa@beta.webhare.net*" ]);
 
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("lisa"), GetTestController()->userapi->GetUnit(lisaunit)->authobjectid, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:manageunit", GetTestController()->userapi->GetUnit(lisaunit)->authobjectid, testfw->GetUserObject("lisa"), [ withgrantoption := TRUE ]);
   testfw->CommitWork();
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD, message := DEFAULT RECORD ]));
 
@@ -312,17 +312,17 @@ ASYNC MACRO TestExport()
   OBJECT visiblerole := testfw->userapi->GetRole(testfw->userapi->CreateRole([ wrd_leftentity := visibleunit->entityid, wrd_title := "visiblerole" ]));
   OBJECT invisiblerole := testfw->userapi->GetRole(testfw->userapi->CreateRole([ wrd_leftentity := invisibleunit->entityid, wrd_title := "invisiblerole" ]));
 
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testuser, visibleunit->authobjectid, TRUE);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testuser, subfolder1->id, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:manageunit", visibleunit->authobjectid, testuser, [ withgrantoption := TRUE ]);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder1->id, testuser);
 
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visibleuser1, subfolder1->id, FALSE); // visible right, visible user, visible object
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visibleuser1, subfolder2->id, FALSE); // visible right, visible user, invisible object
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", visibleuser1, subfolder1->id, FALSE); // invisible right, visible user, visible object
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", invisibleuser1, subfolder1->id, FALSE); // visible right, invisible user, visible object
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", visiblerole, subfolder1->id, FALSE); // visible right, visible user, visible object, via visible role
-  testfw->GetUserObject("sysop")->GrantRoleTo(visiblerole, visibleuser2);
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", invisiblerole, subfolder1->id, FALSE); // visible right, visible user, visible object, via invisible role
-  testfw->GetUserObject("sysop")->GrantRoleTo(invisiblerole, visibleuser3);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder1->id, visibleuser1); // visible right, visible user, visible object
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder2->id, visibleuser1); // visible right, visible user, invisible object
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", subfolder1->id, visibleuser1); // invisible right, visible user, visible object
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder1->id, invisibleuser1); // visible right, invisible user, visible object
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder1->id, visiblerole); // visible right, visible user, visible object, via visible role
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", visiblerole->authobjectid, visibleuser2);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", subfolder1->id, invisiblerole); // visible right, visible user, visible object, via invisible role
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", invisiblerole->authobjectid, visibleuser3);
 
   testfw->CommitWork();
 

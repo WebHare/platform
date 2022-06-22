@@ -201,16 +201,16 @@ MACRO GrantTest()
                   ]
                 ], ExplainRightGrantedToOn("webhare_testsuite:objectright2", limited_user->EnsureAuthObject(), 0, FALSE), '*');
 
-  testfw->GetUserObject("sysop")->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, limited_user);
   TestEq(FALSE, limited_user->HasRight("system:sysop"));
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
   // The following tests now fails because it is now legal to grant from any user (FIXME: check if this is what arnold meant to do)
-  //TestThrows(PTR sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, FALSE));
+  //TestThrows(PTR sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", limited_user, FALSE));
 
   testfw->CommitWork();
 
   testfw->BeginWork();
-  sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited_user);
   TestEq(FALSE, limited_user->HasRight("system:sysop"));
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
 
@@ -263,14 +263,13 @@ MACRO GrantTest()
   TestEq(FALSE, limited_user->CanManageRightOn("webhare_testsuite:objectflatright", 1));
   TestEq(FALSE, limited_user->CanManageRightOn("webhare_testsuite:objectflatright", 7));
 
-  sysop_user->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, limited_user);
   TestEq(FALSE, limited_user->HasRight("system:sysop"));
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
 
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestThrowsLike('*only * global*', PTR limited_user->GrantRightTo("webhare_testsuite:objectright", limited2_user, FALSE));
   TestEq(FALSE, limited2_user->HasRight("webhare_testsuite:globalright"));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright", 0));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright", 7));
@@ -283,8 +282,8 @@ MACRO GrantTest()
   // Grant with grant right (use objectright2, because it is implied by globalright)
 
   testfw->BeginWork();
-  TestThrowsLike('*lacks the right*', PTR limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE));
-  sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, TRUE);
+  TestThrowsLike('*lacks the right*', PTR limited_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited2_user));
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited_user, [ withgrantoption := TRUE ]);
 
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEq(FALSE, limited_user->CanManageRight("system:sysop"));
@@ -299,7 +298,7 @@ MACRO GrantTest()
 
   // Make sure references to object 0 can commit
   testfw->BeginWork();
-  limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 0, FALSE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:objectright2", 0, limited2_user);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -323,15 +322,15 @@ MACRO GrantTest()
   TestEq(FALSE, limited2_user->CanManageRightOn("webhare_testsuite:objectflatright", 1));
   TestEq(FALSE, limited2_user->CanManageRightOn("webhare_testsuite:objectflatright", 7));
 
-  // no longer throws as it is a no-op TestThrows(PTR limited_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 1, FALSE));
-  limited_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 0, FALSE);
+  // no longer throws as it is a no-op TestThrows(PTR limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", limited2_user, 1, FALSE));
+  limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 0, limited2_user);
 
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 0));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
   TestEq(FALSE, limited2_user->HasRightOnAny("webhare_testsuite:objectright2"));
 
   // See if withgrantoption works for inherited rights
-  limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 2, TRUE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:objectright2", 2, limited2_user, [ withgrantoption := TRUE ]);
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 0));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
@@ -385,19 +384,19 @@ MACRO GrantTest()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  sysop_user->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
+  sysop_user->UpdateGrant("revoke" ,"webhare_testsuite:globalright", 0, limited_user);
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
 
   // Non-recursive, please.
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
 
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 2, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 2, limited2_user);
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
 
   testfw->CommitWork();
 
   testfw->BeginWork();
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright2_impl", limited2_user, 2, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright2_impl", 2, limited2_user);
 
   TestEq(DEFAULT INTEGER ARRAY, limited2_user->HasRightOnMultiple("webhare_testsuite:objectright2", [ 0 ]));
   TestEq(DEFAULT INTEGER ARRAY, limited2_user->HasRightOnMultiple("webhare_testsuite:objectright2_impl", [ 0 ]));
@@ -409,23 +408,23 @@ MACRO GrantTest()
   TestEq([ 2, 4, 5, 6 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectright2_impl", [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]));
   TestEq([ 2, 4, 5, 6 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectright2_impl", [ 2, 4, 5, 6 ]));
 
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright2_impl", limited2_user, 2, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright2_impl", 2, limited2_user);
   testfw->CommitWork();
 
   // Grant to 0 for flat right (implies all)
   testfw->BeginWork();
-  sysop_user->GrantRightToOn("webhare_testsuite:objectflatright", limited2_user, 0, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectflatright", 0, limited2_user);
   TestEq([ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectflatright", [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]));
   TestEq([ 4, 8 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectflatright", [ 4, 8 ]));
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectflatright", limited2_user, 0, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectflatright", 0, limited2_user);
   testfw->CommitWork();
 
   // Grant to 2 for flat right (implies only 2)
   testfw->BeginWork();
-  sysop_user->GrantRightToOn("webhare_testsuite:objectflatright", limited2_user, 2, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectflatright", 2, limited2_user);
   TestEq([ 2 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectflatright", [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]));
   TestEq([ 2 ], limited2_user->HasRightOnMultiple("webhare_testsuite:objectflatright", [ 2 ]));
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectflatright", limited2_user, 2, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectflatright", 2, limited2_user);
   testfw->CommitWork();
 }
 
@@ -442,11 +441,11 @@ MACRO RolesTest()
   TestEq(FALSE, role1->HasRight("webhare_testsuite:globalright"));
   TestEq(FALSE, limited_user->HasRole(testfw->GetRoleObject("role1")));
 
-  testfw->GetUserObject("sysop")->GrantRightTo("webhare_testsuite:globalright", role1, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite:globalright", 0, role1, [ withgrantoption := TRUE ]);
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEq(TRUE, role1->HasRight("webhare_testsuite:globalright"));
 
-  testfw->GetUserObject("sysop")->GrantRoleTo(testfw->GetRoleObject("role1"), limited_user, [ comment := "TestComment" ]);
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", testfw->GetRoleObject("role1")->authobjectid, limited_user, [ comment := "TestComment" ]);
   TestEq(TRUE, limited_user->HasRole(testfw->GetRoleObject("role1")));
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
 
@@ -456,26 +455,26 @@ MACRO RolesTest()
 
   TestEq(TRUE, limited_user->CanManageRight("webhare_testsuite:globalright"));
   TestEq(FALSE, limited2_user->HasRight("webhare_testsuite:globalright"));
-  limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited2_user);
   TestEq(TRUE, limited2_user->HasRight("webhare_testsuite:globalright"));
-  limited_user->RevokeRightFrom("webhare_testsuite:globalright", limited2_user, FALSE);
+  limited_user->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, limited2_user);
   TestEq(FALSE, limited2_user->HasRight("webhare_testsuite:globalright"));
 
   TestEq(TRUE, limited_user->CanManageRightOn("webhare_testsuite:objectright2", 2));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
-  limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 2, FALSE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:objectright2", 2, limited2_user);
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
-  limited_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 2, FALSE);
+  limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 2, limited2_user);
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
 
   testfw->CommitWork();
   testfw->BeginWork();
 
-  testfw->GetUserObject("sysop")->RevokeRightFrom("webhare_testsuite:globalright", role1, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, role1);
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEq(FALSE, role1->HasRight("webhare_testsuite:globalright"));
 
-  testfw->GetUserObject("sysop")->GrantRightToOn("webhare_testsuite:objectright2", role1, 1, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite:objectright2", 1, role1, [ withgrantoption := TRUE ]);
   TestEq(TRUE, limited_user->HasRightOn("webhare_testsuite:objectright2", 1));
   TestEq(TRUE, role1->HasRightOn("webhare_testsuite:objectright2", 1));
   TestEq(TRUE, limited_user->HasRightOn("webhare_testsuite:objectright2", 2));
@@ -489,16 +488,16 @@ MACRO RolesTest()
 
   TestEq(TRUE, limited_user->CanManageRightOn("webhare_testsuite:objectright2", 1));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
-  limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 1, FALSE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:objectright2", 1, limited2_user);
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
-  limited_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 1, FALSE);
+  limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 1, limited2_user);
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
 
   TestEq(TRUE, limited_user->CanManageRightOn("webhare_testsuite:objectright2", 2));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
-  limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 2, FALSE);
+  limited_user->UpdateGrant("grant", "webhare_testsuite:objectright2", 2, limited2_user);
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
-  limited_user->RevokeRightFromOn("webhare_testsuite:objectright2", limited2_user, 2, FALSE);
+  limited_user->UpdateGrant("revoke", "webhare_testsuite:objectright2", 2, limited2_user);
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
 
   testfw->CommitWork();
@@ -507,10 +506,10 @@ MACRO RolesTest()
 
   testfw->BeginWork();
 
-  testfw->GetUserObject("sysop")->RevokeRoleFrom(testfw->GetRoleObject("role1"), limited_user);
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("revoke", testfw->GetRoleObject("role1")->authobjectid, limited_user);
   TestEq(FALSE, limited_user->HasRight("webhare_testsuite:globalright"));
 
-  testfw->GetUserObject("sysop")->RevokeRightFromOn("webhare_testsuite:objectright2", role1, 1, FALSE);
+  testfw->GetUserObject("sysop")->UpdateGrant("revoke", "webhare_testsuite:objectright2", 1, role1);
 
   testfw->CommitWork();
 }
@@ -527,31 +526,31 @@ MACRO EnumTest()
   TestEq(DEFAULT INTEGER ARRAY, GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", limited_user->EnsureAuthObject(), FALSE));
   TestEq(DEFAULT INTEGER ARRAY, GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE));
 
-  sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited_user);
   TestEq([ 0 ], GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", limited_user->EnsureAuthObject(), FALSE));
   TestEq(DEFAULT INTEGER ARRAY, GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE));
 
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 1, FALSE);
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 3, FALSE);
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 7, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 1, limited_user);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 3, limited_user);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 7, limited_user);
 
   TestEq([ 1, 3, 7], SortArray(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE)));
 
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 0, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 0, limited_user);
   TestEq([ 0, 1, 3, 7], SortArray(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE)));
 
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 7, FALSE);
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 3, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright", 7, limited_user);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright", 3, limited_user);
   TestEq([ 0, 1 ], SortArray(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE)));
 
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 0, FALSE);
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 1, FALSE);
-  sysop_user->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright", 0, limited_user);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright", 1, limited_user);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, limited_user);
 
   TestEq(DEFAULT INTEGER ARRAY, GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", limited_user->EnsureAuthObject(), FALSE));
   TestEq(DEFAULT INTEGER ARRAY, GetObjectIdsOfDirectGrantsTo("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), FALSE));
 
-  sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, FALSE, FALSE, "Test Grant");
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited_user, [ comment := "Test Grant" ]);
   TestEq(
         [ [ inherited       := FALSE
           , grantedright    := "webhare_testsuite:globalright"
@@ -594,7 +593,7 @@ MACRO EnumTest()
 
   TestEq(DEFAULT RECORD ARRAY, ExplainRightGrantedToOn("webhare_testsuite:objectright2", limited_user->EnsureAuthObject(), 7, TRUE));
 
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 1, TRUE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 1,limited_user, [ withgrantoption := TRUE ]);
 
   TestEq(DEFAULT RECORD ARRAY, ExplainRightGrantedToOn("webhare_testsuite:objectright", limited_user->EnsureAuthObject(), 0, FALSE));
   TestEq(
@@ -636,28 +635,28 @@ MACRO EnumTest()
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])));
   TestEq(DEFAULT INTEGER ARRAY, FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright2", 7, [ expandroles := FALSE, inherited := FALSE ])));
 
-  sysop_user->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
-  sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 1, FALSE);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:globalright", 0, limited_user);
+  sysop_user->UpdateGrant("revoke", "webhare_testsuite:objectright", 1, limited_user);
 
   TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "Verify limited_user no longer has rights on any objects");
 
   OBJECT role1 := testfw->GetRoleObject("role1");
 
-  sysop_user->GrantRightTo("webhare_testsuite:globalright", role1, FALSE);
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", role1, 1, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:globalright", 0, role1);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 1, role1);
   TestEq(TRUE, role1->authobjectid IN GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ expandroles := FALSE, anyobject :=TRUE ]));
-  sysop_user->GrantRoleTo(testfw->GetRoleObject("role1"), limited_user);
+  sysop_user->UpdateRoleGrant("grant", testfw->GetRoleObject("role1")->authobjectid, limited_user);
 
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
   TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE, dontexpandauthobjects := INTEGER[role1->authobjectid] ])), "remove limited1 when role1 ignored");
 
   //grant through multiple routes
   OBJECT role2 := testfw->GetRoleObject("role2");
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", role2, 2, FALSE);
-  sysop_user->GrantRoleTo(role2, limited_user);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 2, role2);
+  sysop_user->UpdateRoleGrant("grant", role2->authobjectid, limited_user);
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
 
-  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 3, FALSE);
+  sysop_user->UpdateGrant("grant", "webhare_testsuite:objectright", 3, limited_user);
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
 
 

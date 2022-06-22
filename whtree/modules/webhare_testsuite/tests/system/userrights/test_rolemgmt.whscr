@@ -152,7 +152,7 @@ ASYNC MACRO TestEditDeleteRole()
                                                                           AND deactivated));
 
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRoleTo(testfw->GetRoleObject("role2"), testfw->GetUserObject("user1")); //add an extra role for more useful copy test
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", testfw->GetRoleObject("role2")->authobjectid, testfw->GetUserObject("user1")); //add an extra role for more useful copy test
   testfw->CommitWork();
 
   TestEq(1, Length(GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role2")->entityid)), "Check role2 1 member");

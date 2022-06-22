@@ -4,7 +4,7 @@ LOADLIB "wh::graphics/barcode.whlib";
 
 MACRO BarcodeTest()
 {
-  TestThrows(PTR CreateCode128BBarcode("\u20AC", 100));
+  TestThrowsLike('The character \'€\' is not part of the Code 128 B repertoire', PTR CreateCode128BBarcode("\u20AC", 100));
   CreateCode128BBarcode("1234", 100)->Close();
   CreateCode128BBarcode("Hatseflats", 100)->Close();
 }

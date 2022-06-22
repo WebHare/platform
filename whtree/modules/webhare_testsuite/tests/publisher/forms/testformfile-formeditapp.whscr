@@ -23,7 +23,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   IF(ObjectExists(customformfile))
     customformfile->RecycleSelf();
 
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), webtoolsfolder->id, FALSE, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", webtoolsfolder->id, testfw->GetUserObject("lisa"));
   testfw->CommitWork();
 
   //Build a form using the UI

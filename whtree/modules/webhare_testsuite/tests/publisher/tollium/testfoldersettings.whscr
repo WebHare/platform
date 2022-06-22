@@ -6,7 +6,7 @@ MACRO PrepIt()
 {
   testfw->BeginWork();
   testfw->SetupTestWebdesignWebsite();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", testfw->GetTestSite()->rootobject->id,  testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 }
 

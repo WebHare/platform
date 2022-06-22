@@ -39,7 +39,7 @@ IF(beta_sysop = 0)
   userapi->ResyncToSystemTables();
 
   OBJECT sysopobj := userapi->GetUser(sysop->id);
-  sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted by WebHare during initial setup");
+  sysopobj->UpdateGrant("grant", "system:sysop", 0, sysopobj, [ allowselfassignment := TRUE, withgrantoption := TRUE, comment := "Granted by WebHare during initial setup" ]);
 }
 
 OpenSiteByName("WebHare backend")->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:insecure_interface"] ]);

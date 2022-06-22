@@ -30,7 +30,7 @@ PUBLIC OBJECTTYPE WorkTest EXTEND TolliumScreenBase
 
     work := this->BeginLockedWork("webhare_testsuite:lock");
     TestEQ(TRUE, work->HasFailed());
-    TestThrows(PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
+    TestThrowsLike('*already been locked*', PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
     work->Cancel();
 
     lock := lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME);
@@ -39,7 +39,7 @@ PUBLIC OBJECTTYPE WorkTest EXTEND TolliumScreenBase
 
     work := this->BeginLockedUnvalidatedWork("webhare_testsuite:lock");
     TestEQ(FALSE, work->HasFailed());
-    TestThrows(PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
+    TestThrowsLike('*already been locked*', PTR lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME));
     work->Finish();
 
     lock := lockmgr->TryLockMutex("webhare_testsuite:lock", DEFAULT DATETIME);

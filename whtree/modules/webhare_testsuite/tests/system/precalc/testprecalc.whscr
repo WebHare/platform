@@ -281,12 +281,12 @@ MACRO TestDurations()
   TestEQ(7 * 24 * 60 * 60 * 1000, ParseDuration("1w"));
   TestEQ(9 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000 + 4 * 60 * 1000 + 5 * 1000 + 6, ParseDuration("1w2d3h4m5s6ms"));
 
-  TestThrows(PTR ParseDuration(1.0));
-  TestThrows(PTR ParseDuration("1"));
-  TestThrows(PTR ParseDuration("1MS"));
-  TestThrows(PTR ParseDuration("1msa"));
-  TestThrows(PTR ParseDuration("1ms1s"));
-  TestThrows(PTR ParseDuration("1d1w"));
+  TestThrowsLike("Duration should be an INTEGER or a STRING, got a MONEY", PTR ParseDuration(1.0));
+  TestThrowsLike("Invalid duration \'1\' (unknown unit)", PTR ParseDuration("1"));
+  TestThrowsLike("Invalid duration \'1MS\' (unknown unit)", PTR ParseDuration("1MS"));
+  TestThrowsLike("Invalid duration \'1msa\' (unknown unit)", PTR ParseDuration("1msa"));
+  TestThrowsLike("Invalid duration \'1ms1s\' (wrong unit order)", PTR ParseDuration("1ms1s"));
+  TestThrowsLike("Invalid duration \'1d1w\' (wrong unit order)", PTR ParseDuration("1d1w"));
 }
 
 RunTestFramework([ PTR ResetCache

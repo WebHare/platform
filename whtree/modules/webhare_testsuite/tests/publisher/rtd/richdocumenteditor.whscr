@@ -38,7 +38,7 @@ MACRO Create()
   testfw->SetupTestWebdesignWebsite();
 
   // Grant read-only right on the test site to user 'reader'
-  testfw->GetUserObject("writer")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("reader"), testfw->GetTestSite()->id, FALSE);
+  testfw->GetUserObject("writer")->UpdateGrant("grant", "system:fs_browse", testfw->GetTestSite()->id, testfw->GetUserObject("reader"));
 
   testfw->CommitWork();
 }

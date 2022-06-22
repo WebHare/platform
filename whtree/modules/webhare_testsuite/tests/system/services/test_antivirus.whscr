@@ -46,7 +46,7 @@ RECORD ARRAY FUNCTION GetAntiVirusEvents(DATETIME since)
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), GetTestsuiteTempFolder()->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 }
 

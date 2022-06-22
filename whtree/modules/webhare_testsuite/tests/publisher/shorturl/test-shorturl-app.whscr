@@ -128,7 +128,7 @@ ASYNC MACRO TestShortURLAPP_AsUser()
 {
   OBJECT testdomain := OpenShortURLDomain("test.bea.gl");
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRightToOn("publisher:manageshorturls", testfw->GetUserObject("lisa"), testdomain->id, FALSE, TRUE);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "publisher:manageshorturls", testdomain->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 
   testfw->SetTestUser("lisa");
