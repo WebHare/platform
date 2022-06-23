@@ -1,18 +1,18 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
-LOADLIB "wh::regex.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -20,7 +20,9 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 
 // Maximum number of characters to display on one line in search result field values
 INTEGER maxfieldlength := 80;
@@ -1212,7 +1214,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     IF(ObjectExists(this->contentsource)) //we were editing
-      CheckConsilioContentSource(finalsource->id); //FIXME postpone until after commit! an update API should do that for us
+      finalsource->ReindexContentSource([ rebuild := TRUE ]); //FIXME postpone until after commit! an update API should do that for us
 
     RETURN work->Finish() ? finalsource->id : 0;
   }

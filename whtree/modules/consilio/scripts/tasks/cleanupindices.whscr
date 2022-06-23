@@ -5,13 +5,11 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 OBJECT trans := OpenPrimary();
@@ -126,7 +124,7 @@ IF (Length(updated_contentsources) > 0) //ADDME also fire something on eg priori
   FOREVERY (INTEGER srcid FROM updated_contentsources)
   {
     BroadcastEvent("consilio:contentsource." || srcid, DEFAULT RECORD);
-    CheckConsilioContentSource(srcid);
+    OpenContentSourceById(srcid)->ReindexContentSource([ rebuild := TRUE ]);
   }
   changes := TRUE;
 }

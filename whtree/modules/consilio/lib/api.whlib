@@ -5,6 +5,8 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/search.whlib";
@@ -959,6 +961,98 @@ STATIC OBJECTTYPE ContentSource
     }
   }
 
+  /// Delete a group
+  PUBLIC MACRO DeleteGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "DELETEGROUP"
+              , commanddate := GetCurrentDateTime()
+              , contentsourceid := this->id
+              , groupid
+              , indexid := this->catalog->id
+              ];
+
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteGroup")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := "DELETEGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::DeleteGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
+
+  /** Reindex an object
+      @long Reindex a specific object in a specific group
+      @param groupid Group to reindex the object in
+      @param objectid Object to reindex
+      @cell(boolean) options.foreground Reindex in the foreground
+  */
+  PUBLIC MACRO ReindexObject(STRING groupid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "CHECKOBJECT"
+              , commanddate := GetCurrentDateTime()
+              , contentsourceid := this->id
+              , groupid
+              , objectid
+              , indexid := this->catalog->id
+              ];
+
+      //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := ("CHECKOBJECT ") || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid) || " " || EncodeJSON(objectid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::ReindexObject", CELL[ ...this->GetBaseDebugInfo(), options.rebuild, groupid, objectid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
+
+  /// Delete an object
+  PUBLIC MACRO DeleteObject(STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "DELETEOBJECT"
+              , commanddate := GetCurrentDateTime()
+              , objectid
+              , indexid := this->catalog->id
+              ];
+
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteObject")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := "DELETEOBJECT " || this->catalog->id || " " || EncodeJSON(objectid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::DeleteObject", CELL[ ...this->GetBaseDebugInfo(), objectid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
 
   /// Delete this content source
   PUBLIC MACRO DeleteSelf()
@@ -1292,7 +1386,6 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 
     INSERT csourcesettings INTO consilio.contentsources;
 
-    //TODO CheckFolderInIndex ?
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
 
@@ -1318,17 +1411,53 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
             , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
             ], options);
 
-    IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
+    FOREVERY (RECORD contentsource FROM
+        SELECT id, fsobject
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id
+               AND contentprovider = "publisher:webhare"
+               AND tag NOT LIKE "$consilio$deleted$*")
     {
-      STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
-      THROW NEW Exception(`A contentsource for folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+      IF ((contentsource.fsobject = targetfolder) OR IsFolderAncestorOf(contentsource.fsobject, targetfolder)) // targetfolder is already covered by searchroot
+      {
+        STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
+        THROW NEW Exception(`A contentsource containing folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+      }
+      ELSE IF (IsFolderAncestorOf(targetfolder, contentsource.fsobject)) // folderid contains searchroot
+      {
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
+      }
     }
 
-    //TODO CheckFolderInIndex ?
     RETURN this->CreateContentSource(CELL[ ...options
                                           , contentprovider := "publisher:webhare"
                                           , fsobject := targetfolder
                                           ]);
+  }
+
+  INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER searchid DEFAULTSTO -1)
+  {
+    INTEGER res;
+    FOREVERY (RECORD contentsource FROM (
+        SELECT id, fsobject
+          FROM consilio.contentsources
+         WHERE id != searchid
+               AND contentsources.indexid = VAR indexid
+               AND contentprovider = "publisher:webhare"
+               AND tag NOT LIKE "$consilio$deleted$*"))
+    {
+      IF ((contentsource.fsobject = folderid) OR IsFolderAncestorOf(contentsource.fsobject, folderid)) // folderid is already covered by searchroot
+      {
+        res := -1;
+        BREAK;
+      }
+      ELSE IF (IsFolderAncestorOf(folderid, contentsource.fsobject)) // folderid contains searchroot
+      {
+        res := 1;
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
+      }
+    }
+    RETURN res;
   }
 
   /** Add a new custom content source to a index
@@ -1411,6 +1540,16 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     ELSE
       RETURN DEFAULT OBJECT;
   }
+
+  PUBLIC MACRO ReindexCatalog(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rebuild := FALSE ], options);
+
+    STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->id;
+    IF(IsDebugTagEnabled("consilio:queues"))
+      LogDebug("consilio", "ManagedCatalog::ReindexCatalog", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
+    SendQueueManagerData(GetQueueDataFromCommand(command));
+  }
 >;
 
 /** @short List all Consilio catalogs
@@ -1474,6 +1613,35 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
   }
   ELSE
     RETURN DEFAULT OBJECT;
+}
+
+/** @short Open content source by tag
+    @param tag Content source tag
+    @return(object #ContentSource) The content source object
+*/
+PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
+{
+  INTEGER indexid :=
+      SELECT AS INTEGER contentsources.indexid
+        FROM consilio.contentsources
+       WHERE ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  RETURN ObjectExists(catalog) ? catalog->OpenContentSource(tag) : DEFAULT OBJECT;
+}
+
+/** @short Open content source by id
+    @param id Content source id
+    @return(object #ContentSource) The content source object
+*/
+PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
+{
+  INTEGER indexid :=
+      SELECT AS INTEGER contentsources.indexid
+        FROM consilio.contentsources
+       WHERE contentsources.id = VAR id
+             AND tag NOT LIKE "$consilio$deleted$*";
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  RETURN ObjectExists(catalog) ? catalog->OpenContentSourceById(id) : DEFAULT OBJECT;
 }
 
 /** @short Create a new Consilio catalog.

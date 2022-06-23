@@ -47,7 +47,7 @@ CatalogUnmanagedIndex           := 10;
     @cell options.indexmanager The id of the index manager to use (if not given, the 'Builtin Consilio' index manager is used
         if available, otherwise an error is returned)
     @return Result code */
-PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct catalog has been deprecated, switch to the consilio API and use CreateConsilioCatalog")
 {
   // Index name should be unique
   IF (Length(SELECT FROM consilio.indices WHERE ToUppercase(COLUMN name) = ToUppercase(catalog_name)) > 0)
@@ -85,7 +85,7 @@ PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, R
     @param folder WebHare folder to add to the catalog
     @param catalog_name The catalog to add the folder to
     @return Result code */
-PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, STRING http_user, STRING http_password)
+PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, STRING http_user, STRING http_password) __ATTRIBUTES__(DEPRECATED "Direct catalog has been deprecated, switch to the consilio API and use ->AddPublisherContentSource(folder)")
 {
    IF(http_user != "" OR http_password != "")
      THROW NEW Exception(`Consilio no longer supports username/password authentication but expects you to whitelist ${whconstant_consilio_fetcher_trusted_ip}`);
@@ -133,7 +133,7 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
     @cell options.contentcheckinterval
 R    @return Id of the new content source
 */
-PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STRING tag, RECORD options)
+PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STRING tag, RECORD options) __ATTRIBUTES__(DEPRECATED "Direct catalog has been deprecated, switch to the consilio API and use ->AddCustomContentSource(tag, contentsourceobject, options)")
 {
   options :=  ValidateOptions(
       [ contentsourceobject :=  ""

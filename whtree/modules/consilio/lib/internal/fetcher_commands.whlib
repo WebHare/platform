@@ -957,6 +957,7 @@ PUBLIC RECORD FUNCTION DeleteObject(RECORD data, RECORD options DEFAULTSTO DEFAU
 {
   options := ValidateOptions(
       [ noindexmodify := FALSE
+      , refresh := FALSE
       ], options);
 
   RECORD result :=
@@ -982,7 +983,7 @@ PUBLIC RECORD FUNCTION DeleteObject(RECORD data, RECORD options DEFAULTSTO DEFAU
   // If no indexid is given, delete the group from all indexes
   IF (NOT options.noindexmodify)
   {
-    STRING deleteresult := DeleteIndexManagerObject(data.indexid, 0, data.objectid);
+    STRING deleteresult := DeleteIndexManagerObject(data.indexid, 0, data.objectid, CELL[ options.refresh ]);
     IF (deleteresult != SearchOk)
       FetcherDebug(ConsilioDebugInfo, "Could not fully delete object \"" || EncodeJava(data.objectid) || "\": " || deleteresult);
   }
@@ -1609,7 +1610,7 @@ STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, ST
   RECORD source := GetContentSource(contentsource);
   INTEGER loglevel := RecordExists(source) ? source.loglevel : -1;
 
-  FetcherDebug(ConsilioDebugInfo, "Deleting object \"" || EncodeJava(objectid) || "\", group \"" || EncodeJava(groupid) || "\" from contentsource " || contentsource, loglevel);
+  FetcherDebug(ConsilioDebugInfo, `Deleting object '${EncodeJava(objectid)}'${ groupid != "" ? `, group '${EncodeJava(groupid)}'` : "" } from contentsource ${contentsource}`, loglevel);
   RETURN DeleteIndexManagerObject(indexid, contentsource, objectid, [ refresh := refresh ]);
 }
 
