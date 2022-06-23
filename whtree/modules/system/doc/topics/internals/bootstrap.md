@@ -12,7 +12,7 @@ are invoked
   - Console/self build installations will generally invoke `wh console` directly (or indirectly through `wh (u)mic`)
 - `webhare console` gets exec-ed
   - boots the whmanager, compiler and dbserver
-  - waits for compiler and dbserver to respond to their tcp/ip ports
+  - waits for compiler to respond to its tcp/ip port
   - starts the webserver, clusterservice `mod::system/scripts/internal/clusterservices.whscr`, startupscript `mod::system/scripts/internal/webhareservice-startup.whscr` and application runner `mod::system/scripts/internal/apprunner.whscr`
     - webhare-servicestartup does basic database initialization, if the database is empty (determined by checking if `system.webservers.id` exists)
     - it will then initiate the RestartReset procedure

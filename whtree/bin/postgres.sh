@@ -60,6 +60,15 @@ fi
 
 mkdir -p "$PSROOT"
 
+function generateConfigFile()
+{
+  echo "include '$PGCONFIGFILE'"
+  # include_if_exists generates noise if the file doesn't exist
+  if [ -f "$WEBHARE_DATAROOT/etc/postgresql-custom.conf" ]; then
+    echo "include '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'"
+  fi
+}
+
 if [ ! -d "$PSROOT/db" ]; then
 
   # remove previous initialization attempt
@@ -81,10 +90,7 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   # Set the configuration file
-  cat <<- HERE > "$PSROOT/tmp_initdb/postgresql.conf"
-include '$PGCONFIGFILE'
-include_if_exists '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'
-HERE
+  generateConfigFile > "$PSROOT/tmp_initdb/postgresql.conf"
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
@@ -112,10 +118,7 @@ else
     mv "$PSROOT/db.switchto" "$PSROOT/db"
   fi
 
-  cat <<- HERE > "$PSROOT/db/postgresql.conf"
-include '$PGCONFIGFILE'
-include_if_exists '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'
-HERE
+  generateConfigFile > "$PSROOT/db/postgresql.conf"
 
   if [ -f "$PSROOT/db/pg_hba.conf" ]; then
     # previous webhares created this file, remove it because it is now unused
@@ -125,5 +128,4 @@ fi
 
 
 echo "Starting PostgreSQL"
-echo $$ > "$WEBHARE_DATAROOT/.dbserver.pid"
 exec $RUNAS $PSBIN/postmaster -D "$PSROOT/db" 2>&1

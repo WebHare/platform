@@ -34,7 +34,7 @@ class WHService
         public:
         enum Stages
         {
-                ///Booting dbserver and/or compileserver, waiting for them to come online
+                ///Booting postgresql and/or compileserver, waiting for them to come online
                 Booting,
                 ///Waiting for startup script to finish
                 RunningStartupScripts,
@@ -101,13 +101,12 @@ class WHService
 
         Blex::PipeWaiter waiter;
 
-        bool start_dbserver;
+        bool start_postgres;
         bool start_whcompiler;
         bool start_webserver;
         bool start_apprunner;
         bool start_whmanager;
         bool start_startupscript;
-        unsigned dbserver_shutdowngrace;
 };
 
 WHService *volatile the_service = 0;
@@ -122,7 +121,7 @@ struct ServiceInfo
 const ServiceInfo services[WHService::NumberOfServices]=
 { { nullptr,        "Service manager",    ""}
 , { "whcompile",    "Compile server",     "--listen"}
-, { "dbserver.sh",  "Database server",    ""}
+, { "postgres.sh",  "PostgreSQL",         ""}
 , { "webserver",    "Webserver",          ""}
 , { "runscript",    "Startup script",     "--workerthreads\t4\tmod::system/scripts/internal/webhareservice-startup.whscr" }
 , { "runscript",    "Application runner", "mod::system/scripts/internal/apprunner.whscr"}
@@ -224,14 +223,12 @@ WHService::WHService()
 void WHService::ReadKeyConfig()
 {
         //TODO allow env vars to override these again
-        start_dbserver = dontlaunch.count("dbserver")==0;
+        start_postgres = dontlaunch.count("postgres")==0 && dontlaunch.count("postgresql")==0;
         start_whcompiler = dontlaunch.count("whcompile")==0;
         start_webserver = dontlaunch.count("webserver")==0;
         start_apprunner = dontlaunch.count("apprunner")==0;
         start_whmanager = dontlaunch.count("whmanager")==0;
         start_startupscript = dontlaunch.count("startupscript")==0;
-
-        dbserver_shutdowngrace = 600;
 }
 
 WHService::~WHService()
@@ -403,11 +400,11 @@ void WHService::MainLoop()
 
         ReadKeyConfig();
 
-        //whmanager, dbserver and whcompiler do not communicate with each other, so start these three first
+        //whmanager, postgresql and whcompiler do not communicate with each other, so start these three first
         if (start_whmanager && !StartServer(WHManager))
             throw std::runtime_error("Cannot launch the whmanager");
-        if (start_dbserver && !StartServer(Database))
-            throw std::runtime_error("Cannot launch the database server");
+        if (start_postgres && !StartServer(Database))
+            throw std::runtime_error("Cannot launch PostgreSQL");
         if (start_whcompiler && !StartServer(CompileServer))
             throw std::runtime_error("Cannot launch the compilation server");
 
