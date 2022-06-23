@@ -24,15 +24,15 @@ PUBLIC CONSTANT INTEGER elastic_timeout := 30;
 /// Timeout for search sessions, in minutes
 PUBLIC CONSTANT INTEGER session_timeout := 15;
 
-/// Some default field mapping for Elasticsearch content sources
-PUBLIC CONSTANT RECORD defaultmappingfields :=
-    [ indexid :=         [ type := "keyword" ]
-    , groupid :=         [ type := "keyword" ]
-    , objectid :=        [ type := "keyword" ]
-    , initialfilter :=   [ type := "keyword" ]
-    , date_indexdate :=  [ type := "date" ]
-    , date_indexed :=    [ type := "date" ]
-    , contentprovider := [ type := "keyword" ]
-    , contentsource :=   [ type := "keyword" ]
-    , body :=            [ type := "text" ]
+/// Some default field mapping for OpenSearch content sources
+PUBLIC CONSTANT RECORD ARRAY defaultmappingfields :=
+    [ [ name := "indexid",         defaultvalue := "" ]
+    , [ name := "groupid",         defaultvalue := "" ]
+    , [ name := "objectid",        defaultvalue := "" ]
+    , [ name := "initialfilter",   defaultvalue := "" ]
+    , [ name := "date_indexdate",  defaultvalue := DEFAULT DATETIME ]
+    , [ name := "date_indexed",    defaultvalue := DEFAULT DATETIME ]
+    , [ name := "contentprovider", defaultvalue := "" ]
+    , [ name := "contentsource",   defaultvalue := "" ]
+    , [ name := "body",            defaultvalue := "", tokenized := TRUE ]
     ];

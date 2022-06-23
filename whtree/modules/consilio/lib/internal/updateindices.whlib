@@ -38,6 +38,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
                           , contentsources := RECORD[]
                           , managed := catalognode.node->HasAttribute("managed") ? ParseXSBoolean(catalognode.node->GetAttribute("managed")) : TRUE
+                          , fieldgroups := ParseXSList(catalognode.node->GetAttribute("fieldgroups"))
                           ];
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
@@ -119,10 +120,11 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
       IF(currentsources[matchpos].definedby != source.definedby
          OR currentsources[matchpos].contentobject != source.contentobject)
       {
-        catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[ source.definedby
-                                                                                             , settings := CELL[library := expect_library, contentobject := expect_contentobject]
-                                                                                             , tag := source.tag
-                                                                                             ]);
+        catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL
+            [ source.definedby
+            , settings := CELL[library := expect_library, contentobject := expect_contentobject]
+            , tag := source.tag
+            ]);
       }
 
       IF(currentsources[matchpos].isorphan)

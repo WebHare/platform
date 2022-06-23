@@ -4,7 +4,9 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/mime.whlib";
@@ -19,6 +21,7 @@ LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection, __indexmanager_debugall;
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -331,7 +334,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
       [ metrics := STRING[ "_all" ]
       ], options,
       [ enums :=
-          [ metrics := // https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-stats.html#index-stats-api-path-params
+          [ metrics := // https://www.elastic.co/guide/en/elasticsearch/reference/7.17/indices-stats.html#index-stats-api-path-params
               [ "_all", "completion", "docs", "fielddata", "flush", "get", "indexing", "merge", "query_cache", "refresh"
               , "request_cache", "search", "segments", "store", "suggest", "translog", "warmer"
               ]
@@ -385,6 +388,9 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
     }
     CASE whconstant_consilio_indexmanager_opensearch
     {
+      IF(IsDebugTagEnabled("consilio:changes"))
+        LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager ]);
+
       IF (indexmanager.indextype = whconstant_consilio_catalogtype_moduleindex)
       {
         IF(indexmanager.indexname = "")
@@ -397,15 +403,33 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
                                                  "",
                                                  [ settings := elasticsearch_index_settings ],
                                                  "PUT",
-                                                 CELL[ options.throwonfailure ]);
-          IF (response.status = SearchHTTPError
-              AND RecordExists(response.result)
-              AND response.result.status = 400
-              AND RecordExists(response.result.error)
-              AND response.result.error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-            result := SearchOk; // It's ok, the index aleady exists
+                                                 [ throwonfailure := TRUE ]);
+          result := response.status;
+        }
+        CATCH(OBJECT<ElasticSearchException> e)
+        {
+          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+            result := Searchok;
+          ELSE IF (options.throwonfailure)
+            THROW;
           ELSE
-            result := response.status;
+            result := SearchHTTPError;
+        }
+      }
+      ELSE
+      {
+        IF(options.suffix != "")
+          THROW NEW Exception("Cannot specify a suffix for a non-module index");
+
+        TRY
+        {
+          RECORD response := SendToElasticsearch(indexmanager.id,
+                                                 indexmanager.indexname,
+                                                 "",
+                                                 [ settings := elasticsearch_index_settings ],
+                                                 "PUT",
+                                                 [ throwonfailure := TRUE ]);
+          result := response.status;
         }
         CATCH(OBJECT<ElasticSearchException> e)
         {
@@ -414,26 +438,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
           ELSE
             THROW;
         }
-      }
-      ELSE
-      {
-        IF(options.suffix != "")
-          THROW NEW Exception("Cannot specify a suffix for a non-module index");
-
-        RECORD response := SendToElasticsearch(indexmanager.id,
-                                               indexmanager.indexname,
-                                               "",
-                                               [ settings := elasticsearch_index_settings ],
-                                               "PUT",
-                                               [ throwonfailure := TRUE ]);
-        IF (response.status = SearchHTTPError
-            AND RecordExists(response.result)
-            AND response.result.status = 400
-            AND RecordExists(response.result.error)
-            AND response.result.error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-          result := SearchOk; // It's ok, the index aleady exists
-        ELSE
-          result := response.status;
       }
     }
   }
@@ -456,72 +460,26 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        // Define a default mapping by setting the field type for some standard
-        // fields to untokenized 'keyword' fields: indexid, groupid, objectid,
-        // initialfilter.
-        RECORD settings :=
-            [ properties := defaultmappingfields
-            , dynamic := "strict"
-            ];
-
-        RECORD ARRAY mapping := GetContentSourceMapping(contentsourceid);
-        BOOLEAN have_suggested;
-        FOREVERY (RECORD field FROM mapping)
+        TRY
         {
-          IF (field.name LIKE "_*")
-          {
-            // Overwrite standard field settings, like "body"
-            STRING fieldname := Substring(field.name, 1);
-            IF (CellExists(settings.properties, fieldname))
-            {
-              RECORD fielddef := GetCell(settings.properties, fieldname);
-              fielddef.type := field.tokenized ? "text" : "keyword";
-              have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
-              settings.properties := CellUpdate(settings.properties, fieldname, fielddef);
-            }
-          }
-          ELSE IF (NOT CellExists(settings.properties, field.name))
-          {
-            RECORD fielddef :=
-                [ type := field.name LIKE "date_*" OR field.name LIKE "*.date_*" ? "date"
-                        : field.tokenized ? "text"
-                        : "keyword"
-                ];
-            have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
-            settings.properties := CellInsert(settings.properties, field.name, fielddef);
-          }
-        }
-        // Use our consilio analyzer for all text-based fields
-        FOREVERY (RECORD prop FROM UnpackRecord(settings.properties))
-          IF (prop.value.type = "text")
-          {
-            settings.properties := CellUpdate(settings.properties, prop.name, CELL
-                [ analyzer := "consilio"
-                , fields :=
-                    [ "org" := [ type := "text", analyzer := "consilio_original" ]
-                    ]
-                , ...prop.value
-                ]);
-          }
+          RECORD settings := CELL
+              [ properties := GetContentSourcesMapping([ contentsourceid ], defaultmappingfields)
+              , strict := TRUE
+              ];
+          settings := PrepareMappingUpdate(settings);
 
-        // If there are any suggested fields, add a '_suggested' field with 'completion' type
-        IF (have_suggested)
-          INSERT CELL _suggested :=
-              [ type := "completion"
-              , analyzer := "consilio"
-              ] INTO settings.properties;
-
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/", settings, "PUT", [ throwonfailure := TRUE ]);
-
-        IF (response.status = SearchHTTPError //TOOD are we even sure this parse is correct? better explicitly test-coverage it
-            AND RecordExists(response.result)
-            AND response.result.status = 400
-            AND RecordExists(response.result.error)
-            AND response.result.error.type = "illegal_argument_exception"
-            AND response.result.error.reason LIKE "mapper [*]")
-          result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
-        ELSE
+          IF(IsDebugTagEnabled("consilio:changes"))
+            LogDebug("consilio:changes", "EnsureIndexManagerContentSource", CELL[ indexid, ...indexmanager, settings ]);
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/", settings, "PUT", [ throwonfailure := TRUE ]);
           result := response.status;
+        }
+        CATCH (OBJECT<ElasticSearchException> e)
+        {
+          IF(RecordExists(e->error) AND e->error.type = "illegal_argument_exception" AND e->error.reason LIKE "mapper [*]")
+            result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
+          ELSE
+            THROW;
+        }
       }
     }
   }
@@ -540,8 +498,10 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
       ], options);
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (NOT (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1))
+  IF (NOT RecordExists(indexmanager) OR indexmanager.type != 2)
     THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
+  IF (options.suffix != "" AND indexmanager.indextype != 1)
+    THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
   RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);
@@ -562,19 +522,26 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
   STRING result := SearchCommandUnsupported;
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1)
+  IF (RecordExists(indexmanager) AND indexmanager.type = 2)
   {
-    //why was &wait_for_active_shards=1 here? got request [/anvblj1n__/_mapping] contains unrecognized parameter: [wait_for_active_shards]"}
-    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_mapping?include_type_name=false", mapping, "PUT", CELL[options.throwonfailure]);
-    IF (response.status = SearchHTTPError
-        AND RecordExists(response.result)
-        AND response.result.status = 400
-        AND RecordExists(response.result.error)
-        AND response.result.error.type = "illegal_argument_exception"
-        AND response.result.error.reason LIKE "mapper [*]")
-      result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
-    ELSE
+    IF (options.suffix != "" AND indexmanager.indextype != 1)
+      THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
+    TRY
+    {
+      IF(IsDebugTagEnabled("consilio:changes"))
+        LogDebug("consilio:changes", "EnsureIndexManagerMapping", CELL[ indexid, ...indexmanager, mapping ]);
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_mapping", mapping, "PUT", [throwonfailure := TRUE]);
       result := response.status;
+    }
+    CATCH (OBJECT<ElasticSearchException> e)
+    {
+      IF(RecordExists(e->error) AND e->error.type = "illegal_argument_exception" AND e->error.reason LIKE "mapper [*]")
+        result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
+      ELSE IF (options.throwonfailure)
+        THROW;
+      ELSE
+        result := SearchHTTPError;
+    }
   }
   ELSE
   {
@@ -1481,7 +1448,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
         }
         ELSE
         {
-          STRING ARRAY suggestfields := SELECT AS STRING ARRAY name FROM GetContentSourceMapping(contentsource.id) WHERE suggested;
+          STRING ARRAY suggestfields := SELECT AS STRING ARRAY name FROM GetContentSourceFields(contentsource.id) WHERE suggested;
 
           RECORD ARRAY bulkrequests;
           FOREVERY (RECORD obj FROM objects)
@@ -1973,20 +1940,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
       SELECT AS RECORD ARRAY GroupedValues(fields)[0]
         FROM fields
        GROUP BY ToUppercase(name);
-  RETURN fields;
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetContentSourceMapping(INTEGER contentsourceid)
-{
-  RECORD ARRAY fields :=
-      SELECT name
-           , defaultvalue
-           , tokenized
-           , suggested
-        FROM consilio.contentsourcefields
-       WHERE COLUMN contentsourceid = VAR contentsourceid
-       ORDER BY ToUppercase(name)
-              , id;
   RETURN fields;
 }
 

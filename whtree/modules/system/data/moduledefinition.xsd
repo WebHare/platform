@@ -33,6 +33,16 @@
     <xs:list itemType="Name" />
   </xs:simpleType>
 
+  <xs:simpleType name="ScopedName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ScopedNameList">
+    <xs:list itemType="ScopedName" />
+  </xs:simpleType>
+
   <xs:simpleType name="ConsilioWildcardedName">
     <xs:restriction base="xs:string">
       <xs:pattern value="[\p{L}_@\*][\p{L}\p{N}_@\*]*"/>
@@ -63,9 +73,7 @@
   </xs:simpleType>
 
   <xs:simpleType name="RightName">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
-    </xs:restriction>
+    <xs:restriction base="ScopedName" />
   </xs:simpleType>
 
   <xs:simpleType name="RightNameList">
@@ -2157,7 +2165,7 @@
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="fieldgroups">
+    <xs:attribute name="fieldgroups" type="ScopedNameList">
       <xs:annotation>
         <xs:documentation>List of fieldgroups for unmanaged catalog initialization</xs:documentation>
       </xs:annotation>

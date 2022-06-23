@@ -1505,14 +1505,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     STRING result;
     IF (RecordExists(document_fields) OR body != "")
     {
-      // Check for invalid field values: fields should be strings, or datetimes if the name start with "date_"
-      STRING ARRAY invalidfields := SELECT AS STRING ARRAY ToLowercase(name)
-                                     FROM UnpackRecord(document_fields)
-                                    WHERE TypeID(value) != TypeID(STRING)
-                                          AND NOT (TypeID(value) = TypeID(DATETIME) AND (ToUppercase(name) LIKE "DATE_*" OR ToUppercase(name) LIKE "*.DATE_*"));
-      IF (Length(invalidfields) > 0)
-        RETURN [ success := FALSE, error := "Invalid field values for fields '" || Detokenize(invalidfields, "', '") || "'" ];
-
       RECORD document :=
           [ date_indexed := commanddate
           , date_indexdate := object_indexdate
