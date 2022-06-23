@@ -400,7 +400,7 @@ void WHService::MainLoop()
 
         ReadKeyConfig();
 
-        //whmanager, post and whcompiler do not communicate with each other, so start these three first
+        //whmanager, postgresql and whcompiler do not communicate with each other, so start these three first
         if (start_whmanager && !StartServer(WHManager))
             throw std::runtime_error("Cannot launch the whmanager");
         if (start_postgres && !StartServer(Database))
