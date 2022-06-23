@@ -719,6 +719,18 @@ async function load(page)
     console.error(`test.load expects a string, got`,page);
     throw new Error(`test.load exects a string`);
   }
+
+  let topwhdebug = new URL(top.location.href).searchParams.get("wh-debug");
+  if(topwhdebug !== null) //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
+  {
+    let gotourl = new URL(page);
+    if(gotourl.searchParams.get("wh-debug") === null)
+    {
+      gotourl.searchParams.set("wh-debug", topwhdebug);
+      page = gotourl.toString();
+    }
+  }
+
   getWin().location.href = page;
   await wait("load");
 }

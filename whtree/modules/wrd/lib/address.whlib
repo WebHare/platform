@@ -539,6 +539,42 @@ PUBLIC MACRO SetupWRDAddressVerification(OBJECT wrdschema, RECORD settings)
   }
 }
 
+//Split GetAddressLookupAPI so formintegration can optimize away siteprofile lookups, but we really need to simplify the amount of calc/data an <address> field needs...
+PUBLIC RECORD FUNCTION __LookupFormIntegrationAddressInfo(OBJECT applytester)
+{
+  IF (NOT ObjectExists(applytester))
+    RETURN DEFAULT RECORD;
+
+  RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  STRING regkey := config.addressvalidationkey;
+  STRING wrdschema := config.addressvalidationschema;
+
+  IF(regkey != "") //regkey takes priority so you can override locally
+  {
+    RECORD settings := ReadRegistryKey(regkey, [ fallback := DEFAULT RECORD ]);
+    IF(RecordExists(settings))
+      RETURN CELL[ settings, source := applytester->GetAccountingSource() ];
+  }
+  IF(wrdschema != "")
+  {
+    OBJECT targetschema := OpenWRDSchema(wrdschema);
+    IF(ObjectExists(targetschema))
+    {
+      RECORD settings := targetschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD ]);
+      RETURN CELL[ settings, source := "wrd:" || targetschema->tag ];
+    }
+  }
+  RETURN CELL[ settings := DEFAULT RECORD, source := applytester->GetAccountingSource() ];
+}
+
+PUBLIC OBJECT FUNCTION __GetAddressLookupAPIForSettings(RECORD info, STRING country)
+{
+  IF(NOT RecordExists(info))
+    RETURN DEFAULT OBJECT;
+
+  RETURN GetValidationForCountry(info.settings, country, info.source);
+}
+
 /** @short Get an address validator based on siteprofile configuration
     @param applytester Applytester to use as basis for the API lookup
     @param country Code of country being validated
@@ -546,26 +582,6 @@ PUBLIC MACRO SetupWRDAddressVerification(OBJECT wrdschema, RECORD settings)
 */
 PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
 {
-  IF (NOT ObjectExists(applytester))
-    RETURN DEFAULT OBJECT;
-
-  STRING regkey, wrdschema;
-  RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-  regkey := config.addressvalidationkey ?? regkey;
-  wrdschema := config.addressvalidationschema ?? wrdschema;
-
-  IF(regkey != "") //regkey takes priority so you can override locally
-  {
-    RECORD settings := ReadRegistryKey(regkey, [ fallback := DEFAULT RECORD ]);
-    IF(RecordExists(settings))
-      RETURN GetValidationForCountry(settings, country, applytester->GetAccountingSource());
-  }
-  IF(wrdschema != "")
-  {
-    OBJECT targetschema := OpenWRDSchema(wrdschema);
-    IF(ObjectExists(targetschema))
-      RETURN GetWRDAddressLookupAPI(targetschema, country);
-  }
-
-  RETURN GetValidationForCountry(DEFAULT RECORD, country, applytester->GetAccountingSource());
+  RECORD info := __LookupFormIntegrationAddressInfo(applytester);
+  RETURN __GetAddressLookupAPIForSettings(info, country);
 }
