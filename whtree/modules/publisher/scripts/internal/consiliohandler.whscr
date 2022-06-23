@@ -98,8 +98,8 @@ MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
 
   FOREVERY(RECORD msg FROM msgs)
   {
-    RECORD ARRAY results := ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26) ]);
-    IF(debug AND Length(results) > 0 AND CellExists(results[0],'errors') AND Length(results[0].errors) > 0)
+    RECORD ARRAY results := ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);
+    IF(debug AND Length(results) > 0 AND CellExists(results[0].result,'errors') AND Length(results[0].result.errors) > 0)
       DumpValue(results,'tree');
   }
 }

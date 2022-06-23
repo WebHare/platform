@@ -18,10 +18,10 @@ INTEGER publisher_index, publisher_source;
 INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
 {
   RECORD query := CQMatch("whfstree", "=", ToString(folderid));
-  RECORD result := QueryIndexManager(publisher_index, query, [ count := -1, mapping := [ whfsid := "" ] ]);
+  RECORD result := QueryIndexManager(publisher_index, query, [ count := -1, mapping := [ whfsid := 0 ] ]);
   IF (result.status = SearchOk)
     RETURN
-        SELECT AS INTEGER ARRAY DISTINCT ToInteger(whfsid, 0)
+        SELECT AS INTEGER ARRAY DISTINCT whfsid
           FROM result.results;
   RETURN DEFAULT INTEGER ARRAY;
 }
