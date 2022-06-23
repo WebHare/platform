@@ -307,9 +307,13 @@ STATIC OBJECTTYPE SearchObject
   */
   PUBLIC INTEGER summary_length;
 
+  /** @short The fields in which to highlight found query words
+  */
+  PUBLIC STRING ARRAY highlightfields;
+
   /** @short Do not highlight query matches within search results
   */
-  PUBLIC BOOLEAN donthighlight;
+  PUBLIC PROPERTY donthighlight(GetDontHighlight, SetDontHighlight);
 
   /** @short Save query statistics
       @long If set to true, Consilio stores queries and the number of returned results and browsed result pages.
@@ -355,6 +359,7 @@ STATIC OBJECTTYPE SearchObject
     this->language := language;
     this->summary_length := -1; // Default summary length
     this->save_searches := save_searches;
+    this->highlightfields := [ "body" ]; // For summary generation
 
     IF (initdata.type = "catalog")
       this->InitCatalog(initdata);
@@ -488,19 +493,22 @@ STATIC OBJECTTYPE SearchObject
              ];
     }
 
+    STRING ARRAY highlightfields := this->highlightfields;
+    // IF (this->summary_length != 0 AND "body" NOT IN highlightfields)
+    //   INSERT "body" INTO highlightfields AT 0;
     // Get search results
-    RECORD options :=
-        [ first := first
-        , count := count
+    RECORD options := CELL
+        [ first
+        , count
         , summary := this->summary_length
-        , donthighlight := this->donthighlight
+        , highlightfields
         , lang := this->language
         , restrict_to := this->restrict_url
-        , exclude_urls := this->exclude_urls
-        , session := this->session
-        , addscore := addscore
-        , debug := this->debug
-        , throwonfailure := this->throwonfailure
+        , this->exclude_urls
+        , this->session
+        , addscore
+        , this->debug
+        , this->throwonfailure
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
@@ -533,6 +541,16 @@ STATIC OBJECTTYPE SearchObject
   INTEGER FUNCTION GetCatalogId()
   {
     RETURN this->catalog_id > 0 ? this->catalog_id : 0;
+  }
+
+  BOOLEAN FUNCTION GetDontHighlight()
+  {
+    RETURN Length(this->highlightfields) = 0;
+  }
+
+  MACRO SetDontHighlight(BOOLEAN donthighlight)
+  {
+    this->highlightfields := donthighlight AND this->summary_length = 0 ? STRING[] : [ "body" ];
   }
 
   BOOLEAN FUNCTION GetSaveSearches()

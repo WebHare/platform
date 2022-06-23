@@ -121,10 +121,13 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
       // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
       IF (field LIKE "*.*@*")
       {
-        INTEGER dot := SearchSubstring(field, ".") + 1;
-        field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        IF (field NOT LIKE "*.date_*@*")
+        {
+          INTEGER dot := SearchSubstring(field, ".") + 1;
+          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        }
       }
-      ELSE
+      ELSE IF (field NOT LIKE "date_*")
         field := `date_${field}`;
     }
 
@@ -483,6 +486,15 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRIN
       STRING newval := cellrec.value;
       IF(cellrec.name IN fields)
       {
+        // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
+        // when the highlight ends at the end of the string
+        INTEGER firstclose := SearchSubstring(newval, "\x1C");
+        IF (firstclose >= 0 AND SearchSubstring(newval, "\x1D") < 0)
+          newval := "\x1D" || newval;
+        INTEGER lastopen := SearchSubstring(newval, "\x1D");
+        IF (lastopen >= 0 AND SearchSubstring(newval, "\x1C") < lastopen)
+          newval := newval || "\x1C";
+
         //translate the markers to something that will survive EncodeHTML
         newval := Substitute(newval, "\x1D", '\uF8F0');
         newval := Substitute(newval, "\x1C", '\uF8F1');
@@ -495,6 +507,8 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRIN
         newval := Substitute(newval, "\x1D", '');
         newval := Substitute(newval, "\x1C", '');
       }
+      // Remove hyperlink markers
+      newval := Substitute(newval, "\x1F", '');
       res := CellUpdate(res, cellrec.name, newval);
     }
     results[#res] := res;
@@ -654,9 +668,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
            ];
 
   OBJECT search_obj := OpenSearchObject(language, indextag);
-  IF(Length(options.highlightfields) = 0)
-    search_obj->donthighlight := TRUE; //ADDME allow caller to specify it wants to highlight (either globally or a list of fields?)
-
+  search_obj->highlightfields := options.highlightfields;
   search_obj->save_searches := options.save_searches;
   IF (options.save_searches)
     search_obj->session_site := options.save_searches_site;

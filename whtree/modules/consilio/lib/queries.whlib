@@ -20,9 +20,9 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 RECORD cached_stopwordlists;
 
 // Boost factors for different types of query terms
-CONSTANT FLOAT title_boost := 5;
-CONSTANT FLOAT keywords_boost := 10;
-CONSTANT FLOAT description_boost := 5;
+CONSTANT FLOAT title_boost := 3;
+CONSTANT FLOAT keywords_boost := 15;
+CONSTANT FLOAT description_boost := 3;
 CONSTANT FLOAT body_boost := 1;
 //CONSTANT FLOAT initial_body_boost := .7;
 CONSTANT FLOAT stemmed_factor := .5;
@@ -1223,7 +1223,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
         INSERT text INTO this->query_words AT END;
 
         // Stemmed term?
-        IF (stemmedtext != "")
+        IF (stemmedtext != "" AND stemmedtext != text)
         {
           boosts := SELECT AS FLOAT ARRAY stemmed_factor * boost FROM this->defaultfields WHERE stemmed_field;
           IF (Length(boosts) > 0)
@@ -1288,7 +1288,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
     IF (query._type != "boolean")
       RETURN DEFAULT STRING ARRAY;
 
-    // We're looking for boolean queries like "(title:XXXX^5 keywords:XXXX^10 description:XXXX^5 XXXX)", which is constructed
+    // We're looking for boolean queries like "(title:XXXX^3 keywords:XXXX^15 description:XXXX^3 XXXX)", which is constructed
     // from the user query "XXXX". This is parsed into a boolean query with four subqueries, one term query for each of
     // "title", "keywords" and "description" and either one term query for "body" or (if the query was formatted with the
     // "body" field name) a match query for the fields "title", "keywords", "description" and "body". All queries must have

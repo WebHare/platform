@@ -604,8 +604,15 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "term"
     {
+      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
       result :=
-          [ match := CellInsert(DEFAULT RECORD, query.field, query.term) ];
+          [ bool :=
+              [ should :=
+                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := query.term, analyzer := "consilio" ]) ]
+                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := query.term, analyzer := "consilio_original" ]) ]
+                  ]
+              ]
+          ];
     }
     CASE "match"
     {
@@ -635,7 +642,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
           [ bool :=
               [ should :=
                   [ [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ]
-                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".org", query.term) ]
+                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", query.term) ]
                   ]
               ]
           ];
@@ -861,6 +868,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
         lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
       ELSE IF (fld = "_score")
         lineresult := CellInsert(lineresult, "_score", hit._score);
+      ELSE IF (fld = "_summary" AND CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
+        lineresult := CellInsert(lineresult, fld, hit.highlight.body[0]);
       ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
         lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
       ELSE

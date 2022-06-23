@@ -576,7 +576,7 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
     @cell(integer) useroptions.count The number of results to return; 0 for no results (but still returning the number of result),
         -1 for all results (defaults to 0)
     @cell(integer) useroptions.summary The length of the summary to generate; 0 for no summary (defaults to 200)
-    @cell(boolean) useroptions.donthighlight Don't highlight matched search terms in the summary
+    @cell(boolean) useroptions.highlightfields Highlight matched search terms in these fields
     @cell(string) useroptions.lang The language used for searching (used for various language-specific features)
     @cell(string) useroptions.restrict_to Restrict results to URLs starting with restrict_to
     @cell(record) useroptions.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
@@ -588,7 +588,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       [ first := 0
       , count := 0
       , summary := 200
-      , donthighlight := FALSE
+      , highlightfields := STRING[]
       , lang := ""
       , restrict_to := ""
       , exclude_urls := STRING[]
@@ -632,14 +632,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     //FIXME Get rid of the broadcasts, just use the logging system ?
     RECORD searchstart := CELL[ event := "searchstart"
                               , queryuuid
-                              , restrict_to := options.restrict_to
-                              , exclude_urls := options.exclude_urls
-                              , first := options.first
-                              , count := options.count
+                              , options.restrict_to
+                              , options.exclude_urls
+                              , options.first
+                              , options.count
                               , summary_length := options.summary
-                              , lang := options.lang
+                              , options.lang
                               , sess := RecordExists(options.session) ? options.session.sessid : ""
-                              , donthighlight := options.donthighlight
+                              , options.highlightfields
                               , fields := requested_fields
                               , uuid := queryuuid
                               , now := querystart
@@ -668,7 +668,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
           INSERT [ name := "count", value := ToString(options.count) ] INTO vars AT END;
         IF (options.summary != defaultoptions.summary)
           INSERT [ name := "summary", value := ToString(options.summary) ] INTO vars AT END;
-        IF (options.donthighlight != defaultoptions.donthighlight)
+        IF (Length(options.highlightfields) = 0)
           INSERT [ name := "donthighlight", value := "" ] INTO vars AT END;
         IF (options.lang != defaultoptions.lang)
           INSERT [ name := "lang", value := ToUppercase(options.lang) ] INTO vars AT END;
@@ -690,7 +690,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                      , summary_length := options.summary
                                                      , options.lang
                                                      , sess := RecordExists(options.session) ? options.session.sessid : ""
-                                                     , options.donthighlight
+                                                     , options.highlightfields
                                                      , fields := requested_fields
                                                      , uuid := queryuuid
                                                      , now := querystart
@@ -706,71 +706,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF (result.status = SearchOk)
         {
           result.totalcount := result.totalcount + ToInteger(GetMIMEHeader(response.headers, "Total-Hits"), 0);
-
-          // Read result lines from returned content
-          INTEGER resultstream := OpenBlobAsFile(response.content);
-          STRING line := ReadLineFrom(resultstream, 32768, TRUE);
-          WHILE (TRUE)
-          {
-            // If we got an empty line, check if we're at the end of the content
-            IF (line = "" AND IsAtEndOfStream(resultstream))
-              BREAK; // Yes, we're done
-
-            STRING ARRAY received_fields := Tokenize(line,'\t');
-            RECORD lineresult;
-            FOREVERY (STRING fld FROM requested_fields)
-            {
-              IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
-                lineresult := CellInsert(lineresult, fld, StringToDateTime(received_fields[#fld]));
-              ELSE
-                lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
-            }
-
-            RECORD singleresult;
-            FOREVERY (RECORD field FROM UnpackRecord(mapping))
-            {
-              IF (CellExists(singleresult, field.name))
-                CONTINUE;
-
-              // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
-              IF (CellExists(lineresult, field.name))
-              {
-                VARIANT value := GetCell(lineresult, field.name);
-                IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
-                {
-                  singleresult := CellInsert(singleresult, field.name, value);
-                  CONTINUE;
-                }
-                ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY)) // Convert to STRING ARRAY
-                {
-                  singleresult := CellInsert(singleresult, field.name, Tokenize(value,' '));
-                  CONTINUE;
-                }
-                ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
-                {
-                  // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-                  value := Substitute(value, "\x1D", "");
-                  value := Substitute(value, "\x1C", "");
-
-                  // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-                  VARIANT decoded := DecodeJSON(value);
-                  IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
-                  {
-                    field.value := decoded;
-                    singleresult := CellInsert(singleresult, field.name, field.value);
-                    CONTINUE;
-                  }
-                }
-              }
-              // If we got here, we have to insert the default field value
-              singleresult := CellInsert(singleresult, field.name, field.value);
-            }
-            IF (RecordExists(singleresult))
-              INSERT singleresult INTO result.results AT END;
-
-            line := ReadLineFrom(resultstream, 32768, TRUE);
-          }
-          CloseBlobFile(resultstream);
+          result.results := ReadConsilioResults(response.content, requested_fields, mapping);
 
           IF (IsDatabaseWritable())
             result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
@@ -796,16 +732,26 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
           INSERT CELL size := 0 INTO searchquery; // Only interested in aggregation result
         ELSE IF (options.count != defaultoptions.count)
           INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
-        //IF (options.summary != defaultoptions.summary)
-        //  INSERT [ name := "summary", value := ToString(options.summary) ] INTO vars AT END;
-        //ADDME: Highlight all relevant fields (_all doesn't work without properly configuring the indexed fields)
-        IF (options.donthighlight = defaultoptions.donthighlight)
-          INSERT CELL highlight := [ fields := [ body := [ number_of_fragments := 0 ]
-                                               , title := [ number_of_fragments := 0 ]
-                                               ]
-                                   , pre_tags := [ "\x1d" ]
-                                   , post_tags := [ "\x1c" ]
-                                   ] INTO searchquery;
+        IF (options.summary != 0 OR Length(options.highlightfields) > 0)
+        {
+          INSERT CELL highlight :=
+              [ fields := RECORD[]
+              , pre_tags := [ Length(options.highlightfields) > 0 ? "\x1d" : "" ]
+              , post_tags := [ Length(options.highlightfields) > 0 ? "\x1c" : "" ]
+              ] INTO searchquery;
+          // The body is used for summary generation with the given length (with number_of_fragments set to 1)
+          IF (options.summary != 0 OR "body" IN options.highlightfields)
+            INSERT [ body :=
+                       [ number_of_fragments := 1
+                       , fragment_size := options.summary < 0 ? defaultoptions.summary : options.summary
+                       , no_match_size := options.summary < 0 ? defaultoptions.summary : options.summary
+                       ]
+                   ] INTO searchquery.highlight.fields AT END;
+          // The other highlight fields are returned completely (number_of_fragments set to 0)
+          FOREVERY (STRING field FROM options.highlightfields)
+            IF (field != "body")
+              INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
+        }
         //IF (options.lang != defaultoptions.lang)
         //  INSERT [ name := "lang", value := ToUppercase(options.lang) ] INTO vars AT END;
         IF (options.restrict_to != defaultoptions.restrict_to)
@@ -838,7 +784,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                      , summary_length := options.summary
                                                      , options.lang
                                                      , sess := RecordExists(options.session) ? options.session.sessid : ""
-                                                     , options.donthighlight
+                                                     , options.highlightfields
                                                      , fields := requested_fields
                                                      , now := querystart
                                                      , catalog
@@ -983,66 +929,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
         IF (result.status = SearchOk)
         {
           result.totalcount := result.totalcount + ToInteger(GetMIMEHeader(response.headers, "Total-Hits"), 0);
-
-          // Read result lines from returned content
-          INTEGER resultstream := OpenBlobAsFile(response.content);
-          STRING line := ReadLineFrom(resultstream, 32768, TRUE);
-          WHILE (TRUE)
-          {
-            // If we got an empty line, check if we're at the end of the content
-            IF (line = "" AND IsAtEndOfStream(resultstream))
-              BREAK; // Yes, we're done
-
-            STRING ARRAY received_fields := Tokenize(line,'\t');
-            RECORD lineresult;
-            FOREVERY (STRING fld FROM requested_fields)
-            {
-              IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
-                lineresult := CellInsert(lineresult, fld, StringToDateTime(received_fields[#fld]));
-              ELSE
-                lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
-            }
-
-            RECORD singleresult;
-            FOREVERY (RECORD field FROM UnpackRecord(mapping))
-            {
-              IF (CellExists(singleresult, field.name))
-                CONTINUE;
-
-              // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
-              IF (CellExists(lineresult, field.name))
-              {
-                VARIANT value := GetCell(lineresult, field.name);
-                IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
-                {
-                  singleresult := CellInsert(singleresult, field.name, value);
-                  CONTINUE;
-                }
-                ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
-                {
-                  // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-                  value := Substitute(value, "\x1D", "");
-                  value := Substitute(value, "\x1C", "");
-
-                  // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-                  VARIANT decoded := DecodeJSON(value);
-                  IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
-                  {
-                    field.value := decoded;
-                    singleresult := CellInsert(singleresult, field.name, field.value);
-                    CONTINUE;
-                  }
-                }
-              }
-              // If we got here, we have to insert the default field value
-              singleresult := CellInsert(singleresult, field.name, field.value);
-            }
-            IF (RecordExists(singleresult))
-              INSERT singleresult INTO result.results AT END;
-
-            line := ReadLineFrom(resultstream, 32768, TRUE);
-          }
-          CloseBlobFile(resultstream);
+          result.results := ReadConsilioResults(response.content, requested_fields, mapping);
         }
       }
       CASE whconstant_consilio_indexmanager_opensearch
@@ -1381,16 +1268,16 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
 
         FOREVERY (RECORD obj FROM objects)
         {
-          RECORD ARRAY vars := [ [ name := "groupid",           value := groupid ]
-                               , [ name := "objectid",          value := obj.objectid ]
-                               , [ name := "contentsource",     value := ToString(contentsource.id) ]
-                               , [ name := "indextypes",        value := Detokenize(obj.indextypes," ") ]
-                               , [ name := "indexversions",     value := Detokenize(obj.indexversions," ") ]
+          RECORD ARRAY vars := [ [ name := "groupid",       value := EncodeConsilioFieldValue("groupid",       groupid) ]
+                               , [ name := "objectid",      value := EncodeConsilioFieldValue("objectid",      obj.objectid) ]
+                               , [ name := "contentsource", value := EncodeConsilioFieldValue("contentsource", contentsource.id) ]
+                               , [ name := "indextypes",    value := EncodeConsilioFieldValue("indextypes",    obj.indextypes) ]
+                               , [ name := "indexversions", value := EncodeConsilioFieldValue("indexversions", obj.indexversions) ]
                                ];
           // Make name lowercase, as Consilio expects field names to be in lowercase and UnpackRecord returns uppercase field names
           vars := vars CONCAT
               SELECT name := ToLowercase(name)
-                   , value := (name LIKE "DATE_*" OR name LIKE "*.DATE_*") AND TypeID(value) = TypeID(DATETIME) ? DateTimeToString(value) : value
+                   , value := EncodeConsilioFieldValue(ToLowercase(name), value)
                 FROM UnpackRecord(obj.documentfields);
           // Don't index empty fields
           DELETE FROM vars WHERE IsDefaultValue(value);
@@ -2327,6 +2214,166 @@ STRING FUNCTION ConfigureConsilioIndexManager(INTEGER indexmgrid, STRING param)
   }
 
   RETURN SearchOk;
+}
+
+STRING FUNCTION EncodeConsilioFieldValue(STRING field, VARIANT value)
+{
+  SWITCH (TypeID(value))
+  {
+    CASE TypeID(STRING)
+    {
+      RETURN value;
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN ToString(value);
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN FormatMoney(value, 0, ".", "", FALSE);
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN FormatFloat(value, 20);
+    }
+    CASE TypeID(DATETIME)
+    {
+      RETURN DateTimeToString(value);
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN value ? "true" : "false";
+    }
+    CASE TypeID(STRING ARRAY)
+    {
+      RETURN Detokenize(value, " ");
+    }
+    CASE TypeID(INTEGER ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY ToString(val) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(MONEY ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY FormatMoney(val, 0, ".", "", FALSE) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(FLOAT ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY FormatFloat(val, 20) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(DATETIME ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY DateTimeToString(val) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(BOOLEAN ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY val ? "true" : "false" FROM ToRecordArray(value, "val")), " ");
+    }
+    DEFAULT { THROW NEW Exception(`Unsupport value type ${GetTypeName(TypeID(value))} for field ${field}`); }
+  }
+}
+
+RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requested_fields, RECORD mapping)
+{
+  // Read result lines from returned content
+  INTEGER resultstream := OpenBlobAsFile(content);
+  STRING line := ReadLineFrom(resultstream, 32768, TRUE);
+  RECORD ARRAY results;
+  WHILE (TRUE)
+  {
+    // If we got an empty line, check if we're at the end of the content
+    IF (line = "" AND IsAtEndOfStream(resultstream))
+      BREAK; // Yes, we're done
+
+    STRING ARRAY received_fields := Tokenize(line,'\t');
+    RECORD lineresult;
+    FOREVERY (STRING fld FROM requested_fields)
+      lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
+
+    RECORD singleresult;
+    FOREVERY (RECORD field FROM UnpackRecord(mapping))
+    {
+      IF (CellExists(singleresult, field.name))
+        CONTINUE;
+
+      // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+      IF (CellExists(lineresult, field.name))
+      {
+        VARIANT value := GetCell(lineresult, field.name);
+        SWITCH (TypeID(field.value))
+        {
+          CASE TypeID(STRING)
+          {
+            singleresult := CellInsert(singleresult, field.name, value);
+            CONTINUE;
+          }
+          CASE TypeID(INTEGER)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToInteger(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(MONEY)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToMoney(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(FLOAT)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToFloat(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(DATETIME)
+          {
+            singleresult := CellInsert(singleresult, field.name, StringToDateTime(value));
+            CONTINUE;
+          }
+          CASE TypeID(BOOLEAN)
+          {
+            singleresult := CellInsert(singleresult, field.name, value = "true");
+            CONTINUE;
+          }
+          CASE TypeID(STRING ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, Tokenize(value, " "));
+            CONTINUE;
+          }
+          CASE TypeID(INTEGER ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS INTEGER ARRAY ToInteger(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(MONEY ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS MONEY ARRAY ToMoney(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(FLOAT ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS FLOAT ARRAY ToFloat(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(DATETIME ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS DATETIME ARRAY StringToDatetime(val) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(BOOLEAN ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS BOOLEAN ARRAY val = "true" FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+        }
+      }
+      // If we got here, we have to insert the default field value
+      singleresult := CellInsert(singleresult, field.name, field.value);
+    }
+    IF (RecordExists(singleresult))
+      INSERT singleresult INTO results AT END;
+
+    line := ReadLineFrom(resultstream, 32768, TRUE);
+  }
+  CloseBlobFile(resultstream);
+
+  RETURN results;
 }
 
 // Create a (flattened) list of requested fields
