@@ -177,7 +177,7 @@ MACRO TestBulkApi()
   TestEq(FALSE,CellExists(results[1].arr[1],"data3"));
 
   // Test for throw on non-existing subfield
-  TestThrows(PTR arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR.DATA4"]));
+  TestThrowsLike("No such member \'arr.data4\' in contenttype http://www.webhare.net/xmlns/beta/conversionstest", PTR arrayedtype->GetBulkData([INTEGER(testfile1->id), testfile2->id],["ARR.DATA4"]));
 
   // Get RTD with instances
   results := mytype->GetBulkData([INTEGER(testfile2->id)],["RICH"]);

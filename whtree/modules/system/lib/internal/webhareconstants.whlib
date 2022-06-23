@@ -191,7 +191,6 @@ PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_elasticsearch := 2;
 //our 2 index types
 PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_siteprofindex := 0;
 PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_moduleindex := 1;
-PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_fieldgroup := 2; //deprecated - but please keep this ID reserved until we're really sure it's cleaned up
 
 //separates modulename from indexname
 PUBLIC CONSTANT STRING whconstant_consilio_module_sep := "__";

@@ -215,7 +215,7 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
       ]);
   testfw->CommitWork();
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -236,7 +236,7 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
   AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
 
   // Test: unversioned file saved as draft must be saved directly to the existing file
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -389,7 +389,7 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
   testfw->CommitWork();
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -417,7 +417,7 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
   testfw->SetTestUser("writer");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/versioned.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should trigger a second draft</p>');
   RTE()->__debug_simulatedirty();

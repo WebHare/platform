@@ -81,16 +81,16 @@ MACRO TestWHRemoting(BOOLEAN whsock)
   TestEq("str1", x->GetStr1());
 
   TestEq("1 1", x->CallTest(1, "1"));
-  TestThrows(PTR x->CallTest(10, "2"));
+  TestThrowsLike("Throwing b: 2", PTR x->CallTest(10, "2"));
   TestEq("1 3", x->CallTest(1, "3"));
 
   TestThrowsLike("*crash requested*", PTR x->Crash);
-  TestThrows(PTR x->CallTest(1, "4"));
+  TestThrowsLike("*", PTR x->CallTest(1, "4"));
 
   x := InvokeRemoteFunction(baseurl || "getobject");
   TestEq("str1", x->GetStr1());
   CloseRemotingSession(x);
-  TestThrows(PTR x->CallTest(1, "4"));
+  TestThrowsLike("Cannot call*", PTR x->CallTest(1, "4"));
 }
 
 

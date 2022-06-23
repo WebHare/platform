@@ -17,7 +17,7 @@ MACRO TestAutoTransaction()
 {
   OBJECT trans := OpenPrimary();
 
-  TestThrows(PTR trans->Commit());
+  TestThrowsLike('Commit cannot be used*',PTR trans->Commit());
 
   trans->BeginWork();
   handlerresult := DEFAULT STRING ARRAY;

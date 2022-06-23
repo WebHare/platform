@@ -7,7 +7,7 @@ MACRO CryptTest()
   //proper new encrypt functions
   STRING scoped := EncryptForThisServer("mytest", "IsATest");
   TestEq("IsATest", DecryptForThisServer("mytest",scoped));
-  TestThrows(PTR DecryptForThisServer("mytest","scoped2"));
+  TestThrowsLike("Value decryption failed", PTR DecryptForThisServer("mytest","scoped2"));
   TestEq("", DecryptForThisServer("mytest","scoped2", [fallback := ""]));
 
   STRING hson := EncryptForThisServer("mytest", "hson:hson:hson");

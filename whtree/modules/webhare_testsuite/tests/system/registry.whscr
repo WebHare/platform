@@ -8,9 +8,10 @@ LOADLIB "wh::files.whlib";
 
 MACRO DoKeyTests(STRING basename, STRING nodebasename)
 {
-  TestThrows(PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
+  //Read&Write have different responses to non existing keys whether is system or user registry, as one requires values to exist and the other requires fallback values to be provided
+  TestThrowsLike("*", PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
   TestEq(43, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
-  TestThrows(PTR WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 43));
+  TestThrowsLike("*", PTR WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 43));
   WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 44, [createifneeded := TRUE]);
   TestEq(44, ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
   WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 45, [createifneeded := TRUE]);
@@ -31,7 +32,7 @@ MACRO DoKeyTests(STRING basename, STRING nodebasename)
          , SELECT * FROM ReadRegistryNode(basename || ".__webhare_testsuite_base_node__") ORDER BY subkey);
 
   DeleteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue");
-  TestThrows(PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
+  TestThrowsLike("*", PTR ReadRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue"));
   TestEq([[ data := StringToBlob(RepeatText("Hello, World!",1000)), fullname := nodebasename || ".__webhare_testsuite_base_node__.blobvalue", subkey := "blobvalue" ]
          ], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
 
@@ -49,15 +50,15 @@ MACRO TestRegistry()
 
   DoKeyTests("webhare_testsuite","webhare_testsuite");
   DoKeyTests("<someuser>","<someuser>");
-  TestThrows(PTR DoKeyTests("modules.webhare_testsuite","webhare_testsuite"));
-  TestThrows(PTR DoKeyTests("system.modules.webhare_testsuite","webhare_testsuite"));
+  TestThrowsLike("Invalid registry key name *", PTR DoKeyTests("modules.webhare_testsuite","webhare_testsuite"));
+  TestThrowsLike("Invalid registry key name *", PTR DoKeyTests("system.modules.webhare_testsuite","webhare_testsuite"));
 
-  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  TestThrowsLike("No such registry*", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
   WriteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", 43, [createifneeded:=TRUE]);
   TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
   TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
   TestEq(43, ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43 ]));
-  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43m ]));
+  TestThrowsLike("Invalid type*", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", [ fallback := 43m ]));
 
 
   TestEq( [[ fullname := "webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", subkey := "stupidvalue", data := 43 ]]
@@ -66,7 +67,7 @@ MACRO TestRegistry()
     , ReadRegistryNode("webhare_testsuite.__webhare_testsuite_base_node__"));
 
   DeleteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue");
-  TestThrows(PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
+  TestThrowsLike("No such registry key*", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
 
 
   testfw->CommitWork();

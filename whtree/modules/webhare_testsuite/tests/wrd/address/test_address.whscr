@@ -34,7 +34,7 @@ MACRO GenericCodes()
   TestEq(FALSE, field.required);
   TestEq(FALSE, CellExists(field,'break_after'));
 
-  TestThrows(PTR GetAddressField("XXXX"));
+  TestThrowsLike('*has no default text*', PTR GetAddressField("XXXX"));
 }
 
 MACRO NLCodes()

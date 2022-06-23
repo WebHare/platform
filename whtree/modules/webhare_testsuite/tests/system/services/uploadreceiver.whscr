@@ -86,7 +86,7 @@ MACRO TestUpload()
       ], GetUploadedFiles([ STRING(res.filetoken) ]));
 
   // Test whether the files are cleaned from memory after first retrieve
-  TestThrows(PTR GetUploadedFiles([ STRING(res.filetoken) ]));
+  TestThrowsLike("File upload session expired", PTR GetUploadedFiles([ STRING(res.filetoken) ]));
 
   TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(res.filetoken, "/")[0], "system_filetransfer")));
 
@@ -108,8 +108,8 @@ MACRO TestUpload()
       ], GetUploadedFiles([ STRING(res.filetoken), res2.filetoken ]));
 
   // Must then be cleared from session
-  TestThrows(PTR GetUploadedFiles([ STRING(res.filetoken) ]));
-  TestThrows(PTR GetUploadedFiles([ STRING(res2.filetoken) ]));
+  TestThrowsLike("File upload for this file has not succeeded", PTR GetUploadedFiles([ STRING(res.filetoken) ]));
+  TestThrowsLike("File upload for this file has not succeeded", PTR GetUploadedFiles([ STRING(res2.filetoken) ]));
 
   // 3rd file must not be affected
   TestEQ(
@@ -119,7 +119,7 @@ MACRO TestUpload()
         ]
       ], GetUploadedFiles([ STRING(res3.filetoken) ]));
 
-  TestThrows(PTR GetUploadedFiles([ STRING(res3.filetoken) ]));
+  TestThrowsLike("File upload session expired", PTR GetUploadedFiles([ STRING(res3.filetoken) ]));
 
   // Last file must clear session
   TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(res3.filetoken, "/")[0], "system_filetransfer")));
@@ -202,7 +202,7 @@ MACRO TestSessionMgmt()
       ], DEFAULT BLOB);
 
   TestEQ(FALSE, RecordExists(ManipWebserverSession("get", Tokenize(filetoken, "/")[0], "system_filetransfer")));
-  TestThrows(PTR GetUploadedFiles([ filetoken ]));
+  TestThrowsLike("File upload session expired", PTR GetUploadedFiles([ filetoken ]));
 }
 
 Runtestframework([ PTR TestUpload

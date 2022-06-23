@@ -63,7 +63,7 @@ ASYNC MACRO TestFIFO()
   TestEQ(DEFAULT RECORD, AWAIT f->AsyncShift());
 
   // Throw when pushing if closed
-  TestThrows(PTR f->Push([ a := 9 ]));
+  TestThrowsLike("Trying to push an element into a closed FIFO", PTR f->Push([ a := 9 ]));
 
   f := NEW FIFO;
   f->Push([ a := 20]);

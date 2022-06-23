@@ -76,8 +76,8 @@ MACRO SimpleTest()
   TestEq(testfile->id, subfolder->OpenByPath("/testfile.txt", [expect:="file", allowinitialslash := TRUE])->id);
 
   //These now throw, global names require global visibility
-  TestThrows(PTR GetWebhareResource("filebyid::" || testfile->id));
-  TestThrows(PTR GetHareScriptResource("filebyid::" || testfile->id));
+  TestThrowsLike("*No such resource*", PTR GetWebhareResource("filebyid::" || testfile->id));
+  TestThrowsLike("*No such resource*", PTR GetHareScriptResource("filebyid::" || testfile->id));
 
   TestEq(45081, Length(subfolder2->Getresource("mod::system/web/tests/snowbeagle.jpg")));
   TestEq(5829, Length(subfolder2->Getresource("whres::xml/xml.xsd")));
@@ -162,7 +162,7 @@ MACRO SimpleTest()
   OBJECT siteobj := OpenSite(firstfolder->id);
   TestEq(siteobj->id, siteobj->OpenByPath('/')->id);
   TestEq(subfolder->id, siteobj->OpenByPath('sub', [ expect := "folder" ])->id);
-  TestThrows(PTR siteobj->OpenByPath('sub', [ expect := "file" ]));
+  TestThrowsLike("*it's a folder*", PTR siteobj->OpenByPath('sub', [ expect := "file" ]));
   testfw->RollbackWork();
 
   TestEq(FALSE, IsValidWHFSName("^file", FALSE));
@@ -183,7 +183,7 @@ MACRO WrappedTest()
   /* You *must* specify name explicitly, we're not going to take 'filename' from wrapped as that will be very confusing in
      an UpdateMetadata call: if you give it a 'wrapped' with a different filename and don't explicitly set a name := to UpdateMetadata,
      should we be renaming? - so just ignore filename */
-  TestThrows(PTR testfolderobj->CreateFile([ wrapped := goudvisfile ]));
+  TestThrowsLike("Missing cell*name*", PTR testfolderobj->CreateFile([ wrapped := goudvisfile ]));
 
   OBJECT img := testfolderobj->CreateFile([ name := "goudvis.png", wrapped := goudvisfile ]);
   RECORD wrapped := img->GetWrapped();
@@ -796,7 +796,7 @@ MACRO TestWHFSResourceNameMapper()
   // Mapper that doesn't ignore missing refs
   mapper := NEW WHFSResourceNameMapper;
   mapper->ignore_missing_references := FALSE;
-  TestThrows(PTR mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
+  TestThrowsLike("Cannot locate object*", PTR mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
 }
 
 Runtestframework( [ PTR SimpleTest

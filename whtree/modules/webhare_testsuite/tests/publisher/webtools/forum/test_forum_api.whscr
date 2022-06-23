@@ -4,6 +4,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -26,7 +28,7 @@ MACRO TestForumApiBase()
   testfw->CommitWork();
 
   //no plugin registered, should fail
-  TestThrows(PTR OpenForum(randomforumfile->id));
+  TestThrowsLike("No forum plugin registered*", PTR OpenForum(randomforumfile->id));
 
   //test implicit closing date
   TestEq(DEFAULT DATETIME, OpenForum(tempcommentsfile->id)->GetInitialTopicCloseDate(tempcommentsfile->id));
@@ -38,9 +40,6 @@ MACRO TestForumApiBase()
 
 MACRO TestCommentsForumApi()
 {
-  RECORD testport := testfw->GetLocalhostWebinterface();
-  OBJECT browser := NEW WebBrowser;
-
   OBJECT forumcommentsfile := OpenTestsuiteSite()->OpenByPath("webtools/forumcomments");
 
   BLOB picture := CreateEmptyCanvas(500,500,0xFFFF0000)->ExportAsPNG(FALSE);
@@ -57,8 +56,8 @@ MACRO TestCommentsForumApi()
   RECORD subforum := forumapi->SelectOnlySubforum();
   TestEq(TRUE, RecordExists(subforum));
 
-  TestThrows(PTR forumapi->SelectOnlyTopic(0)); //not specifying a file id is bad too for a comments forum
-  TestThrows(PTR forumapi->AddPost(postdata)); //must fail, no forum selected
+  TestThrowsLike("*requires a selected*", PTR forumapi->SelectOnlyTopic(0)); //not specifying a file id is bad too for a comments forum
+  TestThrowsLike("No topic *", PTR forumapi->AddPost(postdata)); //must fail, no forum selected
 
   RECORD topic := forumapi->SelectOnlyTopic(forumcommentsfile->id);
   TestEq(FALSE, RecordExists(topic)); //topics cannot be pre-created, but rest assured, its selected
@@ -110,14 +109,14 @@ MACRO TestCommentsForumApi()
   TestEq(1,Length(msgs[0].images));
   TestEq(TRUE, msgs[0].images[0].fullversionlink != "");
 
-  TestEq(TRUE, browser->GotoWebPage(ResolveToAbsoluteURL(testport.baseurl, msgs[0].images[0].fullversionlink)), browser->href);
-  TestEq(picture, browser->content);
-  TestEq("image/png", browser->contenttype);
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), msgs[0].images[0].fullversionlink)), testfw->browser->href);
+  TestEq(picture, testfw->browser->content);
+  TestEq("image/png", testfw->browser->contenttype);
   TestEq(TRUE,msgs[0].images[0].displayversionlink != "");
 
-  TestEq(TRUE, browser->GotoWebPage(ResolveToAbsoluteURL(testport.baseurl, msgs[0].images[0].displayversionlink)));
-  TestEq("image/jpeg", browser->contenttype);
-  RECORD info := ScanBlob(browser->content,'');
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), msgs[0].images[0].displayversionlink)));
+  TestEq("image/jpeg", testfw->browser->contenttype);
+  RECORD info := ScanBlob(testfw->browser->content,'');
   TestEq("image/jpeg", info.mimetype);
   TestEq(240, info.width);
   TestEq(240, info.height);
@@ -149,7 +148,7 @@ MACRO TestCloseDate()
 
   RECORD postdata := [ name := "Arnold", email := "arnold@example.net", message := "heyhey", messagetype := "text/plain", source := "127.0.0.1:12345", sourceurl := "http://www.example.nl/"
                      ];
-  TestThrows(PTR forumapi->AddPost(postdata));
+  TestThrowsLike("This topic is already closed", PTR forumapi->AddPost(postdata));
   //FIXME should actually be in forum's timezone (eg CET midnight), no UTC
   forumapi->SetCloseDate(AddTimeToDate(60*1000, GetCurrentDatetime()));
   forumapi->AddPost(postdata);

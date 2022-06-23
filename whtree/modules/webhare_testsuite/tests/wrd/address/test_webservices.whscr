@@ -72,7 +72,7 @@ MACRO TestWebservicesLowlevel()
 MACRO TestWebservicesAPI()
 {
   testfw->BeginWork();
-  TestThrows(PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl" ]));
+  TestThrowsLike('Missing*USER*',PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl" ]));
 
   SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
                                                       , user := "loopback"

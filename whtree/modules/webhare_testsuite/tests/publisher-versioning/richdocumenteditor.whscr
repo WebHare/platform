@@ -49,7 +49,7 @@ OBJECT ASYNC FUNCTION TestVersioned()
       ]);
   testfw->CommitWork();
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // Open rich document editor
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
@@ -61,7 +61,7 @@ OBJECT ASYNC FUNCTION TestVersioned()
   AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
 
   // Test: unversioned file saved as draft must be saved directly to the existing file
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content proposed as published</p>');
   RTE()->__debug_simulatedirty();
@@ -72,7 +72,7 @@ OBJECT ASYNC FUNCTION TestVersioned()
   AWAIT rec.expectcallreturn();
 
   // No draft?
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // Publish, and submit for approval
   rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());
@@ -96,7 +96,7 @@ OBJECT ASYNC FUNCTION TestVersioned()
   // Now, the file is versioned and published, so save should go to a draft immediately
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should trigger a second draft</p>');
   RTE()->__debug_simulatedirty();
@@ -134,14 +134,14 @@ OBJECT ASYNC FUNCTION TestVersioned()
   // Now, the file is versioned but not published, so save should go to live version
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This change should go to the live version</p>');
   RTE()->__debug_simulatedirty();
 
     // Save, should go to live (no draft created)
   AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/unpublished.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // After accept, should contain right data
   RECORD rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
@@ -188,7 +188,7 @@ OBJECT ASYNC FUNCTION TestVersionedDraft()
       ]);
   testfw->CommitWork();
 
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/draftdocument.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // Open rich document editor
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
@@ -200,7 +200,7 @@ OBJECT ASYNC FUNCTION TestVersionedDraft()
   AWAIT ExpectNoScreenChange(PTR TT("save")->TolliumClick());
 
   // Test: unversioned file saved as draft must be saved directly to the existing file
-  TestThrows(PTR GetValidatePublicDraft(testfile));
+  TestThrowsLike("File /webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/draftdocument.rtd doesn\'t have a public draft", PTR GetValidatePublicDraft(testfile));
 
   // Publish, and submit for approval
   rec := AWAIT ExpectScreenChange(+1, PTR TT("publish")->TolliumClick());

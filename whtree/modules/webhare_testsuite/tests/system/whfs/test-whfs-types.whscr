@@ -99,11 +99,11 @@ MACRO FindTest()
       [ strarray := [ "" ]
       ]);
 
-  TestThrows(PTR ctype->FindObjectsByMemberValue("str", ""));
-  TestThrows(PTR ctype->FindObjectsByMemberValue("int", 0));
-  TestThrows(PTR ctype->FindObjectsByMemberValue("yesno", FALSE));
-  TestThrows(PTR ctype->FindObjectsByMemberValue("str", "overlong" || RepeatText("X",2048)));
-  TestThrows(PTR ctype->FindObjectsByMemberValue("strarray", ""));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("str", ""));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("int", 0));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("yesno", FALSE));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find values longer than 2048 bytes", PTR ctype->FindObjectsByMemberValue("str", "overlong" || RepeatText("X",2048)));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("strarray", ""));
 
 //  ABORT(ctype->FindObjectsByMemberValue("int", 15));
 
@@ -382,7 +382,7 @@ MACRO InplaceUpdateTest()
   // Test for illegal richdoc updates
   RECORD illegal_richdocrec := richdocrec;
   INSERT DEFAULT RECORD INTO illegal_richdocrec.instances AT END;
-  TestThrows(PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ richtest := illegal_richdocrec ]));
+  TestThrowsLike("Missing required cell \'DATA\' in instances[0]", PTR testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ richtest := illegal_richdocrec ]));
 
   testfw->CommitWork();
 }
@@ -438,18 +438,18 @@ MACRO TestArrayMembers()
   INTEGER ARRAY foundfile := [ INTEGER(arraytestfile->id) ];
   INTEGER ARRAY nomatches;
 
-  TestThrows(PTR whfstype->FindObjectsByMemberValue("mystr", "x"));
-  TestThrows(PTR whfstype->FindObjectsByMemberValue("myarray.mystr", "x"));
-  TestThrows(PTR whfstype->FindObjectsByMemberValue("myarr.mystring", "x"));
+  TestThrowsLike("No such member \'mystr\' in contenttype http://www.webhare.net/xmlns/beta/arraymembertest", PTR whfstype->FindObjectsByMemberValue("mystr", "x"));
+  TestThrowsLike("No such member \'myarray.mystr\' in contenttype http://www.webhare.net/xmlns/beta/arraymembertest", PTR whfstype->FindObjectsByMemberValue("myarray.mystr", "x"));
+  TestThrowsLike("No such member \'myarr.mystring\' in contenttype http://www.webhare.net/xmlns/beta/arraymembertest", PTR whfstype->FindObjectsByMemberValue("myarr.mystring", "x"));
 
   TestEq(foundfile, whfstype->FindObjectsByMemberValue("mystring", "asdf"));
   TestEq(foundfile, whfstype->FindObjectsByMemberValue("myarray.mystring", "qwer"));
   TestEq(nomatches, whfstype->FindObjectsByMemberValue("mystring", "qwer"));
   TestEq(nomatches, whfstype->FindObjectsByMemberValue("myarray.mystring", "asdf"));
 
-  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("mystr", "x"));
-  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("myarray.mystr", "x"));
-  TestThrows(PTR whfstype->FindObjectsByMemberValueMask("myarr.mystring", "x"));
+  TestThrowsLike("No such member \'mystr\'", PTR whfstype->FindObjectsByMemberValueMask("mystr", "x"));
+  TestThrowsLike("No such member \'myarray.mystr\'", PTR whfstype->FindObjectsByMemberValueMask("myarray.mystr", "x"));
+  TestThrowsLike("No such member \'myarr.mystring\'", PTR whfstype->FindObjectsByMemberValueMask("myarr.mystring", "x"));
 
   TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("mystring", "asdf"));
   TestEq(foundfile, whfstype->FindObjectsByMemberValueMask("myarray.mystring", "qwer"));
@@ -488,7 +488,7 @@ MACRO TestDirectInstanceData()
   TestEQ(rec.aninstance, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
 
   // Wrong type
-  TestThrows(PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3" ]));
+  TestThrowsLike("Setting data with \'WHFSTYPE\' set to the wrong type (expected http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2, got http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3", PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3" ]));
   whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ str2 := "str3" ]);
 
   TestEQ(

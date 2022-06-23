@@ -39,7 +39,7 @@ ASYNC MACRO TestFooterButtons()
 </screens>#test`);
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   TestEq(STRING[], scr->frame->footerbuttons);
-  TestThrows(PTR MemberUpdate(scr->frame, "footerbuttons", ["ok"]));
+  TestThrowsLike('Cannot set footerbuttons *',PTR MemberUpdate(scr->frame, "footerbuttons", ["ok"]));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   scr := GetTestController()->LoadScreen(`inline::

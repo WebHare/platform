@@ -1384,8 +1384,7 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
            , ismanaged := type = whconstant_consilio_catalogtype_siteprofindex
            , indexmanager
         FROM consilio.indices
-       WHERE type != whconstant_consilio_catalogtype_fieldgroup
-             AND (options.__withdeleted OR name NOT LIKE "$consilio$deleted$*");
+       WHERE options.__withdeleted OR name NOT LIKE "$consilio$deleted$*";
   IF (options.__withdeleted)
     catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;
   RETURN catalogs;
@@ -1400,7 +1399,6 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
   RECORD match :=
       SELECT * FROM consilio.indices
        WHERE ToUppercase(indices.name) = ToUppercase(tag)
-             AND type != whconstant_consilio_catalogtype_fieldgroup
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
@@ -1421,7 +1419,6 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
   RECORD match :=
       SELECT * FROM consilio.indices
        WHERE indices.id = VAR id
-             AND type != whconstant_consilio_catalogtype_fieldgroup
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {

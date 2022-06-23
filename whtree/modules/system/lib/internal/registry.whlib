@@ -148,7 +148,7 @@ PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING confkey, RECORD options DEFAULTST
     IF(CellExists(options, 'fallback'))
       RETURN options.fallback;
     ELSE
-      THROW NEW Exception(`No such key ${confkey}`);
+      THROW NEW Exception(`No such registry key ${confkey}`);
 
   IF(CellExists(options, 'fallback') AND TYPEID(options.fallback) != TYPEID(keyinfo.value))
     THROW NEW Exception(`Invalid type in registry for registry key '${confkey}', got ${GetTypeName(TYPEID(keyinfo.value))} but expected ${GetTypeName(TYPEID(options.fallback))}`);
