@@ -4,8 +4,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
@@ -135,7 +135,7 @@ MACRO HandleFolderMoved(INTEGER folderid, INTEGER oldparentid, INTEGER newparent
 
     // This will delete the group from content sources no longer responsible for it
     PrintDebug("  Deactivating group '" || file.groupid || "'");
-    __DeactivateConsilioGroup(file.groupid);
+    __ConsilioDeactivateGroup(file.groupid);
   }
 }
 
@@ -151,7 +151,7 @@ MACRO HandleFolderDeleted(INTEGER folderid)
 
     // This will delete the group from content sources no longer responsible for it
     PrintDebug("  Deactivating group '" || file.groupid || "'");
-    __DeactivateConsilioGroup(file.groupid);
+    __ConsilioDeactivateGroup(file.groupid);
   }
 }
 
@@ -195,7 +195,7 @@ MACRO HandleFileMoved(INTEGER fileid, INTEGER oldparentid, INTEGER newparentid)
 
   // This will delete the group from content sources no longer responsible for it
   PrintDebug("  Deactivating group '" || fileid || "'");
-  __DeactivateConsilioGroup(ToString(fileid));
+  __ConsilioDeactivateGroup(ToString(fileid));
 }
 
 MACRO HandleFileDeleted(INTEGER fileid, INTEGER oldparentid)
@@ -204,7 +204,7 @@ MACRO HandleFileDeleted(INTEGER fileid, INTEGER oldparentid)
 
   // This will delete the group from content sources no longer responsible for it
   PrintDebug("  Deactivating group '" || fileid || "'");
-  __DeactivateConsilioGroup(ToString(fileid));
+  __ConsilioDeactivateGroup(ToString(fileid));
 }
 
 

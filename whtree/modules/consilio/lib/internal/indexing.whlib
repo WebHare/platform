@@ -3,16 +3,9 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 INTEGER waitindex;
-
-RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
-{
-  STRING args := Detokenize(options, " ");
-  STRING command := "STATUS" || (args != "" ? " " || args : "");
-  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
-}
 
 PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
