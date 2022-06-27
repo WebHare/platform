@@ -740,8 +740,11 @@ export default class StructuredEditor extends EditorBase
     if(embobjnode.nodeName=='SPAN')
     {
       let res = this.insertNodeAutoSplit(locator, embobjnode, preservelocators, undoitem);
+      let afternodelocator = res.next;
+      // don't want the afternode locator to be corrected to after a newly inserted br
+      this.requireVisibleContentInBlockAfterLocator(afternodelocator, [ locator, ...(preservelocators || []) ], undoitem);
       return { node:             embobjnode
-             , afternodelocator: res.next
+             , afternodelocator
              };
 
     }
@@ -2059,6 +2062,8 @@ export default class StructuredEditor extends EditorBase
     if(debugicc)
       console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
 
+    domlevel.cleanupBogusBreaks(range.getAncestorElement(), [ locator, res, ...(preservelocators || []) ], undoitem);
+
     return res;
   }
 
@@ -2788,6 +2793,7 @@ export default class StructuredEditor extends EditorBase
     var block = this.getBlockAtNode(range.start.getNearestNode());
     let locator = new domlevel.Locator(block.contentnode);
     this.requireVisibleContentInBlockAfterLocator(locator, preservelocators);
+    domlevel.cleanupBogusBreaks(range.getAncestorElement(), preservelocators);
 
     // If the current block has lost its style, reset to default block style
     if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode))

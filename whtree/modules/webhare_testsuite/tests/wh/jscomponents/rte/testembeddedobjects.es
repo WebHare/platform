@@ -5,23 +5,24 @@ import * as dompack from 'dompack';
 // use structuredwin when htmltext is structured
 function generateInlineEmbeddedObjectHTML(instanceref, title, htmltext)
 {
-  return <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref={instanceref} />.outerHTML;
+  return (<span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref={instanceref} />).outerHTML;
 }
 function generateEmbeddedObjectHTML(instanceref, title, htmltext)
 {
-  return <div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref={instanceref} />.outerHTML;
+  return (<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref={instanceref} />).outerHTML;
 }
 
 function getInlineElementPreview(innernode) //mimick widgtpreview.witty
 {
-  return <div class="wh-rtd__inlinepreview">
-           <div class="wh-rtd__inlinepreview__iconholder">
-             <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="tollium:files/widget|16|16|b,c" />
-           </div>
-           <div class="wh-rtd__inlinepreview__title">
-             {innernode}
-           </div>
-         </div>.outerHTML;
+  return (
+      <div class="wh-rtd__inlinepreview">
+        <div class="wh-rtd__inlinepreview__iconholder">
+          <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="tollium:files/widget|16|16|b,c" />
+        </div>
+        <div class="wh-rtd__inlinepreview__title">
+          {innernode}
+        </div>
+      </div>).outerHTML;
 }
 
 var escapeEl;
@@ -223,4 +224,28 @@ test.registerTests(
                 +'<p class="normal">ondertekst</p>'
                 , test.getWin().rte.getValue());
     }
+
+    , "Cursor positioning after last inline object in paragraph"
+    , async function()
+      {
+        // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
+        // fixed by added a bogus br after it
+        await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
+
+        //processing embedded object
+        test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'
+                                   +'<p class="normal"><span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="inst1" data-innerhtml-contents="inline-embed"></span></p>'
+                                   +'<p class="normal">ondertekst</p>');
+
+        /* Could not find a way to get the shown caret position in Chrome, the getClientRects of a collapsed selection
+           Range is {0,0,0,0} when the cursor is between an inline embedded block and a CSS line start/break/end.
+           Last tested 2022-06-27 on Chrome 103
+        */
+
+        // A bogus BR should be added after the inline
+        test.eqHTML('<h1 class="heading1">Kop</h1>'
+                  +'<p class="normal">' + generateInlineEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>') + '<br data-wh-rte="bogus"></p>'
+                  +'<p class="normal">ondertekst</p>'
+                  , test.getWin().rte.getValue());
+      }
   ]);

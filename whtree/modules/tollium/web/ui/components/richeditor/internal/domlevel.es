@@ -1579,7 +1579,7 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem)
 
   // If downres is a br, there is visible content (block not empty), and a br is needed when
   // upstream is a block boundary (inner block or outer block)
-  if (downres.type == 'br')
+  if (downres.type == 'br' || (downres.type == "node" && downres.data.classList.contains("wh-rtd-embeddedobject--inline")))
   {
     let up = locator.clone();
     let upres = up.scanForward(block, { whitespace: true });
@@ -1656,6 +1656,25 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem)
 function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preservelocators, undoitem)
 {
   return correctBlockFillerUse(locator, maxancestor, preservelocators, undoitem);
+}
+
+/** Cleanup the bogus breaks that aren't needed anymore
+    @param node Node to test the children of
+    @param preservelocators Locators to preserver
+    @param undoitem Undo item
+*/
+function cleanupBogusBreaks(node, preservelocators, undoitem)
+{
+  const breaks = node.querySelectorAll(`br[data-wh-rte="bogus"]`);
+  for (let breaknode of breaks)
+  {
+    let brlocator = Locator.newPointingTo(breaknode);
+    let downres = brlocator.clone().scanBackward(node, { whitespace: true, blocks: true });
+    if ((downres.type == 'br' && !downres.bogussegmentbreak) || (downres.type == "outerblock") || (downres.type == "innerblock") || (downres.type == "node" && downres.data.classList.contains("wh-rtd-embeddedobject--inline")))
+      continue;
+
+    brlocator.removeNode(preservelocators, undoitem);
+  }
 }
 
 /// Removes nodes from the DOM
@@ -2951,4 +2970,5 @@ export
     , getInvisibleSegmentBreakRange
     , getVisualEquivalenceRange
     , rewriteWhitespace
+    , cleanupBogusBreaks
     };
