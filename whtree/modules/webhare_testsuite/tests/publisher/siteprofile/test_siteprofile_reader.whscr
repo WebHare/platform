@@ -156,31 +156,31 @@ MACRO SiteSettingsTester()
   STRING basedatadir := GetWebHareConfiguration().basedataroot;
 
   // Delete the files we'll generate in this test
-  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"));
-  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"));
-  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"));
-  DeleteDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare_testsuite.testsite/file.shtml"));
+  DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/folderdirect/test/blue.html");
+  DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html");
+  DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html");
+  DeleteDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/webhare_testsuite.testsite/file.shtml");
 
   TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
   TestEQLike("*I'm just a static page*", BlobToString(testfw->browser->content));
 
-  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare_testsuite.testsite/"), TRUE);
-  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/webhare_testsuite.testsite/file.shtml"), StringToBlob(`<?wh PRINT("I'm a"); PRINT(" dynamic page");`));
+  CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/webhare_testsuite.testsite/", TRUE);
+  StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/webhare_testsuite.testsite/file.shtml", StringToBlob(`<?wh PRINT("I'm a"); PRINT(" dynamic page");`));
   TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
   TestEQLike("I'm a dynamic page*", BlobToString(testfw->browser->content));
 
-  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/"), TRUE);
-  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html"), StringToBlob(`I'm a dir hash page`));
+  CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/", TRUE);
+  StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html", StringToBlob(`I'm a dir hash page`));
   TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
   TestEQLike("*I'm a dir hash page*", BlobToString(testfw->browser->content));
 
-  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/"), TRUE);
-  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html"), StringToBlob(`I'm a hash page`));
+  CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha/72a/", TRUE);
+  StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha/72a/9b1ded08c2b7413bf64e2608e8cea03d5f8ff6b7c61382b11eb04a290d611.html", StringToBlob(`I'm a hash page`));
   TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
   TestEQLike("*I'm a hash page*", BlobToString(testfw->browser->content));
 
-  CreateDiskDirectoryRecursive(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/"), TRUE);
-  StoreDiskFile(MergePath(basedatadir, "tmp/webhare_testsuite.datastorage/folderdirect/test/blue.html"), StringToBlob(`<body><body>I'm a blue page</body></html>");`));
+  CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/folderdirect/test/", TRUE);
+  StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/folderdirect/test/blue.html", StringToBlob(`<body><body>I'm a blue page</body></html>");`));
   TestEQ(TRUE, testfw->browser->GotoWebPage(datastorage_base || "test/blue.html"));
   TestEQLike("*I'm a blue page*", BlobToString(testfw->browser->content));
 }

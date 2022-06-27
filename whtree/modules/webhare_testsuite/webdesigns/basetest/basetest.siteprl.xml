@@ -972,10 +972,10 @@
       </webrule>
       <webrule path="/redirecttowebdir/" match="initial" redirecttodir="web:/resources/tests/" />
       <webrule path="/datastorage/" match="initial">
-        <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/folderdirect/" />
-        <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/foldersha/" resolver="sha256b16" />
-        <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/foldersha_dir/" resolver="sha256b16_directory" />
-        <tryfile path="whdata::tmp/webhare_testsuite.datastorage/[siteslug]/file.shtml" />
+        <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
+        <tryfolder path="storage::webhare_testsuite/tmp/foldersha/" resolver="sha256b16" />
+        <tryfolder path="storage::webhare_testsuite/tmp/foldersha_dir/" resolver="sha256b16_directory" />
+        <tryfile path="storage::webhare_testsuite/tmp/[siteslug]/file.shtml" />
         <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
       </webrule>
       <webrule path="/tmp/subsub2/" match="initial">

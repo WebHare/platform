@@ -168,7 +168,7 @@
 
     <webrule path="allroots:/.publisher/slots/" match="initial" cachecontrol="public, max-age=1, must-revalidate">
       <addheader header="Access-Control-Allow-Origin" value="*" />
-      <tryfolder path="whdata::storage/publisher/slots" />
+      <tryfolder path="storage::publisher/slots" />
     </webrule>
 
     <!-- Assetpack caching.. cache everything for 24 hours *except* ap.css and ap.js... those should only be cached for 15 minutes -->
