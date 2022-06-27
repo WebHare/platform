@@ -471,6 +471,17 @@ setup_for_console()
 {
   mkdir -p "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
+
+  # WH 5.0 - move the unified cache (image cache) into the right place. To avoid races we *have* to do this before we start WebHare - it should normally be done in a sec...
+  if [ -d "$WEBHARE_DATAROOT"/ephemeral/system.uc2 ]; then
+    # If a conflicting dir exists, you upgraded WebHare while it was running. Removing it, images will get recreatd
+    rm -rf -- "$WEBHARE_DATAROOT"/storage/system/output/uc >/dev/null 2>&1
+    mkdir -p -- "$WEBHARE_DATAROOT"/storage/system/output
+    if ! mv "$WEBHARE_DATAROOT"/ephemeral/system.uc2 "$WEBHARE_DATAROOT"/storage/system/output/uc ; then
+      # If this failed.. cross disk partition? we'll delete it in the background and have it regenerated.
+      rm -rf -- "$WEBHARE_DATAROOT"/ephemeral/system.uc2 > /dev/null 2>&1 &
+    fi
+  fi
 }
 
 if [ -n "$SETUPENV" ]; then

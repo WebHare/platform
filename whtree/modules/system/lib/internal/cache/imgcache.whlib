@@ -562,7 +562,7 @@ PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
 PUBLIC RECORD ARRAY FUNCTION GetCurrentUnifiedCacheContents(DATETIME ignore_modified_after)
 {
   RECORD ARRAY deletion_candidates;
-  STRING imgcache_current := GetWebHareConfiguration().ephemeralroot || "system.uc2";
+  STRING imgcache_current := GetModuleStorageRoot("system") || "output/uc";
   /* Read all current images from disks as deletion candidates */
   RECORD ARRAY imgcache_subs := ReadDiskDirectory(imgcache_current,"*");
 

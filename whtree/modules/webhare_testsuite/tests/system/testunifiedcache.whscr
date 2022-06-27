@@ -414,7 +414,7 @@ STRING FUNCTION GetCacheDiskPathFromLink(STRING link)
 
   hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-  RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
+  RETURN MergePath(GetModuleStorageRoot("system") || "output/uc", hash);
 }
 
 MACRO CleanupTests()
