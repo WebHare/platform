@@ -33,7 +33,7 @@ MACRO TestSuggestFields()
 
   catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
   //having indexnames makes log analysis easier
-  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
   catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"

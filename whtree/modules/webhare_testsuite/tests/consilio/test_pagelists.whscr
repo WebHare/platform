@@ -70,7 +70,7 @@ MACRO TestSubpageIndexing()
 
   OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
   //having indexnames makes log analysis easier
-  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
   catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
 

@@ -23,7 +23,8 @@ MACRO TestThesaurus()
   DELETE FROM webhare_testsuite.consilio_index;
 
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
-  Print(`consilio:testfw_thesaurus => ${testcatalog->indexname}\n`); //having indexnames makes log analysis easier
+  //having indexnames makes log analysis easier
+  Print(`${testcatalog->tag} (${testcatalog->id}) => ${testcatalog->indexname}\n`);
 
   OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ maxgroupobjects :=      1000

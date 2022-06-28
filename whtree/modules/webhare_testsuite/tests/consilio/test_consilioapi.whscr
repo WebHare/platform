@@ -23,7 +23,7 @@ MACRO TestConsilioAPI()
   TestEq(TRUE, SELECT AS BOOLEAN ismanaged FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
 
   //having indexnames makes log analysis easier
-  Print(`consilio:testfw_apitest1 => ${testcatalog1->indexname}, consilio:testfw_apitest2 => ${testcatalog2->indexname}\n`);
+  Print(`${testcatalog1->tag} (${testcatalog1->id}) => ${testcatalog1->indexname}, ${testcatalog2->tag} (${testcatalog2->id}) => ${testcatalog2->indexname}\n`);
 
   OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ enabled := FALSE ] );
 

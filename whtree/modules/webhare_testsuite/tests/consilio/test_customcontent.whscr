@@ -60,7 +60,7 @@ MACRO TestCustomContent()
   BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
 
   //having indexnames makes log analysis easier
-  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
   search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
   RECORD res;

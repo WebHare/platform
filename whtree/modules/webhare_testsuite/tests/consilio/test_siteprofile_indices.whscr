@@ -20,7 +20,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   Testeq(TRUE, ObjectExists(maincatalog));
 
   //having indexnames makes log analysis easier
-  Print(`webhare_testsuite:testsitecatalog => ${maincatalog->indexname}\n`);
+  Print(`${maincatalog->tag} (${maincatalog->id}) => ${maincatalog->indexname}\n`);
 
   RECORD ARRAY contentsources := maincatalog->ListContentSources();
   contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources WHERE NOT isorphan;

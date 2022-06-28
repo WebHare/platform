@@ -34,7 +34,7 @@ MACRO TestBoostWords()
   catalog->AddPublisherContentSource(siteroot->id);
 
   //having indexnames makes log analysis easier
-  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
