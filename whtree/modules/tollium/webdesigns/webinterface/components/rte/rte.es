@@ -91,7 +91,7 @@ export default class ObjRTE extends ComponentBase
       , allowtags: data.allowtags.length ? data.allowtags : null
       , structure: data.structure
       , margins: data.margins
-      , csslinks: [data.cssurl]
+      , preloadedcss: data.preloadedcss
       , cssinstance: data.cssinstance
       , breakupnodes: this.isemaileditor ? [ 'blockquote' ] : []
       , hidebuttons: hidebuttons
@@ -120,6 +120,17 @@ export default class ObjRTE extends ComponentBase
   {
     this.rte.destroy();
     super.destroy();
+  }
+
+  static asyncTransformMessage(message)
+  {
+    if (message.cssurl)
+    {
+      let preload = RTE.preloadCSS([ message.cssurl ]);
+      message.preloadedcss = preload;
+      return preload.loadpromise;
+    }
+    return null;
   }
 
 /****************************************************************************************************************************

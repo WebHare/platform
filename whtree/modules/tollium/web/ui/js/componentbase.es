@@ -112,6 +112,13 @@ class ToddCompBase
     this.firstlayout = true;
 //      this.lineminheight = 0;
   }
+  /** Transform component message for it goes into the handling phase
+      Return a promise when the transformation cannot be done immediately
+  */
+  static asyncTransformMessage(message)
+  {
+    return null;
+  }
   afterConstructor(data) //needed to run actions that affect buildNode
   {
     if(data.defaultbutton)
