@@ -4559,8 +4559,12 @@ VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RE
   SWITCH (256*TypeID(received) + TypeID(expected))
   {
     CASE 256*TypeID(STRING) + TypeID(INTEGER)       { RETURN ToInteger(received,0); }
+    CASE 256*TypeID(STRING) + TypeID(INTEGER64)     { RETURN ToInteger64(received,0); }
+    CASE 256*TypeID(STRING) + TypeID(FLOAT)         { RETURN __HS_StringToFloat(received,0); }
     CASE 256*TypeID(INTEGER) + TypeID(STRING)       { RETURN ToString(received); }
     CASE 256*TypeID(STRING) + TypeID(DATETIME)      { RETURN MakeDateFromText(received); }
+    CASE 256*TypeID(STRING) + TypeID(BOOLEAN)       { RETURN ToUppercase(received) IN [ "TRUE", "1" ]; }
+    CASE 256*TypeID(INTEGER) + TypeID(BOOLEAN)      { RETURN received = 1; }
 
     CASE 256*TypeID(INTEGER64) + TypeID(INTEGER)    {
                                                       IF(received > 2147483647 OR received < -2147483648)

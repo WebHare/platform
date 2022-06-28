@@ -746,28 +746,40 @@ MACRO EnforceStructureTest()
   TestEq([ _integer64 := 123456789012345i64, _float :=123456789012345f, _money := 1234567890123m ]
          , EnforceStructure([ _integer64 := 0i64, _float := 0f, _money := 0m ], [ _integer64 := 123456789012345i64, _float := 123456789012345i64, _money := 1234567890123i64 ]));
 
-  //integer64/float/money -> integer
+  //integer64/float/money/string -> integer
   TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0i64 ]));
   TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0m ]));
   TestEq([ _int := 1 ], EnforceStructure([ _int := 0 ], [ _int := 1.49999m ]));
   TestEq([ _int := 2 ], EnforceStructure([ _int := 0 ], [ _int := 1.5m ]));
   TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := 0f ]));
   TestEq([ _int := 2 ], EnforceStructure([ _int := 0 ], [ _int := 1.5f ]));
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := "" ]));
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := "two" ]));
+  TestEq([ _int := 0 ], EnforceStructure([ _int := 0 ], [ _int := "1.5" ]));
+  TestEq([ _int := 2 ], EnforceStructure([ _int := 0 ], [ _int := "2" ]));
 
-  //integer/float/money -> integer64
+  //integer/float/money/string -> integer64
   TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0 ]));
   TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0m ]));
   TestEq([ _int64 := 1i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.49999m ]));
   TestEq([ _int64 := 2i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.5m ]));
   TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 0f ]));
   TestEq([ _int64 := 2i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 1.5f ]));
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := "" ]));
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := "two" ]));
+  TestEq([ _int64 := 0i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := "1.5" ]));
+  TestEq([ _int64 := 2i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := "2" ]));
 
-  // integer/integer64/money -> float
+  // integer/integer64/money/string -> float
   TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0 ]));
   TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0i64 ]));
   TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0m ])); // FAILS
   TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := 0m ])); // FAILS
   TestEq([ _float := 1.5f ], EnforceStructure([ _float := 0f ], [ _float := 1.5f ]));
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := "" ]));
+  TestEq([ _float := 0f ], EnforceStructure([ _float := 0f ], [ _float := "two" ]));
+  TestEq([ _float := 1.5f ], EnforceStructure([ _float := 0f ], [ _float := "1.5" ]));
+  TestEq([ _float := 2f ], EnforceStructure([ _float := 0f ], [ _float := "2" ]));
 
   // integer/integer64/float -> money
   TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := 0 ]));
@@ -776,6 +788,17 @@ MACRO EnforceStructureTest()
   TestEq([ _money := 1.5m ], EnforceStructure([ _money := 0m ], [ _money := 1.5f ]));
   TestEq([ _money := 0.00000m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000049f ]));
   TestEq([ _money := 0.00001m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000051f ]));
+  // test limits of 53-bit precision
+  TestEq([ _money := 90071992547.40992m ], EnforceStructure([ _money := 0m ], [ _money := 90071992547.40992f ]));
+  TestEq([ _money := 90071992547.40991m ], EnforceStructure([ _money := 0m ], [ _money := 90071992547.40991f ]));
+  TestEq([ _money := 90071992547.40990m ], EnforceStructure([ _money := 0m ], [ _money := 90071992547.40990f ]));
+  TestEq([ _money := -90071992547.40992m ], EnforceStructure([ _money := 0m ], [ _money := -90071992547.40992f ]));
+  TestEq([ _money := -90071992547.40991m ], EnforceStructure([ _money := 0m ], [ _money := -90071992547.40991f ]));
+  // regression test: 52-bit precision
+  TestEq([ _money := 45035996273.70495m ], EnforceStructure([ _money := 0m ], [ _money := 45035996273.70495f ]));
+  // TestEq([ _money := 45035996273.70496m ], EnforceStructure([ _money := 0m ], [ _money := "45035996273.70496" ]));
+  // TestEq([ _money := 45035996273.70496m ], EnforceStructure([ _money := 0m ], [ _money := 45035996273.70496f ]));
+  // TestEq([ _money := 45035996273.70494m ], EnforceStructure([ _money := 0m ], [ _money := 45035996273.70494f ]));
 
   //test overflows
   TestEq([ _int := 123 ], EnforceStructure([ _int := 0 ], [ _int := 123i64 ]));
@@ -799,6 +822,15 @@ MACRO EnforceStructureTest()
   TestEQ([ _int64 := 42i64 ], EnforceStructure([ _int64 := 0i64 ], [ _int64 := 10000000000000000000f ], [ outofboundsvalue := 42 ]));
   TestEQ([ _money := 42m ], EnforceStructure([ _money := 0m ], [ _money := 92233720368548i64 ], [ outofboundsvalue := 42 ]));
   TestEQ([ _money := 42m ], EnforceStructure([ _money := 0m ], [ _money := 92233720368548f ], [ outofboundsvalue := 42 ]));
+
+  TestEQ([ _bool := FALSE ], EnforceStructure([ _bool := FALSE ], [ _bool := FALSE ]));
+  TestEQ([ _bool := TRUE ], EnforceStructure([ _bool := FALSE ], [ _bool := TRUE ]));
+  TestEQ([ _bool := FALSE ], EnforceStructure([ _bool := FALSE ], [ _bool := "" ]));
+  TestEQ([ _bool := TRUE ], EnforceStructure([ _bool := FALSE ], [ _bool := "tRuE" ]));
+  TestEQ([ _bool := TRUE ], EnforceStructure([ _bool := FALSE ], [ _bool := "1" ]));
+  TestEQ([ _bool := FALSE ], EnforceStructure([ _bool := FALSE ], [ _bool := "false" ]));
+  TestEQ([ _bool := FALSE ], EnforceStructure([ _bool := FALSE ], [ _bool := 0 ]));
+  TestEQ([ _bool := TRUE ], EnforceStructure([ _bool := FALSE ], [ _bool := 1 ]));
 
   // Arrays (with normal conversions)
   TestEQ([ _ia := [ 1, 2, 3, 4 ] ], EnforceStructure([ _ia := INTEGER[] ], [ _ia := VARIANT[ 1, 1.5m, 2.9f, 4i64 ] ]));
