@@ -5,7 +5,6 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -19,6 +18,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 MACRO UpdateRequestDebugSetting(OBJECT browser)
 {
@@ -964,8 +964,6 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
       // Replace or add the new value
       lineresult := CellExists(lineresult, fld) ? CellUpdate(lineresult, fld, value) : CellInsert(lineresult, fld, value);
     }
-    ELSE IF (fld LIKE "date_*")
-      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit, fld)));
     ELSE
       lineresult := CellInsert(lineresult, fld, GetCell(hit, fld));
   }
@@ -974,123 +972,33 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
 
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
-  RECORD singleresult;
-  FOREVERY (RECORD field FROM UnpackRecord(mapping))
-  {
-    IF (CellExists(singleresult, field.name))
-      CONTINUE;
-
-    // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
-    IF (CellExists(lineresult, field.name))
-    {
-      VARIANT value := GetCell(lineresult, field.name);
-      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)) AND RecordExists(value))
-      {
-        // Recursively convert the subfields of this RECORD (ARRAY) field
-        IF (TypeID(field.value) = TypeID(RECORD ARRAY))
-        {
-          // Expecting an array (this returns an array with one record if the actual result was a single record)
-          RECORD ARRAY subresults;
-          // Parse the records within the array
-          FOREVERY (RECORD subvalue FROM TypeID(value) = TypeID(RECORD ARRAY) ? value : RECORD[ value ])
-            INSERT ParseSingleElasticsearchResult(subvalue, field.value) INTO subresults AT END;
-          singleresult := CellInsert(singleresult, field.name, subresults);
-        }
-        ELSE
-        {
-          // Parse the result record (this returns the first record if the actual result was an array)
-          singleresult := CellInsert(singleresult, field.name, ParseSingleElasticsearchResult(value, field.value));
-        }
-        CONTINUE;
-      }
-      ELSE
-      {
-        // Convert values or arrays of values
-        INTEGER mappingtype := TypeID(field.value);
-        BOOLEAN mappingisarray := IsTypeIDArray(mappingtype);
-        IF (mappingisarray)
-          mappingtype := TypeID(GetArrayTypeDefaultElement(mappingtype));
-        BOOLEAN valueisarray := IsTypeIDArray(TypeID(value));
-
-        VARIANT mappedvalue;
-        IF (mappingisarray)
-        {
-          mappedvalue := GetTypeDefaultArray(mappingtype);
-          IF (valueisarray)
-          {
-            // Expecting an array, got an array, convert all values
-            FOREVERY (VARIANT val FROM value)
-            {
-              val := DecodeFieldValue(val, mappingtype);
-              IF (NOT IsDefaultValue(val))
-                INSERT val INTO mappedvalue AT END;
-            }
-          }
-          ELSE
-          {
-            // Expecting an array, got a single value, make an array containg the converted single value
-            value := DecodeFieldValue(value, mappingtype);
-            IF (NOT IsDefaultValue(value))
-              INSERT value INTO mappedvalue AT END;
-          }
-        }
-        ELSE IF (valueisarray)
-        {
-          // Expecting a single value, got an array, take the first array element and convert it
-          IF (Length(value) > 0)
-            mappedvalue := DecodeFieldValue(value[0], mappingtype);
-          ELSE
-            mappedvalue := GetTypeDefaultValue(mappingtype);
-        }
-        ELSE
-        {
-          // Expecting a single value, got a single value, convert it
-          mappedvalue := DecodeFieldValue(value, mappingtype);
-        }
-
-        IF (NOT IsDefaultValue(mappedvalue))
-        {
-          singleresult := CellInsert(singleresult, field.name, mappedvalue);
-          CONTINUE;
-        }
-      }
-    }
-    // If we got here, we have to insert the default field value
-    singleresult := CellInsert(singleresult, field.name, GetTypeDefaultValue(TypeID(field.value)));
-  }
-  RETURN singleresult;
+  RETURN EnforceStructure(mapping, FixupArrayFields(lineresult, mapping));
 }
 
-VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
+// Elasticsearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
+// it's not returned as an array, so this function convert single values into arrays where expected.
+RECORD FUNCTION FixupArrayFields(RECORD lineresult, RECORD mapping)
 {
-  IF (TypeID(value) = expectedtype)
+  FOREVERY (RECORD field FROM UnpackRecord(lineresult))
   {
-    // Either STRING or DATETIME don't have to be converted
-    RETURN value;
-  }
-  ELSE IF (TypeID(value) = TypeID(STRING))
-  {
-    // Convert STRING to desired type (either BOOLEAN, DATETIME or a numeric type)
-    // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-    value := Substitute(value, "\x1D", "");
-    value := Substitute(value, "\x1C", "");
-
-    IF (expectedtype = TypeID(DATETIME))
-      value := MakeDateFromText(value);
-    ELSE
+    IF (NOT CellExists(mapping, field.name))
+      CONTINUE;
+    VARIANT fieldmapping := GetCell(mapping, field.name);
+    BOOLEAN valuechanged;
+    IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(field.value)))
     {
-      // We're decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-      value := DecodeJSON(value);
+      VARIANT value := GetTypeDefaultValue(TypeID(fieldmapping));
+      INSERT field.value INTO value AT END;
+      field := CELL[ ...field, value ];
+      valuechanged := TRUE;
     }
+    IF (TypeID(field.value) = TypeID(RECORD))
+      field.value := FixupArrayFields(field.value, fieldmapping);
+    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      field.value := SELECT AS RECORD ARRAY FixupArrayFields(value, PickFirst(fieldmapping)) FROM field.value;
+    ELSE IF (NOT valuechanged)
+      CONTINUE;
+    lineresult := CellInsert(CellDelete(lineresult, field.name), field.name, field.value);
   }
-  IF (CanCastTypeTo(TypeID(value), expectedtype))
-    RETURN CastTo(value, expectedtype);
-  ELSE IF (TypeID(value) = TypeID(FLOAT))
-  {
-    IF (expectedtype = TypeID(MONEY))
-      RETURN FloatToMoney(value);
-    ELSE IF (expectedtype = TypeID(INTEGER64))
-      RETURN INTEGER64(value);
-  }
-  RETURN DEFAULT RECORD;
+  RETURN lineresult;
 }
