@@ -83,7 +83,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
     THROW NEW Exception("Query field is required for match query");
 
   STRING ARRAY searchvalue;
-  IF (TypeID(value) = TypeID(INTEGER))
+  IF (TypeID(value) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
   {
     IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
       THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER match query`);
@@ -95,7 +95,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
       THROW NEW Exception(`Invalid match type '${matchtype}' for STRING match query`);
     searchvalue := STRING[ value ];
   }
-  ELSE IF (TypeID(value) = TypeID(INTEGER ARRAY))
+  ELSE IF (TypeID(value) IN [ TypeID(INTEGER ARRAY), TypeID(INTEGER64 ARRAY) ])
   {
     IF (matchtype NOT IN [ "IN", "CONTAINS" ])
       THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER ARRAY match query`);

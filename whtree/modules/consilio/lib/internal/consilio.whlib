@@ -278,7 +278,7 @@ PUBLIC STRING FUNCTION EncodeConsilioFieldValue(STRING field, VARIANT value)
     {
       RETURN value;
     }
-    CASE TypeID(INTEGER)
+    CASE TypeID(INTEGER), TypeID(INTEGER64)
     {
       RETURN ToString(value);
     }
@@ -302,7 +302,7 @@ PUBLIC STRING FUNCTION EncodeConsilioFieldValue(STRING field, VARIANT value)
     {
       RETURN Detokenize(value, " ");
     }
-    CASE TypeID(INTEGER ARRAY)
+    CASE TypeID(INTEGER ARRAY), TypeID(INTEGER64 ARRAY)
     {
       RETURN Detokenize((SELECT AS STRING ARRAY ToString(val) FROM ToRecordArray(value, "val")), " ");
     }
@@ -322,7 +322,7 @@ PUBLIC STRING FUNCTION EncodeConsilioFieldValue(STRING field, VARIANT value)
     {
       RETURN Detokenize((SELECT AS STRING ARRAY val ? "true" : "false" FROM ToRecordArray(value, "val")), " ");
     }
-    DEFAULT { THROW NEW Exception(`Unsupport value type ${GetTypeName(TypeID(value))} for field ${field}`); }
+    DEFAULT { THROW NEW Exception(`Unsupported value type ${GetTypeName(TypeID(value))} for field ${field}`); }
   }
 }
 
@@ -365,6 +365,11 @@ PUBLIC RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requ
             singleresult := CellInsert(singleresult, field.name, ToInteger(value, 0));
             CONTINUE;
           }
+          CASE TypeID(INTEGER64)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToInteger64(value, 0));
+            CONTINUE;
+          }
           CASE TypeID(MONEY)
           {
             singleresult := CellInsert(singleresult, field.name, ToMoney(value, 0));
@@ -387,32 +392,37 @@ PUBLIC RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requ
           }
           CASE TypeID(STRING ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, Tokenize(value, " "));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? Tokenize(value, " ") : STRING[]);
             CONTINUE;
           }
           CASE TypeID(INTEGER ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, SELECT AS INTEGER ARRAY ToInteger(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS INTEGER ARRAY ToInteger(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val") : INTEGER[]);
+            CONTINUE;
+          }
+          CASE TypeID(INTEGER64 ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS INTEGER64 ARRAY ToInteger64(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val") : INTEGER64[]);
             CONTINUE;
           }
           CASE TypeID(MONEY ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, SELECT AS MONEY ARRAY ToMoney(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS MONEY ARRAY ToMoney(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val") : MONEY[]);
             CONTINUE;
           }
           CASE TypeID(FLOAT ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, SELECT AS FLOAT ARRAY ToFloat(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS FLOAT ARRAY ToFloat(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val") : FLOAT[]);
             CONTINUE;
           }
           CASE TypeID(DATETIME ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, SELECT AS DATETIME ARRAY StringToDatetime(val) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS DATETIME ARRAY StringToDatetime(val) FROM ToRecordArray(Tokenize(value, " "), "val") : DATETIME[]);
             CONTINUE;
           }
           CASE TypeID(BOOLEAN ARRAY)
           {
-            singleresult := CellInsert(singleresult, field.name, SELECT AS BOOLEAN ARRAY val = "true" FROM ToRecordArray(Tokenize(value, " "), "val"));
+            singleresult := CellInsert(singleresult, field.name, value != "" ? SELECT AS BOOLEAN ARRAY val = "true" FROM ToRecordArray(Tokenize(value, " "), "val") : BOOLEAN[]);
             CONTINUE;
           }
         }

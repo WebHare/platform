@@ -1926,7 +1926,8 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
   RECORD defaultmapping;
   RECORD ARRAY mapping := GetIndexMapping(indexid);
   FOREVERY (RECORD field FROM mapping)
-    defaultmapping := CellInsert(defaultmapping, field.name, field.defaultvalue);
+    IF (NOT CellExists(defaultmapping, field.name))
+      defaultmapping := CellInsert(defaultmapping, field.name, field.defaultvalue);
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
 
