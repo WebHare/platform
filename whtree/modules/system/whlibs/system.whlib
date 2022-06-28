@@ -4187,6 +4187,7 @@ PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
     @param translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
       to remap JSON keys that aren't valid cell names in HareScript.
     @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */
@@ -4217,6 +4218,7 @@ PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTS
     @param indata JSON-encoded value
     @param translations @includecelldef #DecodeJSONBlob.translations
     @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */

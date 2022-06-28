@@ -140,6 +140,11 @@ MACRO TestJSON()
   TestThrowsLike("Unexpected option*NOSUCHOPTION*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ nosuchoption := TRUE ]));
   TestThrowsLike("*ALLOWCOMMENTS*wrong type*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ allowcomments := 16 ]));
 
+  // alltostring
+  TestEQ([ i := "1234", i64 := "9223372036854775807", f := "3.14159265", b := "true", s := "test", a := VARIANT[ "1234", "true", [ f := "3.14159265" ] ] ], DecodeJSON(`{"a":[1234,true,{"f":3.14159265}],"b":true,"f":3.14159265,"i":1234,"i64":9223372036854775807,"s":"test"}`, DEFAULT RECORD, [ alltostring := TRUE ]));
+  TestThrowsLike("*ALLTOSTRING*wrong type*", PTR DecodeJSON(`4`, DEFAULT RECORD, [ alltostring := 16 ]));
+  TestThrowsLike("*ALLTOSTRING*wrong type*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ alltostring := 16 ]));
+
   TestEQ(DEFAULT RECORD, DecodeJSON("invalid"));
   TestEQ(DEFAULT RECORD, DecodeJSONBlob(StringToBlob("invalid")));
 }
