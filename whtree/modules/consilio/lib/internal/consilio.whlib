@@ -1,0 +1,431 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+PUBLIC ASYNC FUNCTION WaitForConsilio(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
+{
+  RETURN AWAIT CreatePromise(PTR ConnectConsilio(indexmgrid, #1, #2, waituntil ?? MAX_DATETIME));
+}
+
+/** @short Open connection to Consilio IndexManager
+    @return Connection status: 0 = Success, >0 = HTTP Error code, -1 = Connection
+         error, -2 = Unknown indexmanager or empty indexmanager address
+*/
+PUBLIC ASYNC MACRO ConnectConsilio(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCTION PTR reject, DATETIME waituntil)
+{
+  WHILE (GetCurrentDateTime() < waituntil)
+  {
+    RECORD indexmanager;
+    IF (indexmanagerconnections->Has(indexmgrid))
+    {
+      indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    }
+    ELSE
+    {
+      STRING address := SELECT AS STRING COLUMN address FROM consilio.indexmanagers WHERE id = indexmgrid;
+      IF (address = "builtin")
+        address := "127.0.0.1:" || GetWebhareConfiguration().baseport + 3;
+      IF (address NOT LIKE "*:*")
+      {
+        reject(NEW Exception(SearchInvalidArgument));
+        RETURN;
+      }
+
+      indexmanager := [ address := address
+                      , browser := DEFAULT OBJECT
+                      ];
+    }
+    IF (ObjectExists(indexmanager.browser))
+    {
+      resolve(SearchOk);
+      RETURN;
+    }
+
+    OBJECT browser := NEW WebBrowser();
+    browser->timeout := consilio_timeout * 1000;
+
+    FetcherDebug(ConsilioDebugInfo, "Connecting to Consilio");
+    IF (NOT browser->SendRawRequest("HEAD", "http://" || indexmanager.address || "/connect", DEFAULT RECORD ARRAY, DEFAULT BLOB))
+    {
+      FetcherDebug(ConsilioDebugInfo, "Could not connect to Consilio " || indexmgrid || " on " || indexmanager.address);
+    }
+    ELSE
+    {
+      indexmanager.browser := browser;
+      indexmanagerconnections->Add(indexmgrid, indexmanager);
+
+      // Check if the indexmanager should be configured
+      STRING configure := indexmanager.browser->GetResponseHeader("Configure");
+      IF (configure != "")
+      {
+        IF (running_in_fetcher)
+        {
+          Print("Defer:connectionreset\n");
+          Print("Command:CONFIGURE indexmanager " || configure || "\n");
+        }
+      }
+
+      // Check if index should be checked or rebuilt
+      IF (indexmanager.browser->GetResponseHeader("Index-Status") = "check")
+      {
+        LogDebug("consilio", "ContentSourceStatus", "ConnectConsilio");
+        IF (running_in_fetcher)
+        {
+          Print("Defer:connectionreset\n");
+          Print("Command:UPDATEINDEX 0 0 setstatus\n"); // Send a general UPDATEINDEX command, set index status if done
+        }
+      }
+
+      IF (indexmanager.browser->GetHTTPStatusCode() = 200)
+      {
+        resolve(SearchOk);
+        RETURN;
+      }
+
+      IF (indexmanager.browser->GetSocketError() = -9) // timeout
+        FetcherDebug(ConsilioDebugInfo, "Timeout while connecting to Consilio " || indexmgrid || " on " || indexmanager.address);
+      ELSE
+        FetcherDebug(ConsilioDebugInfo, "Could not connect to Consilio " || indexmgrid || " on " || indexmanager.address || ", got " || indexmanager.browser->GetHTTPStatusCode() || ":" || indexmanager.browser->GetHTTPStatusText());
+    }
+
+    // Wait before trying again
+    AWAIT CreateSleepPromise(1000);
+  }
+
+  reject(NEW Exception(SearchTimeOutError));
+}
+
+
+/** @short Send a command to the IndexManager
+    @param indexmgrid Id of the indexmanager to connect to
+    @param command The command to send
+    @param vars Variables for the command
+    @cell(string) vars.name Variable name
+    @cell vars.value Variable value (STRING, can be BLOB when method is "POST-MULTIPART")
+    @param method "GET", "POST", or "POST-MULTIPART"
+*/
+PUBLIC RECORD FUNCTION SendToConsilio(INTEGER indexmgrid, INTEGER indexid, STRING command, RECORD ARRAY vars, STRING method)
+{
+  STRING result := WaitForPromise(WaitForConsilio(indexmgrid));
+  IF (result != SearchOk) // could not connect or index should be checked
+  {
+    IF (running_in_fetcher AND print_defer_connection)
+      Print("Defer:connection\n");
+    RETURN [ status := result ];
+  }
+
+  INTEGER statuscode;
+  RECORD indexmanager;
+  FOR (INTEGER retry := 0; retry < consilio_maxtries; retry := retry + 1) // Repeat until succesfully sent
+  {
+    // If WaitForConsilio returned SearchOk, the indexmanager is present in indexmanagerconnections
+    indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    IF (NOT ObjectExists(indexmanager.browser))
+    {
+      IF (running_in_fetcher AND print_defer_connection)
+        Print("Defer:connection\n");
+      RETURN [ status := SearchConnectError ];
+    }
+
+    STRING indexname := indexid != 0 ? "/index/" || indexid : "";
+
+    BOOLEAN success;
+    IF (method = "POST")
+    {
+      success := indexmanager.browser->PostWebPage("http://" || indexmanager.address || indexname || command, vars, "application/x-www-form-urlencoded");
+    }
+    ELSE IF (method = "POST-MULTIPART")
+    {
+      success := indexmanager.browser->PostWebPage("http://" || indexmanager.address || indexname || command, vars, "multipart/form-data");
+    }
+    ELSE
+    {
+      FOREVERY (RECORD field FROM vars)
+        command := AddVariableToUrl(command, field.name, field.value);
+      success := indexmanager.browser->GotoWebPage("http://" || indexmanager.address || indexname || command);
+    }
+
+    statuscode := indexmanager.browser->GetHTTPStatusCode();
+    IF (NOT success)
+    {
+      IF (indexmanager.browser->GetSocketError() = -9 OR statuscode = 0) // timeout, broken connection
+      {
+        FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
+        result := WaitForPromise(WaitForConsilio(indexmgrid, AddTimeToDate(consilio_timeout * 1000, GetCurrentDateTime())));
+        IF (result != SearchOk) // could not connect or index should be checked
+        {
+          IF (running_in_fetcher AND print_defer_connection)
+            Print("Defer:connection\n");
+          RETURN [ status := result ];
+        }
+        FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
+        // Don't break, try to send request again with new connection
+      }
+      ELSE IF (statuscode = 503)
+      {
+        // The IndexManager is busy doing something, so we'll just have to wait
+        // If we didn't get a time to wait, we'll wait for 30 seconds
+        INTEGER waitseconds := ToInteger(indexmanager.browser->GetResponseHeader("Retry-After"), 30);
+        FetcherDebug(ConsilioDebugAll, "Sleeping " || waitseconds || " seconds");
+        IF (running_in_fetcher)
+        {
+          Print("Defer:sleep " || waitseconds || "\n");
+          // Flush buffer to let the UrlManager know we're sleeping
+          FlushOutputBuffer();
+          Sleep(waitseconds * 1000);
+          Print("Done\n");
+        }
+        BREAK; // The item we we're working on is queued again, just wait for the next item to be scheduled
+      }
+      ELSE
+      {
+        // Got an unexpected code, but we'll let it slide
+        FetcherDebug(ConsilioDebugInfo, "Unexpected response code " || statuscode || ": " || indexmanager.browser->GetHTTPStatusText());
+        LogDebug("consilio", "SendToConsilio", indexmanager.browser->GetSocketError(), statuscode, indexmanager.browser->GetHTTPStatusText());
+        BREAK;
+      }
+    }
+    ELSE
+    {
+      // Got 2xx response code, everything is alright
+      BREAK;
+    }
+  }
+
+  // Check if index should be checked or rebuilt
+  IF (indexmanager.browser->GetResponseHeader("Index-Status") = "check")
+  {
+    LogDebug("consilio", "ContentSourceStatus", "SendToConsilio");
+    IF (running_in_fetcher)
+      Print("Command:UPDATEINDEX 0 0 setstatus\n"); // Send a general UPDATEINDEX command, set index status if done
+  }
+
+  RETURN
+      [ status  := statuscode = 503 ? SearchSleep
+                 : statuscode != 200 ? SearchHTTPError
+                 : SearchOk
+      , code    := indexmanager.browser->GetSocketError() ?? statuscode
+      , content := indexmanager.browser->content
+      , headers := indexmanager.browser->responseheaders
+      ];
+}
+
+/** @short Configure the IndexManager
+    @param indexmgrid The indexmanager to configure
+    @param param What to configure ("all" or "stopwords")
+    @return Result status
+*/
+PUBLIC STRING FUNCTION ConfigureConsilioIndexManager(INTEGER indexmgrid, STRING param)
+{
+  FetcherDebug(ConsilioDebugAll, "Configuring indexmanager " || indexmgrid || ": " || EncodeJava(param));
+
+  // Select the types we're interested in
+  STRING ARRAY types;
+  IF (ToUppercase(param) IN [ "ALL", "STOPWORDS" ])
+    INSERT "stopwords" INTO types AT END;
+
+  IF (Length(types) > 0)
+  {
+    STRING ARRAY dirs := [ GetInstallationRoot() || "etc/lang"
+                         , GetInstallationRoot() || "modules/consilio/data/lang"
+                         ];
+    STRING ARRAY sent;
+    FOREVERY (STRING dir FROM dirs)
+    {
+      FOREVERY (STRING type FROM types)
+      {
+        FOREVERY (RECORD file FROM ReadDiskDirectory(dir, "*_" || type || ".xml"))
+        {
+          IF (file.type = 0 AND ToUppercase(file.name) NOT IN sent)
+          {
+            INSERT ToUppercase(file.name) INTO sent AT END;
+            BLOB data := GetDiskResource(dir || "/" || file.name);
+            FetcherDebug(ConsilioDebugAll, "Sending configuration file " || dir || "/" || file.name || " (" || Length(data) || ")");
+            RECORD response := SendToConsilio(indexmgrid, 0, "/configure", [ [ name := "type", value := type ]
+                                                                           , [ name := "file", binary := TRUE, value := data ]
+                                                                           ], "POST-MULTIPART");
+            IF (response.status != SearchOk)
+              RETURN response.status;
+          }
+        }
+      }
+    }
+  }
+
+  RETURN SearchOk;
+}
+
+PUBLIC STRING FUNCTION EncodeConsilioFieldValue(STRING field, VARIANT value)
+{
+  SWITCH (TypeID(value))
+  {
+    CASE TypeID(STRING)
+    {
+      RETURN value;
+    }
+    CASE TypeID(INTEGER)
+    {
+      RETURN ToString(value);
+    }
+    CASE TypeID(MONEY)
+    {
+      RETURN FormatMoney(value, 0, ".", "", FALSE);
+    }
+    CASE TypeID(FLOAT)
+    {
+      RETURN FormatFloat(value, 20);
+    }
+    CASE TypeID(DATETIME)
+    {
+      RETURN DateTimeToString(value);
+    }
+    CASE TypeID(BOOLEAN)
+    {
+      RETURN value ? "true" : "false";
+    }
+    CASE TypeID(STRING ARRAY)
+    {
+      RETURN Detokenize(value, " ");
+    }
+    CASE TypeID(INTEGER ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY ToString(val) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(MONEY ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY FormatMoney(val, 0, ".", "", FALSE) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(FLOAT ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY FormatFloat(val, 20) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(DATETIME ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY DateTimeToString(val) FROM ToRecordArray(value, "val")), " ");
+    }
+    CASE TypeID(BOOLEAN ARRAY)
+    {
+      RETURN Detokenize((SELECT AS STRING ARRAY val ? "true" : "false" FROM ToRecordArray(value, "val")), " ");
+    }
+    DEFAULT { THROW NEW Exception(`Unsupport value type ${GetTypeName(TypeID(value))} for field ${field}`); }
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requested_fields, RECORD mapping)
+{
+  // Read result lines from returned content
+  INTEGER resultstream := OpenBlobAsFile(content);
+  STRING line := ReadLineFrom(resultstream, 32768, TRUE);
+  RECORD ARRAY results;
+  WHILE (TRUE)
+  {
+    // If we got an empty line, check if we're at the end of the content
+    IF (line = "" AND IsAtEndOfStream(resultstream))
+      BREAK; // Yes, we're done
+
+    STRING ARRAY received_fields := Tokenize(line,'\t');
+    RECORD lineresult;
+    FOREVERY (STRING fld FROM requested_fields)
+      lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
+
+    RECORD singleresult;
+    FOREVERY (RECORD field FROM UnpackRecord(mapping))
+    {
+      IF (CellExists(singleresult, field.name))
+        CONTINUE;
+
+      // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+      IF (CellExists(lineresult, field.name))
+      {
+        VARIANT value := GetCell(lineresult, field.name);
+        SWITCH (TypeID(field.value))
+        {
+          CASE TypeID(STRING)
+          {
+            singleresult := CellInsert(singleresult, field.name, value);
+            CONTINUE;
+          }
+          CASE TypeID(INTEGER)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToInteger(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(MONEY)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToMoney(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(FLOAT)
+          {
+            singleresult := CellInsert(singleresult, field.name, ToFloat(value, 0));
+            CONTINUE;
+          }
+          CASE TypeID(DATETIME)
+          {
+            singleresult := CellInsert(singleresult, field.name, StringToDateTime(value));
+            CONTINUE;
+          }
+          CASE TypeID(BOOLEAN)
+          {
+            singleresult := CellInsert(singleresult, field.name, value = "true");
+            CONTINUE;
+          }
+          CASE TypeID(STRING ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, Tokenize(value, " "));
+            CONTINUE;
+          }
+          CASE TypeID(INTEGER ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS INTEGER ARRAY ToInteger(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(MONEY ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS MONEY ARRAY ToMoney(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(FLOAT ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS FLOAT ARRAY ToFloat(val, 0) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(DATETIME ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS DATETIME ARRAY StringToDatetime(val) FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+          CASE TypeID(BOOLEAN ARRAY)
+          {
+            singleresult := CellInsert(singleresult, field.name, SELECT AS BOOLEAN ARRAY val = "true" FROM ToRecordArray(Tokenize(value, " "), "val"));
+            CONTINUE;
+          }
+        }
+      }
+      // If we got here, we have to insert the default field value
+      singleresult := CellInsert(singleresult, field.name, field.value);
+    }
+    IF (RecordExists(singleresult))
+      INSERT singleresult INTO results AT END;
+
+    line := ReadLineFrom(resultstream, 32768, TRUE);
+  }
+  CloseBlobFile(resultstream);
+
+  RETURN results;
+}
