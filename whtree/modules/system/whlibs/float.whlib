@@ -6,10 +6,10 @@
     @topic harescript-core/float
 */
 
+LOADLIB "wh::internal/interface.whlib";
+
 FLOAT FUNCTION __HS_TOFLOAT(VARIANT val) __ATTRIBUTES__(EXTERNAL);
-INTEGER FUNCTION __HS_TOINTEGER(VARIANT val) __ATTRIBUTES__(EXTERNAL);
 STRING FUNCTION __HS_FloatToString(FLOAT val, INTEGER digits) __ATTRIBUTES__(EXTERNAL);
-FLOAT FUNCTION __HS_StringToFloat(STRING val, FLOAT defval) __ATTRIBUTES__(EXTERNAL);
 
 
 

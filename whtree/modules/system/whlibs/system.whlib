@@ -4187,6 +4187,7 @@ PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
     @param translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
       to remap JSON keys that aren't valid cell names in HareScript.
     @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */
@@ -4217,6 +4218,7 @@ PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTS
     @param indata JSON-encoded value
     @param translations @includecelldef #DecodeJSONBlob.translations
     @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */
@@ -4559,8 +4561,12 @@ VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RE
   SWITCH (256*TypeID(received) + TypeID(expected))
   {
     CASE 256*TypeID(STRING) + TypeID(INTEGER)       { RETURN ToInteger(received,0); }
+    CASE 256*TypeID(STRING) + TypeID(INTEGER64)     { RETURN ToInteger64(received,0); }
+    CASE 256*TypeID(STRING) + TypeID(FLOAT)         { RETURN __HS_StringToFloat(received,0); }
     CASE 256*TypeID(INTEGER) + TypeID(STRING)       { RETURN ToString(received); }
     CASE 256*TypeID(STRING) + TypeID(DATETIME)      { RETURN MakeDateFromText(received); }
+    CASE 256*TypeID(STRING) + TypeID(BOOLEAN)       { RETURN ToUppercase(received) IN [ "TRUE", "1" ]; }
+    CASE 256*TypeID(INTEGER) + TypeID(BOOLEAN)      { RETURN received = 1; }
 
     CASE 256*TypeID(INTEGER64) + TypeID(INTEGER)    {
                                                       IF(received > 2147483647 OR received < -2147483648)

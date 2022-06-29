@@ -109,6 +109,9 @@ class JSONParser
         /// Whether comments are allowed
         bool allowcomments;
 
+        /// Whether all values are to be returned as string
+        bool alltostring;
+
         /// Whether we parse into JSONArray and JSONObject
         bool wrapobjects;
 
@@ -119,7 +122,7 @@ class JSONParser
         bool WrapArray(HSVM_VariableId var);
 
     public:
-        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId _translations);
+        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId _translations);
 
         bool HandleByte(uint8_t byte);
         bool Finish(HSVM_VariableId target);
@@ -162,7 +165,7 @@ std::ostream & operator <<(std::ostream &out, JSONParser::ParseState parsestate)
 }
 
 
-JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId _translations)
+JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId _translations)
 : vm(_vm)
 , state(TS_Default)
 , comment_after_numberprefix(false)
@@ -175,6 +178,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobj
 , hson(_hson)
 , allowemptykey(false)
 , allowcomments(_allowcomments)
+, alltostring(_alltostring)
 , wrapobjects(_wrapobjects)
 {
         root = HSVM_AllocateVariable(vm);
@@ -985,6 +989,13 @@ bool JSONParser::ParseSimpleValue(HSVM_VariableId target, std::string const &tok
 
         case JTT_Token:
             {
+                    // Don't check value, just return as string
+                    if (alltostring)
+                    {
+                            HSVM_StringSetSTD(vm, target, token);
+                            return true;
+                    }
+
                     const char *str_null = "null";
                     const char *str_false = "false";
                     const char *str_true = "true";
@@ -1012,6 +1023,13 @@ bool JSONParser::ParseSimpleValue(HSVM_VariableId target, std::string const &tok
 
         case JTT_Number:
             {
+                    // Don't check value, just return as string
+                    if (alltostring)
+                    {
+                            HSVM_StringSetSTD(vm, target, token);
+                            return true;
+                    }
+
                     bool negate = false;
 
                     Blex::DecimalFloat value;
@@ -2029,7 +2047,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _wrapobjects, translations) {}
+                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _alltostring, _wrapobjects, translations) {}
 
                 JSONParser jsonparser;
 
@@ -2061,6 +2079,7 @@ namespace
 struct DecoderOptions
 {
         bool allowcomments;
+        bool alltostring;
         bool wrapobjects;
 };
 
@@ -2076,6 +2095,14 @@ bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOption
                         if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
                         {
                                 options->allowcomments = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_alltostring)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->alltostring = HSVM_BooleanGet(*vm, var);
                                 continue;
                         }
                 }
@@ -2115,7 +2142,7 @@ void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(1), &decoderopts))
             return;
 
-        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.wrapobjects, HSVM_Arg(2)));
+        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, HSVM_Arg(2)));
         context->parsers[parser->GetId()] = parser;
 
         HSVM_IntegerSet(*vm, id_set, parser->GetId());
@@ -2170,7 +2197,7 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(2), &decoderopts))
             return;
 
-        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.wrapobjects, HSVM_Arg(3));
+        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, HSVM_Arg(3));
         for (std::string::iterator it = data.begin(); it != data.end(); ++it)
             if (!jsonparser.HandleByte(static_cast< uint8_t >(*it)))
                 break;
