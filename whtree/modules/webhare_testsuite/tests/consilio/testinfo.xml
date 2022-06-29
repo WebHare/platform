@@ -3,8 +3,6 @@
   <param name="indexdir" value="$temp_dir$testindex"/>
   <param name="listenport" value="35000"/>
 
-  <!-- TODO except for testindexmanager, all tests should eventually drop their unlessenvironset="TESTFW_SETUP_ELASTICSEARCH" and xfail version-->
-
   <test script="test_queryparser.whscr" />
   <test script="test_tika.whscr" />
 

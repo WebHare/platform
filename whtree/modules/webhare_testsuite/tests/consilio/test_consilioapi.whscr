@@ -76,7 +76,7 @@ MACRO TestConsilioAPI()
 MACRO TestForegroundIndexing()
 {
   testfw->BeginWork();
-  STRING testgroup := "tg_" || generateufs128bitid();
+  STRING testgroup := "tg_" || GenerateUFS128BitId();
   DELETE FROM webhare_testsuite.consilio_index;
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
       VALUES(testgroup, testgroup || "obj1", MakeDate(1970, 1, 10), "text__" || testgroup);

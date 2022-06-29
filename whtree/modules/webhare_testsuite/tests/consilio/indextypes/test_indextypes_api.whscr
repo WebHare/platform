@@ -7,7 +7,6 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
 LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/tolliumapps/filemanager/inspect/consilio.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

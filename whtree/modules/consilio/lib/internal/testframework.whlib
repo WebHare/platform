@@ -86,6 +86,11 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
     RETURN "webhare_testsuite:consiliotest_3";
   }
 
+  PUBLIC STRING FUNCTION GetCustomContentName()
+  {
+    RETURN "webhare_teststuite:beta_customsource";
+  }
+
   PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalogname)
   {
     RETURN

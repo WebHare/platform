@@ -320,10 +320,14 @@
 
   <consilio>
     <!-- modern syntax -->
-    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" priority="9">
+    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" priority="9" fieldgroups="pagelistfields">
       <customsource tag="loremindex" contentobject="lib/consilio/loremindex.whlib#IndexLibrary"  />
       <customsource tag="dbindex" contentobject="lib/consilio/dbindex.whlib#DBContent"  />
     </catalog>
+
+    <fieldgroup tag="pagelistfields">
+      <text name="myfield1" />
+    </fieldgroup>
 
     <!-- legacy syntax -->
     <index tag="testindex">
@@ -367,17 +371,12 @@
       <text name="testsuite" />
     </fieldgroup>
 
-    <index tag="circular_module_reference">
-      <addfieldgroup ref="consilio:circular_test_reference_group" />
-    </index>
+    <catalog tag="circular_module_reference" managed="false" fieldgroups="consilio:circular_test_reference_group" />
     <fieldgroup tag="circular_test_reference_group">
       <addfieldgroup ref="consilio:circular_test_reference_group" />
     </fieldgroup>
 
-    <index tag="duplicate_fieldnames">
-      <addfieldgroup ref="fields_1" />
-      <addfieldgroup ref="fields_2" />
-    </index>
+    <catalog tag="duplicate_fieldnames" managed="false" fieldgroups="fields_1 fields_2" />
     <fieldgroup tag="fields_1">
       <text name="textfield" />
     </fieldgroup>
@@ -385,16 +384,12 @@
       <text name="textfield" />
     </fieldgroup>
 
-    <index tag="circular_index_direct">
-      <addfieldgroup ref="circular" />
-    </index>
+    <catalog tag="circular_index_direct" managed="false" fieldgroups="circular" />
     <fieldgroup tag="circular">
       <addfieldgroup ref="circular" />
     </fieldgroup>
 
-    <index tag="circular_index_indirect">
-      <addfieldgroup ref="circular_1" />
-    </index>
+    <catalog tag="circular_index_indirect" managed="false" fieldgroups="circular_1" />
     <fieldgroup tag="circular_1">
       <record name="record_1">
         <addfieldgroup ref="circular_2" />

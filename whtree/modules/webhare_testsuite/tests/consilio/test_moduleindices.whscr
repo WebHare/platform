@@ -1,4 +1,5 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -9,7 +10,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 STRING testindex_indexname;
 
@@ -22,6 +23,10 @@ MACRO Prepare()
   OBJECT testindex := OpenConsilioCatalog("webhare_testsuite:testindex");
   testindex->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
   OpenConsilioCatalog("webhare_testsuite:module_reference")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
+  OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
+  OpenConsilioCatalog("webhare_testsuite:circular_index_direct")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
+  OpenConsilioCatalog("webhare_testsuite:circular_index_indirect")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
+  OpenConsilioCatalog("webhare_testsuite:circular_module_reference")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
   testfw->CommitWork();
 
   testindex_indexname := (SELECT AS STRING indexname FROM consilio.indices WHERE id = testindex->id);
@@ -122,37 +127,20 @@ MACRO TestESCreationAPIs()
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  testfw->BeginWork();
-  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
-  testfw->CommitWork();
-
-  TestThrowsLike("Duplicate property name*", PTR catalog->EnsureIndex());
+  TestThrowsLIKE("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  testfw->BeginWork();
-  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
-  testfw->CommitWork();
-
-  TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
-
+  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
-  testfw->BeginWork();
-  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
-  testfw->CommitWork();
   TestEq(TRUE, ObjectExists(catalog));
-
-  TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
+  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  testfw->BeginWork();
-  catalog->UpdateCatalog([ indexmanager := GetDefaultIndexManager() ]);
-  testfw->CommitWork();
-
-  TestThrowsLike("*Index is too deep*", PTR catalog->EnsureIndex());
+  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
 }
 
 MACRO TestESBulkInsertion()

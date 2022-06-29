@@ -2,12 +2,10 @@
 
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::consilio/lib/catalog.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
@@ -16,10 +14,8 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 
-INTEGER indexid;
-INTEGER contentsource;
-
 OBJECT search_obj;
+OBJECT contentsource;
 
 RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -36,7 +32,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       ];
   search_obj->save_searches := options.storequery;
 
-  RECORD query := CQMatch("contentsource", "=", contentsource);
+  RECORD query := CQMatch("contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
   RECORD res := search_obj->SearchQuery(query, 0, 1000);
@@ -75,23 +71,22 @@ MACRO TestCustomContent()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
-  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
-      , maxgroupobjects :=      1000
-      , discardsummaries :=     TRUE
+  contentsource := catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+      [ title :=            "BETA_CUSTOMSOURCE"
+      , maxgroupobjects :=  1000
+      , discardsummaries := TRUE
       ]);
 
-  TestThrowsLike("*contentsource*already exists*",PTR AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
-      , maxgroupobjects :=      1000
-      , discardsummaries :=     TRUE
+  TestThrowsLike(`*contentsource with tag '${testfw->GetCustomContentName()}' already exists*`, PTR catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+      [ title :=            "BETA_CUSTOMSOURCE"
+      , maxgroupobjects :=  1000
+      , discardsummaries := TRUE
       ]));
 
   testfw->CommitWork();
 
   // Clear the index
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   TestEQ(0, LENGTH(SearchAll("")));
@@ -112,36 +107,36 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   // Rebuild the index
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog();
 
   TestCompleteSyncAfterCommand();
 
   // Test stored user queries
-  TestEq(0, Length(SELECT FROM consilio.query_results WHERE COLUMN indexid = VAR indexid));
+  TestEq(0, Length(SELECT FROM consilio.query_results WHERE indexid = catalog->id));
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
-  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE COLUMN indexid = VAR indexid;
+  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE indexid = catalog->id;
   TestEq(1, Length(queries));
   TestEq("a", queries[0].query);
   TestEq(2, queries[0].results);
   TestEq(TRUE, queries[0].sess != "");
 
   // Test content source id in custom content source object
-  res := search_obj->Search("+indexed_by:"||contentsource, 0, 1000);
+  res := search_obj->Search("+indexed_by:"||contentsource->id, 0, 1000);
   TestEQ(6, res.totalcount);
 
   // Test date range search
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:["||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:["||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{"||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{"||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
@@ -149,17 +144,17 @@ MACRO TestCustomContent()
   // Test date match queries
   // Date match queries aren't fully supported by Consilio, so they're rewritten as date range filters. As a result, you
   // cannot just search for a date, so the query must include a non-date query.
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource), CQMatch("adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
@@ -169,31 +164,31 @@ MACRO TestCustomContent()
   search_obj->ResetEmptyResultRecord(); // By default all known fields are returned, in this case "initialfilter" and
                                         // "date_adate", supplemented with the default fields "groupid" and "objectid"
                                         // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
       , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
-      , summary := ""
-      , indexed_by := ToString(contentsource)
+      , summary := is_opensearch ? "a a1" : "" // OpenSearch doesn't support discardsummaries
+      , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
       , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
-      , indexed_by := ToString(contentsource)
+      , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
       ], res.results[0]);
 
   search_obj->empty_result_record :=
       DEFAULT RECORD; // By default "groupid" and "objectid" are returned
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -202,7 +197,7 @@ MACRO TestCustomContent()
   search_obj->empty_result_record :=
       [ _score := 0f // Generated field "_score"
       ];
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -212,7 +207,7 @@ MACRO TestCustomContent()
   search_obj->empty_result_record :=
       [ score := 0f // If "score" is requested and "_score" is not, the "_score" field is returned as "score"
       ];
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -222,7 +217,7 @@ MACRO TestCustomContent()
   search_obj->empty_result_record :=
       [ date_adate := DEFAULT DATETIME // Return custom field "date_adate"
       ];
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -232,7 +227,7 @@ MACRO TestCustomContent()
   search_obj->empty_result_record :=
       [ nonexisting := "doesn't exist" // Undefined field is filled with default value
       ];
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -260,7 +255,7 @@ MACRO TestCustomContent()
       VALUES(idprefix||"d", idprefix||"d1", MakeDate(1970, 1, 10));
   testfw->CommitWork();
 
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog();
 
   TestCompleteSyncAfterCommand();
 
@@ -271,7 +266,7 @@ MACRO TestCustomContent()
    WHERE objectid = idprefix||"a1";
   testfw->CommitWork();
 
-  CheckConsilioGroup(contentsource, idprefix||"a");
+  contentsource->ReindexGroup(idprefix||"a", [ rebuild := TRUE ]);
 
   TestCompleteSyncAfterCommand();
 
@@ -282,7 +277,7 @@ MACRO TestCustomContent()
    WHERE objectid = idprefix||"a1";
   testfw->CommitWork();
 
-  CheckConsilioObject(contentsource, idprefix||"a", idprefix||"a1");
+  contentsource->ReindexObject(idprefix||"a", idprefix||"a1");
 
   TestCompleteSyncAfterCommand();
 
@@ -300,10 +295,10 @@ MACRO TestCustomContent()
       VALUES(idprefix||"f", idprefix||"f2", MakeDate(1970, 1, 10), (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE objectid = idprefix||"f1"));
   testfw->CommitWork();
 
-  DeleteConsilioGroup(indexid, idprefix||"a");
-  DeleteConsilioObject(indexid, idprefix||"d1");
-  CheckConsilioGroup(contentsource, idprefix||"e");
-  CheckConsilioObject(contentsource, idprefix||"f", idprefix||"f1"); // Must spider to f2
+  contentsource->DeleteGroup(idprefix||"a");
+  contentsource->DeleteObject(idprefix||"d1");
+  contentsource->ReindexGroup(idprefix||"e");
+  contentsource->ReindexObject(idprefix||"f", idprefix||"f1"); // Must spider to f2
 
   TestCompleteSyncAfterCommand();
 
@@ -331,7 +326,7 @@ MACRO TestCustomContent()
 
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1",     indexdate := MakeDate(1970, 1, 10) ]
@@ -362,7 +357,7 @@ MACRO TestCustomContent()
   }
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   TestEQ(
@@ -374,9 +369,9 @@ MACRO TestCustomContent()
       , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15), datafrom := "list" ]
       ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
 
-  CheckConsilioObject(contentsource, idprefix||"a", idprefix||"a1_withdata");
-  CheckConsilioObject(contentsource, idprefix||"b", idprefix||"b2_withdata");
-  CheckConsilioObject(contentsource, idprefix||"d", idprefix||"d1_withdata_fromlist");
+  contentsource->ReindexObject(idprefix||"a", idprefix||"a1_withdata");
+  contentsource->ReindexObject(idprefix||"b", idprefix||"b2_withdata");
+  contentsource->ReindexObject(idprefix||"d", idprefix||"d1_withdata_fromlist");
   testfw->WaitQueueEmpty();
 
   TestEQ(
@@ -395,7 +390,7 @@ MACRO TestCustomContent()
       VALUES(idprefix||"b", idprefix||"b1", MakeDate(1970, 1, 10), "");
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   TestCompleteSyncAfterCommand();
 
   // Throw in fetchobject; old content must remain & error must be reported
@@ -407,13 +402,13 @@ MACRO TestCustomContent()
        , text:=       "THROW";
   testfw->CommitWork();
 
-  __ConsilioClearErrors(contentsource);
-  UpdateConsilioIndex(indexid);
+  __ConsilioClearErrors(contentsource->id);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   RECORD ARRAY relevanterrors;
   relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
-  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
   TestEq("Exception: THROWN", relevanterrors[0].data.errors[0].message);
   TestEQ(
@@ -428,12 +423,12 @@ MACRO TestCustomContent()
        , text:=       "ABORT";
   testfw->CommitWork();
 
-  __ConsilioClearErrors(contentsource);
-  UpdateConsilioIndex(indexid);
+  __ConsilioClearErrors(contentsource->id);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
-  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].data.errors[0].message);
   TestEQ(
@@ -448,11 +443,11 @@ MACRO TestCustomContent()
        , text:=       "CRASH";
   testfw->CommitWork();
 
-  __ConsilioClearErrors(contentsource);
-  UpdateConsilioIndex(indexid);
+  __ConsilioClearErrors(contentsource->id);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
-  TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource) LIKE "*process exited with exit code 1*");
+  TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource->id) LIKE "*process exited with exit code 1*");
   TestEQ(
       [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
       ], SearchAll(""));
@@ -463,8 +458,8 @@ MACRO TestCustomContent()
        , text:=       "";
   testfw->CommitWork();
 
-  __ConsilioClearErrors(contentsource);
-  WaitForPromise(CheckConsilioGroupSynchronously("BETA_CUSTOMSOURCE", idprefix||"b"));
+  __ConsilioClearErrors(contentsource->id);
+  contentsource->ReindexGroup(idprefix||"b", [ foreground := TRUE ]);
 
   TestEQ(
       [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 11) ]
@@ -484,7 +479,7 @@ MACRO TestCustomContent()
       VALUES(idprefix||"d", idprefix||"d1", MakeDate(1970, 1, 10));
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   TestEQ(
@@ -495,12 +490,12 @@ MACRO TestCustomContent()
       ], SearchAll("", [ extrafields := [ date_adate := DEFAULT DATETIME ] ]));
 
   // Test exists queries
-  res := search_obj->Search("+contentsource:"||contentsource||" +date_adate:*", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:*", 0, 1000);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
 
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:*", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:*", 0, 1000);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
@@ -509,7 +504,7 @@ MACRO TestCustomContent()
   // applied after searching, so "+(body:* date_adate:*)" is effectively interpreted as "+body:* +date_adate:*"
   IF (is_opensearch)
   {
-    res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
+    res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
     TestEQ(3, res.totalcount);
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
@@ -517,12 +512,12 @@ MACRO TestCustomContent()
   }
   ELSE
   {
-    res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
+    res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
     TestEQ(1, res.totalcount);
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
   }
 
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:* +date_adate:*", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:* +date_adate:*", 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
 
@@ -530,20 +525,20 @@ MACRO TestCustomContent()
   // negated and are always applied after searching, so "-body:*" is effectively interpreted as "+body:*"
   IF (is_opensearch)
   {
-    res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
+    res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
     TestEQ(2, res.totalcount);
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
   }
   ELSE
   {
-    res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
+    res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
     TestEQ(2, res.totalcount);
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
   }
 
-  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAnd([ CQMatch("contentsource", "=", contentsource), CQHas("date_adate") ]));
+  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
@@ -555,7 +550,7 @@ MACRO TestCustomContent()
       VALUES(idprefix||"a", idprefix||"a1", MakeDate(1970, 1, 10), MakeDate(2010, 1, 1), "å1 🍻");
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   res := search_obj->Search("+body:a1", 0, 1000);
@@ -612,7 +607,7 @@ MACRO TestCustomContent()
   DELETE FROM webhare_testsuite.consilio_index;
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 }
 

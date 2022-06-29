@@ -32,6 +32,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
          , 'webhare_testsuite:loremindex'
          ], SELECT AS STRING ARRAY tag FROM contentsources WHERE tag != "" ORDER BY tag);
 
+  maincatalog->ReindexCatalog();
   WaitForCatalogDone(maincatalog);
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));

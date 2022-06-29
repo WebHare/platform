@@ -4,7 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
-LOADLIB "mod::consilio/lib/catalog.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -12,11 +12,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-
-INTEGER indexid;
-INTEGER contentsource;
-
-OBJECT search_obj;
 
 BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
 {
@@ -32,12 +27,14 @@ MACRO TestBoostWords()
 
   OBJECT siteroot := GetTestsuiteTempFolder();
 
-  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
   testfw->CommitWork();
 
   testfw->BeginWork();
-  indexid := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
-  contentsource := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot->id);
+  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  catalog->AddPublisherContentSource(siteroot->id);
+
+  //having indexnames makes log analysis easier
+  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
@@ -76,7 +73,7 @@ MACRO TestBoostWords()
   testfw->WaitConsilioQueueEmpty();
   Print("it's indexed\n");
 
-  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
   search_obj->empty_result_record := DEFAULT RECORD;
   search_obj->summary_length := 0;
 
@@ -151,7 +148,6 @@ MACRO TestBoostWords()
 
   // Allow terms by default, returns file 2, which has 'schanulleke' but doesn't have 'nothing' (We use schanulleke instead of test as /webhare-tests/ in the printed output normalized 'test')
   results := search_obj->Search("schanulleke nothing", 0, 10);
-  dumpvalue(results,'tree');
   TestEq(
       [ totalcount := 1
       , results :=
