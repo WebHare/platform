@@ -5,6 +5,7 @@
 
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/tcputils.whlib";
 LOADLIB "wh::internet/urls.whlib" EXPORT IsValidPlainHTTPURL,GetVariableFromUrl,DeleteVariableFromUrl,AddVariableToUrl,ReplaceVariableInUrl,ResolveToAbsoluteURL,IsAbsoluteUrl,MakeRelativeLinkFromURL;
 
@@ -30,7 +31,6 @@ RECORD ARRAY currentconnections;
 
 /** @short ReceiveHeader will get a header from a connection, which can be used for MIMEDecodeHeader
     @param connectionid ID of the connection to use
-    @param size The length of the data to use
     @return String of the received data */
 STRING FUNCTION ReceiveHeader(INTEGER connectionid)
 {
@@ -46,7 +46,6 @@ STRING FUNCTION ReceiveHeader(INTEGER connectionid)
 
 /** @short AsyncReceiveHeader will asynchronously get a header from a connection, which can be used for MIMEDecodeHeader
     @param connectionid ID of the connection to use
-    @param size The length of the data to use
     @return String of the received data */
 OBJECT ASYNC FUNCTION AsyncReceiveHeader(INTEGER connectionid)
 {
@@ -62,20 +61,13 @@ OBJECT ASYNC FUNCTION AsyncReceiveHeader(INTEGER connectionid)
 
 
 /** @short FindSettings is used to find the index of connection in the settings array
-    @param connectionid Integer id of the connection */
+    @param connectionid Integer id of the connection
+    @return Position of the settings in the currentconnections array, -1 if not found
+*/
 INTEGER FUNCTION FindSettings(INTEGER connectionid)
 {
-  // Search in the array of settings for this connection
-  INTEGER i := 0;
-  WHILE (i < Length(currentconnections))
-  {
-    IF (currentconnections[i].id = connectionid)
-      RETURN i;
-    i := i + 1;
-  }
-
-  // Settings not found
-  RETURN -1;
+  RECORD pos := RecordLowerBound(currentconnections, CELL[ id := connectionid ], [ "ID" ]);
+  RETURN pos.found ? pos.position : -1;
 }
 
 /** @short Formats a datetime in the HTTP required format
@@ -92,9 +84,17 @@ PUBLIC STRING FUNCTION FormatHttpDateTime(DATETIME whattime)
 }
 
 /** @short GetSettings is used to get the existing settings from a connection
-    @param connectionid Integer indicating the if of the connection to get the settings from */
+    @param connectionid Integer indicating the if of the connection to get the settings from
+    @return Stored settings, DEFAULT RECORD if not found
+*/
 RECORD FUNCTION GetSettings(INTEGER connectionid)
 {
+  RECORD pos := RecordLowerBound(currentconnections, CELL[ id := connectionid ], [ "ID" ]);
+  IF (pos.found)
+    RETURN currentconnections[pos.position].data;
+  RETURN DEFAULT RECORD;
+
+
   RECORD settings_ := SELECT * FROM currentconnections WHERE id = connectionid;
   IF (RecordExists(settings_))
     RETURN settings_.data;
@@ -107,13 +107,18 @@ RECORD FUNCTION GetSettings(INTEGER connectionid)
     @param settings_ Record with the new settings */
 MACRO UpdateSettings(INTEGER connectionid, RECORD settings_)
 {
-  // Delete the old setting
-  INTEGER oldsetting := FindSettings(connectionid);
-  IF (oldsetting != -1)
-    DELETE FROM currentconnections AT oldsetting;
+  RECORD pos := RecordLowerBound(currentconnections, CELL[ id := connectionid ], [ "ID" ]);
+  IF (pos.found)
+    currentconnections[pos.position].data := settings_;
+  ELSE
+    INSERT CELL[ id := connectionid, data := settings_ ] INTO currentconnections AT pos.position;
+}
 
-  // Now define a new setting
-  INSERT INTO currentconnections(id,data) VALUES(connectionid,settings_) AT 0;
+MACRO DeleteSettings(INTEGER connectionid)
+{
+  RECORD pos := RecordLowerBound(currentconnections, CELL[ id := connectionid ], [ "ID" ]);
+  IF (pos.found)
+    DELETE FROM currentconnections AT pos.position;
 }
 
 /** @short FormatWhiteSpaces will convert all (neighboring) whitespace characters into single spaces
@@ -477,6 +482,7 @@ macro mysendline(integer unused, string data)
     @cell headers.field Name of this field
     @cell headers.value Value of this field
     @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @cell(boolean) options.debug Print the headers and request body
     @return Record containing the page
     @cell return.content Contents of the url retrieved
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -497,6 +503,7 @@ PUBLIC RECORD FUNCTION SendHTTPRequest(INTEGER connectionid, STRING document, ST
     @cell headers.field Name of this field
     @cell headers.value Value of this field
     @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @cell(boolean) options.debug Print the headers and request body
     @return Promise resolving to a record containing the page.
     @cell return.content Contents of the url retrieved
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -600,12 +607,13 @@ PUBLIC OBJECT FUNCTION* SendHTTPRequestInternal(INTEGER connectionid, STRING doc
 /** @short This function will send a raw http request to a webserver
     @long A request will be sent as specified. Headers are not inspected or added (not even a "Host" header), digest session state is not used/updated
     @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
-    @param document Document to get (/path/page?query)
-    @param method Method to perform (GET, POST or HEAD)
+    @param requestline Requestline to send (method + document to get (/path/page?query) + http version)
     @param headers Additional headers to send
     @cell headers.field Name of this field
     @cell headers.value Value of this field
     @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @param expect_body_in_response Whether a response body is expected
+    @param shutdown_after_send Whether to shutdown the connection after after the response has been received
     @return Record containing the page
     @cell return.content Contents of the url retrieved
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -620,12 +628,13 @@ PUBLIC RECORD FUNCTION __SendRawHTTPRequest(INTEGER connectionid, STRING request
 /** @short This function will send a raw http request to a webserver
     @long A request will be sent as specified. Headers are not inspected or added (not even a "Host" header), digest session state is not used/updated
     @param connectionid Integer id of the connection to use (opened by OpenHTTPServer)
-    @param document Document to get (/path/page?query)
-    @param method Method to perform (GET, POST or HEAD)
+    @param requestline Requestline to send (method + document to get (/path/page?query) + http version)
     @param headers Additional headers to send
     @cell headers.field Name of this field
     @cell headers.value Value of this field
     @param entity Entity to pass with the request (eg, a POST message body or a document to PUT)
+    @param expect_body_in_response Whether a response body is expected
+    @param shutdown_after_send Whether to shutdown the connection after after the response has been received
     @return Record containing the page
     @cell return.content Contents of the url retrieved
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -720,8 +729,8 @@ PUBLIC RECORD FUNCTION GetHTTPPageHeaders(INTEGER connectionid, STRING query)
     @param connectionid Integer id of the connection (opened by OpenHTTPServer)
     @param query String containing the url to post to (example /path/script.shtml)
     @param variables Record array with variables to post
-    @cell variables.name
-    @cell variables.value
+    @cell variables.name Variable name
+    @cell variables.value Variable value
     @return Record containing the server response
     @cell return.content String with response (body) from the server
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -804,10 +813,10 @@ PUBLIC RECORD FUNCTION CreateHTTPMultipartRequest(RECORD ARRAY variables)
     @param query String containing the query to load (example /path/script.shtml)
     @param variables Record array containing the variables to post
     @cell variables.type (optional) Content-Type of the variable (example image/jpeg)
-    @cell variables.name
+    @cell variables.name Variable name
     @cell variables.filename (Optional, name of the source file)
     @cell variables.binary Boolean indicating if this variable contains binary data
-    @cell variables.value
+    @cell variables.value Variable value
     @return Record containing the server response
     @cell return.content String with response (body) from the server
     @cell return.protocol String of the protocol (example "HTTP/1.1")
@@ -828,6 +837,7 @@ PUBLIC MACRO CloseHTTPServer(INTEGER connectionid)
 {
   // Close the connection to the http server
   CloseSocket(connectionid);
+  DeleteSettings(connectionid);
 }
 
 /** @short SetHTTPAuthentication can be used to set a user/passwd when authentication is required
@@ -851,7 +861,6 @@ PUBLIC MACRO SetHTTPAuthentication(INTEGER connectionid, STRING set_username, ST
     @param header Line with the header data, starting with 'DIGEST '
     @param broken_mime Don't decode of quoted strings (usefull for non-complient clients, like IE, which uses unescaped '\' characters)
     @return Record with all (dequoted) parameters as cells. Returns default record if an error is encountered/
-    @seealso DecodeBasicAuthentication
 */
 PUBLIC RECORD FUNCTION DecodeHTTPAuthenticationHeader(STRING header, BOOLEAN broken_mime)
 {
@@ -965,6 +974,7 @@ PUBLIC RECORD FUNCTION DecodeHTTPAuthenticationHeader(STRING header, BOOLEAN bro
     @param password Password
     @param method HTTP method (GET, POST, etc)
     @param uri Requested URI
+    @return Encoded header
 */
 PUBLIC STRING FUNCTION EncodeDigestAuthorizationHeader(STRING nonce, STRING cnonce, INTEGER request_id, STRING username, STRING realm, STRING password, STRING method, STRING uri)
 {
