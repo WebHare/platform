@@ -1171,7 +1171,7 @@ STATIC OBJECTTYPE Catalog
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
   }
 
-  MACRO DoEnsureIndex(STRING suffix, STRING fieldgroup, BOOLEAN strict, INTEGER ARRAY contentsourceids)
+  MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, BOOLEAN strict, INTEGER ARRAY contentsourceids)
   {
     EnsureIndexManagerIndex(this->id, CELL[ suffix, throwonfailure := TRUE ]);
 
@@ -1180,26 +1180,35 @@ STATIC OBJECTTYPE Catalog
       RETURN;
 
     RECORD newmapping;
-    IF(fieldgroup = "")
+    IF (Length(fieldgroups) = 0)
     {
-      STRING indexname := SELECT AS STRING name FROM consilio.indices WHERE indices.id = this->id;
+      fieldgroups :=
+          SELECT AS STRING ARRAY fieldgroup
+            FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.indices WHERE id = this->id), " "), "fieldgroup")
+           WHERE fieldgroup != "";
+    }
+    IF(Length(fieldgroups) = 0)
+    {
       TRY
-        newmapping := GetIndexFieldDefinition(indexname);
+        newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.indices WHERE id = this->id);
       CATCH (OBJECT e)
         IF (NOT this->ismanaged)
           THROW;
     }
     ELSE
     {
-      newmapping := GetFieldgroupFieldDefinition(fieldgroup, strict);
+      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, strict);
     }
     IF (Length(contentsourceids) > 0)
     {
-      RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, RecordExists(newmapping) ? newmapping.properties : defaultmappingfields);
+      RECORD ARRAY basefields := this->ismanaged ? defaultmappingfields : RECORD[];
+      IF (RecordExists(newmapping))
+        basefields := basefields CONCAT newmapping.properties;
+      RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
       IF (RecordExists(properties))
       {
         IF (NOT RecordExists(newmapping))
-          newmapping := CELL[ properties, strict := TRUE ];
+          newmapping := CELL[ properties, strict ];
         ELSE
           newmapping.properties := properties;
       }
@@ -1289,19 +1298,19 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
   /** @short Make sure the (sub)index exists on the index manager
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(string) options.fieldgroup Override fieldgroup used to ensure mapping
+      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
       @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
   */
   PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ suffix := ""
-                               , fieldgroup := ""
+                               , fieldgroups := STRING[]
                                , strict := TRUE
                                ], options);
 
-    this->DoEnsureIndex(options.suffix, options.fieldgroup, options.strict, INTEGER[]);
+    this->DoEnsureIndex(options.suffix, options.fieldgroups, options.strict, INTEGER[]);
 
-    IF(options.suffix NOT IN this->ensured AND options.fieldgroup = "") //overriding fieldgroup does not count as having guaranteed ensurance
+    IF(options.suffix NOT IN this->ensured AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
       INSERT options.suffix INTO this->ensured AT END;
   }
 
@@ -1334,14 +1343,12 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 <
   /** @short Make sure the (sub)index exists on the index manager
-      @cell(string) options.fieldgroup Override fieldgroup used to ensure mapping
+      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
       @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
   */
-  PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC MACRO EnsureIndex()
   {
-    options := ValidateOptions([ fieldgroup := "" ], options);
-
-    this->DoEnsureIndex("", options.fieldgroup, TRUE, SELECT AS INTEGER ARRAY id FROM this->ListContentSources());
+    this->DoEnsureIndex("", STRING[], TRUE, SELECT AS INTEGER ARRAY id FROM this->ListContentSources());
   }
 
   /** List the contentsources in this catalog
@@ -1679,7 +1686,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , indexmanager := 0
                               , title := ""
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
-                              , fieldgroup := ""
+                              , fieldgroups := STRING[]
                               , managed := TRUE
                               ], options, [ optional := ["indexmanager"] ]);
 
@@ -1698,6 +1705,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , indexname := "c_" || tolowercase(encodebase16(decodeufs(generateufs128bitid())))
              , type := options.managed ? whconstant_consilio_catalogtype_siteprofindex
                                        : whconstant_consilio_catalogtype_moduleindex
+             , fieldgroups := Detokenize(options.fieldgroups, " ")
              ] INTO consilio.indices;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
@@ -1706,7 +1714,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   {
     TRY
     {
-      catalog->EnsureIndex(CELL[ options.fieldgroup ]);
+      catalog->EnsureIndex();
     }
     CATCH
     {

@@ -788,6 +788,40 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRI
   RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);
 }
 
+// Encode DEFAULT DATETIMEs as null (DEFAULT RECORD)
+PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
+{
+  IF (NOT RecordExists(document))
+    RETURN document;
+  FOREVERY (RECORD field FROM UnpackRecord(document))
+  {
+    // Don't index empty fields
+    IF (IsDefaultValue(field.value))
+      document := CellDelete(document, field.name);
+    // Convert DEFAULT DATETIMEs
+    ELSE IF (TypeID(field.value) = TypeID(DATETIME ARRAY) AND DEFAULT DATETIME IN field.value)
+      document := CellInsert(CellDelete(document, field.name), field.name, ConvertDefaultDatetime(field.value));
+    // Recurse into RECORDs
+    ELSE IF (TypeID(field.value) = TypeID(RECORD))
+      document := CellUpdate(document, field.name, FixupElasticsearchDocumentFields(field.value));
+    // Recurse into RECORD ARRAYs
+    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      document := CellUpdate(document, field.name, SELECT AS RECORD ARRAY FixupElasticsearchDocumentFields(value) FROM field.value);
+  }
+  RETURN document;
+}
+
+VARIANT ARRAY FUNCTION ConvertDefaultDatetime(DATETIME ARRAY dates)
+{
+  VARIANT ARRAY converted;
+  FOREVERY (DATETIME date FROM dates)
+    IF (date != DEFAULT DATETIME)
+      INSERT date INTO converted AT END;
+    ELSE
+      INSERT DEFAULT RECORD INTO converted AT END;
+  RETURN converted;
+}
+
 PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregation, STRING aggregation_name, RECORD result)
 {
   // The 'count' is handled separately, as it's not really an aggregation

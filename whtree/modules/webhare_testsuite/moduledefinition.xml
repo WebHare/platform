@@ -213,6 +213,7 @@
       <d:datetime name="objectrequiredindexdate"/> <!-- ignored when default -->
       <d:datetime name="indexdate"/>
       <d:integer name="spiderfrom" references=".consilio_index" ondelete="cascade"/>
+      <d:varchar name="extradata" maxlength="4096" />
     </d:table>
 
     <d:obsoletetable name="hosted_blobs" />
@@ -327,6 +328,11 @@
 
     <fieldgroup tag="pagelistfields">
       <text name="myfield1" />
+      <integer name="fieldgroup_integer" />
+      <integer64 name="fieldgroup_integer64" />
+      <float name="fieldgroup_float" />
+      <boolean name="fieldgroup_boolean" />
+      <datetime name="fieldgroup_datetime" />
     </fieldgroup>
 
     <!-- legacy syntax -->

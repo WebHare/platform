@@ -1,10 +1,12 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -173,6 +175,24 @@ MACRO TestCustomContent()
       , summary := is_opensearch ? "a a1" : "" // OpenSearch doesn't support discardsummaries
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
+      , mapping_boolean := FALSE
+      , mapping_integer := 0
+      , mapping_integer64 := 0i64
+      , mapping_money := 0m
+      , mapping_float := 0f
+      , mapping_datetime := DEFAULT DATETIME
+      , mapping_boolean_array := BOOLEAN[]
+      , mapping_integer_array := INTEGER[]
+      , mapping_integer64_array := INTEGER64[]
+      , mapping_money_array := MONEY[]
+      , mapping_float_array := FLOAT[]
+      , mapping_datetime_array := DATETIME[]
+      , fieldgroup_integer := 0
+      , fieldgroup_integer64 := 0i64
+      , fieldgroup_float := 0f
+      , fieldgroup_boolean := FALSE
+      , fieldgroup_datetime := DEFAULT DATETIME
+      , myfield1 := ""
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
@@ -184,6 +204,24 @@ MACRO TestCustomContent()
       , date_adate := MakeDate(2010, 1, 1)
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
+      , mapping_boolean := FALSE
+      , mapping_integer := 0
+      , mapping_integer64 := 0i64
+      , mapping_money := 0m
+      , mapping_float := 0f
+      , mapping_datetime := DEFAULT DATETIME
+      , mapping_boolean_array := BOOLEAN[]
+      , mapping_integer_array := INTEGER[]
+      , mapping_integer64_array := INTEGER64[]
+      , mapping_money_array := MONEY[]
+      , mapping_float_array := FLOAT[]
+      , mapping_datetime_array := DATETIME[]
+      , fieldgroup_integer := 0
+      , fieldgroup_integer64 := 0i64
+      , fieldgroup_float := 0f
+      , fieldgroup_boolean := FALSE
+      , fieldgroup_datetime := DEFAULT DATETIME
+      , myfield1 := ""
       ], res.results[0]);
 
   search_obj->empty_result_record :=
@@ -225,13 +263,13 @@ MACRO TestCustomContent()
       ], res.results[0]);
 
   search_obj->empty_result_record :=
-      [ nonexisting := "doesn't exist" // Undefined field is filled with default value
+      [ nonexisting := "doesn't exist" // Undefined field is filled with default value in Consilio
       ];
   res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , nonexisting := ""
+      , nonexisting := is_opensearch ? "doesn't exist" : ""
       ], res.results[0]);
 
   //Find nothing
@@ -611,8 +649,134 @@ MACRO TestCustomContent()
   testfw->WaitQueueEmpty();
 }
 
+MACRO TestTypes()
+{
+  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
+  OBJECT maincontentsource := maincatalog->OpenContentSource("webhare_testsuite:dbindex");
+  BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+
+  //having indexnames makes log analysis easier
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}, ${maincatalog->tag} (${maincatalog->id}) => ${maincatalog->indexname}\n`);
+
+  // Prefix for object/group ids, just to stress the itf
+  STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
+
+  testfw->BeginWork();
+
+  // Clear the current contents
+  DELETE FROM webhare_testsuite.consilio_index;
+
+  // Add some test data
+  DATETIME now := GetCurrentDateTime();
+  INSERT
+      [ groupid := idprefix || "a"
+      , objectid := idprefix || "a1"
+      , extradata := EncodeHSON(
+          [ mapping_integer := 2147483647
+          // , mapping_integer64 := 9223372036854775807i64//TODO: Any number outside the 32-bit INTEGER range is decoded as a FLOAT
+          , mapping_money := 90071992547.40991m // A scaled float is returned as a double with 53-bit precision (and decoded as a FLOAT anyway)
+          , mapping_float := 9223372036854775808
+          , mapping_boolean := TRUE
+          , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+          , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
+          // , mapping_integer64_array := INTEGER64[]
+          , mapping_money_array := [ 3.14, 5, 90071992547.40990m, 45035996273.70496m ]
+          , mapping_float_array := [ pi, 5 ]
+          , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
+          , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
+          , fieldgroup_integer := 1234
+          // , fieldgroup_integer64 := 1234567890i64
+          , fieldgroup_float := 2.20371f
+          , fieldgroup_boolean := TRUE
+          , fieldgroup_datetime := MakeDate(2038, 1, 19)
+          ])
+      ] INTO webhare_testsuite.consilio_index;
+
+  testfw->CommitWork();
+
+  catalog->ReindexCatalog();
+  maincatalog->ReindexCatalog();
+  testfw->WaitQueueEmpty();
+  WaitForCatalogDone(maincatalog);
+
+  RECORD res := RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
+  TestEq(
+      [ groupid := idprefix || "a"
+      , objectid := idprefix || "a1"
+      , initialfilter := "obj://" || idprefix || "a" || "/" || idprefix || "a1"
+      , date_adate := DEFAULT DATETIME
+      , summary := ""
+      , indexed_by := ToString(contentsource->id)
+      , datafrom := "fetch"
+      , mapping_integer := 2147483647
+      , mapping_integer64 := 0i64//9223372036854775807i64
+      , mapping_money := 90071992547.40991m
+      , mapping_float := 9223372036854775808
+      , mapping_boolean := TRUE
+      , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+      , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
+      , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
+      , mapping_integer64_array := INTEGER64[]
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70497m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_float_array := FLOAT[ pi, 5f ]
+      , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
+      , fieldgroup_integer := 1234
+      , fieldgroup_integer64 := 0i64//1234567890
+      , fieldgroup_float := 2.20371f
+      , fieldgroup_boolean := TRUE
+      , fieldgroup_datetime := MakeDate(2038, 1, 19)
+      , myfield1 := ""
+      ], res.results[0]);
+
+  res := RunConsilioSearch(maincatalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
+  TestEq(
+      [ groupid := idprefix || "a"
+      , objectid := idprefix || "a1"
+      , initialfilter := "obj://" || idprefix || "a" || "/" || idprefix || "a1"
+      , date_adate := DEFAULT DATETIME
+      , summary := ""
+      , indexed_by := ToString(maincontentsource->id)
+      , datafrom := "fetch"
+      , mapping_integer := 2147483647
+      , mapping_integer64 := 0i64//9223372036854775807i64
+      , mapping_money := 90071992547.40991m
+      , mapping_float := 9223372036854775808
+      , mapping_boolean := TRUE
+      , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+      , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
+      , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
+      , mapping_integer64_array := INTEGER64[]
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70497m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_float_array := FLOAT[ pi, 5f ]
+      , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
+      , fieldgroup_integer := 1234
+      , fieldgroup_integer64 := 0i64//1234567890
+      , fieldgroup_float := 2.20371f
+      , fieldgroup_boolean := TRUE
+      , fieldgroup_datetime := MakeDate(2038, 1, 19)
+      , myfield1 := ""
+
+      , date_modified := DEFAULT DATETIME
+      , date_whmodification := DEFAULT DATETIME
+      , date_test := DEFAULT DATETIME
+      , description := ""
+      , filetype := ""
+      , keywords := ""
+      , size := 0
+      , testdate := ""
+      , title := ""
+      , url := ""
+      , validuser := ""
+      , whfspath := ""
+      , _suggested := DEFAULT RECORD
+      ], res.results[0]);
+}
+
 RunTestframework(
-    [ PTR TestCustomContent ],
+    [ PTR TestCustomContent
+    , PTR TestTypes
+    ],
     [ consilio := TRUE
     , testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]

@@ -161,7 +161,7 @@ MACRO TestESBulkInsertion()
                     ]],[ suffix := "sub1"]));
 
   //But we should be able to manually offer it if we specify a mapping containing it
-  catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:nosuchfieldyet" ]);
+  catalog->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
@@ -307,7 +307,7 @@ MACRO TestESBulkInsertion()
   TestEq(0, res.totalcount);
 
   //Test store-only fields
-  catalog->EnsureIndex([ suffix := "sub1", fieldgroup := "webhare_testsuite:storeonly" ]);
+  catalog->EnsureIndex([ suffix := "sub1", fieldgroups := [ "webhare_testsuite:storeonly" ] ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ indexed := "test", stored := "test" ]
@@ -332,7 +332,7 @@ MACRO TestESBulkInsertion()
       ],[ suffix := "sub1" ]));
 
   //But we should be able to set it through a wildcard if we add it
-  catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:unspecifiedwildcards" ]);
+  catalog->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:unspecifiedwildcards" ] ]);
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'unspecified_record.xyz' := 43 ]

@@ -221,6 +221,11 @@
 
         </d:documentation>
       </d:varchar>
+      <d:varchar name="type" maxlength="64">
+        <d:documentation>
+          Field type
+        </d:documentation>
+      </d:varchar>
       <d:varchar name="defaultvalue" maxlength="4096">
         <d:documentation>
           HSON-encoded default value

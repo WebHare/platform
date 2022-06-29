@@ -550,24 +550,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
   RETURN result;
 }
 
-RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
-{
-  // Get the default result fields
-  RECORD defaultmapping;
-  FOREVERY (RECORD field FROM GetIndexMapping(indexid))
-    IF (field.defaultvalue != "")
-      defaultmapping := CellInsert(defaultmapping, field.name, DecodeHSON(field.defaultvalue));
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-
-  RETURN [ value := CELL [ defaultmapping, indexmanagers ]
-         , ttl := 15 * 60 * 1000
-         , eventmasks := [ "consilio:contentsourceschanged"
-                         , "consilio:indexfields"
-                         ]
-         ];
-}
-
 /** @short Search an index
     @param indexid The id of the index to query; 0 for all indices
     @param query The query to execute
@@ -1327,7 +1309,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
               // action_and_meta_data
               INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
               // optional_source
-              INSERT obj.documentfields INTO bulkrequests AT END;
+              INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
             }
 
             response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
@@ -1347,14 +1329,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                       , indextypes := obj.indextypes
                       , indexversions := obj.indexversions
               INTO document;
-            FOREVERY (RECORD field FROM UnpackRecord(document))
-            {
-              // Don't index empty fields
-              IF (IsDefaultValue(field.value))
-                document := CellDelete(document, field.name);
-              ELSE IF ((field.name LIKE "DATE_*" OR field.name LIKE "*.DATE_*") AND TypeID(field.value) = TypeID(DATETIME))
-                document := CellInsert(CellDelete(document, field.name), field.name, FormatISO8601DateTime(field.value, "day", "milliseconds"));
-            }
 
             IF (Length(suggestfields) > 0)
             {
@@ -1381,10 +1355,9 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             // action_and_meta_data
             INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid) ] ] INTO bulkrequests AT END;
             // optional_source
-            INSERT document INTO bulkrequests AT END;
-
-            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
+            INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
           }
+          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
         }
 
         result := response.status;
@@ -1811,25 +1784,6 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
   RETURN result;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
-{
-  RECORD ARRAY fields :=
-      SELECT fields.name
-           , fields.defaultvalue
-           , fields.tokenized
-           , fields.suggested
-        FROM consilio.contentsourcefields AS fields
-           , consilio.contentsources AS sources
-       WHERE fields.contentsourceid = sources.id
-             AND sources.indexid = VAR indexid
-             AND sources.tag NOT LIKE "$consilio$deleted$*";
-  fields :=
-      SELECT AS RECORD ARRAY GroupedValues(fields)[0]
-        FROM fields
-       GROUP BY ToUppercase(name);
-  RETURN fields;
-}
-
 
 // -----------------------------------------------------------------------------
 //
@@ -1956,6 +1910,81 @@ RECORD FUNCTION StoreQuery(RECORD sess, STRING querystring, INTEGER idx, INTEGER
   RETURN sess;
 }
 
+// Create a (flattened) list of requested fields
+PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
+{
+  STRING ARRAY fields;
+  FOREVERY (RECORD field FROM UnpackRecord(mapping))
+  {
+    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
+      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
+        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
+    ELSE
+      INSERT ToLowercase(field.name) INTO fields AT END;
+  }
+  RETURN fields;
+}
+
+RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
+{
+  // Get the default result fields
+  RECORD defaultmapping;
+  RECORD ARRAY mapping := GetIndexMapping(indexid);
+  FOREVERY (RECORD field FROM mapping)
+    defaultmapping := CellInsert(defaultmapping, field.name, field.defaultvalue);
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RETURN [ value := CELL [ defaultmapping, indexmanagers ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "consilio:contentsourceschanged"
+                         , "consilio:indexfields"
+                         ]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
+{
+  RECORD ARRAY fields;
+  TRY
+  {
+    RECORD def;
+    STRING ARRAY fieldgroups :=
+        SELECT AS STRING ARRAY fieldgroup
+          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.indices WHERE id = indexid), " "), "fieldgroup")
+         WHERE fieldgroup != "";
+    IF (Length(fieldgroups) > 0)
+      def := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
+    ELSE
+      def := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.indices WHERE id = indexid);
+    IF (RecordExists(def))
+      fields := def.properties;
+  }
+  CATCH; // No module field definition for this catalog
+
+  INTEGER ARRAY contentsourceids :=
+      SELECT AS INTEGER ARRAY id
+        FROM consilio.contentsources
+       WHERE COLUMN indexid = VAR indexid
+             AND tag NOT LIKE "$consilio$deleted$*";
+  fields := GetContentSourcesMapping(contentsourceids, fields);
+  /* fields := fields CONCAT
+      SELECT fields.name
+           , fields.type
+           , fields.defaultvalue
+           , fields.tokenized
+           , fields.suggested
+        FROM consilio.contentsourcefields AS fields
+           , consilio.contentsources AS sources
+       WHERE fields.contentsourceid = sources.id
+             AND sources.indexid = VAR indexid
+             AND sources.tag NOT LIKE "$consilio$deleted$*";
+  fields :=
+      SELECT AS RECORD ARRAY GroupedValues(fields)[0]
+        FROM fields
+       GROUP BY ToUppercase(name); */
+  RETURN fields;
+}
 
 
 // -----------------------------------------------------------------------------
@@ -2374,19 +2403,4 @@ RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requested_f
   CloseBlobFile(resultstream);
 
   RETURN results;
-}
-
-// Create a (flattened) list of requested fields
-PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
-{
-  STRING ARRAY fields;
-  FOREVERY (RECORD field FROM UnpackRecord(mapping))
-  {
-    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
-      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
-        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
-    ELSE
-      INSERT ToLowercase(field.name) INTO fields AT END;
-  }
-  RETURN fields;
 }

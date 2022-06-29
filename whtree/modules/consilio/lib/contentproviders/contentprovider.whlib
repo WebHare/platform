@@ -9,6 +9,7 @@ LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, ConsilioDebugSkipped, ConsilioDebugInfo, ConsilioDebugAll;
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -628,6 +629,9 @@ PUBLIC BOOLEAN FUNCTION UpdateContentSourceFields(OBJECT contentprovider)
   BOOLEAN anychanges;
   FOREVERY (RECORD field FROM fields)
   {
+    STRING field_type := CellExists(field, "type") ? field.type: "";
+    IF (field_type != "" AND field_type NOT IN supported_field_types)
+      THROW NEW Exception(`Unsupported field type '${field.type}'`);
     STRING field_value := CellExists(field, "value") ? EncodeHSON(field.value) : "";
     BOOLEAN field_tokenized := CellExists(field, "tokenized") ? field.tokenized : CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING);
     BOOLEAN field_suggested := CellExists(field, "suggested") ? field.suggested : FALSE;
@@ -641,19 +645,27 @@ PUBLIC BOOLEAN FUNCTION UpdateContentSourceFields(OBJECT contentprovider)
     {
       anychanges := TRUE;
       // Add the new field
-      INSERT INTO consilio.contentsourcefields(contentsourceid, name, defaultvalue, tokenized, suggested)
-             VALUES(contentprovider->contentsourceid, field.name, field_value, field_tokenized, field_suggested);
+      INSERT CELL
+          [ contentprovider->contentsourceid
+          , field.name
+          , type := field_type
+          , defaultvalue := field_value
+          , tokenized := field_tokenized
+          , suggested := field_suggested
+          ] INTO consilio.contentsourcefields;
     }
     ELSE
     {
-      IF (existing.defaultvalue != field_value
+      IF (existing.type != field_type
+          OR existing.defaultvalue != field_value
           OR existing.tokenized != field_tokenized
           OR existing.suggested != field_suggested)
       {
         anychanges := TRUE;
         // Update the existing field
         UPDATE consilio.contentsourcefields
-           SET defaultvalue := field_value
+           SET type := field_type
+             , defaultvalue := field_value
              , tokenized := field_tokenized
              , suggested := field_suggested
          WHERE id = existing.id;

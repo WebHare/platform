@@ -34,7 +34,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
     RECORD options := [ title := "test catalog", priority := 9, loglevel := 3 ];
     IF (indexmanager != 0)
       INSERT CELL indexmanager := indexmanager INTO options;
-    CreateConsilioCatalog(this->GetCatalogName_1(), CELL[ ...options, fieldgroup := "webhare_testsuite:pagelistfields" ]);
+    CreateConsilioCatalog(this->GetCatalogName_1(), CELL[ ...options, fieldgroups := [ "webhare_testsuite:pagelistfields" ] ]);
     CreateConsilioCatalog(this->GetCatalogName_2(), options);
     this->testcatalog_1 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_1();
     this->testcatalog_2 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_2();

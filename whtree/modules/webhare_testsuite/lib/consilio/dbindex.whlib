@@ -17,11 +17,23 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
     RECORD ARRAY mapping := this->defaultmapping CONCAT
-        [ [ name := "_body",         tokenized := TRUE, suggested := TRUE ]
-        , [ name := "initialfilter", value := "", tokenized := FALSE ]
-        , [ name := "date_adate",    value := DEFAULT DATETIME ]
-        , [ name := "datafrom",      value := "", tokenized := FALSE ]
-        , [ name := "indexed_by",    value := "", tokenized := FALSE ]
+        [ [ name := "_body",                   tokenized := TRUE, suggested := TRUE ]
+        , [ name := "initialfilter",           value := "", tokenized := FALSE ]
+        , [ name := "date_adate",              value := DEFAULT DATETIME ]
+        , [ name := "datafrom",                value := "", tokenized := FALSE ]
+        , [ name := "indexed_by",              value := "", tokenized := FALSE ]
+        , [ name := "mapping_integer",         value := 0 ]
+        , [ name := "mapping_integer64",       value := 0i64 ]
+        , [ name := "mapping_money",           value := 0m ]
+        , [ name := "mapping_float",           value := 0f ]
+        , [ name := "mapping_boolean",         value := FALSE ]
+        , [ name := "mapping_datetime",        value := DEFAULT DATETIME ]
+        , [ name := "mapping_integer_array",   value := INTEGER[] ]
+        , [ name := "mapping_integer64_array", value := INTEGER64[] ]
+        , [ name := "mapping_money_array",     value := MONEY[] ]
+        , [ name := "mapping_float_array",     value := FLOAT[] ]
+        , [ name := "mapping_boolean_array",   value := BOOLEAN[] ]
+        , [ name := "mapping_datetime_ARRAY",  value := DATETIME[] ]
         ];
     RETURN mapping;
   }
@@ -129,13 +141,15 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
 
   RECORD FUNCTION GetObjectData(RECORD rec, STRING datafrom)
   {
+    RECORD extradata := rec.extradata != "" ? DecodeHSON(rec.extradata) : DEFAULT RECORD;
     RETURN
         [ document_body :=       rec.text
-        , document_fields :=
+        , document_fields := CELL
               [ date_adate :=    rec.adate
               , initialfilter := "obj://" || rec.groupid || "/" || rec.objectid
               , indexed_by :=    ToString(this->contentsourceid)
               , datafrom :=      datafrom
+              , ...extradata
               ]
         , indexdate :=           rec.indexdate
         , requiredindexdate :=   rec.objectrequiredindexdate

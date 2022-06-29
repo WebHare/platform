@@ -8,6 +8,9 @@ LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 
+PUBLIC CONSTANT STRING ARRAY supported_field_types :=
+    [ "boolean", "completion", "datetime", "float", "integer", "integer64", "ipaddress", "keyword", "latlng", "money", "record", "text" ];
+
 OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
 {
   IF(name NOT LIKE "?*:?*" OR name LIKE "*:*:*")
@@ -36,6 +39,7 @@ RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
   RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstate);
 }
 
+/// Read the field definition of a catalog from the moduledefinition
 PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
 {
   OBJECT node := GetIndexFieldDefinitionNode(name, "catalog") ?? GetIndexFieldDefinitionNode(name, "index");
@@ -45,9 +49,22 @@ PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
   RETURN ParseIndexField(node, Tokenize(name,':')[0], defaultparentstate);
 }
 
-PUBLIC RECORD FUNCTION GetFieldgroupFieldDefinition(STRING fieldgroup, BOOLEAN strict)
+/// Read the field definition of a fieldgroup from the moduledefinition
+PUBLIC RECORD FUNCTION GetFieldgroupsFieldDefinition(STRING ARRAY fieldgroups, BOOLEAN strict)
 {
-  RETURN GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[...defaultparentstate, strict]);
+  RECORD parsed := CELL[ properties := RECORD[], strict ];
+  FOREVERY (STRING fieldgroup FROM fieldgroups)
+  {
+    RECORD fielddef := GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[ ...defaultparentstate, parsed.strict]);
+    IF (RecordExists(fielddef))
+    {
+      parsed.strict := parsed.strict AND fielddef.strict;
+      FOREVERY (RECORD prop FROM fielddef.properties)
+        IF (NOT RecordExists(SELECT FROM parsed.properties WHERE name = prop.name))
+          INSERT prop INTO parsed.properties AT END;
+    }
+  }
+  RETURN RecordExists(parsed.properties) ? parsed : DEFAULT RECORD;
 }
 
 STRING FUNCTION QualifyName(STRING qualification, STRING name)
@@ -96,6 +113,7 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
                     , settings := DEFAULT RECORD
                     , subfields := ParseIndexField(subfield, module, state)
                     , type := type
+                    , defaultvalue := GetFieldTypeDefaultValue(type)
                     , strict := subfield->HasAttribute("strict") ? ParseXSBoolean(subfield->GetAttribute("strict")) : state.strict
                     ];
     IF (subfield->HasAttribute("storeonly"))
@@ -145,17 +163,27 @@ RECORD ARRAY FUNCTION DontDeleteField(INTEGER fieldid, RECORD ARRAY currentfield
   RETURN currentfields;
 }
 
+/// Get the contentsourcefields for a contentsource from the database
 PUBLIC RECORD ARRAY FUNCTION GetContentSourceFields(INTEGER contentsourceid)
 {
   RETURN
       SELECT name
-           , defaultvalue
+           , type
+           , defaultvalue := ParseDefaultValue(defaultvalue)
            , tokenized
            , suggested
         FROM consilio.contentsourcefields
        WHERE COLUMN contentsourceid = VAR contentsourceid
        ORDER BY ToUppercase(name)
               , id;
+}
+
+VARIANT FUNCTION ParseDefaultValue(STRING defaultvalue)
+{
+  TRY
+    RETURN DecodeHSON(defaultvalue);
+  CATCH;
+  RETURN "";
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetContentSourcesMapping(INTEGER ARRAY contentsourceids, RECORD ARRAY basefields)
@@ -181,15 +209,22 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
       {
         properties[idx] := CELL
             [ ...properties[idx]
-            , ...GetTypeFromFieldDef(field)
+            , type := GetTypeFromFieldDef(field)
             ];
         have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
       }
     }
     ELSE IF (NOT RecordExists(SELECT FROM properties WHERE name = field.name))
     {
-      RECORD fielddef := GetTypeFromFieldDef(field);
-      INSERT CELL[ ...fielddef, field.name, settings := DEFAULT RECORD, subfields := DEFAULT RECORD ] INTO properties AT END;
+      STRING type := GetTypeFromFieldDef(field);
+      INSERT CELL
+          [ type
+          , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
+          , field.name
+          , settings := DEFAULT RECORD
+          , subfields := DEFAULT RECORD
+          , strict := TRUE
+          ] INTO properties AT END;
       have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
     }
   }
@@ -202,31 +237,51 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
         , settings := [ analyzer := "consilio" ]
         , subfields := DEFAULT RECORD
         , strict := TRUE
+        , defaultvalue := DEFAULT RECORD
         ] INTO properties AT END;
 
   RETURN properties;
 }
 
-RECORD FUNCTION GetTypeFromFieldDef(RECORD field)
+STRING FUNCTION GetTypeFromFieldDef(RECORD field)
 {
-  IF (CellExists(field, "type"))
-    RETURN CELL[ field.type ];
+  IF (CellExists(field, "type") AND field.type != "")
+  {
+    IF (field.type NOT IN supported_field_types)
+      THROW NEW Exception(`Unsupported field type '${field.type}'`);
+    RETURN field.type;
+  }
   IF (field.name LIKE "date_*" OR field.name LIKE "*.date_*")
-    RETURN [ type := "datetime" ];
+    RETURN "datetime";
   IF (CellExists(field, "tokenized") AND field.tokenized)
-    RETURN [ type := "text" ]; // analyzer will be added by ParseContentSourceMapping, so it will be applied to defaultmappingfields as well
+    RETURN "text"; // analyzer will be added by ParseContentSourceMapping, so it will be applied to defaultmappingfields as well
 
   SWITCH (TypeID(field.defaultvalue))
   {
-    CASE TypeID(STRING)    { RETURN [ type := "keyword" ]; }
-    CASE TypeID(INTEGER)   { RETURN [ type := "integer" ]; }
-    CASE TypeID(INTEGER64) { RETURN [ type := "integer64" ]; }
-    CASE TypeID(MONEY)     { RETURN [ type := "money" ]; }
-    CASE TypeID(FLOAT)     { RETURN [ type := "float" ]; }
-    CASE TypeID(BOOLEAN)   { RETURN [ type := "boolean" ]; }
-    CASE TypeID(DATETIME)  { RETURN [ type := "datetime" ]; }
+    CASE TypeID(STRING),    TypeID(STRING ARRAY)    { RETURN "keyword"; }
+    CASE TypeID(INTEGER),   TypeID(INTEGER ARRAY)   { RETURN "integer"; }
+    CASE TypeID(INTEGER64), TypeID(INTEGER64 ARRAY) { RETURN "integer64"; }
+    CASE TypeID(MONEY),     TypeID(MONEY ARRAY)     { RETURN "money"; }
+    CASE TypeID(FLOAT),     TypeID(FLOAT ARRAY)     { RETURN "float"; }
+    CASE TypeID(BOOLEAN),   TypeID(BOOLEAN ARRAY)   { RETURN "boolean"; }
+    CASE TypeID(DATETIME),  TypeID(DATETIME ARRAY)  { RETURN "datetime"; }
   }
   THROW NEW Exception(`Cannot determine type for field ${field.name}`);
+}
+
+VARIANT FUNCTION GetFieldTypeDefaultValue(STRING type)
+{
+  SWITCH (type)
+  {
+    CASE "boolean"    { RETURN FALSE; }
+    CASE "datetime"   { RETURN DEFAULT DATETIME; }
+    CASE "float"      { RETURN 0f; }
+    CASE "integer"    { RETURN 0; }
+    CASE "integer64"  { RETURN 0i64; }
+    CASE "money"      { RETURN 0m; }
+    CASE "record"     { RETURN DEFAULT RECORD; }
+  }
+  RETURN "";
 }
 
 /** @cell input.properties

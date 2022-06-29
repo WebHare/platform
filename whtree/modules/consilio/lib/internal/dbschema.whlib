@@ -18,6 +18,7 @@ PUBLIC SCHEMA
     , BOOLEAN "rebuild"
     , INTEGER "type"
     , STRING "indexname"
+    , STRING "fieldgroups"
     ; KEY id
     > indices
   , TABLE
@@ -40,6 +41,7 @@ PUBLIC SCHEMA
     < INTEGER "id" NULL := 0
     , INTEGER "contentsourceid" NULL := 0
     , STRING "name"
+    , STRING "type"
     , STRING "defaultvalue"
     , BOOLEAN "tokenized"
     , BOOLEAN "suggested"
