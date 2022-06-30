@@ -146,17 +146,17 @@ MACRO TestCustomContent()
   // Test date match queries
   // Date match queries aren't fully supported by Consilio, so they're rewritten as date range filters. As a result, you
   // cannot just search for a date, so the query must include a non-date query.
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
@@ -731,24 +731,39 @@ MACRO TestTypes()
 
   res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "=", 9223372036854775807i64));
   TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<=", 9223372036854775807i64));
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64_array", "CONTAINS", 7521));
   TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">=", 9223372036854775807i64));
-  TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<", 9223372036854775807i64));
-  TestEq(0, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">", 9223372036854775806i64));
-  TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "=", 90071992547.40991m));
-  TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<=", 90071992547.40991m));
-  TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">=", 90071992547.40991m));
-  TestEq(1, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<", 90071992547.40991m));
-  TestEq(0, res.totalcount);
-  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">", 90071992547.40990m));
-  TestEq(1, res.totalcount);
+  IF (is_opensearch)
+  {
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<=", 9223372036854775807i64));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">=", 9223372036854775807i64));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<", 9223372036854775807i64));
+    TestEq(0, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">", 9223372036854775806i64));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "=", 90071992547.40991m));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money_array", "CONTAINS", 3.14m));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<=", 90071992547.40991m));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">=", 90071992547.40991m));
+    TestEq(1, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<", 90071992547.40991m));
+    TestEq(0, res.totalcount);
+    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">", 90071992547.40990m));
+    TestEq(1, res.totalcount);
+  }
+  ELSE
+  {
+    // Consilio doesn't support numeric range queries
+    TestThrowsLike("Invalid match type '<=' for INTEGER match query", PTR CQMatch("mapping_integer", "<=", 1));
+    TestThrowsLike("Invalid match type '>=' for INTEGER64 match query", PTR CQMatch("mapping_integer64", ">=", 1i64));
+    TestThrowsLike("Invalid value type 'MONEY' for match query", PTR CQMatch("mapping_money", "<", 1m));
+    TestThrowsLike("Invalid value type 'FLOAT' for match query", PTR CQMatch("mapping_float", ">", 1f));
+  }
 
   res := RunConsilioSearch(maincatalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
   TestEq(
