@@ -6,6 +6,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -185,7 +186,10 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   options := ValidateOptions( [ ndjson := FALSE
                               , throwonfailure := TRUE //if you use the RAW api, you're a new caller and should be expecting THROWs instead of adding new error paths
                               , timeout := elastic_timeout * 1000
-                              ], options);
+                              , enforce := ""
+                              ], options,
+                              [ enums := [ enforce := [ "", "_search_get" ] ]
+                              ]);
 
   WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
 
@@ -251,6 +255,15 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     }
   }
 
+  RECORD decoded;
+  IF (ToLowercase(indexmanager.browser->contenttype) LIKE "application/json*")
+  {
+    IF (options.enforce != "")
+      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce);
+    ELSE
+      decoded := DecodeJSONBlob(indexmanager.browser->content);
+  }
+
   RETURN
       [ status  := statuscode = 404 ? SearchIndexNotFound
                  : statuscode = 401 ? SearchNoAccess
@@ -259,7 +272,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       , code    := indexmanager.browser->GetSocketError() ?? statuscode
       , content := indexmanager.browser->content
       , headers := indexmanager.browser->responseheaders
-      , result  := DecodeJSONBlob(indexmanager.browser->content)
+      , result  := decoded
       ];
 }
 
@@ -603,12 +616,16 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "term"
     {
+      // Convert MONEYs
+      VARIANT term := query.term;
+      IF (TypeID(term) = TypeID(MONEY))
+        term := __HS_GetRawMoney(term);
       // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
       result :=
           [ bool :=
               [ should :=
-                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := query.term, analyzer := "consilio" ]) ]
-                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := query.term, analyzer := "consilio_original" ]) ]
+                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio" ]) ]
+                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
                   ]
               ]
           ];
@@ -636,12 +653,16 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "literal"
     {
+      // Convert MONEYs
+      VARIANT term := query.term;
+      IF (TypeID(term) = TypeID(MONEY))
+        term := __HS_GetRawMoney(term);
       // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
       result :=
           [ bool :=
               [ should :=
-                  [ [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ]
-                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", query.term) ]
+                  [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
+                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
                   ]
               ]
           ];
@@ -690,17 +711,35 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "date", "range"
     {
+      // Convert MONEYs
+      VARIANT term := "", lowerterm := "", upperterm := "";
+      IF (query.matchtype IN [ "<", "<=", ">=", ">" ])
+      {
+        term := query.term;
+        IF (TypeID(term) = TypeID(MONEY))
+          term := __HS_GetRawMoney(term);
+      }
+      ELSE IF (query.matchtype IN [ "[]", "{]", "[}", "{}" ])
+      {
+        lowerterm := query.lowerterm;
+        IF (TypeID(lowerterm) = TypeID(MONEY))
+          lowerterm := __HS_GetRawMoney(lowerterm);
+        upperterm := query.upperterm;
+        IF (TypeID(upperterm) = TypeID(MONEY))
+          upperterm := __HS_GetRawMoney(upperterm);
+      }
+
       RECORD rangequery;
       SWITCH (query.matchtype)
       {
-        CASE "<"  { rangequery := [ lt := query.term ]; }
-        CASE "<=" { rangequery := [ lte := query.term ]; }
-        CASE ">=" { rangequery := [ gte := query.term ]; }
-        CASE ">"  { rangequery := [ gt := query.term ]; }
-        CASE "[]" { rangequery := [ gte := query.lowerterm, lte := query.upperterm ]; }
-        CASE "{]" { rangequery := [ gt := query.lowerterm, lte := query.upperterm ]; }
-        CASE "[}" { rangequery := [ gte := query.lowerterm, lt := query.upperterm ]; }
-        CASE "{}" { rangequery := [ gt := query.lowerterm, lt := query.upperterm ]; }
+        CASE "<"  { rangequery := [ lt := term ]; }
+        CASE "<=" { rangequery := [ lte := term ]; }
+        CASE ">=" { rangequery := [ gte := term ]; }
+        CASE ">"  { rangequery := [ gt := term ]; }
+        CASE "[]" { rangequery := [ gte := lowerterm, lte := upperterm ]; }
+        CASE "{]" { rangequery := [ gt := lowerterm, lte := upperterm ]; }
+        CASE "[}" { rangequery := [ gte := lowerterm, lt := upperterm ]; }
+        CASE "{}" { rangequery := [ gt := lowerterm, lt := upperterm ]; }
       }
       IF (query.boost != 1)
         INSERT CELL boost := query.boost INTO rangequery;
@@ -788,7 +827,7 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRI
   RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);
 }
 
-// Encode DEFAULT DATETIMEs as null (DEFAULT RECORD)
+// Encode DEFAULT DATETIMEs as null (DEFAULT RECORD) and MONEYs as INTEGER64s
 PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
 {
   IF (NOT RecordExists(document))
@@ -801,6 +840,11 @@ PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
     // Convert DEFAULT DATETIMEs
     ELSE IF (TypeID(field.value) = TypeID(DATETIME ARRAY) AND DEFAULT DATETIME IN field.value)
       document := CellInsert(CellDelete(document, field.name), field.name, ConvertDefaultDatetime(field.value));
+    // Convert MONEYs
+    ELSE IF (TypeID(field.value) = TypeID(MONEY))
+      document := CellInsert(CellDelete(document, field.name), field.name, __HS_GetRawMoney(field.value));
+    ELSE IF (TypeID(field.value) = TypeID(MONEY ARRAY))
+      document := CellInsert(CellDelete(document, field.name), field.name, SELECT AS INTEGER64 ARRAY __HS_GetRawMoney(value) FROM ToRecordArray(field.value, "value"));
     // Recurse into RECORDs
     ELSE IF (TypeID(field.value) = TypeID(RECORD))
       document := CellUpdate(document, field.name, FixupElasticsearchDocumentFields(field.value));
@@ -972,12 +1016,13 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
 
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
-  RETURN EnforceStructure(mapping, FixupArrayFields(lineresult, mapping));
+  RETURN EnforceStructure(mapping, FixupElasticsearchResultFields(lineresult, mapping));
 }
 
 // Elasticsearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
 // it's not returned as an array, so this function convert single values into arrays where expected.
-RECORD FUNCTION FixupArrayFields(RECORD lineresult, RECORD mapping)
+// This function also converts INTEGER64s back to MONEYs where necessary
+RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping)
 {
   FOREVERY (RECORD field FROM UnpackRecord(lineresult))
   {
@@ -987,18 +1032,49 @@ RECORD FUNCTION FixupArrayFields(RECORD lineresult, RECORD mapping)
     BOOLEAN valuechanged;
     IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(field.value)))
     {
-      VARIANT value := GetTypeDefaultValue(TypeID(fieldmapping));
+      VARIANT value := GetTypeDefaultArray(TypeID(field.value));
       INSERT field.value INTO value AT END;
       field := CELL[ ...field, value ];
       valuechanged := TRUE;
     }
     IF (TypeID(field.value) = TypeID(RECORD))
-      field.value := FixupArrayFields(field.value, fieldmapping);
+      field.value := FixupElasticsearchResultFields(field.value, fieldmapping);
     ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
-      field.value := SELECT AS RECORD ARRAY FixupArrayFields(value, PickFirst(fieldmapping)) FROM field.value;
+      field.value := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(value, PickFirst(fieldmapping)) FROM field.value;
+    ELSE IF (TypeID(field.value) = TypeID(STRING) AND TypeID(fieldmapping) = TypeID(MONEY))
+      field := CELL[ ...field, value := __HS_SetRawMoney(ToInteger64(field.value, 0)) ];
+    ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY) AND TypeID(fieldmapping) = TypeID(MONEY ARRAY))
+      field := CELL[ ...field, value := SELECT AS MONEY ARRAY __HS_SetRawMoney(ToInteger64(value, 0)) FROM ToRecordArray(field.value, "value") ];
     ELSE IF (NOT valuechanged)
       CONTINUE;
     lineresult := CellInsert(CellDelete(lineresult, field.name), field.name, field.value);
   }
   RETURN lineresult;
+}
+
+RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
+{
+  RECORD decoded := DecodeJSONBlob(content, DEFAULT RECORD, [ alltostring := TRUE ]);
+  SWITCH (type)
+  {
+    CASE "_search_get"
+    {
+      decoded := EnforceStructure(
+          [ took := 0
+          , timed_out := FALSE
+          , hits :=
+              [ total := [ value := 0, relation := "" ]
+              , max_score := 0f
+              , hits :=
+                  [ [ _index := ""
+                    , _id := ""
+                    , _score := 0f
+                    , _source := DEFAULT RECORD
+                    ]
+                  ]
+              ]
+          ], decoded);
+    }
+  }
+  RETURN decoded;
 }

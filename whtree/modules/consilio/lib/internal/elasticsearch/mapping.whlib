@@ -340,8 +340,10 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
       CASE "ipaddress" { esfielddata.type := "ip"; }
       CASE "money"
       {
-        esfielddata.type := "scaled_float";
-        INSERT CELL scaling_factor := 100000 INTO esfielddata;
+        // Elasticsearch's 'scaled_float' is stored as a long with fixed decimal factor, but is handled (and returned) as a
+        // double (scaled_float is just more efficient in storage than double), which only has 53 bits of precision. To be
+        // able to use all 64 bit money values, we'll just index them as long values.
+        esfielddata.type := "long";
       }
 
       CASE "text", "completion"

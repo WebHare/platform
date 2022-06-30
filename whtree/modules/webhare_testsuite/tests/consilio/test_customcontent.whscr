@@ -674,19 +674,19 @@ MACRO TestTypes()
       , objectid := idprefix || "a1"
       , extradata := EncodeHSON(
           [ mapping_integer := 2147483647
-          // , mapping_integer64 := 9223372036854775807i64//TODO: Any number outside the 32-bit INTEGER range is decoded as a FLOAT
+          , mapping_integer64 := 9223372036854775807i64//TODO: Any number outside the 32-bit INTEGER range is decoded as a FLOAT
           , mapping_money := 90071992547.40991m // A scaled float is returned as a double with 53-bit precision (and decoded as a FLOAT anyway)
           , mapping_float := 9223372036854775808
           , mapping_boolean := TRUE
           , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
           , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
-          // , mapping_integer64_array := INTEGER64[]
+          , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
           , mapping_money_array := [ 3.14, 5, 90071992547.40990m, 45035996273.70496m ]
           , mapping_float_array := [ pi, 5 ]
           , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
           , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
           , fieldgroup_integer := 1234
-          // , fieldgroup_integer64 := 1234567890i64
+          , fieldgroup_integer64 := 2147483648i64
           , fieldgroup_float := 2.20371f
           , fieldgroup_boolean := TRUE
           , fieldgroup_datetime := MakeDate(2038, 1, 19)
@@ -710,24 +710,45 @@ MACRO TestTypes()
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
       , mapping_integer := 2147483647
-      , mapping_integer64 := 0i64//9223372036854775807i64
+      , mapping_integer64 := 9223372036854775807i64
       , mapping_money := 90071992547.40991m
       , mapping_float := 9223372036854775808
       , mapping_boolean := TRUE
       , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
-      , mapping_integer64_array := INTEGER64[]
-      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, is_opensearch ? 45035996273.70497m : 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
       , mapping_float_array := FLOAT[ pi, 5f ]
       , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
       , fieldgroup_integer := 1234
-      , fieldgroup_integer64 := 0i64//1234567890
+      , fieldgroup_integer64 := 2147483648i64
       , fieldgroup_float := 2.20371f
       , fieldgroup_boolean := TRUE
       , fieldgroup_datetime := MakeDate(2038, 1, 19)
       , myfield1 := ""
       ], res.results[0]);
+
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "=", 9223372036854775807i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<=", 9223372036854775807i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">=", 9223372036854775807i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<", 9223372036854775807i64));
+  TestEq(0, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">", 9223372036854775806i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<", 90071992547.40991m));
+  TestEq(0, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">", 90071992547.40990m));
+  TestEq(1, res.totalcount);
 
   res := RunConsilioSearch(maincatalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
   TestEq(
@@ -739,19 +760,19 @@ MACRO TestTypes()
       , indexed_by := ToString(maincontentsource->id)
       , datafrom := "fetch"
       , mapping_integer := 2147483647
-      , mapping_integer64 := 0i64//9223372036854775807i64
+      , mapping_integer64 := 9223372036854775807i64
       , mapping_money := 90071992547.40991m
       , mapping_float := 9223372036854775808
       , mapping_boolean := TRUE
       , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
-      , mapping_integer64_array := INTEGER64[]
-      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, is_opensearch ? 45035996273.70497m : 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
       , mapping_float_array := FLOAT[ pi, 5f ]
       , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
       , fieldgroup_integer := 1234
-      , fieldgroup_integer64 := 0i64//1234567890
+      , fieldgroup_integer64 := 2147483648i64
       , fieldgroup_float := 2.20371f
       , fieldgroup_boolean := TRUE
       , fieldgroup_datetime := MakeDate(2038, 1, 19)

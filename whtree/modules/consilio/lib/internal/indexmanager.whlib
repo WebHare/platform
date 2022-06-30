@@ -465,7 +465,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
 
           IF(IsDebugTagEnabled("consilio:changes"))
             LogDebug("consilio:changes", "EnsureIndexManagerContentSource", CELL[ indexid, ...indexmanager, settings ]);
-          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/", settings, "PUT", [ throwonfailure := TRUE ]);
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping", settings, "PUT", [ throwonfailure := TRUE ]);
           result := response.status;
         }
         CATCH (OBJECT<ElasticSearchException> e)
@@ -770,7 +770,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF(options.debug)
           Print("Final Elasticsearch query: " || EncodeJSON(searchquery) || "\n");
 
-        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure ]);
+        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure , enforce := "_search_get" ]);
         IF(options.debug)
           DumpValue(response, "tree");
 

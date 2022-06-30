@@ -4,6 +4,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -77,10 +78,88 @@ PUBLISHER SEARCH FIELDS
 */
 PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ datetimesupport := FALSE ], options);
+  options := ValidateOptions(
+      [ datetimesupport := FALSE
+      , elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "" //TODO: If Consilio no longer has to be supported, make this the default
+      ], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for match query");
+
+  IF (options.elasticsearch)
+  {
+    SWITCH (TypeID(value))
+    {
+      CASE TypeID(STRING ARRAY)
+         , TypeID(INTEGER ARRAY)
+         , TypeID(INTEGER64 ARRAY)
+         , TypeID(MONEY ARRAY)
+         , TypeID(FLOAT ARRAY)
+         , TypeID(DATETIME ARRAY)
+         , TypeID(BOOLEAN ARRAY)
+      {
+        IF (matchtype NOT IN [ "IN", "CONTAINS" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+      }
+      CASE TypeID(STRING)
+         , TypeID(INTEGER)
+         , TypeID(INTEGER64)
+         , TypeID(MONEY)
+         , TypeID(FLOAT)
+         , TypeID(DATETIME)
+      {
+        IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+        IF (matchtype = "CONTAINS" AND TypeID(value) != TypeID(STRING))
+          matchtype := "="; // Match the literal query value within an indexed array
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        IF (matchtype NOT IN [ "=" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Invalid value type '${GetTypeName(TypeID(value))}' for match query`);
+      }
+    }
+
+    IF (IsTypeIDArray(TypeID(value)))
+    {
+      IF (Length(value) = 0)
+        RETURN CQNothing();
+      RETURN [ _type := "boolean"
+             , subqueries :=
+                 (SELECT query :=
+                           CELL[ _type := "term"
+                               , field
+                               , term
+                               , boost := 1f
+                               ]
+                       , required := (matchtype = "CONTAINS")
+                       , prohibited := FALSE
+                    FROM ToRecordArray(value, "term"))
+             , boost := 1f
+             ];
+    }
+    ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
+    {
+      RETURN
+          CELL[ _type := "range"
+              , field
+              , matchtype
+              , term := value
+              , boost := 1f
+              ];
+    }
+
+    RETURN
+        CELL[ _type := matchtype = "=" ? "literal" : "term"
+            , field
+            , term := value
+            , boost := 1f
+            ];
+  }
 
   STRING ARRAY searchvalue;
   IF (TypeID(value) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
