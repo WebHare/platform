@@ -391,6 +391,11 @@ STATIC OBJECTTYPE Remoter
   {
     RETURN LENGTH(this->sent_types) != 0;
   }
+
+  PUBLIC BOOLEAN FUNCTION HasClientRemoted()
+  {
+    RETURN LENGTH(this->received_types) != 0;
+  }
 >;
 
 
