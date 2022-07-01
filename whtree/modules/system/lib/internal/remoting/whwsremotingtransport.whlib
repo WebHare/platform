@@ -65,9 +65,10 @@ PUBLIC STATIC OBJECTTYPE WHWSRemotingTransport EXTEND Transport
   {
     //INTEGER str := CreateStream();
     //__HS_MARSHALPACKETWRITETO(str, rec);
-    RETURN
-        [ packets :=        this->codec->EncodePackets(rec)
-        , keeprunning :=    keeprunning
+    BLOB ARRAY packets := this->codec->EncodePackets(rec);
+    RETURN CELL
+        [ packets
+        , keeprunning :=    keeprunning AND this->pvt_remoter->HasRemoted()
         , headers :=        DEFAULT RECORD ARRAY
         ];
   }
