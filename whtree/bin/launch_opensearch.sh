@@ -61,6 +61,11 @@ else
   _JAVA_OPTIONS="$_JAVA_OPTIONS -Djava.security.manager=allow"    #linux opensearch 1.3.2 doesn't seem to like securitymanager anymore but brew does
 fi
 
+# Make sure the ICU Analysis plugin is installed
+if ! "$OPENSEARCHBINARY-plugin" list | grep -q "analysis-icu"; then
+  "$OPENSEARCHBINARY-plugin" install analysis-icu
+fi
+
 exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
                                 -Epath.logs="$OPENSEARCHROOT/logs" \
                                 -Epath.repo="$OPENSEARCHROOT/repo" \

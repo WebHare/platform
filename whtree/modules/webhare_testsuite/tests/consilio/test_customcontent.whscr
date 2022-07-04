@@ -624,22 +624,28 @@ MACRO TestCustomContent()
   IF (is_opensearch)
   {
     TestEQ(0, res.totalcount);
+
+    // Consilio doesn't support emoji parsing
+    res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
+    TestEQ(1, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+    res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "🍻"), 0, 1000);
+    TestEQ(1, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+    res := search_obj->SearchQuery(CQParseUserQuery("🍻"), 0, 1000);
+    TestEQ(1, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+
+    res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
+    TestEQ(0, res.totalcount);
   }
   ELSE
   {
     TestEQ(1, res.totalcount);
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   }
-
-/* Not working (yet?)
-  res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-
-  res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
-  TestEQ(0, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-*/
 
   testfw->BeginWork();
   DELETE FROM webhare_testsuite.consilio_index;

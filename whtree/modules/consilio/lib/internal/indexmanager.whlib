@@ -32,57 +32,28 @@ CONSTANT RECORD elasticsearch_index_settings :=
       [ analyzer :=
           // Defines general and language-specific custom analyzers that are compatible with our tokenstream implementation
         [ consilio :=
-          [ tokenizer := "tokenstream"
+          [ tokenizer := "icu_tokenizer"
           , filter := [ "lowercase", "asciifolding" ]
+          , char_filter := [ "remove_dot" ]
           ]
         , consilio_original :=
-          [ tokenizer := "tokenstream"
+          [ tokenizer := "icu_tokenizer"
+          , char_filter := [ "remove_dot" ]
           ]
         , consilio_de :=
-          [ tokenizer := "tokenstream"
+          [ tokenizer := "icu_tokenizer"
           , filter := [ "lowercase", "german_stop", "german_normalization", "asciifolding", "german_stemmer" ]
+          , char_filter := [ "remove_dot" ]
           ]
         , consilio_en :=
-          [ tokenizer := "tokenstream"
+          [ tokenizer := "icu_tokenizer"
           , filter := [ "english_possessive_stemmer", "lowercase", "english_stop", "asciifolding", "english_stemmer" ]
+          , char_filter := [ "remove_dot" ]
           ]
         , consilio_nl :=
-          [ tokenizer := "tokenstream"
+          [ tokenizer := "icu_tokenizer"
           , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer" ]
-          ]
-        ]
-      , tokenizer :=
-        [ tokenstream :=
-          [ type := "simple_pattern"
-            // This pattern is basically the regex implementation of Utf8Reader::IsAlNum(), with some extras (marked with *)
-          , pattern := "[0-9A-Za-z_"     // Basic Latin (ASCII)
-                    || "\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u1cff" // Latin-1 Supplement, Latin Extended-A, Latin Extended-B,
-                          // IPA Extensions, Spacing Modifier Letters, Combining Diacritical Marks, Greek and Coptic, Cyrillic,
-                          // Cyrillic Supplement, Armenian, Hebrew, Arabic, Syriac, Arabic Supplement, Thaana, NKo, Samaritan,
-                          // Mandaic, Syriac Supplement, Arabic Extended-A, Devanagari, Bengali, Gurmukhi, Gujarati, Oriya,
-                          // Tamil, Telugu, Kannada, Malayalam, Sinhala, Thai, Lao, Tibetan, Myanmar, Georgian, Hangul Jamo,
-                          // Ethiopic, Ethiopic Supplement, Cherokee, Unified Canadian Aboriginal Syllabics, Ogham, Runic,
-                          // Tagalog, Hanunoo, Buhid, Tagbanwa, Khmer, Mongolian, Unified Canadian Aboriginal Syllabics
-                          // Extended, Limbu, Tai Le, New Tai Lue, Khmer Symbols, Buginese, Tai Tham, Combining Diacritical
-                          // Marks Extended, Balinese, Sundanese, Batak, Lepcha, Ol Chiki, Cyrillic Extended-C, Georgian
-                          // Extended, Sundanese Supplement, Vedic Extensions
-                    || "\u1e00-\u1fff"   // Latin Extended Additonal, Greek Extended
-                    || "\u2c00-\u2dff"   // Glagolitic, Latic Extended-C, Coptic, Georgian Supplement, Tifinagh, Ethiopic
-                          // Extended, Cyrillic Extended-A
-                    || "\u2e80-\u2fff"   // CJK Radicals Supplement, Kangxi Radicals, Ideographic Description Characters
-                    || "\u3040-\u31ff"   // Hiragana, Katakana, Bopomofo, Hangul Compatibility Jamo, Kanbun, Bopomofo Extended,
-                          // CJK Strokes, Katakana Phonetic Extensions
-                    || "\u3400-\u4dbf"   // CJK Unified Ideographs Extension A
-                    || "\u4e00-\ua6ff"   // CJK Unified Ideographs, Yi Syllables, Yi Radicals, Lisu, Vai, Cyrillic Extended-B,
-                          // Bamum
-                    || "\ua720-\ud7ff"   // Latin Extended-D, Syloti Nagri, Common Indic Number Forms, Phags-pa, Saurashtra,
-                          // Devanagari Extended, Kayah Li, Rejang, Hangul Jamo Extended-A, Javanese, Myanmar Extended-B, Cham,
-                          // Myanmar Extended-A, Tai Viet, Meetei Mayek Extensions, Ethiopic Extended-A, Latin Extended-E,
-                          // Cherokee Supplement, Meetei Mayek, Hangul Syllables, Hangul Jamo Extended-B
-                    || "\uf900-\ufdff"   // CJK Compatibility Ideographs, Alphabetic Presentation Forms, Arabic Presentation
-                          // Forms-A
-                    || "\ufe30-\ufefe"   // CJK Compatibility Forms, Small Form Variants, Arabic Presentation Forms-B
-                    || "\uff10-\uff19\uff21-\uff3a\uff41-\uff5a\uff65-\uffdf]+" // Halfwidth and Fullwidth Forms
+          , char_filter := [ "remove_dot" ]
           ]
         ]
       , filter :=
@@ -94,6 +65,10 @@ CONSTANT RECORD elasticsearch_index_settings :=
         , english_possessive_stemmer := [ type := "stemmer", language := "possessive_english" ]
         , german_stop := [ type := "stop", stopwords := "_german_" ]
         , german_stemmer := [ type := "stemmer", language := "light_german" ]
+        ]
+      , char_filter :=
+          // By default, the icu_tokenizer doesn't split 'word.word' into 'word', 'word'. This filter replaces all dots with spaces
+        [ remove_dot := [ type := "pattern_replace", pattern := "\\.", replacement := " " ]
         ]
       ]
     ];
