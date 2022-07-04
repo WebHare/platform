@@ -1817,9 +1817,11 @@ void XMLNode_AppendChild(HSVM *hsvm, HSVM_VariableId id_set)
 {
         XMLNode *xmlparent = static_cast<XMLNode*>(HSVM_ObjectContext(hsvm, HSVM_Arg(0), XMLNodeContextId, true));
         XMLNode *xmlchild = static_cast<XMLNode*>(HSVM_ObjectContext(hsvm, HSVM_Arg(1), XMLNodeContextId, true));
-
-        if(!xmlparent->node)
-            return;
+        if(!xmlparent || !xmlparent->node)
+        {
+                Xml_ThrowDomException(hsvm, HierarchyRequestErr, "Parent is not a node");
+                return;
+        }
         if(!xmlchild || !xmlchild->node)
         {
                 Xml_ThrowDomException(hsvm, HierarchyRequestErr, "New child is not a node");
@@ -1919,7 +1921,7 @@ void XMLNode_InsertBefore(HSVM *hsvm, HSVM_VariableId id_set)
         }
 
         XMLNode *xmlchild = static_cast<XMLNode*>(HSVM_ObjectContext(hsvm, HSVM_Arg(1), XMLNodeContextId, true));
-        if(!xmlchild->node)
+        if(!xmlchild || !xmlchild->node)
         {
                 Xml_ThrowDomException(hsvm, HierarchyRequestErr, "New child is not a node");
                 return;
