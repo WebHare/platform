@@ -3095,26 +3095,26 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              WHERE entity = result.entityid
                AND attribute IN relevant_attrids
           ORDER BY attribute, parentsetting;
-      }
 
-      // If changing the GUID, also update the corresponding authobject
-      IF (CellExists(splitdata.entityrec, "GUID"))
-      {
-        // Find the old GUID
-        STRING oldguid :=
-            SELECT AS STRING EncodeWRDGUID(guid)
-              FROM wrd.entities
-             WHERE id = result.entityid;
-
-        // Calculate the new one (from the decoded data, want sanitized data)
-        STRING newguid := EncodeWRDGUID(splitdata.entityrec.guid);
-
-        // Update the authobject guid only if there is no other authobject with that guid
-        IF (NOT RecordExists(SELECT FROM system.authobjects WHERE guid = newguid))
+        // If changing the GUID, also update the corresponding authobject
+        IF (CellExists(splitdata.entityrec, "GUID"))
         {
-          UPDATE system.authobjects
-             SET guid := EncodeWRDGUID(splitdata.entityrec.guid)
-           WHERE guid = oldguid;
+          // Find the old GUID
+          STRING oldguid :=
+              SELECT AS STRING EncodeWRDGUID(guid)
+                FROM wrd.entities
+               WHERE id = result.entityid;
+
+          // Calculate the new one (from the decoded data, want sanitized data)
+          STRING newguid := EncodeWRDGUID(splitdata.entityrec.guid);
+
+          // Update the authobject guid only if there is no other authobject with that guid
+          IF (NOT RecordExists(SELECT FROM system.authobjects WHERE guid = newguid))
+          {
+            UPDATE system.authobjects
+              SET guid := EncodeWRDGUID(splitdata.entityrec.guid)
+            WHERE guid = oldguid;
+          }
         }
       }
 
