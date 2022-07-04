@@ -29,7 +29,7 @@ CONSTANT FLOAT stemmed_factor := .5;
 CONSTANT FLOAT stopword_factor := .1;
 CONSTANT FLOAT thesaurus_factor := .5;
 
-CONSTANT RECORD ARRAY defaultfields :=
+PUBLIC CONSTANT RECORD ARRAY defaultfields :=
     [ [ field := "title",       boost := title_boost,       stemmed_field := TRUE ]
     , [ field := "keywords",    boost := keywords_boost,    stemmed_field := FALSE ]
     , [ field := "description", boost := description_boost, stemmed_field := FALSE ]
