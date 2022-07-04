@@ -139,16 +139,18 @@ export default class ObjRTE extends ComponentBase
 
   setValue(newvalue) //set from server
   {
-    if(this.untouchedcontent && this.untouchedcontent == newvalue.value)
-      return; //server sent an unneeded update
+    // Only apply updates if the untouched content changed, or the valuegeneration is newer
+    if(!this.untouchedcontent || this.untouchedcontent != newvalue.value || newvalue.valuegeneration > this.valuegeneration)
+    {
+      this.untouchedcontent = newvalue.value;
+      this.rte.setValue(this.untouchedcontent);
+      this.restructuredcontent = this.rte.getValue();
+      if (newvalue.valuedirtycount == 0)
+        this.rte.clearDirty();
+    }
 
-    this.untouchedcontent = newvalue.value;
     this.valuegeneration = newvalue.valuegeneration;
     this.valuedirtycount = newvalue.valuedirtycount;
-    this.rte.setValue(this.untouchedcontent);
-    this.restructuredcontent = this.rte.getValue();
-    if (newvalue.valuedirtycount == 0)
-      this.rte.clearDirty();
   }
 
   getSubmitValue()

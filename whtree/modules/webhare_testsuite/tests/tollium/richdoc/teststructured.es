@@ -437,6 +437,25 @@ test.registerTests(
       test.eq('NO', test.compByName('dirty').querySelector('input').value);
     }
 
+  , "Test another dirtyness regression"
+  , async function(doc, win)
+    {
+      test.clickTolliumButton("Rewrite");
+      await test.wait("ui");
+      test.clickTolliumButton("Rewrite");
+      await test.wait("ui");
+
+      let rtenode = test.compByName('structured');
+      let body = rtenode.querySelector(".wh-rtd-editor-bodynode");
+      body.appendChild(body.ownerDocument.createTextNode("Dirtytest3"));
+
+      var rte = rtetest.getRTE(win,'structured');
+      rte._gotStateChange();
+
+      await test.wait("ui");
+      test.eq('YES', test.compByName('dirty').querySelector('input').value);
+    }
+
   , { name: "Test image copypaste within document"
     , test: async function(doc, win)
       {
