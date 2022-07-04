@@ -2952,7 +2952,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
     }
 
-    IF(is_temp_coming_alive)
+    IF(is_temp_coming_alive AND NOT options.importmode)
     { //check any required unset attributes, if they are really set
       //TODO also recurse into arrays and verify them, if they have required fields
       STRING ARRAY set_attributes := (SELECT AS STRING ARRAY tag FROM splitdata.checked_base_fields)
