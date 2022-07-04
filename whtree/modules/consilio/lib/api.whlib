@@ -4,7 +4,9 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -464,7 +466,8 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
     @cell(string) options.defaultfields.field Field name
     @cell(float) options.defaultfields.boost Boost factor applied when a match is found in this field (defaults to 1.0)
     @cell(boolean) options.defaultfields.stemmed_field Set to true to also use stemming when searching for terms in this field
-    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id.
+    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id (legacy Consilio only)
+    @cell(boolean) options.synonyms If the catalog synonyms list should be used (defaults to TRUE, Opensearch only)
     @return Consilio query record
 */
 PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -473,6 +476,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
       [ querymode := "AND"
       , defaultfields := DEFAULT RECORD ARRAY
       , thesaurusid := 0
+      , synonyms := TRUE
       ],
       options,
       [ enums := [ querymode := [ "AND", "OR" ] ]
@@ -492,6 +496,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
              , defaultrequire := options.querymode = "AND" ? require_required : require_allowed
              , options.defaultfields
              , thesaurus
+             , options.synonyms
              , boost := 1f
              ];
 }
@@ -1312,7 +1317,86 @@ STATIC OBJECTTYPE Catalog
         INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
     }
 
+    this->UpdateIndexSynonyms(CELL[ suffix ]);
     EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
+  }
+
+  /** @short Get the catalog's synonyms list
+      @return The grouped synonyms
+      @cell(integer) wordgroupid Word group id
+      @cell(string array) words The words within this group
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetSynonyms()
+  {
+    RETURN
+        SELECT wordgroupid := wordgroup
+             , words := GroupedValues(word)
+          FROM consilio.thesaurus
+         WHERE indexid = this->id
+         GROUP BY wordgroup;
+
+  }
+
+  /** @short Update the catalog's synonyms list
+      @param words The grouped synonyums
+      @includecelldef #GetSynonyms.return
+  */
+  PUBLIC MACRO SetSynonyms(RECORD ARRAY words)
+  {
+    INTEGER ARRAY updated;
+    BOOLEAN anychanges;
+    FOREVERY (RECORD row FROM words)
+    {
+      INTEGER wordgroupid := CellExists(row, "wordgroupid")
+          ? row.wordgroupid
+          : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
+      IF (CellExists(row, "wordgroupid"))
+        INSERT row.wordgroupid INTO updated AT END;
+
+      RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
+      STRING ARRAY newwordgroup := row.words;
+
+      // Delete old words that are not in the new words group
+      FOREVERY (RECORD todelete FROM oldwordgroup)
+        IF (todelete.word NOT IN newwordgroup)
+        {
+          DELETE FROM consilio.thesaurus WHERE id = todelete.id;
+          anychanges := TRUE;
+        }
+
+      // Add new words that are not in the old words group
+      STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
+      FOREVERY (STRING word FROM toadd)
+      {
+        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
+               VALUES(this->id, word, wordgroupid);
+        anychanges := TRUE;
+      }
+    }
+    IF (RecordExists(SELECT FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated))
+    {
+      DELETE FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated;
+      anychanges := TRUE;
+    }
+
+    IF (anychanges)
+      this->UpdateIndexSynonyms(DEFAULT RECORD);
+  }
+
+  MACRO UpdateIndexSynonyms(RECORD options)
+  {
+    // Update the synonyms list of the 'synonym' filter (the rest of the settings are left alone)
+    RECORD settings :=
+        [ "index" :=
+          [ analysis :=
+            [ filter :=
+              [ synonym :=
+                [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms() ]
+              ]
+            ]
+          ]
+        ];
+    UpdateIndexManagerIndexSettings(this->id, settings, options);
   }
 
   RECORD FUNCTION GetBaseDebugInfo()

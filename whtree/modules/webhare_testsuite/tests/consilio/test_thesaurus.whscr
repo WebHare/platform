@@ -5,6 +5,7 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
@@ -23,6 +24,8 @@ MACRO TestThesaurus()
   DELETE FROM webhare_testsuite.consilio_index;
 
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
+  BOOLEAN is_opensearch := testcatalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+
   //having indexnames makes log analysis easier
   Print(`${testcatalog->tag} (${testcatalog->id}) => ${testcatalog->indexname}\n`);
 
@@ -61,10 +64,7 @@ MACRO TestThesaurus()
   // Add some thesaurus words
   testfw->BeginWork();
   INTEGER wordgroupid := (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
-  INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
-       VALUES(testcatalog->id, wordgroupid, "a");
-  INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
-       VALUES(testcatalog->id, wordgroupid, "b");
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "b" ] ] ]);
   testfw->CommitWork();
 
   // Search again
@@ -83,10 +83,40 @@ MACRO TestThesaurus()
 
   res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
-  TestEq(0, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ thesaurusid := testcatalog->id ]) ]), 0, 1000);
-  TestEq(1, Length(res.results));
+  IF (is_opensearch)
+  {
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+    TestEq(1, Length(res.results));
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ synonyms := FALSE ]) ]), 0, 1000);
+    TestEq(0, Length(res.results));
+  }
+  ELSE
+  {
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+    TestEq(0, Length(res.results));
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ thesaurusid := testcatalog->id ]) ]), 0, 1000);
+    TestEq(1, Length(res.results));
+  }
+
+  // Update the thesaurus words
+  testfw->BeginWork();
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "c" ] ] ]);
+  testfw->CommitWork();
+
+  IF (is_opensearch)
+  {
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+    TestEq(0, Length(res.results));
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("c") ]), 0, 1000);
+    TestEq(1, Length(res.results));
+  }
+  ELSE
+  {
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ thesaurusid := testcatalog->id ]) ]), 0, 1000);
+    TestEq(0, Length(res.results));
+    res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("c", [ thesaurusid := testcatalog->id ]) ]), 0, 1000);
+    TestEq(1, Length(res.results));
+  }
 
   //Ensure toplevel CQParseUserQuery doesn't crash
   res := search_obj->SearchQuery(CQParseUserQuery("a"), 0, 1000);

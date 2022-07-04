@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::regex.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -1230,23 +1229,14 @@ BOOLEAN FUNCTION ArrayLike(STRING ARRAY value, STRING mask, BOOLEAN case_sensiti
 }
 
 PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
-< INTEGER indexid;
+< OBJECT catalog;
   RECORD ARRAY wordgroups;
 
   MACRO Init(RECORD data)
   {
-    this->indexid := data.indexid;
-    this->frame->title := GetTid("consilio:catalog.thesaurus.title",
-        (SELECT AS STRING name
-           FROM consilio.indices
-          WHERE id = this->indexid));
-    ^words->value :=
-        SELECT rowkey := wordgroup
-             , wordgroupid := wordgroup
-             , words := GroupedValues(word)
-          FROM consilio.thesaurus
-         WHERE indexid = this->indexid
-         GROUP BY wordgroup;
+    this->catalog := OpenConsilioCatalogById(data.indexid);
+    this->frame->title := GetTid("consilio:catalog.thesaurus.title", this->catalog->tag);
+    ^words->value := /* SELECT *, rowkey := wordgroup FROM  */this->catalog->GetSynonyms();
   }
 
   MACRO DoSearchWords()
@@ -1275,27 +1265,7 @@ PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-
-    FOREVERY (RECORD row FROM ^words->value)
-    {
-      INTEGER wordgroupid := CellExists(row, "wordgroupid")
-          ? row.wordgroupid
-          : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
-
-      RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
-      STRING ARRAY newwordgroup := row.words;
-
-      // Delete old words that are not in the new words group
-      FOREVERY (RECORD todelete FROM oldwordgroup)
-        IF (todelete.word NOT IN newwordgroup)
-          DELETE FROM consilio.thesaurus WHERE id = todelete.id;
-
-      // Add new words that are not in the old words group
-      STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
-      FOREVERY (STRING word FROM toadd)
-        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
-               VALUES(this->indexid, word, wordgroupid);
-    }
+    this->catalog->SetSynonyms(^words->value);
     RETURN work->Finish();
   }
 >;

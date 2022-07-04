@@ -757,7 +757,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
               [ query := query.userquery
               , fields := (SELECT AS STRING ARRAY field || __FormatBoost(boost) FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" || __FormatBoost(boost) FROM fields WHERE stemmed_field)
               , default_operator := query.defaultrequire = require_required ? "AND" : "OR"
-              , analyzer := "consilio"
+              , analyzer := query.synonyms ? "consilio_search" : "consilio"
               ]
           ];
     }

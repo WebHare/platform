@@ -55,6 +55,11 @@ CONSTANT RECORD elasticsearch_index_settings :=
           , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer" ]
           , char_filter := [ "remove_dot" ]
           ]
+        , consilio_search :=
+          [ tokenizer := "icu_tokenizer"
+          , filter := [ "lowercase", "asciifolding", "synonym" ]
+          , char_filter := [ "remove_dot" ]
+          ]
         ]
       , filter :=
           // These are based on the information at https://www.elastic.co/guide/en/elasticsearch/reference/7.17/analysis-lang-analyzer.html
@@ -65,6 +70,8 @@ CONSTANT RECORD elasticsearch_index_settings :=
         , english_possessive_stemmer := [ type := "stemmer", language := "possessive_english" ]
         , german_stop := [ type := "stop", stopwords := "_german_" ]
         , german_stemmer := [ type := "stemmer", language := "light_german" ]
+          // The 'synonyms' are updated dynamically
+        , synonym := [ type := "synonym_graph", synonyms := STRING[] ]
         ]
       , char_filter :=
           // By default, the icu_tokenizer doesn't split 'word.word' into 'word', 'word'. This filter replaces all dots with spaces
@@ -256,6 +263,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
           indexlist := SELECT indexid := matchindex.indexid
                             , suffix := Substring(indexname, Length(matchindex.indexname)+1)
                             , health
+                            , status
                             , docs := ToInteger(indexlist."docs.count", 0)
                             , size := ToInteger(indexlist."pri.store.size", 0)
                             , indexname
@@ -267,6 +275,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
             result.statuses :=
                 SELECT suffix
                      , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
+                     , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
                      , docs := Sum(docs)
                      , size := Sum(size)
                   FROM indexlist
@@ -281,6 +290,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
             result.statuses :=
                 SELECT indexid
                      , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
+                     , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
                      , docs := Sum(docs)
                      , size := Sum(size)
                   FROM indexlist
@@ -408,6 +418,60 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
           ELSE
             THROW;
         }
+      }
+    }
+  }
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION UpdateIndexManagerIndexSettings(INTEGER indexid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      ], options);
+
+  STRING result := SearchOk;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        // Not supported, ignore
+      }
+      CASE whconstant_consilio_indexmanager_opensearch
+      {
+        IF(IsDebugTagEnabled("consilio:changes"))
+          LogDebug("consilio:changes", "UpdateIndexManagerSettings", CELL[ indexid, ...indexmanager, settings ]);
+
+        RECORD response;
+
+        // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
+        BOOLEAN close_index := CellExists(settings, "index") AND CellExists(settings."index", "analysis");
+        IF (close_index)
+        {
+          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
+          IF (response.status != SearchOk)
+            RETURN response.status;
+        }
+
+        // Update the settings
+        response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_settings", settings, "PUT", [ throwonfailure := TRUE ]);
+        IF (response.status != SearchOk)
+          RETURN response.status;
+
+        // Open the index again if needed
+        IF (close_index)
+        {
+          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_open", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
+          IF (response.status != SearchOk)
+            RETURN response.status;
+        }
+
+        result := response.status;
       }
     }
   }
