@@ -2162,6 +2162,8 @@
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="lang" /><!-- Will be added in 5.0 -->
+
     <xs:attribute name="priority" type="xs:integer">
       <xs:annotation>
         <xs:documentation>Priority in the range -9 to 9 (0 is default priority, 9 is highest priority)</xs:documentation>
