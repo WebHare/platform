@@ -111,10 +111,11 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
         expect_contentobject := Tokenize(source.contentobject,'#')[1];
       }
 
+      OBJECT contentsource := catalog->OpenContentSourceById(currentsources[matchpos].id);
       IF(currentsources[matchpos].definedby != source.definedby
          OR currentsources[matchpos].contentobject != source.contentobject)
       {
-        catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL
+        contentsource->UpdateContentSource(CELL
             [ source.definedby
             , settings := CELL[library := expect_library, contentobject := expect_contentobject]
             , tag := source.tag
@@ -122,7 +123,9 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
       }
 
       IF(currentsources[matchpos].isorphan)
-        catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
+        contentsource->ReactivateContentSource();
+
+      contentsource->OpenProvider()->UpdateContentSourceFields();
 
       DELETE FROM currentsources AT matchpos; //remove from cleanup list
       CONTINUE;

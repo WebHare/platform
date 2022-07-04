@@ -1571,7 +1571,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
 
-    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
+    contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     IF (this->indexmanager.type = whconstant_consilio_indexmanager_opensearch)
       this->EnsureIndex();

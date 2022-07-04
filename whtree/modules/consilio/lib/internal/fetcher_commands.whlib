@@ -74,9 +74,9 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
              AND (status > 0 //is updating or rebuikd
                   OR indexid NOT IN presentindexids)
              AND tag NOT LIKE "$consilio$deleted$*"; //or not even there!
-  FOREVERY (RECORD indexrec FROM outdated_sources)
+  FOREVERY (INTEGER indexid FROM SELECT AS INTEGER ARRAY DISTINCT COLUMN indexid FROM outdated_sources)
   {
-    EnsureIndexManagerIndex(indexrec.indexid);
+    EnsureIndexManagerIndex(indexid);
   }
 
   RETURN
