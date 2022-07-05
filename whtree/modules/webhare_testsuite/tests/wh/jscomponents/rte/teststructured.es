@@ -694,6 +694,17 @@ test.registerTests(
         range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<p class="normal">'+quotedblockfill+'</p><p class="normal">"(*0*)(*1*)ab"</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
+        // At start of paragraph, after heading1 with heading2 as next block type
+        rte.setContentsHTML('<h1 class="heading1">h1</h1><h2 class="heading2">h2</h2>');
+        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
+        rtetest.testEqHTMLEx(win, '(*0*)<h1 class="heading1">(*1*)"(*2*)h(*3*)1(*4*)"(*5*)</h1>(*6*)<h2 class="heading2">(*7*)"(*8*)h(*9*)2(*10*)"(*11*)</h2>(*12*)', rte.getContentBodyNode(), locators);
+
+        rte.setCursor(locators[8].element, locators[8].offset);
+        await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
+
+        range = rte.getSelectionRange();
+        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"h1"</h1><h2 class="heading2">'+quotedblockfill+'</h2><h2 class="heading2">"(*0*)(*1*)h2"</h2>', rte.getContentBodyNode(), [ range.start, range.end ]);
+
         // Spanning paragraphs
         rte.setContentsHTML('<p class="normal">ab</p><p class="normal">cd</p>');
         locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
