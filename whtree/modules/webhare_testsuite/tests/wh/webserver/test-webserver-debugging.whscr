@@ -30,26 +30,26 @@ MACRO TestDebugging()
   // first retrieval, should fail in cache, fall back to 404
   testfw->browser->GotoWebPage(goodkikkerlink);
   TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/storage/system/output/uc/*"));
   TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
 
   // second retrieval, cache hit
   testfw->browser->GotoWebPage(goodkikkerlink);
   TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/storage/system/output/uc/*"));
   TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
 
   // disable the disk cache by debugging tag
   testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie([ "wud", "wst=system:unifiedcache" ]));
   testfw->browser->GotoWebPage(goodkikkerlink);
   TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/storage/system/output/uc/*"));
   TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
 
   testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie(STRING[]));
   testfw->browser->GotoWebPage(goodkikkerlink);
   TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/system.uc2/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/storage/system/output/uc/*"));
   TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/unifiedcache/404.shtml"));
 }
 

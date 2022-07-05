@@ -1107,8 +1107,8 @@
               <xs:attribute name="path" use="required">
                 <xs:simpleType>
                   <xs:restriction base="xs:string">
-                    <!-- allow mod::*/*, siteoutput::*/*, whdata::*/*, relative path (without ':') -->
-                    <xs:pattern value="((mod|siteoutput|whdata)::[^/]+/.*|[^:]+)" />
+                    <!-- allow mod::*/*, siteoutput::*/*, storage::*/*, relative path (without ':') -->
+                    <xs:pattern value="((mod|siteoutput|whdata|storage)::[^/]+/.*|[^:]+)" />
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>
@@ -1127,8 +1127,8 @@
               <xs:attribute name="path" use="required">
                 <xs:simpleType>
                   <xs:restriction base="xs:string">
-                    <!-- allow mod::*/*, siteoutput::*/*, whdata::*/*, relative path (without ':') -->
-                    <xs:pattern value="((mod|siteoutput|whdata)::[^/]+/.*|[^:]+)" />
+                    <!-- allow mod::*/*, siteoutput::*/*, storage::*/*, relative path (without ':') -->
+                    <xs:pattern value="((mod|siteoutput|whdata|storage)::[^/]+/.*|[^:]+)" />
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>

@@ -180,10 +180,10 @@
     <restapi path="root:/.webhare_testsuite/restapi/" apispec="tests/wh/webserver/remoting/restapi/restapi.xml" />
 
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
-      <tryfolder path="whdata::tmp/webhare_testsuite.datastorage/folderdirect/" />
-      <tryfolder resolver="sha256b16" path="whdata::tmp/webhare_testsuite.datastorage/foldersha/" />
-      <tryfolder resolver="sha256b16_directory" path="whdata::tmp/webhare_testsuite.datastorage/foldersha_dir/" />
-      <tryfile path="whdata::tmp/webhare_testsuite.datastorage/file.shtml" />
+      <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
+      <tryfolder resolver="sha256b16" path="storage::webhare_testsuite/tmp/foldersha/" />
+      <tryfolder resolver="sha256b16_directory" path="storage::webhare_testsuite/tmp/foldersha_dir/" />
+      <tryfile path="storage::webhare_testsuite/tmp/file.shtml" />
       <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
     </webrule>
 

@@ -327,29 +327,29 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   }
 
   BOOLEAN have_try_node;
-  FOREVERY(OBJECT node FROM rulenode->childnodes->GetCurrentElements())
+  FOREVERY(OBJECT node FROM rulenode->ListChildren(whconstant_xmlns_moduledef,"*"))
   {
-    IF (node->namespaceuri != whconstant_xmlns_moduledef OR node->localname NOT IN [ "tryfolder", "tryfile" ])
+    IF (node->localname NOT IN [ "tryfolder", "tryfile" ])
       CONTINUE;
-
-    IF (NOT have_try_node AND RecordExists(rule.datastorage))
-      RETURN AddMessage(retval, "error", baseresource, node, `Multiple file lookup rules`);
-    have_try_node := TRUE;
-
-    IF (node->localname = "tryfile" AND node->GetAttribute("path") LIKE "*/")
-      RETURN AddMessage(retval, "error", baseresource, node, `The path of a <tryfile> node must be a file`);
-
-    // overwrite previous handleby stuff
-    IF (#node = 0 AND RecordExists(rule.datastorage))
-      rule.datastorage := RECORD[];
 
     STRING path := node->GetAttribute("path");
     STRING resolver := node->GetAttribute("resolver");
 
+    IF (node->localname = "tryfile" AND path LIKE "*/")
+      RETURN AddMessage(retval, "error", baseresource, node, `The path of a <tryfile> node must be a file`);
+
+    //rule.datastorage should be clear if we hit a tryfolder/tryfile
+    IF (NOT have_try_node AND RecordExists(rule.datastorage))
+      RETURN AddMessage(retval, "error", baseresource, node, `Multiple file lookup rules`);
+
+    have_try_node := TRUE;
+
     INSERT
         [ isfolder :=     node->localname = "tryfolder"
         , method :=       (node->localname = "tryfolder" ? resolver : "") ?? "direct"
-        , resource :=     node->GetAttribute("path")
+        , resource :=     path LIKE "whdata::*" OR path LIKE "siteoutput::*"
+                               ? path   //workaround for pseudo-namespaces
+                               : MakeAbsoluteResourcePath(baseresource, path)
         , tag :=          node->GetAttribute("tag")
         ] INTO rule.datastorage AT END;
   }

@@ -76,7 +76,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
     STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
     hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-    RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
+    RETURN MergePath(GetModuleStorageRoot("system") || "output/uc", hash);
   }
 
   BLOB FUNCTION ProcessImage(RECORD imgrec, RECORD imginfo)

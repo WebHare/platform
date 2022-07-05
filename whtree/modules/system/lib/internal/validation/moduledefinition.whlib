@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -28,15 +29,19 @@ RECORD FUNCTION GetWebruleMessage(RECORD rule, STRING message)
 
 RECORD FUNCTION ValidateWebRuleData(RECORD rule)
 {
+  //Validate resources that have to exist as they shouldn't be created dynamically, eg mod::
   RECORD retval := [ errors := RECORD[], warnings := RECORD[] ];
   FOREVERY(RECORD datastore FROM rule.datastorage)
   {
-    IF(NOT datastore.isfolder
-       AND IsAbsoluteResourcePath(datastore.resource)  //ignores __legacy and siteoutput:: paths
-       AND datastore.resource NOT LIKE "*[*" //ignores [modulename]
-       AND NOT RecordExists(RetrieveWebhareResource(datastore.resource, [ allowmissing := TRUE ])))
+    IF(datastore.resource LIKE "mod::*" AND datastore.resource NOT LIKE "*[*") //ignores [modulename]
     {
-      INSERT GetWebruleMessage(rule,`No such resource '${datastore.resource}'`) INTO retval.errors AT END;
+      RECORD target := GetDiskFileProperties(GetWebHareResourceDiskPath(datastore.resource));
+      IF(NOT RecordExists(target))
+        INSERT GetWebruleMessage(rule,`No such resource '${datastore.resource}'`) INTO retval.errors AT END;
+      ELSE IF(target.type = 1 AND NOT datastore.isfolder)
+        INSERT GetWebruleMessage(rule,`Resource '${datastore.resource}' is a folder`) INTO retval.errors AT END;
+      ELSE IF(target.type = 0 AND datastore.isfolder)
+        INSERT GetWebruleMessage(rule,`Resource '${datastore.resource}' is a file`) INTO retval.errors AT END;
     }
   }
   RETURN retval;
