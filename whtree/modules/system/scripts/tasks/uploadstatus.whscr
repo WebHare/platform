@@ -26,6 +26,7 @@ FOREVERY(RECORD receiver FROM receivers)
 
   RECORD serverinfo := [ installationid := ReadRegistryKey("system.global.installationid")
                        , version := GetWebhareVersionInfo()
+                       , name := GetServerName()
                        ];
 
   IF("modules" IN receiver.reports)
