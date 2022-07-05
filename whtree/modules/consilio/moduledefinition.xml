@@ -147,6 +147,9 @@
       <d:varchar name="fieldgroups" maxlength="512">
         <d:documentation>Field group definitions for this index</d:documentation>
       </d:varchar>
+      <d:varchar name="lang" maxlength="5">
+        <d:documentation>Index base language</d:documentation>
+      </d:varchar>
     </d:table>
 
     <d:table name="contentsources" primarykey="id">

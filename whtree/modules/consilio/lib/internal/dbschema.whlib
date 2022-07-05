@@ -19,6 +19,7 @@ PUBLIC SCHEMA
     , INTEGER "type"
     , STRING "indexname"
     , STRING "fieldgroups"
+    , STRING "lang"
     ; KEY id
     > indices
   , TABLE

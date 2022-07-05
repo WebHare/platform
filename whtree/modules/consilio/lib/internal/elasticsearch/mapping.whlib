@@ -114,25 +114,18 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
                     , subfields := ParseIndexField(subfield, module, state)
                     , type := type
                     , defaultvalue := GetFieldTypeDefaultValue(type)
-                    , strict := subfield->HasAttribute("strict") ? ParseXSBoolean(subfield->GetAttribute("strict")) : state.strict
                     ];
+    IF (subfield->HasAttribute("strict"))
+    {
+      BOOLEAN strict := ParseXSBoolean(subfield->GetAttribute("strict"));
+      IF (strict != state.strict)
+        INSERT CELL strict := strict INTO field;
+    }
     IF (subfield->HasAttribute("storeonly"))
       INSERT CELL "index" := NOT ParseXSBoolean(subfield->GetAttribute("storeonly")) INTO field.settings;
 
     SWITCH(type)
     {
-      CASE "text"
-      {
-        STRING analyzer := subfield->GetAttribute("analyzer");
-        IF (analyzer != "")
-          INSERT CELL analyzer := analyzer INTO field.settings;
-        STRING search_analyzer := subfield->GetAttribute("search_analyzer");
-        IF (search_analyzer != "")
-          INSERT CELL search_analyzer := search_analyzer INTO field.settings;
-        STRING search_quote_analyzer := subfield->GetAttribute("search_quote_analyzer");
-        IF (search_quote_analyzer != "")
-          INSERT CELL search_quote_analyzer := search_quote_analyzer INTO field.settings;
-      }
       CASE "keyword"
       {
         INTEGER ignore_above := ParseXSInt(subfield->GetAttribute("ignore_above"));
@@ -325,7 +318,7 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
         esfielddata.type := "object";
         IF (RecordExists(subfields))
           INSERT CELL dynamic := subfields.dynamic INTO esfielddata;
-        ELSE IF (prop.strict != input.strict)
+        ELSE IF (CellExists(prop, "strict") AND prop.strict != input.strict)
           INSERT CELL dynamic := prop.strict ? "strict" : "true" INTO esfielddata;
       }
 

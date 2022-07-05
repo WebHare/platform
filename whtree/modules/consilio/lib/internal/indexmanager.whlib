@@ -16,6 +16,7 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection, __indexmanager_debugall;
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
+LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
@@ -23,62 +24,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-
-
-CONSTANT RECORD elasticsearch_index_settings :=
-      // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
-    [ "index.number_of_replicas" := 0
-    , analysis :=
-      [ analyzer :=
-          // Defines general and language-specific custom analyzers that are compatible with our tokenstream implementation
-        [ consilio :=
-          [ tokenizer := "icu_tokenizer"
-          , filter := [ "lowercase", "asciifolding" ]
-          , char_filter := [ "remove_dot" ]
-          ]
-        , consilio_original :=
-          [ tokenizer := "icu_tokenizer"
-          , char_filter := [ "remove_dot" ]
-          ]
-        , consilio_de :=
-          [ tokenizer := "icu_tokenizer"
-          , filter := [ "lowercase", "german_stop", "german_normalization", "asciifolding", "german_stemmer" ]
-          , char_filter := [ "remove_dot" ]
-          ]
-        , consilio_en :=
-          [ tokenizer := "icu_tokenizer"
-          , filter := [ "english_possessive_stemmer", "lowercase", "english_stop", "asciifolding", "english_stemmer" ]
-          , char_filter := [ "remove_dot" ]
-          ]
-        , consilio_nl :=
-          [ tokenizer := "icu_tokenizer"
-          , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer" ]
-          , char_filter := [ "remove_dot" ]
-          ]
-        , consilio_search :=
-          [ tokenizer := "icu_tokenizer"
-          , filter := [ "lowercase", "asciifolding", "synonym" ]
-          , char_filter := [ "remove_dot" ]
-          ]
-        ]
-      , filter :=
-          // These are based on the information at https://www.elastic.co/guide/en/elasticsearch/reference/7.17/analysis-lang-analyzer.html
-        [ dutch_stop := [ type := "stop", stopwords := "_dutch_" ]
-        , dutch_stemmer := [ type := "stemmer", language := "dutch" ]
-        , english_stop := [ type := "stop", stopwords := "_english_" ]
-        , english_stemmer := [ type := "stemmer", language := "english" ]
-        , english_possessive_stemmer := [ type := "stemmer", language := "possessive_english" ]
-        , german_stop := [ type := "stop", stopwords := "_german_" ]
-        , german_stemmer := [ type := "stemmer", language := "light_german" ]
-          // The 'synonyms' are updated dynamically
-        , synonym := [ type := "synonym_graph", synonyms := STRING[] ]
-        ]
-      , char_filter :=
-          // By default, the icu_tokenizer doesn't split 'word.word' into 'word', 'word'. This filter replaces all dots with spaces
-        [ remove_dot := [ type := "pattern_replace", pattern := "\\.", replacement := " " ]
-        ]
-      ]
-    ];
 
 
 // -----------------------------------------------------------------------------
@@ -352,6 +297,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
   options := ValidateOptions(
       [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , throwonfailure := TRUE
+      , synonyms := STRING[]
       ], options);
 
   STRING result := SearchOk;
@@ -368,56 +314,44 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
     }
     CASE whconstant_consilio_indexmanager_opensearch
     {
+      IF (indexmanager.indexname = "")
+        THROW NEW Exception(`Index #${indexid} has no name`);
+      ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_moduleindex AND options.suffix != "")
+        THROW NEW Exception("Cannot specify a suffix for a non-module index");
+
+      RECORD settings := CELL
+            // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
+          [ "index.number_of_replicas" := 0
+            // Language-specific analysis settings
+          , analysis := GetAnalysisForLanguage(indexmanager.lang)
+          ];
+      // Add the synonyms filter
+      INSERT CELL synonym := CELL
+          [ type := "synonym_graph"
+          , options.synonyms
+          ] INTO settings.analysis.filter;
+
       IF(IsDebugTagEnabled("consilio:changes"))
-        LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager ]);
+        LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager, settings ]);
 
-      IF (indexmanager.indextype = whconstant_consilio_catalogtype_moduleindex)
+      TRY
       {
-        IF(indexmanager.indexname = "")
-          THROW NEW Exception(`Index #${indexid} has no name`);
-
-        TRY
-        {
-          RECORD response := SendToElasticsearch(indexmanager.id,
-                                                 indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "") || "?wait_for_active_shards=1",
-                                                 "",
-                                                 [ settings := elasticsearch_index_settings ],
-                                                 "PUT",
-                                                 [ throwonfailure := TRUE ]);
-          result := response.status;
-        }
-        CATCH(OBJECT<ElasticSearchException> e)
-        {
-          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-            result := Searchok;
-          ELSE IF (options.throwonfailure)
-            THROW;
-          ELSE
-            result := SearchHTTPError;
-        }
+        RECORD response := SendToElasticsearch(indexmanager.id,
+                                               indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""),
+                                               "",
+                                               CELL[ settings ],
+                                               "PUT",
+                                               [ throwonfailure := TRUE ]);
+        result := response.status;
       }
-      ELSE
+      CATCH(OBJECT<ElasticSearchException> e)
       {
-        IF(options.suffix != "")
-          THROW NEW Exception("Cannot specify a suffix for a non-module index");
-
-        TRY
-        {
-          RECORD response := SendToElasticsearch(indexmanager.id,
-                                                 indexmanager.indexname,
-                                                 "",
-                                                 [ settings := elasticsearch_index_settings ],
-                                                 "PUT",
-                                                 [ throwonfailure := TRUE ]);
-          result := response.status;
-        }
-        CATCH(OBJECT<ElasticSearchException> e)
-        {
-          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-            result := Searchok;
-          ELSE
-            THROW;
-        }
+        IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+          result := SearchOk;
+        ELSE IF (options.throwonfailure)
+          THROW;
+        ELSE
+          result := SearchHTTPError;
       }
     }
   }
@@ -444,13 +378,13 @@ PUBLIC STRING FUNCTION UpdateIndexManagerIndexSettings(INTEGER indexid, RECORD s
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
+        BOOLEAN close_index := CellExists(settings, "index") AND CellExists(settings."index", "analysis");
         IF(IsDebugTagEnabled("consilio:changes"))
-          LogDebug("consilio:changes", "UpdateIndexManagerSettings", CELL[ indexid, ...indexmanager, settings ]);
+          LogDebug("consilio:changes", "UpdateIndexManagerIndexSettings", CELL[ indexid, ...indexmanager, settings, close_index ]);
 
         RECORD response;
 
         // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
-        BOOLEAN close_index := CellExists(settings, "index") AND CellExists(settings."index", "analysis");
         IF (close_index)
         {
           response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
@@ -738,7 +672,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
+        RECORD searchquery := CreateElasticsearchQuery(query);
 
         INSERT CELL _source := requested_fields INTO searchquery;
 
@@ -768,8 +702,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
             IF (field != "body")
               INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
         }
-        //IF (options.lang != defaultoptions.lang)
-        //  INSERT [ name := "lang", value := ToUppercase(options.lang) ] INTO vars AT END;
         IF (options.restrict_to != defaultoptions.restrict_to)
         {
           RECORD restrict_filter := [ prefix := [ initialfilter := options.restrict_to ] ];
@@ -798,7 +730,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                      , options.first
                                                      , options.count
                                                      , summary_length := options.summary
-                                                     , options.lang
                                                      , sess := RecordExists(options.session) ? options.session.sessid : ""
                                                      , options.highlightfields
                                                      , fields := requested_fields
@@ -950,7 +881,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
+        RECORD searchquery := CreateElasticsearchQuery(query);
 
         INSERT CELL _source := requested_fields INTO searchquery;
 
@@ -1865,6 +1796,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
       SELECT indexmanagers.id
            , indexmanagers.type
            , indices.indexname
+           , indices.lang
            , indextype := indices.type
         FROM consilio.indices
            , consilio.indexmanagers

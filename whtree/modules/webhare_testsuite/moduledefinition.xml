@@ -336,11 +336,12 @@
     </fieldgroup>
 
     <!-- legacy syntax -->
-    <index tag="testindex">
+    <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
+    <fieldgroup tag="testindexfields">
       <datetime name="@timestamp" />
       <text name="title" />
       <keyword name="keyword" />
-      <text name="body" analyzer="dutch">
+      <text name="body">
         <keyword name="body_keyword" ignore_above="256" />
       </text>
       <integer name="int_field" />
@@ -356,7 +357,7 @@
       <ipaddress name="ip_field" />
       <latlng name="latlng_field" />
       <addfieldgroup ref="testgroup" />
-    </index>
+    </fieldgroup>
     <fieldgroup tag="testgroup">
       <integer name="group_int_field" />
       <record name="group_record_field" strict="false">

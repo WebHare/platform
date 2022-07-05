@@ -2069,27 +2069,6 @@
 
   ***************************************************** -->
 
-  <xs:simpleType name="StandardAnalyzers">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value=""/>
-      <xs:enumeration value="standard"/>
-      <xs:enumeration value="simple"/>
-      <xs:enumeration value="whitespace"/>
-      <!--
-        See https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-lang-analyzer.html for the complete list
-        of supported languages. For now we only support what is supported by libblex.
-      -->
-      <xs:enumeration value="danish" />
-      <xs:enumeration value="dutch" />
-      <xs:enumeration value="english" />
-      <xs:enumeration value="french" />
-      <xs:enumeration value="german" />
-      <xs:enumeration value="italian" />
-      <xs:enumeration value="portuguese" />
-      <xs:enumeration value="spanish" />
-    </xs:restriction>
-  </xs:simpleType>
-
   <xs:complexType name="Consilio">
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -2171,6 +2150,12 @@
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="lang" type="sc:Locale">
+      <xs:annotation>
+        <xs:documentation>The base language for this catalog, used for stemming and other language-specific features</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="priority" type="xs:integer">
       <xs:annotation>
         <xs:documentation>Priority in the range -9 to 9 (0 is default priority, 9 is highest priority)</xs:documentation>
@@ -2235,25 +2220,24 @@
             <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attributeGroup ref="FieldAttributes" />
-          <xs:attribute name="analyzer" type="StandardAnalyzers" default="standard">
+          <xs:attribute name="analyzer" type="xs:string">
             <xs:annotation>
               <xs:documentation>
-                The analyzer to use to analyze this field, defaults to `"standard"`
+                Deprecated, set catalog language for language-specific features.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="search_analyzer" type="StandardAnalyzers">
+          <xs:attribute name="search_analyzer" type="xs:string">
             <xs:annotation>
               <xs:documentation>
-                The analyzer to use when querying this field, defaults to the value of the analyzer field
+                Deprecated, set catalog language for language-specific features.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="search_quote_analyzer" type="StandardAnalyzers">
+          <xs:attribute name="search_quote_analyzer" type="xs:string">
             <xs:annotation>
               <xs:documentation>
-                The analyzer to use when a phrase is encountered when querying this field, defaults to the value of the
-                search_analyzer field
+                Deprecated, set catalog language for language-specific features.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
@@ -2290,27 +2274,6 @@
         </xs:annotation>
         <xs:complexType>
           <xs:attributeGroup ref="FieldAttributes" />
-          <xs:attribute name="analyzer" type="StandardAnalyzers" default="simple">
-            <xs:annotation>
-              <xs:documentation>
-                The analyzer to use to analyze this field, defaults to `"simple"`
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="search_analyzer" type="StandardAnalyzers">
-            <xs:annotation>
-              <xs:documentation>
-                The analyzer to use when querying this field, defaults to the value of the analyzer field
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="preserve_separators" type="xs:boolean" default="true">
-            <xs:annotation>
-              <xs:documentation>
-                Set to `false` to be able to find `Foo Fighters` if suggesting for `foof`, defaults to `true`
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
         </xs:complexType>
       </xs:element>
 -->

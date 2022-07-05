@@ -449,19 +449,19 @@ PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER indexid, STRING object
 }
 
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
-PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
+PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
 {
   IF (CellExists(input, "aggregation"))
   {
     RECORD result :=
-        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation, language)
+        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation)
         ];
     // The 'count' aggregation isn't sent to Elasticsearch as an actual aggregation
     IF (NOT RecordExists(result.aggs))
       DELETE CELL aggs FROM result;
 
     IF (CellExists(input, "query"))
-      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query, language) INTO result;
+      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query) INTO result;
 
     RETURN result;
   }
@@ -515,7 +515,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
     DELETE CELL ordering FROM input;
   }
 
-  result.query := CreateElasticsearchQueryRecursive(query, language);
+  result.query := CreateElasticsearchQueryRecursive(query);
 
   IF (CellExists(input, "filters"))
   {
@@ -570,7 +570,7 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
 }
 
 //ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
-RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
+RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
 {
   IF (NOT CellExists(query, "_type"))
     THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
@@ -590,19 +590,19 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     {
       RECORD booleanquery;
       RECORD ARRAY queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE required;
       IF (Length(queries) > 0)
         INSERT CELL must := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE prohibited;
       IF (Length(queries) > 0)
         INSERT CELL must_not := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE NOT required AND NOT prohibited;
       IF (Length(queries) > 0)
@@ -778,7 +778,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
   RETURN result;
 }
 
-RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRING language)
+RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
 {
   IF (NOT CellExists(aggregation, "_type"))
     THROW NEW Exception(`Invalid aggregation record: ${AnyToString(aggregation, "tree")}`);
@@ -830,7 +830,7 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRI
   {
     INSERT CELL aggs := DEFAULT RECORD INTO result;
     FOREVERY (RECORD agg FROM aggregation.aggregations)
-      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation, language) ];
+      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation) ];
   }
 
   RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);

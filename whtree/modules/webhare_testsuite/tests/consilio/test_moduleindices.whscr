@@ -433,32 +433,60 @@ MACRO TestESBulkInsertion()
   checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `${testindex_indexname}-sub2/_mapping`, DEFAULT RECORD);
   TestEq("keyword", GetCell(checkindex.result, testindex_indexname || "-sub2").mappings.properties.keyword.type);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field), [ mapping := [ title := "", int_field := 0]]);
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
   //dumpvalue(res,'tree');
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);
 
-  /* FIXME expecting things like this to work: (
-  ABORT(RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field)));
-    wanted to not have to specify a mapping! basically, whatever I dontt have to tell GetInstanceData due to <contenttype> I don't want to have to tell RunConsilioSearch when dealing with Module indices
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery('"My lovely doc for 2018-02-28T23:00:00Z hit #2"'));
+  TestEq(1, res.totalcount);
+  TestEq(docs[END-1].documentfields.title, res.results[0].title);
+}
 
-  ABORT(RunConsilioSearch("webhare_testsuite:testindex", CQMatch("title", "=", "My lovely doc for 2018-02-28T23:00:00Z hit #2")));
-  this worked in Kibana:
-        "filter": [
-        {
-          "bool": {
-            "should": [
-              {
-                "match_phrase": {
-                  "title": "My lovely doc for 2018-02-28T23:00:00Z hit #2"
-                }
-              }
-            ],
-            "minimum_should_match": 1
-          }
-        }
-  */
+MACRO TestESLangFeatures()
+{
+  // Recreate the index
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex_indexname}*`, DEFAULT RECORD);
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  catalog->EnsureIndex();
 
+  // As defined in the module definition
+  TestEq("nl", catalog->lang);
+
+  // Add a document with some Dutch and English words
+  RECORD doc :=
+      [ objectid := "objectid_1"
+      , documentfields := [ title := "boekjes booking" ]
+      ];
+  catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
+
+  // Find the document using Dutch stemming (both 'boekjes' and 'geboekt' will be stemmed down to 'boek')
+  RECORD res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("geboekt"));
+  TestEq(1, res.totalcount);
+  // It cannot be found using English stemming, because the document is indexed using Dutch stemming
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("booked"));
+  TestEq(0, res.totalcount);
+
+  // Change the language
+  testfw->BeginWork();
+  TestEq(TRUE, catalog->UpdateCatalog([ lang := "en" ]));
+  TestEq("en", catalog->lang);
+  testfw->CommitWork();
+
+  // Reindex the document (an unmanaged index isn't rebuilt automatically)
+  catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
+
+  // The document can no longer be found using Dutch stemming
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("geboekt"));
+  TestEq(0, res.totalcount);
+  // But it can be found using English stemming (both 'booking' and 'booked' are stemmed down to 'book')
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("booked"));
+  TestEq(1, res.totalcount);
+
+  // Reset the language
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ lang := "nl" ]);
+  testfw->CommitWork();
 }
 
 MACRO TestESDeletion()
@@ -478,6 +506,7 @@ RunTestframework(
     [ PTR Prepare
     , PTR TestESCreationAPIs
     , PTR TestESBulkInsertion
+    , PTR TestESLangFeatures
     , PTR TestESDeletion
     ],
     [ consilio := TRUE

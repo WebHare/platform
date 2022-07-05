@@ -4,7 +4,6 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -21,6 +20,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -666,7 +666,8 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
 /** @short Search an index
     @param indextag Index to search (module:tag)
     @param query Search query
-    @cell(string) options.language The language to use (defaults to the language returned by %GetTidLanguage)
+    @cell(string) options.language The language to use (legacy Consilio indices only, defaults to the language returned by
+        %GetTidLanguage)
     @cell(integer) options.first The first result to return (0-based, defaults to 0)
     @cell(integer) options.count The number of results to return (-1 for all results, defaults to 100)
     @cell(boolean) options.save_searches If the search query should be saved for search reports (defaults to `FALSE`)
@@ -1192,6 +1193,9 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Tag of this catalog
   PUBLIC PROPERTY tag(this->catalog.name,-);
 
+  /// @type(string) Language of this catalog
+  PUBLIC PROPERTY lang(this->catalog.lang,-);
+
   /// @type(boolean) Is this a managed catalog?
   PUBLIC PROPERTY ismanaged(GetIsManaged,-);
 
@@ -1231,16 +1235,35 @@ STATIC OBJECTTYPE Catalog
   /** Update catalog settings
       @record settings Settings to apply
       @cell(string) settings.definedby Definition location */
-  PUBLIC MACRO UpdateCatalog(RECORD settings)
+  PUBLIC BOOLEAN FUNCTION UpdateCatalog(RECORD settings)
   {
     settings := ValidateOptions([ definedby := ""
+                                , lang := ""
                                 , indexmanager := 0
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
+
+    // If the catalog language changes, the catalog has to be rebuilt
+    BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
+    IF (language_changed AND this->ismanaged)
+      INSERT CELL rebuild := TRUE INTO settings;
+
     UPDATE consilio.indices SET RECORD settings WHERE id = this->id;
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.indices WHERE id = this->id;
+
+    IF (language_changed)
+    {
+      // Note: this doesn't update the 'synonym' filter, so we don't have to explicitly add that here
+      RECORD indexsettings :=
+          [ "index" :=
+            [ analysis := GetAnalysisForLanguage(settings.lang)
+            ]
+          ];
+      UpdateIndexManagerIndexSettings(this->id, indexsettings);
+    }
+    RETURN language_changed;
   }
 
   /// Delete this catalog
@@ -1257,7 +1280,11 @@ STATIC OBJECTTYPE Catalog
 
   MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, BOOLEAN strict, INTEGER ARRAY contentsourceids)
   {
-    EnsureIndexManagerIndex(this->id, CELL[ suffix, throwonfailure := TRUE ]);
+    EnsureIndexManagerIndex(this->id, CELL
+        [ suffix
+        , throwonfailure := TRUE
+        , synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms()
+        ]);
 
     // Legacy backend doesn't support mapping
     IF (this->indexmanager.type = whconstant_consilio_indexmanager_legacybackend)
@@ -1317,7 +1344,6 @@ STATIC OBJECTTYPE Catalog
         INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
     }
 
-    this->UpdateIndexSynonyms(CELL[ suffix ]);
     EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
   }
 
@@ -1380,23 +1406,21 @@ STATIC OBJECTTYPE Catalog
     }
 
     IF (anychanges)
-      this->UpdateIndexSynonyms(DEFAULT RECORD);
-  }
-
-  MACRO UpdateIndexSynonyms(RECORD options)
-  {
-    // Update the synonyms list of the 'synonym' filter (the rest of the settings are left alone)
-    RECORD settings :=
-        [ "index" :=
-          [ analysis :=
-            [ filter :=
-              [ synonym :=
-                [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms() ]
+    {
+      // Update the synonyms list of the 'synonym' filter (the rest of the settings are left alone)
+      RECORD settings :=
+          [ "index" :=
+            [ analysis :=
+              [ filter :=
+                [ synonym :=
+                  [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(synonyms.words, ", ") FROM this->GetSynonyms() AS synonyms ]
+                ]
               ]
             ]
-          ]
-        ];
-    UpdateIndexManagerIndexSettings(this->id, settings, options);
+          ];
+      //TODO: This doesn't update the synonyms for suffixed indices
+      UpdateIndexManagerIndexSettings(this->id, settings);
+    }
   }
 
   RECORD FUNCTION GetBaseDebugInfo()
@@ -1851,6 +1875,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
                               , fieldgroups := STRING[]
                               , managed := TRUE
+                              , lang := ""
                               ], options, [ optional := ["indexmanager"] ]);
 
   INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : options.managed ? GetDefaultIndexManager() : 0;
@@ -1869,6 +1894,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , type := options.managed ? whconstant_consilio_catalogtype_siteprofindex
                                        : whconstant_consilio_catalogtype_moduleindex
              , fieldgroups := Detokenize(options.fieldgroups, " ")
+             , options.lang
              ] INTO consilio.indices;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 

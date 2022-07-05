@@ -24,15 +24,13 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
   RECORD ARRAY wantcatalogs;
   FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "catalog"))
   {
-    STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
-    INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
-
-    RECORD catalog := CELL[ tag
-                          , priority
+    RECORD catalog := CELL[ tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`)
+                          , priority := ParseXSInt(catalognode.node->Getattribute("priority"))
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
                           , contentsources := RECORD[]
-                          , managed := catalognode.node->HasAttribute("managed") ? ParseXSBoolean(catalognode.node->GetAttribute("managed")) : TRUE
+                          , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
                           , fieldgroups := ParseXSList(catalognode.node->GetAttribute("fieldgroups"))
+                          , lang := catalognode.node->GetAttribute("lang")
                           ];
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
@@ -170,15 +168,15 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed ]);
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang ]);
     IF(catalog->ismanaged != want.managed)
     {
       PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->ismanaged ? "" : "not "}managed, it probably needs to be recreated\n`);
       CONTINUE;
     }
 
-    IF(catalog->definedby != want.definedby)
-      catalog->UpdateCatalog( CELL[ want.definedby ]);
+    IF(catalog->definedby != want.definedby OR catalog->lang != want.lang)
+      catalog->UpdateCatalog( CELL[ want.definedby, want.lang ]);
 
     IF(want.managed)
       UpdateManagedCatalog(catalog, want);
