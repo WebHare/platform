@@ -38,7 +38,6 @@ class TestFramework
     this.currenttestframe = "main";
 
     this.autoadvancetest = true;
-    this.catchexceptions = !window.location.href.match(/nocatch=1/);
     this.reportid = '';
     this.sessionid = '';
 
@@ -1477,7 +1476,6 @@ class TestSuite
 
         let li = dompack.create("li", { dataset: { testname: item.name } });
         let url = new URL(location.href);
-        url.searchParams.set("nocatch", "1");
         url.searchParams.set("skip", "");
         url.searchParams.set("autotests", "");
         url.searchParams.set("reportid", "");
@@ -1501,9 +1499,6 @@ class TestSuite
         document.getElementById("tests").appendChild(li);
         filtered.push(item);
       });
-
-      if ([ "1", "true" ].includes(url.searchParams.get('nocatch')))
-        this.testfw.catchexceptions=false;
 
       this.testfw.reportid=url.searchParams.get('reportid');
       this.testfw.testlisturl = testlisturl;

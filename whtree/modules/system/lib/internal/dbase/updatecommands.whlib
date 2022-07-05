@@ -15,17 +15,11 @@ RECORD ARRAY FUNCTION ValidateSchemaSpecs(RECORD ARRAY schemaspecs)
   {
     rec := ValidateOptions(
         [ name :=             ""
-        , authorization :=    DEFAULT RECORD
-        , grants :=           RECORD[]
-        , obsoleteroles :=    RECORD[]
         , obsoletetables :=   RECORD[]
-        , roles :=            RECORD[]
         , tables :=           RECORD[]
         ], rec,
         [ discard :=        STRING[ "success", "msgs", "documentation", "location" ]
         ]);
-
-    // rec.obsoleteroles and rec.roles not used in PostgreSQL anymore
 
     rec.obsoletetables := ValidateObsoleteTables(rec.obsoletetables);
     rec.tables := ValidateTables(rec.tables);

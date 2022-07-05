@@ -181,12 +181,6 @@
 
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
-    <d:role name="webinterface"/>
-    <d:grant permissions="references" schema="system" table="webservers" columns="id" grantee=".moduleowner"/>
-    <d:grant permissions="select" schema="system" table="webservers" grantee=".webinterface"/>
-    <d:grant permissions="select" schema="wrd" table="entities" columns="id" grantee=".moduleowner"/>
-    <d:grant permissions="select" schema="wrd" table="types" columns="id" grantee=".moduleowner"/>
-
     <d:table name="schedule" primarykey="id">
       <d:integer name="id" autonumberstart="1">
         <d:documentation>
@@ -970,8 +964,6 @@
       </d:varchar>
 
     </d:table>
-
-    <d:grant permissions="all" schema="wrd" grantee=".webinterface"/>
   </databaseschema>
 
   <!-- NOTE: for performance and chicken/egg reasons, publisher registry is initialized by system -->

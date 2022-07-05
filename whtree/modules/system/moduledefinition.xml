@@ -358,35 +358,7 @@
     </webruleset>
   </backend>
 
-  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema" authorization=".modulemanager">
-    <d:role name="webdav" /> <!-- ADDME remove role webdav when webdav3 is live -->
-    <d:role name="whfs" /> <!-- role under which system.whfs can act -->
-    <d:role name="testframework" />
-
-    <d:grant permissions="select" table="mimetypes" grantee="public" />
-
-    <d:grant permissions="select" table="authobjects" columns="id name parent type creationdate" grantee="public" />
-    <d:grant permissions="select" table="rolegrants" grantee="public" />
-    <d:grant permissions="select" table="modules" grantee="public" />
-    <!-- <d:grant permissions="select" table="module_objecttypes" grantee="public" /> -->
-    <d:grant permissions="select" table="module_rights" grantee="public" />
-    <d:grant permissions="select" table="module_impliedbys" grantee="public" />
-
-    <d:grant permissions="all" table="fs_objects" grantee="public" />
-
-    <d:grant permissions="references" table="fs_instances" grantee="public" /> <!-- FIXME "all" was demoted to "references". try to drop this further -->
-    <d:grant permissions="select" table="fs_instances" grantee="public" />
-    <d:grant permissions="select" table="fs_members" grantee="public" />
-    <d:grant permissions="references" table="fs_settings" grantee="public" /> <!-- FIXME "all" was demoted to "references". try to drop this further -->
-    <d:grant permissions="select" table="fs_settings" grantee="public" />
-    <d:grant permissions="all" table="fs_settings" grantee=".whfs" />
-    <d:grant permissions="select" table="fs_types" grantee="public" />
-
-    <d:grant permissions="select" table="towl_notifications" grantee="public" />
-
-
-
-
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
     <d:table name="access" primarykey="id">
       <d:documentation>This table contains the security settings for WebHare-hosted webservers.</d:documentation>
       <d:integer name="id" autonumberstart="1">
@@ -1745,8 +1717,6 @@ The full base URL on which this site will be published, calculated by combining 
       </d:index>
     </d:table>
 
-    <d:grant permissions="all" table="sites" grantee="public" />
-
     <d:table name="flatregistry" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:varchar name="name" nullable="false" maxlength="512" noupdate="true" />
@@ -1830,9 +1800,6 @@ The full base URL on which this site will be published, calculated by combining 
         </d:documentation>
       </d:boolean>
     </d:table>
-<!--
-    <d:grant permissions="select" table="webdav_datafolders" grantee="public" />
--->
 
     <d:table name="towl_notifications" primarykey="id">
       <d:integer name="id" autonumberstart="1">

@@ -95,11 +95,6 @@
   </publisher>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
-  <!-- FIXME switch to roles! -->
-    <d:role name="indexer" />
-    <d:grant permissions="all" grantee="public" />
-    <d:grant permissions="select" schema="wrd" table="entity_settings" columns="id" grantee=".moduleowner" />
-
     <!-- Indexing -->
     <d:table name="indices" primarykey="id">
       <d:integer name="id" autonumberstart="1" />

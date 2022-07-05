@@ -1,6 +1,6 @@
 <?wh
 /* RTE restructuring tests, used by harescript and javascript implementations
-   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&nocatch=1&mask=wh.jscomponents.rte.testrtdtyped-restructuring
+   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&mask=wh.jscomponents.rte.testrtdtyped-restructuring
    To run in WH: wh runtest publisher.rtd.testrestructuring
 */
 

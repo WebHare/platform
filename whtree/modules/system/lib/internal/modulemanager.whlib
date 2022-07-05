@@ -320,21 +320,9 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN pre)
 {
   RECORD retval := [ msgs := DEFAULT RECORD ARRAY
                    , success := TRUE
-                   , roles := DEFAULT RECORD ARRAY
-                   , grants := [[ permissions := ["select"]
-                                , to_schema := "system_rights"
-                                , to_table := ""
-                                , to_columns := DEFAULT STRING ARRAY
-                                , withgrantoption := FALSe
-                                , grantee := [ s := "DEFINITION_SCHEMA", r := "PUBLIC" ]
-                                , to_obsolete := FALSE
-                                , granted_by := [ s := "DEFINITION_SCHEMA", r := "_SYSTEM" ]
-                               ]]
                    , tables := DEFAULT RECORD ARRAY
                    , obsoletetables := DEFAULT RECORD ARRAY
-                   , obsoleteroles := DEFAULT RECORD ARRAY
                    , name := "system_rights"
-                   , authorization := [ s := "DEFINITION_SCHEMA", r := "_SYSTEM" ]
                    ];
 
   IF(pre)

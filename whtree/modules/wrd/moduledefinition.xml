@@ -86,11 +86,6 @@
   </portal>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
-<!--     <d:obsoleterole name="superuser" /> -->
-    <d:role name="superuser" />
-    <d:role name="webinterface" />
-    <d:grant permissions="all" grantee=".webinterface" />
-
     <d:table name="attrs" primarykey="id" parentlinkcolumn="type">
       <d:integer name="id" autonumberstart="1">
         <d:documentation>

@@ -199,7 +199,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     FOREVERY (OBJECT userobject FROM userobjects)
-      userobject->RevokeRightFromOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+      this->tolliumuser->UpdateGrant("revoke", "publisher:worklist_resolve", worklistid, userobject);
 
     GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
   }

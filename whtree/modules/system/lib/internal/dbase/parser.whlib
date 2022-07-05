@@ -37,63 +37,17 @@ RECORD FUNCTION DecodeIndexColumns(STRING cols)
   RETURN [ msg := DEFAULT RECORD, cols := rcols ];
 }
 
-RECORD FUNCTION SplitGrantee(STRING schemaname, STRING grantee)
-{
-  IF(grantee="public")
-    return [ s := "definition_schema", r := "public" ];
-  IF(grantee="_system")
-    return [ s := "definition_schema", r := "_system" ];
-
-  INTEGER dot := SearchSubstring(grantee,'.');
-  STRING s := dot=0 ? schemaname : Left(grantee,dot);
-  STRING r := Substring(grantee,dot+1,80);
-  RETURN IsValidWHDBName(s) AND IsValidWHDBName(r) ? [ s := s, r := r ] : DEFAULT RECORD;
-}
-
-RECORD FUNCTION ParseGrant(STRING schemaname, OBJECT node)
-{
-  RECORD grant := [ permissions := Tokenize(ToUppercase(node->GetAttribute("permissions")),' ')
-                  , to_schema := node->GetAttribute("schema") //if empty, default schema!
-                  , to_table := node->GetAttribute("table")
-                  , to_columns := node->GetAttribute("columns") != "" ? Tokenize(node->GetAttribute("columns")," ") : DEFAULT STRING ARRAY
-                  , withgrantoption := node->GetAttribute("withgrantoption") IN ["true","1"]
-                  , grantee := SplitGrantee(schemaname, ToLowercase(node->GetAttribute("grantee")))
-                  , to_obsolete := node->localname="obsoletegrant"
-                  , granted_by := node->localname="obsoletegrant" AND node->HasAttribute('grantedby')
-                                                                  ? SplitGrantee(schemaname, ToLowercase(node->GetAttribute("grantedby")))
-                                                                  : [ s:="system", r:="modulemanager" ]
-                  ];
-  IF(grant.to_schema="")
-    grant.to_schema:=schemaname;
-
-  IF(grant.to_schema="publisher" and grant.to_table in ["files","folders"]) //ADDME: Reject or warn about these in the future
-  {
-    grant.to_schema:="system";
-    grant.to_table:="fs_objects";
-  }
-  RETURN grant;
-}
-
 PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
 {
   STRING schemaname := schemanode->HasAttribute("name") ? schemanode->GetAttribute("name") : modulename;
   RECORD retval := [ msgs := DEFAULT RECORD ARRAY
                    , location := [ line := schemanode->linenum ]
                    , success := FALSE
-                   , roles := DEFAULT RECORD ARRAY
-                   , grants := DEFAULT RECORD ARRAY
                    , tables := DEFAULT RECORD ARRAY
                    , obsoletetables := DEFAULT RECORD ARRAY
-                   , obsoleteroles := DEFAULT RECORD ARRAY
                    , name := schemaname
                    , documentation := DEFAULT RECORD
-                   , authorization := schemanode->HasAttribute("authorization") ? SplitGrantee(schemaname, ToLowercase(schemanode->GetAttribute("authorization")))
-                                                                                : [ s := schemaname, r := "moduleowner" ]
                    ];
-  IF(NOT RecordExists(retval.authorization))
-  {
-    INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Authorization unrecognized", schemanode->linenum, 0) AT END;
-  }
 
   IF(schemanode->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR schemanode->localname!="databaseschema")
   {
@@ -115,28 +69,6 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
       {
         retval.documentation := [ line := node->linenum, text := node->textcontent ];
       }
-      CASE "role"
-      {
-        RECORD role := [ name := ToLowercase(node->GetAttribute("name"))
-                       ];
-        IF(NOT IsValidWHDBName(role.name))
-        {
-          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Role has an invalid name", node->linenum, 0) AT END;
-          CONTINUE;
-        }
-        INSERT role INTO retval.roles AT END;
-      }
-      CASE "obsoleterole"
-      {
-        RECORD role := [ name := ToLowercase(node->GetAttribute("name"))
-                       ];
-        IF(NOT IsValidWHDBName(role.name))
-        {
-          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Role has an invalid name", node->linenum, 0) AT END;
-          CONTINUE;
-        }
-        INSERT role INTO retval.obsoleteroles AT END;
-      }
       CASE "obsoletetable"
       {
         RECORD obsoletetable := [ name := node->GetAttribute("name")
@@ -153,52 +85,6 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
           CONTINUE;
         }
         INSERT obsoletetable INTO retval.obsoletetables AT END;
-      }
-      CASE "grant", "obsoletegrant"
-      {
-        RECORD grant := ParseGrant(schemaname, node);
-        IF(NOT RecordExists(grant.grantee))
-        {
-          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid grantee name", node->linenum, 0) AT END;
-          CONTINUE;
-        }
-        IF(NOT RecordExists(grant.granted_by))
-        {
-          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid granted by name", node->linenum, 0) AT END;
-          CONTINUE;
-        }
-        IF(grant.to_table="" AND Length(grant.to_columns)>0)
-        {
-          INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Table required when granting for columns", node->linenum, 0) AT END;
-          CONTINUE;
-        }
-
-        // Check grants
-        BOOLEAN need_all := Length(grant.permissions)=1 AND grant.permissions[0]="ALL";
-        IF (need_all)
-        {
-          grant.permissions := all_permissions;
-        }
-        ELSE
-        {
-          IF(Length(grant.permissions)=0)
-          {
-            INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid permission mask for grant", node->linenum, 0) AT END;
-            CONTINUE;
-          }
-          STRING ARRAY want_permissions;
-          FOREVERY(STRING perm FROM grant.permissions)
-          {
-            IF(perm IN want_permissions)
-              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Duplicate permission '" || perm || "' for grant", node->linenum, 0) AT END;
-            ELSE IF(perm NOT IN all_permissions)
-              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Unrecognized permission '" || perm || "' for grant", node->linenum, 0) AT END;
-            ELSE
-              INSERT perm INTO want_permissions AT END;
-          }
-        }
-
-        INSERT grant INTO retval.grants AT END;
       }
       CASE "table"
       {
@@ -375,14 +261,6 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
           {
             INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid column name '" || basecol.name || "'", col->linenum, 0) AT END;
             CONTINUE;
-          }
-          IF(basecol.ondelete NOT IN ["","cascade","set default"])
-          {
-            IF(basecol.dbtype = "ROLE")
-            {
-              INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "A role column may not specify a reference", col->linenum, 0) AT END;
-              CONTINUE;
-            }
           }
 
           STRING references := col->GetAttribute("references");

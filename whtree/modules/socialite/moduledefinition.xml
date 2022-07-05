@@ -194,9 +194,6 @@
       <d:varchar name="comment" maxlength="512" />
       <d:index name="domainskeys" columns="keytype scopetype domain(32)" unique="1" uppercase="1" />
     </d:table>
-
-    <!-- Everyone may read Google Maps API keys -->
-    <d:grant grantee="public" permissions="select" table="google_apikeys" />
   </databaseschema>
 
   <publisher>
