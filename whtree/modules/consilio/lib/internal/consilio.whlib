@@ -352,7 +352,12 @@ PUBLIC RECORD ARRAY FUNCTION ReadConsilioResults(BLOB content, STRING ARRAY requ
       // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
       IF (CellExists(lineresult, field.name))
       {
-        VARIANT value := GetCell(lineresult, field.name);
+        STRING value := GetCell(lineresult, field.name);
+        IF (TypeID(field.value) != TypeID(STRING))
+        {
+          // Cleanup highlighting markers from non-string fields
+          value := Substitute(Substitute(value, "\x1C", ""), "\x1D", "");
+        }
         SWITCH (TypeID(field.value))
         {
           CASE TypeID(STRING)
