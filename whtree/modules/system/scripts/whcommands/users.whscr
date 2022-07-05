@@ -47,7 +47,7 @@ MACRO AddUser(STRING ARRAY params)
   IF(subargs.sysop)
   {
     OBJECT sysopobj := userapi->GetUser(newuserid);
-    sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted through wh adduser");
+    sysopobj->UpdateGrant("grant", "system:sysop", 0, sysopobj, [ allowselfgrant := TRUE, withgrantoption := TRUE, comment := "Granted through wh adduser" ]);
   }
 
   GetPrimary()->CommitWork();
