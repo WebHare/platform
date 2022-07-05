@@ -364,6 +364,18 @@ STATIC OBJECTTYPE WSConnector EXTEND ConnectorBase
     rec := this->transport->EncodeFunctionCall(args);
     RETURN this->ExecuteRemoteCall(rec, "");
   }
+
+  PUBLIC BOOLEAN FUNCTION HasRemoted()
+  {
+    RETURN this->transport->remoter->HasClientRemoted();
+  }
+
+  PUBLIC MACRO Close()
+  {
+    IF (ObjectExists(this->conn))
+      this->conn->Close();
+    this->conn := DEFAULT OBJECT;
+  }
 >;
 
 
@@ -403,7 +415,14 @@ PUBLIC VARIANT FUNCTION InvokeRemoteFunctionWithBrowser(OBJECT browser, STRING u
     }
 
     OBJECT conn := NEW WSConnector(browser, url);
-    RETURN conn->CallFunction(args);
+    TRY
+      RETURN conn->CallFunction(args);
+    FINALLY
+    {
+      // Close the connection if no objects have been received
+      IF (NOT conn->HasRemoted())
+        conn->Close();
+    }
   }
 
   OBJECT conn := NEW BrowserConnector(browser, url);

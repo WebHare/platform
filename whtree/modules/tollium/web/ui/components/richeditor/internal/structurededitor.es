@@ -740,8 +740,11 @@ export default class StructuredEditor extends EditorBase
     if(embobjnode.nodeName=='SPAN')
     {
       let res = this.insertNodeAutoSplit(locator, embobjnode, preservelocators, undoitem);
+      let afternodelocator = res.next;
+      // don't want the afternode locator to be corrected to after a newly inserted br
+      this.requireVisibleContentInBlockAfterLocator(afternodelocator, [ locator, ...(preservelocators || []) ], undoitem);
       return { node:             embobjnode
-             , afternodelocator: res.next
+             , afternodelocator
              };
 
     }
@@ -2059,6 +2062,8 @@ export default class StructuredEditor extends EditorBase
     if(debugicc)
       console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
 
+    domlevel.cleanupBogusBreaks(range.getAncestorElement(), [ locator, res, ...(preservelocators || []) ], undoitem);
+
     return res;
   }
 
@@ -2304,20 +2309,24 @@ export default class StructuredEditor extends EditorBase
     this.checkDomStructure(range);
 
     // Determine the blocks the selection starts & ends in
-    var startblock = this.getBlockAtNode(range.start.element);
-    var endblock = this.getBlockAtNode(range.end.element);
+    let startblock = this.getBlockAtNode(range.start.element);
+    let endblock = this.getBlockAtNode(range.end.element);
 
     if(debughardenter)
       console.log('hard pre:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range, startblock: startblock, endblock: endblock }));
 
-    // Expand selection to first/last visible
-    var sres = range.start.movePastLastVisible(startblock.contentnode);
-    var eres = range.end.moveToFirstVisible(endblock.contentnode);
+    // Expand selection to first/last visible, sres and eres contain the type of content next to the range
+    let sres = range.start.movePastLastVisible(startblock.contentnode);
+    let eres = range.end.moveToFirstVisible(endblock.contentnode);
 
-    var selecteduntilblockend = eres.type == 'outerblock';
+    // Is the selection from block start/until the block end?
+    let selectfromblockstart = sres.type == "outerblock";
+    let selecteduntilblockend = eres.type == 'outerblock';
+
+    // See if the end selection hits the end <br> of a block, if so include it in the range
     if (eres.type == 'br')
     {
-      var brrange = this.pointsToLastBlockBR(range.end);
+      let brrange = this.pointsToLastBlockBR(range.end);
       if (brrange)
       {
         range.end.assign(brrange.end);
@@ -2330,115 +2339,104 @@ export default class StructuredEditor extends EditorBase
       }
     }
 
+    // now, the range contains the entire content to remove, sres and eres contain info about what is net to the range
+
     if(debughardenter)
     {
       console.log(sres, eres);
       console.log('hard outscan:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range }));
     }
 
-    var replaceblock = false;
-    if (selecteduntilblockend && [ 'innerblock', 'outerblock' ].includes(sres.type) && startblock.islist)
-      replaceblock = true;
+    // Are we removing from the start of a block? If so, we insert a block node that should follow the previous block
+    // and then remove the range
 
-    if(debughardenter)
+    // Place where we need to insert the new block
+    let blockinsertlocator;
+
+    // block we use as reference to get the style of the block to insert
+    let reference_block = startblock;
+
+    let insert_li = startblock.islist;
+    let perform_split = !selectfromblockstart;
+
+    // Merge the following content into the new block (adopting its style)
+    let merge_with_new_block = !selectfromblockstart;
+
+    // when a whole <li> is selected, split the list and insert a normal paragraph
+    if (startblock.islist && selectfromblockstart && selecteduntilblockend)
     {
-      console.log('hard range:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range/*, testrange: testrange*/ }));
-      console.log('hard enter styledet:', startblock);
+      // split the list until the parent of the ol/ul, insert a normal block (default style)
+      // and merge the end of the remaining list node into the new block (eliminating it)
+      perform_split = true;
+      insert_li = false;
+      reference_block = null;
+      merge_with_new_block = true;
     }
 
-    var splitroot = startblock.blockparent;
-
-    var newstyle = null;
-    var inlist = false;
-    if (replaceblock)
+    if (!perform_split)
     {
-      var parentblock = this.getBlockAtNode(startblock.blockparent);
-      splitroot = parentblock.blockparent;
-      newstyle = parentblock.blockstyle || this.structure.defaultblockstyle;
-    }
-    else
-    {
-      newstyle = (startblock.blockstyle && startblock.blockstyle.nextblockstyle) || this.structure.defaultblockstyle;
-      if (startblock.islist)
-      {
-        splitroot = startblock.node; // Just need to add a li
-        inlist = true;
-      }
-    }
+      // insert a new block before the currently selected block
+      let prevblock = sres.type == "outerblock" && sres.data.previousElementSibling;
+      if (prevblock)
+        reference_block = this.getBlockAtNode(prevblock);
 
-    // Calculate the new style
-    //var newstyle = (!replaceblock && startblock.blockstyle && startblock.blockstyle.nextblockstyle) || this.structure.defaultblockstyle;
-
-    // If we're not replacing the start block, and there is no content before the range, add a node before
-    // the range to keep the block alive. We'll remove that thing later & add content to keep the block visible
-    var prerangeplaceholder = null;
-    if ([ 'innerblock', 'outerblock' ].includes(sres.type) && !replaceblock)
-    {
-      // Insert a br at the end of the old block if it is left empty
-      let imgnode = document.createElement("img");
-      prerangeplaceholder = range.insertBefore(imgnode, null, undolock.undoitem);
-    }
-
-    if(debughardenter)
-      console.log('hard enter beforesplit:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range, root: splitroot }));
-
-    // Break the block
-    var parts = domlevel.splitDom(splitroot, [ { locator: range.start, toward: 'start' } ], [ range ], undolock.undoitem);
-
-    // If the startblock remains empty, remove the placeholder image & add visible content in it.
-    if (prerangeplaceholder)
-    {
-      prerangeplaceholder.removeNode([ range, parts[1].start ], undolock.undoitem);
-      this.requireVisibleContentInBlockAfterLocator(prerangeplaceholder, [ range, parts[1].start ], undolock.undoitem);
-    }
-
-    if(debughardenter)
-      console.log('hard enter postsplit:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { parts: parts, range: range }));
-
-    var contentlocator;
-    if (inlist)
-    {
-      var newli = document.createElement('li');
-      parts[1].start.insertNode(newli, null, undolock.undoitem);
-      contentlocator = new domlevel.Locator(newli);
+      blockinsertlocator = domlevel.Locator.newPointingTo(sres.data);
     }
     else
     {
-      // Insert the new block node, adjust the range
-      var res = this.insertBlockNode(parts[1].start, newstyle, true, null, null, null);
-      contentlocator = res.contentlocator;
+      // split the currently selected block
+      let splitroot = startblock.blockparent;
+      if (insert_li)
+        splitroot = startblock.node; // Just need to add a li, split until the <ol>/<ul>
+
+      // Break the current block on the start of the range
+      let parts = domlevel.splitDom(splitroot, [ { locator: range.start, toward: 'start' } ], [ range ], undolock.undoitem);
+      blockinsertlocator = parts[1].start;
     }
 
-    range.start.assign(contentlocator);
-    if (range.start.compare(range.end) > 0)
-      range.end.assign(range.start);
-
-    if(debughardenter)
-      console.log('hard enter postinsert:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range:range}));
-
-    // Remove the rest of the range and stitch
-    var loc = this._removeRangeAndStitch(range, null, undolock.undoitem, { normalize: false });
-    if(debughardenter)
+    // insert the new block
+    let newblockcontent;
+    if (insert_li)
     {
-      console.log('afer _removeRangeAndStitch:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range:range, loc: loc}));
+      let newli = document.createElement('li');
+      blockinsertlocator.insertNode(newli, [ range ], undolock.undoitem);
+      newblockcontent = new domlevel.Locator(newli);
+    }
+    else
+    {
+      // Determine the style of the block to insert
+      let newstyle = (reference_block && reference_block?.blockstyle?.nextblockstyle) || this.structure.defaultblockstyle;
+      newblockcontent = this.insertBlockNode(blockinsertlocator, newstyle, true, [ range ], null, null).contentlocator;
     }
 
-    var block = this.getBlockAtNode(loc.element);
+    if(debughardenter)
+      console.log('post-insert:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range, newblockcontent }));
+
+    if (merge_with_new_block)
+      range.start = newblockcontent;
+    else
+    {
+      // Add a br in the new block so it stays visible
+      this.requireVisibleContentInBlockAfterLocator(newblockcontent, [ range ], undolock.undoitem);
+    }
+
+    if(debughardenter)
+      console.log('pre remove:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range }));
+
+    // range now contains the range from the start of the newly inserted block until the end of the removed content. Remove the range
+    let loc = this._removeRangeAndStitch(range, null, undolock.undoitem, { normalize: false });
+
+    if(debughardenter)
+      console.log('after remove:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range }));
+
+
+    let block = this.getBlockAtNode(loc.element);
     if (block.contentnode)
       this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(block.contentnode), null, undolock.undoitem);
-
-    if(debughardenter)
-    {
-      console.log('hard enter postremove:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range:range, loc: loc}));
-      console.log(loc);
-    }
 
     // If the first character after the new locator is whitespace, rewrite that
     loc = this._correctWhitespaceAroundLocator(loc, undolock.undoitem);
     this.setCursorAtLocator(loc);
-
-    if(debughardenter)
-      console.log('hard enter postsplit parts:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange()));
 
     undolock.close();
     this.stateHasChanged();
@@ -2788,6 +2786,7 @@ export default class StructuredEditor extends EditorBase
     var block = this.getBlockAtNode(range.start.getNearestNode());
     let locator = new domlevel.Locator(block.contentnode);
     this.requireVisibleContentInBlockAfterLocator(locator, preservelocators);
+    domlevel.cleanupBogusBreaks(range.getAncestorElement(), preservelocators);
 
     // If the current block has lost its style, reset to default block style
     if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode))

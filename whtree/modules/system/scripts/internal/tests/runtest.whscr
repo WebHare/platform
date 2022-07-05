@@ -778,7 +778,11 @@ IF(NOT RecordExists(PollWHServiceState("poststartdone")))
 {
   Print(`Waiting for WebHare to reach 'poststartdone'\n`);
   WHILE(NOT RecordExists(PollWHServiceState("poststartdone")))
-    Sleep(100);
+  {
+    WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+    IF (interrupted)
+      TerminateScript();
+  }
 }
 
 OpenPrimary();

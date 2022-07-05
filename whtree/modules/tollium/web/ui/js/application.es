@@ -898,7 +898,25 @@ export class BackendApplication extends ApplicationBase
         });
       console.groupEnd();
     }
-    this.requireComponentTypes(this.getRequiredComponentTypes(msg), this.handleResponse.bind(this, msg));
+    this.requireComponentTypes(this.getRequiredComponentTypes(msg), this.transformMessages.bind(this, msg));
+  }
+
+  async transformMessages(msg)
+  {
+    let promises = [];
+    for (let screen of msg.screens)
+      for (let screenmsg of screen.messages)
+         if (screenmsg.instr =='component')
+         {
+           const componenttype = this.shell.getComponentType(screenmsg.type);
+           const promise = componenttype.asyncTransformMessage(screenmsg);
+           if (promise)
+             promises.push(promise);
+         }
+
+    if (promises.length)
+      await Promise.all(promises);
+    this.handleResponse(msg);
   }
 
   handleResponse(response)

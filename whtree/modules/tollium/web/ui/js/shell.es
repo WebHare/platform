@@ -233,6 +233,16 @@ class IndyShell
     console.error('Unrecognized component type \'' + type + '\'');
     return null;
   }
+
+  getComponentType(type)
+  {
+    if(todd_components[type])
+      return todd_components[type];
+
+    console.error('Unrecognized component type \'' + type + '\'');
+    return null;
+  }
+
   completeLogin(data, lock)
   {
     this.tolliumservice.request('CompleteLogin', [ data ],

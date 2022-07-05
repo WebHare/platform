@@ -178,6 +178,7 @@ PUBLIC RECORD FUNCTION RPC_RunWRDQuery(STRING schemaname, STRING type, RECORD qu
   options := ValidateOptions(
       [ mapwhfslinks :=   FALSE
       , enumeratelinks := FALSE
+      , knownblobs :=     STRING[]
       , includeblobs :=   TRUE
       ], options);
 
@@ -204,7 +205,7 @@ PUBLIC RECORD FUNCTION RPC_RunWRDQuery(STRING schemaname, STRING type, RECORD qu
   RECORD ARRAY instrs := GenerateProcessingInstructions(typeobj, 0, query.outputcolumns);
   RECORD links := RetrieveLinks(DEFAULT RECORD, instrs, data);
   links := ResolveLinks(wrdschema, links, "id-guid");
-  data := RewriteLinks(links, instrs, data, NOT options.includeblobs, STRING[], DEFAULT RECORD);
+  data := RewriteLinks(links, instrs, data, NOT options.includeblobs, GetSortedSet(options.knownblobs), DEFAULT RECORD);
 
   RECORD retval := CELL
       [ data

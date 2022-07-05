@@ -91,7 +91,7 @@ export default class ObjRTE extends ComponentBase
       , allowtags: data.allowtags.length ? data.allowtags : null
       , structure: data.structure
       , margins: data.margins
-      , csslinks: [data.cssurl]
+      , preloadedcss: data.preloadedcss
       , cssinstance: data.cssinstance
       , breakupnodes: this.isemaileditor ? [ 'blockquote' ] : []
       , hidebuttons: hidebuttons
@@ -122,22 +122,35 @@ export default class ObjRTE extends ComponentBase
     super.destroy();
   }
 
+  static asyncTransformMessage(message)
+  {
+    if (message.cssurl)
+    {
+      let preload = RTE.preloadCSS([ message.cssurl ]);
+      message.preloadedcss = preload;
+      return preload.loadpromise;
+    }
+    return null;
+  }
+
 /****************************************************************************************************************************
 * Property getters & setters
 */
 
   setValue(newvalue) //set from server
   {
-    if(this.untouchedcontent && this.untouchedcontent == newvalue.value)
-      return; //server sent an unneeded update
+    // Only apply updates if the untouched content changed, or the valuegeneration is newer
+    if(!this.untouchedcontent || this.untouchedcontent != newvalue.value || newvalue.valuegeneration > this.valuegeneration)
+    {
+      this.untouchedcontent = newvalue.value;
+      this.rte.setValue(this.untouchedcontent);
+      this.restructuredcontent = this.rte.getValue();
+      if (newvalue.valuedirtycount == 0)
+        this.rte.clearDirty();
+    }
 
-    this.untouchedcontent = newvalue.value;
     this.valuegeneration = newvalue.valuegeneration;
     this.valuedirtycount = newvalue.valuedirtycount;
-    this.rte.setValue(this.untouchedcontent);
-    this.restructuredcontent = this.rte.getValue();
-    if (newvalue.valuedirtycount == 0)
-      this.rte.clearDirty();
   }
 
   getSubmitValue()

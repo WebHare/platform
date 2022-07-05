@@ -3,6 +3,7 @@ import { qS, qSA } from 'dompack';
 import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as browser from "dompack/extra/browser";
+import * as preload from 'dompack/extra/preload';
 
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
@@ -66,6 +67,7 @@ export class RTE
                    , cssinstance: null
                    , csslinks:null
                    , csscode:''
+                   , preloadedcss: null
                    , breakupnodes: []
                    , htmlclass: ''
                    , bodyclass: ''
@@ -95,6 +97,9 @@ export class RTE
       this.toolbarnode = dompack.create("div");
       //the 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node
       this.stylescopenode = dompack.create("div", { className: "wh-rtd__stylescope " + (this.options.cssinstance || '') });
+
+      if (this.options.preloadedcss)
+        this.addcss.push(...this.options.preloadedcss.addcss);
 
       //ADDME globally manage css loaded by instances
       if(this.options.csslinks)
@@ -166,6 +171,8 @@ export class RTE
     this.gotPageFrameLoad();
 
     RTE.register(this);
+    if (this.options.preloadedcss)
+      RTE.unregister(this.options.preloadedcss);
     this.clearDirty();
   }
 
@@ -942,6 +949,8 @@ RTE.register = function(rte)
   if (dompack.debugflags.rte)
     console.log('[wh.rich] Register new rte');
 
+  let rules = [];
+
   //Add any missing stylesheets
   for (var i = 0; i < rte.addcss.length;++i)
   {
@@ -949,16 +958,19 @@ RTE.register = function(rte)
     if(rulepos)
     {
       rulepos.rule.rtes.push(rte);
+      rules.push(rulepos.rule);
     }
     else
     {
-      var node;
+      var node, promise;
       if(rte.addcss[i].type == 'link')
       {
         node = dompack.create("link", { href: rte.addcss[i].src
                                       , rel: "stylesheet"
                                       , dataset: { whRtdTempstyle: "" }
                                       });
+        promise = preload.promiseNewLinkNode(node);
+        promise.catch(() => null); // ignore rejections that aren't handled
         qS('head,body').appendChild(node);
       }
       else
@@ -981,9 +993,12 @@ RTE.register = function(rte)
                  , src: rte.addcss[i].src
                  , node: node
                  , rtes: [rte]
+                 , promise
                  };
       RTE.addedcss.push(rule);
+      rules.push(rule);
     }
+    return rules;
   }
 };
 
@@ -1012,3 +1027,24 @@ RTE.getForNode = function(node)
 {
   return node.whRTD || null;
 };
+
+class PreloadedCSS
+{
+  constructor(links)
+  {
+    this.addcss = links.map(href => ({ type:"link", src: href }));
+
+    let rules = RTE.register(this);
+    this.loadpromise = Promise.all(rules.map(rule => rule.promise).filter(_ => _.then(r => true, e => false))).then(arr => arr.reduce((p,c)=>p&&c, true));
+  }
+
+  clone()
+  {
+    return new PreloadedCSS(this.addcss.map(e => e.src));
+  }
+}
+
+RTE.preloadCSS = function(links)
+{
+  return new PreloadedCSS(links);
+}
