@@ -193,10 +193,6 @@
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
-    <d:role name="role_a"/>
-    <d:role name="role_b"/>
-
-    <!-- no grants, see if rights calculation works when only sysop has access -->
     <d:table name="rights_tree" primarykey="id">
       <d:integer name="id" autonumberstart="1"/>
       <d:varchar name="name" maxlength="256" nullable="0"/>

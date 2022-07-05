@@ -10,10 +10,6 @@
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element name="documentation" type="xs:string" />
-        <xs:element name="role" />
-        <xs:element name="obsoleterole" />
-        <xs:element name="grant" />
-        <xs:element name="obsoletegrant" />
 
         <xs:element name="table">
           <xs:complexType>
@@ -128,7 +124,6 @@
       </xs:choice>
     </xs:sequence>
 
-    <xs:attribute name="authorization" />
     <xs:attribute name="name">
       <xs:annotation>
         <xs:documentation>Schema name (defaults to module name)</xs:documentation>
