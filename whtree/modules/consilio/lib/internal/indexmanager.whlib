@@ -1673,12 +1673,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
       CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
-        IF (RecordExists(indexinfo))
-        {
-          // Cannot delete fieldgroups
-          result.status := SearchCommandUnsupported;
-        }
-        ELSE IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
+        IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
         {
           // Delete the specific subindex if suffix is set, otherwise delete all subindices
           RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
