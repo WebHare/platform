@@ -365,7 +365,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
              , ordering :=          #newsets
           FROM newsets;
 
-    // Re-use matching settings with the same `rawdata || setting`
+    // Re-use matching settings with the same `rawdata || setting`. This will also cause blobs to be reused (stay in the database) if not updated
     FOREVERY (RECORD rec FROM newsets)
     {
       RECORD pos := RecordLowerBound(current, [ lookupkey := rec.rawdata || "\t" || rec.setting ], [ "LOOKUPKEY" ]);
@@ -2899,16 +2899,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     BOOLEAN is_temp := is_new ? options.temp : RecordExists(entity_base_info) AND entity_base_info.creationdate = MAX_DATETIME;
     BOOLEAN is_temp_coming_alive := is_temp AND NOT is_new AND entity_creation != DEFAULT DATETIME AND entity_creation != MAX_DATETIME;
 
-    IF(entity_creation = DEFAULT DATETIME OR entity_limit = DEFAULT DATETIME)
-    {
-      IF(entity_creation = DEFAULT DATETIME)
-        entity_creation := RecordExists(entity_base_info) ? entity_base_info.creationdate : GetCurrentDatetime();
-      IF(entity_limit = DEFAULT DATETIME)
-        entity_limit := RecordExists(entity_base_info) ? entity_base_info.limitdate : MAX_DATETIME;
-    }
+    IF(entity_limit = DEFAULT DATETIME)
+      entity_limit := RecordExists(entity_base_info) ? entity_base_info.limitdate : MAX_DATETIME;
 
     BOOLEAN allow_unique_rawdata := entity_limit = MAX_DATETIME OR entity_limit > GetCurrentDatetime();
-
 
     IF(this->__typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
     {
