@@ -321,7 +321,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
 
       RECORD settings := CELL
             // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
-          [ "index.number_of_replicas" := 0
+          [ number_of_replicas := 0
             // Language-specific analysis settings
           , analysis := GetAnalysisForLanguage(indexmanager.lang)
           ];
@@ -378,13 +378,13 @@ PUBLIC STRING FUNCTION UpdateIndexManagerIndexSettings(INTEGER indexid, RECORD s
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        BOOLEAN close_index := CellExists(settings, "index") AND CellExists(settings."index", "analysis");
+        // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
+        BOOLEAN close_index := CellExists(settings, "analysis");
+
         IF(IsDebugTagEnabled("consilio:changes"))
           LogDebug("consilio:changes", "UpdateIndexManagerIndexSettings", CELL[ indexid, ...indexmanager, settings, close_index ]);
 
         RECORD response;
-
-        // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
         IF (close_index)
         {
           response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);

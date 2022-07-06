@@ -1257,9 +1257,7 @@ STATIC OBJECTTYPE Catalog
     {
       // Note: this doesn't update the 'synonym' filter, so we don't have to explicitly add that here
       RECORD indexsettings :=
-          [ "index" :=
-            [ analysis := GetAnalysisForLanguage(settings.lang)
-            ]
+          [ analysis := GetAnalysisForLanguage(settings.lang)
           ];
       UpdateIndexManagerIndexSettings(this->id, indexsettings);
     }
@@ -1409,12 +1407,10 @@ STATIC OBJECTTYPE Catalog
     {
       // Update the synonyms list of the 'synonym' filter (the rest of the settings are left alone)
       RECORD settings :=
-          [ "index" :=
-            [ analysis :=
-              [ filter :=
-                [ synonym :=
-                  [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(synonyms.words, ", ") FROM this->GetSynonyms() AS synonyms ]
-                ]
+          [ analysis :=
+            [ filter :=
+              [ synonym :=
+                [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(synonyms.words, ", ") FROM this->GetSynonyms() AS synonyms ]
               ]
             ]
           ];
