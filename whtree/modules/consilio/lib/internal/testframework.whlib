@@ -11,7 +11,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 
 
-INTEGER indexmanager;// := 2; // Set to specific index manager to test (0 for default builtin Consilio)
+INTEGER indexmanager;// := whconstant_consilio_indexmanager_opensearch; // Set to specific index manager to test (0 for default builtin Consilio)
 
 PUBLIC OBJECTTYPE ConsilioTestExtensions
 <

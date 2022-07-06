@@ -7,6 +7,8 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 CONSTANT STRING
     default_watermark_low := "85%",
@@ -20,8 +22,8 @@ PUBLIC STATIC OBJECTTYPE IndexManagers EXTEND TolliumScreenBase
     RETURN SELECT rowkey := id
                 , name
                 , address := address LIKE "builtin*" ? `<${this->GetTid(".address-builtin")}>` : address
-                , type := type = 1 ? this->GetTid(".indexmgr-builtin") : this->GetTid(".indexmgr-elasticsearch")
-                , icon := ^mgrs->embeddedlist->GetIcon(type = 1 ? "consilio:consilio" : type = 2 ? "consilio:elastic" : "")
+                , type := type = whconstant_consilio_indexmanager_legacybackend ? this->GetTid(".indexmgr-builtin") : this->GetTid(".indexmgr-elasticsearch")
+                , icon := ^mgrs->embeddedlist->GetIcon(type = whconstant_consilio_indexmanager_legacybackend ? "consilio:consilio" : type = whconstant_consilio_indexmanager_opensearch ? "consilio:elastic" : "")
              FROM consilio.indexmanagers;
   }
   MACRO OnEditMgr(RECORD row)
@@ -63,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
         ^address->value := `<${this->GetTid(".address-builtin")}>`;
         ^type->enabled := FALSE;
       }
-      IF (^indexmgr->value.type = 2)
+      IF (^indexmgr->value.type = whconstant_consilio_indexmanager_opensearch)
       {
         // Read Elasticsearch configuration
         TRY
@@ -85,7 +87,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
   }
   MACRO OnTypeChange()
   {
-    BOOLEAN is_elasticsearch := ^type->value = 2;
+    BOOLEAN is_elasticsearch := ^type->value = whconstant_consilio_indexmanager_opensearch;
    IF (is_elasticsearch)
     {
       ^settings->type := "regular";
@@ -101,7 +103,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
 
-    IF (^type->value = 2 AND ^threshold_enabled->value)
+    IF (^type->value = whconstant_consilio_indexmanager_opensearch AND ^threshold_enabled->value)
     {
       // The watermark values should all be either percentages or absolute byte values
       RECORD ARRAY watermarks :=
@@ -167,7 +169,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     {
       RECORD toset := ^indexmgr->value;
       IF(this->builtinaddress)
-        toset.address := ^type->value = 2 ? "builtin-elasticsearch" : "builtin";
+        toset.address := ^type->value = whconstant_consilio_indexmanager_opensearch ? "builtin-elasticsearch" : "builtin";
 
       INTEGER indexmgrid := this->id;
       IF(indexmgrid != 0)
@@ -178,7 +180,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
         INSERT CELL[ ...toset, id := indexmgrid ] INTO consilio.indexmanagers;
       }
 
-      IF (^type->value = 2)
+      IF (^type->value = whconstant_consilio_indexmanager_opensearch)
       {
         RECORD newsettings;
         IF (^threshold_enabled->value)

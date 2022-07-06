@@ -95,7 +95,6 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
            , type
         FROM consilio.indices
        WHERE ToUppercase(name) = ToUppercase(catalog_name)
-             AND type != 2
              AND name NOT LIKE "$consilio$deleted$*";
 
   IF (NOT RecordExists(indexrec))
@@ -149,12 +148,11 @@ PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STR
            , type
         FROM consilio.indices
        WHERE ToUppercase(name) = ToUppercase(catalog_name)
-             AND type != 2
              AND name NOT LIKE "$consilio$deleted$*";
 
   IF (NOT RecordExists(indexrec))
     THROW NEW Exception(`No such catalog '${catalog_name}'`);
-  IF (indexrec.type != 0)
+  IF (indexrec.type != whconstant_consilio_catalogtype_managed)
     THROW NEW Exception(`Catalog '${catalog_name}' is not managed by Consilio`);
 
   IF (RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag)))

@@ -79,8 +79,12 @@ PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
 
 PUBLIC STRING FUNCTION GetIndexManagerIcon(INTEGER indexmanager)
 {
-  INTEGER mgrtype := SELECT AS INTEGER type FROM consilio.indexmanagers WHERE id = indexmanager;
-  RETURN mgrtype = 1 ? "consilio:consilio" : mgrtype = 2 ? "consilio:elastic" : "tollium:status/unknown";
+  SWITCH (SELECT AS INTEGER type FROM consilio.indexmanagers WHERE id = indexmanager)
+  {
+    CASE whconstant_consilio_indexmanager_legacybackend { RETURN "consilio:consilio"; }
+    CASE whconstant_consilio_indexmanager_opensearch    { RETURN "consilio:elastic";}
+  }
+  RETURN "tollium:status/unknown";
 }
 
 
@@ -222,13 +226,13 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=1 AND address="builtin"))
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_legacybackend AND address="builtin"))
     INSERT
         [ name := "consilio:indexmanager"
         , args := STRING["consilio","--listenport",ToString(GetWebHareConfiguration().baseport+3)]
         , isstandalone := TRUE
         ] INTO apps AT END;
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=2 AND address="builtin-elasticsearch"))
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-elasticsearch"))
     INSERT
         [ name := "consilio:opensearch"
         , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]

@@ -63,7 +63,7 @@ PUBLIC STRING FUNCTION ConfigureIndexManager(STRING param)
   STRING res;
 
   // Only Consilio indexmanagers have to be configured
-  FOREVERY (INTEGER id FROM SELECT AS INTEGER ARRAY COLUMN id FROM consilio.indexmanagers WHERE type = 1)
+  FOREVERY (INTEGER id FROM SELECT AS INTEGER ARRAY COLUMN id FROM consilio.indexmanagers WHERE type = whconstant_consilio_indexmanager_legacybackend)
   {
     // Configure loglevel too
     BroadcastEvent("consilio:indexmanager.config",
@@ -316,7 +316,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
     {
       IF (indexmanager.indexname = "")
         THROW NEW Exception(`Index #${indexid} has no name`);
-      ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_moduleindex AND options.suffix != "")
+      ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged AND options.suffix != "")
         THROW NEW Exception("Cannot specify a suffix for a non-module index");
 
       RECORD settings := CELL
@@ -466,9 +466,9 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
       ], options);
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (NOT RecordExists(indexmanager) OR indexmanager.type != 2)
+  IF (NOT RecordExists(indexmanager) OR indexmanager.type != whconstant_consilio_indexmanager_opensearch)
     THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
-  IF (options.suffix != "" AND indexmanager.indextype != 1)
+  IF (options.suffix != "" AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
     THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
@@ -490,9 +490,9 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
   STRING result := SearchCommandUnsupported;
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager) AND indexmanager.type = 2)
+  IF (RecordExists(indexmanager) AND indexmanager.type = whconstant_consilio_indexmanager_opensearch)
   {
-    IF (options.suffix != "" AND indexmanager.indextype != 1)
+    IF (options.suffix != "" AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
     TRY
     {
@@ -575,7 +575,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
     RECORD mapping := options.mapping;
     // Make sure at least objectid and groupid are returned, if this is not an aggregation query or unmanaged index
-    IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != 1)
+    IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
     STRING ARRAY requested_fields := GetRequestedFields(mapping);
 
@@ -594,7 +594,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                               , uuid := queryuuid
                               , now := querystart
                               , catalog
-                              , indexmanager := indexmanager.type = 1 ? "Consilio" : indexmanager.type = 2 ? "ElasticSearch" : "#" || indexmanager.type
+                              , indexmanager := indexmanager.type = whconstant_consilio_indexmanager_legacybackend ? "Consilio" : indexmanager.type = whconstant_consilio_indexmanager_opensearch ? "ElasticSearch" : "#" || indexmanager.type
                               ];
 
     SWITCH (indexmanager.type)
@@ -716,7 +716,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         }
 
         RECORD finalquery := [ method := "GET"
-                             , path := "/" || indexmanager.indexname || (indexmanager.indextype = 1 ? "*" : "") || "/_search"
+                             , path := "/" || indexmanager.indexname || (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged ? "*" : "") || "/_search"
                              , body := searchquery
                              ];
 
@@ -846,7 +846,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
   {
     RECORD mapping := options.mapping;
     // Make sure at least objectid and groupid are returned, if this is not an unmanaged index
-    IF (indexmanager.indextype != 1)
+    IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
     STRING ARRAY requested_fields := GetRequestedFields(mapping);
 
@@ -910,7 +910,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             response := SendToElasticsearch(indexmanager.id, "", "/_search/scroll", [ scroll := "10s", scroll_id := scrollid ], "GET");
           ELSE
           {
-            STRING suffix := indexid > 0 AND indexmanager.indextype = 1 ? (options.suffix != "" ? "-" || options.suffix : "") : "";
+            STRING suffix := indexid > 0 AND indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged ? (options.suffix != "" ? "-" || options.suffix : "") : "";
             response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname || suffix : "_all", "/_search" || (scrolling ? "?scroll=10s" : ""), searchquery, "GET");
           }
 
@@ -1264,7 +1264,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
       CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD response;
-        IF (indexmanager.indextype = 1)
+        IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
         {
           FOREVERY (RECORD objgroup FROM SELECT objs := GroupedValues(objects) FROM objects)
           {
@@ -1386,7 +1386,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
         CASE whconstant_consilio_indexmanager_opensearch
         {
           // No support for groupids in unmanaged indices
-          IF (indexmanager.indextype = 1)
+          IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
           {
             IF (indexid != 0)
               result := SearchCommandUnsupported;
@@ -1475,7 +1475,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
       CASE whconstant_consilio_indexmanager_opensearch
       {
         // For unmanaged indices, delete by document id
-        IF (indexmanager.indextype = 1)
+        IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
         {
           IF (indexid = 0 OR contentsourceid != 0)
             result := SearchCommandUnsupported;
@@ -1579,7 +1579,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
         CASE whconstant_consilio_indexmanager_opensearch
         {
           // No support for outdated documents in unmanaged indices
-          IF (indexmanager.indextype = 1)
+          IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
             result.status := SearchCommandUnsupported;
 
           // delete all documents having 'date_indexed' before 'deletebefore'
@@ -1673,12 +1673,12 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
       CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
-        IF (RecordExists(indexinfo) AND indexinfo.type = 2)
+        IF (RecordExists(indexinfo))
         {
           // Cannot delete fieldgroups
           result.status := SearchCommandUnsupported;
         }
-        ELSE IF (RecordExists(indexinfo) AND indexinfo.type = 1)
+        ELSE IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
         {
           // Delete the specific subindex if suffix is set, otherwise delete all subindices
           RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
@@ -1760,7 +1760,7 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
-        Consilio or 2 for Elasticsearch)
+        Consilio or 2 for Opensearch)
 */
 RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1774,7 +1774,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
            , indexid := indices.id
         FROM consilio.indexmanagers, consilio.indices
        WHERE indexmanagers.id = indices.indexmanager
-             AND (options.managedonly ? indices.type = 0 : indices.type != 2)
+             AND (options.managedonly ? indices.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
              AND indices.name NOT LIKE "$consilio$deleted$*";
 }
@@ -1784,7 +1784,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
-        Consilio or 2 for Elasticsearch)
+        Consilio or 2 for Opensearch)
 */
 PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1802,7 +1802,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
            , consilio.indexmanagers
        WHERE indices.id = indexid
              AND indices.indexmanager = indexmanagers.id
-             AND (options.managedonly ? indices.type = 0 : indices.type != 2)
+             AND (options.managedonly ? indices.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND indices.name NOT LIKE "$consilio$deleted$*";
 }
 

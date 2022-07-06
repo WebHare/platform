@@ -189,8 +189,8 @@ PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_legacybackend := 1;
 PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_opensearch := 2;
 
 //our 2 index types
-PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_siteprofindex := 0;
-PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_moduleindex := 1;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_managed := 0;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_unmanaged := 1;
 
 //separates modulename from indexname
 PUBLIC CONSTANT STRING whconstant_consilio_module_sep := "__";

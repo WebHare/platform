@@ -10,7 +10,7 @@ LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
@@ -37,13 +37,13 @@ IF(setup_elasticsearch)
 {
   LogStartup("Creating ElasticSearch");
   INSERT INTO consilio.indexmanagers(id, name, type, address)
-       VALUES (builtin_indexmanager, "Builtin Elastic search", 2, "builtin-elasticsearch");
+       VALUES (builtin_indexmanager, "Builtin Elastic search", whconstant_consilio_indexmanager_opensearch, "builtin-elasticsearch");
 }
 ELSE
 {
   LogStartup("Creating legacy indexmanager");
   INSERT INTO consilio.indexmanagers(id, name, type, address, enablestemming, loglevel)
-       VALUES (builtin_indexmanager, "Builtin Consilio", 1, "builtin", ReadRegistryKey("consilio.indexmanager.enablestemming"), ReadRegistryKey("consilio.indexmanager.loglevel"));
+       VALUES (builtin_indexmanager, "Builtin Consilio", whconstant_consilio_indexmanager_legacybackend, "builtin", ReadRegistryKey("consilio.indexmanager.enablestemming"), ReadRegistryKey("consilio.indexmanager.loglevel"));
 }
 
 GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);

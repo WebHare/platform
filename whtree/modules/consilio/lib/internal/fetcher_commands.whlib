@@ -33,7 +33,7 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
 {
   FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE " || forindexmanager);
 
-  RECORD ARRAY indices := SELECT id, name, indexmanager FROM consilio.indices WHERE indexmanager = forindexmanager AND type != 2;
+  RECORD ARRAY indices := SELECT id, name, indexmanager FROM consilio.indices WHERE indexmanager = forindexmanager;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -118,7 +118,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = whconstant_consilio_catalogtype_moduleindex)
+    IF (catalog.type = whconstant_consilio_catalogtype_unmanaged)
       RETURN result; // Unmanaged index, nothing to do
 
     // If rebuilding a specific index, check if it should be rebuilt completely (i.e. if it should be deleted first)

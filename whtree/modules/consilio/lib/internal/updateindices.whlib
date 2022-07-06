@@ -216,7 +216,7 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         RECORD indexrec := SELECT * FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
         IF (RecordExists(indexrec))
         {
-          IF (indexrec.type != whconstant_consilio_catalogtype_moduleindex)
+          IF (indexrec.type != whconstant_consilio_catalogtype_unmanaged)
           {
             PrintTo(2,`There already is an index named '${indexname}', which is not a module index\n`);
             SetConsoleExitCode(1);
