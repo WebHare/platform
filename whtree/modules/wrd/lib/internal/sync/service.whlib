@@ -221,3 +221,21 @@ PUBLIC RECORD FUNCTION RPC_RunWRDQuery(STRING schemaname, STRING type, RECORD qu
 
   RETURN retval;
 }
+
+/** Runs a query on a WRD schema
+    @param schemaname WRD schema name
+    @param type Type to execute the query on
+    @return List of entities %WRDType2017::__GetTypeEntityList.return
+*/
+PUBLIC RECORD FUNCTION RPC_ListTypeEntities(STRING schemaname, STRING type)
+{
+  OBJECT wrdschema := OpenWRDSchema(schemaname);
+  IF (NOT ObjectExists(wrdschema))
+    THROW NEW Exception(`No such schema '${schemaname}'`);
+
+  OBJECT typeobj := wrdschema->GetType(type);
+  IF (NOT ObjectExists(typeobj))
+    THROW NEW Exception(`No such type '${type}' in schema '${schemaname}'`);
+
+  RETURN [ entities := typeobj->__GetTypeEntityList() ];
+}

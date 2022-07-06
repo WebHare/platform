@@ -3825,6 +3825,26 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
     RETURN this->__GetDomVals(attribute_tag, valtags);
   }
 
+  /** List all entities of with exactly this type (and no children types), also returning temporaries.
+      @return List of all entities, sorted on WRD_GUID
+      @cell return.wrd_id WRD ID
+      @cell return.wrd_guid WRD GUID
+      @cell return.wrd_creationdate Creation date
+      @cell return.wrd_limitdate Limit date
+      @cell return.wrd_modificationdate Modification date
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetTypeEntityList()
+  {
+    RETURN
+        SELECT wrd_id :=                id
+             , wrd_guid :=              EncodeWRDGuid(guid)
+             , wrd_creationdate :=      creationdate
+             , wrd_limitdate :=         limitdate
+             , wrd_modificationdate :=  modificationdate
+          FROM wrd.entities
+         WHERE type = this->id
+      ORDER BY guid;
+  }
 >;
 
 RECORD FUNCTION MergeChanges(RECORD ARRAY changes)
