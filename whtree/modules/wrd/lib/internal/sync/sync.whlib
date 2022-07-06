@@ -598,13 +598,39 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
   YIELD [ status := `Updating settings`, progress := 90m, important := TRUE ];
 
-  BOOLEAN settingschanges;
-
   OBJECT schemadefdoc := MakeXMLDocument(res.schemadefinition);
   IF (Length(schemadefdoc->GetParseErrors()) != 0)
     THROW NEW Exception(`Invalid schema definition`); // should have crashed earlier anyway
 
   RECORD schemadef := ReadSchemaDefFromXML(schemadefdoc->documentelement, "mod::wrd/dummyresource.xml", res.schemadefinition, DEFAULT DATETIME);
+
+  BOOLEAN settingschanges := UpdateSchemaSettings(
+      wrdschema,
+      schemadef,
+      remotepeer,
+      remoteschemaname,
+      res,
+      isfullsync,
+      now,
+      options);
+
+  YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
+  GetPrimary()->PopWork();
+
+  RETURN [ anychanges := totalrecords != 0 OR settingschanges ];
+}
+
+BOOLEAN FUNCTION UpdateSchemaSettings(
+    OBJECT wrdschema,
+    RECORD schemadef,
+    OBJECT remotepeer,
+    STRING remoteschemaname,
+    RECORD syncinstrs,
+    BOOLEAN isfullsync,
+    DATETIME now,
+    RECORD options)
+{
+  BOOLEAN settingschanges;
 
   // Decode the schema settings from the remote schema
   RECORD ARRAY schemadef_settings :=
@@ -651,8 +677,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   {
     // Record the synchistory
     STRING remoteschema := (ObjectExists(remotepeer) ? remotepeer->url || "#" : "local schema ") || remoteschemaname;
-    STRING remotecreationsource := CellExists(res, "creationsource") ? res.creationsource : "unknown creationsource";
-    DATETIME remotecreationdate := CellExists(res, "creationdate") ? res.creationdate : DEFAULT DATETIME;
+    STRING remotecreationsource := CellExists(syncinstrs, "creationsource") ? syncinstrs.creationsource : "unknown creationsource";
+    DATETIME remotecreationdate := CellExists(syncinstrs, "creationdate") ? syncinstrs.creationdate : DEFAULT DATETIME;
 
     // Gather remote sync history
     RECORD ARRAY remotesynchistory;
@@ -702,8 +728,5 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
     }
   }
 
-  YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
-  GetPrimary()->PopWork();
-
-  RETURN [ anychanges := totalrecords != 0 OR settingschanges ];
+  RETURN settingschanges;
 }
