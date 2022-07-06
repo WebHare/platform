@@ -1,14 +1,11 @@
 <?wh
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/catalog.whlib";
 LOADLIB "mod::consilio/lib/pagelists.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
-
 
 
 /* sitemap
@@ -71,13 +68,16 @@ MACRO TestSubpageIndexing()
 {
   testfw->BeginWork();
 
-  AddFolderToCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id, testfw->GetCatalogName_1(), "", "");
+  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  //having indexnames makes log analysis easier
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+
+  catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
 
   testfw->CommitWork();
 
   // Clear the index
-  INTEGER indexid := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog([ rebuild := TRUE ]);
   testfw->WaitQueueEmpty();
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;

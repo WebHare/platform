@@ -1,7 +1,15 @@
 <?wh
+
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+
 LOADLIB "mod::system/lib/resources.whlib";
+
+
+PUBLIC CONSTANT STRING ARRAY supported_field_types :=
+    [ "boolean", "completion", "datetime", "float", "integer", "integer64", "ipaddress", "keyword", "latlng", "money", "record", "text" ];
 
 OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
 {
@@ -22,15 +30,16 @@ CONSTANT RECORD defaultparentstate := [ strict := TRUE
                                       , curdepth := 0
                                       ];
 
-RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstae)
+RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
 {
   OBJECT node := GetIndexFieldDefinitionNode(name, type);
   IF(NOT ObjectExists(node))
     THROW NEW Exception(`Cannot find ${type} mapping for '${name}'`);
 
-  RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstae);
+  RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstate);
 }
 
+/// Read the field definition of a catalog from the moduledefinition
 PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
 {
   OBJECT node := GetIndexFieldDefinitionNode(name, "catalog") ?? GetIndexFieldDefinitionNode(name, "index");
@@ -39,11 +48,24 @@ PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
 
   RETURN ParseIndexField(node, Tokenize(name,':')[0], defaultparentstate);
 }
-PUBLIC RECORD FUNCTION GetFieldgroupFieldDefinition(STRING fieldgroup, BOOLEAN strict)
-{
-  RETURN GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[...defaultparentstate, strict]);
-}
 
+/// Read the field definition of a fieldgroup from the moduledefinition
+PUBLIC RECORD FUNCTION GetFieldgroupsFieldDefinition(STRING ARRAY fieldgroups, BOOLEAN strict)
+{
+  RECORD parsed := CELL[ properties := RECORD[], strict ];
+  FOREVERY (STRING fieldgroup FROM fieldgroups)
+  {
+    RECORD fielddef := GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[ ...defaultparentstate, parsed.strict]);
+    IF (RecordExists(fielddef))
+    {
+      parsed.strict := parsed.strict AND fielddef.strict;
+      FOREVERY (RECORD prop FROM fielddef.properties)
+        IF (NOT RecordExists(SELECT FROM parsed.properties WHERE name = prop.name))
+          INSERT prop INTO parsed.properties AT END;
+    }
+  }
+  RETURN RecordExists(parsed.properties) ? parsed : DEFAULT RECORD;
+}
 
 STRING FUNCTION QualifyName(STRING qualification, STRING name)
 {
@@ -75,6 +97,9 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
   {
     STRING type := subfield->localname;
 
+    IF (type = "customsource")
+      CONTINUE;
+
     IF(type = "addfieldgroup") //inclusion, not a sublevel!
     {
       RECORD subresult := GetFieldDefinition(QualifyName(module, subfield->GetAttribute("ref")), "fieldgroup", state);
@@ -88,24 +113,19 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
                     , settings := DEFAULT RECORD
                     , subfields := ParseIndexField(subfield, module, state)
                     , type := type
+                    , defaultvalue := GetFieldTypeDefaultValue(type)
                     ];
+    IF (subfield->HasAttribute("strict"))
+    {
+      BOOLEAN strict := ParseXSBoolean(subfield->GetAttribute("strict"));
+      IF (strict != state.strict)
+        INSERT CELL strict := strict INTO field;
+    }
     IF (subfield->HasAttribute("storeonly"))
       INSERT CELL "index" := NOT ParseXSBoolean(subfield->GetAttribute("storeonly")) INTO field.settings;
 
     SWITCH(type)
     {
-      CASE "text"
-      {
-        STRING analyzer := subfield->GetAttribute("analyzer");
-        IF (analyzer != "")
-          INSERT CELL analyzer := analyzer INTO field.settings;
-        STRING search_analyzer := subfield->GetAttribute("search_analyzer");
-        IF (search_analyzer != "")
-          INSERT CELL search_analyzer := search_analyzer INTO field.settings;
-        STRING search_quote_analyzer := subfield->GetAttribute("search_quote_analyzer");
-        IF (search_quote_analyzer != "")
-          INSERT CELL search_quote_analyzer := search_quote_analyzer INTO field.settings;
-      }
       CASE "keyword"
       {
         INTEGER ignore_above := ParseXSInt(subfield->GetAttribute("ignore_above"));
@@ -116,6 +136,9 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
 
     INSERT field INTO properties AT END;
   }
+
+  IF (NOT RecordExists(properties))
+    RETURN DEFAULT RECORD;
 
   STRING dupename := SELECT AS STRING ANY(name) FROM properties GROUP BY ToUppercase(name) HAVING COUNT(*)>1;
   IF(dupename != "")
@@ -133,6 +156,127 @@ RECORD ARRAY FUNCTION DontDeleteField(INTEGER fieldid, RECORD ARRAY currentfield
   RETURN currentfields;
 }
 
+/// Get the contentsourcefields for a contentsource from the database
+PUBLIC RECORD ARRAY FUNCTION GetContentSourceFields(INTEGER contentsourceid)
+{
+  RETURN
+      SELECT name
+           , type
+           , defaultvalue := ParseDefaultValue(defaultvalue)
+           , tokenized
+           , suggested
+        FROM consilio.contentsourcefields
+       WHERE COLUMN contentsourceid = VAR contentsourceid
+       ORDER BY ToUppercase(name)
+              , id;
+}
+
+VARIANT FUNCTION ParseDefaultValue(STRING defaultvalue)
+{
+  TRY
+    RETURN DecodeHSON(defaultvalue);
+  CATCH;
+  RETURN "";
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContentSourcesMapping(INTEGER ARRAY contentsourceids, RECORD ARRAY basefields)
+{
+  //TODO: Check for conflicting mappings instead of ignoring subsequent field definitions
+  RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields);
+  FOREVERY (INTEGER contentsourceid FROM contentsourceids)
+    properties := ParseContentSourceMapping(properties, GetContentSourceFields(contentsourceid));
+  RETURN properties;
+}
+
+RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD ARRAY fields)
+{
+  BOOLEAN have_suggested;
+  FOREVERY (RECORD field FROM fields)
+  {
+    IF (field.name LIKE "_*")
+    {
+      // Overwrite standard field settings, like "body"
+      STRING fieldname := Substring(field.name, 1);
+      INTEGER idx := (SELECT AS INTEGER #properties + 1 FROM properties WHERE name = fieldname) - 1;
+      IF (idx >= 0)
+      {
+        properties[idx] := CELL
+            [ ...properties[idx]
+            , type := GetTypeFromFieldDef(field)
+            ];
+        have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
+      }
+    }
+    ELSE IF (NOT RecordExists(SELECT FROM properties WHERE name = field.name))
+    {
+      STRING type := GetTypeFromFieldDef(field);
+      INSERT CELL
+          [ type
+          , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
+          , field.name
+          , settings := DEFAULT RECORD
+          , subfields := DEFAULT RECORD
+          , strict := TRUE
+          ] INTO properties AT END;
+      have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
+    }
+  }
+
+  // If there are any suggested fields, add a '_suggested' field with 'completion' type
+  IF (have_suggested AND NOT RecordExists(SELECT FROM properties WHERE name = "_suggested"))
+    INSERT
+        [ name := "_suggested"
+        , type := "completion"
+        , settings := [ analyzer := "consilio" ]
+        , subfields := DEFAULT RECORD
+        , strict := TRUE
+        , defaultvalue := DEFAULT RECORD
+        ] INTO properties AT END;
+
+  RETURN properties;
+}
+
+STRING FUNCTION GetTypeFromFieldDef(RECORD field)
+{
+  IF (CellExists(field, "type") AND field.type != "")
+  {
+    IF (field.type NOT IN supported_field_types)
+      THROW NEW Exception(`Unsupported field type '${field.type}'`);
+    RETURN field.type;
+  }
+  IF (field.name LIKE "date_*" OR field.name LIKE "*.date_*")
+    RETURN "datetime";
+  IF (CellExists(field, "tokenized") AND field.tokenized)
+    RETURN "text"; // analyzer will be added by ParseContentSourceMapping, so it will be applied to defaultmappingfields as well
+
+  SWITCH (TypeID(field.defaultvalue))
+  {
+    CASE TypeID(STRING),    TypeID(STRING ARRAY)    { RETURN "keyword"; }
+    CASE TypeID(INTEGER),   TypeID(INTEGER ARRAY)   { RETURN "integer"; }
+    CASE TypeID(INTEGER64), TypeID(INTEGER64 ARRAY) { RETURN "integer64"; }
+    CASE TypeID(MONEY),     TypeID(MONEY ARRAY)     { RETURN "money"; }
+    CASE TypeID(FLOAT),     TypeID(FLOAT ARRAY)     { RETURN "float"; }
+    CASE TypeID(BOOLEAN),   TypeID(BOOLEAN ARRAY)   { RETURN "boolean"; }
+    CASE TypeID(DATETIME),  TypeID(DATETIME ARRAY)  { RETURN "datetime"; }
+  }
+  THROW NEW Exception(`Cannot determine type for field ${field.name}`);
+}
+
+VARIANT FUNCTION GetFieldTypeDefaultValue(STRING type)
+{
+  SWITCH (type)
+  {
+    CASE "boolean"    { RETURN FALSE; }
+    CASE "datetime"   { RETURN DEFAULT DATETIME; }
+    CASE "float"      { RETURN 0f; }
+    CASE "integer"    { RETURN 0; }
+    CASE "integer64"  { RETURN 0i64; }
+    CASE "money"      { RETURN 0m; }
+    CASE "record"     { RETURN DEFAULT RECORD; }
+  }
+  RETURN "";
+}
+
 /** @cell input.properties
     @cell input.strict
     @cell return.properties
@@ -140,6 +284,9 @@ RECORD ARRAY FUNCTION DontDeleteField(INTEGER fieldid, RECORD ARRAY currentfield
     */
 PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
 {
+  IF (NOT RecordExists(input))
+    RETURN DEFAULT RECORD;
+
   RECORD properties;
   RECORD ARRAY dynamic_templates;
 
@@ -150,7 +297,7 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
                           ];
 
     RECORD subfields := PrepareMappingUpdate(prop.subfields);
-    IF(RecordExists(subfields.properties))
+    IF(RecordExists(subfields))
     {
       IF(prop.type="record")
       {
@@ -169,30 +316,49 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
       CASE "record"
       {
         esfielddata.type := "object";
-        INSERT CELL dynamic := subfields.dynamic INTO esfielddata;
+        IF (RecordExists(subfields))
+          INSERT CELL dynamic := subfields.dynamic INTO esfielddata;
+        ELSE IF (CellExists(prop, "strict") AND prop.strict != input.strict)
+          INSERT CELL dynamic := prop.strict ? "strict" : "true" INTO esfielddata;
       }
 
       // No additional changes
-      CASE "text", "keyword", "integer", "boolean" {}
+      CASE "keyword", "integer", "boolean" {}
 
-      // Change type to Elasticsearch type
+      // Change HareScript type to Elasticsearch type
       CASE "integer64" { esfielddata.type := "long"; }
       CASE "float"     { esfielddata.type := "double"; }
       CASE "datetime"  { esfielddata.type := "date"; }
       CASE "latlng"    { esfielddata.type := "geo_point"; }
       CASE "ipaddress" { esfielddata.type := "ip"; }
-
-      /* Not supported yet
-      CASE "completion"
+      CASE "money"
       {
-      }*/
+        // Elasticsearch's 'scaled_float' is stored as a long with fixed decimal factor, but is handled (and returned) as a
+        // double (scaled_float is just more efficient in storage than double), which only has 53 bits of precision. To be
+        // able to use all 64 bit money values, we'll just index them as long values.
+        esfielddata.type := "long";
+      }
+
+      CASE "text", "completion"
+      {
+        // Use the default consilio analyzer
+        esfielddata := CELL[ analyzer := "consilio", ...esfielddata ];
+
+        // For 'text', also index the orignal, non-transformed, tokenized text
+        IF (prop.type = "text")
+        {
+          IF (NOT CellExists(esfielddata, "fields"))
+            INSERT CELL fields := DEFAULT RECORD INTO esfielddata;
+          INSERT CELL consilio_original := [ type := "text", analyzer := "consilio_original" ] INTO esfielddata.fields;
+        }
+      }
       DEFAULT
       {
         THROW NEW Exception(`Unknown field type '${prop.type}'`);
       }
     }
 
-    IF(Length(subfields.dynamic_templates)>0)
+    IF(RecordExists(subfields) AND Length(subfields.dynamic_templates)>0)
     {
       IF(prop.type != "record")
         THROW NEW Exception('Only records may contain wildcarded fields');

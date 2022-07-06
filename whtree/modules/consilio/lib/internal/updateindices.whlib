@@ -1,18 +1,14 @@
 ﻿<?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
@@ -20,8 +16,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD ARRAY FUNCTION GetRequiredCatalogs()
@@ -30,14 +24,13 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
   RECORD ARRAY wantcatalogs;
   FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "catalog"))
   {
-    STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
-    INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
-
-    RECORD catalog := CELL[ tag
-                          , priority
+    RECORD catalog := CELL[ tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`)
+                          , priority := ParseXSInt(catalognode.node->Getattribute("priority"))
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
                           , contentsources := RECORD[]
-                          , managed := catalognode.node->HasAttribute("managed") ? ParseXSBoolean(catalognode.node->GetAttribute("managed")) : TRUE
+                          , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
+                          , fieldgroups := ParseXSList(catalognode.node->GetAttribute("fieldgroups"))
+                          , lang := catalognode.node->GetAttribute("lang")
                           ];
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
@@ -116,17 +109,21 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
         expect_contentobject := Tokenize(source.contentobject,'#')[1];
       }
 
+      OBJECT contentsource := catalog->OpenContentSourceById(currentsources[matchpos].id);
       IF(currentsources[matchpos].definedby != source.definedby
          OR currentsources[matchpos].contentobject != source.contentobject)
       {
-        catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[ source.definedby
-                                                                                             , settings := CELL[library := expect_library, contentobject := expect_contentobject]
-                                                                                             , tag := source.tag
-                                                                                             ]);
+        contentsource->UpdateContentSource(CELL
+            [ source.definedby
+            , settings := CELL[library := expect_library, contentobject := expect_contentobject]
+            , tag := source.tag
+            ]);
       }
 
       IF(currentsources[matchpos].isorphan)
-        catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
+        contentsource->ReactivateContentSource();
+
+      contentsource->OpenProvider()->UpdateContentSourceFields();
 
       DELETE FROM currentsources AT matchpos; //remove from cleanup list
       CONTINUE;
@@ -171,15 +168,15 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed ]);
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang ]);
     IF(catalog->ismanaged != want.managed)
     {
       PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->ismanaged ? "" : "not "}managed, it probably needs to be recreated\n`);
       CONTINUE;
     }
 
-    IF(catalog->definedby != want.definedby)
-      catalog->UpdateCatalog( CELL[ want.definedby ]);
+    IF(catalog->definedby != want.definedby OR catalog->lang != want.lang)
+      catalog->UpdateCatalog( CELL[ want.definedby, want.lang ]);
 
     IF(want.managed)
       UpdateManagedCatalog(catalog, want);
@@ -219,7 +216,7 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         RECORD indexrec := SELECT * FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
         IF (RecordExists(indexrec))
         {
-          IF (indexrec.type != whconstant_consilio_catalogtype_moduleindex)
+          IF (indexrec.type != whconstant_consilio_catalogtype_unmanaged)
           {
             PrintTo(2,`There already is an index named '${indexname}', which is not a module index\n`);
             SetConsoleExitCode(1);

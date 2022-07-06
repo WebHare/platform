@@ -339,7 +339,6 @@ TestEqualUrls(DEFAULT STRING ARRAY, response);
 response := SearchIndex(indexmgr_conn, "+title1a +keywords1a +description1a +body1a", 1);
 TestEq(200, response.code);
 TestEqualUrls(["doc1"], response);
-dumpvalue(response,'tree');
 TestEq("a b c",response.results[0].indextypes);
 TestEq("d e f",response.results[0].indexversions);
 

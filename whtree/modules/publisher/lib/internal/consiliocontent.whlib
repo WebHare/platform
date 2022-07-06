@@ -3,8 +3,6 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::float.whlib";
-LOADLIB "wh::money.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -218,6 +216,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         [ [ name := "name", value := "" ]
         , [ name := "title", value := "" ]
         , [ name := "description", value := "" ]
+        , [ name := "indextypes", value := STRING[] ]
+        , [ name := "indexversions", value := STRING[] ]
         , [ name := "keywords", value := "" ]
         , [ name := "body", value := "" ]
         , [ name := "url", value := "", tokenized := FALSE ]
@@ -226,7 +226,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , [ name := "whfsobject", value := "", tokenized := FALSE ]
         , [ name := "whfstype", value := 0 ]
         , [ name := "whfspath", value := "" ]
-        , [ name := "whfstree", value := "" ]
+        , [ name := "whfstree", value := INTEGER[] ]
         , [ name := "date_creation", value := DEFAULT DATETIME ]
         , [ name := "date_modification", value := DEFAULT DATETIME ]
         , [ name := "date_publication", value := DEFAULT DATETIME ]
@@ -333,12 +333,12 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
           , description := fsobj->description
           , keywords := fsobj->keywords
           , url := fsobj->indexurl
-          , whfsid := ToString(fsobj->id)
-          , whfsparent := ToString(fsobj->parent)
+          , whfsid := fsobj->id
+          , whfsparent := fsobj->parent
           , whfsobject := fsobj->isfolder ? "folder" : "file"
-          , whfstype := ToString(fsobj->type)
+          , whfstype := fsobj->type
           , whfspath := fsobj->whfspath
-          , whfstree := Detokenize(whfstree, " ")
+          , whfstree := whfstree
           , date_creation := fsobj->creationdate
           , date_modification := fsobj->modificationdate
           , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
@@ -453,9 +453,9 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         THROW NEW Exception(`Multilevel arrays are not supported (parsing ${indexfield.namespace}#${memberrec.name})`);
       IF (RecordExists(membervalue)
           AND CellExists(fields, "whfstype")
-          AND fields.whfstype != ToString(indextype->id)
+          AND fields.whfstype != indextype->id
           AND indexfield.namespace != "http://www.webhare.net/xmlns/publisher/searchinfo")
-        THROW NEW Exception(`Arrays are only supported for the actual file/folder type (parsing ${indexfield.namespace}#${memberrec.name})`);
+        RETURN fields; // Arrays are only supported for the actual file/folder type, ignore other array members
       IF (Length(membervalue) > 1
           AND CellExists(fields, "_arrayname")
           AND fields._arrayname != indexfield.membername
@@ -482,8 +482,10 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
           IF (NOT RecordExists(membervalue))
           {
-            VARIANT value := GetTypeDefaultValue(memberrec.type = 4 ? TypeID(DATETIME) : TypeID(STRING));
-            fields := this->InsertFieldValue(fields, objid, fieldname, value);
+            IF (TypeID(memberrec.emptyval) IN [ TypeID(RECORD), TypeID(RECORD ARRAY), TypeID(BLOB), TypeID(BLOB ARRAY) ])
+              fields := this->InsertFieldValue(fields, objid, fieldname, "");
+            ELSE
+              fields := this->InsertFieldValue(fields, objid, fieldname, memberrec.emptyval);
           }
           ELSE IF (arrayid >= Length(membervalue))
           {
@@ -520,30 +522,32 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
       RETURN fields;
     }
 
-    // Default field value based on the field's type
-    INTEGER fieldtype := TypeID(membervalue) IN [ TypeID(STRING), TypeID(DATETIME) ]
-        ? TypeID(membervalue)
-        : TypeID(STRING);
-    VARIANT fieldvalue := GetTypeDefaultValue(fieldtype);
+    VARIANT fieldvalue;
+    IF (TypeID(memberrec.emptyval) IN [ TypeID(RECORD), TypeID(RECORD ARRAY), TypeID(BLOB), TypeID(BLOB ARRAY) ])
+      fieldvalue := "";
+    ELSE
+      fieldvalue := memberrec.emptyval;
 
     IF (NOT IsDefaultValue(membervalue))
     {
       // See mod::system/lib/internal/fsctypes.whlib for list of type ids
       SWITCH (memberrec.type)
       {
-        CASE 1 // Single choice (default value: STRING)
+        CASE 1 // Single choice (string)
            , 2 // String
+           , 3 // Multiple choice (string array)
            , 4 // Datetime
-           , 19 // URL
+           , 7 // Integer
+           , 8 // Float
+           , 9 // Money
+           , 11 // WHFSREF (integer)
+           , 13 // WHFSREFARRAY (integer array)
+           , 14 // STRINGARRAY (string array)
+           , 19 // URL (string)
         {
           fieldvalue := membervalue;
         }
-        CASE 3 // Multiple choice (default value: STRING ARRAY)
-           , 14 // STRINGARRAY
-        {
-          fieldvalue := Detokenize(membervalue, " ");
-        }
-        CASE 5 // Memo (Blob)
+        CASE 5 // Memo (blob)
            , 10 // Blob
         {
           IF (RecordExists(membervalue))
@@ -561,24 +565,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             }
           }
         }
-        CASE 7 // Integer
-           , 11 // WHFSREF
-        {
-          fieldvalue := ToString(membervalue);
-        }
-        CASE 8 // Float
-        {
-          fieldvalue := FormatFloat(membervalue, -1);
-        }
-        CASE 9 // Money
-        {
-          fieldvalue := FormatMoney(membervalue, 0, ".", "", FALSE);
-        }
-        CASE 13 // WHFSREFARRAY
-        {
-          fieldvalue := Detokenize((SELECT AS STRING ARRAY ToString(val) FROM ToRecordArray(membervalue, "val")), " ");
-        }
-        CASE 15 // RICHDCOCUMENT
+        CASE 15 // RICHDCOCUMENT (record)
         {
           fieldvalue := ParseHTMLPage(membervalue.htmltext, TRUE).text;
         }
@@ -614,10 +601,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     {
       IF (NOT CellExists(fields, fieldname))
         fields := CellInsert(fields, fieldname, value);
-      ELSE IF (fieldname LIKE "date_*" OR fieldname LIKE "*.date_*")
-        fields := CellUpdate(fields, fieldname, value);
       ELSE
-        fields := CellUpdate(fields, fieldname, TrimWhitespace(GetCell(fields, fieldname) || " " || value));
+        fields := CellUpdate(fields, fieldname, value);
     }
 
     RETURN fields;

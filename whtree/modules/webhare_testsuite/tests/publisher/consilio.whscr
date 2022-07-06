@@ -5,8 +5,6 @@ LOADLIB "wh::filetypes/richdocument.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/catalog.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -27,15 +25,13 @@ MACRO ConsilioTest()
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT subfolder := siteroot->CreateFolder([ name := "subfolder" ]);
 
-  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
-  AddFolderToCatalog(subfolder->id, testfw->GetCatalogName_2(), "", "");
+  OBJECT catalog_1 := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  OBJECT catalog_2 := OpenConsilioCatalog(testfw->GetCatalogName_2());
+  OBJECT contentsource_1 := catalog_1->AddPublisherContentSource(siteroot->id);
+  OBJECT contentsource_2 := catalog_2->AddPublisherContentSource(subfolder->id);
   testfw->CommitWork();
 
   testfw->BeginWork();
-  INTEGER index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
-  INTEGER index_2 := testfw->GetCatalogIdByName(testfw->GetCatalogName_2());
-  INTEGER contentsource_1 := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot->id);
-  INTEGER contentsource_2 := testfw->GetPublisherContentSource(testfw->GetCatalogName_2(), subfolder->id);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", data := StringToBlob("blabla check"), publish := TRUE]);
@@ -140,7 +136,7 @@ MACRO ConsilioTest()
       ], results);
 
   // Remove the group manually
-  DeleteConsilioGroup(index_1, ToString(file_1->id));
+  contentsource_1->DeleteGroup(ToString(file_1->id));
   testfw->WaitConsilioQueueEmpty();
 
   results := search_1_obj->Search("blabla", 0, 10);
@@ -150,8 +146,8 @@ MACRO ConsilioTest()
       ], results);
 
   // Update the index
-  CheckConsilioContentSource(contentsource_1);
-  testfw->WaitContentSourceDone(contentsource_1);
+  contentsource_1->ReindexContentSource([ rebuild := TRUE ]);
+  testfw->WaitContentSourceDone(contentsource_1->id);
 
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(

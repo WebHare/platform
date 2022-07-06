@@ -24,6 +24,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- ISO 639-2 language code, optionally followed by the ISO 3166-2 country code. Eg 'nl' or 'en-GB'. -->
+  <xs:simpleType name="Locale">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z][a-z](-[A-Z][A-Z])?" />
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
   <xs:simpleType name="ImageSrc">
     <xs:restriction base="xs:string">

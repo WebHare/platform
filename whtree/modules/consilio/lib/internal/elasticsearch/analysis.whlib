@@ -1,0 +1,213 @@
+<?wh
+/*
+Relevant documentation, not available for Opensearch (yet?): https://www.elastic.co/guide/en/elasticsearch/reference/7.17/analysis-lang-analyzer.html
+For now we only support the language that are supported by libblex.
+*/
+
+CONSTANT RECORD ARRAY langsettings :=
+      // Default settings, no language-specific features (also fallback for unsupported languages)
+    [ [ lang := ""
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "asciifolding" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "asciifolding", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter := DEFAULT RECORD
+      ]
+
+      // Danish
+    , [ lang := "da"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "danish_stop", "scandinavian_folding", "asciifolding", "danish_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "danish_stop", "scandinavian_folding", "asciifolding", "danish_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ danish_stop := [ type := "stop", stopwords := "_danish_" ]
+          , danish_stemmer := [ type := "stemmer", language := "danish" ]
+          ]
+      ]
+
+      // German
+    , [ lang := "de"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "german_stop", "german_normalization", "asciifolding", "german_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "german_stop", "german_normalization", "asciifolding", "german_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ german_stop := [ type := "stop", stopwords := "_german_" ]
+          , german_stemmer := [ type := "stemmer", language := "light_german" ]
+          ]
+      ]
+
+      // English
+    , [ lang := "en"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "english_possessive_stemmer", "lowercase", "english_stop", "asciifolding", "english_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "english_possessive_stemmer", "lowercase", "english_stop", "asciifolding", "english_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ english_stop := [ type := "stop", stopwords := "_english_" ]
+          , english_stemmer := [ type := "stemmer", language := "english" ]
+          , english_possessive_stemmer := [ type := "stemmer", language := "possessive_english" ]
+          ]
+      ]
+
+      // Spanish
+    , [ lang := "es"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "spanish_stop", "asciifolding", "spanish_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "spanish_stop", "asciifolding", "spanish_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ spanish_stop := [ type := "stop", stopwords := "_spanish_" ]
+          , spanish_stemmer := [ type := "stemmer", language := "light_spanish" ]
+          ]
+      ]
+
+      // French
+    , [ lang := "fr"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "french_stop", "asciifolding", "french_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "french_stop", "asciifolding", "french_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ french_stop := [ type := "stop", stopwords := "_french_" ]
+          , french_stemmer := [ type := "stemmer", language := "light_french" ]
+          ]
+      ]
+
+      // Italian
+    , [ lang := "it"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "italian_stop", "asciifolding", "italian_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "italian_stop", "asciifolding", "italian_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ italian_stop := [ type := "stop", stopwords := "_italian_" ]
+          , italian_stemmer := [ type := "stemmer", language := "light_italian" ]
+          ]
+      ]
+
+      // Dutch
+    , [ lang := "nl"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ dutch_stop := [ type := "stop", stopwords := "_dutch_" ]
+          , dutch_stemmer := [ type := "stemmer", language := "dutch_kp" ]
+          ]
+      ]
+
+      // Portuguese
+    , [ lang := "pt"
+      , analyzer :=
+          [ consilio :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "portuguese_stop", "asciifolding", "portuguese_stemmer" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          , consilio_search :=
+            [ tokenizer := "icu_tokenizer"
+            , filter := [ "lowercase", "portuguese_stop", "asciifolding", "portuguese_stemmer", "synonym" ]
+            , char_filter := [ "remove_dot" ]
+            ]
+          ]
+      , filter :=
+          [ portuguese_stop := [ type := "stop", stopwords := "_portuguese_" ]
+          , portuguese_stemmer := [ type := "stemmer", language := "light_portuguese" ]
+          ]
+      ]
+    ];
+
+PUBLIC RECORD FUNCTION GetAnalysisForLanguage(STRING language)
+{
+  // Retrieve the language-specific analysis settings
+  RECORD analysis :=
+      SELECT *
+           , DELETE lang
+        FROM langsettings
+       WHERE lang IN [ language, "" ] // search for requested language, fallback to 'no language'
+       ORDER BY lang = ""; // return non-empty (requested) lang first
+
+  // Add an analyzer that only tokenizes the text but doesn't do any normalization, stemming or stopword filtering so we can
+  // search through the original words
+  INSERT CELL consilio_original :=
+      [ tokenizer := "icu_tokenizer"
+      , char_filter := [ "remove_dot" ]
+      ] INTO analysis.analyzer;
+  // By default, the icu_tokenizer doesn't split 'word.word' into 'word', 'word'. This filter replaces all dots with spaces
+  INSERT CELL char_filter :=
+      [ remove_dot :=
+          [ type := "pattern_replace"
+          , pattern := "\\."
+          , replacement := " "
+          ]
+      ] INTO analysis;
+
+  RETURN analysis;
+}

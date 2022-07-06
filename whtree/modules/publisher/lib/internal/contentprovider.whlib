@@ -301,13 +301,21 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     RETURN "webhare:" || ToString(this->rootfolder);
   }
 
-  UPDATE PUBLIC RECORD FUNCTION GetEmptySearchRecord()
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD emptyrec := ConsilioContentProvider::GetEmptySearchRecord();
-    INSERT CELL filetype := "" INTO emptyrec;
-    INSERT CELL date_whmodification := DEFAULT DATETIME INTO emptyrec;
-    INSERT CELL size := 0 INTO emptyrec;
-    RETURN emptyrec;
+    RECORD ARRAY mapping := ConsilioContentProvider::GetMapping();
+    UPDATE mapping SET suggested := TRUE WHERE name = "title";
+    RETURN
+        [ ...mapping
+        , [ name := "filetype",            value := "",               tokenized := FALSE ]
+        , [ name := "date_modified",       value := DEFAULT DATETIME, tokenized := FALSE ]
+        , [ name := "date_whmodification", value := DEFAULT DATETIME, tokenized := FALSE ]
+        , [ name := "size",                value := 0,                tokenized := FALSE ]
+        , [ name := "whfspath",            value := "",               tokenized := TRUE ]
+        , [ name := "keywords",            value := "",               tokenized := TRUE, suggested := TRUE ]
+        , [ name := "description",         value := "",               tokenized := TRUE, suggested := TRUE ]
+        , [ name := "_body",               tokenized := TRUE, suggested := TRUE ]
+        ];
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)

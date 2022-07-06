@@ -33,7 +33,7 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
 {
   FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE " || forindexmanager);
 
-  RECORD ARRAY indices := SELECT id, name, indexmanager FROM consilio.indices WHERE indexmanager = forindexmanager AND type != 2;
+  RECORD ARRAY indices := SELECT id, name, indexmanager FROM consilio.indices WHERE indexmanager = forindexmanager;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -74,9 +74,9 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
              AND (status > 0 //is updating or rebuikd
                   OR indexid NOT IN presentindexids)
              AND tag NOT LIKE "$consilio$deleted$*"; //or not even there!
-  FOREVERY (RECORD indexrec FROM outdated_sources)
+  FOREVERY (INTEGER indexid FROM SELECT AS INTEGER ARRAY DISTINCT COLUMN indexid FROM outdated_sources)
   {
-    EnsureIndexManagerIndex(indexrec.indexid);
+    EnsureIndexManagerIndex(indexid);
   }
 
   RETURN
@@ -118,7 +118,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = whconstant_consilio_catalogtype_moduleindex)
+    IF (catalog.type = whconstant_consilio_catalogtype_unmanaged)
       RETURN result; // Unmanaged index, nothing to do
 
     // If rebuilding a specific index, check if it should be rebuilt completely (i.e. if it should be deleted first)
@@ -957,6 +957,7 @@ PUBLIC RECORD FUNCTION DeleteObject(RECORD data, RECORD options DEFAULTSTO DEFAU
 {
   options := ValidateOptions(
       [ noindexmodify := FALSE
+      , refresh := FALSE
       ], options);
 
   RECORD result :=
@@ -982,7 +983,7 @@ PUBLIC RECORD FUNCTION DeleteObject(RECORD data, RECORD options DEFAULTSTO DEFAU
   // If no indexid is given, delete the group from all indexes
   IF (NOT options.noindexmodify)
   {
-    STRING deleteresult := DeleteIndexManagerObject(data.indexid, 0, data.objectid);
+    STRING deleteresult := DeleteIndexManagerObject(data.indexid, 0, data.objectid, CELL[ options.refresh ]);
     IF (deleteresult != SearchOk)
       FetcherDebug(ConsilioDebugInfo, "Could not fully delete object \"" || EncodeJava(data.objectid) || "\": " || deleteresult);
   }
@@ -1505,14 +1506,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     STRING result;
     IF (RecordExists(document_fields) OR body != "")
     {
-      // Check for invalid field values: fields should be strings, or datetimes if the name start with "date_"
-      STRING ARRAY invalidfields := SELECT AS STRING ARRAY ToLowercase(name)
-                                     FROM UnpackRecord(document_fields)
-                                    WHERE TypeID(value) != TypeID(STRING)
-                                          AND NOT (TypeID(value) = TypeID(DATETIME) AND (ToUppercase(name) LIKE "DATE_*" OR ToUppercase(name) LIKE "*.DATE_*"));
-      IF (Length(invalidfields) > 0)
-        RETURN [ success := FALSE, error := "Invalid field values for fields '" || Detokenize(invalidfields, "', '") || "'" ];
-
       RECORD document :=
           [ date_indexed := commanddate
           , date_indexdate := object_indexdate
@@ -1617,7 +1610,7 @@ STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, ST
   RECORD source := GetContentSource(contentsource);
   INTEGER loglevel := RecordExists(source) ? source.loglevel : -1;
 
-  FetcherDebug(ConsilioDebugInfo, "Deleting object \"" || EncodeJava(objectid) || "\", group \"" || EncodeJava(groupid) || "\" from contentsource " || contentsource, loglevel);
+  FetcherDebug(ConsilioDebugInfo, `Deleting object '${EncodeJava(objectid)}'${ groupid != "" ? `, group '${EncodeJava(groupid)}'` : "" } from contentsource ${contentsource}`, loglevel);
   RETURN DeleteIndexManagerObject(indexid, contentsource, objectid, [ refresh := refresh ]);
 }
 

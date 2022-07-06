@@ -5,8 +5,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/catalog.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -16,8 +14,7 @@ LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-INTEGER indexid;
-INTEGER contentsource;
+OBJECT catalog;
 
 BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
 {
@@ -34,17 +31,20 @@ MACRO TestSuggestFields()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
-  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
-      , maxgroupobjects :=      1000
-      , discardsummaries :=     TRUE
+  catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  //having indexnames makes log analysis easier
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+
+  catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+      [ title :=            "BETA_CUSTOMSOURCE"
+      , maxgroupobjects :=  1000
+      , discardsummaries := TRUE
       ]);
 
   testfw->CommitWork();
 
   // Clear the index
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   testfw->BeginWork();
@@ -61,7 +61,7 @@ MACRO TestSuggestFields()
   testfw->CommitWork();
 
   // Rebuild the index
-  CheckConsilioIndex(indexid);
+  catalog->ReindexCatalog();
   testfw->WaitQueueEmpty();
 
   // Create a suggester object
@@ -165,7 +165,7 @@ MACRO TestSuggestFieldsLegacy()
 
   OBJECT siteroot := GetTestsuiteTempFolder();
 
-  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
+  catalog->AddPublisherContentSource(siteroot->id);
 
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "blafile", data := StringToBlob("blabla"), publish := TRUE]);
 

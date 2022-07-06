@@ -981,7 +981,7 @@
               </xs:documentation>
             </xs:annotation>
             <xs:simpleType>
-              <xs:list itemType="xs:string" />
+              <xs:list itemType="sc:Locale" />
             </xs:simpleType>
           </xs:attribute>
           <xs:attribute name="manualaccesstoken" type="xs:string">
@@ -1468,15 +1468,10 @@
 
 
   <xs:complexType name="SiteLanguage">
-    <xs:attribute name="lang">
+    <xs:attribute name="lang" type="sc:Locale">
       <xs:annotation>
         <xs:documentation>ISO 639-2 language code, optionally followed by the ISO 3166-2 country code. Eg 'nl' or 'en-GB'.</xs:documentation>
       </xs:annotation>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="[a-z][a-z](-[A-Z][A-Z])?" />
-        </xs:restriction>
-      </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
 

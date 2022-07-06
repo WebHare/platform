@@ -9,7 +9,6 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

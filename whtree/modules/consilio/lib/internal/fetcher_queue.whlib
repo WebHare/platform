@@ -35,8 +35,7 @@ RECORD FUNCTION GetCacheablePriorityLookupTables()
                   (SELECT id
                         , priority
                      FROM consilio.indices
-                    WHERE type != 2
-                          AND name NOT LIKE "$consilio$deleted$*"
+                    WHERE name NOT LIKE "$consilio$deleted$*"
                     ORDER BY id)
             , contentsources :=
                   (SELECT contentsources.id

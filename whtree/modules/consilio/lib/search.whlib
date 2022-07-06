@@ -307,9 +307,13 @@ STATIC OBJECTTYPE SearchObject
   */
   PUBLIC INTEGER summary_length;
 
+  /** @short The fields in which to highlight found query words
+  */
+  PUBLIC STRING ARRAY highlightfields;
+
   /** @short Do not highlight query matches within search results
   */
-  PUBLIC BOOLEAN donthighlight;
+  PUBLIC PROPERTY donthighlight(GetDontHighlight, SetDontHighlight);
 
   /** @short Save query statistics
       @long If set to true, Consilio stores queries and the number of returned results and browsed result pages.
@@ -355,6 +359,7 @@ STATIC OBJECTTYPE SearchObject
     this->language := language;
     this->summary_length := -1; // Default summary length
     this->save_searches := save_searches;
+    this->highlightfields := [ "body" ]; // For summary generation
 
     IF (initdata.type = "catalog")
       this->InitCatalog(initdata);
@@ -372,7 +377,6 @@ STATIC OBJECTTYPE SearchObject
         SELECT AS INTEGER id
           FROM consilio.indices
           WHERE ToUppercase(name) = ToUppercase(initdata.catalog)
-                AND type != 2
                 AND name NOT LIKE "$consilio$deleted$*";
     IF (indexid <= 0)
       THROW NEW SearchException(SearchIndexNotFound, "Could not find catalog '" || initdata.catalog || "'");
@@ -488,19 +492,22 @@ STATIC OBJECTTYPE SearchObject
              ];
     }
 
+    STRING ARRAY highlightfields := this->highlightfields;
+    // IF (this->summary_length != 0 AND "body" NOT IN highlightfields)
+    //   INSERT "body" INTO highlightfields AT 0;
     // Get search results
-    RECORD options :=
-        [ first := first
-        , count := count
+    RECORD options := CELL
+        [ first
+        , count
         , summary := this->summary_length
-        , donthighlight := this->donthighlight
+        , highlightfields
         , lang := this->language
         , restrict_to := this->restrict_url
-        , exclude_urls := this->exclude_urls
-        , session := this->session
-        , addscore := addscore
-        , debug := this->debug
-        , throwonfailure := this->throwonfailure
+        , this->exclude_urls
+        , this->session
+        , addscore
+        , this->debug
+        , this->throwonfailure
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
@@ -533,6 +540,16 @@ STATIC OBJECTTYPE SearchObject
   INTEGER FUNCTION GetCatalogId()
   {
     RETURN this->catalog_id > 0 ? this->catalog_id : 0;
+  }
+
+  BOOLEAN FUNCTION GetDontHighlight()
+  {
+    RETURN Length(this->highlightfields) = 0;
+  }
+
+  MACRO SetDontHighlight(BOOLEAN donthighlight)
+  {
+    this->highlightfields := donthighlight AND this->summary_length = 0 ? STRING[] : [ "body" ];
   }
 
   BOOLEAN FUNCTION GetSaveSearches()
@@ -675,7 +692,6 @@ OBJECTTYPE SuggestObject
           FROM consilio.indices
           WHERE ToUppercase(name) = ToUppercase(initdata.catalog)
                 AND id > 0 // Don't return the module index
-                AND type != 2 // Don't return field groups
                 AND name NOT LIKE "$consilio$deleted$*"; // Don't return deleted indices
     IF (indexid = 0)
       THROW NEW SearchException(SearchIndexNotFound, "Could not find catalog '" || initdata.catalog || "'");
@@ -750,7 +766,6 @@ PUBLIC RECORD FUNCTION GetQueryResults(STRING catalog, STRING tag, DATETIME from
       SELECT AS INTEGER id
         FROM consilio.indices
         WHERE ToUppercase(name) = ToUppercase(catalog)
-              AND type != 2
               AND name NOT LIKE "$consilio$deleted$*";
   IF (indexid <= 0)
     RETURN [ status := SearchIndexNotFound ];
@@ -770,8 +785,7 @@ PUBLIC RECORD FUNCTION GetCatalogList(/*unused*/STRING password DEFAULTSTO "")
   // Get the list of accessible indices
   STRING ARRAY names := SELECT AS STRING ARRAY name
                           FROM consilio.indices
-                         WHERE type != 2
-                               AND name NOT LIKE "$consilio$deleted$*"
+                         WHERE name NOT LIKE "$consilio$deleted$*"
                          ORDER BY ToUppercase(name);
   RETURN [ status := SearchOk, cataloglist := names ];
 }
@@ -786,7 +800,6 @@ PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalog_name, /*unused*/STRING
          FROM consilio.indices
          WHERE ToUppercase(name) = ToUppercase(catalog_name)
                AND id > 0 // Don't return the (obsolete) module index
-               AND type != 2 // Don't return field groups
                AND name NOT LIKE "$consilio$deleted$*") - 1; // Don't return deleted indices
 }
 
@@ -812,7 +825,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerStatus(INTEGER indexmgrid)
 
 RECORD FUNCTION GetIndexQueryResults(INTEGER indexid, STRING tag/*unused*/, DATETIME fromdate)
 {
-  IF (NOT RecordExists(SELECT FROM consilio.indices WHERE id = indexid AND id > 0 AND type != 2 AND name NOT LIKE "$consilio$deleted$*"))
+  IF (NOT RecordExists(SELECT FROM consilio.indices WHERE id = indexid AND id > 0 AND name NOT LIKE "$consilio$deleted$*"))
     RETURN [ status := SearchIndexNotFound ];
 
   RECORD ARRAY results := SELECT when

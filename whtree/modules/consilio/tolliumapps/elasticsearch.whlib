@@ -21,7 +21,7 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
   {
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
-                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                               WHERE type = whconstant_consilio_indexmanager_opensearch
                             ORDER BY ToUppercase(name);
     this->RefreshIndices();
   }
@@ -40,10 +40,12 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
                            , docs := COLUMN "docs.count"
                            , size := COLUMN "pri.store.size"
                            , name := COLUMN "index"
+                           , health := this->GetHealthIcon(health, ^indices)
                         FROM EnforceStructure([[ "uuid" := ""
                                                , "docs.count" := 0
                                                , "pri.store.size" := ""
                                                , "index" := ""
+                                               , "health" := ""
                                                ]], indices);
 
     IF(this->freshcallback != 0)
@@ -74,6 +76,16 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
 
     this->RefreshIndices();
   }
+  INTEGER FUNCTION GetHealthIcon(STRING health, OBJECT list)
+  {
+    SWITCH (health)
+    {
+      CASE "green"  { RETURN list->GetIcon("tollium:status/positive"); }
+      CASE "yellow" { RETURN list->GetIcon("tollium:status/neutral"); }
+      CASE "red"    { RETURN list->GetIcon("tollium:status/error"); }
+    }
+    RETURN 0;
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
@@ -82,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
   {
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
-                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                               WHERE type = whconstant_consilio_indexmanager_opensearch
                             ORDER BY ToUppercase(name);
     ^indexmanager->SetValueIfValid(data.indexmanager);
     ^query->value := PrettifyJSON(EncodeJSON(data.query));

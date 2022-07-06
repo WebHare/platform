@@ -3,8 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
-
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
@@ -12,7 +10,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, Co
 
 BOOLEAN FUNCTION IsValidIndexId(INTEGER indexid)
 {
-  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.indices WHERE type != 2 AND name NOT LIKE "$consilio$deleted$*");
+  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.indices WHERE name NOT LIKE "$consilio$deleted$*");
 }
 
 INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)
@@ -23,7 +21,7 @@ INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)
 /** @short Rebuild one index or all indexes
     @param indexid The index to check, or 0 for all indexes
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexCatalog([ rebuild := TRUE ])")
 {
   IF (NOT IsValidIndexId(indexid))
     RETURN FALSE;
@@ -36,7 +34,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRE
 /** @short Update one index or all indexes
     @param indexid The index to check, or 0 for all indexes
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexCatalog()")
 {
   IF (NOT IsValidIndexId(indexid))
     RETURN FALSE;
@@ -49,7 +47,7 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPR
 /** @short Check a content source
     @param contentsourceid The content source to check
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioContentSource(INTEGER contentsourceid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioContentSource(INTEGER contentsourceid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexContentSource([ rebuild := TRUE ])")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0)
@@ -63,7 +61,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioContentSource(INTEGER contentsourceid)
 /** @short Check a content source
     @param contentsourcetag Tag of the content source to check
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag)
+PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexContentSource([ rebuild := TRUE ])")
 {
   RECORD ARRAY sources := GetContentSourcesByTag(contentsourcetag);
   IF(Length(sources) = 0)
@@ -82,7 +80,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag)
 /** @short Check a content source
     @param contentsourceid The content source to update
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexContentSource()")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0)
@@ -96,7 +94,7 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid) __A
 /** @short Update a content source
     @param contentsourcetag Tag of the content source to update
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag)
+PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexContentSource()")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -112,7 +110,7 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag
     @param contentsourceid Id of the content source which is responsible for the group
     @param groupid Id of the group to add or update
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioGroup(INTEGER contentsourceid, STRING groupid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioGroup(INTEGER contentsourceid, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexGroup(groupid, [ rebuild := TRUE ])")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0 AND ToInteger(groupid, -1) <= 0)
@@ -126,7 +124,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioGroup(INTEGER contentsourceid, STRING group
     @param contentsourcetag Tag of the content source which is responsible for the group
     @param groupid Id of the group to add or update
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexGroup(groupid, [ rebuild := TRUE ])")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -137,7 +135,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING 
   RETURN TRUE;
 }
 
-PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use RebuildGroup(..., [ foreground := TRUE ])")
+PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexGroup(groupid, [ rebuild := TRUE, foreground := TRUE ])")
 {
   options := ValidateOptions([ force := FALSE ], options);
 
@@ -154,7 +152,7 @@ PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, 
     @param contentsourcetag Tag of the content source which is responsible for the group
     @param groupid Id of the group to add or update
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexGroup(groupid)")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -165,19 +163,11 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING
   RETURN TRUE;
 }
 
-
-
-PUBLIC BOOLEAN FUNCTION __DeactivateConsilioGroup(STRING groupid)
-{
-  STRING command := "DEACTIVATEGROUP " || EncodeJava(groupid);
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
-}
-
 /** @short Delete the group from the given index or all indexes
     @param indexid Id of the index to delete the group from, or 0 for all indexes
     @param groupid Id of the group to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->DeleteGroup(groupid)")
 {
   IF (NOT IsValidIndexId(indexid) OR groupid = "")
     RETURN FALSE;
@@ -190,7 +180,7 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid) __A
     @param contentsourcetag Tag of the content source which is responsible for the group
     @param groupid Id of the group to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING groupid)
+PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->DeleteGroup(groupid)")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -206,7 +196,7 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING
     @param groupid Id of the group which contains the object
     @param objectid Id of the object
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING groupid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING groupid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexObject(groupid, objectid)")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0 OR objectid = "")
@@ -221,7 +211,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING grou
     @param groupid Id of the group which contains the object
     @param objectid Id of the object
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING groupid, STRING objectid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING groupid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->ReindexObject(groupid, objectid)")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -236,7 +226,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING
     @param indexid Id of the index to delete the object from, or 0 for all indexes
     @param groupid Id of the object to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->DeleteObject(objectid)")
 {
   IF (NOT IsValidIndexId(indexid) OR objectid = "")
     RETURN FALSE;
@@ -249,7 +239,7 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid) _
     @param contentsourcetag Tag of the content source which is responsible for the object
     @param groupid Id of the object to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioObjectByTag(STRING contentsourcetag, STRING objectid)
+PUBLIC BOOLEAN FUNCTION DeleteConsilioObjectByTag(STRING contentsourcetag, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use ->DeleteObject(objectid)")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
@@ -258,52 +248,6 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioObjectByTag(STRING contentsourcetag, STRIN
       RETURN FALSE;
   }
   RETURN TRUE;
-}
-
-PUBLIC RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
-{
-  STRING args := Detokenize(options, " ");
-  STRING command := "STATUS" || (args != "" ? " " || args : "");
-  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
-}
-
-PUBLIC BOOLEAN FUNCTION __ConsilioUpdateConfiguration(STRING ARRAY args)
-{
-  IF (Length(args) = 0)
-    RETURN FALSE;
-
-  STRING command := "CONFIGURE " || Detokenize(args, " ");
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
-}
-
-PUBLIC BOOLEAN FUNCTION __ConsilioRestartQueueManager()
-{
-  STRING command := "SHUTDOWN";
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
-}
-
-PUBLIC RECORD FUNCTION __ConsilioGetErrors()
-{
-  STRING command := "GETERRORS";
-  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
-}
-
-PUBLIC RECORD FUNCTION __ConsilioClearErrors(INTEGER contentsourceid)
-{
-  STRING command := "CLEARERRORS "||contentsourceid;
-  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
-}
-
-PUBLIC BOOLEAN FUNCTION __WaitForEmptyConsilioQueue(INTEGER maxwaitmsecs)
-{
-  DATETIME maxwait := AddTimeToDate(maxwaitmsecs, GetCurrentDateTime());
-  RECORD status := __ConsilioGetQueueManagerStatus();
-  WHILE (RecordExists(status) AND status.queuelength > 0 AND GetCurrentDateTime() < maxwait)
-  {
-    status := __ConsilioGetQueueManagerStatus();
-    Sleep(100);
-  }
-  RETURN RecordExists(status) AND status.queuelength = 0;
 }
 
 MACRO HandleCommandSynchronously(RECORD basedata, FUNCTION PTR resolve, FUNCTION PTR reject, RECORD options)

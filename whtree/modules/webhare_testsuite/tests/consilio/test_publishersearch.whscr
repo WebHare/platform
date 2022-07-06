@@ -10,8 +10,6 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
@@ -141,7 +139,7 @@ MACRO PublisherSearchTest()
   TestEq("file", resultobj.whfsobject);
   TestEq(testroot->id, resultobj.whfsparent);
   TestEq(file_5->whfspath, resultobj.whfspath);
-  TestEq(`${whconstant_whfsid_webhare_tests} ${testroot->parentobject->parent} ${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
+  TestEq([ whconstant_whfsid_webhare_tests, testroot->parentobject->parent, testroot->parent, testroot->id, file_5->id ], resultobj.whfstree);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEq(richdoctype->id, resultobj.whfstype);
@@ -292,9 +290,9 @@ MACRO PublisherSearchTest()
   // The file should not be found by the custom index field (it hasn't been set yet)
   OBJECT search_obj := OpenSearchObject("en", whconstant_consilio_catalog_whfs);
 
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("contenttypefield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(0, result.totalcount);
 
   testfw->BeginWork();
@@ -305,19 +303,18 @@ MACRO PublisherSearchTest()
   CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' by id and check custom module field
-  result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("whfsid", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(TRUE, CellExists(result.results[0], "contenttypefield@webhare_testsuite"));
-  TestEq(ToString(file_5->id), result.results[0]."contenttypefield@webhare_testsuite");
+  TestEq(file_5->id, result.results[0]."contenttypefield@webhare_testsuite");
   TestEq(TRUE, CellExists(result.results[0], "libraryfield@webhare_testsuite"));
   TestEq(ToString(file_5->id), result.results[0]."libraryfield@webhare_testsuite");
 
   // Find by module field
-  //search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("contenttypefield@webhare_testsuite", "=", file_5->id));
   TestEq(1, result.totalcount);
   TestEq(file_5->id, result.results[0].whfsid);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(file_5->id, result.results[0].whfsid);
 
@@ -328,23 +325,23 @@ MACRO PublisherSearchTest()
   CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' by id and check updated custom module field
-  result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("whfsid", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(TRUE, CellExists(result.results[0], "contenttypefield@webhare_testsuite"));
-  TestEq(ToString(testroot->id), result.results[0]."contenttypefield@webhare_testsuite");
+  TestEq(testroot->id, result.results[0]."contenttypefield@webhare_testsuite");
   TestEq(TRUE, CellExists(result.results[0], "libraryfield@webhare_testsuite"));
   TestEq("", result.results[0]."libraryfield@webhare_testsuite");
 
   // It should only be found by the new id
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("contenttypefield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("contenttypefield@webhare_testsuite", "=", testroot->id), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(file_5->id, result.results[0].whfsid);
   // It should not be found by the libraryfield, as it only returns the object id
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", testroot->id), 0, -1);
   TestEq(0, result.totalcount);
 
   // Silently update the testfield
@@ -355,21 +352,21 @@ MACRO PublisherSearchTest()
   CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' by id and check updated custom module field
-  result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("whfsid", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(TRUE, CellExists(result.results[0], "contenttypefield@webhare_testsuite"));
-  TestEq(ToString(file_5->id), result.results[0]."contenttypefield@webhare_testsuite");
+  TestEq(file_5->id, result.results[0]."contenttypefield@webhare_testsuite");
   TestEq(TRUE, CellExists(result.results[0], "libraryfield@webhare_testsuite"));
   TestEq(ToString(file_5->id), result.results[0]."libraryfield@webhare_testsuite");
 
   // It should now be found again by the file's id and by the libraryfield
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("contenttypefield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("contenttypefield@webhare_testsuite", "=", testroot->id), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", file_5->id), 0, -1);
   TestEq(1, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("libraryfield@webhare_testsuite", "=", testroot->id), 0, -1);
   TestEq(0, result.totalcount);
 
   testfw->BeginWork();
@@ -433,11 +430,11 @@ MACRO PublisherSearchTest()
   TestEq(1, result.totalcount);
   TestEq(file_7->id, result.results[0].whfsid);
   TestEq("array_" || file_7->id || "_1", result.results[0]."arrayfield.libraryfield@webhare_testsuite");
-  result := search_obj->SearchQuery(MakeLiteralQuery("arrayfield.libraryfield@webhare_testsuite", "array_" || file_7->id || "_0"), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("arrayfield.libraryfield@webhare_testsuite", "=", "array_" || file_7->id || "_0"), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(file_7->id, result.results[0].whfsid);
   TestEq(file_7->id || "_bla", result.results[0]."arrayfield.arrayfield@webhare_testsuite");
-  result := search_obj->SearchQuery(MakeLiteralQuery("arrayfield.libraryfield@webhare_testsuite", "array_" || file_7->id || "_1"), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("arrayfield.libraryfield@webhare_testsuite", "=", "array_" || file_7->id || "_1"), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(file_7->id, result.results[0].whfsid);
   TestEq(file_7->id || "_test", result.results[0]."arrayfield.arrayfield@webhare_testsuite");
@@ -453,8 +450,10 @@ MACRO PublisherSearchTest()
   TestEq("array_" || file_7->id || "_1", result.results[0]."arrayfield.libraryfield@webhare_testsuite");
 
   // Find each object using range filters
-  RECORD rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2016, 12, 31)), "", TRUE, FALSE);
-  RECORD rangequery := MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]);
+  RECORD rangequery := CQAnd(
+      [ CQMatch("arrayfield.date_otherfield@webhare_testsuite", ">=", MakeDate(2016, 12, 31))
+      , CQMatch("whfstree", "CONTAINS", testsiteid)
+      ]);
   result := search_obj->SearchQuery(rangequery, 0, -1);
   TestEq(2, result.totalcount);
   TestEq(2, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
@@ -462,15 +461,21 @@ MACRO PublisherSearchTest()
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
 
 
-  rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2017, 1, 1)), "", TRUE, FALSE);
-  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]), 0, -1);
+  rangequery := CQAnd(
+      [ CQMatch("arrayfield.date_otherfield@webhare_testsuite", ">=", MakeDate(2017, 1, 1))
+      , CQMatch("whfstree", "CONTAINS", testsiteid)
+      ]);
+  result := search_obj->SearchQuery(rangequery, 0, -1);
   TestEq(1, result.totalcount);
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
 
-  rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2016, 12, 31)), "", FALSE, FALSE);
-  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]), 0, -1);
+  rangequery := CQAnd(
+      [ CQMatch("arrayfield.date_otherfield@webhare_testsuite", ">", MakeDate(2016, 12, 31))
+      , CQMatch("whfstree", "CONTAINS", testsiteid)
+      ]);
+  result := search_obj->SearchQuery(rangequery, 0, -1);
   TestEq(1, result.totalcount);
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
@@ -540,7 +545,7 @@ MACRO TestUpdateCheckIndex()
   CommitAndWaitForPublisherIndex();
 
   OBJECT search_obj := OpenSearchObject("en", whconstant_consilio_catalog_whfs);
-  result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_7->id)), 0, -1);
+  result := search_obj->SearchQuery(CQMatch("whfsid", "=", file_7->id), 0, -1);
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");
 }
 

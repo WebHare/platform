@@ -1,21 +1,17 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/indexing.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 
 
-LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/catalog.whlib";
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
-LOADLIB "mod::consilio/lib/internal/indexing.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
-
-
-INTEGER indexmanager;// := 2; // Set to specific index manager to test (0 for default builtin Consilio)
+INTEGER indexmanager;// := whconstant_consilio_indexmanager_opensearch; // Set to specific index manager to test (0 for default builtin Consilio)
 
 PUBLIC OBJECTTYPE ConsilioTestExtensions
 <
@@ -35,8 +31,11 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
     this->CommitWork(); //Must be two separate commits to prevent cleanup interfering with new indices....
 
     this->BeginWork();
-    CreateCatalog(this->GetCatalogName_1(), "test catalog", [ priority := 9, loglevel := 3, indexmanager := indexmanager ]);
-    CreateCatalog(this->GetCatalogName_2(), "test catalog", [ priority := 9, loglevel := 3, indexmanager := indexmanager ]);
+    RECORD options := [ title := "test catalog", priority := 9, loglevel := 3 ];
+    IF (indexmanager != 0)
+      INSERT CELL indexmanager := indexmanager INTO options;
+    CreateConsilioCatalog(this->GetCatalogName_1(), CELL[ ...options, fieldgroups := [ "webhare_testsuite:pagelistfields" ] ]);
+    CreateConsilioCatalog(this->GetCatalogName_2(), options);
     this->testcatalog_1 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_1();
     this->testcatalog_2 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_2();
     this->CommitWork();
@@ -85,6 +84,11 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
   PUBLIC STRING FUNCTION GetCatalogName_3()
   {
     RETURN "webhare_testsuite:consiliotest_3";
+  }
+
+  PUBLIC STRING FUNCTION GetCustomContentName()
+  {
+    RETURN "webhare_teststuite:beta_customsource";
   }
 
   PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalogname)

@@ -21,6 +21,7 @@ PUBLIC SCHEMA
   , DATETIME objectrequiredindexdate
   , DATETIME indexdate
   , INTEGER spiderfrom NULL := 0
+  , STRING extradata
   ; KEY id
   > consilio_index
 , TABLE

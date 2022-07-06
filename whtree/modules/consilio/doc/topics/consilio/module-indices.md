@@ -1,6 +1,7 @@
 # Module index definitions
 
-Elasticsearch indices can be defined within a module definition. Managing these indices, adding content sources and indexing data isn't handled by Consilio for now.
+Elasticsearch indices can be defined within a module definition. Managing these indices, adding content sources and indexing
+data isn't handled by Consilio for now.
 
 ## Defining an index
 
@@ -17,7 +18,8 @@ Add an `<index>` node to the `<consilio>` node in the module definition and add 
 
 ## Creating an index
 
-An index defined in the module definition is meant to be managed explicitly, so it isn't automatically created and you cannot add content sources to it. To create a module index on the index manager, use the catalog interface:
+An index defined in the module definition is meant to be managed explicitly, so it isn't automatically created and you cannot
+add content sources to it. To create a module index on the index manager, use the catalog interface:
 
 ```harescript
 OBJECT catalog := OpenConsilioCatalog("mymodule:myindex");
@@ -32,15 +34,17 @@ The following field types can be used:
 
 A field containing tokenized text.
 
-The `analyzer` attribute can be used to specify how incoming text should be tokenized. Possible values are `standard` (the default, divide text into terms on word boundaries, lowercasing terms and removing punctuation), `simple` (divide text into words on non-letter characters, lowercasing terms) and `whitespace` (divide text into terms on whitespace characters, *not* lowercasing terms). In addition, the following language-specific analyzers are supported: `danish`, `dutch`, `english`, `french`, `german`, `italian`, `portuguese` and `spanish`.
+Text is tokenized on non-word characters (emoji characters are handled as words). The tokenized words are further processed
+before indexing by converting them to lowercase and removing accents. This is done according to the catalog's language.
 
-When searching through a text field, the query is also analyzed. By default, the analyzer defined by the `analyzer` attribute is used, but the `search_analyzer` attribute can be used to specify another analyzer to be used for anaylizing query text.
+User queries (`CQParseUserQuery`) are also analyzed according to the catalog's language.
 
 ### `<keyword>`
 
 A field containing text that is not tokenized, but can only be found as a whole.
 
-To prevent too long keywords from being indexed, the `ignoreabove` attribute can be set to ignore keywords longer than that value.
+To prevent too long keywords from being indexed, the `ignoreabove` attribute can be set to ignore keywords longer than that
+value.
 
 ### `<integer>`
 
@@ -49,6 +53,10 @@ A field containing INTEGER values.
 ### `<integer64>`
 
 A field containing INTEGER64 values.
+
+### `<money>`
+
+A field containing MONEY values.
 
 ### `<float>`
 
@@ -129,9 +137,12 @@ A field containing IPv4/IPv6 addresses.
 
 ## Dynamic fields
 
-Fields can only be indexed if they're defined in a module definition, so every field's type is known. If you want a bit more flexibility, you can use dynamic fields to map fields that match a LIKE mask to a type.
+Fields can only be indexed if they're defined in a module definition, so every field's type is known. If you want a bit more
+flexibility, you can use dynamic fields to map fields that match a LIKE mask to a type.
 
-To map all fields that have a name starting with `dn_` to a float field, set the name of the field to `"dn_*"`. This only applies to fields on the level that the dynamic field is defined. For example, in the next index definition, a `dn_myfloat` field cannot be indexed within the `subfields` record, where only a `stuff` field is defined:
+To map all fields that have a name starting with `dn_` to a float field, set the name of the field to `"dn_*"`. This only
+applies to fields on the level that the dynamic field is defined. For example, in the next index definition, a `dn_myfloat`
+field cannot be indexed within the `subfields` record, where only a `stuff` field is defined:
 
 ```xml
 <consilio>
@@ -146,7 +157,8 @@ To map all fields that have a name starting with `dn_` to a float field, set the
 
 ## Store-only fields
 
-By default, all fields are searchable and can be returned in the search results. If the field is never searched, but only used to store information, the `storeonly` attribute of the field can be set to `true`:
+By default, all fields are searchable and can be returned in the search results. If the field is never searched, but only
+used to store information, the `storeonly` attribute of the field can be set to `true`:
 
 ```xml
 <consilio>
@@ -159,7 +171,8 @@ By default, all fields are searchable and can be returned in the search results.
 
 ## Field groups
 
-A field group is a reusable group of fields. Field groups are defined as `<fieldgroup>` nodes within the `<consilio>` node in the module definition. A field group contains other fields, for example:
+A field group is a reusable group of fields. Field groups are defined as `<fieldgroup>` nodes within the `<consilio>` node in
+the module definition. A field group contains other fields, for example:
 
 ```xml
 <consilio>
@@ -169,7 +182,8 @@ A field group is a reusable group of fields. Field groups are defined as `<field
 </consilio>
 ```
 
-Include field groups in indices or other field groups by adding a field group reference. This example adds the keyword field `id` to `myindex`.
+Include field groups in indices or other field groups by adding a field group reference. This example adds the keyword field
+`id` to `myindex`.
 
 ```xml
 <consilio>
@@ -186,4 +200,5 @@ Include field groups in indices or other field groups by adding a field group re
 
 ## Array fields
 
-Fields can contain multiple values, which can be searched individually. For example, you can define a `<keyword>` field and index an array of keywords, or index an array of integer values in an `<integer>` field.
+Fields can contain multiple values, which can be searched individually. For example, you can define a `<keyword>` field and
+index an array of keywords, or index an array of integer values in an `<integer>` field.

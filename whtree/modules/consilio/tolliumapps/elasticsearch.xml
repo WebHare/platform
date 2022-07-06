@@ -16,7 +16,7 @@
       <grid height="1pr">
         <cell width="1pr">
           <list name="indices" selectmode="multiple">
-            <column name="name" type="text" width="1pr" tid="~name" />
+            <column name="name" iconname="health" type="text" width="1pr" tid="~name" />
             <column name="docs" type="integer" width="12x" align="right" />
             <column name="size" type="text" width="16x" align="right" />
           </list>

@@ -5,13 +5,12 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
@@ -20,6 +19,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 MACRO UpdateRequestDebugSetting(OBJECT browser)
 {
@@ -79,6 +79,11 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 >;
 
 
+PUBLIC STRING FUNCTION GetElasticsearchAddress()
+{
+  RETURN `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}`;
+}
+
 PUBLIC ASYNC FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
 {
   RETURN AWAIT CreatePromise(PTR ConnectElasticsearch(indexmgrid, #1, #2, waituntil));
@@ -108,7 +113,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
                       ];
 
       IF (indexmanager.address = "builtin-elasticsearch")
-        indexmanager.address := `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_esportoffset}`;
+        indexmanager.address := GetElasticsearchAddress();
 
       // Make sure the address doesn't end with a slash
       IF (indexmanager.address LIKE "*/")
@@ -164,7 +169,7 @@ PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname,
                              , timeout := elastic_timeout * 1000
                              ], options);
 
-  STRING url := (indexname != "" ? "/" || indexname : "") || command;
+  STRING url := (indexname != "" ? "/" || EncodeURL(indexname) : "") || command;
   RECORD body := request;
   BOOLEAN ndjson := CellExists(request, "_bulkrequests");
   IF (ndjson)
@@ -181,7 +186,10 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   options := ValidateOptions( [ ndjson := FALSE
                               , throwonfailure := TRUE //if you use the RAW api, you're a new caller and should be expecting THROWs instead of adding new error paths
                               , timeout := elastic_timeout * 1000
-                              ], options);
+                              , enforce := ""
+                              ], options,
+                              [ enums := [ enforce := [ "", "_search_get" ] ]
+                              ]);
 
   WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
 
@@ -247,6 +255,15 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     }
   }
 
+  RECORD decoded;
+  IF (ToLowercase(indexmanager.browser->contenttype) LIKE "application/json*")
+  {
+    IF (options.enforce != "")
+      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce);
+    ELSE
+      decoded := DecodeJSONBlob(indexmanager.browser->content);
+  }
+
   RETURN
       [ status  := statuscode = 404 ? SearchIndexNotFound
                  : statuscode = 401 ? SearchNoAccess
@@ -255,7 +272,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       , code    := indexmanager.browser->GetSocketError() ?? statuscode
       , content := indexmanager.browser->content
       , headers := indexmanager.browser->responseheaders
-      , result  := DecodeJSONBlob(indexmanager.browser->content)
+      , result  := decoded
       ];
 }
 
@@ -432,19 +449,19 @@ PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER indexid, STRING object
 }
 
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
-PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
+PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
 {
   IF (CellExists(input, "aggregation"))
   {
     RECORD result :=
-        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation, language)
+        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation)
         ];
     // The 'count' aggregation isn't sent to Elasticsearch as an actual aggregation
     IF (NOT RecordExists(result.aggs))
       DELETE CELL aggs FROM result;
 
     IF (CellExists(input, "query"))
-      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query, language) INTO result;
+      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query) INTO result;
 
     RETURN result;
   }
@@ -498,7 +515,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
     DELETE CELL ordering FROM input;
   }
 
-  result.query := CreateElasticsearchQueryRecursive(query, language);
+  result.query := CreateElasticsearchQueryRecursive(query);
 
   IF (CellExists(input, "filters"))
   {
@@ -553,13 +570,10 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
 }
 
 //ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
-RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
+RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
 {
   IF (NOT CellExists(query, "_type"))
     THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
-
-  IF (query._type = "user")
-    query := NEW QueryParser()->ParseUserQuery(query, language).query;
 
   RECORD result;
   SWITCH (query._type)
@@ -576,19 +590,19 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     {
       RECORD booleanquery;
       RECORD ARRAY queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE required;
       IF (Length(queries) > 0)
         INSERT CELL must := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE prohibited;
       IF (Length(queries) > 0)
         INSERT CELL must_not := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, language)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
             FROM query.subqueries
            WHERE NOT required AND NOT prohibited;
       IF (Length(queries) > 0)
@@ -599,8 +613,19 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "term"
     {
+      // Convert MONEYs
+      VARIANT term := query.term;
+      IF (TypeID(term) = TypeID(MONEY))
+        term := __HS_GetRawMoney(term);
+      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
       result :=
-          [ match := CellInsert(DEFAULT RECORD, query.field, query.term) ];
+          [ bool :=
+              [ should :=
+                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio" ]) ]
+                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
+                  ]
+              ]
+          ];
     }
     CASE "match"
     {
@@ -625,7 +650,19 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "literal"
     {
-      result := [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ];
+      // Convert MONEYs
+      VARIANT term := query.term;
+      IF (TypeID(term) = TypeID(MONEY))
+        term := __HS_GetRawMoney(term);
+      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+      result :=
+          [ bool :=
+              [ should :=
+                  [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
+                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
+                  ]
+              ]
+          ];
     }
     CASE "phrase"
     {
@@ -671,17 +708,35 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "date", "range"
     {
+      // Convert MONEYs
+      VARIANT term := "", lowerterm := "", upperterm := "";
+      IF (query.matchtype IN [ "<", "<=", ">=", ">" ])
+      {
+        term := query.term;
+        IF (TypeID(term) = TypeID(MONEY))
+          term := __HS_GetRawMoney(term);
+      }
+      ELSE IF (query.matchtype IN [ "[]", "{]", "[}", "{}" ])
+      {
+        lowerterm := query.lowerterm;
+        IF (TypeID(lowerterm) = TypeID(MONEY))
+          lowerterm := __HS_GetRawMoney(lowerterm);
+        upperterm := query.upperterm;
+        IF (TypeID(upperterm) = TypeID(MONEY))
+          upperterm := __HS_GetRawMoney(upperterm);
+      }
+
       RECORD rangequery;
       SWITCH (query.matchtype)
       {
-        CASE "<"  { rangequery := [ lt := query.term ]; }
-        CASE "<=" { rangequery := [ lte := query.term ]; }
-        CASE ">=" { rangequery := [ gte := query.term ]; }
-        CASE ">"  { rangequery := [ gt := query.term ]; }
-        CASE "[]" { rangequery := [ gte := query.lowerterm, lte := query.upperterm ]; }
-        CASE "{]" { rangequery := [ gt := query.lowerterm, lte := query.upperterm ]; }
-        CASE "[}" { rangequery := [ gte := query.lowerterm, lt := query.upperterm ]; }
-        CASE "{}" { rangequery := [ gt := query.lowerterm, lt := query.upperterm ]; }
+        CASE "<"  { rangequery := [ lt := term ]; }
+        CASE "<=" { rangequery := [ lte := term ]; }
+        CASE ">=" { rangequery := [ gte := term ]; }
+        CASE ">"  { rangequery := [ gt := term ]; }
+        CASE "[]" { rangequery := [ gte := lowerterm, lte := upperterm ]; }
+        CASE "{]" { rangequery := [ gt := lowerterm, lte := upperterm ]; }
+        CASE "[}" { rangequery := [ gte := lowerterm, lt := upperterm ]; }
+        CASE "{}" { rangequery := [ gt := lowerterm, lt := upperterm ]; }
       }
       IF (query.boost != 1)
         INSERT CELL boost := query.boost INTO rangequery;
@@ -693,6 +748,18 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     CASE "exists"
     {
       RETURN [ exists := [ field := query.field ] ];
+    }
+    CASE "user"
+    {
+      RECORD ARRAY fields := query.defaultfields ?? defaultfields;
+      RETURN
+          [ simple_query_string :=
+              [ query := query.userquery
+              , fields := (SELECT AS STRING ARRAY field || __FormatBoost(boost) FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" || __FormatBoost(boost) FROM fields WHERE stemmed_field)
+              , default_operator := query.defaultrequire = require_required ? "AND" : "OR"
+              , analyzer := query.synonyms ? "consilio_search" : "consilio"
+              ]
+          ];
     }
     DEFAULT
     {
@@ -711,7 +778,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
   RETURN result;
 }
 
-RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRING language)
+RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
 {
   IF (NOT CellExists(aggregation, "_type"))
     THROW NEW Exception(`Invalid aggregation record: ${AnyToString(aggregation, "tree")}`);
@@ -763,10 +830,49 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation, STRI
   {
     INSERT CELL aggs := DEFAULT RECORD INTO result;
     FOREVERY (RECORD agg FROM aggregation.aggregations)
-      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation, language) ];
+      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation) ];
   }
 
   RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);
+}
+
+// Encode DEFAULT DATETIMEs as null (DEFAULT RECORD) and MONEYs as INTEGER64s
+PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
+{
+  IF (NOT RecordExists(document))
+    RETURN document;
+  FOREVERY (RECORD field FROM UnpackRecord(document))
+  {
+    // Don't index empty fields
+    IF (IsDefaultValue(field.value))
+      document := CellDelete(document, field.name);
+    // Convert DEFAULT DATETIMEs
+    ELSE IF (TypeID(field.value) = TypeID(DATETIME ARRAY) AND DEFAULT DATETIME IN field.value)
+      document := CellInsert(CellDelete(document, field.name), field.name, ConvertDefaultDatetime(field.value));
+    // Convert MONEYs
+    ELSE IF (TypeID(field.value) = TypeID(MONEY))
+      document := CellInsert(CellDelete(document, field.name), field.name, __HS_GetRawMoney(field.value));
+    ELSE IF (TypeID(field.value) = TypeID(MONEY ARRAY))
+      document := CellInsert(CellDelete(document, field.name), field.name, SELECT AS INTEGER64 ARRAY __HS_GetRawMoney(value) FROM ToRecordArray(field.value, "value"));
+    // Recurse into RECORDs
+    ELSE IF (TypeID(field.value) = TypeID(RECORD))
+      document := CellUpdate(document, field.name, FixupElasticsearchDocumentFields(field.value));
+    // Recurse into RECORD ARRAYs
+    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      document := CellUpdate(document, field.name, SELECT AS RECORD ARRAY FixupElasticsearchDocumentFields(value) FROM field.value);
+  }
+  RETURN document;
+}
+
+VARIANT ARRAY FUNCTION ConvertDefaultDatetime(DATETIME ARRAY dates)
+{
+  VARIANT ARRAY converted;
+  FOREVERY (DATETIME date FROM dates)
+    IF (date != DEFAULT DATETIME)
+      INSERT date INTO converted AT END;
+    ELSE
+      INSERT DEFAULT RECORD INTO converted AT END;
+  RETURN converted;
 }
 
 PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregation, STRING aggregation_name, RECORD result)
@@ -848,6 +954,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
         lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
       ELSE IF (fld = "_score")
         lineresult := CellInsert(lineresult, "_score", hit._score);
+      ELSE IF (fld = "_summary" AND CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
+        lineresult := CellInsert(lineresult, fld, hit.highlight.body[0]);
       ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
         lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
       ELSE
@@ -909,8 +1017,6 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
       // Replace or add the new value
       lineresult := CellExists(lineresult, fld) ? CellUpdate(lineresult, fld, value) : CellInsert(lineresult, fld, value);
     }
-    ELSE IF (fld LIKE "date_*")
-      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit, fld)));
     ELSE
       lineresult := CellInsert(lineresult, fld, GetCell(hit, fld));
   }
@@ -919,123 +1025,65 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
 
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
-  RECORD singleresult;
-  FOREVERY (RECORD field FROM UnpackRecord(mapping))
-  {
-    IF (CellExists(singleresult, field.name))
-      CONTINUE;
-
-    // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
-    IF (CellExists(lineresult, field.name))
-    {
-      VARIANT value := GetCell(lineresult, field.name);
-      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)) AND RecordExists(value))
-      {
-        // Recursively convert the subfields of this RECORD (ARRAY) field
-        IF (TypeID(field.value) = TypeID(RECORD ARRAY))
-        {
-          // Expecting an array (this returns an array with one record if the actual result was a single record)
-          RECORD ARRAY subresults;
-          // Parse the records within the array
-          FOREVERY (RECORD subvalue FROM TypeID(value) = TypeID(RECORD ARRAY) ? value : RECORD[ value ])
-            INSERT ParseSingleElasticsearchResult(subvalue, field.value) INTO subresults AT END;
-          singleresult := CellInsert(singleresult, field.name, subresults);
-        }
-        ELSE
-        {
-          // Parse the result record (this returns the first record if the actual result was an array)
-          singleresult := CellInsert(singleresult, field.name, ParseSingleElasticsearchResult(value, field.value));
-        }
-        CONTINUE;
-      }
-      ELSE
-      {
-        // Convert values or arrays of values
-        INTEGER mappingtype := TypeID(field.value);
-        BOOLEAN mappingisarray := IsTypeIDArray(mappingtype);
-        IF (mappingisarray)
-          mappingtype := TypeID(GetArrayTypeDefaultElement(mappingtype));
-        BOOLEAN valueisarray := IsTypeIDArray(TypeID(value));
-
-        VARIANT mappedvalue;
-        IF (mappingisarray)
-        {
-          mappedvalue := GetTypeDefaultArray(mappingtype);
-          IF (valueisarray)
-          {
-            // Expecting an array, got an array, convert all values
-            FOREVERY (VARIANT val FROM value)
-            {
-              val := DecodeFieldValue(val, mappingtype);
-              IF (NOT IsDefaultValue(val))
-                INSERT val INTO mappedvalue AT END;
-            }
-          }
-          ELSE
-          {
-            // Expecting an array, got a single value, make an array containg the converted single value
-            value := DecodeFieldValue(value, mappingtype);
-            IF (NOT IsDefaultValue(value))
-              INSERT value INTO mappedvalue AT END;
-          }
-        }
-        ELSE IF (valueisarray)
-        {
-          // Expecting a single value, got an array, take the first array element and convert it
-          IF (Length(value) > 0)
-            mappedvalue := DecodeFieldValue(value[0], mappingtype);
-          ELSE
-            mappedvalue := GetTypeDefaultValue(mappingtype);
-        }
-        ELSE
-        {
-          // Expecting a single value, got a single value, convert it
-          mappedvalue := DecodeFieldValue(value, mappingtype);
-        }
-
-        IF (NOT IsDefaultValue(mappedvalue))
-        {
-          singleresult := CellInsert(singleresult, field.name, mappedvalue);
-          CONTINUE;
-        }
-      }
-    }
-    // If we got here, we have to insert the default field value
-    singleresult := CellInsert(singleresult, field.name, field.value);
-  }
-  RETURN singleresult;
+  RETURN EnforceStructure(mapping, FixupElasticsearchResultFields(lineresult, mapping));
 }
 
-VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
+// Elasticsearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
+// it's not returned as an array, so this function convert single values into arrays where expected.
+// This function also converts INTEGER64s back to MONEYs where necessary
+RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping)
 {
-  IF (TypeID(value) = expectedtype)
+  FOREVERY (RECORD field FROM UnpackRecord(lineresult))
   {
-    // Either STRING or DATETIME don't have to be converted
-    RETURN value;
-  }
-  ELSE IF (TypeID(value) = TypeID(STRING))
-  {
-    // Convert STRING to desired type (either BOOLEAN, DATETIME or a numeric type)
-    // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-    value := Substitute(value, "\x1D", "");
-    value := Substitute(value, "\x1C", "");
-
-    IF (expectedtype = TypeID(DATETIME))
-      value := MakeDateFromText(value);
-    ELSE
+    IF (NOT CellExists(mapping, field.name))
+      CONTINUE;
+    VARIANT fieldmapping := GetCell(mapping, field.name);
+    BOOLEAN valuechanged;
+    IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(field.value)))
     {
-      // We're decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-      value := DecodeJSON(value);
+      VARIANT value := GetTypeDefaultArray(TypeID(field.value));
+      INSERT field.value INTO value AT END;
+      field := CELL[ ...field, value ];
+      valuechanged := TRUE;
+    }
+    IF (TypeID(field.value) = TypeID(RECORD))
+      field.value := FixupElasticsearchResultFields(field.value, fieldmapping);
+    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      field.value := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(value, PickFirst(fieldmapping)) FROM field.value;
+    ELSE IF (TypeID(field.value) = TypeID(STRING) AND TypeID(fieldmapping) = TypeID(MONEY))
+      field := CELL[ ...field, value := __HS_SetRawMoney(ToInteger64(field.value, 0)) ];
+    ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY) AND TypeID(fieldmapping) = TypeID(MONEY ARRAY))
+      field := CELL[ ...field, value := SELECT AS MONEY ARRAY __HS_SetRawMoney(ToInteger64(value, 0)) FROM ToRecordArray(field.value, "value") ];
+    ELSE IF (NOT valuechanged)
+      CONTINUE;
+    lineresult := CellInsert(CellDelete(lineresult, field.name), field.name, field.value);
+  }
+  RETURN lineresult;
+}
+
+RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
+{
+  RECORD decoded := DecodeJSONBlob(content, DEFAULT RECORD, [ alltostring := TRUE ]);
+  SWITCH (type)
+  {
+    CASE "_search_get"
+    {
+      decoded := EnforceStructure(
+          [ took := 0
+          , timed_out := FALSE
+          , hits :=
+              [ total := [ value := 0, relation := "" ]
+              , max_score := 0f
+              , hits :=
+                  [ [ _index := ""
+                    , _id := ""
+                    , _score := 0f
+                    , _source := DEFAULT RECORD
+                    ]
+                  ]
+              ]
+          ], decoded);
     }
   }
-  IF (CanCastTypeTo(TypeID(value), expectedtype))
-    RETURN CastTo(value, expectedtype);
-  ELSE IF (TypeID(value) = TypeID(FLOAT))
-  {
-    IF (expectedtype = TypeID(MONEY))
-      RETURN FloatToMoney(value);
-    ELSE IF (expectedtype = TypeID(INTEGER64))
-      RETURN INTEGER64(value);
-  }
-  RETURN DEFAULT RECORD;
+  RETURN decoded;
 }

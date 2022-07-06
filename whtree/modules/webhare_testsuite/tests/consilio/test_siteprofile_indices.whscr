@@ -19,6 +19,9 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   Testeq(TRUE, ObjectExists(maincatalog));
 
+  //having indexnames makes log analysis easier
+  Print(`${maincatalog->tag} (${maincatalog->id}) => ${maincatalog->indexname}\n`);
+
   RECORD ARRAY contentsources := maincatalog->ListContentSources();
   contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources WHERE NOT isorphan;
   TestEq([ '/webhare-tests/webhare_testsuite.testsite/portal1/' //portal1 is added through ongetsources=
@@ -29,6 +32,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
          , 'webhare_testsuite:loremindex'
          ], SELECT AS STRING ARRAY tag FROM contentsources WHERE tag != "" ORDER BY tag);
 
+  maincatalog->ReindexCatalog();
   WaitForCatalogDone(maincatalog);
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));

@@ -1,18 +1,17 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -20,7 +19,9 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 
 // Maximum number of characters to display on one line in search result field values
 INTEGER maxfieldlength := 80;
@@ -774,7 +775,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
   MACRO OnIndexManagerChange()
   {
     RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = ^indexmanager->value;
-    ^indexname->visible := RecordExists(indexmgr) AND indexmgr.type = whconstant_consilio_indexmanager_elasticsearch;
+    ^indexname->visible := RecordExists(indexmgr) AND indexmgr.type = whconstant_consilio_indexmanager_opensearch;
     ^indexname->required := ^indexname->visible;
     IF(^indexname->value = "" AND ^indexname->visible) //lets suggest one
       ^indexname->value := Substitute(^name->value, ":", whconstant_consilio_module_sep);
@@ -1212,7 +1213,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     IF(ObjectExists(this->contentsource)) //we were editing
-      CheckConsilioContentSource(finalsource->id); //FIXME postpone until after commit! an update API should do that for us
+      finalsource->ReindexContentSource([ rebuild := TRUE ]); //FIXME postpone until after commit! an update API should do that for us
 
     RETURN work->Finish() ? finalsource->id : 0;
   }
@@ -1228,23 +1229,14 @@ BOOLEAN FUNCTION ArrayLike(STRING ARRAY value, STRING mask, BOOLEAN case_sensiti
 }
 
 PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
-< INTEGER indexid;
+< OBJECT catalog;
   RECORD ARRAY wordgroups;
 
   MACRO Init(RECORD data)
   {
-    this->indexid := data.indexid;
-    this->frame->title := GetTid("consilio:catalog.thesaurus.title",
-        (SELECT AS STRING name
-           FROM consilio.indices
-          WHERE id = this->indexid));
-    ^words->value :=
-        SELECT rowkey := wordgroup
-             , wordgroupid := wordgroup
-             , words := GroupedValues(word)
-          FROM consilio.thesaurus
-         WHERE indexid = this->indexid
-         GROUP BY wordgroup;
+    this->catalog := OpenConsilioCatalogById(data.indexid);
+    this->frame->title := GetTid("consilio:catalog.thesaurus.title", this->catalog->tag);
+    ^words->value := /* SELECT *, rowkey := wordgroup FROM  */this->catalog->GetSynonyms();
   }
 
   MACRO DoSearchWords()
@@ -1273,27 +1265,7 @@ PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-
-    FOREVERY (RECORD row FROM ^words->value)
-    {
-      INTEGER wordgroupid := CellExists(row, "wordgroupid")
-          ? row.wordgroupid
-          : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
-
-      RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
-      STRING ARRAY newwordgroup := row.words;
-
-      // Delete old words that are not in the new words group
-      FOREVERY (RECORD todelete FROM oldwordgroup)
-        IF (todelete.word NOT IN newwordgroup)
-          DELETE FROM consilio.thesaurus WHERE id = todelete.id;
-
-      // Add new words that are not in the old words group
-      STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
-      FOREVERY (STRING word FROM toadd)
-        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
-               VALUES(this->indexid, word, wordgroupid);
-    }
+    this->catalog->SetSynonyms(^words->value);
     RETURN work->Finish();
   }
 >;

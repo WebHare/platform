@@ -178,19 +178,19 @@ PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
 //ip address reported by the consilio fetcher
 PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";
 
-//base port offset for elasticsearch
-PUBLIC CONSTANT INTEGER whconstant_consilio_esportoffset := 6;
+//base port offset for opensearch
+PUBLIC CONSTANT INTEGER whconstant_consilio_osportoffset := 6;
 
 //name of the publisher whfs catalog
 PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "publisher:whfs";
 
 //our 2 indexmanager backends
 PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_legacybackend := 1;
-PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_elasticsearch := 2;
+PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_opensearch := 2;
 
 //our 2 index types
-PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_siteprofindex := 0;
-PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_moduleindex := 1;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_managed := 0;
+PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_unmanaged := 1;
 
 //separates modulename from indexname
 PUBLIC CONSTANT STRING whconstant_consilio_module_sep := "__";

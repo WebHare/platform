@@ -42,7 +42,7 @@ WHILE (command != "")
     }
     ELSE IF(ToUppercase(command) LIKE "/INDICES*")
     {
-      PrintRecordArrayTo(0, (SELECT id, name FROM consilio.indices WHERE type != 2 AND (command LIKE " *withdeleted" OR name NOT LIKE "$consilio$deleted$*") ORDER BY id), 'boxed');
+      PrintRecordArrayTo(0, (SELECT id, name FROM consilio.indices WHERE command LIKE " *withdeleted" OR name NOT LIKE "$consilio$deleted$*" ORDER BY id), 'boxed');
     }
     ELSE IF(ToUppercase(command) LIKE "/SOURCES*")
     {

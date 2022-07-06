@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+
+
+PUBLIC RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
+{
+  STRING args := Detokenize(options, " ");
+  STRING command := "STATUS" || (args != "" ? " " || args : "");
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC BOOLEAN FUNCTION __ConsilioUpdateConfiguration(STRING ARRAY args)
+{
+  IF (Length(args) = 0)
+    RETURN FALSE;
+
+  STRING command := "CONFIGURE " || Detokenize(args, " ");
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+PUBLIC BOOLEAN FUNCTION __ConsilioRestartQueueManager()
+{
+  STRING command := "SHUTDOWN";
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}
+
+PUBLIC RECORD FUNCTION __ConsilioGetErrors()
+{
+  STRING command := "GETERRORS";
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC RECORD FUNCTION __ConsilioClearErrors(INTEGER contentsourceid)
+{
+  STRING command := "CLEARERRORS "||contentsourceid;
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+PUBLIC BOOLEAN FUNCTION __ConsilioDeactivateGroup(STRING groupid)
+{
+  STRING command := "DEACTIVATEGROUP " || EncodeJava(groupid);
+  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
+}

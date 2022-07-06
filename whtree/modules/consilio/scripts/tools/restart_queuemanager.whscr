@@ -1,6 +1,6 @@
 <?wh
 
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 
 Print("Restarting queue manager...");

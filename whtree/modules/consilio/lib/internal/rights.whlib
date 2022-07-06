@@ -15,7 +15,6 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
              , wrdschemaid := id
           FROM consilio.indices
          WHERE id = objectid
-               AND type != 2
                AND name NOT LIKE "$consilio$deleted$*";
   }
 
@@ -24,8 +23,7 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
     RETURN
         SELECT AS INTEGER ARRAY id
           FROM consilio.indices
-         WHERE type != 2
-               AND user->HasRightOn("consilio:read", id)
+         WHERE user->HasRightOn("consilio:read", id)
                AND name NOT LIKE "$consilio$deleted$*";
   }
 

@@ -20,16 +20,16 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 RECORD cached_stopwordlists;
 
 // Boost factors for different types of query terms
-CONSTANT FLOAT title_boost := 5;
-CONSTANT FLOAT keywords_boost := 10;
-CONSTANT FLOAT description_boost := 5;
+CONSTANT FLOAT title_boost := 3;
+CONSTANT FLOAT keywords_boost := 15;
+CONSTANT FLOAT description_boost := 3;
 CONSTANT FLOAT body_boost := 1;
 //CONSTANT FLOAT initial_body_boost := .7;
 CONSTANT FLOAT stemmed_factor := .5;
 CONSTANT FLOAT stopword_factor := .1;
 CONSTANT FLOAT thesaurus_factor := .5;
 
-CONSTANT RECORD ARRAY defaultfields :=
+PUBLIC CONSTANT RECORD ARRAY defaultfields :=
     [ [ field := "title",       boost := title_boost,       stemmed_field := TRUE ]
     , [ field := "keywords",    boost := keywords_boost,    stemmed_field := FALSE ]
     , [ field := "description", boost := description_boost, stemmed_field := FALSE ]
@@ -1223,7 +1223,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
         INSERT text INTO this->query_words AT END;
 
         // Stemmed term?
-        IF (stemmedtext != "")
+        IF (stemmedtext != "" AND stemmedtext != text)
         {
           boosts := SELECT AS FLOAT ARRAY stemmed_factor * boost FROM this->defaultfields WHERE stemmed_field;
           IF (Length(boosts) > 0)
@@ -1288,7 +1288,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
     IF (query._type != "boolean")
       RETURN DEFAULT STRING ARRAY;
 
-    // We're looking for boolean queries like "(title:XXXX^5 keywords:XXXX^10 description:XXXX^5 XXXX)", which is constructed
+    // We're looking for boolean queries like "(title:XXXX^3 keywords:XXXX^15 description:XXXX^3 XXXX)", which is constructed
     // from the user query "XXXX". This is parsed into a boolean query with four subqueries, one term query for each of
     // "title", "keywords" and "description" and either one term query for "body" or (if the query was formatted with the
     // "body" field name) a match query for the fields "title", "keywords", "description" and "body". All queries must have
@@ -1826,19 +1826,19 @@ STRING FUNCTION FormatQueryRecursive(INTEGER indexid, RECORD query, STRING field
       BOOLEAN includelower, includeupper;
       IF (query.matchtype LIKE "<*")
       {
-        upperterm := query.term;
+        upperterm := EscapeQuery(query.term);
         includeupper := query.matchtype = "<=";
       }
       ELSE IF (query.matchtype LIKE ">*")
       {
-        lowerterm := query.term;
+        lowerterm := EscapeQuery(query.term);
         includelower := query.matchtype = ">=";
       }
       ELSE IF (query.matchtype IN [ "[]", "{]", "[}", "{}" ])
       {
         // Explicit range
-        lowerterm := query.lowerterm;
-        upperterm := query.upperterm;
+        lowerterm := EscapeQuery(query.lowerterm);
+        upperterm := EscapeQuery(query.upperterm);
         includelower := query.matchtype LIKE "[*";
         includeupper := query.matchtype LIKE "*]";
       }
@@ -1879,8 +1879,14 @@ STRING FUNCTION FormatQueryRecursive(INTEGER indexid, RECORD query, STRING field
 OBJECT escapeparser;
 
 // Escape only control characters and double quote (EscapeJava encodes non-ASCII characters as literal unicode codepoints)
-STRING FUNCTION EscapeQuery(STRING query)
+STRING FUNCTION EscapeQuery(VARIANT query)
 {
+  // Only Elasticsearch queries can contain non-string values, but for Elasticsearch __FormatQuery is only used for storing
+  // saved queries, so we can just use AnyToString to get a string representation of the query value (trimming the trailing
+  // newline)
+  IF (TypeID(query) != TypeID(STRING))
+    RETURN TrimWhitespace(AnyToString(query, "tree"));
+
   IF (NOT ObjectExists(escapeparser))
     escapeparser := NEW StringParser();
   escapeparser->Reset(query);

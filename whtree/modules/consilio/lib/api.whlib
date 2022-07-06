@@ -1,32 +1,36 @@
 <?wh
-
 /** @topic consilio/api
 */
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::promise.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
-LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
                                                      , discardsummaries := FALSE
@@ -76,28 +80,106 @@ PUBLISHER SEARCH FIELDS
 */
 PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ datetimesupport := FALSE ], options);
+  options := ValidateOptions(
+      [ datetimesupport := FALSE
+      , elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "" //TODO: If Consilio no longer has to be supported, make this the default
+      ], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for match query");
 
-  STRING ARRAY searchvalue;
-  IF (TypeID(value) = TypeID(INTEGER))
+  IF (options.elasticsearch)
   {
-    IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER match query`);
+    SWITCH (TypeID(value))
+    {
+      CASE TypeID(STRING ARRAY)
+         , TypeID(INTEGER ARRAY)
+         , TypeID(INTEGER64 ARRAY)
+         , TypeID(MONEY ARRAY)
+         , TypeID(FLOAT ARRAY)
+         , TypeID(DATETIME ARRAY)
+         , TypeID(BOOLEAN ARRAY)
+      {
+        IF (matchtype NOT IN [ "IN", "CONTAINS" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+      }
+      CASE TypeID(STRING)
+         , TypeID(INTEGER)
+         , TypeID(INTEGER64)
+         , TypeID(MONEY)
+         , TypeID(FLOAT)
+         , TypeID(DATETIME)
+      {
+        IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+        IF (matchtype = "CONTAINS" AND TypeID(value) != TypeID(STRING))
+          matchtype := "="; // Match the literal query value within an indexed array
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        IF (matchtype NOT IN [ "=" ])
+          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Invalid value type '${GetTypeName(TypeID(value))}' for match query`);
+      }
+    }
+
+    IF (IsTypeIDArray(TypeID(value)))
+    {
+      IF (Length(value) = 0)
+        RETURN CQNothing();
+      RETURN [ _type := "boolean"
+             , subqueries :=
+                 (SELECT query :=
+                           CELL[ _type := "term"
+                               , field
+                               , term
+                               , boost := 1f
+                               ]
+                       , required := (matchtype = "CONTAINS")
+                       , prohibited := FALSE
+                    FROM ToRecordArray(value, "term"))
+             , boost := 1f
+             ];
+    }
+    ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
+    {
+      RETURN
+          CELL[ _type := "range"
+              , field
+              , matchtype
+              , term := value
+              , boost := 1f
+              ];
+    }
+
+    RETURN
+        CELL[ _type := matchtype = "=" ? "literal" : "term"
+            , field
+            , term := value
+            , boost := 1f
+            ];
+  }
+
+  STRING ARRAY searchvalue;
+  IF (TypeID(value) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
+  {
+    IF (matchtype NOT IN [ "CONTAINS", "=" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
     searchvalue := [ ToString(value) ];
   }
   ELSE IF (TypeID(value) = TypeID(STRING))
   {
     IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for STRING match query`);
+      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
     searchvalue := STRING[ value ];
   }
-  ELSE IF (TypeID(value) = TypeID(INTEGER ARRAY))
+  ELSE IF (TypeID(value) IN [ TypeID(INTEGER ARRAY), TypeID(INTEGER64 ARRAY) ])
   {
     IF (matchtype NOT IN [ "IN", "CONTAINS" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER ARRAY match query`);
+      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
     searchvalue := SELECT AS STRING ARRAY ToString(t) FROM ToRecordArray(value, "t");
     IF (Length(searchvalue) = 1)
       matchtype := "=";
@@ -105,7 +187,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
   ELSE IF (TypeID(value) = TypeID(STRING ARRAY))
   {
     IF (matchtype NOT IN [ "IN", "CONTAINS" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for STRING ARRAY match query`);
+      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
     searchvalue := value;
     IF (Length(searchvalue) = 1)
       matchtype := "=";
@@ -113,17 +195,20 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
   ELSE IF (TypeID(value) = TypeID(DATETIME))
   {
     IF (matchtype NOT IN [ "<", "<=", "=", ">=", ">" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for DATETIME match query`);
+      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
 
     IF (NOT options.datetimesupport)
     {
       // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
       IF (field LIKE "*.*@*")
       {
-        INTEGER dot := SearchSubstring(field, ".") + 1;
-        field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        IF (field NOT LIKE "*.date_*@*")
+        {
+          INTEGER dot := SearchSubstring(field, ".") + 1;
+          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        }
       }
-      ELSE
+      ELSE IF (field NOT LIKE "date_*")
         field := `date_${field}`;
     }
 
@@ -381,7 +466,8 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
     @cell(string) options.defaultfields.field Field name
     @cell(float) options.defaultfields.boost Boost factor applied when a match is found in this field (defaults to 1.0)
     @cell(boolean) options.defaultfields.stemmed_field Set to true to also use stemming when searching for terms in this field
-    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id.
+    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id (legacy Consilio only)
+    @cell(boolean) options.synonyms If the catalog synonyms list should be used (defaults to TRUE, Opensearch only)
     @return Consilio query record
 */
 PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -390,6 +476,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
       [ querymode := "AND"
       , defaultfields := DEFAULT RECORD ARRAY
       , thesaurusid := 0
+      , synonyms := TRUE
       ],
       options,
       [ enums := [ querymode := [ "AND", "OR" ] ]
@@ -409,6 +496,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
              , defaultrequire := options.querymode = "AND" ? require_required : require_allowed
              , options.defaultfields
              , thesaurus
+             , options.synonyms
              , boost := 1f
              ];
 }
@@ -482,6 +570,15 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRIN
       STRING newval := cellrec.value;
       IF(cellrec.name IN fields)
       {
+        // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
+        // when the highlight ends at the end of the string
+        INTEGER firstclose := SearchSubstring(newval, "\x1C");
+        IF (firstclose >= 0 AND SearchSubstring(newval, "\x1D") < 0)
+          newval := "\x1D" || newval;
+        INTEGER lastopen := SearchSubstring(newval, "\x1D");
+        IF (lastopen >= 0 AND SearchSubstring(newval, "\x1C") < lastopen)
+          newval := newval || "\x1C";
+
         //translate the markers to something that will survive EncodeHTML
         newval := Substitute(newval, "\x1D", '\uF8F0');
         newval := Substitute(newval, "\x1C", '\uF8F1');
@@ -494,6 +591,8 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRIN
         newval := Substitute(newval, "\x1D", '');
         newval := Substitute(newval, "\x1C", '');
       }
+      // Remove hyperlink markers
+      newval := Substitute(newval, "\x1F", '');
       res := CellUpdate(res, cellrec.name, newval);
     }
     results[#res] := res;
@@ -567,7 +666,8 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
 /** @short Search an index
     @param indextag Index to search (module:tag)
     @param query Search query
-    @cell(string) options.language The language to use (defaults to the language returned by %GetTidLanguage)
+    @cell(string) options.language The language to use (legacy Consilio indices only, defaults to the language returned by
+        %GetTidLanguage)
     @cell(integer) options.first The first result to return (0-based, defaults to 0)
     @cell(integer) options.count The number of results to return (-1 for all results, defaults to 100)
     @cell(boolean) options.save_searches If the search query should be saved for search reports (defaults to `FALSE`)
@@ -653,9 +753,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
            ];
 
   OBJECT search_obj := OpenSearchObject(language, indextag);
-  IF(Length(options.highlightfields) = 0)
-    search_obj->donthighlight := TRUE; //ADDME allow caller to specify it wants to highlight (either globally or a list of fields?)
-
+  search_obj->highlightfields := options.highlightfields;
   search_obj->save_searches := options.save_searches;
   IF (options.save_searches)
     search_obj->session_site := options.save_searches_site;
@@ -960,6 +1058,98 @@ STATIC OBJECTTYPE ContentSource
     }
   }
 
+  /// Delete a group
+  PUBLIC MACRO DeleteGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "DELETEGROUP"
+              , commanddate := GetCurrentDateTime()
+              , contentsourceid := this->id
+              , groupid
+              , indexid := this->catalog->id
+              ];
+
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteGroup")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := "DELETEGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::DeleteGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
+
+  /** Reindex an object
+      @long Reindex a specific object in a specific group
+      @param groupid Group to reindex the object in
+      @param objectid Object to reindex
+      @cell(boolean) options.foreground Reindex in the foreground
+  */
+  PUBLIC MACRO ReindexObject(STRING groupid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "CHECKOBJECT"
+              , commanddate := GetCurrentDateTime()
+              , contentsourceid := this->id
+              , groupid
+              , objectid
+              , indexid := this->catalog->id
+              ];
+
+      //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := ("CHECKOBJECT ") || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid) || " " || EncodeJSON(objectid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::ReindexObject", CELL[ ...this->GetBaseDebugInfo(), options.rebuild, groupid, objectid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
+
+  /// Delete an object
+  PUBLIC MACRO DeleteObject(STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "DELETEOBJECT"
+              , commanddate := GetCurrentDateTime()
+              , objectid
+              , indexid := this->catalog->id
+              ];
+
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteObject")(data, [ refresh := TRUE ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := "DELETEOBJECT " || this->catalog->id || " " || EncodeJSON(objectid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::DeleteObject", CELL[ ...this->GetBaseDebugInfo(), objectid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
+  }
 
   /// Delete this content source
   PUBLIC MACRO DeleteSelf()
@@ -1003,6 +1193,9 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Tag of this catalog
   PUBLIC PROPERTY tag(this->catalog.name,-);
 
+  /// @type(string) Language of this catalog
+  PUBLIC PROPERTY lang(this->catalog.lang,-);
+
   /// @type(boolean) Is this a managed catalog?
   PUBLIC PROPERTY ismanaged(GetIsManaged,-);
 
@@ -1012,11 +1205,11 @@ STATIC OBJECTTYPE Catalog
   /** Index manager of this catalog
       @cell id Id of the indexmanager
       @cell name Name of the indexmanager
-      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
+      @cell type Type of the indexmanager (1: Consilio, 2: OpenSearch)
   */
   PUBLIC PROPERTY indexmanager(GetIndexManager, -);
 
-  /** Name of the index on the index manager (Elasticsearch only) */
+  /** Name of the index on the index manager (OpenSearch only) */
   PUBLIC PROPERTY indexname(GetIndexName, -);
 
   MACRO NEW(RECORD catalog)
@@ -1036,22 +1229,39 @@ STATIC OBJECTTYPE Catalog
 
   BOOLEAN FUNCTION GetIsManaged()
   {
-    RETURN this->catalog.type = whconstant_consilio_catalogtype_siteprofindex;
+    RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
   }
 
   /** Update catalog settings
       @record settings Settings to apply
       @cell(string) settings.definedby Definition location */
-  PUBLIC MACRO UpdateCatalog(RECORD settings)
+  PUBLIC BOOLEAN FUNCTION UpdateCatalog(RECORD settings)
   {
     settings := ValidateOptions([ definedby := ""
+                                , lang := ""
                                 , indexmanager := 0
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
+
+    // If the catalog language changes, the catalog has to be rebuilt
+    BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
+    IF (language_changed AND this->ismanaged)
+      INSERT CELL rebuild := TRUE INTO settings;
+
     UPDATE consilio.indices SET RECORD settings WHERE id = this->id;
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.indices WHERE id = this->id;
+
+    IF (language_changed)
+    {
+      // Note: this doesn't update the 'synonym' filter, so we don't have to explicitly add that here
+      RECORD indexsettings :=
+          [ analysis := GetAnalysisForLanguage(settings.lang)
+          ];
+      UpdateIndexManagerIndexSettings(this->id, indexsettings);
+    }
+    RETURN language_changed;
   }
 
   /// Delete this catalog
@@ -1064,6 +1274,157 @@ STATIC OBJECTTYPE Catalog
     this->catalog.id := 0; //to be safe
 
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+  }
+
+  MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, BOOLEAN strict, INTEGER ARRAY contentsourceids)
+  {
+    EnsureIndexManagerIndex(this->id, CELL
+        [ suffix
+        , throwonfailure := TRUE
+        , synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms()
+        ]);
+
+    // Legacy backend doesn't support mapping
+    IF (this->indexmanager.type = whconstant_consilio_indexmanager_legacybackend)
+      RETURN;
+
+    RECORD newmapping;
+    IF (Length(fieldgroups) = 0)
+    {
+      fieldgroups :=
+          SELECT AS STRING ARRAY fieldgroup
+            FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.indices WHERE id = this->id), " "), "fieldgroup")
+           WHERE fieldgroup != "";
+    }
+    IF(Length(fieldgroups) = 0)
+    {
+      TRY
+        newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.indices WHERE id = this->id);
+      CATCH (OBJECT e)
+        IF (NOT this->ismanaged)
+          THROW;
+    }
+    ELSE
+    {
+      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, strict);
+    }
+    IF (Length(contentsourceids) > 0)
+    {
+      RECORD ARRAY basefields := this->ismanaged ? defaultmappingfields : RECORD[];
+      IF (RecordExists(newmapping))
+        basefields := basefields CONCAT newmapping.properties;
+      RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
+      IF (RecordExists(properties))
+      {
+        IF (NOT RecordExists(newmapping))
+          newmapping := CELL[ properties, strict ];
+        ELSE
+          newmapping.properties := properties;
+      }
+    }
+    IF (NOT RecordExists(newmapping))
+      RETURN;
+
+    //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
+    //TODO how to remove a dynamic template?
+    //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
+    RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ suffix, throwonfailure := TRUE ]);
+    RECORD finalupdate := PrepareMappingUpdate(newmapping);
+
+    STRING ARRAY newtemplates;
+    FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
+      INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
+
+    FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
+    {
+      STRING name := UnpackRecord(templ)[0].name;
+      IF(name NOT IN newtemplates)
+        INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
+    }
+
+    EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
+  }
+
+  /** @short Get the catalog's synonyms list
+      @return The grouped synonyms
+      @cell(integer) wordgroupid Word group id
+      @cell(string array) words The words within this group
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetSynonyms()
+  {
+    RETURN
+        SELECT wordgroupid := wordgroup
+             , words := GroupedValues(word)
+          FROM consilio.thesaurus
+         WHERE indexid = this->id
+         GROUP BY wordgroup;
+
+  }
+
+  /** @short Update the catalog's synonyms list
+      @param words The grouped synonyums
+      @includecelldef #GetSynonyms.return
+  */
+  PUBLIC MACRO SetSynonyms(RECORD ARRAY words)
+  {
+    INTEGER ARRAY updated;
+    BOOLEAN anychanges;
+    FOREVERY (RECORD row FROM words)
+    {
+      INTEGER wordgroupid := CellExists(row, "wordgroupid")
+          ? row.wordgroupid
+          : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
+      IF (CellExists(row, "wordgroupid"))
+        INSERT row.wordgroupid INTO updated AT END;
+
+      RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
+      STRING ARRAY newwordgroup := row.words;
+
+      // Delete old words that are not in the new words group
+      FOREVERY (RECORD todelete FROM oldwordgroup)
+        IF (todelete.word NOT IN newwordgroup)
+        {
+          DELETE FROM consilio.thesaurus WHERE id = todelete.id;
+          anychanges := TRUE;
+        }
+
+      // Add new words that are not in the old words group
+      STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
+      FOREVERY (STRING word FROM toadd)
+      {
+        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
+               VALUES(this->id, word, wordgroupid);
+        anychanges := TRUE;
+      }
+    }
+    IF (RecordExists(SELECT FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated))
+    {
+      DELETE FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated;
+      anychanges := TRUE;
+    }
+
+    IF (anychanges)
+    {
+      // Update the synonyms list of the 'synonym' filter (the rest of the settings are left alone)
+      RECORD settings :=
+          [ analysis :=
+            [ filter :=
+              [ synonym :=
+                [ synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(synonyms.words, ", ") FROM this->GetSynonyms() AS synonyms ]
+              ]
+            ]
+          ];
+      //TODO: This doesn't update the synonyms for suffixed indices
+      UpdateIndexManagerIndexSettings(this->id, settings);
+    }
+  }
+
+  RECORD FUNCTION GetBaseDebugInfo()
+  {
+    RETURN CELL[ catalog := this->tag
+               , catalogid := this->id
+               , trace := ArraySlice(GetStackTrace(),2)
+               ];
   }
 >;
 
@@ -1085,7 +1446,7 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
                                 , chunksize := 128
                                 , synchronous := FALSE
                                 ], options);
-    //are these still relevant?
+    //are these still relevant? only used by legacy consilio
     // @cell objects.suggestfields
     // @cell objects.suggestprefixes
 
@@ -1120,49 +1481,19 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
   /** @short Make sure the (sub)index exists on the index manager
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(string) options.fieldgroup Override fieldgroup used to ensure mapping
+      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
       @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
   */
   PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ suffix := ""
-                               , fieldgroup := ""
+                               , fieldgroups := STRING[]
                                , strict := TRUE
                                ], options);
 
-    EnsureIndexManagerIndex(this->id, CELL[ options.suffix, throwonfailure := TRUE  ]);
+    this->DoEnsureIndex(options.suffix, options.fieldgroups, options.strict, INTEGER[]);
 
-    RECORD newmapping;
-    IF(options.fieldgroup = "")
-    {
-      STRING indexname := SELECT AS STRING name FROM consilio.indices WHERE indices.id = this->id;
-      newmapping := GetIndexFieldDefinition(indexname);
-    }
-    ELSE
-    {
-      newmapping := GetFieldgroupFieldDefinition(options.fieldgroup, options.strict);
-    }
-
-    //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
-    //TODO how to remove a dynamic template?
-    //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
-    RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ options.suffix, throwonfailure := TRUE ]);
-    RECORD finalupdate := PrepareMappingUpdate(newmapping);
-
-    STRING ARRAY newtemplates;
-    FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
-      INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
-
-    FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
-    {
-      STRING name := UnpackRecord(templ)[0].name;
-      IF(name NOT IN newtemplates)
-        INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
-    }
-
-    EnsureIndexManagerMapping(this->id, finalupdate, CELL[ options.suffix, throwonfailure := TRUE ]);
-
-    IF(options.suffix NOT IN this->ensured AND options.fieldgroup = "") //overriding fieldgroup does not count as having guaranteed ensurance
+    IF(options.suffix NOT IN this->ensured AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
       INSERT options.suffix INTO this->ensured AT END;
   }
 
@@ -1194,6 +1525,15 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
 STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 <
+  /** @short Make sure the (sub)index exists on the index manager
+      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
+      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
+  */
+  PUBLIC MACRO EnsureIndex()
+  {
+    this->DoEnsureIndex("", STRING[], TRUE, SELECT AS INTEGER ARRAY id FROM this->ListContentSources());
+  }
+
   /** List the contentsources in this catalog
       @return List of contentsources
       @cell(integer) return.id Id of the contentsource
@@ -1248,12 +1588,13 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 
     INSERT csourcesettings INTO consilio.contentsources;
 
-    //TODO CheckFolderInIndex ?
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
 
-    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
+    contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    IF (this->indexmanager.type = whconstant_consilio_indexmanager_opensearch)
+      this->EnsureIndex();
 
     RETURN contentsource;
   }
@@ -1272,17 +1613,53 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
             , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
             ], options);
 
-    IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
+    FOREVERY (RECORD contentsource FROM
+        SELECT id, fsobject
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id
+               AND contentprovider = "publisher:webhare"
+               AND tag NOT LIKE "$consilio$deleted$*")
     {
-      STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
-      THROW NEW Exception(`A contentsource for folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+      IF ((contentsource.fsobject = targetfolder) OR IsFolderAncestorOf(contentsource.fsobject, targetfolder)) // targetfolder is already covered by searchroot
+      {
+        STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
+        THROW NEW Exception(`A contentsource containing folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+      }
+      ELSE IF (IsFolderAncestorOf(targetfolder, contentsource.fsobject)) // folderid contains searchroot
+      {
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
+      }
     }
 
-    //TODO CheckFolderInIndex ?
     RETURN this->CreateContentSource(CELL[ ...options
                                           , contentprovider := "publisher:webhare"
                                           , fsobject := targetfolder
                                           ]);
+  }
+
+  INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER searchid DEFAULTSTO -1)
+  {
+    INTEGER res;
+    FOREVERY (RECORD contentsource FROM (
+        SELECT id, fsobject
+          FROM consilio.contentsources
+         WHERE id != searchid
+               AND contentsources.indexid = VAR indexid
+               AND contentprovider = "publisher:webhare"
+               AND tag NOT LIKE "$consilio$deleted$*"))
+    {
+      IF ((contentsource.fsobject = folderid) OR IsFolderAncestorOf(contentsource.fsobject, folderid)) // folderid is already covered by searchroot
+      {
+        res := -1;
+        BREAK;
+      }
+      ELSE IF (IsFolderAncestorOf(folderid, contentsource.fsobject)) // folderid contains searchroot
+      {
+        res := 1;
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
+      }
+    }
+    RETURN res;
   }
 
   /** Add a new custom content source to a index
@@ -1365,6 +1742,16 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     ELSE
       RETURN DEFAULT OBJECT;
   }
+
+  PUBLIC MACRO ReindexCatalog(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rebuild := FALSE ], options);
+
+    STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->id;
+    IF(IsDebugTagEnabled("consilio:queues"))
+      LogDebug("consilio", "ManagedCatalog::ReindexCatalog", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
+    SendQueueManagerData(GetQueueDataFromCommand(command));
+  }
 >;
 
 /** @short List all Consilio catalogs
@@ -1381,7 +1768,7 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
   RECORD ARRAY catalogs :=
       SELECT id
            , tag := name
-           , ismanaged := type = whconstant_consilio_catalogtype_siteprofindex
+           , ismanaged := type = whconstant_consilio_catalogtype_managed
            , indexmanager
         FROM consilio.indices
        WHERE options.__withdeleted OR name NOT LIKE "$consilio$deleted$*";
@@ -1402,7 +1789,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
-    IF (match.type = 1)
+    IF (match.type = whconstant_consilio_catalogtype_unmanaged)
       RETURN NEW UnmanagedCatalog(match);
     RETURN NEW ManagedCatalog(match);
   }
@@ -1422,12 +1809,41 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
-    IF (match.type = whconstant_consilio_catalogtype_moduleindex)
+    IF (match.type = whconstant_consilio_catalogtype_unmanaged)
       RETURN NEW UnmanagedCatalog(match);
     RETURN NEW ManagedCatalog(match);
   }
   ELSE
     RETURN DEFAULT OBJECT;
+}
+
+/** @short Open content source by tag
+    @param tag Content source tag
+    @return(object #ContentSource) The content source object
+*/
+PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
+{
+  INTEGER indexid :=
+      SELECT AS INTEGER contentsources.indexid
+        FROM consilio.contentsources
+       WHERE ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  RETURN ObjectExists(catalog) ? catalog->OpenContentSource(tag) : DEFAULT OBJECT;
+}
+
+/** @short Open content source by id
+    @param id Content source id
+    @return(object #ContentSource) The content source object
+*/
+PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
+{
+  INTEGER indexid :=
+      SELECT AS INTEGER contentsources.indexid
+        FROM consilio.contentsources
+       WHERE contentsources.id = VAR id
+             AND tag NOT LIKE "$consilio$deleted$*";
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  RETURN ObjectExists(catalog) ? catalog->OpenContentSourceById(id) : DEFAULT OBJECT;
 }
 
 /** @short Create a new Consilio catalog.
@@ -1453,7 +1869,9 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , indexmanager := 0
                               , title := ""
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+                              , fieldgroups := STRING[]
                               , managed := TRUE
+                              , lang := ""
                               ], options, [ optional := ["indexmanager"] ]);
 
   INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : options.managed ? GetDefaultIndexManager() : 0;
@@ -1469,16 +1887,19 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.definedby
              , indexmanager
              , indexname := "c_" || tolowercase(encodebase16(decodeufs(generateufs128bitid())))
-             , type := options.managed ? whconstant_consilio_catalogtype_siteprofindex
-                                       : whconstant_consilio_catalogtype_moduleindex
+             , type := options.managed ? whconstant_consilio_catalogtype_managed
+                                       : whconstant_consilio_catalogtype_unmanaged
+             , fieldgroups := Detokenize(options.fieldgroups, " ")
+             , options.lang
              ] INTO consilio.indices;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
-  IF(options.managed) //only managed indices are created directly, as with unmanaged the caller might want to create only suffixed indices
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  IF(catalog->ismanaged) //only managed indices are created directly, as with unmanaged the caller might want to create only suffixed indices
   {
     TRY
     {
-      EnsureIndexManagerIndex(indexid, [ throwonfailure := TRUE ]);
+      catalog->EnsureIndex();
     }
     CATCH
     {
@@ -1489,7 +1910,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
-  RETURN OpenConsilioCatalogById(indexid);
+  RETURN catalog;
 }
 
 /** @short Generate linkcheck report for WRD
