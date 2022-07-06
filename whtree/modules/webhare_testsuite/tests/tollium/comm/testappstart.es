@@ -139,6 +139,18 @@ test.registerTests(
       }
     }
 
+  , "Restart"
+  , async function()
+    {
+      test.click(test.getMenu(['X09']));
+      console.log(`start ui wait`);
+      await test.wait('ui');
+      console.log(`finished ui wait`);
+
+      test.eq("1", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
+      test.eq("1", test.getCurrentScreen().getToddElement("messages").querySelector('textarea').value);
+   }
+
   , "Session-expiry"
   , async function()
     {

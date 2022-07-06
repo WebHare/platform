@@ -15,6 +15,7 @@
       <action name="opencloseable" onexecute="doopencloseable" title="open closeable X06"/>
       <action name="toggleallowclose" onexecute="dotoggleallowclose" title="toggle allowclose X07"/>
       <action name="setexpirydatetonow" onexecute="dosetexpirydatetonow" title="Set expirydate to now X08"/>
+      <action name="restart" onexecute="dorestart" title="Restart X09"/>
     </actions>
     <menus>
       <menu name="menu">
@@ -24,6 +25,7 @@
         <item action="opencloseable" />
         <item action="toggleallowclose" />
         <item action="setexpirydatetonow" />
+        <item action="restart" />
       </menu>
     </menus>
     <body>

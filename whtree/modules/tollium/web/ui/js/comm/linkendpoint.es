@@ -89,7 +89,6 @@ export default class LinkEndpoint
 
         //console.log('onmessage');
         this.onmessage(wiremsg.messages[i].data);
-
       }
     }
 
@@ -158,5 +157,12 @@ export default class LinkEndpoint
   {
     //console.log('registerManuallyReceivedMessage', seqnr);
     this.lastreceivedseqnr = seqnr;
+  }
+
+  close()
+  {
+    if (this.onclosed && this.transmgr)
+      this.onclosed();
+    this.unregister();
   }
 }
