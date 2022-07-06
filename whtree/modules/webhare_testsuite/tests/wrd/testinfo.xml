@@ -13,7 +13,12 @@
   <test script="consilio.whscr" />
   <test script="testtollium.whscr" />
   <test script="test_exchange.whscr" />
-  <test script="test_sync.whscr" />
+  <test name="test_sync-batch" script="test_sync.whscr">
+    <arg value="batch" />
+  </test>
+  <test name="test_sync-incremental" script="test_sync.whscr">
+    <arg value="incremental" />
+  </test>
   <test script="test_personaldata.whscr" />
   <test script="testkeephistory.whscr" />
   <test script="testpasswordpolicy.whscr" />
