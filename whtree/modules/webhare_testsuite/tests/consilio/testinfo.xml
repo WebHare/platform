@@ -31,8 +31,7 @@
   <test script="test_moduleindices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
 
   <jstest file="test_pxl.es" />
-  <!-- <jstest file="test_backendapi.es" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/> -->
-  <jstest file="test_backendapi.es" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH" />
+  <jstest file="test_backendapi.es" />
 
   <test name="indextypes" path="indextypes/" />
 
