@@ -1165,6 +1165,13 @@ PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY re
 
     FOREVERY (RECORD rec FROM wrdschema->ListTypes())
     {
+      // A reference to a parent type is a reference to all their children types
+      IF (rec.parenttype != 0 AND wrdschema->GetTypeById(rec.parenttype)->tag IN references AND rec.tag NOT IN references)
+      {
+        INSERT rec.tag INTO references AT END;
+        anychange := TRUE;
+      }
+
       IF (__MatchesAnyMask(rec.tag, references))
         CONTINUE;
 
