@@ -1921,6 +1921,10 @@ PUBLIC OBJECT FUNCTION MakeCSSStyleSheet(BLOB stylesheet, RECORD options DEFAULT
   RETURN outsheet;
 }
 
+/** Parses the content of an inline style attribute
+    @param style Contents of the style attribute
+    @return(object #CSSStyleDeclaration) Parsed style
+*/
 PUBLIC OBJECT FUNCTION ParseInlineStyleAttribute(STRING style)
 {
   OBJECT obj := NEW CSSStyleDeclaration(DEFAULT OBJECT);
