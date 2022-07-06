@@ -169,7 +169,7 @@ PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname,
                              , timeout := elastic_timeout * 1000
                              ], options);
 
-  STRING url := (indexname != "" ? "/" || indexname : "") || command;
+  STRING url := (indexname != "" ? "/" || EncodeURL(indexname) : "") || command;
   RECORD body := request;
   BOOLEAN ndjson := CellExists(request, "_bulkrequests");
   IF (ndjson)
