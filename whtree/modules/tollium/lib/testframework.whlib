@@ -1108,9 +1108,8 @@ RECORD FUNCTION BuildDropMessage(OBJECT sourcecomp, VARIANT selection, OBJECT ta
         selection := STRING ARRAY(selection);
 
       message.items :=
-          SELECT type :=  draginfo.type
-               , id :=    TypeID(rowkey) = TypeID(STRING) ? rowkey : ToString(rowkey)
-               , data :=  draginfo.data
+          SELECT draginfo :=    CellExists(rows, "DRAGINFO") ? draginfo : DEFAULT RECORD
+               , id :=          TypeID(rowkey) = TypeID(STRING) ? rowkey : ToString(rowkey)
             FROM sourcecomp->rows
            WHERE rowkey IN selection;
 
@@ -1124,11 +1123,16 @@ RECORD FUNCTION BuildDropMessage(OBJECT sourcecomp, VARIANT selection, OBJECT ta
       message.items :=
           [ CELL
             [ overlay->id
-            , overlay->draginfo.type
-            , overlay->draginfo.data
+            , overlay->draginfo
             ]
           ];
     }
+
+    FOREVERY (RECORD rec FROM message.items)
+      IF (NOT RecordExists(rec.draginfo))
+        THROW NEW Exception(`Item ${rec.id} from ${message.sourcecomp} does not have drag info`);
+      ELSE
+        message.items[#rec] := CELL[ rec.id, rec.draginfo.type, rec.draginfo.data ];
   }
 
   RETURN message;

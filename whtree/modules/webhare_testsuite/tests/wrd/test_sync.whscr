@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -26,9 +27,11 @@ MACRO PrintStatusLine(STRING line)
   PRINT(`${line}${diff > 0 ? RepeatText(" ", diff) : ""}\r`);
 }
 
+STRING syncmode;
+
 RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, options);
+  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, CELL[ ...options, syncmode ]);
   RECORD rec;
   WHILE (TRUE)
   {
@@ -51,8 +54,9 @@ RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD
 
 OBJECT syncpeer;
 
-MACRO PrepareSchemaContent()
+MACRO PrepareSchemaContent(STRING mode)
 {
+  syncmode := mode;
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
@@ -125,7 +129,8 @@ MACRO TestSync()
   //RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
   testfw->BeginWork();
   TestThrowsLike("*Access denied*", PTR RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag)); //set syncpeer to DEFAULT OBJECT to test locally
-  GetPrimary()->PopWork(); //TODO it's not nice we have to do this after exception recovery, but what's the alternative? pehaps RunSYnc should set the transaction into ERROR mode before doing a popwork to prevent invalid commits?
+  IF (GetPrimary()->IsNestedWorkOpen())
+    GetPrimary()->PopWork();
   testfw->RollbackWork();
 
   testfw->BeginWork();
@@ -254,6 +259,22 @@ MACRO TestSync()
       [ etest_enum :=       "v2"
       , etest_enumarray :=  [ "v1", "v2" ]
       ], synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_enum", "etest_enumarray" ]));
+
+  // Story: partial test with references outside the set of included types
+  testfw->BeginWork();
+  schemaobj->^wrd_person->UpdateEntity(org_0,
+        [ linktome := linktome1->id
+        ]);
+  testfw->CommitWork();
+
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag,
+      [ includetypes := [ "WRD_PERSON" ]
+      ]);
+
+
+
+
+
 }
 
 MACRO TestRenamedTypeBreaks()
@@ -492,9 +513,16 @@ MACRO TestLocalBlobUsage()
   TestEQ(DEFAULT RECORD, entity->FilterFieldUpdates(syncedfields));
 }
 
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "mode", type := "param" ]
+    ]);
+
+IF (args.mode NOT IN [ "batch", "incremental", "" ])
+  TerminateScriptWithError(`Unknown mode ${args.mode}`);
+
 RunTestframework(
     [ PTR CreateWRDTestSchema
-    , PTR PrepareSchemaContent
+    , PTR PrepareSchemaContent(args.mode ?? "batch")
     , PTR TestSync
     , PTR TestRenamedTypeBreaks
     , PTR TestCopyTo

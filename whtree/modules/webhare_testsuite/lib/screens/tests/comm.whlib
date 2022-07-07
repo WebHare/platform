@@ -77,6 +77,22 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
   {
     RETURN this->confirmclose = FALSE OR this->RunMessageBox(".confirmclose")="yes";
   }
+  MACRO DoRestart()
+  {
+    // target = 0 -> target=1+message=1 -> target=1+message="" -> target=0
+    IF (this->targetval->value = 0)
+      this->contexts->controller->RestartApplication(
+          [ target :=   [ test := this->targetval->value + 1 ]
+          , message :=  [ id := this->targetval->value + 1 ]
+          ]);
+    ELSE
+    {
+      IF (this->messages->value != "")
+        this->contexts->controller->RestartApplication();
+      ELSE
+        this->contexts->controller->RestartApplication([ target := DEFAULT RECORD ]);
+    }
+  }
 >;
 
 

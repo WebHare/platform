@@ -5,6 +5,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::internet/smtp.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -41,6 +42,33 @@ Terminology:
 */
 
 STRING ARRAY warnings_per_vm;
+
+INTEGER64 ARRAY entity_settings_autonumbers;
+
+INTEGER64 FUNCTION AllocEntitySettingsAutonumber()
+{
+  IF (IsDefaultValue(entity_settings_autonumbers))
+    entity_settings_autonumbers := MakeAutoNumbers64(wrd.entity_settings, "id", 32);
+  INTEGER64 retval := entity_settings_autonumbers[0];
+  DELETE FROM entity_settings_autonumbers AT 0;
+  RETURN retval;
+}
+
+RECORD dynamicinserter;
+
+OBJECT FUNCTION GetSettingsInserter()
+{
+  IF (NOT RecordExists(dynamicinserter) OR dynamicinserter.trans != GetPrimary())
+  {
+    dynamicinserter :=
+        [ trans :=    GetPrimary()
+        , obj :=      GetDynamicInserter(GetPrimary(), "wrd.entity_settings",
+                          [ cols := [ "id", "attribute", "blobdata", "entity", "ordering", "parentsetting", "rawdata", "setting", "unique_rawdata" ]
+                          ])
+        ];
+  }
+  RETURN dynamicinserter.obj;
+}
 
 INTEGER ARRAY FUNCTION GetChildTypes(INTEGER wrdtypeid)
 {
@@ -96,6 +124,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
   INTEGER64 ARRAY deletedsettings;
   INTEGER ARRAY updatedattrs;
 
+  RECORD ARRAY settinginserts;
   RECORD ARRAY settingupdates;
 
   // Sort current settings on id for quick lookup
@@ -157,10 +186,16 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
     }
     ELSE //not found
     {
-      INSERT rec INTO wrd.entity_settings;
+      IF (GetPrimary()->allowerrordelay)
+        INSERT rec INTO settinginserts AT END;
+      ELSE
+        INSERT rec INTO wrd.entity_settings;
       INSERT rec INTO settingupdates AT END;
     }
   }
+
+  IF (IsValueSet(settinginserts))
+    GetSettingsInserter()->InsertRecords(settinginserts);
 
   FOREVERY (RECORD rec FROM settingupdates)
   {
@@ -290,6 +325,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
     @cell(record array) subs.settings.newsets New entity settings
     @cell(record array) subs.settings.subs Array rows (only when attributetype = 13), see param subs for recursive definition
     @param parentsetting Parent array setting
+    @param importmode Whether in importmode
     @return Settings with id set
     @cell(record array) return.newsets New settings
     @cell(integer) return.newsets.id Id of setting to update/create. 0 to create, otherwise id to update
@@ -302,7 +338,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
     @cell(integer) return.newsets.setting Value for setting field
     @cell(integer) return.newsets.ordering Value for ordering field
 */
-RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD ARRAY allcurrent, RECORD ARRAY newsets, RECORD ARRAY subs, INTEGER64 parentsetting)
+RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD ARRAY allcurrent, RECORD ARRAY newsets, RECORD ARRAY subs, INTEGER64 parentsetting, BOOLEAN importmode)
 {
   // Id of the attribute to update
   INTEGER setattribute := attr.id;
@@ -391,7 +427,12 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
         DELETE FROM curids AT 0;
       }
       ELSE
-        newsets[#rec].id := MakeAutonumber(wrd.entity_settings, "id");
+      {
+        IF (NOT importmode)
+          newsets[#rec].id := MakeAutoNumber64(wrd.entity_settings, "id");
+        ELSE
+          newsets[#rec].id := AllocEntitySettingsAutonumber();
+      }
     }
   }
 
@@ -401,7 +442,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
     FOREVERY (RECORD sub FROM subs)
       FOREVERY (RECORD setting FROM sub.settings)
       {
-        RECORD res := GenerateNewSettingList(setentity, setting.attr, newsets[#sub].id = 0 ? RECORD[] : allcurrent, setting.newsets, setting.subs, newsets[#sub].id);
+        RECORD res := GenerateNewSettingList(setentity, setting.attr, newsets[#sub].id = 0 ? RECORD[] : allcurrent, setting.newsets, setting.subs, newsets[#sub].id, importmode);
         newsets := newsets CONCAT res.newsets;
       }
   }
@@ -3144,7 +3185,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             cursettings,
             toset.newsets,
             toset.subs,
-            0);
+            0,
+            options.importmode);
 
         newsets := newsets CONCAT res.newsets;
       }
@@ -3780,6 +3822,26 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
     RETURN this->__GetDomVals(attribute_tag, valtags);
   }
 
+  /** List all entities of with exactly this type (and no children types), also returning temporaries.
+      @return List of all entities, sorted on WRD_GUID
+      @cell return.wrd_id WRD ID
+      @cell return.wrd_guid WRD GUID
+      @cell return.wrd_creationdate Creation date
+      @cell return.wrd_limitdate Limit date
+      @cell return.wrd_modificationdate Modification date
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetTypeEntityList()
+  {
+    RETURN
+        SELECT wrd_id :=                id
+             , wrd_guid :=              EncodeWRDGuid(guid)
+             , wrd_creationdate :=      creationdate
+             , wrd_limitdate :=         limitdate
+             , wrd_modificationdate :=  modificationdate
+          FROM wrd.entities
+         WHERE type = this->id
+      ORDER BY guid;
+  }
 >;
 
 RECORD FUNCTION MergeChanges(RECORD ARRAY changes)

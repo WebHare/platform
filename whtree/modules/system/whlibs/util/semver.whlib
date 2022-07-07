@@ -7,6 +7,7 @@ LOADLIB "wh::util/stringparser.whlib";
 /* Semantic Versioning, see: http://semver.org */
 
 /** Decode a semantic version string
+    @param version Version string to decode
     @return A non-existing record if the version could not be parsed
     @cell(variant array) return.compareparts A mix of INTEGER and STRING components suitable for direct comparisons */
 PUBLIC RECORD FUNCTION DecodeSemanticVersion(STRING version)
@@ -63,6 +64,15 @@ BOOLEAN FUNCTION IsOnlyDigits(STRING digits)
   RETURN digits != "" AND s->eof;
 }
 
+/** Encode a semantic version string from its components
+    @param version Version info
+    @cell(integer) version.major Major version
+    @cell(integer) version.minor Minor version
+    @cell(integer) version.patch Patch level
+    @cell(string) version.prerelease Prerelease version
+    @cell(string) version.build Build id
+    @return Semantic version string
+*/
 PUBLIC STRING FUNCTION EncodeSemanticVersion(RECORD version)
 {
   IF (NOT CellExists(version, "major") OR version.major < 0
@@ -75,6 +85,10 @@ PUBLIC STRING FUNCTION EncodeSemanticVersion(RECORD version)
       || (CellExists(version, "build") AND version.build != "" ? "+" || version.build : "");
 }
 
+/** Increments the major version of a semantic version string (resets minor version and patch level)
+    @param version Semantic version to increment
+    @return Incremented semantic version
+*/
 PUBLIC STRING FUNCTION IncrementVersionMajor(STRING version)
 {
   RECORD decoded := DecodeSemanticVersion(version);
@@ -86,6 +100,10 @@ PUBLIC STRING FUNCTION IncrementVersionMajor(STRING version)
                                                   ]));
 }
 
+/** Increments the minor version of a semantic version string (resets patch level)
+    @param version Semantic version to increment
+    @return Incremented semantic version
+*/
 PUBLIC STRING FUNCTION IncrementVersionMinor(STRING version)
 {
   RECORD decoded := DecodeSemanticVersion(version);
@@ -96,6 +114,10 @@ PUBLIC STRING FUNCTION IncrementVersionMinor(STRING version)
                                                   ]));
 }
 
+/** Increments the patch level of a semantic version string
+    @param version Semantic version to increment
+    @return Incremented semantic version
+*/
 PUBLIC STRING FUNCTION IncrementVersionPatch(STRING version)
 {
   RECORD decoded := DecodeSemanticVersion(version);
@@ -104,11 +126,20 @@ PUBLIC STRING FUNCTION IncrementVersionPatch(STRING version)
   RETURN EncodeSemanticVersion(MakeUpdatedRecord(decoded, [ patch := decoded.patch + 1 ]));
 }
 
+/** Tests if a string is a valid semantic version string
+    @param version Semantic version to test
+    @return TRUE if the string is a valid semantic version string
+*/
 PUBLIC BOOLEAN FUNCTION IsValidSemanticVersion(STRING version)
 {
   RETURN RecordExists(DecodeSemanticVersion(version));
 }
 
+/** Compares two semantic version strings, returns it the second version string is newer than the first
+    @param fromversion First semantic version string
+    @param toversion Second semantic version string
+    @return TRUE if the toversion semantic string is newer than the fromversion semantic string
+*/
 PUBLIC BOOLEAN FUNCTION IsSemanticVersionNewer(STRING fromversion, STRING toversion)
 {
   RECORD fromdecoded := DecodeSemanticVersion(fromversion);
@@ -187,6 +218,9 @@ STATIC OBJECTTYPE SemverRangeParser
   //
 
   /** Returns a semver range that matches everything
+      @return Semver range that matches everyting
+      @cell return.type Range type
+      @cell return.value @includecelldef #EncodeValue.return
   */
   RECORD FUNCTION EncodeMatchAny()
   {
@@ -196,6 +230,13 @@ STATIC OBJECTTYPE SemverRangeParser
   }
 
   /** Returns an exact version
+      @param major Major version
+      @param minor Minor version
+      @param patch Patch level
+      @param prerelease Prerelease version
+      @return Exact version
+      @cell return.decoded @includecelldef #DecodeSemanticVersion.return
+      @cell return.parts List of parts to match
   */
   RECORD FUNCTION EncodeValue(INTEGER major, INTEGER minor, INTEGER patch, STRING prerelease)
   {
@@ -212,6 +253,10 @@ STATIC OBJECTTYPE SemverRangeParser
   //
 
   /** Parses a range set
+      @return Range set, or DEFAULT RANGE when parsing fails
+      @cell return.type Type of range operator ("<", "<=", "=", ">=", ">", "or", "and")
+      @cell return.value Version to test with (when type is "<", "<=", "=", ">=" or ">") @includecelldef #EncodeValue.return
+      @cell return.vals Sub-ranges (when type is "and" or "or")
   */
   RECORD FUNCTION ParseRangeSet()
   {
@@ -237,6 +282,9 @@ STATIC OBJECTTYPE SemverRangeParser
     RETURN e;
   }
 
+  /** Parses a range
+      @return @includecelldef #ParseRangeSet.return
+  */
   RECORD FUNCTION ParseRange()
   {
     this->p->ParseWhileInSet(" ");
@@ -275,6 +323,9 @@ STATIC OBJECTTYPE SemverRangeParser
     RETURN e;
   }
 
+  /** Parses a prefix and a semantic version
+      @return @includecelldef #ParseRangeSet.return
+  */
   RECORD FUNCTION ParseSimple()
   {
     this->p->ParseWhileInSet(" ");
@@ -399,7 +450,7 @@ STATIC OBJECTTYPE SemverRangeParser
   }
 
   /** Parses a (partial) version number
-      @return
+      @return Version number
       @cell return.decoded Decoded version number, x'ed parts are defaulted to 0
       @cell return.parts Number of non-x'ed parts
   */
@@ -462,6 +513,7 @@ STATIC OBJECTTYPE SemverRangeParser
   }
 
   /** Parses a version number or 'x', 'X', '*'
+      @return Parsed version number
   */
   STRING FUNCTION ParseXR()
   {
@@ -469,6 +521,7 @@ STATIC OBJECTTYPE SemverRangeParser
   }
 
   /** Parses a prerelease or build tag
+      @return Parsed tag
   */
   STRING FUNCTION ParseParts()
   {
@@ -479,6 +532,7 @@ STATIC OBJECTTYPE SemverRangeParser
   }
 
   /** Parses part of a prerelease/build part
+      @return Parsed part
   */
   STRING FUNCTION ParsePart()
   {
@@ -491,6 +545,7 @@ STATIC OBJECTTYPE SemverRangeParser
   //
 
   /** Parses a semver range
+      @param s Semver range to parse
       @return Record with semver range expression
       @cell return.type 'and', 'or', '=', '>=', '<', '<='
       @cell return.vals For types 'and' and 'or', list of sub-ranges
@@ -510,7 +565,10 @@ STATIC OBJECTTYPE SemverRangeParser
 
 >;
 
-/** Returns whether a parsedrange (type is not 'and' or 'or') matches the numeric part of a decoded version
+/** Returns major version, minor version and patch level of two decoded semantic version strings match
+    @param lhs Decoded semantic version string @includecelldef #DecodeSemanticVersion.return
+    @param rhs Decoded semantic version string @includecelldef #DecodeSemanticVersion.return
+    @return Whether the two semantic versions match on major version, minor version and patch level.
 */
 BOOLEAN FUNCTION MatchNumeric(RECORD lhs, RECORD rhs)
 {

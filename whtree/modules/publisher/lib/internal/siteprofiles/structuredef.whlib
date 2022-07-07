@@ -401,14 +401,18 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     RETURN style;
   }
 
-  /// Compares two text styles (and their attributes)
+  /** Compares two text styles (and their attributes)
+      @param reca Text style
+      @param recb Second text style
+      @return Whether the node name and attributes are exactly the same
+  */
   BOOLEAN FUNCTION IsSameTextStyle(RECORD reca, RECORD recb)
   {
     RETURN reca.nodename = recb.nodename AND EncodeHSON(reca.attrs) = EncodeHSON(recb.attrs);
   }
 
   /** Returns a selected list of attributes of a node
-      @param node
+      @param node XML node
       @param attrs List of attributes to return
       @return All values of attributes that are actually set on the node
       @cell return.name Name of the attribute
@@ -432,9 +436,10 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   //
 
   /** Parses the text style from a node
-      @return
-      @cell return.nodename
-      @cell return.attrs
+      @param node Node to parse
+      @return Text style
+      @cell return.nodename Name of the node
+      @cell return.attrs Attributes @includecelldef #GetAttributes.return
   */
   RECORD FUNCTION GetTextStyleRecordFromNode(OBJECT node)
   {
@@ -496,9 +501,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Parses a single node
-      @param node
-      @return
-      @cell return.type 'ignore', 'unknown', 'blockstyle', 'textstyle', 'cellitem', 'text'
+      @param node Node to parse
+      @return Parse results
+      @cell return.type 'ignore', 'unknown', 'blockstyle', 'textstyle', 'cellitem', 'text', 'embeddedobject', 'inlineobject'
+      @cell return.instanceid Instance id for embbed objects and inline objects
+      @cell return.style Block/text style
   */
   RECORD FUNCTION ParseNode(OBJECT node)
   {
@@ -1403,9 +1410,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Returns the list of allowed objects
-      @return
-      @cell return.type
-      @cell return.inherit
+      @return List of allowed objects @includecelldef #allowedobjects
   */
   PUBLIC RECORD ARRAY FUNCTION GetAllowedObjects()
   {
@@ -1413,8 +1418,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Lookup the style given a node and its classname(s)
-      @param containertag
-      @param classname
+      @param containertag Tag of the container
+      @param classname Class name of the node
       @param fallback Whether to fall back on container tag matches
       @return Matching blockstyle
   */
@@ -1475,8 +1480,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Looks up the blockstyle for a node given its node
-      @param node
-      @param options
+      @param node XML Node
       @cell options.fallback Also match on node name (defaults to TRUE)
       @return Blockstyle (if matched)
   */
@@ -1498,6 +1502,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Returns the default block style
+      @return Default block style @includecelldef #defaultblockstyle
   */
   PUBLIC RECORD FUNCTION GetDefaultStyle()
   {
@@ -1514,9 +1519,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 
   /** Returns tag and title of all tablestyles
-      @return
-      @cell return.tag
-      @cell return.title
+      @return List of tablestyles
+      @cell return.tag  Tag of the style
+      @cell return.title Title of the style
   */
   PUBLIC RECORD ARRAY FUNCTION GetTableStyles()
   {

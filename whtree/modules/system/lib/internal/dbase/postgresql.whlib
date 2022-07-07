@@ -76,6 +76,8 @@ STATIC OBJECTTYPE ChangeContext
 
 /** Quick and dirty parser for expression lists, with support for quoted
     strings and parentheses
+    @param exprs Expression list, comma-separated
+    @return List of expressions
 */
 PUBLIC STRING ARRAY FUNCTION ParsePostgreSQLExpressionList(STRING exprs)
 {

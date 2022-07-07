@@ -121,7 +121,7 @@ export class ApplicationBase
                    };
 
     this.appname = appname;
-    this.apptarget = apptarget || {};
+    this.apptarget = apptarget;
     this.appnodes = {};
     this.title = getTid("tollium:shell.loadingapp");
 
@@ -188,7 +188,7 @@ export class ApplicationBase
       if (this.appcomm)
         await this.queueEventAsync('$terminate', '');
       if (this.appcomm)
-        this.appcomm.unregister();
+        this.appcomm.close();
       this.appcomm = null;
       this.whsid = null;
     }
@@ -546,6 +546,11 @@ export class ApplicationBase
     window.close();
   }
 
+  _onMsgRestartApp(options)
+  {
+    this.restartApp(options);
+  }
+
   queueEventAsync(actionname, param)
   {
     return new Promise( (resolve, reject) =>
@@ -576,10 +581,13 @@ export class ApplicationBase
                       });
   }
 
-  restartApp()
+  /// restart the application (optionally updating the target and/or sending a message)
+  restartApp({ target, message } = {})
   {
-    //restart the application using its current target.
-    let newapp =this.shell.sendApplicationMessage(this.appname, this.apptarget, null, false, true, { onappbar: false });
+    if (target === undefined)
+      target = this.apptarget;
+
+    let newapp = this.shell.sendApplicationMessage(this.appname, target, message, false, true, { onappbar: false });
     this.shell.applicationbar.replaceAppWith(this, newapp);
     this.terminateApplication();
   }

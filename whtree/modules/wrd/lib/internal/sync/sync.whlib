@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::internal/any.whlib";
 
@@ -254,6 +255,31 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
     @param wrdschema WRD schema to update
     @param remotepeer Peer where the source schema is located (DEFAULT OBJECT to use this WebHare installation)
     @param remoteschemaname Name of the source schema
+    @param options @includecelldef #SyncFromExternalSchemaBatch.options
+    @cell(boolean) options.syncmode Sync mode "batch", "incremental"
+    @return Iterator which gives back progress
+*/
+PUBLIC OBJECT FUNCTION SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ syncmode :=       IsDebugTagEnabled("wrd:incrementalsync") ? "incremental" : "batch"
+      ],
+      options,
+      [ enums :=          [ syncmode := [ "batch", "incremental" ] ]
+      , passthroughin :=  "syncoptions"
+      ]);
+
+  IF (options.syncmode = "batch")
+    RETURN SyncFromExternalSchemaBatch(wrdschema, remotepeer, remoteschemaname, options.syncoptions);
+  ELSE
+    RETURN SyncFromExternalSchemaIncremental(wrdschema, remotepeer, remoteschemaname, options.syncoptions);
+}
+
+
+/** Synchronize a local schema with the contents of an external schema
+    @param wrdschema WRD schema to update
+    @param remotepeer Peer where the source schema is located (DEFAULT OBJECT to use this WebHare installation)
+    @param remoteschemaname Name of the source schema
     @cell(string array)  options.excludetypes List of types that must not be updated
     @cell(string array)  options.includetypes If not empty, list of types that must be updated (excludedtypes takes priority over this list)
     @cell(string array) options.forcetypes List of mask for types for which all entities must be updated
@@ -262,7 +288,7 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
     @cell(boolean) options.updateall Set to TRUE to update all entities with their source data
     @cell(boolean) options.updatesynchistory Update the creation source with sync data
 */
-PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ excludetypes :=   STRING[]
@@ -598,13 +624,39 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
   YIELD [ status := `Updating settings`, progress := 90m, important := TRUE ];
 
-  BOOLEAN settingschanges;
-
   OBJECT schemadefdoc := MakeXMLDocument(res.schemadefinition);
   IF (Length(schemadefdoc->GetParseErrors()) != 0)
     THROW NEW Exception(`Invalid schema definition`); // should have crashed earlier anyway
 
   RECORD schemadef := ReadSchemaDefFromXML(schemadefdoc->documentelement, "mod::wrd/dummyresource.xml", res.schemadefinition, DEFAULT DATETIME);
+
+  BOOLEAN settingschanges := UpdateSchemaSettings(
+      wrdschema,
+      schemadef,
+      remotepeer,
+      remoteschemaname,
+      res,
+      isfullsync,
+      now,
+      options);
+
+  YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
+  GetPrimary()->PopWork();
+
+  RETURN [ anychanges := totalrecords != 0 OR settingschanges ];
+}
+
+BOOLEAN FUNCTION UpdateSchemaSettings(
+    OBJECT wrdschema,
+    RECORD schemadef,
+    OBJECT remotepeer,
+    STRING remoteschemaname,
+    RECORD syncinstrs,
+    BOOLEAN isfullsync,
+    DATETIME now,
+    RECORD options)
+{
+  BOOLEAN settingschanges;
 
   // Decode the schema settings from the remote schema
   RECORD ARRAY schemadef_settings :=
@@ -651,8 +703,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   {
     // Record the synchistory
     STRING remoteschema := (ObjectExists(remotepeer) ? remotepeer->url || "#" : "local schema ") || remoteschemaname;
-    STRING remotecreationsource := CellExists(res, "creationsource") ? res.creationsource : "unknown creationsource";
-    DATETIME remotecreationdate := CellExists(res, "creationdate") ? res.creationdate : DEFAULT DATETIME;
+    STRING remotecreationsource := CellExists(syncinstrs, "creationsource") ? syncinstrs.creationsource : "unknown creationsource";
+    DATETIME remotecreationdate := CellExists(syncinstrs, "creationdate") ? syncinstrs.creationdate : DEFAULT DATETIME;
 
     // Gather remote sync history
     RECORD ARRAY remotesynchistory;
@@ -702,8 +754,566 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
     }
   }
 
-  YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
-  GetPrimary()->PopWork();
+  RETURN settingschanges;
+}
 
-  RETURN [ anychanges := totalrecords != 0 OR settingschanges ];
+OBJECTTYPE TypeBlobGetter
+<
+  OBJECT wrdtype;
+
+  RECORD ARRAY attrs;
+  STRING ARRAY blobattrs;
+
+  MACRO NEW(OBJECT wrdtype)
+  {
+    this->wrdtype := wrdtype;
+
+    this->attrs := GenerateProcessingInstructions(this->wrdtype, 0, [ "*" ]);
+    DELETE FROM this->attrs WHERE NOT __haveblob;
+    this->blobattrs := SELECT AS STRING ARRAY COLUMN localtag FROM this->attrs WHERE __haveblob;
+  }
+
+  /** Returns all blobs from a set of entities
+      @param entityids Entity ids
+      @return List of blobs (image, file and richdocument embedding), ordered on hash. Only blobs with hashes are returned
+      @cell(string) return.hash Blob hash
+      @cell(blob) return.data Blob data
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetBlobsOfEntities(INTEGER ARRAY entityids)
+  {
+    RECORD ARRAY currententities := this->wrdtype->RunQuery(
+        [ outputcolumns :=  this->blobattrs
+        , filters :=        [ [ field := "WRD_ID", value := entityids ]
+                            , [ field := "WRD_TYPE", value := this->wrdtype->id ]
+                            ]
+        , historymode :=    "__getfields"
+        ]);
+
+    RETURN SELECT * FROM GetKnownBlobs(this->attrs, currententities) ORDER BY hash;
+  }
+>;
+
+/** Calculate the root parent type for a list of types
+    @param types List of types
+    @cell(integer) types.id Type ID
+    @cell(integer) types.parenttype Parent type id (0 if no parent)
+    @return List of type senriched with ID of root type @includecelldef #CalculateRootTypes.types
+    @cell return.roottype ID of root parent type
+*/
+RECORD ARRAY FUNCTION CalculateRootTypes(RECORD ARRAY types)
+{
+  types :=
+      SELECT *
+           , roottype :=    parenttype ?? id
+        FROM types
+    ORDER BY id;
+
+  BOOLEAN anychange := TRUE;
+  WHILE (anychange)
+  {
+    anychange := FALSE;
+    FOREVERY (RECORD rec FROM types)
+    {
+      IF (rec.id != rec.roottype)
+      {
+        RECORD pos := RecordLowerBound(types, [ id := rec.roottype ], [ "ID" ]);
+        IF (NOT pos.found)
+          THROW NEW Exception(`Could not locate parent type`);
+        IF (types[pos.position].roottype != rec.roottype)
+        {
+          anychange := TRUE;
+          types[#rec].roottype := types[pos.position].roottype;
+        }
+      }
+    }
+  }
+  RETURN types;
+}
+
+OBJECT FUNCTION *RescaleProgress(OBJECT itr, MONEY begin, MONEY range)
+{
+  WHILE (TRUE)
+  {
+    RECORD rec := itr->Next();
+    IF (rec.done)
+      RETURN rec.value;
+    YIELD CELL[ ...rec.value, progress := begin + rec.value.progress * range / 100m ];
+  }
+}
+
+OBJECT FUNCTION *ProcessSourceTargetEntityLists(OBJECT wrdtype, RECORD ARRAY sourceentities, RECORD ARRAY targetentities, DATETIME now, BOOLEAN forceupdate)
+{
+  GetPrimary()->PushWork();
+  TRY
+  {
+    RECORD ARRAY toupdate;
+    INTEGER ARRAY todelete;
+    RECORD ARRAY unchanged;
+
+    // create new entities
+    INTEGER spos := 0, slen := LENGTH(sourceentities), tpos := 0, tlen := LENGTH(targetentities);
+    INTEGER added := 0, updated := 0, deleted := 0, actionsinwork := 0, actions;
+
+    YIELD [ status := `Process entity list for ${wrdtype->tag} ${spos}/${slen} (actions: ${actions})`, progress := 0m ];
+
+    WHILE (spos < slen OR tpos < tlen)
+    {
+      INTEGER cmp;
+      IF (tpos = tlen)
+        cmp := -1;
+      ELSE IF (spos = slen)
+        cmp := 1;
+      ELSE IF (sourceentities[spos].wrd_guid <= targetentities[tpos].wrd_guid)
+        cmp := sourceentities[spos].wrd_guid = targetentities[tpos].wrd_guid ? 0 : -1;
+      ELSE
+        cmp := 1;
+
+      IF (cmp = -1) // new entity
+      {
+        RECORD sdata := sourceentities[spos];
+        INTEGER wrd_id := wrdtype->CreateEntity(CELL
+            [ sdata.wrd_guid
+            , wrd_modificationdate :=   AddTimeToDate(-1, sdata.wrd_modificationdate)
+            ], [ importmode := TRUE, temp := TRUE ])->id;
+
+        INSERT CELL[ sourceid := sdata.wrd_id, sdata.wrd_guid, wrd_id ] INTO toupdate AT END;
+        added := added + 1;
+        actionsinwork := actionsinwork + 1;
+        actions := actions + 1;
+      }
+      ELSE IF (cmp = 0)
+      {
+        RECORD sdata := sourceentities[spos];
+        RECORD tdata := targetentities[tpos];
+        IF (sdata.wrd_modificationdate != tdata.wrd_modificationdate OR forceupdate)
+        {
+          INSERT CELL[ sourceid := sdata.wrd_id, sdata.wrd_guid, wrd_id := tdata.wrd_id ] INTO toupdate AT END;
+          updated := updated + 1;
+
+          IF (tdata.wrd_limitdate >= now AND tdata.wrd_creationdate != MAX_DATETIME)
+          {
+            // close the entity to release constraints on its unique attributes
+            wrdtype->UpdateEntity(tdata.wrd_id, CELL[ wrd_limitdate := now, tdata.wrd_modificationdate ]);
+            actions := actions + 1;
+            actionsinwork := actionsinwork + 1;
+          }
+        }
+        ELSE
+          INSERT CELL[ sdata.wrd_guid, wrd_id := tdata.wrd_id ] INTO unchanged AT END;
+      }
+      ELSE // cmp = 1
+      {
+        RECORD tdata := targetentities[tpos];
+        deleted := deleted + 1;
+        INSERT tdata.wrd_id INTO todelete AT END;
+        IF (tdata.wrd_limitdate >= now)
+        {
+          // close the entity to release constraints on its unique attributes
+          wrdtype->UpdateEntity(tdata.wrd_id, [ wrd_limitdate := now ]);
+          actions := actions + 1;
+          actionsinwork := actionsinwork + 1;
+        }
+      }
+
+      IF (actionsinwork >= 1000)
+      {
+        GetPrimary()->PopWork();
+        GetPrimary()->PushWork();
+        actionsinwork := 0;
+      }
+
+      IF (cmp <= 0)
+      {
+        spos := spos + 1;
+        IF ((spos % 1000) = 0)
+          YIELD [ status := `Process entity list for ${wrdtype->tag} ${spos}/${slen} (actions: ${actions})`, progress := 100m * spos / slen ];
+      }
+      IF (cmp >= 0)
+        tpos := tpos + 1;
+    }
+
+    RETURN CELL
+        [ unchanged
+        , toupdate
+        , todelete
+        ];
+  }
+  FINALLY (OBJECT e)
+    DoPopWork(e);
+}
+
+INTEGER ARRAY FUNCTION GetReferencedDomains(RECORD ARRAY attrs)
+{
+  INTEGER ARRAY domains;
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.attributetypename = "ARRAY")
+      domains := domains CONCAT GetReferencedDomains(attr.fields);
+    IF (CellExists(attr, "DOMAIN") AND attr.domain != 0)
+      INSERT attr.domain INTO domains AT END;
+  }
+  RETURN GetSortedSet(domains);
+}
+
+// Enrich all processing instructions with translation maps (of the root type)
+RECORD ARRAY FUNCTION GetIncrementalSyncAttrMaps(OBJECT wrdschema, RECORD ARRAY attrs, RECORD ARRAY targettypes, RECORD ARRAY mappings)
+{
+  FOREVERY (RECORD attr FROM attrs)
+  {
+    IF (attr.attributetypename = "ARRAY")
+      attrs[#attr].fields := GetIncrementalSyncAttrMaps(wrdschema, attr.fields, targettypes, mappings);
+    IF (NOT CellExists(attr, "DOMAIN") OR attr.domain = 0)
+      CONTINUE;
+
+    RECORD ttype := SELECT * FROM targettypes WHERE id = attr.domain;
+    IF (NOT RecordExists(ttype))
+      THROW NEW Exception(`Could not find target type #${attr.domain}`);
+    RECORD pos := RecordLowerBound(mappings, ttype, [ "ROOTTYPE" ]);
+    INSERT CELL __map := mappings[pos.position].mappings INTO attrs[#attr];
+  }
+
+  RETURN attrs;
+}
+
+/** Return the list of schemadef defined attributes for a type
+    @param schemadef Remote schema definition
+    @param typetag Tag of type
+    @return List of attribute tags
+*/
+STRING ARRAY FUNCTION GetRemoteCustomAttributes(RECORD schemadef, STRING typetag)
+{
+  STRING ARRAY attrtags;
+
+  // The list of attributes is the union of the attributes for that type plus of
+  // those defined in its parents
+  WHILE (typetag != "")
+  {
+    RECORD type := SELECT * FROM schemadef.types WHERE tag = typetag;
+    attrtags := attrtags CONCAT SELECT AS STRING ARRAY tag FROM type.attrs;
+    typetag := type.parenttype_tag;
+  }
+
+  RETURN attrtags;
+}
+
+// Pop work, rolling back when an exception is received on the top pushed work
+MACRO DoPopWork(OBJECT exc)
+{
+  IF (NOT ObjectExists(exc) OR GetPrimary()->IsNestedWorkOpen())
+    GetPrimary()->PopWork();
+  ELSE
+    GetPrimary()->RollbackWork();
+}
+
+/** Synchronize a local schema with the contents of an external schema, using incremental updates
+    @param wrdschema WRD schema to update
+    @param remotepeer Peer where the source schema is located (DEFAULT OBJECT to use this WebHare installation)
+    @param remoteschemaname Name of the source schema
+    @cell(string array) options.excludetypes List of types that must not be updated
+    @cell(string array) options.includetypes If not empty, list of types that must be updated (excludedtypes takes priority over this list)
+    @cell(string array) options.forcetypes List of mask for types for which all entities must be updated
+    @cell(object %WebBrowser) options.browser Optional browser to use
+    @cell(boolean) options.commitoften Whether to commit multiple times during the syncing process (instead of only once, after the sync)
+    @cell(boolean) options.updateall Set to TRUE to update all entities with their source data
+    @cell(boolean) options.updatesynchistory Update the creation source with sync data
+*/
+PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ excludetypes :=   STRING[]
+      , includetypes :=   STRING[]
+      , forcetypes :=     STRING[]
+      , browser :=        DEFAULT OBJECT
+      , commitoften :=    FALSE
+      , updateall :=      FALSE
+      , updatesynchistory := TRUE
+      ], options);
+
+  // Is this a full synchronization?
+  BOOLEAN isfullsync := LENGTH(options.excludetypes) = 0 AND (LENGTH(options.includetypes) = 0 OR "*" IN options.includetypes);
+
+  FOREVERY (STRING s FROM options.excludetypes)
+    options.excludetypes[#s] := ToUppercase(s);
+  FOREVERY (STRING s FROM options.includetypes)
+    options.includetypes[#s] := ToUppercase(s);
+  options.includetypes := options.includetypes;
+
+  OBJECT whfsmapper := NEW WHFSResourceNameMapper;
+
+  // ListTypeEntities and RunWRDQuery knownblob support are only present in 5.0.1 and older
+  BOOLEAN peer_supports_isync := TRUE;
+  IF (ObjectExists(remotepeer))
+  {
+    RECORD conndata := remotepeer->InvokeAdminService("Connect");
+    peer_supports_isync := CellExists(conndata, "semver") AND VersionSatisfiesRange(conndata.semver, ">= 5.0.1-dev", [ comparemode := "webhare" ]);
+  }
+
+  // Get the schema structure first
+  YIELD [ status := `Getting schema structure instructions`, progress := 0m, important := TRUE ];
+  RECORD schemasyncinstr;
+  IF (NOT ObjectExists(remotepeer))
+    schemasyncinstr := GetSyncInstructions(OpenWRDSchemaByName(remoteschemaname), RECORD[], [ excludetypes := [ "*" ] ]);
+  ELSE
+    schemasyncinstr := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, RECORD[], [ excludetypes := [ "*" ] ]);
+
+  YIELD [ status := `Applying schema updates`, progress := 5m, important := TRUE ];
+
+  // Apply type updates
+  GetPrimary()->PushWork();
+  TRY
+  {
+    wrdschema->ApplySchemaDefinition(
+          [ __schemadefinition := schemasyncinstr.schemadefinition
+          , fromexternal := TRUE
+          , applysettings := FALSE
+          , reportupdates := TRUE
+          , reportskips := TRUE
+          ]);
+  }
+  FINALLY (OBJECT e)
+    DoPopWork(e);
+
+  // Re-parse the schema definition to get the list of available types
+  RECORD sourceschemadef := ReadSchemaDefFromXML(MakeXMLDocument(schemasyncinstr.schemadefinition)->documentelement, "mod::wrd/dummyresource.xml", schemasyncinstr.schemadefinition, DEFAULT DATETIME);
+  STRING ARRAY sourcetypes := SELECT AS STRING ARRAY tag FROM sourceschemadef.types;
+
+  // List the local types that also exist in the source schema
+  RECORD ARRAY targettypes :=
+      SELECT *
+           , targetwrdtype := wrdschema->GetTypeById(id)
+        FROM wrdschema->ListTypes()
+       WHERE tag IN sourcetypes;
+
+  targettypes := CalculateRootTypes(targettypes);
+
+  // List of wrd_guid->wrd_id mappings, per root type
+  RECORD ARRAY mappings :=
+      SELECT roottype
+           , mappings :=    RECORD[]
+        FROM targettypes
+    GROUP BY roottype;
+
+  RECORD ARRAY dotargettypes :=
+      SELECT *
+        FROM targettypes
+       WHERE NOT __MatchesAnyMask(tag, options.excludetypes)
+         AND (IsDefaultValue(options.includetypes) OR __MatchesAnyMask(tag, options.includetypes));
+
+  DATETIME now := GetCurrentDateTime();
+
+  RECORD ARRAY toprocess;
+  FOREVERY (RECORD targettype FROM dotargettypes)
+  {
+    MONEY progress_begin := 10m + 30m * #targettype / LENGTH(dotargettypes);
+    MONEY progress_range := 30m / LENGTH(dotargettypes);
+
+    YIELD [ status := `Getting entity list for ${targettype.tag}`, progress := progress_begin ];
+
+    RECORD ARRAY sourceentities;
+    IF (peer_supports_isync)
+    {
+      IF (NOT ObjectExists(remotepeer))
+        sourceentities := RPC_ListTypeEntities(remoteschemaname, targettype.tag).entities;
+      ELSE
+        sourceentities := remotepeer->InvokeWRDSyncService("ListTypeEntities", remoteschemaname, targettype.tag).entities;
+    }
+    ELSE
+    {
+      RECORD query :=
+          [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_MODIFICATIONDATE" ]
+          , typefilter := STRING[ targettype.tag ]
+          , historymode := "__getfields"
+          ];
+
+      IF (NOT ObjectExists(remotepeer))
+        sourceentities := RPC_RunWRDQuery(remoteschemaname, targettype.tag, query).data;
+      ELSE
+        sourceentities := remotepeer->InvokeWRDSyncService("RunWRDQuery", remoteschemaname, targettype.tag, query).data;
+
+      sourceentities := SELECT * FROM sourceentities ORDER BY wrd_guid;
+    }
+
+    RECORD ARRAY targetentities := targettype.targetwrdtype->__GetTypeEntityList();
+
+    // Process the entity lists, determine which entities to update/delete, create new entities and close updated entities
+    // Yields progress from 0..100, so rescale it
+    OBJECT itr := ProcessSourceTargetEntityLists(targettype.targetwrdtype, sourceentities, targetentities, now, __MatchesAnyMask(targettype.tag, options.forcetypes));
+    RECORD res := YIELD *RescaleProgress(itr, progress_begin, progress_range);
+
+    // Update the mappings of the root type. Keep it sorted (inheritance isn't used often enough to care about costs for reduntant sorts for now)
+    RECORD rootpos := RecordLowerBound(mappings, targettype, [ "ROOTTYPE" ]);
+    IF (NOT rootpos.found)
+      THROW NEW Exception(`Could not find mappings for rootttype ${targettype.roottype}`);
+    mappings[rootpos.position].mappings := SELECT * FROM mappings[rootpos.position].mappings CONCAT res.unchanged CONCAT res.toupdate ORDER BY wrd_guid;
+
+    // Register the instructions for fase 2
+    INSERT CELL
+        [ targettype.tag
+        , targettype.targetwrdtype
+        , res.toupdate
+        , res.todelete
+        , targettype.roottype
+        ] INTO toprocess AT END;
+  }
+
+  MONEY phase2_progress_start := 40, phase2_progress_range := 45;
+
+  // Calculate the attributes that will be synced plus the list of referenced domains
+  INTEGER ARRAY referenceddomains;
+  FOREVERY (RECORD dotype FROM toprocess)
+  {
+    STRING ARRAY remotecustomattrs := GetRemoteCustomAttributes(sourceschemadef, dotype.tag);
+
+    STRING ARRAY outputcolumns := [ "WRD_ID" ] CONCAT
+        SELECT AS STRING ARRAY tag
+          FROM dotype.targetwrdtype->ListAttributes(0)
+         WHERE NOT isunsafetocopy
+           AND NOT isreadonly
+           AND (base OR tag IN remotecustomattrs);
+
+    RECORD ARRAY attrs := GenerateProcessingInstructions(dotype.targetwrdtype, 0, outputcolumns);
+
+    toprocess[#dotype] := CELL
+        [ ...dotype
+        , outputcolumns
+        , attrs
+        ];
+
+    referenceddomains := referenceddomains CONCAT GetReferencedDomains(attrs);
+  }
+
+  // Collect additional wrd_guid->wrd_id mappings for unsynced types that are referenced from the synced set
+  RECORD ARRAY unmappedtypes :=
+        SELECT *
+          FROM targettypes
+         WHERE id IN referenceddomains
+           AND id NOT IN (SELECT AS INTEGER ARRAY id FROM dotargettypes);
+
+  IF (IsValueSet(unmappedtypes))
+  {
+    MONEY progress_range := 5;
+    FOREVERY (RECORD type FROM unmappedtypes)
+    {
+      YIELD [ status := `Getting additional mapping for ${type.tag}`, progress := phase2_progress_start + progress_range * #type / LENGTH(unmappedtypes) ];
+
+      RECORD ARRAY entities := type.targetwrdtype->__GetTypeEntityList();
+
+      RECORD rootpos := RecordLowerBound(mappings, type, [ "ROOTTYPE" ]);
+      IF (NOT rootpos.found)
+        THROW NEW Exception(`Could not find mappings for rootttype ${type.roottype}`);
+      mappings[rootpos.position].mappings := SELECT * FROM mappings[rootpos.position].mappings CONCAT (SELECT wrd_id, wrd_guid FROM entities) ORDER BY wrd_guid;
+    }
+
+    phase2_progress_start := phase2_progress_start + progress_range;
+    phase2_progress_range := phase2_progress_range - progress_range;
+  }
+
+  // Calculate progress per type for the following fase
+  INTEGER total_toupdate := SELECT AS INTEGER SUM(LENGTH(toupdate)) FROM toprocess;
+  INTEGER total_todelete := SELECT AS INTEGER SUM(LENGTH(todelete)) FROM toprocess;
+  INTEGER now_updates;
+  FOREVERY (RECORD rec FROM toprocess)
+  {
+    INSERT CELL progress_begin := phase2_progress_start + phase2_progress_range * now_updates / (total_toupdate ?? 1) INTO toprocess[#rec];
+    INSERT CELL progress_range := phase2_progress_range * LENGTH(rec.toupdate) / (total_toupdate ?? 1) INTO toprocess[#rec];
+    now_updates := now_updates + LENGTH(rec.toupdate);
+  }
+
+  // Process fase 2 sync (updating entities)
+  FOREVERY (RECORD dotype FROM toprocess)
+  {
+    RECORD ARRAY attrswithmapping := GetIncrementalSyncAttrMaps(wrdschema, dotype.attrs, targettypes, mappings);
+    OBJECT blobgetter := NEW TypeBlobGetter(dotype.targetwrdtype);
+
+    INTEGER step := 512;
+    FOR (INTEGER i := 0; i < LENGTH(dotype.toupdate); i := i + step)
+    {
+      YIELD [ status := `Updating entities for ${dotype.tag} ${i}/${LENGTH(dotype.toupdate)}`, progress := dotype.progress_begin + dotype.progress_range * i / LENGTH(dotype.toupdate) ];
+      RECORD ARRAY todo := ArraySlice(dotype.toupdate, i, step);
+
+      RECORD query := CELL
+          [ dotype.outputcolumns
+          , typefilter := STRING[ dotype.tag ]
+          , filters := [ [ field := "wrd_id", value := SELECT AS INTEGER ARRAY sourceid FROM todo ] ]
+          , historymode := "__getfields"
+          ];
+
+      RECORD syncopts :=
+          [ mapwhfslinks := TRUE
+          ];
+
+      // Gather list of known blobs for the updated entities (support in RPC_RunWRDQuery was added in WebHare 5.0.1)
+      RECORD ARRAY knownblobs;
+      IF (peer_supports_isync)
+      {
+        knownblobs := blobgetter->GetBlobsOfEntities(SELECT AS INTEGER ARRAY wrd_id FROM todo);
+        INSERT CELL knownblobs := SELECT AS STRING ARRAY hash FROM knownblobs INTO syncopts;
+      }
+
+      RECORD res;
+      IF (NOT ObjectExists(remotepeer))
+        res := RPC_RunWRDQuery(remoteschemaname, dotype.tag, query, syncopts);
+      ELSE
+        res := remotepeer->InvokeWRDSyncService("RunWRDQuery", remoteschemaname, dotype.tag, query, syncopts);
+
+      // Restore local links and blobs from attribute mappings and knownblobs
+      res.data :=
+          SELECT *
+            FROM RestoreLocalLinks(targettypes, attrswithmapping, res.data, knownblobs, dotype.targetwrdtype->tag)
+        ORDER BY wrd_guid;
+
+      GetPrimary()->PushWork();
+      TRY
+      {
+        FOREVERY (RECORD rec FROM todo)
+        {
+          RECORD pos := RecordLowerBound(res.data, rec, [ "WRD_GUID" ]);
+          IF (NOT pos.found)
+          {
+            // entity was deleted during processing
+            INSERT rec.sourceid INTO toprocess[#dotype].todelete AT END;
+            CONTINUE;
+          }
+
+          // WRD_ID is from the wrong server, WRD_GUID is the same as the updated entity (avoid costly guid checks in entity update)
+          RECORD entitydata := CELL[ ...res.data[pos.position], DELETE wrd_id, DELETE wrd_guid ];
+          dotype.targetwrdtype->UpdateEntity(rec.wrd_id, entitydata, CELL[ importmode := TRUE, whfsmapper, decodeinvalidutf8as := "ISO-8859-15" ]);
+        }
+      }
+      FINALLY (OBJECT e)
+        DoPopWork(e);
+    }
+  }
+
+  // Entity deletion
+  FOREVERY (RECORD dotype FROM toprocess)
+    IF (IsValueSet(dotype.todelete))
+    {
+      YIELD [ status := `Deleting entities for ${dotype.tag}`, progress := 85m + 10m * #dotype / LENGTH(toprocess) ];
+      GetPrimary()->PushWork();
+      TRY
+        dotype.targetwrdtype->DeleteEntities(dotype.todelete);
+      FINALLY (OBJECT e)
+        DoPopWork(e);
+    }
+
+  YIELD [ status := `Updating settings`, progress := 95m ];
+  BOOLEAN settingschanges;
+  GetPrimary()->PushWork();
+  TRY
+  {
+    settingschanges := UpdateSchemaSettings(
+        wrdschema,
+        sourceschemadef,
+        remotepeer,
+        remoteschemaname,
+        schemasyncinstr,
+        isfullsync,
+        now,
+        options);
+  }
+  FINALLY (OBJECT e)
+    DoPopWork(e);
+
+  RETURN [ anychanges := total_toupdate + total_todelete != 0 OR settingschanges ];
 }
