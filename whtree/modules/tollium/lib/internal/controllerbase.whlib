@@ -1794,16 +1794,16 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       @cell(record) options.target If set, use this target instead of the current applicationtarget
       @cell(record) options.message Optional message to send to the restarted application
   */
-  PUBLIC MACRO RestartApplication(RECORD options)
+  PUBLIC MACRO RestartApplication(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
-        [ target :=     DEFAULT RECORD
+        [ target :=     this->applicationtarget
         , message :=    DEFAULT RECORD
         ], options);
 
     // Always send this->applicationtarget if options.target isn't set, if applicationtarget is updated
     // just before this call this call will win that race with that update
-    this->ExecuteClientCall("RestartApp", CELL[ target := options.target ?? this->applicationtarget, options.message ]);
+    this->ExecuteClientCall("RestartApp", CELL[ options.target, options.message ]);
   }
 
   MACRO DeleteScreenFromWindowStack(OBJECT screen)

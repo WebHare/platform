@@ -121,7 +121,7 @@ export class ApplicationBase
                    };
 
     this.appname = appname;
-    this.apptarget = apptarget || {};
+    this.apptarget = apptarget;
     this.appnodes = {};
     this.title = getTid("tollium:shell.loadingapp");
 
@@ -581,11 +581,12 @@ export class ApplicationBase
                       });
   }
 
+  /// restart the application (optionally updating the target and/or sending a message)
   restartApp({ target, message } = {})
   {
-    target = target || this.apptarget;
+    if (target === undefined)
+      target = this.apptarget;
 
-    //restart the application using its current target.
     let newapp = this.shell.sendApplicationMessage(this.appname, target, message, false, true, { onappbar: false });
     this.shell.applicationbar.replaceAppWith(this, newapp);
     this.terminateApplication();
