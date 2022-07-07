@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -24,20 +25,30 @@ FOREVERY(RECORD receiver FROM receivers)
 {
   RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
 
-  RECORD serverinfo := [ installationid := ReadRegistryKey("system.global.installationid")
-                       , version := GetWebhareVersionInfo()
-                       ];
+  /* The base set (ie no further reports) of information should be something that's safe to share to a party that will treat
+     your information confidentially and would only use to report potential compatibility or security issues */
+  RECORD serverinfo :=
+     [ //we *need* the installation ID to deduplicate servers
+       installationid := ReadRegistryKey("system.global.installationid")
+     , version := GetWebhareVersionInfo()
+       //servername and hostname doesn't reveal much more looking up your IP against public databases or a scan would, so
+       //if you're willing to reveal the existence of this WebHare, you're probably okay way with revealing that info too
+     , servername := GetServerName()
+     , hostname := GetSystemHostName(TRUE)
+       //especially the kernel version is useful for compatibility analysis. and this is like useragent, identical for lots of machines
+     , osname := GetSystemOSName()
+     ];
 
-  IF("modules" IN receiver.reports)
+  IF("modules" IN receiver.reports) //'modules' would allow reporting more precise compatibility/security
   {
     RECORD ARRAY modules := SELECT name
                                  , version
                                  , lastmodified
-                              FROM GetInstalledModulesOverview(FALSE); //include_deleted
+                              FROM GetInstalledModulesOverview(FALSE); //include_deleted = FALSE
 
     INSERT CELL modules := modules INTO serverinfo;
   }
-  IF("sites" IN receiver.reports)
+  IF("sites" IN receiver.reports) //'sites' is much more sensitive and useful to build centralized site lookups for eg. support functions
   {
     RECORD ARRAY sites :=
             SELECT id
