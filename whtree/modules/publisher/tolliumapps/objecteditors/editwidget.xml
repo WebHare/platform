@@ -1,21 +1,22 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="editwidget.whlib"
-         gid="tolliumapps.objecteditors.editwidget">
+         gid="tolliumapps.objecteditors.editwidget"
+         library="editwidget.whlib">
 
-    <screen name="editor" title="">
+  <screen name="editor" footerbuttons="ok cancel" title="">
     <compositions>
       <publisher:whfsinstance name="instance" />
       <record name="widgetsettings" />
     </compositions>
+
     <body name="body">
-      <textedit name="filetitle" visible="false" width="1pr" tid="common.fsobjects.widgetname" suffixtid=".widgetname-notpublished"/>
-      <panel name="positioningpanel" visible="false" />
-      <tabs name="extensiontabs" visible="false" height="1pr" />
+      <textedit name="filetitle"
+                width="1pr"
+                suffixtid=".widgetname-notpublished"
+                tid="common.fsobjects.widgetname"
+                visible="false" />
+      <tabs name="extensiontabs" height="1pr" visible="false" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

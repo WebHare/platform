@@ -174,37 +174,19 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   PUBLIC RECORD FUNCTION GetWidgetEditor(OBJECT node)
   {
     BOOLEAN has_extension := node->HasAttribute("editextension");
-    BOOLEAN has_fragment := node->HasAttribute("editfragment");
-    BOOLEAN has_screen := node->HasAttribute("editscreen");
     BOOLEAN has_function := node->HasAttribute("editfunctionname");
 
-    IF((has_extension ? 1 : 0) + (has_fragment ? 1 : 0) + (has_function ? 1 : 0) + (has_screen ? 1 : 0) > 1)
-    {
-      this->AddError(node, "Only one of the editextension, editfragment, editscreen or editfunctionname attributes can be specified");
-      RETURN DEFAULT RECORD;
-    }
     IF (has_extension)
     {
-      STRING extensionref := this->ParseTolliumRef(node,"editextension");
-      RETURN extensionref != "" ? [ type := "extension", extension := extensionref ] : DEFAULT RECORD;
+      IF(has_function)
+        this->AddError(node, "Only one of the editextension or editfunctionname attributes can be specified");
+
+      RETURN [ type := "extension", extension := this->ParseTolliumRef(node,"editextension") ];
     }
-    IF(has_screen)
-    {
-      this->AddWarning(node, "editscreen= has been deprecated. Switch to editextension= (or editfunctionname=)");
-      STRING screenref := this->ParseTolliumRef(node,"editscreen");
-      RETURN screenref != "" ? [ type := "screen", screen := screenref ] : DEFAULT RECORD;
-    }
-    IF(has_fragment)
-    {
-      this->AddWarning(node, "editfragment= has been deprecated. Switch to editextension=");
-      STRING fragmentref := this->ParseTolliumRef(node,"editfragment");
-      RETURN fragmentref != "" ? [ type := "fragment", fragment := fragmentref ] : DEFAULT RECORD;
-    }
+
     IF(has_function)
-    {
-      STRING funcname := this->ParseFunctionRef(node, "editlibrary", "editfunctionname", "4.30.0");
-      RETURN [ type := "function", functionname := funcname ];
-    }
+      RETURN [ type := "function", functionname := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("editfunctionname")) ];
+
     RETURN DEFAULT RECORD;
   }
 
