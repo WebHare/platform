@@ -751,7 +751,8 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "user"
     {
-      RECORD ARRAY fields := query.defaultfields ?? defaultfields;
+      //older users may not have actually set stemmed_field. TODO queries.whlib does a CellExists so should we merge our enforcing with theirs?
+      RECORD ARRAY fields := EnforceStructure([[ stemmed_field := FALSE ]], query.defaultfields ?? defaultfields);
       RETURN
           [ simple_query_string :=
               [ query := query.userquery
