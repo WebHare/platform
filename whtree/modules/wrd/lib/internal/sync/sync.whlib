@@ -1290,6 +1290,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
     IF (IsValueSet(dotype.todelete))
     {
       YIELD [ status := `Deleting entities for ${dotype.tag}`, progress := 85m + 10m * #dotype / LENGTH(toprocess) ];
+      GetPrimary()->PushWork();
       TRY
         dotype.targetwrdtype->DeleteEntities(dotype.todelete);
       FINALLY (OBJECT e)
