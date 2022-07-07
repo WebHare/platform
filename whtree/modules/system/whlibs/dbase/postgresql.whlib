@@ -1131,7 +1131,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   RECORD ARRAY pvt_commandlog;
 
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
-  PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
+  PUBLIC PROPERTY allowerrordelay(pvt_delayerrors, SetAllowErrorDelay);
 
   /// @type(string) Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   PUBLIC PROPERTY transactionisolationlevel(pvt_transactionisolationlevel, SetTransactionIsolationLevel);

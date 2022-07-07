@@ -186,7 +186,10 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
     }
     ELSE //not found
     {
-      INSERT rec INTO settinginserts AT END;
+      IF (GetPrimary()->allowerrordelay)
+        INSERT rec INTO settinginserts AT END;
+      ELSE
+        INSERT rec INTO wrd.entity_settings;
       INSERT rec INTO settingupdates AT END;
     }
   }
