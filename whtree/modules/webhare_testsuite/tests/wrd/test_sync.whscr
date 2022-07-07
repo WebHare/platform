@@ -265,7 +265,7 @@ MACRO TestSync()
   schemaobj->^wrd_person->UpdateEntity(org_0,
         [ linktome := linktome1->id
         ]);
-  testfw->COmmitWork();
+  testfw->CommitWork();
 
   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag,
       [ includetypes := [ "WRD_PERSON" ]

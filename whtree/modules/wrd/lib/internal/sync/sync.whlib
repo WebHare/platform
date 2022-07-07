@@ -830,7 +830,7 @@ RECORD ARRAY FUNCTION CalculateRootTypes(RECORD ARRAY types)
   RETURN types;
 }
 
-OBJECT FUNCTION *RescaleProcess(OBJECT itr, MONEY begin, MONEY range)
+OBJECT FUNCTION *RescaleProgress(OBJECT itr, MONEY begin, MONEY range)
 {
   WHILE (TRUE)
   {
@@ -1138,7 +1138,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
     // Process the entity lists, determine which entities to update/delete, create new entities and close updated entities
     // Yields progress from 0..100, so rescale it
     OBJECT itr := ProcessSourceTargetEntityLists(targettype.targetwrdtype, sourceentities, targetentities, now, __MatchesAnyMask(targettype.tag, options.forcetypes));
-    RECORD res := YIELD *RescaleProcess(itr, progress_begin, progress_range);
+    RECORD res := YIELD *RescaleProgress(itr, progress_begin, progress_range);
 
     // Update the mappings of the root type. Keep it sorted (inheritance isn't used often enough to care about costs for reduntant sorts for now)
     RECORD rootpos := RecordLowerBound(mappings, targettype, [ "ROOTTYPE" ]);

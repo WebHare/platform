@@ -222,7 +222,7 @@ PUBLIC RECORD FUNCTION RPC_RunWRDQuery(STRING schemaname, STRING type, RECORD qu
   RETURN retval;
 }
 
-/** Runs a query on a WRD schema
+/** List all entities of with exactly this type (and no children types), also returning temporaries.
     @param schemaname WRD schema name
     @param type Type to execute the query on
     @return List of entities %WRDType2017::__GetTypeEntityList.return
