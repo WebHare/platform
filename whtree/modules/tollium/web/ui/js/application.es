@@ -581,12 +581,12 @@ export class ApplicationBase
                       });
   }
 
-  restartApp(options)
+  restartApp({ target, message } = {})
   {
-    let target = options.target || this.apptarget;
+    target = target || this.apptarget;
 
     //restart the application using its current target.
-    let newapp = this.shell.sendApplicationMessage(this.appname, target, options.message, false, true, { onappbar: false });
+    let newapp = this.shell.sendApplicationMessage(this.appname, target, message, false, true, { onappbar: false });
     this.shell.applicationbar.replaceAppWith(this, newapp);
     this.terminateApplication();
   }
