@@ -186,7 +186,7 @@ PUBLIC OBJECTTYPE Queries EXTEND TolliumScreenBase
         SELECT *
              , query := this->parser->ExtractUserQuery(query)
           FROM consilio.query_results
-         WHERE indexid = catalogid
+         WHERE COLUMN catalogid = VAR catalogid
 	             AND tag != "__consilio_preview";
 
     RETURN results;

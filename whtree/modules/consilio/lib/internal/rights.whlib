@@ -13,7 +13,7 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
              , name
              , icon := "consilio:consilio"
              , wrdschemaid := id
-          FROM consilio.indices
+          FROM consilio.catalogs
          WHERE id = objectid
                AND name NOT LIKE "$consilio$deleted$*";
   }
@@ -22,7 +22,7 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
   {
     RETURN
         SELECT AS INTEGER ARRAY id
-          FROM consilio.indices
+          FROM consilio.catalogs
          WHERE user->HasRightOn("consilio:read", id)
                AND name NOT LIKE "$consilio$deleted$*";
   }

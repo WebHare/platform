@@ -617,7 +617,7 @@ PUBLIC STRING FUNCTION GetConsilioRPCToken(STRING indextag, RECORD options DEFAU
 
 RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
 {
-  RETURN SELECT indexid, fsobject
+  RETURN SELECT catalogid, fsobject
            FROM consilio.contentsources
           WHERE fsobject IN candidateids
                 AND contentprovider = "publisher:webhare"
@@ -644,8 +644,8 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
     DELETE FROM candidates AS c WHERE fsobject != candidates[0].fsobject;
 
   RECORD ARRAY catalogs := SELECT id, name
-                             FROM consilio.indices
-                            WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT indexid FROM candidates);
+                             FROM consilio.catalogs
+                            WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT catalogid FROM candidates);
 
   IF(Length(catalogs) = 0)
     RETURN "";
@@ -653,12 +653,12 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
   IF(Length(catalogs) =  1)
     RETURN catalogs[0].name;
 
-  //Prefer the catalog which most closely matches what we need. resolve ties by taking the lowest indexid (we need a stable result..)
-  INTEGER smallestcatalog := SELECT AS INTEGER indexid
+  //Prefer the catalog which most closely matches what we need. resolve ties by taking the lowest catalogid (we need a stable result..)
+  INTEGER smallestcatalog := SELECT AS INTEGER catalogid
                                FROM consilio.contentsources
-                              WHERE indexid IN (SELECT AS INTEGER ARRAY id FROM catalogs)
-                           GROUP BY indexid
-                           ORDER BY COUNT(*), indexid;
+                              WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM catalogs)
+                           GROUP BY catalogid
+                           ORDER BY COUNT(*), catalogid;
 
   RETURN SELECT AS STRING name FROM catalogs WHERE id = smallestcatalog;
 }
@@ -1219,12 +1219,19 @@ STATIC OBJECTTYPE Catalog
 
   RECORD FUNCTION GetIndexManager()
   {
-    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
+    RETURN
+        SELECT indexmanagers.id
+             , indexmanagers.name
+             , indexmanagers.type
+          FROM consilio.indexmanagers
+             , consilio.catalog_indexmanagers
+         WHERE catalog_indexmanagers.catalogid = this->catalog.id
+               AND indexmanagers.id = catalog_indexmanagers.indexmanager;
   }
 
   STRING FUNCTION GetIndexName()
   {
-    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
+    RETURN SELECT AS STRING indexname FROM consilio.catalog_indexmanagers WHERE catalogid = this->id;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -1249,9 +1256,18 @@ STATIC OBJECTTYPE Catalog
     IF (language_changed AND this->ismanaged)
       INSERT CELL rebuild := TRUE INTO settings;
 
-    UPDATE consilio.indices SET RECORD settings WHERE id = this->id;
+    UPDATE consilio.catalogs SET RECORD CELL[ ...settings, DELETE indexmanager ] WHERE id = this->id;
+    IF (CellExists(settings, "indexmanager") AND settings.indexmanager != (RecordExists(this->indexmanager) ? this->indexmanager.id : 0))
+    {
+      IF (settings.indexmanager = 0)
+        DELETE FROM consilio.catalog_indexmanagers WHERE catalogid = this->id;
+      ELSE IF (NOT RecordExists(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id))
+        INSERT CELL[ catalogid := this->id, settings.indexmanager, indexname := __GenerateIndexName(), primary := TRUE ] INTO consilio.catalog_indexmanagers;
+      ELSE
+        UPDATE consilio.catalog_indexmanagers SET indexmanager := settings.indexmanager WHERE catalogid = this->id;
+    }
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    this->catalog := SELECT * FROM consilio.indices WHERE id = this->id;
+    this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
     IF (language_changed)
     {
@@ -1267,8 +1283,8 @@ STATIC OBJECTTYPE Catalog
   /// Delete this catalog
   PUBLIC MACRO DeleteSelf()
   {
-    UPDATE consilio.indices SET name := "$consilio$deleted$" || id WHERE id = this->id;
-    UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE indexid = this->id;
+    UPDATE consilio.catalogs SET name := "$consilio$deleted$" || id WHERE id = this->id;
+    UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE catalogid = this->id;
 
     GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     this->catalog.id := 0; //to be safe
@@ -1293,13 +1309,13 @@ STATIC OBJECTTYPE Catalog
     {
       fieldgroups :=
           SELECT AS STRING ARRAY fieldgroup
-            FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.indices WHERE id = this->id), " "), "fieldgroup")
+            FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = this->id), " "), "fieldgroup")
            WHERE fieldgroup != "";
     }
     IF(Length(fieldgroups) = 0)
     {
       TRY
-        newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.indices WHERE id = this->id);
+        newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = this->id);
       CATCH (OBJECT e)
         IF (NOT this->ismanaged)
           THROW;
@@ -1356,7 +1372,7 @@ STATIC OBJECTTYPE Catalog
         SELECT wordgroupid := wordgroup
              , words := GroupedValues(word)
           FROM consilio.thesaurus
-         WHERE indexid = this->id
+         WHERE catalogid = this->id
          GROUP BY wordgroup;
 
   }
@@ -1392,14 +1408,14 @@ STATIC OBJECTTYPE Catalog
       STRING ARRAY toadd := ArrayDelete(newwordgroup, SELECT AS STRING ARRAY word FROM oldwordgroup);
       FOREVERY (STRING word FROM toadd)
       {
-        INSERT INTO consilio.thesaurus(indexid, word, wordgroup)
+        INSERT INTO consilio.thesaurus(catalogid, word, wordgroup)
                VALUES(this->id, word, wordgroupid);
         anychanges := TRUE;
       }
     }
-    IF (RecordExists(SELECT FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated))
+    IF (RecordExists(SELECT FROM consilio.thesaurus WHERE catalogid = this->id AND wordgroup NOT IN updated))
     {
-      DELETE FROM consilio.thesaurus WHERE indexid = this->id AND wordgroup NOT IN updated;
+      DELETE FROM consilio.thesaurus WHERE catalogid = this->id AND wordgroup NOT IN updated;
       anychanges := TRUE;
     }
 
@@ -1564,7 +1580,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
                                )
              , definedby
           FROM consilio.contentsources
-         WHERE indexid = this->catalog.id;
+         WHERE catalogid = this->catalog.id;
 
     IF (NOT options.__withdeleted)
       sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
@@ -1576,7 +1592,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
   {
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
     csourcesettings := CELL[ id := srcid
-                           , indexid := this->catalog.id
+                           , catalogid := this->catalog.id
                            , csourcesettings.maxgroupobjects
                            , csourcesettings.discardsummaries
                            , csourcesettings.definedby
@@ -1616,7 +1632,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     FOREVERY (RECORD contentsource FROM
         SELECT id, fsobject
           FROM consilio.contentsources
-         WHERE indexid = this->catalog.id
+         WHERE catalogid = this->catalog.id
                AND contentprovider = "publisher:webhare"
                AND tag NOT LIKE "$consilio$deleted$*")
     {
@@ -1644,7 +1660,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
         SELECT id, fsobject
           FROM consilio.contentsources
          WHERE id != searchid
-               AND contentsources.indexid = VAR indexid
+               AND contentsources.catalogid = VAR indexid
                AND contentprovider = "publisher:webhare"
                AND tag NOT LIKE "$consilio$deleted$*"))
     {
@@ -1712,7 +1728,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     RECORD match :=
         SELECT *
           FROM consilio.contentsources
-         WHERE indexid = this->catalog.id
+         WHERE catalogid = this->catalog.id
                AND ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
     IF(RecordExists(match))
       RETURN NEW ContentSource(this, match);
@@ -1769,9 +1785,14 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
       SELECT id
            , tag := name
            , ismanaged := type = whconstant_consilio_catalogtype_managed
-           , indexmanager
-        FROM consilio.indices
+        FROM consilio.catalogs
        WHERE options.__withdeleted OR name NOT LIKE "$consilio$deleted$*";
+  RECORD ARRAY indexmanagers :=
+      SELECT indexmanager
+           , id := catalogid
+        FROM consilio.catalog_indexmanagers
+       WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM catalogs);
+  catalogs := JoinArrays(catalogs, "id", indexmanagers, [ indexmanager := 0 ], [ rightouterjoin := TRUE ]);
   IF (options.__withdeleted)
     catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;
   RETURN catalogs;
@@ -1784,8 +1805,8 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
 PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
 {
   RECORD match :=
-      SELECT * FROM consilio.indices
-       WHERE ToUppercase(indices.name) = ToUppercase(tag)
+      SELECT * FROM consilio.catalogs
+       WHERE ToUppercase(name) = ToUppercase(tag)
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
@@ -1804,8 +1825,8 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
 PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
 {
   RECORD match :=
-      SELECT * FROM consilio.indices
-       WHERE indices.id = VAR id
+      SELECT * FROM consilio.catalogs
+       WHERE catalogs.id = VAR id
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
@@ -1823,11 +1844,11 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
 */
 PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
 {
-  INTEGER indexid :=
-      SELECT AS INTEGER contentsources.indexid
+  INTEGER catalogid :=
+      SELECT AS INTEGER contentsources.catalogid
         FROM consilio.contentsources
        WHERE ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
-  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  OBJECT catalog := OpenConsilioCatalogById(catalogid);
   RETURN ObjectExists(catalog) ? catalog->OpenContentSource(tag) : DEFAULT OBJECT;
 }
 
@@ -1837,12 +1858,12 @@ PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
 */
 PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
 {
-  INTEGER indexid :=
-      SELECT AS INTEGER contentsources.indexid
+  INTEGER catalogid :=
+      SELECT AS INTEGER contentsources.catalogid
         FROM consilio.contentsources
        WHERE contentsources.id = VAR id
              AND tag NOT LIKE "$consilio$deleted$*";
-  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  OBJECT catalog := OpenConsilioCatalogById(catalogid);
   RETURN ObjectExists(catalog) ? catalog->OpenContentSourceById(id) : DEFAULT OBJECT;
 }
 
@@ -1861,7 +1882,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     THROW NEW Exception(`Invalid catalog tag '${tag}'`);
 
   // Index name should be unique
-  IF (RecordExists(SELECT FROM consilio.indices WHERE ToUppercase(COLUMN name) = ToUppercase(VAR tag)))
+  IF (RecordExists(SELECT FROM consilio.catalogs WHERE ToUppercase(name) = ToUppercase(tag)))
     THROW NEW Exception(`Catalog with tag '${tag}' already exists`);
 
   options := ValidateOptions( [ loglevel := 0
@@ -1876,7 +1897,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
 
   INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : options.managed ? GetDefaultIndexManager() : 0;
 
-  INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
+  INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
 
   // Create index
   INSERT CELL[ id := indexid
@@ -1885,13 +1906,17 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.loglevel
              , options.priority
              , options.definedby
-             , indexmanager
-             , indexname := "c_" || tolowercase(encodebase16(decodeufs(generateufs128bitid())))
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
              , fieldgroups := Detokenize(options.fieldgroups, " ")
              , options.lang
-             ] INTO consilio.indices;
+             ] INTO consilio.catalogs;
+  IF (indexmanager != 0)
+    INSERT CELL[ catalogid := indexid
+               , indexmanager
+               , indexname := __GenerateIndexName()
+               , primary := TRUE
+               ] INTO consilio.catalog_indexmanagers;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   OBJECT catalog := OpenConsilioCatalogById(indexid);
@@ -1903,7 +1928,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     }
     CATCH
     {
-      DELETE FROM consilio.indices WHERE id=indexid;
+      DELETE FROM consilio.catalogs WHERE id=indexid;
       THROW;
     }
 
@@ -1911,6 +1936,11 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   }
 
   RETURN catalog;
+}
+
+PUBLIC STRING FUNCTION __GenerateIndexName()
+{
+  RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
 }
 
 /** @short Generate linkcheck report for WRD

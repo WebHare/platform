@@ -209,29 +209,29 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
     FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
       FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "index"))
       {
-        STRING indexname := mod || ":" || indexnode->GetAttribute("tag");
+        STRING tag := mod || ":" || indexnode->GetAttribute("tag");
         INTEGER setpriority := ParseXSInt(indexnode->Getattribute("priority"));
 
         // Update or create the index
-        RECORD indexrec := SELECT * FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(VAR indexname);
+        RECORD indexrec := SELECT * FROM consilio.catalogs WHERE ToUppercase(name) = ToUppercase(VAR tag);
         IF (RecordExists(indexrec))
         {
           IF (indexrec.type != whconstant_consilio_catalogtype_unmanaged)
           {
-            PrintTo(2,`There already is an index named '${indexname}', which is not a module index\n`);
+            PrintTo(2,`There already is an index named '${tag}', which is not a module index\n`);
             SetConsoleExitCode(1);
             CONTINUE;
           }
           /* Nothing to update (yet?)
-          UPDATE consilio.indices
+          UPDATE consilio.catalog
              SET
            WHERE id = indexrec.id;
           GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);*/
         }
         ELSE
         {
-          OBJECT newindex := CreateConsilioCatalog(indexname, [ priority := setpriority, managed := FALSE ]);
-          indexrec := CELL[ newindex->id, name := indexname ];
+          OBJECT newindex := CreateConsilioCatalog(tag, [ priority := setpriority, managed := FALSE ]);
+          indexrec := CELL[ newindex->id, name := tag ];
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
       }

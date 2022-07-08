@@ -9,25 +9,30 @@ LOADLIB "mod::system/lib/database.whlib";
 PUBLIC SCHEMA
   < TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "indexmanager" NULL := 0
     , STRING "name"
     , STRING "description"
     , STRING "definedby"
     , INTEGER "loglevel"
     , INTEGER "priority"
-    , BOOLEAN "rebuild"
     , INTEGER "type"
-    , STRING "indexname"
     , STRING "fieldgroups"
     , STRING "lang"
     ; KEY id
-    > indices
+    > catalogs
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "catalogid" NULL := 0
+    , INTEGER "indexmanager" NULL := 0
+    , STRING "indexname"
+    , BOOLEAN "primary"
+    , BOOLEAN "rebuild"
+    > catalog_indexmanagers
   , TABLE
     < INTEGER "id" NULL := 0
     , STRING "contentprovider"
     , STRING "data"
     , BOOLEAN "discardsummaries"
-    , INTEGER "indexid" NULL := 0
+    , INTEGER "catalogid" NULL := 0
     , INTEGER "maxgroupobjects"
     , STRING "tag"
     , STRING "title"
@@ -80,7 +85,7 @@ PUBLIC SCHEMA
     < INTEGER "id" NULL := 0
     , STRING "query"
     , DATETIME "when"
-    , INTEGER "indexid" NULL := 0
+    , INTEGER "catalogid" NULL := 0
     , INTEGER "pages"
     , STRING "sess"
     , INTEGER "results"
@@ -106,7 +111,7 @@ PUBLIC SCHEMA
     > indexmanagers
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "indexid" NULL := 0
+    , INTEGER "catalogid" NULL := 0
     , INTEGER "wordgroup"
     , STRING "word"
     ; KEY id

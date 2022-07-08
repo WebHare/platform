@@ -26,8 +26,7 @@ PUBLIC MACRO WaitForContentSourceDone(OBJECT catalog, INTEGER contentsourceid)
                                               , deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
                                               ]);
 
-  INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.indices WHERE id = catalog->id;
-  IF (indexmgrid != 0)
+  FOREVERY (INTEGER indexmgrid FROM SELECT AS INTEGER ARRAY indexmanager FROM consilio.catalog_indexmanagers WHERE catalogid = catalog->id)
     RefreshIndexManager(indexmgrid, contentsourceid);
 }
 

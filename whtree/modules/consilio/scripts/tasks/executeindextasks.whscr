@@ -26,14 +26,14 @@ OBJECT trans := OpenPrimary([ clientname := "consilio execute index tasks" ]);
 RECORD ARRAY to_recheck := SELECT contentsources.id
                                 , contentsources.contentprovider
                                 , contentsources.data
-                                , indices.name
-                                , catalogid := indices.id
+                                , catalogs.name
+                                , contentsources.catalogid
                              FROM consilio.contentsources
-                                , consilio.indices
-                            WHERE contentsources.indexid = indices.id
+                                , consilio.catalogs
+                            WHERE contentsources.catalogid = catalogs.id
                                   AND contentsources.status >= 0
                                   AND contentprovider IN [ "consilio:custom" ]
-                                  AND indices.name NOT LIKE "$consilio$deleted$*"
+                                  AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
 IF (Length(to_recheck) = 0 AND settings.debug)
@@ -109,14 +109,14 @@ to_recheck := SELECT contentsources.id
                    , contentsources.contentprovider
                    , contentsources.data
                    , contentsources.fsobject
-                   , indices.name
-                   , catalogid := indices.id
+                   , catalogs.name
+                   , contentsources.catalogid
                 FROM consilio.contentsources
-                   , consilio.indices
-               WHERE contentsources.indexid = indices.id
+                   , consilio.catalogs
+               WHERE contentsources.catalogid = catalogs.id
                      AND contentsources.status >= 0
                      AND contentprovider = "publisher:webhare"
-                     AND indices.name NOT LIKE "$consilio$deleted$*"
+                     AND catalogs.name NOT LIKE "$consilio$deleted$*"
                      AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
 IF (Length(to_recheck) = 0 AND settings.debug)

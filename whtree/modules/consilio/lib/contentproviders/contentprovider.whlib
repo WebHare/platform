@@ -90,7 +90,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   PUBLIC MACRO Init(RECORD contentsource)
   {
     this->pvt_contentsourceid := contentsource.id;
-    this->pvt_indexid := CellExists(contentsource, "indexid") ? contentsource.indexid : 0;
+    this->pvt_indexid := CellExists(contentsource, "catalogid") ? contentsource.catalogid : 0;
     this->pvt_maxgroupobjects := CellExists(contentsource, "maxgroupobjects") ? contentsource.maxgroupobjects : 0;
     this->discardsummaries := CellExists(contentsource, "discardsummaries") ? contentsource.discardsummaries : FALSE;
     this->contentlinksonly := CellExists(contentsource, "contentlinksonly") ? contentsource.contentlinksonly : FALSE;
@@ -650,9 +650,9 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
     IF (result.rebuild)
     {
       // The type could not be added/updated; the content source should be re-added
-      UPDATE consilio.indices
+      UPDATE consilio.catalog_indexmanagers
          SET rebuild := TRUE
-       WHERE id = this->indexid;
+       WHERE catalogid = this->indexid;
     }
 
     // Any fields have changed or any existing fields are deleted

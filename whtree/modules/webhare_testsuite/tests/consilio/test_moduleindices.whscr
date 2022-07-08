@@ -29,7 +29,7 @@ MACRO Prepare()
   OpenConsilioCatalog("webhare_testsuite:circular_module_reference")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
   testfw->CommitWork();
 
-  testindex_indexname := (SELECT AS STRING indexname FROM consilio.indices WHERE id = testindex->id);
+  testindex_indexname := (SELECT AS STRING indexname FROM consilio.catalog_indexmanagers WHERE catalogid = testindex->id);
 }
 
 

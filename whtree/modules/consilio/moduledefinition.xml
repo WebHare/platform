@@ -10,6 +10,7 @@
   </meta>
 
   <servicemanager>
+    <runonce tag="migrate_indices" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
     <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
     <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
@@ -51,7 +52,7 @@
     <objecttype name="catalog"
                 describer="lib/internal/rights.whlib#catalogobjecttypedescriber"
                 icon="consilio:consilio"
-                table=".indices"
+                table=".catalogs"
                 tid="rights.catalogs" />
 
     <right name="manage" objecttype="catalog" tid="rights.manage" descriptiontid="rights.manage_descr" >
@@ -95,14 +96,9 @@
   </publisher>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
-    <!-- Indexing -->
-    <d:table name="indices" primarykey="id">
+    <d:table name="catalogs" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="indexmanager" references=".indexmanagers" ondelete="set default">
-        <d:documentation>
-          The index manager that is responsible for this catalog
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="indexmanager" />
       <d:varchar name="description" maxlength="4096">
         <d:documentation>
           Catalog description
@@ -123,28 +119,57 @@
           Priority in the range -9 to 9 (0 is default priority, 9 is highest priority)
         </d:documentation>
       </d:integer>
-      <d:boolean name="rebuild">
-        <d:documentation>
-          The catalog should be rebuilt completely (its Elasticsearch document type definition cannot be updated in-place)
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="rebuild" />
       <d:integer name="type">
         <d:documentation>
-          Type of index: 0 regular index, 1 module index, 2 fieldgroup
+          Type of index: 0 managed index, 1 unmanaged index
         </d:documentation>
       </d:integer>
-      <d:varchar name="indexname" maxlength="128" nullable="false">
-        <d:documentation>Index name in OpenSearch</d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="indexname" />
       <d:varchar name="definedby" maxlength="512">
-        <d:documentation>Source where we last saw this index</d:documentation>
+        <d:documentation>
+          Source where we last saw this index
+        </d:documentation>
       </d:varchar>
       <d:varchar name="fieldgroups" maxlength="512">
-        <d:documentation>Field group definitions for this index</d:documentation>
+        <d:documentation>
+          Field group definitions for this index
+        </d:documentation>
       </d:varchar>
       <d:varchar name="lang" maxlength="5">
-        <d:documentation>Index base language</d:documentation>
+        <d:documentation>
+          Index base language
+        </d:documentation>
       </d:varchar>
+    </d:table>
+
+    <d:table name="catalog_indexmanagers" primarykey="id">
+      <d:integer name="id" autonumberstart="1" />
+      <d:integer name="catalogid" references=".catalogs" ondelete="cascade">
+        <d:documentation>
+          The catalog
+        </d:documentation>
+      </d:integer>
+      <d:integer name="indexmanager" references=".indexmanagers" ondelete="set default">
+        <d:documentation>
+          The index manager that is responsible for this catalog
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="indexname" maxlength="128" nullable="0">
+        <d:documentation>
+          Index name in OpenSearch
+        </d:documentation>
+      </d:varchar>
+      <d:boolean name="primary">
+        <d:documentation>
+          This is the primary index manager for this catalog (the catalog that will be searched)
+        </d:documentation>
+      </d:boolean>
+      <d:boolean name="rebuild">
+        <d:documentation>
+          The catalog should be rebuilt completely (its language or mapping has changed)
+        </d:documentation>
+      </d:boolean>
     </d:table>
 
     <d:table name="contentsources" primarykey="id">
@@ -154,7 +179,7 @@
 
         </d:documentation>
       </d:varchar>
-      <d:varchar name="data" maxlength="4096" nullable="false">
+      <d:varchar name="data" maxlength="4096" nullable="0">
         <d:documentation>
           HSON encoded. required because not setting it wil lcurrently crash a lot of code
         </d:documentation>
@@ -164,9 +189,10 @@
 
         </d:documentation>
       </d:boolean>
-      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+      <d:obsoletecolumn name="indexid" />
+      <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0">
         <d:documentation>
-
+          The catalog this content source belongs to
         </d:documentation>
       </d:integer>
       <d:integer name="maxgroupobjects">
@@ -357,7 +383,8 @@
     <!-- Searching -->
     <d:table name="query_results" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+      <d:obsoletecolumn name="indexid" />
+      <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0">
         <d:documentation>
 
         </d:documentation>
@@ -452,7 +479,8 @@
 
     <d:table name="thesaurus" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="indexid" references=".indices" ondelete="cascade" nullable="0">
+      <d:obsoletecolumn name="indexid" />
+      <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0">
         <d:documentation>
 
         </d:documentation>
