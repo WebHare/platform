@@ -75,7 +75,10 @@ OBJECT trans := OpenPrimary();
 // Nothing to do if already migrated or nothing to migrate
 IF (trans->ColumnExists("consilio", "catalogs", "id") OR NOT trans->ColumnExists("consilio", "indices", "id"))
   RETURN;
-Print("Migrating Consilio indices to catalogs\n");
+
+/* https://gitlab.webhare.com/webharebv/codekloppers/-/issues/546 - we're not fixing everything at the first run after
+   a table rename so an update message will leak. */
+Print("Migrating Consilio indices to catalogs - ignore any upcoming 'Non eq defaults' error, it will be automatically fixed later\n");
 trans->BeginWork();
 
 // Rename the existing 'indices' table to 'catalogs'
