@@ -13,11 +13,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
-{
-  RETURN event.groupid = ToString(expectfile);
-}
-
 MACRO TestBoostWords()
 {
   OBJECT boostwords_type := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords");
@@ -31,7 +26,7 @@ MACRO TestBoostWords()
 
   testfw->BeginWork();
   OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  catalog->AddPublisherContentSource(siteroot->id);
+  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
 
   //having indexnames makes log analysis easier
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
@@ -60,17 +55,12 @@ MACRO TestBoostWords()
                  ]);
   richdoctype->SetInstanceData(file_2->id, [data := myrichdoc->ExportAsRecord()]);
 
-  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
-                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_2->id,#1))
-                             ];
-
   testfw->CommitWork();
 
   Print("waiting for changes indexed...\n");
-  testfw->RefreshWebserverConfig();
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(CreatePromiseAll(fileevents));
-  testfw->WaitConsilioQueueEmpty();
+  csource->ReindexContentSource([ rebuild := TRUE ]);
+  csource->WaitForIndexingDone([ verbose := TRUE ]);
   Print("it's indexed\n");
 
   OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
@@ -107,8 +97,8 @@ MACRO TestBoostWords()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_2->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  csource->ReindexContentSource([ rebuild := TRUE ]);
+  csource->WaitForIndexingDone([ verbose := TRUE ]);
 
   // Search for 'important', which will now return both files, starting with file 2, as it has 'important' in its keywords
   results := search_obj->Search("important", 0, 10);
@@ -129,8 +119,8 @@ MACRO TestBoostWords()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  csource->ReindexContentSource([ rebuild := TRUE ]);
+  csource->WaitForIndexingDone([ verbose := TRUE ]);
 
   // Search for 'blabla', which will return file 1 as first result, as it has 'blabla' in its keywords
   results := search_obj->Search("blabla", 0, 10);
