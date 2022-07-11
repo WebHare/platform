@@ -13,6 +13,7 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/cqmatch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -66,6 +67,8 @@ PUBLISHER SEARCH FIELDS
 
 */
 
+INTEGER modecheck;
+
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
         type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means
@@ -82,184 +85,29 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
 {
   options := ValidateOptions(
       [ datetimesupport := FALSE
-      , elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "" //TODO: If Consilio no longer has to be supported, make this the default
-      ], options);
+      , __opensearch := FALSE //TODO: If Consilio indexmanager no longer has to be supported, make this the default and remove the whole modecheck stuff
+      ], options, [ optional := ["__opensearch" ]]);
 
-  IF (field = "")
+    IF (field = "")
     THROW NEW Exception("Query field is required for match query");
 
-  IF (options.elasticsearch)
+  //If unsure whether we'll be testing against OS or Indexmgr, delay evalation
+  IF(NOT CellExists(options,'__opensearch'))
   {
-    SWITCH (TypeID(value))
+    IF(modecheck = 0) //modecheck: 1 = mixed, 2 = ES, 23
     {
-      CASE TypeID(STRING ARRAY)
-         , TypeID(INTEGER ARRAY)
-         , TypeID(INTEGER64 ARRAY)
-         , TypeID(MONEY ARRAY)
-         , TypeID(FLOAT ARRAY)
-         , TypeID(DATETIME ARRAY)
-         , TypeID(BOOLEAN ARRAY)
-      {
-        IF (matchtype NOT IN [ "IN", "CONTAINS" ])
-          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-      }
-      CASE TypeID(STRING)
-         , TypeID(INTEGER)
-         , TypeID(INTEGER64)
-         , TypeID(MONEY)
-         , TypeID(FLOAT)
-         , TypeID(DATETIME)
-      {
-        IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
-          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-        IF (matchtype = "CONTAINS" AND TypeID(value) != TypeID(STRING))
-          matchtype := "="; // Match the literal query value within an indexed array
-      }
-      CASE TypeID(BOOLEAN)
-      {
-        IF (matchtype NOT IN [ "=" ])
-          THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-      }
-      DEFAULT
-      {
-        THROW NEW Exception(`Invalid value type '${GetTypeName(TypeID(value))}' for match query`);
-      }
+      INTEGER ARRAY activetypes := SELECT AS INTEGER ARRAY DISTINCT type FROM consilio.indexmanagers;
+      modecheck := Length(activetypes) > 1 ? 1 : whconstant_consilio_indexmanager_legacybackend IN activetypes ? 2 : 3;
     }
 
-    IF (IsTypeIDArray(TypeID(value)))
-    {
-      IF (Length(value) = 0)
-        RETURN CQNothing();
-      RETURN [ _type := "boolean"
-             , subqueries :=
-                 (SELECT query :=
-                           CELL[ _type := "term"
-                               , field
-                               , term
-                               , boost := 1f
-                               ]
-                       , required := (matchtype = "CONTAINS")
-                       , prohibited := FALSE
-                    FROM ToRecordArray(value, "term"))
-             , boost := 1f
-             ];
-    }
-    ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
-    {
-      RETURN
-          CELL[ _type := "range"
-              , field
-              , matchtype
-              , term := value
-              , boost := 1f
-              ];
-    }
+    IF(modecheck = 1) //mixed
+      RETURN CELL [ _type := "__delayed_cqmatch", __delayed_cqmatch := CELL[field,matchtype,value,options]];
 
-    RETURN
-        CELL[ _type := matchtype = "=" ? "literal" : "term"
-            , field
-            , term := value
-            , boost := 1f
-            ];
+    INSERT CELL __opensearch := modecheck = 3 INTO options;
   }
 
-  STRING ARRAY searchvalue;
-  IF (TypeID(value) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
-  {
-    IF (matchtype NOT IN [ "CONTAINS", "=" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-    searchvalue := [ ToString(value) ];
-  }
-  ELSE IF (TypeID(value) = TypeID(STRING))
-  {
-    IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-    searchvalue := STRING[ value ];
-  }
-  ELSE IF (TypeID(value) IN [ TypeID(INTEGER ARRAY), TypeID(INTEGER64 ARRAY) ])
-  {
-    IF (matchtype NOT IN [ "IN", "CONTAINS" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-    searchvalue := SELECT AS STRING ARRAY ToString(t) FROM ToRecordArray(value, "t");
-    IF (Length(searchvalue) = 1)
-      matchtype := "=";
-  }
-  ELSE IF (TypeID(value) = TypeID(STRING ARRAY))
-  {
-    IF (matchtype NOT IN [ "IN", "CONTAINS" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-    searchvalue := value;
-    IF (Length(searchvalue) = 1)
-      matchtype := "=";
-  }
-  ELSE IF (TypeID(value) = TypeID(DATETIME))
-  {
-    IF (matchtype NOT IN [ "<", "<=", "=", ">=", ">" ])
-      THROW NEW Exception(`Invalid match type '${matchtype}' for ${GetTypeName(TypeID(value))} match query`);
-
-    IF (NOT options.datetimesupport)
-    {
-      // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
-      IF (field LIKE "*.*@*")
-      {
-        IF (field NOT LIKE "*.date_*@*")
-        {
-          INTEGER dot := SearchSubstring(field, ".") + 1;
-          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
-        }
-      }
-      ELSE IF (field NOT LIKE "date_*")
-        field := `date_${field}`;
-    }
-
-    RETURN
-        CELL[ _type := "date"
-            , field
-            , matchtype
-            , term := value
-            , boost := 1f
-            ];
-  }
-  ELSE
-    THROW NEW Exception(`Invalid value type '${GetTypeName(TypeID(value))}' for match query`);
-
-  IF (Length(searchvalue) > 1)
-  {
-    RETURN [ _type := "boolean"
-           , subqueries :=
-               (SELECT query :=
-                         CELL[ _type := "term"
-                             , field
-                             , term
-                             , boost := 1f
-                             ]
-                     , required := (matchtype = "CONTAINS")
-                     , prohibited := FALSE
-                  FROM ToRecordArray(searchvalue, "term"))
-           , boost := 1f
-           ];
-  }
-  ELSE IF(Length(searchvalue) = 0)
-  {
-    RETURN CQNothing();
-  }
-  ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
-  {
-    RETURN
-        CELL[ _type := "range"
-            , field
-            , matchtype
-            , term := searchvalue[0]
-            , boost := 1f
-            ];
-  }
-
-  RETURN
-      CELL[ _type := matchtype = "=" ? "literal" : "term"
-          , field
-          , term := searchvalue[0]
-          , boost := 1f
-          ];
+  //TODO temporarily split off to solve LOADLIB issues, move back when consilio is removed and all above hacks are unneeded?
+  RETURN __CQMatch(field, matchtype, value, options);
 }
 
 /** Returns a query record that will match results in which a field values lies between the specified range
