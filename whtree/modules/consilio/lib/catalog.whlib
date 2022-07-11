@@ -5,6 +5,7 @@
 
 LOADLIB "wh::crypto.whlib";
 
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -50,7 +51,7 @@ CatalogUnmanagedIndex           := 10;
 PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct catalog has been deprecated, switch to the consilio API and use CreateConsilioCatalog")
 {
   // Index name should be unique
-  IF (Length(SELECT FROM consilio.indices WHERE ToUppercase(COLUMN name) = ToUppercase(catalog_name)) > 0)
+  IF (RecordExists(SELECT FROM consilio.catalogs WHERE ToUppercase(COLUMN name) = ToUppercase(catalog_name)))
     RETURN CatalogNameAlreadyExists;
 
   INTEGER loglevel := CellExists(options, 'loglevel') ? options.loglevel : 0;
@@ -62,9 +63,11 @@ PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, R
     RETURN CatalogInvalidIndexManager;
 
   // Create index
-  INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
-  INSERT INTO consilio.indices(id, name, description, loglevel, priority, indexmanager, indexname)
-         VALUES (indexid, catalog_name, description, loglevel, priority, indexmanager, "c_" || ToLowercase(EncodeBase16(DecodeBase64(GenerateUFS128BitId()))));
+  INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
+  INSERT INTO consilio.catalogs(id, name, description, loglevel, priority)
+         VALUES (indexid, catalog_name, description, loglevel, priority);
+  INSERT INTO consilio.catalog_indexmanagers(catalogid, indexmanager, indexname, primary)
+         VALUES (indexid, indexmanager, __GenerateIndexName(), TRUE);
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   STRING result := EnsureIndexManagerIndex(indexid);
@@ -93,7 +96,7 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
   RECORD indexrec :=
       SELECT id
            , type
-        FROM consilio.indices
+        FROM consilio.catalogs
        WHERE ToUppercase(name) = ToUppercase(catalog_name)
              AND name NOT LIKE "$consilio$deleted$*";
 
@@ -108,7 +111,7 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
 
   STRING contentprovider := "publisher:webhare";
   INTEGER srcid := MakeAutoNumber(consilio.contentsources, "id");
-  INSERT INTO consilio.contentsources(id, indexid, contentprovider, data, fsobject)
+  INSERT INTO consilio.contentsources(id, catalogid, contentprovider, data, fsobject)
          VALUES (srcid, indexrec.id, contentprovider, EncodeHSON(DEFAULT RECORD), folder);
 
   UpdateContentSourceFieldsById(srcid);
@@ -146,7 +149,7 @@ PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STR
   RECORD indexrec :=
       SELECT id
            , type
-        FROM consilio.indices
+        FROM consilio.catalogs
        WHERE ToUppercase(name) = ToUppercase(catalog_name)
              AND name NOT LIKE "$consilio$deleted$*";
 
@@ -167,7 +170,7 @@ PUBLIC INTEGER FUNCTION AddCustomContentSourceToCatalog(STRING catalog_name, STR
       ];
 
   INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-  INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
+  INSERT INTO consilio.contentsources(id, catalogid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
           VALUES(srcid, indexrec.id, "consilio:custom", tag, EncodeHSON(settings), options.maxgroupobjects, options.discardsummaries);
 
   UpdateContentSourceFieldsById(srcid);
@@ -186,7 +189,7 @@ INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER s
       SELECT id, fsobject
         FROM consilio.contentsources
        WHERE id != searchid
-             AND contentsources.indexid = VAR indexid
+             AND contentsources.catalogid = VAR indexid
              AND contentprovider = "publisher:webhare"
              AND tag NOT LIKE "$consilio$deleted$*"))
   {
@@ -208,10 +211,10 @@ BOOLEAN FUNCTION UpdateContentSourceFieldsById(INTEGER contentsourceid)
 {
   RECORD contentsource :=
       SELECT contentsources.*
-           , catalogtag := indices.name
-        FROM consilio.contentsources, consilio.indices
+           , catalogtag := catalogs.name
+        FROM consilio.contentsources, consilio.catalogs
        WHERE contentsources.id = contentsourceid
-             AND contentsources.indexid = indices.id
+             AND contentsources.catalogid = catalogs.id
              AND contentsources.tag NOT LIKE "$consilio$deleted$*";
   IF (NOT RecordExists(contentsource))
     RETURN FALSE;

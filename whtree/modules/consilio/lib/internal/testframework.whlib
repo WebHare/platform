@@ -27,7 +27,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
   MACRO ConsilioPrepare()
   {
     this->BeginWork();
-    DELETE FROM consilio.indices WHERE name LIKE "webhare_testsuite:consiliotest_*";
+    DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:consiliotest_*";
     this->CommitWork(); //Must be two separate commits to prevent cleanup interfering with new indices....
 
     this->BeginWork();
@@ -36,8 +36,8 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
       INSERT CELL indexmanager := indexmanager INTO options;
     CreateConsilioCatalog(this->GetCatalogName_1(), CELL[ ...options, fieldgroups := [ "webhare_testsuite:pagelistfields" ] ]);
     CreateConsilioCatalog(this->GetCatalogName_2(), options);
-    this->testcatalog_1 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_1();
-    this->testcatalog_2 := SELECT AS INTEGER id FROM consilio.indices WHERE name = this->GetCatalogName_2();
+    this->testcatalog_1 := SELECT AS INTEGER id FROM consilio.catalogs WHERE name = this->GetCatalogName_1();
+    this->testcatalog_2 := SELECT AS INTEGER id FROM consilio.catalogs WHERE name = this->GetCatalogName_2();
     this->CommitWork();
   }
 
@@ -54,7 +54,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
 
   PUBLIC MACRO RefreshIndexManager(INTEGER indexid)
   {
-    INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.indices WHERE id = indexid;
+    INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.catalog_indexmanagers WHERE catalogid = indexid;
     IF (indexmgrid != 0)
       RefreshIndexManager(indexmgrid, indexid);
   }
@@ -62,7 +62,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
   PUBLIC MACRO WaitContentSourceDone(INTEGER contentsourceid)
   {
     DoWaitForContentSourceDone(contentsourceid, [ verbose := TRUE ]);
-    this->RefreshIndexManager(SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*");
+    this->RefreshIndexManager(SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*");
   }
 
   PUBLIC MACRO WaitIndexDone(INTEGER indexid)
@@ -95,18 +95,18 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
   {
     RETURN
         SELECT AS INTEGER id
-          FROM consilio.indices
-         WHERE indices.name = catalogname;
+          FROM consilio.catalogs
+         WHERE name = catalogname;
   }
 
   PUBLIC INTEGER FUNCTION GetPublisherContentSource(STRING catalogname, INTEGER folderid)
   {
     RETURN
         SELECT AS INTEGER contentsources.id
-          FROM consilio.indices
+          FROM consilio.catalogs
              , consilio.contentsources
-         WHERE indices.name = catalogname
-           AND indexid = indices.id
+         WHERE catalogs.name = catalogname
+           AND catalogid = catalogs.id
            AND contentprovider = "publisher:webhare"
            AND fsobject = folderid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";

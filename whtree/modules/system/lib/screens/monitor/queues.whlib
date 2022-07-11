@@ -45,7 +45,7 @@ STRING FUNCTION DescribeConsilioTask(RECORD worker, RECORD ARRAY contentprovider
     RECORD data := GetQueueDataFromCommand(worker.curitem.command);
     IF (RecordExists(data))
     {
-      STRING indexname := CellExists(data, "indexid") ? SELECT AS STRING name FROM consilio.indices WHERE id = data.indexid : "";
+      STRING indextag := CellExists(data, "indexid") ? SELECT AS STRING name FROM consilio.catalogs WHERE id = data.indexid : "";
       STRING contentsource;
       IF(CellExists(data, "contentsourceid"))
         contentsource := SELECT AS STRING tag FROM consilio.contentsources WHERE id=VAR data.contentsourceid;
@@ -69,48 +69,48 @@ STRING FUNCTION DescribeConsilioTask(RECORD worker, RECORD ARRAY contentprovider
         CASE "CHECKINDEX"
         {
           IF(contentsource="")
-            command := GetTid("system:monitor.queues.workerstatus.checkindex", indexname);
+            command := GetTid("system:monitor.queues.workerstatus.checkindex", indextag);
           ELSE
-            command := GetTid("system:monitor.queues.workerstatus.checkindexsource", indexname, contentsource);
+            command := GetTid("system:monitor.queues.workerstatus.checkindexsource", indextag, contentsource);
         }
         CASE "UPDATEINDEX"
         {
           IF(contentsource="")
-            command := GetTid("system:monitor.queues.workerstatus.updateindex", indexname);
+            command := GetTid("system:monitor.queues.workerstatus.updateindex", indextag);
           ELSE
-            command := GetTid("system:monitor.queues.workerstatus.updateindexsource", indexname, contentsource);
+            command := GetTid("system:monitor.queues.workerstatus.updateindexsource", indextag, contentsource);
         }
         CASE "FASTCHECKGROUP"
         {
-          command := GetTid("system:monitor.queues.workerstatus.fastcheckgroup", groupname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.fastcheckgroup", groupname, indextag);
         }
         CASE "CHECKGROUP"
         {
-          command := GetTid("system:monitor.queues.workerstatus.checkgroup", groupname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.checkgroup", groupname, indextag);
         }
         CASE "UPDATEGROUP"
         {
-          command := GetTid("system:monitor.queues.workerstatus.updategroup", groupname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.updategroup", groupname, indextag);
         }
         CASE "DEACTIVATEGROUP"
         {
-          command := GetTid("system:monitor.queues.workerstatus.deactivategroup", groupname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.deactivategroup", groupname, indextag);
         }
         CASE "DELETEGROUP"
         {
-          command := GetTid("system:monitor.queues.workerstatus.deletegroup", groupname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.deletegroup", groupname, indextag);
         }
         CASE "CHECKOBJECT"
         {
-          command := GetTid("system:monitor.queues.workerstatus.checkobject", objectname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.checkobject", objectname, indextag);
         }
         CASE "DELETEOBJECT"
         {
-          command := GetTid("system:monitor.queues.workerstatus.deleteobject", objectname, indexname);
+          command := GetTid("system:monitor.queues.workerstatus.deleteobject", objectname, indextag);
         }
         CASE "CLEANUPINDEX"
         {
-          command := GetTid("system:monitor.queues.workerstatus.cleanupindex", indexname);
+          command := GetTid("system:monitor.queues.workerstatus.cleanupindex", indextag);
         }
       }
     }

@@ -973,8 +973,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
 RECORD FUNCTION GetIndexIdUncached(STRING indexid)
 {
   INTEGER value :=
-      SELECT AS INTEGER id
-        FROM consilio.indices
+      SELECT AS INTEGER catalogid
+        FROM consilio.catalog_indexmanagers
        WHERE indexname != ""
              AND (indexname = indexid OR indexid LIKE indexname || "-*");
   RETURN CELL

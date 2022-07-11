@@ -16,11 +16,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 OBJECT catalog;
 
-BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
-{
-  RETURN event.groupid = ToString(expectfile);
-}
-
 MACRO TestSuggestFields()
 {
   // Prefix for object/group ids, just to stress the itf
@@ -165,19 +160,15 @@ MACRO TestSuggestFieldsLegacy()
 
   OBJECT siteroot := GetTestsuiteTempFolder();
 
-  catalog->AddPublisherContentSource(siteroot->id);
+  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
 
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "blafile", data := StringToBlob("blabla"), publish := TRUE]);
 
-  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
-                             ];
-
   testfw->CommitWork();
 
-  testfw->RefreshWebserverConfig();
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(CreatePromiseAll(fileevents));
-  testfw->WaitConsilioQueueEmpty();
+  csource->ReindexContentSource([ rebuild := TRUE ]);
+  csource->WaitForIndexingDone([ verbose := TRUE ]);
 
   OBJECT suggest_obj := OpenSuggestObject(testfw->GetCatalogName_1());
 

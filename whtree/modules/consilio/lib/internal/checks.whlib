@@ -19,11 +19,11 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
   OBJECT indexmanagerpromise := CreatePromiseAll(promises);
 
   RECORD ARRAY brokencontentsources := SELECT contentsources.id
-                                            , indices.name
-                                         FROM consilio.contentsources, consilio.indices
-                                        WHERE contentsources.indexid = indices.id
+                                            , catalogs.name
+                                         FROM consilio.contentsources, consilio.catalogs
+                                        WHERE contentsources.catalogid = catalogs.id
                                               AND contentsources.status = 4
-                                              AND indices.name NOT LIKE "$consilio$deleted$*"
+                                              AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
   FOREVERY (RECORD source FROM brokencontentsources)
@@ -35,8 +35,8 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
   }
 
   INTEGER ARRAY rebuild_catalogs :=
-      SELECT AS INTEGER ARRAY DISTINCT id
-        FROM consilio.indices
+      SELECT AS INTEGER ARRAY DISTINCT catalogid
+        FROM consilio.catalog_indexmanagers
        WHERE rebuild;
   FOREVERY (INTEGER catalog FROM rebuild_catalogs)
   {

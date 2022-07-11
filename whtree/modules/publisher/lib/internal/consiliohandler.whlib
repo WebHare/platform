@@ -134,7 +134,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
 PUBLIC RECORD ARRAY FUNCTION ListPublisherContentSourcesFor(INTEGER fsobjid)
 {
   INTEGER ARRAY tree := GetWHFSTree(fsobjid, 0);
-  RETURN SELECT catalog := indexid
+  RETURN SELECT catalog := catalogid
               , contentsource := id
            FROM consilio.contentsources
           WHERE fsobject IN tree

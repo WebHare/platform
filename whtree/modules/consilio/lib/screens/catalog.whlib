@@ -128,7 +128,7 @@ PUBLIC RECORD FUNCTION GetConsilioStatus()
                    , lasterrors := RECORD[]
                    ];
 
-  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.indices WHERE name NOT LIKE "$consilio$deleted$*")
+  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.catalogs WHERE name NOT LIKE "$consilio$deleted$*")
     status.catalogsizes := CellInsert(status.catalogsizes, catalog.name, GetIndexManagerSize(catalog.id));
   IF (NOT RecordExists(status.catalogsizes))
   {
@@ -430,10 +430,10 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                  , iconname := ""
                                  , module := ""
                                  , failed := TRUE
-                                 , catalogtag := indices.name
-                              FROM consilio.contentsources, consilio.indices
-                             WHERE contentsources.indexid = indices.id
-                                   AND indices.name NOT LIKE "$consilio$deleted$"
+                                 , catalogtag := catalogs.name
+                              FROM consilio.contentsources, consilio.catalogs
+                             WHERE contentsources.catalogid = catalogs.id
+                                   AND catalogs.name NOT LIKE "$consilio$deleted$"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     RECORD ARRAY fsobjects := SELECT id, whfspath
@@ -483,7 +483,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
     RECORD ARRAY accessible_indices :=
         SELECT *
-          FROM consilio.indices
+          FROM consilio.catalogs
          WHERE id > 0
                AND this->tolliumuser->HasRightOn("consilio:read", id)
                AND name NOT LIKE "$consilio$deleted$*"
@@ -500,7 +500,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , statushint := GetStatusHint(status)
                                           , expanded := FALSE
                                           , catalog := FALSE
-                                          , parent := indexid
+                                          , parent := catalogid
                                           , contentsource := TRUE
                                           , hascontents := FALSE
                                           , isupdateorrebuild := status IN [ 1, 2 ]
@@ -510,11 +510,11 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , error := 0
                                           , errorhint := ""
                                           , haserrors := FALSE
-                                          , catalogid := catalog.id
+                                          , catalogid
                                           , contentsourceid := id
                                           , definedby := definedby
                                        FROM sources
-                                      WHERE indexid = catalog.id
+                                      WHERE catalogid = catalog.id
                                       ORDER BY (status < 0), failed // Show active sources first, then failed sources
                                              , ToUppercase(title)
                                              , id;
@@ -527,7 +527,8 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       //BOOLEAN inactive := catalog.status < 0;
       BOOLEAN inactive := catalog.type = 0 AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
       STRING catalogsize := "";
-      IF (catalog.indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
+      INTEGER catalog_indexmanager := SELECT AS INTEGER indexmanager FROM consilio.catalog_indexmanagers WHERE COLUMN catalogid = VAR catalog.id;
+      IF (catalog_indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
         catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
 
       INSERT
@@ -537,7 +538,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
              , rowkey := "catalog_" || catalog.id
              , title := catalog.description
              , loglevel := catalog.loglevel
-             , icon := ^catalogs->GetIcon(GetIndexManagerIcon(catalog.indexmanager))
+             , icon := ^catalogs->GetIcon(GetIndexManagerIcon(catalog_indexmanager))
              , tag := catalog.name
              , size := catalogsize
              , status := 0
@@ -752,16 +753,17 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     {
       this->catalogid := data.id;
 
-      RECORD catalog := SELECT * FROM consilio.indices WHERE id = this->catalogid;
+      RECORD catalog := SELECT * FROM consilio.catalogs WHERE id = this->catalogid;
+      RECORD catindexmgr := SELECT * FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid;
       this->id->value := ToString(this->catalogid);
       ^name->value := catalog.name;
       this->description->value := catalog.description;
       this->debuglevel->value := catalog.loglevel;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-edit", catalog.name);
       this->priority->value := catalog.priority;
-      ^indexmanager->value := catalog.indexmanager;
+      ^indexmanager->value := RecordExists(catindexmgr) ? catindexmgr.indexmanager : 0;
       ^type->value := catalog.type;
-      ^indexname->value := catalog.indexname;
+      ^indexname->value := RecordExists(catindexmgr) ? catindexmgr.indexname : "";
     }
     ELSE
     {
@@ -787,7 +789,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
 
     IF (NOT work->HasFailed())
     {
-      IF (RecordExists(SELECT FROM consilio.indices
+      IF (RecordExists(SELECT FROM consilio.catalogs
                         WHERE ToUppercase(name) = ToUppercase(^name->value)
                               AND id != this->catalogid))
       {
@@ -799,27 +801,36 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     IF(^indexname->visible AND NOT NEW RegEx("^[a-z][_a-z0-9]*$")->Test(^indexname->prefix || ^indexname->value))
       work->AddErrorFor(^indexname, this->GetTid(".invalidindexname"));
 
-    RECORD catalog := [ name := ^name->value
-                      , description := ^description->value
-                      , loglevel := ^debuglevel->value
-                      , priority := ^priority->value
-                      , indexmanager := ^indexmanager->value
-                      , type := ^type->value
-                      , indexname := ^indexname->value
-                      ];
+    RECORD catalog :=
+        [ name := ^name->value
+        , description := ^description->value
+        , loglevel := ^debuglevel->value
+        , priority := ^priority->value
+        , type := ^type->value
+        ];
+    RECORD catindexmgr :=
+        [ indexmanager := ^indexmanager->value
+        , indexname := ^indexname->value
+        ];
 
     INTEGER newcatalogid;
     IF(this->catalogid = 0)
     {
-      newcatalogid := MakeAutonumber(consilio.indices, "id");
-      INSERT CELL [ ...catalog, id := newcatalogid ] INTO consilio.indices;
+      newcatalogid := MakeAutonumber(consilio.catalogs, "id");
+      INSERT CELL [ ...catalog, id := newcatalogid ] INTO consilio.catalogs;
+      IF (catalog.indexmanager != 0)
+        INSERT CELL[ ...catindexmgr, catalog := newcatalogid, primary := TRUE ] INTO consilio.catalog_indexmanagers;
       GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
     ELSE
     {
-      UPDATE consilio.indices
-         SET RECORD catalog
-       WHERE id = this->catalogid;
+      UPDATE consilio.catalogs SET RECORD catalog WHERE id = this->catalogid;
+      IF (catalog.indexmanager = 0)
+        DELETE FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid;
+      ELSE IF (NOT RecordExists(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid))
+        INSERT CELL[ ...catindexmgr, catalogid := this->catalogid, primary := TRUE ] INTO consilio.catalog_indexmanagers;
+      ELSE
+        UPDATE consilio.catalog_indexmanagers SET RECORD catindexmgr WHERE catalogid = this->catalogid;
       GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
 
@@ -848,7 +859,7 @@ RECORD previewbasefields :=
 //inspect a single item in consilio
 PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogname, STRING tag, STRING objectid)
 {
-  INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
+  INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.catalogs WHERE name = whconstant_consilio_catalog_whfs);
   RECORD res := GetPreviewResults(parent->contexts->user, catalogid,0,whconstant_consilio_catalog_whfs,1, "+objectid:" || objectid);
   //FIXME if totalcount > 1, forward to CatalogPreview
   IF(res.totalcount = 0)
@@ -872,12 +883,8 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
 
     // Add catalog result fields
     FOREVERY (RECORD field FROM srcfields)
-    {
-      IF(field.defaultvalue="")
-        CONTINUE;
       IF (NOT CellExists(search_fields, field.name))
-        search_fields := CellInsert(search_fields, field.name, DecodeHSON(field.defaultvalue));
-    }
+        search_fields := CellInsert(search_fields, field.name, field.defaultvalue);
 
     searcher->empty_result_record := search_fields;
     searcher->save_searches := TRUE;
@@ -887,11 +894,15 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
   ELSE
   {
     RECORD tosend := DecodeJSON(query);
-    IF(NOT RecordExists(tosend))
-      THROW NEW Exception("Do not understand query (invalid JSON)");
-    tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
-
-    RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
+    IF (RecordExists(tosend))
+    {
+      tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
+      RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
+    }
+    ELSE
+    {
+      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ]);
+    }
   }
 }
 
@@ -907,7 +918,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
     {
       this->catalog_name := catalog.tag;
       //the ?? hack is needed for dashboard query view... we should probably just log the index ids
-      this->catalog_id := catalog.id ?? (SELECT AS INTEGER id FROM consilio.indices WHERE ToUppercase(name) = ToUppercase(catalog.tag));
+      this->catalog_id := catalog.id ?? (SELECT AS INTEGER id FROM consilio.catalogs WHERE ToUppercase(name) = ToUppercase(catalog.tag));
 
       this->frame->title := GetTid("consilio:catalog.catalogpreview.title", this->catalog_name);
       this->^query->value := CellExists(catalog,'query') ? catalog.query : '';
@@ -1004,13 +1015,17 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
       STRING fieldvalue;
       SWITCH (TypeID(field.value))
       {
-        CASE TypeID(INTEGER)
+        CASE TypeID(INTEGER), TypeID(INTEGER64)
         {
           fieldvalue := ToString(field.value);
         }
         CASE TypeID(DATETIME)
         {
           fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || DateTimeToString(field.value) || ")" : "";
+        }
+        CASE TypeID(MONEY)
+        {
+          fieldvalue := this->tolliumuser->FormatMoney(field.value, 5, FALSE);
         }
         CASE TypeID(FLOAT)
         {
@@ -1105,7 +1120,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
       }
 
       text->title := ToLowercase(fieldname);
-      IF(fieldvalue = "")
+      IF(IsDefaultValue(field.value))
         INSERT text INTO this->emptyfields AT END;
       ELSE
         text->htmlvalue := '<span>' || this->HighlightSearchWords(EncodeHTML(fieldvalue)) || '</span>';

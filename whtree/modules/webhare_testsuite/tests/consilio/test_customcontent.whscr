@@ -114,10 +114,10 @@ MACRO TestCustomContent()
   TestCompleteSyncAfterCommand();
 
   // Test stored user queries
-  TestEq(0, Length(SELECT FROM consilio.query_results WHERE indexid = catalog->id));
+  TestEq(0, Length(SELECT FROM consilio.query_results WHERE catalogid = catalog->id));
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
-  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE indexid = catalog->id;
+  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE catalogid = catalog->id;
   TestEq(1, Length(queries));
   TestEq("a", queries[0].query);
   TestEq(2, queries[0].results);

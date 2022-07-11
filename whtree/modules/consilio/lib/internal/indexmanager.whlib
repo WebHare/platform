@@ -563,7 +563,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := options.session
       ];
 
-  STRING catalog := SELECT AS STRING name FROM consilio.indices WHERE id = indexid AND name NOT LIKE "$consilio$deleted$*";
+  STRING catalog := SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid AND name NOT LIKE "$consilio$deleted$*";
   IF (catalog = "")
     RETURN result;
 
@@ -1672,7 +1672,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
+        RECORD indexinfo := SELECT * FROM consilio.catalogs WHERE id = indexid;
         IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
         {
           // Delete the specific subindex if suffix is set, otherwise delete all subindices
@@ -1764,14 +1764,17 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
   RETURN
       SELECT indexmanagers.id
            , indexmanagers.type
-           , indices.indexname
-           , indextype := indices.type
-           , indexid := indices.id
-        FROM consilio.indexmanagers, consilio.indices
-       WHERE indexmanagers.id = indices.indexmanager
-             AND (options.managedonly ? indices.type = whconstant_consilio_catalogtype_managed : TRUE)
+           , catalog_indexmanagers.indexname
+           , indextype := catalogs.type
+           , indexid := catalogs.id
+        FROM consilio.indexmanagers
+           , consilio.catalog_indexmanagers
+           , consilio.catalogs
+       WHERE indexmanagers.id = catalog_indexmanagers.indexmanager
+             AND catalog_indexmanagers.catalogid = catalogs.id
+             AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
-             AND indices.name NOT LIKE "$consilio$deleted$*";
+             AND catalogs.name NOT LIKE "$consilio$deleted$*";
 }
 
 /** @short Find the indexmanager for an index
@@ -1790,15 +1793,17 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
   RETURN
       SELECT indexmanagers.id
            , indexmanagers.type
-           , indices.indexname
-           , indices.lang
-           , indextype := indices.type
-        FROM consilio.indices
+           , catalog_indexmanagers.indexname
+           , catalogs.lang
+           , indextype := catalogs.type
+        FROM consilio.catalogs
+           , consilio.catalog_indexmanagers
            , consilio.indexmanagers
-       WHERE indices.id = indexid
-             AND indices.indexmanager = indexmanagers.id
-             AND (options.managedonly ? indices.type = whconstant_consilio_catalogtype_managed : TRUE)
-             AND indices.name NOT LIKE "$consilio$deleted$*";
+       WHERE catalogs.id = indexid
+             AND catalog_indexmanagers.catalogid = catalogs.id
+             AND catalog_indexmanagers.indexmanager = indexmanagers.id
+             AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
+             AND catalogs.name NOT LIKE "$consilio$deleted$*";
 }
 
 RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restrict, DATETIME searchdate, INTEGER numresults)
@@ -1819,7 +1824,7 @@ RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restric
     // Try to determine the searched site
     RECORD ARRAY contentsource := SELECT fsobject
                                     FROM consilio.contentsources
-                                   WHERE indexid = idx
+                                   WHERE catalogid = idx
                                          AND contentprovider = "publisher:webhare"
                                          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
     IF (Length(contentsource) = 1)
@@ -1853,7 +1858,7 @@ RECORD FUNCTION StoreQuery(RECORD sess, STRING querystring, INTEGER idx, INTEGER
   {
     // Update session id and insert new session
     sess.sessid := GenerateUFS128BitId();
-    INSERT INTO consilio.query_results(query, when, indexid, pages, sess, results, site, tag)
+    INSERT INTO consilio.query_results(query, when, catalogid, pages, sess, results, site, tag)
          VALUES (querystring, now, idx, 0, sess.sessid, numresults, site, sess.tag);
   }
   ELSE
@@ -1913,12 +1918,12 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
     RECORD def;
     STRING ARRAY fieldgroups :=
         SELECT AS STRING ARRAY fieldgroup
-          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.indices WHERE id = indexid), " "), "fieldgroup")
+          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = indexid), " "), "fieldgroup")
          WHERE fieldgroup != "";
     IF (Length(fieldgroups) > 0)
       def := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
     ELSE
-      def := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.indices WHERE id = indexid);
+      def := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid);
     IF (RecordExists(def))
       fields := def.properties;
   }
@@ -1927,7 +1932,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
   INTEGER ARRAY contentsourceids :=
       SELECT AS INTEGER ARRAY id
         FROM consilio.contentsources
-       WHERE COLUMN indexid = VAR indexid
+       WHERE COLUMN catalogid = VAR indexid
              AND tag NOT LIKE "$consilio$deleted$*";
   fields := GetContentSourcesMapping(contentsourceids, fields);
   /* fields := fields CONCAT
@@ -1939,7 +1944,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
         FROM consilio.contentsourcefields AS fields
            , consilio.contentsources AS sources
        WHERE fields.contentsourceid = sources.id
-             AND sources.indexid = VAR indexid
+             AND sources.catalogid = VAR indexid
              AND sources.tag NOT LIKE "$consilio$deleted$*";
   fields :=
       SELECT AS RECORD ARRAY GroupedValues(fields)[0]

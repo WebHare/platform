@@ -526,7 +526,7 @@ MACRO TestUpdateCheckIndex()
   fsobjectssource->ReindexContentSource();
   fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
+  INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.catalogs WHERE name = whconstant_consilio_catalog_whfs);
   RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 

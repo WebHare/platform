@@ -33,7 +33,14 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
 {
   FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE " || forindexmanager);
 
-  RECORD ARRAY indices := SELECT id, name, indexmanager FROM consilio.indices WHERE indexmanager = forindexmanager;
+  RECORD ARRAY indices :=
+      SELECT catalogs.id
+           , catalogs.name
+           , catalog_indexmanagers.indexmanager
+        FROM consilio.catalogs
+           , consilio.catalog_indexmanagers
+       WHERE catalog_indexmanagers.indexmanager = forindexmanager
+             AND catalog_indexmanagers.catalogid = catalogs.id;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -50,7 +57,7 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       {
         IF (indexid = 0)
           CONTINUE;
-        STRING catalog := SELECT AS STRING name FROM indices WHERE id = indexid AND IndexManager = indexmgr.id;
+        STRING catalog := SELECT AS STRING name FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
         IF (catalog = "" OR catalog LIKE "$consilio$deleted$*")
           DeleteIndexManagerContentSource(indexmgr.id, indexid, 0);
         ELSE
@@ -65,14 +72,14 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
 
   // Send a CheckIndex for each index which does not have an "ok" status or that aren't present in the Consilio index
   RECORD ARRAY outdated_sources :=
-      SELECT indexid
+      SELECT indexid := catalogid
            , id
            , last_indexed
            , status
         FROM consilio.contentsources
-       WHERE indexid IN (SELECT AS INTEGER ARRAY id FROM indices) //is in scope of this checkindexstate
+       WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM indices) //is in scope of this checkindexstate
              AND (status > 0 //is updating or rebuikd
-                  OR indexid NOT IN presentindexids)
+                  OR catalogid NOT IN presentindexids)
              AND tag NOT LIKE "$consilio$deleted$*"; //or not even there!
   FOREVERY (INTEGER indexid FROM SELECT AS INTEGER ARRAY DISTINCT COLUMN indexid FROM outdated_sources)
   {
@@ -107,12 +114,14 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   IF (data.indexid != 0)
   {
     RECORD catalog :=
-        SELECT id
-             , COLUMN rebuild
-             , indexmanager
-             , type
-          FROM consilio.indices
-         WHERE id = data.indexid
+        SELECT catalogs.id
+             , catalog_indexmanagers.rebuild
+             , catalog_indexmanagers.indexmanager
+             , catalogs.type
+          FROM consilio.catalogs
+             , consilio.catalog_indexmanagers
+         WHERE catalogs.id = data.indexid
+               AND catalog_indexmanagers.catalogid = catalogs.id
                AND name NOT LIKE "$consilio$deleted$*";
 
     IF (NOT RecordExists(catalog))
@@ -128,7 +137,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
       {
         DeleteIndexManagerContentSource(catalog.indexmanager, catalog.id, 0);
         EnsureIndexManagerIndex(catalog.id);
-        FOREVERY (INTEGER sourceid FROM SELECT AS INTEGER ARRAY id FROM consilio.contentsources WHERE indexid = catalog.id AND contentsources.tag NOT LIKE "$consilio$deleted$*")
+        FOREVERY (INTEGER sourceid FROM SELECT AS INTEGER ARRAY id FROM consilio.contentsources WHERE catalogid = catalog.id AND contentsources.tag NOT LIKE "$consilio$deleted$*")
           EnsureIndexManagerContentsource(catalog.id, sourceid);
       }
     }
@@ -143,7 +152,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
              , last_indexed := VAR data.commanddate
           FROM consilio.contentsources
          WHERE status >= 0
-               AND (VAR data.indexid = 0 ? TRUE : indexid = VAR data.indexid)
+               AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
                AND tag NOT LIKE "$consilio$deleted$*";
     IF (Length(change_status) > 0)
       LogDebug("consilio", "ContentSourceStatus", change_status);
@@ -151,7 +160,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
        SET status := (options.rebuild OR status = 2) ? 2 : 1
          , last_indexed := VAR data.commanddate
      WHERE status >= 0
-           AND (VAR data.indexid = 0 ? TRUE : indexid = VAR data.indexid)
+           AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
     RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
     IF (Length(commiterrors) > 0)
@@ -164,14 +173,16 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     }
 
     RECORD ARRAY sources := SELECT DISTINCT contentsources.id
-                                 , contentsources.indexid
-                                 , indices.indexmanager
+                                 , indexid := catalogs.id
+                                 , catalog_indexmanagers.indexmanager
                               FROM consilio.contentsources
-                                 , consilio.indices
-                             WHERE contentsources.indexid = indices.id
+                                 , consilio.catalogs
+                                 , consilio.catalog_indexmanagers
+                             WHERE contentsources.catalogid = catalogs.id
+                                   AND catalog_indexmanagers.catalogid = catalogs.id
                                    AND (VAR data.indexid = 0
-                                       OR indices.id = VAR data.indexid)
-                                   AND indices.name NOT LIKE "$consilio$deleted$*"
+                                       OR catalogs.id = VAR data.indexid)
+                                   AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     INTEGER ARRAY indexmanagers;
@@ -197,13 +208,14 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
   // Get the content source to check
   RECORD source := SELECT contentsources.*
-                        , indices.loglevel
-                        , catalogtag := indices.name
+                        , indexid := catalogs.id
+                        , catalogs.loglevel
+                        , catalogtag := catalogs.name
                      FROM consilio.contentsources
-                        , consilio.indices
-                    WHERE contentsources.indexid = indices.id
+                        , consilio.catalogs
+                    WHERE contentsources.catalogid = catalogs.id
                           AND contentsources.id = VAR data.contentsourceid
-                          AND indices.name NOT LIKE "$consilio$deleted$*"
+                          AND catalogs.name NOT LIKE "$consilio$deleted$*"
                           AND contentsources.tag NOT LIKE "$consilio$deleted$*";
   IF (NOT RecordExists(source))
   {
@@ -976,7 +988,7 @@ PUBLIC RECORD FUNCTION DeleteObject(RECORD data, RECORD options DEFAULTSTO DEFAU
     RETURN result;
   }
 
-  INTEGER loglevel := (SELECT AS INTEGER indices.loglevel + 1 FROM consilio.indices WHERE id = data.indexid) - 1;
+  INTEGER loglevel := (SELECT AS INTEGER catalogs.loglevel + 1 FROM consilio.catalogs WHERE id = data.indexid) - 1;
 
   FetcherDebug(ConsilioDebugInfo, "Deleting object \"" || EncodeJava(data.objectid) || "\", from index " || data.indexid, loglevel);
 
@@ -1014,7 +1026,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
     RETURN result;
   }
 
-  INTEGER loglevel := (SELECT AS INTEGER indices.loglevel + 1 FROM consilio.indices WHERE id = data.indexid) - 1;
+  INTEGER loglevel := (SELECT AS INTEGER catalogs.loglevel + 1 FROM consilio.catalogs WHERE id = data.indexid) - 1;
   IF(NOT options.nocleaning AND data.active AND NOT data.dontdelete)
   {
     FetcherDebug(ConsilioDebugInfo, "Removing orphan index " || data.indexid || ", deleting all documents", loglevel);
@@ -1052,9 +1064,9 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
    WHERE status > 0
          AND id = VAR data.contentsourceid
          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-  UPDATE consilio.indices
+  UPDATE consilio.catalog_indexmanagers
      SET rebuild := FALSE
-   WHERE id = data.indexid;
+   WHERE catalogid = data.indexid;
 
   RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
   IF (Length(commiterrors) > 0)
@@ -1067,7 +1079,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
   }
   BroadcastEvent("consilio:contentsource." || data.contentsourceid, DEFAULT RECORD);
 
-  IF (NOT RecordExists(SELECT FROM consilio.contentsources WHERE indexid = VAR data.indexid AND status != 0))
+  IF (NOT RecordExists(SELECT FROM consilio.contentsources WHERE catalogid = VAR data.indexid AND status != 0))
   {
     BroadcastEvent("consilio:index." || data.indexid, DEFAULT RECORD);
     ShowTowlNotification("consilio:notifications.catalog_uptodate",
@@ -1078,7 +1090,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
                          ],
                          [ titleparams := [ ToString(oldstatus) ]
                          , descriptionparams :=
-                               [ (SELECT AS STRING name FROM consilio.indices WHERE id = data.indexid)
+                               [ (SELECT AS STRING name FROM consilio.catalogs WHERE id = data.indexid)
                                , ToString(oldstatus)
                                ]
                          , icon := "consilio:consilio"
@@ -1109,12 +1121,13 @@ PUBLIC MACRO ClearCaches(STRING eventname, RECORD data)
 RECORD ARRAY FUNCTION GetAllContentSources()
 {
   RETURN SELECT contentsources.*
-              , indices.loglevel
+              , indexid := catalogs.id
+              , catalogs.loglevel
            FROM consilio.contentsources
-              , consilio.indices
+              , consilio.catalogs
           WHERE contentsources.status >= 0
-                AND contentsources.indexid = indices.id
-                AND indices.name NOT LIKE "$consilio$deleted$*"
+                AND contentsources.catalogid = catalogs.id
+                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 
@@ -1122,13 +1135,14 @@ RECORD ARRAY FUNCTION GetAllContentSources()
 RECORD FUNCTION GetContentSource(INTEGER contentsourceid)
 {
   RETURN SELECT contentsources.*
-              , indices.loglevel
+              , indexid := catalogs.id
+              , catalogs.loglevel
            FROM consilio.contentsources
-              , consilio.indices
+              , consilio.catalogs
           WHERE contentsources.id = contentsourceid
-                AND contentsources.indexid = indices.id
+                AND contentsources.catalogid = catalogs.id
                 //AND contentsources.status >= 0 //if a specific ID is selected, this is an explicit CheckGroup and we should ignore the status field
-                AND indices.name NOT LIKE "$consilio$deleted$*"
+                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 
@@ -1136,13 +1150,14 @@ RECORD FUNCTION GetContentSource(INTEGER contentsourceid)
 RECORD ARRAY FUNCTION GetContentSourcesForIndex(INTEGER indexid)
 {
   RETURN SELECT contentsources.*
-              , indices.loglevel
+              , indexid := catalogs.id
+              , catalogs.loglevel
            FROM consilio.contentsources
-              , consilio.indices
-          WHERE contentsources.indexid = VAR indexid
-                AND contentsources.indexid = indices.id
+              , consilio.catalogs
+          WHERE contentsources.catalogid = VAR indexid
+                AND contentsources.catalogid = catalogs.id
                 AND contentsources.status >= 0
-                AND indices.name NOT LIKE "$consilio$deleted$*"
+                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 
@@ -1306,7 +1321,7 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 {
   RECORD query := CQMatch("contentsource", "=", ToString(contentsourceid));
 
-  INTEGER indexid := SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid;
+  INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
   // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
   RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ] ]);
@@ -1341,7 +1356,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
   INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
 
   // Get all available groups (might take some time if the source has millions of objects)
-  INTEGER indexid := SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid;
+  INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
   // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
   RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping ]);

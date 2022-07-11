@@ -42,11 +42,11 @@ WHILE (command != "")
     }
     ELSE IF(ToUppercase(command) LIKE "/INDICES*")
     {
-      PrintRecordArrayTo(0, (SELECT id, name FROM consilio.indices WHERE command LIKE " *withdeleted" OR name NOT LIKE "$consilio$deleted$*" ORDER BY id), 'boxed');
+      PrintRecordArrayTo(0, (SELECT id, name FROM consilio.catalogs WHERE command LIKE " *withdeleted" OR name NOT LIKE "$consilio$deleted$*" ORDER BY id), 'boxed');
     }
     ELSE IF(ToUppercase(command) LIKE "/SOURCES*")
     {
-      PrintRecordArrayTo(0, (SELECT indexid, id, contentprovider, data FROM consilio.contentsources WHERE command LIKE " *withdeleted" OR tag NOT LIKE "$consilio$deleted$*" ORDER BY indexid, id), 'boxed');
+      PrintRecordArrayTo(0, (SELECT catalogid, id, contentprovider, data FROM consilio.contentsources WHERE command LIKE " *withdeleted" OR tag NOT LIKE "$consilio$deleted$*" ORDER BY catalogid, id), 'boxed');
     }
     ELSE
     {

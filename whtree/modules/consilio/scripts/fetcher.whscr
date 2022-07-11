@@ -86,14 +86,14 @@ OpenPrimary( [ waituntil := AddTimeToDate(60*1000, GetCurrentDatetime()) ]);
 IF(args.checkgroupbytag != "")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.checkgroupbytag))
-    args.exec := "FASTCHECKGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
+    args.exec := "FASTCHECKGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
   IF(args.exec="")
     THROW NEW Exception("Didn't find contentsource");
 }
 IF(args.updategroupbytag != "")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.updategroupbytag))
-    args.exec := "UPDATEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
+    args.exec := "UPDATEGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
   IF(args.exec="")
     THROW NEW Exception("Didn't find contentsource");
 }

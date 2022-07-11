@@ -28,7 +28,7 @@ FOREVERY (RECORD indexmanager FROM SELECT id FROM consilio.indexmanagers)
     CONTINUE;
   FOREVERY (INTEGER indexid FROM result.indices)
   {
-    RECORD cat := SELECT * FROM consilio.indices WHERE id = indexid;
+    RECORD cat := SELECT * FROM consilio.catalogs WHERE id = indexid;
     IF (NOT RecordExists(cat) OR cat.name LIKE "$consilio$deleted$*")
     {
       // This catalog does not exist anymore or is marked for deletion, delete it from the index manager, then from the database
@@ -40,7 +40,7 @@ FOREVERY (RECORD indexmanager FROM SELECT id FROM consilio.indexmanagers)
         IF (RecordExists(cat))
         {
           trans->BeginWork();
-          DELETE FROM consilio.indices WHERE id = cat.id;
+          DELETE FROM consilio.catalogs WHERE id = cat.id;
           trans->CommitWork();
           IF (debug)
             Print(`  Deleted catalog '${cat.tag}' (${cat.id}) from database\n`);
@@ -63,7 +63,7 @@ FOREVERY (RECORD cat FROM catalogs)
     IF (debug)
       Print(`Delete catalog '${cat.tag}' (${cat.id}) from database\n`);
     trans->BeginWork();
-    DELETE FROM consilio.indices WHERE id = cat.id;
+    DELETE FROM consilio.catalogs WHERE id = cat.id;
     trans->CommitWork();
     DELETE FROM catalogs WHERE id = cat.id;
     CONTINUE;

@@ -39,7 +39,7 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
 
       //Check if any items are there for our source, unconnected but affecting our index, or affecting something global
       IF(NOT RecordExists(SELECT FROM status.deduped WHERE (deduped.contentsourceid = contentsourceid)
-                                                           OR (deduped.contentsourceid = 0 AND indexid = contentsource.indexid)
+                                                           OR (deduped.contentsourceid = 0 AND indexid = contentsource.catalogid)
                                                            OR (indexid=0)))
         BREAK;
 

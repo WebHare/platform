@@ -8,11 +8,6 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
-{
-  RETURN event.groupid = ToString(expectfile);
-}
-
 MACRO TestHTMLIndexing()
 {
   // The testfile has two pages, with the first page linking to the second page

@@ -10,12 +10,12 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, Co
 
 BOOLEAN FUNCTION IsValidIndexId(INTEGER indexid)
 {
-  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.indices WHERE name NOT LIKE "$consilio$deleted$*");
+  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.catalogs WHERE name NOT LIKE "$consilio$deleted$*");
 }
 
 INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)
 {
-  RETURN SELECT AS INTEGER indexid FROM consilio.contentsources WHERE id = contentsourceid AND tag NOT LIKE "$consilio$deleted$*";
+  RETURN SELECT AS INTEGER catalogid FROM consilio.contentsources WHERE id = contentsourceid AND tag NOT LIKE "$consilio$deleted$*";
 }
 
 /** @short Rebuild one index or all indexes
@@ -69,8 +69,8 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag)
 
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    LogDebug("consilio", "ContentSourceStatus", "CheckConsilioContentSourceByTag", contentsourcetag, contentsource.indexid, contentsource.id);
-    STRING command := "CHECKINDEX " || contentsource.indexid || " " || contentsource.id;
+    LogDebug("consilio", "ContentSourceStatus", "CheckConsilioContentSourceByTag", contentsourcetag, contentsource.catalogid, contentsource.id);
+    STRING command := "CHECKINDEX " || contentsource.catalogid || " " || contentsource.id;
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -98,8 +98,8 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioContentSourceByTag", contentsourcetag, contentsource.indexid, contentsource.id);
-    STRING command := "UPDATEINDEX " || contentsource.indexid || " " || contentsource.id;
+    LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioContentSourceByTag", contentsourcetag, contentsource.catalogid, contentsource.id);
+    STRING command := "UPDATEINDEX " || contentsource.catalogid || " " || contentsource.id;
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -128,7 +128,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING 
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    STRING command := "FASTCHECKGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    STRING command := "FASTCHECKGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -156,7 +156,7 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    STRING command := "UPDATEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    STRING command := "UPDATEGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -184,7 +184,7 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    STRING command := "DELETEGROUP " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
+    STRING command := "DELETEGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\"";
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -215,7 +215,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    STRING command := "CHECKOBJECT " || contentsource.indexid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\" \"" || EncodeJava(objectid) || "\"";
+    STRING command := "CHECKOBJECT " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(groupid) || "\" \"" || EncodeJava(objectid) || "\"";
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -243,7 +243,7 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioObjectByTag(STRING contentsourcetag, STRIN
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(contentsourcetag))
   {
-    STRING command := "DELETEOBJECT " || contentsource.indexid || " \"" || EncodeJava(objectid) || "\"";
+    STRING command := "DELETEOBJECT " || contentsource.catalogid || " \"" || EncodeJava(objectid) || "\"";
     IF (NOT RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command))))
       RETURN FALSE;
   }
@@ -260,7 +260,7 @@ MACRO HandleCommandSynchronously(RECORD basedata, FUNCTION PTR resolve, FUNCTION
     {
       RECORD data :=
           [ ...basedata
-          , indexid := contentsource.indexid
+          , indexid := contentsource.catalogid
           , contentsourceid := contentsource.id
           ];
 

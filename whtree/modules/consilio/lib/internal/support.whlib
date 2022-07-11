@@ -247,13 +247,13 @@ PUBLIC RECORD ARRAY FUNCTION GetContentSourcesByTag(STRING contentsourcetag)
     RETURN DEFAULT RECORD ARRAY;
   IF (contentsourcetag LIKE "#*")
     RETURN SELECT id
-                , indexid
+                , catalogid
              FROM consilio.contentsources
             WHERE id = ToInteger(Substring(VAR contentsourcetag,1),0)
                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
   RETURN SELECT id
-              , indexid
+              , catalogid
            FROM consilio.contentsources
           WHERE ToUppercase(tag) = ToUppercase(contentsourcetag);
 }
@@ -264,6 +264,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexThesaurus(INTEGER indexid)
       SELECT word
            , wordgroup
         FROM consilio.thesaurus
-       WHERE COLUMN indexid = VAR indexid;
+       WHERE COLUMN catalogid = VAR indexid;
 
 }

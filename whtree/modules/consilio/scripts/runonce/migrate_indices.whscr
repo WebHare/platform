@@ -1,0 +1,122 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+// Local schema so the obsolete indices table can be removed from dbschema.whlib
+SCHEMA
+  < TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "name"
+    , INTEGER "indexmanager" // obsoleted in moduledefinition
+    , STRING "description"
+    , STRING "definedby"
+    , INTEGER "loglevel"
+    , INTEGER "priority"
+    , INTEGER "type"
+    , STRING "indexname" // obsoleted in moduledefinition
+    , STRING "fieldgroups"
+    , STRING "lang"
+    ; KEY id
+    > catalogs
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "catalogid" NULL := 0
+    , INTEGER "indexmanager" NULL := 0
+    , STRING "indexname"
+    , BOOLEAN "primary"
+    , BOOLEAN "rebuild"
+    > catalog_indexmanagers
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "contentprovider"
+    , STRING "data"
+    , BOOLEAN "discardsummaries"
+    , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
+    , INTEGER "catalogid" NULL := 0
+    , INTEGER "maxgroupobjects"
+    , STRING "tag"
+    , STRING "title"
+    , INTEGER "status"
+    , DATETIME "last_indexed"
+    , DATETIME "orphansince"
+    , STRING "definedby"
+    , INTEGER "fsobject" NULL := 0
+    ; KEY id
+    > contentsources
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "query"
+    , DATETIME "when"
+    , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
+    , INTEGER "catalogid" NULL := 0
+    , INTEGER "pages"
+    , STRING "sess"
+    , INTEGER "results"
+    , INTEGER "site" NULL := 0
+    , STRING "tag"
+    ; KEY id
+    > query_results
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
+    , INTEGER "catalogid" NULL := 0
+    , INTEGER "wordgroup"
+    , STRING "word"
+    ; KEY id
+    > thesaurus
+  > consilio;
+
+OBJECT trans := OpenPrimary();
+
+// Nothing to do if already migrated or nothing to migrate
+IF (trans->ColumnExists("consilio", "catalogs", "id") OR NOT trans->ColumnExists("consilio", "indices", "id"))
+  RETURN;
+
+/* https://gitlab.webhare.com/webharebv/codekloppers/-/issues/546 - we're not fixing everything at the first run after
+   a table rename so an update message will leak. */
+Print("Migrating Consilio indices to catalogs - ignore any upcoming 'Non eq defaults' error, it will be automatically fixed later\n");
+trans->BeginWork();
+
+// Rename the existing 'indices' table to 'catalogs'
+trans->__ExecSQL(`ALTER TABLE consilio.indices RENAME TO catalogs`);
+
+// Read the database schema from the moduledefinition
+ClearAllSchemaCaches();
+RECORD dbschema := GetModuleDatabaseSchema("consilio");
+
+FOREVERY (RECORD dbtable FROM dbschema.tables)
+{
+  // Remove the not nullable constraints from columns referencing the not as of yet existing catalogs
+  UPDATE dbschema.tables[#dbtable].cols
+     SET nullable := TRUE
+   WHERE references_schema = "consilio" AND references_table = "catalogs";
+   // We don't want the obsolete 'indexmanager', 'indexname' and 'indexid' columns to be dropped just yet
+  DELETE FROM dbschema.tables[#dbtable].obsoletecols WHERE name IN [ "indexmanager", "indexname", "indexid" ];
+}
+
+// Update the database
+RECORD result := GeneratePostgreSQLDependentSQLCommands([ dbschema ],trans);
+ExecuteSQLUpdates(trans, result.commands);
+
+consilio := BindTransactionToSchema(trans->id, "consilio");
+
+// Link to the index' index manager, if any
+FOREVERY (RECORD indexrec FROM SELECT * FROM consilio.catalogs)
+  IF (indexrec.indexmanager != 0)
+    INSERT CELL
+        [ catalogid := indexrec.id
+        , indexmanager := indexrec.indexmanager
+        , indexname := indexrec.indexname
+        , primary := TRUE
+        ] INTO consilio.catalog_indexmanagers;
+
+// Set references
+UPDATE consilio.contentsources SET catalogid := indexid;
+UPDATE consilio.query_results SET catalogid := indexid;
+UPDATE consilio.thesaurus SET catalogid := indexid;
+
+trans->CommitWork();
