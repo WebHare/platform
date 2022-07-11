@@ -835,11 +835,11 @@ RECORD FUNCTION BreakConstraints(RECORD ARRAY single_constraints)
          ];
 }
 
-RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, TABLE tbl, RECORD outputcolumns)
+RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, TABLE tbl, STRING primarykey, RECORD outputcolumns)
 {
   OBJECT query := NEW DynamicQuery;
 
-  STRING ARRAY cols := [ "id" ];
+  STRING ARRAY cols := [ primarykey ];
   RECORD ARRAY unpacked := UnpackRecord(outputcolumns);
   FOREVERY (RECORD rec FROM unpacked)
     INSERT ToLowercase(rec.value) INTO cols AT END;
@@ -848,7 +848,7 @@ RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, B
   query->AddDeclaredTable("tbl", tbl, cols);
 
   IF (NOT returnall)
-    query->AddConstraint("tbl.id", "IN", ids);
+    query->AddConstraint(`tbl.${primarykey}`, "IN", ids);
 
   RECORD ARRAY queryresult := query->Execute();
 
@@ -894,6 +894,7 @@ RECORD FUNCTION GetEnrichDefaultTableRecord(TABLE tbl, RECORD outputcolumns)
 /** @short Enrich an array with fields from a database table
     @param inrows Rows to enrich
     @param idcellname Name of the cell containing the id (eg WRD_ID, ID, ROWKEY). Append '[]' if the cell is an array of values.
+    @param tbl Table to enrich with
     @param addcolumns Output columns to add
     @cell(boolean) options.rightouterjoin Insert default values for missing matches, instead of deleting them from the result
     @cell(record) options.leftouterjoin Default values to insert for left side missing matches, instead of deleting them from the result
@@ -901,6 +902,12 @@ RECORD FUNCTION GetEnrichDefaultTableRecord(TABLE tbl, RECORD outputcolumns)
     @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
 PUBLIC RECORD ARRAY FUNCTION EnrichWithTable(RECORD ARRAY inrows, STRING idcellname, TABLE tbl, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  INSERT CELL __joinid := "id" INTO addcolumns;
-  RETURN ExecuteEnrichment(inrows, idcellname, options, PTR GetTableBulkFields(#1, #2, #3, tbl, addcolumns), PTR GetEnrichDefaultTableRecord(tbl, addcolumns));
+  options := ValidateOptions(
+      [ primarykey :=   "id"
+      ], options,
+      [ passthroughin := "rest"
+      ]);
+
+  INSERT CELL __joinid := options.primarykey INTO addcolumns;
+  RETURN ExecuteEnrichment(inrows, idcellname, options.rest, PTR GetTableBulkFields(#1, #2, #3, tbl, options.primarykey, addcolumns), PTR GetEnrichDefaultTableRecord(tbl, addcolumns));
 }
