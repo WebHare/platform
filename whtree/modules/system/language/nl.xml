@@ -662,6 +662,8 @@
     <text tid="units">Eenheden</text>
     <text tid="urlaccess">URL toegang</text>
     <text tid="urlaccess-descr">Laat inloggen op deze URL toe</text>
+    <text tid="webdav">WebDav</text>
+    <text tid="webdav-descr">Sta het verbinden met WebHare via WebDav toe</text>
     <text tid="webdav_datafolders">WebDav gegevensmappen</text>
     <text tid="webdav_fullaccess">Volledige toegang</text>
     <text tid="webdav_fullaccess-descr">Volledige toegang (lezen en schrijven) op de inhoud van deze map</text>

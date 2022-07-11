@@ -197,5 +197,5 @@ RunTestframework([ PTR SetupScanner(TRUE)
                  , PTR TestPublisherFormVirus
                  , PTR SetupScanner(FALSE)
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                   ,[ login := "lisa" ]
+                                   ,[ login := "lisa", grantrights := ["system:webdav"] ]
                                    ]]);

@@ -844,6 +844,8 @@
     <text tid="units">Units</text>
     <text tid="urlaccess">URL access</text>
     <text tid="urlaccess-descr">Allows access to this URL</text>
+    <text tid="webdav">WebDav</text>
+    <text tid="webdav-descr">Allow to connect to WebHare using WebDav</text>
     <text tid="webdav_datafolders">WebDav data folders</text>
     <text tid="webdav_fullaccess">Full access</text>
     <text tid="webdav_fullaccess-descr">Full access (read and write) to the contents of this folder</text>

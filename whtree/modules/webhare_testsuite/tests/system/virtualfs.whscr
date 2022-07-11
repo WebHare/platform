@@ -310,10 +310,6 @@ MACRO PublisherTestsAsMarge()
   testfw->CommitWork();
 
   PublisherTests("marge", testdir->whfspath, Substring(testdir->whfspath, Length("/webhare-tests")));
-
-  /*testfw->BeginWork();
-  testsite->rootobject->DeleteSelf();
-  testfw->CommitWork();*/ //our data is still used by TestMargeThroughWebdav
 }
 
 MACRO DataTests()
@@ -540,6 +536,36 @@ MACRO TestMargeThroughWebdav()
   TestEq(FALSE, RecordExists(SELECT FROM dirlisting WHERE name='test.txt'));
 }
 
+MACRO TestBlockedAccessThroughWebdav()
+{
+  //__webbrowser_debugall := TRUE;
+  testfw->RefreshWebserverConfig();
+
+  //We need to use our testing site
+  OBJECT testsite := testfw->GetTestSite();
+  OBJECT webdavserver := NEW WebdavConnection(testsite->webroot || "webdav/");
+
+  //Create a webdav account for lisa
+  testfw->BeginWork();
+
+  OBJECT lisa := testfw->GetUserObject("lisa");
+  STRING pwd := lisa->CreateAppPassword("system:webdav","lisa's iMac").password;
+  TestEqLike("????-????-????-????", pwd); //this is the format
+  TestEqLike("????????????????", Substitute(pwd,'-',''));
+
+  TestEq(1,Length(lisa->ListAppPasswords("")));
+  TestEq(0,Length(lisa->ListAppPasswords("system:xx")));
+  RECORD ARRAY passes := lisa->ListAppPasswords("system:webdav");
+  TestEq(1,Length(passes));
+  Testeq("system:webdav", passes[0].scope);
+  Testeq("lisa's iMac", passes[0].device);
+
+  testfw->CommitWork();
+
+  STRING username := 'webdav-' || testfw->GetUserLogin("lisa");
+  webdavserver->webbrowser->SetPassword(testsite->webroot || "webdav/", username, ' ' || pwd || '  ');
+  TestThrowsLike("*403*", PTR webdavserver->ListDirectory("/"));
+}
 
 Runtestframework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE ])
                   , PTR BaseTest
@@ -550,9 +576,11 @@ Runtestframework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:bas
                   , PTR PublisherTestsAsMarge
                   , PTR TestHomerThroughWebdav
                   , PTR TestMargeThroughWebdav
+                  , PTR TestBlockedAccessThroughWebdav
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                    ,[ login := "homer"]
-                                    ,[ login := "marge"]
+                                    ,[ login := "homer", grantrights := ["system:webdav"] ]
+                                    ,[ login := "marge", grantrights := ["system:webdav"] ]
+                                    ,[ login := "lisa"]
                                     ]
                      ]
                   );

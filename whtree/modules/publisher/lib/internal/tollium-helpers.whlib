@@ -570,17 +570,6 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   }
 
   RECORD contexts := [ applytester := applytester ];
-  IF(typedef.editor.type="screen")
-  {
-    OBJECT screen := parent->LoadScreen(typedef.editor.screen, [ value := value
-                                                               , whfstype :=whfstype
-                                                               , __typedef := typedef
-                                                               ], CELL[ contexts ]);
-    IF(screen->RunModal()!="ok")
-      RETURN DEFAULT RECORD;
-
-    RETURN CELL[ title := currenttitle, widgetsettings := widgetsettings, instance := CELL[ ...screen->value, whfstype ]];
-  }
 
   IF(ObjectExists(rte) AND MemberExists(rte, "__this_is_tolliumrichdocument"))
   {

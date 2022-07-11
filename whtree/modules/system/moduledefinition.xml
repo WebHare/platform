@@ -265,6 +265,10 @@
     <right name="urlaccess" objecttype="accessrules" tid="system:rights.urlaccess" descriptiontid="rights.urlaccess-descr">
       <impliedby right="webservermgmt" />
     </right>
+
+    <right name="webdav" tid="rights.webdav" descriptiontid="rights.webdav-descr">
+      <impliedby right="sysop" />
+    </right>
   </rights>
 
   <backend>

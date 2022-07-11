@@ -297,37 +297,14 @@
     <xs:attribute name="editextension" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          Reference to a tabs extension to edit this widget. The extension should derive from %TolliumTabsExtensionBase and receive a composition named 'contentdata'
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="editlibrary" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Reference to the library containing the function referenced in editfunctioname.
+          Reference to a tabs extension to edit this widget. The extension should derive from %TolliumTabsExtensionBase and receives a composition named 'contentdata'
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="editfunctionname" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          Name of the function in the library referenced in editlibrary.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="editfragment" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Deprecated!
-          Use editextension or editlibrary/editfunctionname instead.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="editscreen" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Deprecated!
-          Use editextension or editlibrary/editfunctionname instead.
+          Reference to an editor function.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
