@@ -1041,7 +1041,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
         }
         DEFAULT
         {
-          fieldvalue := "unrecognized type #" || TypeID(field.value);
+          fieldvalue := EncodeJSON(field.value);
         }
       }
       STRING fieldhint;

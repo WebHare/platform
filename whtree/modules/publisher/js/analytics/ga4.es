@@ -9,7 +9,7 @@ import { onConsentChange } from "./consenthandler.es";
 let ga4settings = whintegration.config["ga4"];
 let loaded=false;
 
-function load()
+function load() //no codepath should load() without ga4settings being set
 {
   if(loaded)
     return;
@@ -30,7 +30,7 @@ if(!window.gtag)
     window.dataLayer.push(arguments);
   };
 
-  if(ga4settings && ga4settings.a && !ga4settings.m)
+  if(ga4settings?.a && !ga4settings.m)
     load();
 }
 
@@ -41,7 +41,10 @@ export function initOnConsent(options)
             };
 
   if(!(ga4settings && ga4settings.a && ga4settings.m))
+  {
     console.error("<googleanalytics4/> tag must be configured with launch=manual to support initOnConsent");
+    return;
+  }
 
   onConsentChange(consentsettings =>
   {
