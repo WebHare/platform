@@ -248,6 +248,8 @@ PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
         def := def || ' unique="true"';
       IF (indexdef.is_uppercase)
         def := def || ' uppercase="true"';
+      IF (indexdef.nonullstores)
+        def := def || ' nonullstores="true"';
       def := def || ' />\n';
 
     }
