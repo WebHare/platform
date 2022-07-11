@@ -12,6 +12,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/internal/cqmatch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -574,6 +575,8 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
 {
   IF (NOT CellExists(query, "_type"))
     THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
+  IF (query._type = "__delayed_cqmatch") //delayed cqmatch until we know the actual index type
+    query := __CQMatch(query.__delayed_cqmatch.field, query.__delayed_cqmatch.matchtype, query.__delayed_cqmatch.value, CELL[...query.__delayed_cqmatch.options, __opensearch := TRUE ]);
 
   RECORD result;
   SWITCH (query._type)
