@@ -195,7 +195,7 @@ OBJECT FUNCTION CreateVirtualFS()
 {
   InitCurrentUser(); //delayed until VFS is needed, as setting up userapis is relatively expensive and wastes too much time when sending diverted files
   IF(NOT GetEffectiveUser()->HasRight("system:webdav"))
-    AbortWithHTTPError(403,"This user does not have permission to use WebDa");
+    AbortWithHTTPError(403,"This user does not have permission to use WebDav");
 
   RETURN OpenVirtualFS();
 }
