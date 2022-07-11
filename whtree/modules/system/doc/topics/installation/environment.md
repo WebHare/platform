@@ -16,7 +16,11 @@ If not set, WEBHARE_DATAROOT is set to '$WEBHARE_DIR/whdata'. If whdata is a sym
 the expanded symlink. This allows you to specify a 'default' WebHare installation for a checked out soure tree.
 
 ### WEBHARE_BASEPORT
-The base port number for various connections. If not set, assumed to be 13679.
+The base port number for various connections. If not set, assumed to be 13679. The following ports are offset from this number:
+- `+5` (13684) - Trusted port - we trust `X-Forwarded-*` headers
+- `+6` (13685) - OpenSearch
+- `+7` (13686) - Reserved for OpenSearch dashboard
+- `+9` (13688) - Rescue port. Serves an unencrypted webinterface even if the webserver configuration cannot be processed
 
 ### WEBHARE_DTAPSTAGE
 Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'development'. If not set, configurable in WebHare.

@@ -3,9 +3,6 @@ Consilio can be configured to use an external OpenSearch cluster for storage.
 We also ship OpenSearch with WebHare which Consilio can use (and which will
 eventually replace its own index manager)
 
-## Builtin OpenSearch
-To start the builtin elasticsearch engine, run `wh consilio:enable_builtin_elasticsearch`
-
 ### Useful commands
 Useful commands for the builtin OpenSearch, assuming it's running on the
 default interface http://127.0.0.1:13685/
@@ -38,6 +35,6 @@ open http://127.0.0.1:5601/
 If OpenSearch shuts itself down complaining about locks, verify that no
 other instance is already running
 
-- newly created index not visible in Kibana
+- newly created index not visible in Dashboard
 Indices will not show up in the dashboard's "Create index pattern" page if they are
 still empty.

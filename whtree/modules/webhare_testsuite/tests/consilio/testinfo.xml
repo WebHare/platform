@@ -9,7 +9,7 @@
   <!-- test ES parsers (and other internal stuff later?) - does not actually require an ES to communicate with, so we can always run this test -->
   <test script="test_elasticsearch_internal.whscr" />
 
-  <test script="test_indexmanager.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH">
+  <test script="test_indexmanager.whscr" ifenvironset="WEBHARE_PREFERINDEXMANAGER">
     <arg param="consilio_binary"/>
     <arg param="listenport"/>
     <arg param="indexdir"/>
@@ -28,7 +28,7 @@
   <test script="test_cleanup.whscr" />
   <test script="test_pagelists.whscr" />
 
-  <test script="test_moduleindices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_moduleindices.whscr" />
 
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />

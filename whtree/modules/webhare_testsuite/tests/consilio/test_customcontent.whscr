@@ -37,6 +37,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
   RECORD query := CQMatch("contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
+    dumpvalue(query,'tree');
   RECORD res := search_obj->SearchQuery(query, 0, 1000);
   RETURN
       SELECT groupid
@@ -765,10 +766,10 @@ MACRO TestTypes()
   ELSE
   {
     // Consilio doesn't support numeric range queries
-    TestThrowsLike("Invalid match type '<=' for INTEGER match query", PTR CQMatch("mapping_integer", "<=", 1));
-    TestThrowsLike("Invalid match type '>=' for INTEGER64 match query", PTR CQMatch("mapping_integer64", ">=", 1i64));
-    TestThrowsLike("Invalid value type 'MONEY' for match query", PTR CQMatch("mapping_money", "<", 1m));
-    TestThrowsLike("Invalid value type 'FLOAT' for match query", PTR CQMatch("mapping_float", ">", 1f));
+    TestThrowsLike("Invalid match type '<=' for INTEGER match query", PTR CQMatch("mapping_integer", "<=", 1, [ __opensearch := FALSE ]));
+    TestThrowsLike("Invalid match type '>=' for INTEGER64 match query", PTR CQMatch("mapping_integer64", ">=", 1i64, [ __opensearch := FALSE ]));
+    TestThrowsLike("Invalid value type 'MONEY' for match query", PTR CQMatch("mapping_money", "<", 1m, [ __opensearch := FALSE ]));
+    TestThrowsLike("Invalid value type 'FLOAT' for match query", PTR CQMatch("mapping_float", ">", 1f, [ __opensearch := FALSE ]));
   }
 
   res := RunConsilioSearch(maincatalog->tag, CQMatch("objectid", "=", idprefix || "a1"));

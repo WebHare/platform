@@ -1,5 +1,5 @@
 <?wh
-//bootstrap the consilio legacy indexmanager. only invoked on new installations if WEBHARE_PREFERINDEXMANAGER is set
+//bootstrap the first index manager
 
 LOADLIB "wh::os.whlib";
 
@@ -8,7 +8,6 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -17,30 +16,38 @@ BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
 
 MACRO LogStartup(STRING text)
 {
-  LogDebug("consilio:setupindexmanager", text);
+  LogDebug("consilio:setupopensearch", text);
   IF(debugstartup)
-    Print("Setupindexmanager: " || text || "\n");
+    Print("system:setupopensearch: " || text || "\n");
 }
 
 OBJECT trans := OpenPrimary();
 
-INTEGER builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin";
+INTEGER builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-elasticsearch";
+IF(builtin_indexmanager != 0) //old name, we need to update it
+{
+  trans->BeginWork();
+  UPDATE consilio.indexmanagers SET address := "builtin-opensearch" WHERE address = "builtin-elasticsearch";
+  GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
+  trans->CommitWork();
+}
+
+builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-opensearch";
 IF(builtin_indexmanager != 0)
   RETURN; //we already have one
 
-LogStartup("There is no indexmanager yet, need to create one");
+LogStartup("There is no local OpenSearch yet, need to create one");
 
 trans->BeginWork();
 builtin_indexmanager := MakeAutonumber(consilio.indexmanagers,"id");
-
-LogStartup("Creating legacy indexmanager");
-INSERT INTO consilio.indexmanagers(id, name, type, address, enablestemming, loglevel)
-     VALUES (builtin_indexmanager, "Builtin Consilio", whconstant_consilio_indexmanager_legacybackend, "builtin", ReadRegistryKey("consilio.indexmanager.enablestemming"), ReadRegistryKey("consilio.indexmanager.loglevel"));
+LogStartup("Creating OpenSearch");
+INSERT INTO consilio.indexmanagers(id, name, type, address)
+     VALUES (builtin_indexmanager, "Builtin OpenSearch", whconstant_consilio_indexmanager_opensearch, "builtin-opensearch");
 
 GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
 trans->CommitWork();
 
-LogStartup("Waiting for indexmanager to come online");
+LogStartup("Waiting for OpenSearch to come online");
 
 STRING status := WaitForPromise(WaitForIndexManager(builtin_indexmanager));
 IF (status != SearchOk)
@@ -50,9 +57,9 @@ IF (status != SearchOk)
   RETURN;
 }
 
-LogStartup("Autocreated indexmanager is online");
+LogStartup("Autocreated OpenSearch is online");
 
 FixConsilioIndices();
 
-LogStartup("Autocreated indexmanager is configured");
+LogStartup("Autocreated OpenSearch is configured");
 
