@@ -279,21 +279,19 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
         onLocked(lock_ctrl);
       } break;
       case "releaseRequest":
+      case "updateReleaseRequest":
       {
-        if (!releaserequest_ctrl)
+        if (releaserequest_ctrl)
+        releaserequest_ctrl._gotClose();
+        if (onReleaseRequest)
         {
-          if (onReleaseRequest)
-          {
-            releaserequest_ctrl = new ReleaseRequestController(fifo, item.info, item.timeleft);
-            onReleaseRequest(releaserequest_ctrl);
-          }
-          else
-          {
-            socket.send(JSON.stringify({ type: "denyReleaseRequest" }));
-          }
+          releaserequest_ctrl = new ReleaseRequestController(fifo, item.info, item.timeleft);
+          onReleaseRequest(releaserequest_ctrl);
         }
         else
-          releaserequest_ctrl._gotUpdate(item.info);
+        {
+          socket.send(JSON.stringify({ type: "denyReleaseRequest" }));
+        }
       } break;
       case "releaseRequestDenied":
       {
@@ -318,12 +316,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
           lock_ctrl = null;
         }
       } break;
-      case "updatereleaseRequest":
-      {
-        if (releaserequest_ctrl)
-          releaserequest_ctrl._gotUpdate(item.info);
-      } break;
-      case "cancelreleaseRequest":
+      case "cancelReleaseRequest":
       {
         if (releaserequest_ctrl)
           releaserequest_ctrl._gotClose();
