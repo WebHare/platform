@@ -364,7 +364,7 @@ class Calendar2 extends CalendarTable
 
   _dismissOverlay()
   {
-    dompack.remove(this.node);
+    this.node.remove();
     this._endOverlayDismissCapture();
     this._owner.__closedDatepicker();
   }

@@ -222,7 +222,6 @@ export default class AutoSuggest extends SelectList
   closeSelectList()
   {
     super.closeSelectList();
-    if(this._items)
-      dompack.remove(this._items);
+    this._items?.remove();
   }
 }

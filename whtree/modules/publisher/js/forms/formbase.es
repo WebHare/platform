@@ -309,7 +309,7 @@ export default class FormBase
     }
     finally
     {
-      dompack.remove(tempbutton);
+      tempbutton?.remove();
     }
   }
 

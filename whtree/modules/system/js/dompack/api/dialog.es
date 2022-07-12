@@ -131,7 +131,7 @@ export class DialogBase
       if(this._borrowedfrom)
         this._borrowedfrom.insertBefore(this.options.borrow, this._borrowednext);
       else
-        dompack.remove(this._borrowednext);
+        this._borrowednext.remove();
 
     if(this.options.focusonclose)
       dompack.focus(this.options.focusonclose);

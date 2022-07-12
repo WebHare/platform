@@ -33,7 +33,7 @@ export class BasicDialog extends dialogapi.DialogBase
 
   closeDialog()
   {
-    dompack.remove(this.modalitynode);
+    this.modalitynode.remove();
     super.closeDialog();
   }
 

@@ -16,7 +16,7 @@ class DownloadManager
   destroy()
   {
     if (this.dlframe)
-      dompack.remove(this.dlframe);
+      this.dlframe.remove();
 
     if (this.cookieinterval)
     {
