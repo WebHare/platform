@@ -37,7 +37,9 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
   INTEGER ARRAY rebuild_catalogs :=
       SELECT AS INTEGER ARRAY DISTINCT catalogid
         FROM consilio.catalog_indexmanagers
-       WHERE rebuild;
+       WHERE rebuild
+         AND NOT deleted;
+
   FOREVERY (INTEGER catalog FROM rebuild_catalogs)
   {
     INSERT

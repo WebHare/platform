@@ -25,6 +25,7 @@
       <text tid="title-new">URL-patroon toevoegen</text>
     </textgroup>
     <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
+      <text tid="allindexmanagersadded">All indexmanagers zijn al toegevoegd</text>
       <text tid="debuglevel">Logniveau catalogus</text>
       <text tid="debuglevel-0">Alleen fouten</text>
       <text tid="debuglevel-1">Overgeslagen documenten</text>
@@ -32,8 +33,9 @@
       <text tid="debuglevel-3">Alle debuginformatie</text>
       <text tid="id">Catalogus ID</text>
       <text tid="indexmanager">Index manager</text>
+      <text tid="indexmanager_name">Index manager</text>
+      <text tid="indexmanagers">Index managers</text>
       <text tid="indexname">Indexnaam</text>
-      <text tid="invalidindexname">Invalide indexnaam. De naam moet beginnen met een letter en mag alleen bestaan uit de karakters 0-9 en a-z en een liggend streepje (_)</text>
       <text tid="priority">Prioriteit</text>
       <text tid="prorityexplain">(-9-9, 0 is standaard, 9 is hoogste prioriteit)</text>
       <text tid="title-edit">Catalogus '<param p="1"/>' bewerken</text>
@@ -122,6 +124,13 @@
       <text tid="linetext">Regel</text>
       <text tid="what">Foutmelding</text>
     </textgroup>
+    <textgroup gid="editcatalogindex">   <!-- catalog.editcatalogindex -->
+      <text tid="editcatalogindex">Catalogus-index bewerken</text>
+      <text tid="indexmanager">Indexmanager</text>
+      <text tid="indexname">Indexnaam</text>
+      <text tid="invalidindexname">Invalide indexnaam. De naam moet beginnen met een letter en mag alleen bestaan uit de karakters 0-9 en a-z en een liggend streepje (_)</text>
+      <text tid="primary">Primaire index</text>
+    </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>
       <text tid="catalognameexists">Er bestaat al een catalogus met de naam '<param p="1"/>'</text>
@@ -135,6 +144,7 @@
       <text tid="confirmwordgroupdelete">Weet u zeker dat u de geselecteerde woordgroep wilt verwijderen?</text>
       <text tid="indexmanagerconnectionfailed">Er kan geen verbinding worden gemaakt met Consilio.</text>
       <text tid="notenoughwordsingroup">Een woordgroep dient minimaal 2 woorden te bevatten.</text>
+      <text tid="primarycatalogindexrequired">Eén van de indexmanagers moet als primair worden aangeduid</text>
       <text tid="searcherror">Er is een fout opgetreden bij het zoeken:<br/><br/><param p="1"/></text>
       <text tid="sendingcommandfailed">Het commando kon niet naar de queuemanager verstuurd worden.</text>
       <text tid="updatingsrcfieldsfailed">Er is een fout opgetreden bij het bijwerken van de velden van de contentbron: <param p="1"/></text>

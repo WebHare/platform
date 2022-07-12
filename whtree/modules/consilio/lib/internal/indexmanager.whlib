@@ -302,56 +302,59 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
 
   STRING result := SearchOk;
 
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (NOT RecordExists(indexmanager))
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  IF (NOT RecordExists(indexmanagers))
    THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
 
-  SWITCH (indexmanager.type)
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    CASE whconstant_consilio_indexmanager_legacybackend
+    SWITCH (indexmanager.type)
     {
-      // Not supported, ignore
-    }
-    CASE whconstant_consilio_indexmanager_opensearch
-    {
-      IF (indexmanager.indexname = "")
-        THROW NEW Exception(`Index #${indexid} has no name`);
-      ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged AND options.suffix != "")
-        THROW NEW Exception("Cannot specify a suffix for a non-module index");
-
-      RECORD settings := CELL
-            // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
-          [ number_of_replicas := 0
-            // Language-specific analysis settings
-          , analysis := GetAnalysisForLanguage(indexmanager.lang)
-          ];
-      // Add the synonyms filter
-      INSERT CELL synonym := CELL
-          [ type := "synonym_graph"
-          , options.synonyms
-          ] INTO settings.analysis.filter;
-
-      IF(IsDebugTagEnabled("consilio:changes"))
-        LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager, settings ]);
-
-      TRY
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
-        RECORD response := SendToElasticsearch(indexmanager.id,
-                                               indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""),
-                                               "",
-                                               CELL[ settings ],
-                                               "PUT",
-                                               [ throwonfailure := TRUE ]);
-        result := response.status;
+        // Not supported, ignore
       }
-      CATCH(OBJECT<ElasticSearchException> e)
+      CASE whconstant_consilio_indexmanager_opensearch
       {
-        IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-          result := SearchOk;
-        ELSE IF (options.throwonfailure)
-          THROW;
-        ELSE
-          result := SearchHTTPError;
+        IF (indexmanager.indexname = "")
+          THROW NEW Exception(`Index #${indexid} has no name`);
+        ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged AND options.suffix != "")
+          THROW NEW Exception("Cannot specify a suffix for a non-module index");
+
+        RECORD settings := CELL
+              // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
+            [ number_of_replicas := 0
+              // Language-specific analysis settings
+            , analysis := GetAnalysisForLanguage(indexmanager.lang)
+            ];
+        // Add the synonyms filter
+        INSERT CELL synonym := CELL
+            [ type := "synonym_graph"
+            , options.synonyms
+            ] INTO settings.analysis.filter;
+
+        IF(IsDebugTagEnabled("consilio:changes"))
+          LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager, settings ]);
+
+        TRY
+        {
+          RECORD response := SendToElasticsearch(indexmanager.id,
+                                                indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""),
+                                                "",
+                                                CELL[ settings ],
+                                                "PUT",
+                                                [ throwonfailure := TRUE ]);
+          result := response.status;
+        }
+        CATCH(OBJECT<ElasticSearchException> e)
+        {
+          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+            result := SearchOk;
+          ELSE IF (options.throwonfailure)
+            THROW;
+          ELSE
+            result := SearchHTTPError;
+        }
       }
     }
   }
@@ -367,8 +370,8 @@ PUBLIC STRING FUNCTION UpdateIndexManagerIndexSettings(INTEGER indexid, RECORD s
 
   STRING result := SearchOk;
 
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager))
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     SWITCH (indexmanager.type)
     {
@@ -417,8 +420,8 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
 {
   STRING result := SearchOk;
 
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager))
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     SWITCH (indexmanager.type)
     {
@@ -1547,8 +1550,9 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
                    ];
   IF (indexid != 0 AND deletebefore != DEFAULT DATETIME)
   {
-    RECORD indexmanager := GetIndexManagersForIndex(indexid);
-    IF (RecordExists(indexmanager))
+    result.status := SearchIndexNotFound;
+    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+    FOREVERY (RECORD indexmanager FROM indexmanagers)
     {
       SWITCH (indexmanager.type)
       {
@@ -1620,8 +1624,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
         }
       }
     }
-    ELSE
-      result.status := SearchIndexNotFound;
   }
 
   IF(IsDebugTagEnabled("consilio:changes"))
@@ -1774,7 +1776,8 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
-             AND catalogs.name NOT LIKE "$consilio$deleted$*";
+             AND catalogs.name NOT LIKE "$consilio$deleted$*"
+             AND NOT deleted;
 }
 
 /** @short Find the indexmanager for an index
@@ -1796,6 +1799,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
            , catalog_indexmanagers.indexname
            , catalogs.lang
            , indextype := catalogs.type
+           , primary
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
            , consilio.indexmanagers
@@ -1803,7 +1807,9 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND catalog_indexmanagers.indexmanager = indexmanagers.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
-             AND catalogs.name NOT LIKE "$consilio$deleted$*";
+             AND NOT deleted
+             AND catalogs.name NOT LIKE "$consilio$deleted$*"
+    ORDER BY primary DESC;
 }
 
 RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restrict, DATETIME searchdate, INTEGER numresults)

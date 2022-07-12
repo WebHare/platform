@@ -40,7 +40,8 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
        WHERE catalog_indexmanagers.indexmanager = forindexmanager
-             AND catalog_indexmanagers.catalogid = catalogs.id;
+             AND catalog_indexmanagers.catalogid = catalogs.id
+             AND NOT deleted;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -122,7 +123,8 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
              , consilio.catalog_indexmanagers
          WHERE catalogs.id = data.indexid
                AND catalog_indexmanagers.catalogid = catalogs.id
-               AND name NOT LIKE "$consilio$deleted$*";
+               AND name NOT LIKE "$consilio$deleted$*"
+               AND NOT deleted;
 
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
@@ -183,7 +185,8 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                    AND (VAR data.indexid = 0
                                        OR catalogs.id = VAR data.indexid)
                                    AND catalogs.name NOT LIKE "$consilio$deleted$*"
-                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*"
+                                   AND NOT deleted;
 
     INTEGER ARRAY indexmanagers;
     FOREVERY (RECORD source FROM sources)
@@ -1066,7 +1069,8 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
   UPDATE consilio.catalog_indexmanagers
      SET rebuild := FALSE
-   WHERE catalogid = data.indexid;
+   WHERE catalogid = data.indexid
+     AND NOT deleted;
 
   RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
   IF (Length(commiterrors) > 0)

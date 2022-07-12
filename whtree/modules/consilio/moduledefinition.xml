@@ -170,6 +170,11 @@
           The catalog should be rebuilt completely (its language or mapping has changed)
         </d:documentation>
       </d:boolean>
+      <d:boolean name="deleted">
+        <d:documentation>
+          The index should be deleted on the indexmanager
+        </d:documentation>
+      </d:boolean>
     </d:table>
 
     <d:table name="contentsources" primarykey="id">

@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -527,7 +528,12 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       //BOOLEAN inactive := catalog.status < 0;
       BOOLEAN inactive := catalog.type = whconstant_consilio_catalogtype_managed AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
       STRING catalogsize := "";
-      INTEGER catalog_indexmanager := SELECT AS INTEGER indexmanager FROM consilio.catalog_indexmanagers WHERE COLUMN catalogid = VAR catalog.id;
+      INTEGER catalog_indexmanager :=
+          SELECT AS INTEGER indexmanager
+            FROM consilio.catalog_indexmanagers
+           WHERE COLUMN catalogid = VAR catalog.id AND NOT deleted
+        ORDER BY primary DESC;
+
       IF (catalog_indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
         catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
 
@@ -743,35 +749,71 @@ PUBLIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase
 
 PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
 <
+  OBJECT catalog;
   INTEGER catalogid;
 
   MACRO Init(RECORD data)
   {
-    ^indexmanager->options := ^indexmanager->options CONCAT SELECT rowkey := id, title := name, address FROM consilio.indexmanagers ORDER BY ToUppercase(name);
-
     IF (RecordExists(data))
     {
       this->catalogid := data.id;
+      this->catalog := OpenConsilioCatalogById(this->catalogid);
 
       RECORD catalog := SELECT * FROM consilio.catalogs WHERE id = this->catalogid;
-      RECORD catindexmgr := SELECT * FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid;
       this->id->value := ToString(this->catalogid);
       ^name->value := catalog.name;
       this->description->value := catalog.description;
       this->debuglevel->value := catalog.loglevel;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-edit", catalog.name);
       this->priority->value := catalog.priority;
-      ^indexmanager->value := RecordExists(catindexmgr) ? catindexmgr.indexmanager : 0;
+      ^indexmanagers->value := this->catalog->catalogindices;
       ^type->value := catalog.type;
-      ^indexname->value := RecordExists(catindexmgr) ? catindexmgr.indexname : "";
     }
     ELSE
     {
       this->id->visible := FALSE;
       this->debuglevel->visible := FALSE;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-new");
-      ^indexmanager->value := GetDefaultIndexManager();
     }
+  }
+
+  RECORD FUNCTION GotIndexManagerRowEdit(RECORD data)
+  {
+    INTEGER ARRAY used_indexmanagers := SELECT AS INTEGER ARRAY indexmanager FROM ^indexmanagers->rows WHERE NOT RecordExists(data) OR indexmanager != data.indexmanager;
+
+    RECORD ARRAY allowed_indexmanagers :=
+        SELECT rowkey := id
+             , title := name
+          FROM consilio.indexmanagers
+         WHERE id NOT IN used_indexmanagers;
+
+    IF (IsDefaultValue(allowed_indexmanagers))
+    {
+      this->RunSimpleScreen("error", this->GetTid(".allindexmanagersadded"));
+      RETURN DEFAULT RECORD;
+    }
+
+    data := this->RunScreen("#editcatalogindex", CELL
+        [ data
+        , initdata :=
+              [ catalogname :=    ^name->value
+              , isfirst :=        IsDefaultValue(^indexmanagers->value)
+              ]
+        , allowed_indexmanagers
+        ]);
+
+    IF (RecordExists(data) AND data.primary)
+      UPDATE ^indexmanagers->value SET primary := FALSE;
+    RETURN data;
+  }
+
+  RECORD ARRAY FUNCTION MapIndexManagerRows(RECORD ARRAY rows)
+  {
+    rows := SELECT *, DELETE indexmanager_name, DELETE indexmanager_type FROM rows;
+    RETURN EnrichWithTable(rows, "indexmanager", consilio.indexmanagers,
+        [ indexmanager_name :=    "name"
+        , indexmanager_type :=    "type"
+        ]);
   }
 
   MACRO OnIndexManagerChange()
@@ -795,11 +837,10 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       {
         work->AddErrorFor(^name, GetTid("consilio:catalog.messages.catalognameexists", ^name->value));
       }
-    }
 
-    //we can always relax restrictions.. but for now we specifically allow only one __ and no - (and just forbid most things just in case)
-    IF(^indexname->visible AND NOT NEW RegEx("^[a-z][_a-z0-9]*$")->Test(^indexname->prefix || ^indexname->value))
-      work->AddErrorFor(^indexname, this->GetTid(".invalidindexname"));
+      IF ((SELECT AS INTEGER Sum(primary?1:0) - 1 FROM ^indexmanagers->value) != 0)
+        work->AddErrorFor(^indexmanagers, GetTid("consilio:catalog.messages.primarycatalogindexrequired"));
+    }
 
     RECORD catalog :=
         [ name := ^name->value
@@ -808,31 +849,26 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
         , priority := ^priority->value
         , type := ^type->value
         ];
-    RECORD catindexmgr :=
-        [ indexmanager := ^indexmanager->value
-        , indexname := ^indexname->value
-        ];
 
     INTEGER newcatalogid;
     IF(this->catalogid = 0)
     {
       newcatalogid := MakeAutonumber(consilio.catalogs, "id");
       INSERT CELL [ ...catalog, id := newcatalogid ] INTO consilio.catalogs;
-      IF (catalog.indexmanager != 0)
-        INSERT CELL[ ...catindexmgr, catalog := newcatalogid, primary := TRUE ] INTO consilio.catalog_indexmanagers;
-      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
     ELSE
     {
       UPDATE consilio.catalogs SET RECORD catalog WHERE id = this->catalogid;
-      IF (catalog.indexmanager = 0)
-        DELETE FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid;
-      ELSE IF (NOT RecordExists(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->catalogid))
-        INSERT CELL[ ...catindexmgr, catalogid := this->catalogid, primary := TRUE ] INTO consilio.catalog_indexmanagers;
-      ELSE
-        UPDATE consilio.catalog_indexmanagers SET RECORD catindexmgr WHERE catalogid = this->catalogid;
-      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
+
+    IF (NOT work->HasFailed())
+    {
+      OpenConsilioCatalogById(this->catalogid ?? newcatalogid)->UpdateCatalog(
+          [ indexmanagers :=    (SELECT indexmanager, indexname, primary FROM ^indexmanagers->value)
+          ]);
+    }
+
+    GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
     IF(NOT work->Finish())
       RETURN 0;
@@ -841,6 +877,54 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     RETURN newcatalogid ?? this->catalogid;
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE EditCatalogIndex EXTEND TolliumScreenBase
+<
+  BOOLEAN was_primary;
+
+  MACRO Init(RECORD data)
+  {
+    ^row->^indexmanager->options :=
+        SELECT *
+          FROM data.allowed_indexmanagers
+      ORDER BY title;
+
+    IF (RecordExists(data.data))
+      ^row->value := data.data;
+    ELSE
+    {
+      ^row->^indexmanager->value := GetDefaultIndexManager();
+      ^row->^indexname->value := Substitute(data.initdata.catalogname, ":", whconstant_consilio_module_sep) ?? __GenerateIndexName();
+      ^row->^primary->value := data.initdata.isfirst;
+    }
+  }
+
+  MACRO GotIndexManagerSelect()
+  {
+    // FIXME: do consilio indices require an index name?
+    //^row->^indexname->visible := ^indexmanager->selection.type = whconstant_consilio_indexmanager_opensearch;
+    //^row->^indexname->required := ^row->^indexname->visible;
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    OBJECT feedback := this->BeginFeedback();
+
+    //we can always relax restrictions.. but for now we specifically allow only one __ and no - (and just forbid most things just in case)
+    IF(^row->^indexname->visible AND NOT NEW RegEx("^[a-z][_a-z0-9]*$")->Test(^row->^indexname->prefix || ^row->^indexname->value))
+      feedback->AddErrorFor(^row->^indexname, this->GetTid(".invalidindexname"));
+
+    IF (NOT feedback->Finish())
+      RETURN DEFAULT RECORD;
+
+    RECORD retval := ^row->value;
+    IF (NOT ^row->^indexname->required)
+      retval.indexname := "";
+
+    RETURN retval;
+  }
+>;
+
 
 //Any standard fields must be listed here to be visible in consilio result inspect
 RECORD previewbasefields :=
