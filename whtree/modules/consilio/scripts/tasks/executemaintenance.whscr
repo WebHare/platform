@@ -3,9 +3,11 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 //ADDME: Maintenance-taak om out-of-date links, servers en pagina's uit de database halen
@@ -36,6 +38,17 @@ FOREVERY(RECORD source FROM brokensources)
   }
   trans->CommitWork();
 }
+
+// Delete empty catalogs which no longer have their corresponding module installed
+RECORD ARRAY deletioncandidates := SELECT * FROM ListConsilioCatalogs() WHERE tag NOT LIKE "?*:?*" OR Tokenize(tag,':')[0] NOT IN GetInstalledModuleNames();
+FOREVERY(RECORD candidate FROM deletioncandidates)
+  IF(GetIndexManagerSize(candidate.id) = 0)
+  {
+    Print(`Deleting empty catalog '${candidate.tag}' - its corresponding module isn't installed either\n`);
+    trans->BeginWork();
+    OpenConsilioCatalogById(candidate.id)->DeleteSelf();
+    trans->CommitWork();
+  }
 
 trans->BeginWork();
 
