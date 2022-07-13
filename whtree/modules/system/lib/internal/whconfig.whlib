@@ -122,7 +122,7 @@ PUBLIC STRING FUNCTION GetTestSecret(STRING varname)
   RECORD currentconfig := __SYSTEM_GETSYSTEMCONFIG();
   IF(CellExists(currentconfig,'testsecrets') AND CellExists(currentconfig.testsecrets, varname))
   {
-    STRING secret := GetCell(currentconfig.testsecrets, varname);;
+    STRING secret := GetCell(currentconfig.testsecrets, varname);
     IF(secret != "")
       RETURN secret;
   }
