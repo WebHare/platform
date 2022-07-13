@@ -122,8 +122,8 @@ MACRO TestWebservicesAPI_External()
 een testuser direct aanmaken: https://testclient.webservices.nl/register
 */
 
-user := GetEnvironmentVariable("TESTSECRET_WEBSERVICESNL_USER");
-password := GetEnvironmentVariable("TESTSECRET_WEBSERVICESNL_PASSWORD");
+user := GetTestSecret("WEBSERVICESNL_USER");
+password := GetTestSecret("WEBSERVICESNL_PASSWORD");
 
 MACRO PTR ARRAY tests := [ PTR TestWebservicesAPI
                          , PTR TestLegacyAPI

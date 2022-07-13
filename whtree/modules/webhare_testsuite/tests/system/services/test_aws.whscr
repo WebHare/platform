@@ -40,10 +40,10 @@ LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
 
 OBJECT aws;
 OBJECT s3;
-STRING apizone := GetEnvironmentVariable("TESTSECRET_AWS_APIZONE") ?? "eu-west-1";
-STRING apikey := GetEnvironmentVariable("TESTSECRET_AWS_APIKEY");
-STRING apisecret := GetEnvironmentVariable("TESTSECRET_AWS_APISECRET");
-STRING bucket := GetEnvironmentVariable("TESTSECRET_AWS_APIBUCKET") ?? "webhare-ci-test-aws";
+STRING apizone := GetTestSecret("AWS_APIZONE") ?? "eu-west-1";
+STRING apikey := GetTestSecret("AWS_APIKEY");
+STRING apisecret := GetTestSecret("AWS_APISECRET");
+STRING bucket := GetTestSecret("AWS_APIBUCKET") ?? "webhare-ci-test-aws";
 
 MACRO Prepare_S3()
 {
@@ -186,8 +186,7 @@ MACRO Test_S3ListBuckets()
 
      To test this call, uncomment the test and
 
-     export TESTSECRET_AWS_APIKEY="<API KEY>"
-     export TESTSECRET_AWS_APISECRET="<API SECRET>"
+     wh debug setsecret TESTSECRET_AWS_APIKEY="<API KEY>" TESTSECRET_AWS_APISECRET="<API SECRET>"
      wh run mod::webhare_testsuite/tests/system/services/test_aws.whscr
      */
   RECORD ARRAY buckets := s3->listAllBuckets();

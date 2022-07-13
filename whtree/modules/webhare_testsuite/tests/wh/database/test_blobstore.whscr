@@ -69,10 +69,10 @@ MACRO TestDiskBlobResolver()
 
 MACRO TestS3BlobResolver()
 {
-  STRING region := GetEnvironmentVariable("TESTSECRET_S3STORAGE_REGION");
-  STRING accesskey := GetEnvironmentVariable("TESTSECRET_S3STORAGE_ACCESSKEY");
-  STRING secretkey := GetEnvironmentVariable("TESTSECRET_S3STORAGE_SECRETKEY");
-  STRING bucket_name := GetEnvironmentVariable("TESTSECRET_S3STORAGE_BUCKETNAME");
+  STRING region := GetTestSecret("S3STORAGE_REGION");
+  STRING accesskey := GetTestSecret("S3STORAGE_ACCESSKEY");
+  STRING secretkey := GetTestSecret("S3STORAGE_SECRETKEY");
+  STRING bucket_name := GetTestSecret("S3STORAGE_BUCKETNAME");
 
   IF (region = "" OR accesskey = "" OR secretkey = "" OR bucket_name = "")
   {

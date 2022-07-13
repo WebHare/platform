@@ -12,7 +12,7 @@ PUBLIC RECORD FUNCTION GetGeoIPCapabilities() __ATTRIBUTES__(EXTERNAL "system_ge
 
 MACRO TestGEOIP()
 {
-  RECORD result := UpdateGEOIPDatabases(GetEnvironmentVariable("TESTSECRET_GEOIP2_LICENSEKEY") ?? ReadRegistryKey("system.services.geoip2.licensekey"));
+  RECORD result := UpdateGEOIPDatabases(GetTestSecret("GEOIP2_LICENSEKEY") ?? ReadRegistryKey("system.services.geoip2.licensekey"));
   DumpValue(result,'tree');
   IF(NOT result.success)
   {

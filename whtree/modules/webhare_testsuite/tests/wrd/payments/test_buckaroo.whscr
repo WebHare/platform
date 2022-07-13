@@ -1,7 +1,7 @@
 <?wh
 /* Test buckaroo
    WebHare.bv developers can obtain test credentials using:
-   Q secrets/load-test-environment buckaroo
+   Q secrets/load-into-webhare buckaroo
 */
 
 LOADLIB "mod::system/lib/services.whlib";
@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_BUCKAROO_WEBSITEID") = "" OR GetEnvironmentVariable("TESTSECRET_BUCKAROO_SECRETID") = "";
+BOOLEAN offlineonly := GetTestSecret("TESTSECRET_BUCKAROO_WEBSITEID") = "" OR GetTestSecret("TESTSECRET_BUCKAROO_SECRETID") = "";
 
 ASYNC MACRO SetupBuckaroo()
 {
@@ -29,8 +29,8 @@ ASYNC MACRO SetupBuckaroo()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:buckaroo";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
-  TT(":Website ID")->value := GetEnvironmentVariable("TESTSECRET_BUCKAROO_WEBSITEID") ?? "dummy-id";
-  TT(":Secret ID")->value := GetEnvironmentVariable("TESTSECRET_BUCKAROO_SECRETID") ?? "dummy-secret";
+  TT(":Website ID")->value := GetTestSecret("TESTSECRET_BUCKAROO_WEBSITEID") ?? "dummy-id";
+  TT(":Secret ID")->value := GetTestSecret("TESTSECRET_BUCKAROO_SECRETID") ?? "dummy-secret";
   TT("paymentextension->testmode")->value := TRUE;
   IF(NOT offlineonly)
   {
