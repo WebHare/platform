@@ -153,6 +153,43 @@ test.registerTests(
       await test.wait(() => test.qS("#status").textContent == "LockStolen");
       test.eqMatch(/has taken over/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
+
+      // story: cancel takeover request
+      await test.selectFrame("main");
+      test.click("#startexclusiveaccesstest");
+      await test.wait(() => test.qS("#status").textContent == "Got lock");
+
+      await test.selectFrame("second");
+      test.click("#startexclusiveaccesstest");
+      await test.wait(() => test.qS("#status").textContent == "AlreadyLocked");
+      test.click(`*[data-messagebox-result=yes]`);
+      await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
+      await test.selectFrame("main");
+      await test.wait(() => test.qS("#status").textContent == "ReleaseRequest");
+      await test.wait(() => /piet testuser \(piet@/.exec(test.qS(".mydialog").textContent));
+
+      await test.selectFrame("third");
+      test.click("#startexclusiveaccesstest");
+      await test.wait(() => test.qS("#status").textContent == "AlreadyLocked");
+      test.click(`*[data-messagebox-result=yes]`);
+      await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
+
+      // cancel the takeover request
+      await test.selectFrame("second");
+      test.click(`*[data-messagebox-result=cancel]`);
+      await test.wait(() => test.qS("#status").textContent == "Failed getting the lock");
+      await test.selectFrame("main");
+      await test.wait(() => /teun testuser \(teun@/.exec(test.qS(".mydialog").textContent));
+
+      await test.selectFrame("third");
+      test.click(`*[data-messagebox-result=cancel]`);
+      await test.wait(() => test.qS("#status").textContent == "Failed getting the lock");
+      await test.selectFrame("main");
+      await test.wait(() => !test.qS(".mydialog")); // wait for dialog to disappear
+      test.click("#releaselock");
+      await test.wait(() => test.qS("#status").textContent == "Lock not taken");
+      test.click("#startexclusiveaccesstest");
+      await test.wait(() => test.qS("#status").textContent == "Got lock");
     }
   , "mutex lock"
   , async function()
