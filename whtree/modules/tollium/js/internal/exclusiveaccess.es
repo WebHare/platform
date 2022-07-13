@@ -282,7 +282,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
       case "updateReleaseRequest":
       {
         if (releaserequest_ctrl)
-        releaserequest_ctrl._gotClose();
+          releaserequest_ctrl._gotClose();
         if (onReleaseRequest)
         {
           releaserequest_ctrl = new ReleaseRequestController(fifo, item.info, item.timeleft);
