@@ -518,6 +518,7 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
 /** @short Search an index
     @param indextag Index to search (module:tag)
     @param query Search query
+    @cell(boolean) options.refresh Refresh the catalog before searching, making sure very recent changes are picked up
     @cell(string) options.language The language to use (legacy Consilio indices only, defaults to the language returned by
         %GetTidLanguage)
     @cell(integer) options.first The first result to return (0-based, defaults to 0)
@@ -578,7 +579,9 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , exclude_urls := STRING[]
       , debug := FALSE
       , throwonfailure := FALSE
+      , refresh := FALSE
       ], options, [ optional := [ "orderdesc" ] ]);
+
   indextag := ValidateIndexTag(indextag);
   FOREVERY (RECORD ordering FROM options.ordering)
     options.ordering[#ordering] := ValidateOptions(
@@ -605,6 +608,9 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
            ];
 
   OBJECT search_obj := OpenSearchObject(language, indextag);
+  IF(options.refresh)
+    OpenConsilioCatalogById(search_obj->catalogid)->Refresh();
+
   search_obj->highlightfields := options.highlightfields;
   search_obj->save_searches := options.save_searches;
   IF (options.save_searches)
@@ -1018,7 +1024,7 @@ STATIC OBJECTTYPE ContentSource
   PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     DoWaitForContentSourceDone(this->id, options);
-    RefreshIndexManager(this->catalog->indexmanager.id, this->catalog->id);
+    this->catalog->Refresh();
   }
 
   /// Get the path this source refers to
@@ -1089,6 +1095,12 @@ STATIC OBJECTTYPE Catalog
   BOOLEAN FUNCTION GetIsManaged()
   {
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
+  }
+
+  /// Explicitly refresh. You'll sometimes need this to ensure visibility of recent index changes
+  PUBLIC MACRO Refresh()
+  {
+    RefreshIndexManager(this->indexmanager.id, this->id);
   }
 
   /** Update catalog settings

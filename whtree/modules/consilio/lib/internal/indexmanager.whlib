@@ -711,7 +711,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         {
           RECORD ARRAY exclude_filters;
           FOREVERY (STRING url FROM options.exclude_urls)
-            INSERT [ "not" := [ prefix := [ initialfilter := options.restrict_to ] ] ] INTO exclude_filters AT END;
+            INSERT [ prefix := [ initialfilter := url ] ] INTO exclude_filters AT END;
           searchquery.query := AddElasticsearchQueryFilters(searchquery.query, exclude_filters, TRUE);
         }
 

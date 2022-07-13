@@ -562,9 +562,17 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
   }
   ELSE
   {
-    IF (NOT CellExists(query.bool, "filter"))
-      INSERT CELL filter := DEFAULT RECORD ARRAY INTO query.bool;
-    query.bool.filter := query.bool.filter CONCAT filters;
+    /* if we receive a  query: bool: should:  query
+       and add a filter...
+       opensearch will start returning results matching that filter even if they don't match the should!
+       but the 'should' is there to support OR queries
+
+       this broke restrict_url queries. so explicitly wrap the existing should in a must - don't add a filter on the same levle */
+
+    query := [ bool := [ must := [ RECORD(query) ]
+                       , filter := filters
+                       ]
+             ];
   }
 
   RETURN query;
