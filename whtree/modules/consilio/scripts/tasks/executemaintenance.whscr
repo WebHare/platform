@@ -1,15 +1,42 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::consilio/lib/database.whlib";
-
-//ADDME: Also check for configuration file?
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 //ADDME: Maintenance-taak om out-of-date links, servers en pagina's uit de database halen
 //ADDME: Shouldn't this script also remove checked_pages which are no longer in the index?
 
 OBJECT trans := OpenPrimary( [ clientname := "consilio execute maintenance" ]);
+
+// Clean up contentsources pointing to deleted folders
+RECORD ARRAY brokensources := SELECT toremove := GroupedValues(contentsources.id), contentsources.catalogid
+                                FROM consilio.contentsources, system.fs_objects
+                               WHERE contentsources.contentprovider = "publisher:webhare"
+                                     AND contentsources.fsobject = fs_objects.id
+                                     AND IsRecycleOrHistoryWHFSPath(whfspath)
+                             GROUP BY catalogid;
+
+FOREVERY(RECORD source FROM brokensources)
+{
+  trans->BeginWork();
+  OBJECT cat := OpenConsilioCatalogById(source.catalogid);
+  IF(cat->ismanaged)
+  {
+    FOREVERY(INTEGER toremove FROM source.toremove)
+      cat->OpenContentSourceById(toremove)->DeleteSelf();
+  }
+  ELSE //shouldn't happen to an unmanaged catalog..
+  {
+    DELETE FROM consilio.contentsources WHERE id IN source.toremove;
+  }
+  trans->CommitWork();
+}
+
 trans->BeginWork();
 
 // Clean up unreferenced links
@@ -30,5 +57,8 @@ daystokeep := ReadRegistryKey("consilio.options.keepsearchterms");
 limitdate := AddDaysToDate(0-daystokeep,GetCurrentDateTime());
 DELETE FROM consilio.query_results WHERE when < limitdate;
 
+// Clean up publisher:webhare contentsources without an fsobject. shouldn't ever happen
+DELETE from consilio.contentsources WHERE fsobject = 0 AND contentprovider = "publisher:webhare";
 
 trans->CommitWork();
+
