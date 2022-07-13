@@ -141,6 +141,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 
 /** @short Get a list of indices from an indexmanager
     @param indexmgrid The id of the indexmanager
+    @cell options.indexsuffixes Return the suffixes of the index with this ID
     @return The result
     @cell(string) return.status The result status
     @cell(integer array) return.indices The list of index id's known by this
@@ -155,12 +156,13 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
 
   RECORD result :=
       [ status := SearchIndexNotFound
-      , indices := DEFAULT INTEGER ARRAY
+      , indices := DEFAULT RECORD ARRAY
       , suffixes := DEFAULT STRING ARRAY
       , statuses := DEFAULT RECORD ARRAY
       ];
 
-  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid);
+  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
+  DumpValue(indexmanagers, "boxed");
   RECORD indexmanager := indexmanagers;
   IF (RecordExists(indexmanager))
   {
@@ -179,9 +181,11 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
                 SELECT indexid := ToInteger(indexid, 0)
                   FROM ToRecordArray(Tokenize(BlobToString(response.content, -1), "\n"), "indexid");
             result.indices :=
-                SELECT AS INTEGER ARRAY DISTINCT indexid
+                SELECT DISTINCT indexid
+                     , indexname :=   ""
                   FROM indexlist
-                 WHERE indexid != 0;
+                 WHERE indexid != 0
+              ORDER BY indexid;
           }
         }
       }
@@ -238,12 +242,15 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
                      , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
                      , docs := Sum(docs)
                      , size := Sum(size)
+                     , indexnames := GroupedValues(indexname)
                   FROM indexlist
                  WHERE indexid != 0
-                 GROUP BY indexid;
-            result.indices :=
-                SELECT AS INTEGER ARRAY indexid
-                  FROM result.statuses;
+              GROUP BY indexid;
+
+            FOREVERY (RECORD rec FROM result.statuses)
+              FOREVERY (STRING indexname FROM rec.indexnames)
+                INSERT CELL[ rec.indexid, indexname ] INTO result.indices AT END;
+            result.indices := SELECT * FROM result.indices ORDER BY indexid, indexname;
           }
         }
       }
@@ -533,6 +540,11 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
     @cell(string) useroptions.lang The language used for searching (used for various language-specific features)
     @cell(string) useroptions.restrict_to Restrict results to URLs starting with restrict_to
     @cell(record) useroptions.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
+    @return Search results
+    @cell(string) return.status Return status (eg SearchOk)
+    @cell(integer) return.totalcount Number of returned results
+    @cell(record array) return.results Results
+    @cell(record) return.session Search session
 */
 PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD useroptions)
 {
@@ -572,7 +584,8 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
   DATETIME querystart := GetCurrentDateTime();
 
-  FOREVERY (RECORD indexmanager FROM indexoptions.indexmanagers)
+  RECORD indexmanager := indexoptions.indexmanagers;
+  IF (RecordExists(indexmanager))
   {
     STRING queryuuid := GenerateUFS128BitId();
 
@@ -832,6 +845,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       , lang := ""
       , suffix := ""
       , managedonly := FALSE
+      , indexmanager := 0
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -845,7 +859,11 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
     LogDebug("consilio:searches", "QueryIndexManager", CELL[ indexid, query, options ]);
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ managedonly := options.managedonly ]);
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  RECORD indexmanager := options.indexmanager = 0
+      ? RECORD(indexmanagers)
+      : RECORD(SELECT * FROM indexmanagers WHERE id = options.indexmanager);
+
+  IF (RecordExists(indexmanager))
   {
     RECORD mapping := options.mapping;
     // Make sure at least objectid and groupid are returned, if this is not an unmanaged index
@@ -1137,11 +1155,16 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
   RETURN result;
 }
 
-PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
+PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ indexmanager := 0
+      ], options);
+
   INTEGER size := -1;
 
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  RECORD indexmanager := options.indexmanager = 0 ? RECORD(indexmanagers) : RECORD(SELECT * FROM indexmanagers WHERE id = options.indexmanager);
   IF (RecordExists(indexmanager))
   {
     SWITCH (indexmanager.type)
@@ -1192,7 +1215,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
       ];
   options := ValidateOptions(defaultoptions, options);
 
-  STRING result := SearchIndexNotFound;
 
   objects := SELECT *
                 , indextypes :=             CellExists(objects, "INDEXTYPES") ? objects.indextypes : STRING[]
@@ -1206,8 +1228,11 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
       LogDebug("consilio:changes", "AddIndexManagerObjects #" || #obj, obj);
   }
 
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager))
+  STRING result;
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  IF (IsDefaultValue(indexmanagers))
+    result := SearchIndexNotFound;
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     SWITCH (indexmanager.type)
     {
@@ -1259,9 +1284,11 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             INSERT [ name := "-discardsummaries", value := "" ] INTO vars AT END;
 
           RECORD response := SendToConsilio(indexmanager.id, indexid, "/add", vars, "POST-MULTIPART");
-          result := response.status;
-          IF (result != SearchOk)
+          IF (response.status != SearchOk)
+          {
+            result := result ?? response.status;
             BREAK;
+          }
         }
       }
       CASE whconstant_consilio_indexmanager_opensearch
@@ -1281,6 +1308,11 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             }
 
             response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+            IF (response.status != SearchOk)
+            {
+              result := result ?? response.status;
+              BREAK;
+            }
           }
         }
         ELSE
@@ -1326,10 +1358,11 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
           }
           response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
+          IF (response.status != SearchOk)
+            result := result ?? response.status;
         }
 
-        result := response.status;
-        IF (result = SearchOk)
+        IF (result = "")
         {
           IF(response.result.errors)
           {
@@ -1345,13 +1378,14 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "AddIndexManagerObjects done", CELL[ result ]);
 
-  RETURN result;
+  RETURN result ?? SearchOk;
 }
 
 /** @short Delete a group from an index
     @param indexid The index to delete the group from (0 for all indices)
     @param contentsourceid The content source to delete the group from (0 for
         all content sources)
+    @cell options.refresh Refresh all shards involved in the delete by query once the request completes (opensearch only)
     @param groupid The group to delete
     @return If the deletion was successful for all affected indexmanagers
 */
@@ -1426,6 +1460,8 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
 
 /** @short Delete an object from an index
     @param indexid The index to delete the object from (0 for all indices)
+    @param contentsourceid Content source to delete the object from
+    @param options @includecelldef #DeleteIndexManagerObjects.options
     @param objectid The object to delete
     @return If the deletion was successful for all affected indexmanagers
 */
@@ -1436,7 +1472,11 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
 
 /** @short Delete multiple objects from an index
     @param indexid The index to delete the object from (0 for all indices)
-    @param objectid The object to delete
+    @param contentsourceid Content source to delete the object from
+    @param objectids The objects to delete
+    @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
+    @cell(string) options.suffix Sub-index suffix, for unmanaged indices, Elasticsearch only
+    @cell(boolean) options.throwonfailure Throw on failre, Elasticsearch only
     @return If the deletion was successful for all affected indexmanagers
 */
 PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER contentsourceid, STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1506,7 +1546,8 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
           INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
         RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
-        result := response.status;
+        IF (response.status != SearchOk)
+          result := response.status;
       }
     }
   }
@@ -1525,6 +1566,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
     @param groupid Delete outdated objects for this group only ("" for all groups)
     @param objectid Delete outdated objects for this object only ("" for all objects)
     @param deletebefore Delete all objects that have been indexed before this date
+    @cell options.refresh Refresh all shards involved in the delete by query once the request completes (opensearch only)
     @return The deletion result
     @cell(integer) return.deleted The number of deleted objects
     @cell(string array) return.active The id's of the objects that were matched,
@@ -1550,8 +1592,8 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
                    ];
   IF (indexid != 0 AND deletebefore != DEFAULT DATETIME)
   {
-    result.status := SearchIndexNotFound;
     RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+    result.status := IsValueSet(indexmanagers) ? SearchOk : SearchIndexNotFound;
     FOREVERY (RECORD indexmanager FROM indexmanagers)
     {
       SWITCH (indexmanager.type)
@@ -1570,10 +1612,11 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
 
           RECORD response := SendToConsilio(indexmanager.id, indexid, "/deleteoutdated", vars, "POST");
 
-          result.status := response.status;
+          result.status := result.status ?? response.status;
           IF (result.status = SearchOk)
           {
-            result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
+            IF (result.deleted >= 0)
+              result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
             result.active :=
                 SELECT AS STRING ARRAY LimitUTF8Bytes(objid, VAR MaxLinkLength)
                   FROM ToRecordArray(Tokenize(BlobToString(response.content, -1), "\n"), "objid")
@@ -1605,7 +1648,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
             INSERT [ match := [ objectid := objectid ] ] INTO query.query.bool.must AT END;
 
           RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
-          result.status := response.status;
+          result.status := result.status ?? response.status;
           IF (result.status = SearchOk)
           {
             result.deleted := response.result.deleted;
@@ -1636,6 +1679,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
     @param indexmgrid Id of the indexmanager to use
     @param indexid Id of the index
     @param contentsourceid Id of the contentsource whose documents must be removed (set to 0 to delete the entire index)
+    @cell options.suffix Sub-index suffix, for unmanaged indices, OpenSearch only
     @return Execution result
     @cell return.status Status
     @cell return.deleted Number of deleted documents
@@ -1650,14 +1694,17 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
                    , deleted := 0
                    ];
 
-  RECORD indexmanager := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
+  RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid, [ withdeleted := TRUE ]) : GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
 
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
                                    EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
 
-  IF (RecordExists(indexmanager) AND indexid != 0)
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
+    IF ((indexmgrid != 0 AND indexmanager.id != indexmgrid) OR indexid = 0)
+      CONTINUE;
+
     SWITCH (indexmanager.type)
     {
       CASE whconstant_consilio_indexmanager_legacybackend
@@ -1719,6 +1766,72 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   RETURN result;
 }
 
+/** Deletes all documents in an index from a specific contentsource
+    @param indexmgrid Id of the indexmanager to use
+    @param indexid Id of the index
+    @param indexname Name of the index at the indexmanager
+    @cell options.suffix Sub-index suffix, for unmanaged indices, OpenSearch only
+    @return Execution result
+    @cell return.status Status
+    @cell return.deleted Number of deleted documents
+*/
+PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER indexid, STRING indexname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      ], options);
+
+  RECORD result := [ status := SearchUnavailable
+                   , deleted := 0
+                   ];
+
+  RECORD indexmanager := GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
+                                   EncodeJSON(CELL[ indexmgrid, indexid, indexname, options ]));
+
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        RECORD ARRAY vars := [ [ name := "indexid", value := ToString(indexid) ]
+                             ];
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
+        result.status := response.status;
+        IF (result.status = SearchOk)
+          result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
+      }
+      CASE whconstant_consilio_indexmanager_opensearch
+      {
+        RECORD indexinfo := SELECT * FROM consilio.catalogs WHERE id = indexid;
+        IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
+        {
+          // Delete the specific subindex if suffix is set, otherwise delete all subindices
+          RECORD response := SendToElasticsearch(indexmanager.id, indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
+          result.status := response.status;
+          // Deleting an index doesn't return the number of deleted documents...
+        }
+        ELSE
+        {
+          // No content source specified, delete entire index
+          RECORD response := SendToElasticsearch(indexmanager.id, indexname, "", DEFAULT RECORD, "DELETE");
+          result.status := response.status;
+          // Deleting an index doesn't return the number of deleted documents...
+        }
+      }
+    }
+  }
+
+ IF(IsDebugTagEnabled("consilio:changes"))
+   LogDebug("consilio:changes", "DeleteIndexManagerIndex done", result);
+
+  RETURN result;
+}
+
 PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
 {
   STRING result := SearchOk;
@@ -1754,6 +1867,8 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
 
 /** @short Find an indexmanager
     @param indexmgrid The id of the indexmanager, or -1 for all indexmanagers
+    @cell options.managedonly Only consider managed catalogs
+    @cell options.withdeleted Also return deleted catalogs/catalogindices
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
@@ -1761,7 +1876,10 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
 */
 RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ managedonly := FALSE ], options);
+  options := ValidateOptions(
+        [ managedonly := FALSE
+        , withdeleted := FALSE
+        ], options);
 
   RETURN
       SELECT indexmanagers.id
@@ -1769,6 +1887,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
            , catalog_indexmanagers.indexname
            , indextype := catalogs.type
            , indexid := catalogs.id
+           , primary
         FROM consilio.indexmanagers
            , consilio.catalog_indexmanagers
            , consilio.catalogs
@@ -1776,12 +1895,16 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
-             AND catalogs.name NOT LIKE "$consilio$deleted$*"
-             AND NOT deleted;
+             AND (options.withdeleted
+                ? TRUE
+                : (NOT deleted AND catalogs.name NOT LIKE "$consilio$deleted$*"))
+    ORDER BY primary DESC;
 }
 
 /** @short Find the indexmanager for an index
     @param indexid The id of the index, or 0 for the indexmanagers of all indices
+    @cell options.managedonly Only consider managed catalogs
+    @cell options.withdeleted Also return deleted catalogs/catalogindices
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
@@ -1789,7 +1912,11 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
 */
 PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ managedonly := FALSE ], options);
+  options := ValidateOptions(
+      [ managedonly := FALSE
+      , withdeleted := FALSE
+      ], options);
+
   IF (indexid = 0)
     RETURN GetIndexManagers(-1, options);
 
@@ -1807,8 +1934,9 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND catalog_indexmanagers.indexmanager = indexmanagers.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
-             AND NOT deleted
-             AND catalogs.name NOT LIKE "$consilio$deleted$*"
+             AND (options.withdeleted
+                ? TRUE
+                : (NOT deleted AND catalogs.name NOT LIKE "$consilio$deleted$*"))
     ORDER BY primary DESC;
 }
 

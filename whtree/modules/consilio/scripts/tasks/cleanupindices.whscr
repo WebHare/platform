@@ -18,37 +18,60 @@ BOOLEAN changes;
 BOOLEAN debug := "--debug" IN GetConsoleArguments();
 
 // Delete indices from the index managers that are no longer referred to or are marked for deletion
-INTEGER ARRAY indexedcatalogs;
-FOREVERY (RECORD indexmanager FROM SELECT id FROM consilio.indexmanagers)
+INTEGER ARRAY indexedcatalogs, faileddeletes;
+FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
 {
   RECORD result := GetIndexmanagerIndexList(indexmanager.id);
   IF (debug)
     Print(`Checking index manager ${indexmanager.id}: ${result.status}\n`);
   IF (result.status != SearchOk)
     CONTINUE;
-  FOREVERY (INTEGER indexid FROM result.indices)
+
+  FOREVERY (RECORD indexrec FROM result.indices)
   {
-    RECORD cat := SELECT * FROM consilio.catalogs WHERE id = indexid;
-    IF (NOT RecordExists(cat) OR cat.name LIKE "$consilio$deleted$*")
+    // Get the list of all catalogs + catalog indices for the indexid+indexname pair
+    RECORD ARRAY cats :=
+        SELECT catalogs.id
+             , catalogs.name
+             , catalogdeleted :=        name LIKE "$consilio$deleted$*"
+             , catalogindexdeleted :=   deleted
+             , catalogindexid :=        catalog_indexmanagers.id
+          FROM consilio.catalogs
+             , consilio.catalog_indexmanagers
+         WHERE catalogs.id = indexrec.indexid
+           AND catalog_indexmanagers.catalogid = catalogs.id
+           AND catalog_indexmanagers.indexmanager = VAR indexmanager.id
+           AND (indexrec.indexname = "" ? TRUE : indexname = indexrec.indexname);
+
+    BOOLEAN none_found := IsDefaultValue(cats);
+    BOOLEAN any_active := RecordExists(SELECT FROM cats WHERE NOT catalogdeleted AND NOT catalogindexdeleted);
+    INTEGER ARRAY deleted_cis := SELECT AS INTEGER ARRAY id FROM cats WHERE catalogdeleted OR catalogindexdeleted;
+
+    IF (none_found OR IsValueSet(deleted_cis))
     {
-      // This catalog does not exist anymore or is marked for deletion, delete it from the index manager, then from the database
-      result := DeleteIndexManagerContentSource(indexmanager.id, indexid, 0);
-      IF (debug)
-        Print(`  Deleted index ${indexid} from index manager: ${result.status}\n`);
+      STRING status := SearchOk;
+      IF (NOT any_active)
+      {
+        result := DeleteIndexManagerIndex(indexmanager.id, indexrec.indexid, indexrec.indexname);
+        IF (debug)
+          Print(`  Deleted index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${indexmanager.name}: ${result.status}\n`);
+        status := result.status;
+      }
       IF (result.status IN [ SearchOk, SearchIndexNotFound ])
       {
-        IF (RecordExists(cat))
-        {
-          trans->BeginWork();
-          DELETE FROM consilio.catalogs WHERE id = cat.id;
-          trans->CommitWork();
-          IF (debug)
-            Print(`  Deleted catalog '${cat.tag}' (${cat.id}) from database\n`);
-        }
+        trans->BeginWork();
+        DELETE FROM consilio.catalog_indexmanagers WHERE id IN deleted_cis;
+        trans->CommitWork();
+      }
+      ELSE
+      {
+        PrintTo(2, `  Failed deleting index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${indexmanager.name}: ${result.status}\n`);
+        SetConsoleExitCode(1);
+        INSERT indexrec.indexid INTO faileddeletes AT END;
       }
     }
-    ELSE
-      INSERT indexid INTO indexedcatalogs AT END;
+    IF (any_active)
+      INSERT indexrec.indexid INTO indexedcatalogs AT END;
   }
 }
 
@@ -57,7 +80,7 @@ FOREVERY (RECORD cat FROM catalogs)
 {
   IF (debug)
     Print(`Checking catalog '${cat.tag}' (${cat.id})\n`);
-  IF (cat.isdeleted AND cat.id NOT IN indexedcatalogs)
+  IF (cat.isdeleted AND cat.id NOT IN indexedcatalogs AND cat.id NOT IN faileddeletes)
   {
     // This catalog didn't exist on the index manager, delete it from the database
     IF (debug)

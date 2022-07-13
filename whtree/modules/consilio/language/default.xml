@@ -38,6 +38,8 @@
       <text tid="indexname">Index name</text>
       <text tid="priority">Priority</text>
       <text tid="prorityexplain">(-9-9, 0 is the default, 9 is highest priority)</text>
+      <text tid="refreshsizes">Refresh sizes</text>
+      <text tid="size">Size</text>
       <text tid="title-edit">Edit Catalog '<param p="1"/>'</text>
       <text tid="title-new">New Catalogus</text>
       <text tid="type">Index content</text>

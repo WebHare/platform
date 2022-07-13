@@ -247,7 +247,8 @@
     </footer>
   </screen>
 
-  <screen name="catalogeditor" gid=".catalogeditor" title="" width="120x" allowresize="true">
+  <screen name="catalogeditor" gid=".catalogeditor" title="" width="120x" allowresize="true"
+          oninterval="GotInterval" interval="60000">
     <body>
       <text name="id" tid=".id" />
       <textedit name="name" tid="tollium:common.labels.name" required="true" width="1pr" />
@@ -278,6 +279,7 @@
                  >
         <column name="indexmanager_name" type="text" />
         <column name="indexname" type="text" />
+        <column name="size" type="integer" align="right" width="10x" />
       </arrayedit>
     </body>
     <footer>

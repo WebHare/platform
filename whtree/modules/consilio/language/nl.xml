@@ -38,6 +38,8 @@
       <text tid="indexname">Indexnaam</text>
       <text tid="priority">Prioriteit</text>
       <text tid="prorityexplain">(-9-9, 0 is standaard, 9 is hoogste prioriteit)</text>
+      <text tid="refreshsizes">Grootte herberekenen</text>
+      <text tid="size">Grootte</text>
       <text tid="title-edit">Catalogus '<param p="1"/>' bewerken</text>
       <text tid="title-new">Nieuwe catalogus</text>
       <text tid="type">Index inhoud</text>
