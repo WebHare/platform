@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
-BOOLEAN offlineonly := GetTestSecret("TESTSECRET_BUCKAROO_WEBSITEID") = "" OR GetTestSecret("TESTSECRET_BUCKAROO_SECRETID") = "";
+BOOLEAN offlineonly := GetTestSecret("BUCKAROO_WEBSITEID") = "" OR GetTestSecret("BUCKAROO_SECRETID") = "";
 
 ASYNC MACRO SetupBuckaroo()
 {
@@ -29,8 +29,8 @@ ASYNC MACRO SetupBuckaroo()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:buckaroo";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
-  TT(":Website ID")->value := GetTestSecret("TESTSECRET_BUCKAROO_WEBSITEID") ?? "dummy-id";
-  TT(":Secret ID")->value := GetTestSecret("TESTSECRET_BUCKAROO_SECRETID") ?? "dummy-secret";
+  TT(":Website ID")->value := GetTestSecret("BUCKAROO_WEBSITEID") ?? "dummy-id";
+  TT(":Secret ID")->value := GetTestSecret("BUCKAROO_SECRETID") ?? "dummy-secret";
   TT("paymentextension->testmode")->value := TRUE;
   IF(NOT offlineonly)
   {

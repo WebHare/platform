@@ -29,6 +29,7 @@ Commands:
   terminate [process] [mask]          Terminate jobs in a process
   getconfig                           Show currently enabled debug features
   setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
+  getsecret <name>                    Get a secret
   setsecret <name=value>...           Setup one or more test secrets
   stacktrace process jobmask          Get a stack trace of the specified job
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
@@ -334,6 +335,17 @@ Executed instrs.:   ${stats.instructions}
             ]);
 
       WriteLogMarker(args.text);
+    }
+    CASE "getsecret"
+    {
+      ParseSubArgs(
+            [ [ name := "secret", type := "param", required := TRUE ]
+            ]);
+
+      STRING secret := GetTestSecret(args.secret);
+      IF(secret = "")
+        TerminateScriptWithError(`Secret '${args.secret} not set`);
+      Print(secret || "\n");
     }
     CASE "setsecret"
     {
