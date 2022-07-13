@@ -16,7 +16,7 @@ MACRO TestPostcodeAPiNU_External()
               },
 
 */
-  STRING apikey := GetEnvironmentVariable("TESTSECRET_POSTCODENU_APIKEY");
+  STRING apikey := GetTestSecret("POSTCODENU_APIKEY");
   IF(apikey="")
     THROW NEW Exception("TESTSECRET_POSTCODENU_APIKEY not set, cannot test postcodeapi.nu!");
 

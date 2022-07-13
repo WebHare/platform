@@ -44,7 +44,7 @@ LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib" EXPORT GetTestSecret;
 LOADLIB "mod::system/lib/internal/registry.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";

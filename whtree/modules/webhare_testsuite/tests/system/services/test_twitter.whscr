@@ -9,8 +9,8 @@ LOADLIB "mod::system/lib/webapi/social/twitter.whlib";
 
 CONSTANT STRING apibaseurl := "https://api.twitter.com/";
 
-STRING clientid := GetEnvironmentVariable("TESTSECRET_TWITTER_CLIENTID");
-STRING clientsecret := GetEnvironmentVariable("TESTSECRET_TWITTER_CLIENTSECRET");
+STRING clientid := GetTestSecret("TWITTER_CLIENTID");
+STRING clientsecret := GetTestSecret("TWITTER_CLIENTSECRET");
 
 MACRO SetupTwitterClient()
 {

@@ -11,7 +11,7 @@ MACRO Test_MailchimpAPI()
 {
   DATETIME teststart := GetRoundedDatetime(GetCurrentDatetime(), 1000); //round down to second as that's the precision we expect
 
-  OBJECT chimpapi := NEW MailchimpAPI(GetEnvironmentVariable("TESTSECRET_MAILCHIMP_DC"), GetEnvironmentVariable("TESTSECRET_MAILCHIMP_APIKEY"));
+  OBJECT chimpapi := NEW MailchimpAPI(GetTestSecret("MAILCHIMP_DC"), GetTestSecret("MAILCHIMP_APIKEY"));
   //chimpapi->debug:=true;
 
   //Note - to find a list id, see https://mailchimp.com/help/find-audience-id/

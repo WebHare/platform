@@ -32,9 +32,9 @@ ASYNC MACRO SetupPayNL()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:pay_nl";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT("paymentextension->apiuser")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_APIUSER") ?? "AT-0000-0000";
-  TT("paymentextension->apitoken")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_APITOKEN") ?? "dummytoken";
-  TT("paymentextension->saleslocation")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_SALESLOCATION") ?? "SL-0000-0000";
+  TT("paymentextension->apiuser")->value := GetTestSecret("PAY_NL_APIUSER") ?? "AT-0000-0000";
+  TT("paymentextension->apitoken")->value := GetTestSecret("PAY_NL_APITOKEN") ?? "dummytoken";
+  TT("paymentextension->saleslocation")->value := GetTestSecret("PAY_NL_SALESLOCATION") ?? "SL-0000-0000";
   TT("paymentextension->testmode")->value := TRUE;
 
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
@@ -106,7 +106,7 @@ ASYNC MACRO TestPaymentPayNL()
   //Should be at the pay.nl page
   OBJECT paynlform := testfw->browser->QS("form[id=simulationForm]");
   TestEq(TRUE, ObjectExists(paynlform), "Expecing a form#simulationForm");
-  testfw->browser->QS("input[name=token]")->SetAttribute("value", GetEnvironmentVariable("TESTSECRET_PAY_NL_APITOKEN"));
+  testfw->browser->QS("input[name=token]")->SetAttribute("value", GetTestSecret("PAY_NL_APITOKEN"));
   TestEQ(TRUE, testfw->browser->SubmitForm(testfw->browser->QS("button[name=payed][value=0]"))); //success button
 
   RECORD status := DecodeJSONBlob(testfw->browser->content);

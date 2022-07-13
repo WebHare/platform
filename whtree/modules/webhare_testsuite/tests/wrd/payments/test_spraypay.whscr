@@ -16,7 +16,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 STRING currenturl;
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_SPRAYPAY_MERCHANTID") = "";
+BOOLEAN offlineonly := GetTestSecret("SPRAYPAY_MERCHANTID") = "";
 IF(offlineonly)
   Print("*** Skipping some tests as TESTSECRET_SPRAYPAY_MERCHANTID is not set\n\n");
 
@@ -53,8 +53,8 @@ ASYNC MACRO SetupSprayPay()
   AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
   TT("methods")->value := "wrd:spraypay";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT(":Webshop ID")->value := ToInteger(GetEnvironmentVariable("TESTSECRET_SPRAYPAY_MERCHANTID"),0);
-  TT(":API key")->value := GetEnvironmentVariable("TESTSECRET_SPRAYPAY_APIKEY");
+  TT(":Webshop ID")->value := ToInteger(GetTestSecret("SPRAYPAY_MERCHANTID"),0);
+  TT(":API key")->value := GetTestSecret("SPRAYPAY_APIKEY");
   TT(":Title")->value := "Spray Your Pay!";
   TT("paymentextension->testmode")->value := true;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
