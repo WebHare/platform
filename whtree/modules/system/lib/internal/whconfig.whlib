@@ -112,6 +112,24 @@ PUBLIC STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
   RETURN `${oldversion/10000}.${oldversion%10000/100}.${oldversion%100}`;
 }
 
+/** @short Get a test secret, either from the environment or set using `wh debug setsecret`
+    @topic testframework/api
+    @public
+    @loadlib mod::system/lib/testframework.whlib
+*/
+PUBLIC STRING FUNCTION GetTestSecret(STRING varname)
+{
+  RECORD currentconfig := __SYSTEM_GETSYSTEMCONFIG();
+  IF(CellExists(currentconfig,'testsecrets') AND CellExists(currentconfig.testsecrets, varname))
+  {
+    STRING secret := GetCell(currentconfig.testsecrets, varname);;
+    IF(secret != "")
+      RETURN secret;
+  }
+
+  RETURN GetEnvironmentVariable("TESTSECRET_" || ToUppercase(varname));
+}
+
 PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD restrictions)
 {
   //Support versioninfo without semantic 'version' for backwards compatibility (eg. peering with old webhares)

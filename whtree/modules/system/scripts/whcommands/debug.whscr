@@ -29,6 +29,7 @@ Commands:
   terminate [process] [mask]          Terminate jobs in a process
   getconfig                           Show currently enabled debug features
   setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
+  setsecret <name=value>...           Setup one or more test secrets
   stacktrace process jobmask          Get a stack trace of the specified job
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
@@ -333,6 +334,26 @@ Executed instrs.:   ${stats.instructions}
             ]);
 
       WriteLogMarker(args.text);
+    }
+    CASE "setsecret"
+    {
+      ParseSubArgs(
+            [ [ name := "secrets", type := "paramlist" ]
+            ]);
+
+      RECORD currentconfig := GetSystemConfigurationRecord();
+      RECORD testsecrets := CellExists(currentconfig,'testsecrets') ? currentconfig.testsecrets : CELL[];
+      FOREVERY(STRING toset FROM args.secrets)
+      {
+        IF(toset NOT LIKE "?*=*")
+          TerminateScriptWithError(`Invalid secret syntax - use 'name=value' pairs`);
+
+        STRING secretname := Left(toset, SearchSubstring(toset,'='));
+        STRING secretvalue := Substring(toset, Length(secretname) + 1);
+        testsecrets := CellDelete(testsecrets, secretname);
+        testsecrets := CellInsert(testsecrets, secretname, secretvalue);
+      }
+      UpdateSystemConfigurationRecord(CELL[testsecrets]);
     }
     CASE "setconfig"
     {
