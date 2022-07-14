@@ -65,12 +65,6 @@ fi
 
 export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
 
-# Source settings.sh from the dataroot for non-docker installations
-if [ -z "$WEBHARE_IN_DOCKER" -a -f "$WEBHARE_DATAROOT"/settings.sh ]; then
-  . "$WEBHARE_DATAROOT"/settings.sh
-fi
-
-
 # If you haven't set WEBHARE_BASEPORT, assume it to be 13679
 if [ -z "$WEBHARE_BASEPORT" ]; then
   WEBHARE_BASEPORT=13679

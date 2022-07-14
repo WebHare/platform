@@ -69,17 +69,6 @@ if [ -d "$RESTORETO" ]; then
   exit 1
 fi
 
-if [ -z "$WEBHARE_IN_DOCKER" ]; then
-  if [ -z "$WEBHARE_BASEPORT" -o "$WEBHARE_BASEPORT" == "13679" ]; then #If you've explicitly set a port, honor that, otherwise generate one
-    WEBHARE_BASEPORT=$(( $RANDOM / 10 * 10 + 20000))
-  fi
-
-  cat > "$WEBHARE_DATAROOT/settings.sh" << EOF
-export WEBHARE_ISRESTORED="Restored by 'wh restore'"
-export WEBHARE_BASEPORT=$WEBHARE_BASEPORT
-EOF
-fi
-
 if [ "$RESTORE_DB" == "postgresql" ]; then
   # Remove previous restore
   rm -rf "$WEBHARE_DATAROOT/postgresql.restore/"
