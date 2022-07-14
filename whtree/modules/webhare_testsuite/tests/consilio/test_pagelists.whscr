@@ -68,20 +68,19 @@ MACRO TestSubpageIndexing()
 {
   testfw->BeginWork();
 
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  //having indexnames makes log analysis easier
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_subpages", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
-  catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
+  OBJECT csource := catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
 
   testfw->CommitWork();
 
   // Clear the index
   catalog->ReindexCatalog([ rebuild := TRUE ]);
-  testfw->WaitQueueEmpty();
+  csource->WaitForIndexingDone();
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;
-  RECORD result := RunConsilioSearch(testfw->GetCatalogName_1(), CQMatch("myfield1", "=", "Seven"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
+  RECORD result := RunConsilioSearch("consilio:testfw_subpages", CQMatch("myfield1", "=", "Seven"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
   // There was a bug where subpagebaseurl would not be calculated correctly because it was cached from the first file, resulting
   // in the second file not being properly indexed. There should be 2 results.
   TestEq(2, result.totalcount);
@@ -90,7 +89,7 @@ MACRO TestSubpageIndexing()
   TestEq("Seven", sub7.myfield1);
   TestEq("", sub7.myfield2);
 
-  result := RunConsilioSearch(testfw->GetCatalogName_1(), CQParseUserQuery("FP_sub10_piece6"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
+  result := RunConsilioSearch("consilio:testfw_subpages", CQParseUserQuery("FP_sub10_piece6"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
   TestEq(2, result.totalcount);
   TestEqMembers([ title := "Subdocument sub10 piece6", summary := 'This is an overwritten body: FP_sub10_piece6' ], result.results[0], "*");
   TestEqLike("http*sub10.html#piece6", result.results[0].objectid);
@@ -98,6 +97,4 @@ MACRO TestSubpageIndexing()
 
 RunTestframework([ PTR TestSitemapLinks
                  , PTR TestSubpageIndexing
-                 ],
-                 [ consilio := TRUE
                  ]);

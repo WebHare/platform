@@ -14,17 +14,17 @@ LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 MACRO RunCleanupTest()
 {
-  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  // Prepare the content to index
+  testfw->BeginWork();
+
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_cleanup");
+  OBJECT search_obj := OpenSearchObject("en", "consilio:testfw_cleanup");
   search_obj->empty_result_record :=
       [ groupid :=        ""
       , objectid :=       ""
       , date_indexdate := DEFAULT DATETIME
       , contentsource :=  0
       ];
-
-
-  // Prepare the content to index
-  testfw->BeginWork();
 
   DELETE FROM webhare_testsuite.consilio_index;
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, adate, text)
@@ -45,8 +45,7 @@ MACRO RunCleanupTest()
   // Build an index
   testfw->BeginWork();
 
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  OBJECT contentsource_1 := catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+  OBJECT contentsource_1 := catalog->AddCustomContentSource("webhare_testsuite:contentsource_1", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
@@ -56,7 +55,7 @@ MACRO RunCleanupTest()
 
   // Build the index
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource_1->WaitForIndexingDone();
 
   TestEQ((SELECT groupid, objectid, date_indexdate := indexdate, contentsource := contentsource_1->id FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid),
          (SELECT groupid, objectid, date_indexdate, contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Initial index build didn't work");
@@ -66,7 +65,7 @@ MACRO RunCleanupTest()
   testfw->BeginWork();
   DELETE FROM consilio.contentsources WHERE id = contentsource_1->id;
 
-  OBJECT contentsource_2 := catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+  OBJECT contentsource_2 := catalog->AddCustomContentSource("webhare_testsuite:contentsource_1", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
@@ -78,11 +77,11 @@ MACRO RunCleanupTest()
 
   // Rebuild the index
   catalog->ReindexCatalog([ rebuild := TRUE ]);
-  testfw->WaitQueueEmpty();
+  contentsource_2->WaitForIndexingDone();
 
   TestEQ(RECORD[],
          (SELECT groupid, objectid, date_indexdate, contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Cleanup wasn't executed");
 }
 
 RunTestframework([ PTR RunCleanupTest
-                 ], [ consilio := TRUE ]);
+                 ]);

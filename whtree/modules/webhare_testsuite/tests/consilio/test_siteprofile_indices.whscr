@@ -78,7 +78,6 @@ ASYNC MACRO TestCatalogApp()
 
 RunTestFramework( [ PTR TestModernSiteProfileIndices
                   , PTR TestCatalogApp
-                  ], [ consilio := TRUE
-                     , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

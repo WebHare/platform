@@ -508,6 +508,4 @@ RunTestframework(
     , PTR TestESBulkInsertion
     , PTR TestESLangFeatures
     , PTR TestESDeletion
-    ],
-    [ consilio := TRUE
     ]);
