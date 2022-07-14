@@ -34,7 +34,7 @@ PUBLIC MACRO BuildForms()
   RECORD result;
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", webtoolsfolder->id), [ summary_length := 1000 ]);
-  dumpvalue(result,'tree');
+  //dumpvalue(result,'tree');
 
   RECORD plainfile := SELECT * FROM result.results WHERE whfsid = formplain.id;
   TestEq(TRUE, RecordExists(plainfile));
