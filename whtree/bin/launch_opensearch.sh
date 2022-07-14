@@ -59,12 +59,12 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   CHPST="chpst -u opensearch:opensearch:whdata "
 else
   _JAVA_OPTIONS="$_JAVA_OPTIONS -Djava.security.manager=allow"    #linux opensearch 1.3.2 doesn't seem to like securitymanager anymore but brew does
-fi
 
-# We don't currently have a way to check if the installed plugin versions match the Opensearch version, so we'll just remove
-# and reinstall the necessary plugins on startup
-"$OPENSEARCHBINARY-plugin" remove analysis-icu
-"$OPENSEARCHBINARY-plugin" install analysis-icu
+  # We don't currently have a way to check if the installed plugin versions match the Opensearch version, so we'll just remove
+  # and reinstall the necessary plugins on startup
+  "$OPENSEARCHBINARY-plugin" remove analysis-icu
+  "$OPENSEARCHBINARY-plugin" install analysis-icu
+fi
 
 exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
                                 -Epath.logs="$OPENSEARCHROOT/logs" \

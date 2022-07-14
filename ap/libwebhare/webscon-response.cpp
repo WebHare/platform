@@ -115,7 +115,7 @@ void Connection::GenerateDefaultErrorContent()
         buf[sizeof buf-1]='\n';
         output_body.StoreData(buf,sizeof buf);
 
-        AddHeader("Content-Type",12,"text/html",9,false);
+        AddHeader("Content-Type",12,"text/html; charset=utf-8",24,false);
 }
 
 void Connection::IndicateAsyncResponseGeneration()

@@ -540,7 +540,7 @@ bool Shtml::SendErrors(WebServer::Connection *webcon, std::string const &groupid
         if(!errorpage.empty())
         {
                 //Reset important headers (ADDME: Do re-handling of content type (and important header resets) through the webserver,so we can also invoke different content types for errors)
-                webcon->AddHeader("Content-Type",12,"text/html",9,false);
+                webcon->AddHeader("Content-Type",12,"text/html; charset=utf-8",24,false);
                 webcon->AddHeader("Content-Disposition",19,"",0,false);
 
                 //Adopt failed HSVM (so we can keep it alive for the &errors reference)

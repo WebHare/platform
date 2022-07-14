@@ -14,6 +14,9 @@ default interface http://127.0.0.1:13685/
 # Check health
 curl 'http://127.0.0.1:13685/_cluster/health?pretty=true'
 
+# List plugins (eg to check if analysis-icu is there)
+curl 'http://127.0.0.1:13685/_cat/plugins?v'
+
 # List indices
 curl 'http://127.0.0.1:13685/_cat/indices?v'
 

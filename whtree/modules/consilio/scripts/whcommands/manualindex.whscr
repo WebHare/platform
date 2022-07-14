@@ -74,7 +74,7 @@ FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE T
     res := CleanupIndex([ indexid := catalog->id
                         , contentsourceid := contentsource->id
                         , commanddate := commanddate
-                        , active := FALSE
+                        , active := TRUE //actually clean things
                         , dontdelete := FALSE
                         ]);
     Print("\n");

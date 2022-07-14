@@ -12,12 +12,6 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-
-BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
-{
-  RETURN event.groupid = ToString(expectfile);
-}
-
 MACRO ConsilioTest()
 {
   testfw->BeginWork();
@@ -25,11 +19,14 @@ MACRO ConsilioTest()
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT subfolder := siteroot->CreateFolder([ name := "subfolder" ]);
 
-  OBJECT catalog_1 := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  OBJECT catalog_2 := OpenConsilioCatalog(testfw->GetCatalogName_2());
+  OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [fieldgroups := [ "webhare_testsuite:extrafield" ] ]);
+  OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2");
   OBJECT contentsource_1 := catalog_1->AddPublisherContentSource(siteroot->id);
   OBJECT contentsource_2 := catalog_2->AddPublisherContentSource(subfolder->id);
   testfw->CommitWork();
+
+  Print(`${catalog_1->tag} (${catalog_1->id}) => ${catalog_1->indexname}\n`);
+  Print(`${catalog_2->tag} (${catalog_2->id}) => ${catalog_2->indexname}\n`);
 
   testfw->BeginWork();
 
@@ -60,24 +57,18 @@ MACRO ConsilioTest()
 
   richdoctype->SetInstanceData(file_6->id, [data := myrichdoc->ExportAsRecord()]);
 
-
-  OBJECT ARRAY fileevents := [ OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_1->id,#1)))
-                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_3->id,#1))
-                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_4->id,#1))
-                             , testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_6->id,#1))
-                             ];
-
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(CreatePromiseAll(fileevents));
-  testfw->WaitConsilioQueueEmpty();
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount < 4)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_1 reached expected length >= 4\n`);
 
-  OBJECT search_1_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  OBJECT search_1_obj := OpenSearchObject("en", "consilio:testfw_frontend_1");
   search_1_obj->empty_result_record := DEFAULT RECORD;
   search_1_obj->summary_length := 0;
   search_1_obj->donthighlight := TRUE;
-  OBJECT search_2_obj := OpenSearchObject("en", testfw->GetCatalogName_2());
+  OBJECT search_2_obj := OpenSearchObject("en", "consilio:testfw_frontend_2");
   search_2_obj->empty_result_record := DEFAULT RECORD;
   search_2_obj->summary_length := 0;
   RECORD results;
@@ -126,18 +117,19 @@ MACRO ConsilioTest()
   file_4->RecycleSelf();
   testfw->CommitWork();
 
-  Sleep(2000);
-  testfw->WaitConsilioQueueEmpty();
-  results := search_1_obj->Search("blabla4", 0, 10);
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount != 3)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_1 reached expected length 3 (after recycleself)\n`);
 
+  results := search_1_obj->Search("blabla4", 0, 10);
   TestEq(
       [ totalcount :=       0
       , results :=          DEFAULT RECORD ARRAY
       ], results);
 
-  // Remove the group manually
+  // Remove a group manually
   contentsource_1->DeleteGroup(ToString(file_1->id));
-  testfw->WaitConsilioQueueEmpty();
+  contentsource_1->WaitForIndexingDone();
 
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
@@ -147,7 +139,7 @@ MACRO ConsilioTest()
 
   // Update the index
   contentsource_1->ReindexContentSource([ rebuild := TRUE ]);
-  testfw->WaitContentSourceDone(contentsource_1->id);
+  contentsource_1->WaitForIndexingDone();
 
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
@@ -158,6 +150,8 @@ MACRO ConsilioTest()
               ]
             ]
       ], results);
+
+  TestEq(0, RunConsilioSearch("consilio:testfw_frontend_2", CQAll(), [refresh := TRUE ]).totalcount, "Verify the second index is still empty...");
 
   testfw->BeginWork();
   file_1->MoveTo(subfolder, "");
@@ -166,18 +160,15 @@ MACRO ConsilioTest()
   file_1->Refresh();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  Sleep(500); // Wait until consilio has picked up publications
-  testfw->WaitConsilioQueueEmpty();
 
-  results := search_1_obj->Search("blabla", 0, 10);
-  TestEq(
-      [ totalcount :=       1
-      , results :=
-            [ [ objectid :=   file_1->objecturl
-              , groupid :=    ToString(file_1->id)
-              ]
-            ]
-      ], results);
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_2", CQAll(), [refresh := TRUE ]).totalcount != 1)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_2 reached expected length 1 (after moveto)\n`);
+
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQParseUserQUery("blabla"), [refresh := TRUE ]).results[0].objectid != file_1->objecturl)
+    Sleep(50);
+
+  Print(`.. consilio:testfw_frontend_1 finally saw the move\n`);
 
   results := search_2_obj->Search("blabla", 0, 10);
   TestEq(
@@ -222,8 +213,9 @@ MACRO ConsilioTest()
             ]
       ], results);
 
-  // Test exclude url's
-  RECORD query := CQAnd([ CQMatch("body", "CONTAINS", "check"), CQMatch("whmodification", "<=", AddDaysToDate(1, GetCurrentDateTime())) ]);
+  // Test exclude url's.
+  // Note we MUST use date_whmodification as that's the field we told we'd use in the mapping
+  RECORD query := CQAnd([ CQMatch("body", "CONTAINS", "check"), CQMatch("date_whmodification", "<=", AddDaysToDate(1, GetCurrentDateTime())) ]);
   results := search_1_obj->SearchQuery(query, 0, 10);
   TestEq(2, results.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM results.results WHERE objectid = file_1->objecturl));
@@ -246,8 +238,9 @@ MACRO ConsilioTest()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_5->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("groupid","=", ToString(file_5->id)), [refresh := TRUE ]).totalcount = 0)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_1 has indexed file_5\n`);
 
   search_1_obj->empty_result_record := [ extrafield := "" ];
   results := search_1_obj->Search("extrafield:testextra5", 0, 10);
@@ -268,8 +261,9 @@ MACRO ConsilioTest()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_7->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("groupid","=", ToString(file_7->id)), [refresh := TRUE ]).totalcount = 0)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_1 has indexed file_7\n`);
 
   // Search for a word in the content
   results := search_1_obj->Search("content", 0, 10);
@@ -299,8 +293,9 @@ MACRO ConsilioTest()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(file_7->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQParseUserQUery("overwritten"), [refresh := TRUE ]).totalcount = 0)
+    Sleep(50);
+  Print(`.. consilio:testfw_frontend_1 has indexed new title of file_7\n`);
 
   // Search for a word in the content
   results := search_1_obj->Search("content", 0, 10);
@@ -342,13 +337,13 @@ MACRO ConsilioTest()
 
   // Add a link to file 1
   testfw->BeginWork();
-  OBJECT linkfile := siteroot->CreateFile([name:="testlink.whlib", type := 19, filelink := file_1->id, publish := TRUE]);
+  OBJECT linkfile := siteroot->CreateFile([name:="testlink.whlink", type := 19, filelink := file_1->id, publish := TRUE]);
   TestEq(file_1->link, linkfile->link);
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(linkfile->id,#1)));
-  testfw->WaitConsilioQueueEmpty();
+  catalog_1->Refresh();
+  Sleep(500); //this is potentially a race unless we can somehow add a marker ?
 
   // The search should still (only) return file 1
   results := search_1_obj->Search("body:blabla", 0, 10);
@@ -362,6 +357,4 @@ MACRO ConsilioTest()
       ], results);
 }
 
-RunTestframework([ PTR ConsilioTest ]
-                 , [ consilio := TRUE
-                   ]);
+RunTestframework([ PTR ConsilioTest ]);
