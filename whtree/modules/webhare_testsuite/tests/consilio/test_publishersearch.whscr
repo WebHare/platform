@@ -77,6 +77,7 @@ MACRO TestWHFSContentHandler()
   // While we wait for the background contenthandlers to do their work.. we can inspect it directly too
   OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
   Testeq(TRUE, ObjectExists(catalog), `Catalog '${whconstant_consilio_catalog_whfs}' gone?`);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
   OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
   // The proxy object CustomContentProvider we get is pretty useless for deeper testing
@@ -284,7 +285,7 @@ MACRO PublisherSearchTest()
   subfolder->DeleteSelf();
   CommitAndWaitForPublisherIndex();
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_1->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_1->id), [ refresh := TRUE ]);
   TestEq(0, result.totalcount);
 
   // The file should not be found by the custom index field (it hasn't been set yet)
