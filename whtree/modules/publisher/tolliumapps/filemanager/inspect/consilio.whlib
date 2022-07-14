@@ -56,16 +56,10 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
 
   MACRO DoReindex()
   {
-    RECORD ARRAY results := ReindexWHFSChanges([[ id := this->objid
-                                                , isfolder := this->fsobj->isfolder
-                                                , isdelete := FALSE
-                                                ]]);
-
-    /* We receive errorinfo in a nonstandard format (string, no trace).. we should
-      probably fix THAT and ensure we get standard HS exceptions/traces before bothering
-      with nicer display here */
-    IF(Length(results) > 0 AND Length(results[0].result.errors) > 0)
-      Reflect(results[0]);
+    ReindexWHFSChanges([[ id := this->objid
+                        , isfolder := this->fsobj->isfolder
+                        , isdelete := FALSE
+                        ]]);
 
     this->Refresh(this->fsobj);
   }

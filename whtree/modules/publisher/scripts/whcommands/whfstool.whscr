@@ -200,9 +200,5 @@ IF (args.reindex AND NOT args.dryrun)
         WHERE id NOT IN (SELECT AS INTEGER ARRAY id FROM toprocess));
 
   IF (Length(to_reindex) > 0)
-  {
-    RECORD ARRAY results := ReindexWHFSChanges(to_reindex, CELL[ args.debug, progress := TRUE ]);
-    IF (args.debug AND Length(results) > 0)
-      DumpValue(results, "tree");
-  }
+    ReindexWHFSChanges(to_reindex, CELL[ args.debug, progress := TRUE ]);
 }
