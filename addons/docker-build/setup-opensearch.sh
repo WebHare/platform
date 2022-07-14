@@ -2,6 +2,9 @@
 # DL instructions from https://opensearch.org/docs/latest/opensearch/install/tar/
 # DL packages from here - https://opensearch.org/downloads.html
 
+# To locally test and debug changes to the OpenSearch build and initialization in docker:
+# wh builddocker && wh testdocker --nocleanup --tag=-external -w local consilio
+
 GETFILE=opensearch-1.3.2-linux-x64.tar.gz
 DLPATH=/tmp/downloads/$GETFILE
 

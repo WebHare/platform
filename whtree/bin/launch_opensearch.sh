@@ -1,8 +1,7 @@
 #!/bin/bash
 
-#
-# To locally test and debug changes to the opensearch buidprocess in docker:
-# wh builddocker && TESTFW_SETUP_ELASTICSEARCH=1 wh testdocker --nocleanup --tag=-external -w local consilio
+# To locally test and debug changes to the OpenSearch build and initialization in docker:
+# wh builddocker && wh testdocker --nocleanup --tag=-external -w local consilio
 
 
 echo "Max open files: $(ulimit -n)"

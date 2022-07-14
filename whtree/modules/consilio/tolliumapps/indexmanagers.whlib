@@ -58,7 +58,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     IF(data.id != 0)
     {
       ^indexmgr->value := SELECT * FROM consilio.indexmanagers WHERE id = data.id;
-      this->builtinaddress := ^address->value IN ["builtin","builtin-elasticsearch"];
+      this->builtinaddress := ^address->value IN ["builtin","builtin-opensearch"];
       IF (this->builtinaddress)
       {
         ^address->enabled := FALSE;
@@ -97,7 +97,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
       ^settings->type := "server";
     }
     //require address if we've already got a builtin version of this one
-    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE type = ^type->value AND id != this->id AND address IN ["builtin","builtin-elasticsearch"]);
+    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE type = ^type->value AND id != this->id AND address IN ["builtin","builtin-opensearch"]);
   }
   BOOLEAN FUNCTION Submit()
   {
@@ -169,7 +169,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     {
       RECORD toset := ^indexmgr->value;
       IF(this->builtinaddress)
-        toset.address := ^type->value = whconstant_consilio_indexmanager_opensearch ? "builtin-elasticsearch" : "builtin";
+        toset.address := ^type->value = whconstant_consilio_indexmanager_opensearch ? "builtin-opensearch" : "builtin";
 
       INTEGER indexmgrid := this->id;
       IF(indexmgrid != 0)

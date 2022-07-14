@@ -159,7 +159,7 @@ testconsilio:
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external consilio
+    - TESTFW_WEBHARE_PREFERINDEXMANAGER=1 whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
       - artifacts/
@@ -172,7 +172,7 @@ testelasticsearch:
   except:
     - /^docs\/.*$/
   script:
-    - TESTFW_SETUP_ELASTICSEARCH=1 whtree/bin/wh testdocker --tag=-external consilio
+    - whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
       - artifacts/

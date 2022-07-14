@@ -102,7 +102,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
     ELSE
     {
       RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = indexmgrid;
-      IF (NOT RecordExists(indexmgr) OR (NOT IsValidPlainHTTPUrl(indexmgr.address) AND indexmgr.address != "builtin-elasticsearch"))
+      IF (NOT RecordExists(indexmgr) OR (NOT IsValidPlainHTTPUrl(indexmgr.address) AND indexmgr.address != "builtin-opensearch"))
       {
         reject(NEW Exception(SearchInvalidArgument));
         RETURN;
@@ -113,7 +113,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
                       , clusterstatus := ""
                       ];
 
-      IF (indexmanager.address = "builtin-elasticsearch")
+      IF (indexmanager.address = "builtin-opensearch")
         indexmanager.address := GetElasticsearchAddress();
 
       // Make sure the address doesn't end with a slash

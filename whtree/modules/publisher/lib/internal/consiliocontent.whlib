@@ -306,7 +306,15 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     STRING ARRAY parts := Tokenize(groupid, "_");
     INTEGER fsobjid := Length(parts) >= 2 AND parts[0] = "fsobj" ? ToInteger(parts[1], 0) : 0;
     OBJECT fsobj := OpenWHFSObject(fsobjid);
+    IF(NOT ObjectExists(fsobj))
+    {
+      //Most likely: object already deleted since the commit that queued us
+      RETURN [ status := "result"
+             , objects := RECORD[]
+             ];
+    }
 
+    //If an object is not active (outside 'normal' whfs parts) verify if it's one of the explicitly indexed starting points
     IF(NOT fsobj->isactive AND NOT RecordExists(SELECT FROM GetWHFSIndexModuleStartingPoints() AS spoint WHERE ToUppercase(fsobj->whfspath) LIKE ToUppercase(spoint.whfspath) || "*"))
     {
       RETURN [ status := "result"

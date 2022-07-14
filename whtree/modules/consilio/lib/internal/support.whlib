@@ -60,16 +60,16 @@ PUBLIC INTEGER FUNCTION GetBuiltinElasticSearchId()
 {
   RETURN SELECT AS INTEGER id
            FROM consilio.indexmanagers
-          WHERE address IN ["builtin-elasticsearch"];
+          WHERE address IN ["builtin-opensearch"];
 }
 
 PUBLIC INTEGER FUNCTION GetDefaultIndexManager()
 {
-  BOOLEAN setup_elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "";
+  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "";
   RETURN SELECT AS INTEGER id
            FROM consilio.indexmanagers
-          WHERE address IN ["builtin","builtin-elasticsearch"]
-       ORDER BY address = (setup_elasticsearch ? "builtin-elasticsearch" : "builtin") DESC; //prefer consilio - for now, unless testfw indicates ES should have priority
+          WHERE address IN ["builtin","builtin-opensearch"]
+       ORDER BY address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch") DESC; //prefer consilio - for now, unless testfw indicates ES should have priority
 }
 
 PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
@@ -232,7 +232,7 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
         , args := STRING["consilio","--listenport",ToString(GetWebHareConfiguration().baseport+3)]
         , isstandalone := TRUE
         ] INTO apps AT END;
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-elasticsearch"))
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-opensearch"))
     INSERT
         [ name := "consilio:opensearch"
         , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]
