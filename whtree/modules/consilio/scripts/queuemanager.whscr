@@ -1797,35 +1797,6 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
   {
     RECORD rec := QueueManagerBase::AddToQueue(data);
 
-    IF(data.action LIKE "*INDEX")
-    {
-      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
-      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
-        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action),
-            [ contentsourceid := contentsourceid
-            ]);
-    }
-    ELSE IF(data.action LIKE "*GROUP")
-    {
-      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
-      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
-        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action LIKE "FAST*" ? Substring(data.action, 4) : data.action),
-            [ contentsourceid := contentsourceid
-            , groupid := data.groupid
-            ]);
-    }
-    ELSE IF(data.action LIKE "*OBJECT")
-    {
-      INTEGER contentsourceid := CellExists(data, "contentsourceid") ? data.contentsourceid : 0;
-      STRING groupid := CellExists(data, "groupid") ? data.groupid : "";
-      IF(NOT IsDTAPLive()) //FIXME stop tests from relying on these events too
-        BroadcastEvent("consilio.queuemgmt." || ToLowercase(data.action),
-            [ contentsourceid := contentsourceid
-            , groupid := groupid
-            , objectid := data.objectid
-            ]);
-    }
-
     IF (RecordExists(rec) AND NOT rec.found)
     {
       RECORD newitem := rec.item;
