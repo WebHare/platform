@@ -1600,6 +1600,12 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
           IF (objectid != "")
             INSERT [ match := [ objectid := objectid ] ] INTO query.query.bool.must AT END;
 
+          /* Refresh the index beforoe we start deletion. Works around "version conflict, required seqNo [...]" we noticed
+             when running wh consilio:manualindex publisher:whfs - suspecting the delete is trying to delete older versions
+
+             maybe we can set conflicts=proceed but I'm not sure if that will then fail to delete or delete the most recent version*/
+          SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_refresh", DEFAULT RECORD, "GET");
+
           RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
           result.status := response.status;
           IF (result.status = SearchOk)
