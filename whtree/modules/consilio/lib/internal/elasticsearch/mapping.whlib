@@ -227,7 +227,7 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
     INSERT
         [ name := "_suggested"
         , type := "completion"
-        , settings := [ analyzer := "consilio" ]
+        , settings := [ analyzer := "consilio_analyzer" ]
         , subfields := DEFAULT RECORD
         , strict := TRUE
         , defaultvalue := DEFAULT RECORD
@@ -342,7 +342,7 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
       CASE "text", "completion"
       {
         // Use the default consilio analyzer
-        esfielddata := CELL[ analyzer := "consilio", ...esfielddata ];
+        esfielddata := CELL[ analyzer := "consilio_analyzer", ...esfielddata ];
 
         // For 'text', also index the orignal, non-transformed, tokenized text
         IF (prop.type = "text")
