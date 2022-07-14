@@ -34,6 +34,7 @@ FATALERROR=
 ARTIFACTS=
 NOPULL=0
 LOCALDEPS=
+NOCHECKMODULE=
 
 while true; do
  if [ "$1" == "--cpuset-cpus" ]; then
@@ -64,6 +65,9 @@ while true; do
     shift
   elif [ "$1" == "--nocleanup" ]; then
     NOCLEANUP=1
+    shift
+  elif [ "$1" == "--nocheckmodule" ]; then
+    NOCHECKMODULE=1
     shift
   elif [ "$1" == "--nocleanuponerror" ]; then
     NOCLEANUPONERROR=1
@@ -295,8 +299,6 @@ if [ -n "$ISMODULETEST" ]; then
   TESTINGMODULENAME=`basename $TESTINGMODULE`
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
-  elif [ "$TESTLIST" != "$TESTINGMODULENAME" ]; then
-    RUNEXPLICITTESTS=1
   fi
 
   echo "Autoadded module: $TESTINGMODULE"
@@ -555,9 +557,10 @@ if [ -n "$TESTFW_TWOHARES" ]; then
 fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
-  # assetpack compiles are much more complex and may rely on siteprofiles etc working, so it's best to find any validation errors first.
-  # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
-  if [ -z "$RUNEXPLICITTESTS" ]; then
+  if [ -z "$NOCHECKMODULE" ] ; then
+    echo "$(date) Starting global module tests (use --nocheckmodule in all but one step to skip this to speed up parallelized CIs)"
+    # assetpack compiles are much more complex and may rely on siteprofiles etc working, so it's best to find any validation errors first.
+    # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module"
     # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
     if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --filemask '*' --color $TESTINGMODULENAME ; then
