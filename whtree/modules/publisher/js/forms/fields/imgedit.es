@@ -80,7 +80,7 @@ export default class ImgEditField extends FileEditBase
     if(!this.node.querySelector('.wh-form__imgeditimg')) //we don't have an image to edit
     {
       if(this.deletebutton && this.node.contains(this.deletebutton))
-        dompack.remove(this.deletebutton);
+        this.deletebutton.remove();
 
       this.node.classList.remove('wh-form__imgedit--hasimage');
 
@@ -133,7 +133,7 @@ export default class ImgEditField extends FileEditBase
     let changed = false;
     if(imgnode)
     {
-      dompack.remove(imgnode);
+      imgnode.remove();
       changed = true;
     }
     this.setupComponent();

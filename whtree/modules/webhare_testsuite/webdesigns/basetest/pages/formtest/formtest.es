@@ -147,7 +147,7 @@ if(location.href.includes('captureerrors=1'))
     if(evt.detail.field)
       evt.detail.field.classList.add("broken");
 
-    dompack.qSA(evt.target, '.customerror').forEach(dompack.remove);
+    dompack.qSA(evt.target, '.customerror').forEach(node => node.remove());
     dompack.append(evt.target, dompack.create("div", { className: "customerror", childNodes: [evt.detail.message] }));
   });
 }

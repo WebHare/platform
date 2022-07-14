@@ -75,7 +75,6 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
                      || nonce
                      || (RecordExists(body) ? EncodeBase64(GetMD5Hash(bodytext)) : "");
   STRING auth := `${settings.websiteid}:${EncodeBase64(GetHashForString(hashbase,"HMAC:SHA-256", settings.secretid))}:${nonce}:${requesttimestamp}`;
-  dumpvalue(hashbase);
 
   GetBrowser()->SendRawRequest(method, finalurl,
      [[ field := "Culture", value := culture ]

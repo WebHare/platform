@@ -225,8 +225,7 @@ export class DefaultModalGallery extends ModalGalleryBase
 
     document.documentElement.classList.remove("hidescroll");
 
-    if( this.overlay )
-      dompack.remove(this.overlay);
+    this.overlay?.remove();
   }
 }
 
