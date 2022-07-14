@@ -54,10 +54,10 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
 
   PUBLIC MACRO RefreshIndexManager(INTEGER indexid)
   {
-    INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.catalog_indexmanagers WHERE catalogid = indexid;
-    IF (indexmgrid != 0)
+    INTEGER ARRAY indexmgrids := SELECT AS INTEGER ARRAY COLUMN indexmanager FROM consilio.catalog_indexmanagers WHERE catalogid = indexid AND NOT deleted;
+    FOREVERY (INTEGER indexmgrid FROM indexmgrids)
       RefreshIndexManager(indexmgrid, indexid);
-  }
+   }
 
   PUBLIC MACRO WaitContentSourceDone(INTEGER contentsourceid)
   {

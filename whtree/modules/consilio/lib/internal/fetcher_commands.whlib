@@ -37,10 +37,12 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       SELECT catalogs.id
            , catalogs.name
            , catalog_indexmanagers.indexmanager
+           , catalog_indexmanagers.deleted
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
        WHERE catalog_indexmanagers.indexmanager = forindexmanager
-             AND catalog_indexmanagers.catalogid = catalogs.id;
+             AND catalog_indexmanagers.catalogid = catalogs.id
+             AND NOT deleted;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -57,8 +59,8 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       {
         IF (indexid = 0)
           CONTINUE;
-        STRING catalog := SELECT AS STRING name FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
-        IF (catalog = "" OR catalog LIKE "$consilio$deleted$*")
+        RECORD catalog := SELECT * FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
+        IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*" OR catalog.deleted)
           DeleteIndexManagerContentSource(indexmgr.id, indexid, 0);
         ELSE
           INSERT indexid INTO presentindexids AT END;
@@ -122,6 +124,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
              , consilio.catalog_indexmanagers
          WHERE catalogs.id = data.indexid
                AND catalog_indexmanagers.catalogid = catalogs.id
+               AND NOT deleted
                AND name NOT LIKE "$consilio$deleted$*";
 
     IF (NOT RecordExists(catalog))
@@ -182,6 +185,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                    AND catalog_indexmanagers.catalogid = catalogs.id
                                    AND (VAR data.indexid = 0
                                        OR catalogs.id = VAR data.indexid)
+                                   AND NOT deleted
                                    AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
@@ -1066,7 +1070,8 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
   UPDATE consilio.catalog_indexmanagers
      SET rebuild := FALSE
-   WHERE catalogid = data.indexid;
+   WHERE catalogid = data.indexid
+     AND NOT deleted;
 
   RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
   IF (Length(commiterrors) > 0)
@@ -1206,15 +1211,23 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
   IF (indexid != 0)
     INSERT CQMatch("indexid", "=", ToString(indexid)) INTO queries AT END;
 
-  // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
-  IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RECORD ARRAY results;
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+    IF (result.totalcount > fetcher_search_window)
+      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+
+    results := results CONCAT result.results;
+  }
 
   RETURN
       SELECT DISTINCT contentsourceid := contentsource
            , COLUMN indexid
-        FROM result.results
+        FROM results
        WHERE contentsource != 0;
 }
 
@@ -1315,7 +1328,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 /** Get the list of groups for a content source
     @param contentsourceid ID of the content source
     @return Groups
-    @cell id Group id
+    @cell(string) return.id Group id
 */
 RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 {
@@ -1323,14 +1336,20 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 
   INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
-  // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ] ]);
-  IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ groupid := "" ] ]);
+  RECORD ARRAY results;
+  FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
+  {
+    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
+    IF (result.totalcount > fetcher_search_window)
+      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
+
+    results := results CONCAT result.results;
+  }
 
   RETURN
       SELECT DISTINCT id := groupid
-        FROM result.results;
+        FROM results;
 }
 
 /** Get the list of objects for a group in a content source
@@ -1358,24 +1377,38 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
   // Get all available groups (might take some time if the source has millions of objects)
   INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
-  // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping ]);
-  IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping ]);
+  RECORD ARRAY results;
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id ]);
+    IF (result.totalcount > fetcher_search_window)
+      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping, indexmanager := indexmanager.id ]);
 
-  RECORD ARRAY results :=
-      SELECT AS RECORD ARRAY GroupedValues(results)[0]
-        FROM result.results
-       GROUP BY objectid;
-  RETURN
-      SELECT id := objectid
-           , indexdate := date_indexdate
-           , commanddate := date_indexed
-           , *
-           , DELETE objectid
-           , DELETE date_indexdate
-           , DELETE date_indexed
-        FROM results;
+    results := results CONCAT
+        SELECT id :=            objectid
+             , indexdate :=     Min(date_indexdate)
+             , commanddate :=   Min(date_indexed)
+          FROM result.results
+      GROUP BY objectid;
+  }
+
+  // Group over all indexmanagers, set indexdate and commanddate to DEFAULT DATETIME
+  // for objects that don't exist in all indexmanagers
+  INTEGER indexmgr_cnt := LENGTH(indexmanagers);
+  IF (LENGTH(indexmanagers) > 1)
+  {
+    results :=
+        SELECT TEMPORARY in_all_indexmgrs := Count(*) = LENGTH(indexmanagers)
+             , id
+             , indexdate :=     in_all_indexmgrs ? Min(indexdate) : DEFAULT DATETIME
+             , commanddate :=   in_all_indexmgrs ? Min(commanddate) : DEFAULT DATETIME
+          FROM results
+      GROUP BY id;
+  }
+
+  RETURN results;
 }
 
 /** Removes all documents in an index that are not from one of the valid contentsources
@@ -1387,14 +1420,20 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
   // Only a CQNot doesn't work
   RECORD query := CQAnd([ CQAll(), CQNot(CQMatch("contentsource", "IN", validcontentsourceids)) ]);
 
-  // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ contentsource := 0 ] ]);
-  IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ contentsource := 0 ] ]);
+  RECORD ARRAY results;
+  FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
+  {
+    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ contentsource := 0 ] ]);
+    IF (result.totalcount > fetcher_search_window)
+      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ contentsource := 0 ] ]);
+
+    results := results CONCAT result.results;
+  }
 
   INTEGER ARRAY contentsources :=
       SELECT AS INTEGER ARRAY DISTINCT contentsource
-        FROM result.results;
+        FROM results;
 
   FOREVERY (INTEGER contentsource FROM contentsources)
   {
@@ -1410,6 +1449,7 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
     @param objects
     @cell objects.id
     @cell objects.commanddate
+    @return TRUE if success
 */
 BOOLEAN FUNCTION RemoveOutdatedGroupObjects(INTEGER indexid, INTEGER contentsourceid, STRING groupid, RECORD ARRAY objects, BOOLEAN noindexmodify, BOOLEAN refresh)
 {

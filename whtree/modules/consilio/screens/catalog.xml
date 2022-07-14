@@ -247,7 +247,8 @@
     </footer>
   </screen>
 
-  <screen name="catalogeditor" gid=".catalogeditor" title="">
+  <screen name="catalogeditor" gid=".catalogeditor" title="" width="120x" allowresize="true"
+          oninterval="GotInterval" interval="60000">
     <body>
       <text name="id" tid=".id" />
       <textedit name="name" tid="tollium:common.labels.name" required="true" width="1pr" />
@@ -264,18 +265,39 @@
         <textedit name="priority" minvalue="-9" maxvalue="9" valuetype="integer" maxlength="2"/>
         <text valuetid=".prorityexplain" />
       </line>
-      <select name="indexmanager" type="pulldown" onchange="onindexmanagerchange" rowkeytype="integer">
-        <option rowkey="0" title="" />
-      </select>
-      <textedit name="indexname" width="1pr" />
       <select name="type" type="pulldown" rowkeytype="integer" readonly="true">
         <option rowkey="0" tid=".type-standard" />
         <option rowkey="1" tid=".type-module" />
       </select>
+      <heading tid=".indexmanagers" />
+      <arrayedit name="indexmanagers"
+                 onrowedit="GotIndexManagerRowEdit"
+                 onmaprows="MapIndexManagerRows"
+                 highlightname="primary"
+                 height="1pr"
+                 errorlabeltid=".indexmanagers"
+                 >
+        <column name="indexmanager_name" type="text" />
+        <column name="indexname" type="text" />
+        <column name="size" type="integer" align="right" width="10x" />
+      </arrayedit>
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel"/>
     </footer>
+  </screen>
+
+  <screen name="editcatalogindex" gid=".editcatalogindex" footerbuttons="ok cancel">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <select composition="row" cellname="indexmanager" name="indexmanager" type="pulldown" required="true" rowkeytype="integer" onchange="GotIndexManagerSelect" />
+      <textedit composition="row" cellname="indexname" width="1pr" required="true" />
+      <line layout="left">
+        <checkbox composition="row" cellname="primary" title="" labeltid=".primary" />
+      </line>
+    </body>
   </screen>
 
   <screen name="catalogpreview" gid=".catalogpreview" tid=".title"

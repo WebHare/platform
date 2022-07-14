@@ -25,6 +25,7 @@
       <text tid="title-new">Add URL pattern</text>
     </textgroup>
     <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
+      <text tid="allindexmanagersadded">All index managers have already been added</text>
       <text tid="debuglevel">Log level catalog</text>
       <text tid="debuglevel-0">Errors only</text>
       <text tid="debuglevel-1">Skipped documents</text>
@@ -32,10 +33,13 @@
       <text tid="debuglevel-3">All debugging information</text>
       <text tid="id">Catalog ID</text>
       <text tid="indexmanager">Index manager</text>
+      <text tid="indexmanager_name">Index manager</text>
+      <text tid="indexmanagers">Index managers</text>
       <text tid="indexname">Index name</text>
-      <text tid="invalidindexname">Invalid index name. The name must start with a letter and consist of only characters in range 0-9 and a-z and an underscore (_)</text>
       <text tid="priority">Priority</text>
       <text tid="prorityexplain">(-9-9, 0 is the default, 9 is highest priority)</text>
+      <text tid="refreshsizes">Refresh sizes</text>
+      <text tid="size">Size</text>
       <text tid="title-edit">Edit Catalog '<param p="1"/>'</text>
       <text tid="title-new">New Catalogus</text>
       <text tid="type">Index content</text>
@@ -122,6 +126,13 @@
       <text tid="linetext">Line</text>
       <text tid="what">Error</text>
     </textgroup>
+    <textgroup gid="editcatalogindex">   <!-- catalog.editcatalogindex -->
+      <text tid="editcatalogindex">Edit catalog index</text>
+      <text tid="indexmanager">Index manager</text>
+      <text tid="indexname">Index name</text>
+      <text tid="invalidindexname">Invalid index name. The name must start with a letter and consist of only characters in range 0-9 and a-z and an underscore (_)</text>
+      <text tid="primary">Primary index</text>
+    </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>
       <text tid="catalognameexists">A catalog with the name '<param p="1"/>' already exists</text>
@@ -135,6 +146,7 @@
       <text tid="confirmwordgroupdelete">Are you sure you want to delete the selected word group?</text>
       <text tid="indexmanagerconnectionfailed">No connection to Consilio could be made.</text>
       <text tid="notenoughwordsingroup">A word group should contain at least 2 words.</text>
+      <text tid="primarycatalogindexrequired">One of the index managers should be set as primary</text>
       <text tid="searcherror">An error occured while searching:<br/><br/><param p="1"/></text>
       <text tid="sendingcommandfailed">The command could not be sent to the queue manager.</text>
       <text tid="updatingsrcfieldsfailed">Updating the content source fields failed: <param p="1"/></text>
