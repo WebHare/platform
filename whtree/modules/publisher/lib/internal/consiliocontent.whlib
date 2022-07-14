@@ -314,7 +314,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
              ];
     }
 
-    //If an object is not active (outside 'normal' whfs parts) verify if its one of the explicitly indexed starting points
+    //If an object is not active (outside 'normal' whfs parts) verify if it's one of the explicitly indexed starting points
     IF(NOT fsobj->isactive AND NOT RecordExists(SELECT FROM GetWHFSIndexModuleStartingPoints() AS spoint WHERE ToUppercase(fsobj->whfspath) LIKE ToUppercase(spoint.whfspath) || "*"))
     {
       RETURN [ status := "result"
