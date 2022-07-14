@@ -567,7 +567,7 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
        opensearch will start returning results matching that filter even if they don't match the should!
        but the 'should' is there to support OR queries
 
-       this broke restrict_url queries. so explicitly wrap the existing should in a must - don't add a filter on the same levle */
+       this broke restrict_url queries. so explicitly wrap the existing should in a must - don't add a filter on the same level */
 
     query := [ bool := [ must := [ RECORD(query) ]
                        , filter := filters
