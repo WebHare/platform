@@ -933,8 +933,8 @@ STATIC OBJECTTYPE ContentSource
               ];
 
       RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteGroup")(data, [ refresh := TRUE ]);
-      IF (Length(result.errors) > 0)
-        THROW NEW Exception(result.errors[0].message);
+      IF (RecordExists(result.error))
+        THROW NEW Exception(result.error.message);
     }
     ELSE
     {
