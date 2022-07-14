@@ -632,8 +632,10 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
       result :=
           [ bool :=
               [ should :=
-                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio" ]) ]
+                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
                   , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
+                   //FIXME this is needed to get publisher search  to work but i think we're incorrectly using the analyzer here? - https://gitlab.webhare.com/webharebv/codekloppers/-/issues/550#note_137298
+                  , [ match := CellInsert(DEFAULT RECORD, query.field, term) ]
                   ]
               ]
           ];
@@ -769,7 +771,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
               [ query := query.userquery
               , fields := (SELECT AS STRING ARRAY field || __FormatBoost(boost) FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" || __FormatBoost(boost) FROM fields WHERE stemmed_field)
               , default_operator := query.defaultrequire = require_required ? "AND" : "OR"
-              , analyzer := query.synonyms ? "consilio_search" : "consilio"
+              , analyzer := query.synonyms ? "consilio_search" : "consilio_analyzer"
               ]
           ];
     }

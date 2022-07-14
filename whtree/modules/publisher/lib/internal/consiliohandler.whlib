@@ -13,31 +13,30 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
-INTEGER publisher_index, publisher_source;
+OBJECT publisher_fsobjects_source;
 
-INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
+INTEGER ARRAY FUNCTION GetIndexedWHFSObjectsForFolder(INTEGER folderid)
 {
   RECORD query := CQMatch("whfstree", "=", ToString(folderid));
-  RECORD result := QueryIndexManager(publisher_index, query, [ count := -1, mapping := [ whfsid := 0 ] ]);
-  IF (result.status = SearchOk)
-    RETURN
-        SELECT AS INTEGER ARRAY DISTINCT whfsid
-          FROM result.results;
-  RETURN DEFAULT INTEGER ARRAY;
+  RETURN SELECT AS INTEGER ARRAY DISTINCT whfsid
+           FROM RunConsilioSearch(whconstant_consilio_catalog_whfs, query, [ count := -1, mapping := [ whfsid := 0 ] ]).results;
 }
 
-PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
+//Foregound WHFS (re)index
+PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD ARRAY results;
   options := ValidateOptions([ eventid := "", debug := FALSE, progress := FALSE ], options);
 
-  IF (publisher_index = 0)
+  IF(NOT ObjectExists(publisher_fsobjects_source))
   {
-    publisher_index := GetCatalogIdByName(whconstant_consilio_catalog_whfs);
-    IF(publisher_index = -1) //not available yet, bootstrap? it's racy to wait for siteprofiles to generate the index
+    OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+    IF(NOT ObjectExists(catalog))
       THROW NEW Exception(`Publisher index '${whconstant_consilio_catalog_whfs}' not available`);
 
-    publisher_source := GetContentSourceIdByTag("publisher:fsobjects");
+    publisher_fsobjects_source := OpenContentSource("publisher:fsobjects");
+    IF(NOT ObjectExists(publisher_fsobjects_source))
+      THROW NEW Exception(`Content source 'publisher:fsobjects' not available`);
   }
 
   INTEGER ARRAY to_update, to_delete;
@@ -46,7 +45,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
     IF (obj.isfolder)
     {
       // This will re-index the folder object contents recursively
-      FOREVERY (INTEGER subobjid FROM GetIndexedWHFSObjects(obj.id))
+      FOREVERY (INTEGER subobjid FROM GetIndexedWHFSObjectsForFolder(obj.id))
       {
         IF (subobjid = 0)
           CONTINUE;
@@ -74,16 +73,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
   DATETIME now := GetCurrentDateTime();
   FOREVERY (INTEGER objid FROM to_delete)
   {
-    RECORD data :=
-        [ action := "DELETEGROUP"
-        , commanddate := now
-        , indexid := publisher_index
-        , contentsourceid := publisher_source
-        , groupid := "fsobj_" || objid
-        ];
-
-    DeleteGroup(data);
-
+    publisher_fsobjects_source->DeleteGroup("fsobj_" || objid, [ foreground := TRUE ]);
     IF(options.progress)
       Print(`Deleting ${#objid+1}/${Length(to_delete)}: #${objid}\r`);
   }
@@ -92,20 +82,9 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
 
   FOREVERY (INTEGER objid FROM to_update)
   {
-    RECORD data :=
-        [ action := "CHECKGROUP"
-        , commanddate := now
-        , indexid := publisher_index
-        , contentsourceid := publisher_source
-        , groupid := "fsobj_" || objid
-        ];
-
+    publisher_fsobjects_source->ReindexGroup("fsobj_" || objid, [ rebuild := TRUE, foreground := TRUE ]);
     IF(options.progress)
       Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
-
-    //TODO pass queueing priority based on startingpoint ordering
-    RECORD result := CheckGroup(data, [ rebuild := TRUE ]);
-    INSERT CELL[ objid, result ] INTO results AT END;
   }
 
   // Sort the results: first the requested ids in the order they're supplied, then other ids sorted ascending
@@ -120,15 +99,13 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
   {
     IF (options.progress)
       Print("Refreshing index...");
-    RefreshIndexManager(0, publisher_index);
+    publisher_fsobjects_source->catalog->Refresh();
     IF (options.progress)
       Print("\n");
   }
 
   IF (options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
-
-  RETURN results;
 }
 
 PUBLIC RECORD ARRAY FUNCTION ListPublisherContentSourcesFor(INTEGER fsobjid)

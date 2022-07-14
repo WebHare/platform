@@ -97,11 +97,7 @@ MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
   EnsurePublisherIndex();
 
   FOREVERY(RECORD msg FROM msgs)
-  {
-    RECORD ARRAY results := ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);
-    IF(debug AND Length(results) > 0 AND CellExists(results[0].result,'errors') AND Length(results[0].result.errors) > 0)
-      DumpValue(results,'tree');
-  }
+    ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);
 }
 
 

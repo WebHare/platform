@@ -153,17 +153,6 @@ If set, two separate WebHares are running. This enables some additional tests
 
 # Tips and tricks
 
-## Multiple installs
-To easily run multiple installations in parallel, setup aliases in your .profile. Eg:
-```
-alias wh-moe2="WEBHARE_DATAROOT=$HOME/projects/whdata/moe2 WEBHARE_NOINSTALLATIONINFO=1 WEBHARE_BASEPORT=13300 wh"
-```
-You can then access or start this installation using eg `wh-moe2 console` or `wh-moe2 sql 'select * from system.ports'`
-
-## Install-specific configuration
-If you're running WebHare from source, you can create a file `$WEBHARE_DATAROOT/settings.sh` for installation specific
-settings. Please note that this file is ignored by docker installations.
-
 ## Build-time variables
 These variables are only used during the WebHare build proces or by 'from source' installations. They have no effect
 on a running WebHare or on Docker versions
