@@ -1223,6 +1223,10 @@ STATIC OBJECTTYPE Catalog
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
+    // Ensure the indexes are created at the indexmanagers
+    IF (this->ismanaged)
+      EnsureIndexManagerIndex(this->id);
+
     IF (language_changed)
     {
       // Note: this doesn't update the 'synonym' filter, so we don't have to explicitly add that here

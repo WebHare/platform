@@ -47,12 +47,12 @@ MACRO TestESCreationAPIs()
 
   // EnsureIt still doesn't exist on the index manager
   RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Try the low level API first. Make sure it does exist
   catalog->EnsureIndex();
   result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(TRUE, catalog->id IN result.indices);
+  TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
   RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `/${testindex_indexname}/_mapping`, DEFAULT RECORD);
@@ -65,12 +65,12 @@ MACRO TestESCreationAPIs()
   // Delete it again from the index manager
   catalog->DeleteIndex();
   result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Create a subindex
   catalog->EnsureIndex([suffix := "suffix"]);
   result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(TRUE, "suffix" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
 
@@ -83,7 +83,7 @@ MACRO TestESCreationAPIs()
   // Delete it again from the index manager
   catalog->DeleteIndex();
   result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(FALSE, "suffix" IN result.suffixes);
   TestEq(RECORD[], catalog->ListSuffixes());
 
@@ -91,7 +91,7 @@ MACRO TestESCreationAPIs()
   catalog->EnsureIndex([ suffix := "suffix1" ] );
   catalog->EnsureIndex([ suffix := "suffix2" ] );
   result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(2, Length(result.suffixes));
   TestEq(TRUE, "suffix1" IN result.suffixes);
   TestEq(TRUE, "suffix2" IN result.suffixes);
@@ -100,7 +100,7 @@ MACRO TestESCreationAPIs()
   // Delete one of the subindices
   catalog->DeleteIndex([ suffix := "suffix1" ]);
   result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(1, Length(result.suffixes));
   TestEq(FALSE, "suffix1" IN result.suffixes);
   TestEq(TRUE, "suffix2" IN result.suffixes);
@@ -112,17 +112,17 @@ MACRO TestESCreationAPIs()
 
   // It still doesn't exist on the index manager
   result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Make sure it does exist
   catalog->EnsureIndex();
   result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(TRUE, catalog->id IN result.indices);
+  TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Delete it again from the index manager
   catalog->DeleteIndex();
   result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
@@ -152,7 +152,7 @@ MACRO TestESBulkInsertion()
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   TestEq(TRUE, ObjectExists(catalog));
   RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestEq(FALSE, catalog->id IN result.indices);
+  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   //Offering an undeclared cell must fail (this tests ES error handling, if we start catching errors earlier we might need something else or a raw mode to explicitly trigger ES error handling)
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(

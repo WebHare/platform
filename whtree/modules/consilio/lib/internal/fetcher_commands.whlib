@@ -37,6 +37,7 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       SELECT catalogs.id
            , catalogs.name
            , catalog_indexmanagers.indexmanager
+           , catalog_indexmanagers.deleted
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
        WHERE catalog_indexmanagers.indexmanager = forindexmanager
@@ -58,8 +59,8 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       {
         IF (indexid = 0)
           CONTINUE;
-        STRING catalog := SELECT AS STRING name FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
-        IF (catalog = "" OR catalog LIKE "$consilio$deleted$*")
+        RECORD catalog := SELECT * FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
+        IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*" OR catalog.deleted)
           DeleteIndexManagerContentSource(indexmgr.id, indexid, 0);
         ELSE
           INSERT indexid INTO presentindexids AT END;

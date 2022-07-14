@@ -162,7 +162,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
       ];
 
   RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
-  DumpValue(indexmanagers, "boxed");
   RECORD indexmanager := indexmanagers;
   IF (RecordExists(indexmanager))
   {
