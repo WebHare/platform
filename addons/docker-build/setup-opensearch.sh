@@ -15,8 +15,17 @@ mkdir /opt/opensearch
 tar zx -C /opt/opensearch --strip-components=1 -f $DLPATH
 chown -R opensearch /opt/opensearch
 
-if ! runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch --version ; then
-  echo "Install failed? Errorcode $? from 'opensearch --version'"
+runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch --version
+RETVAL="$?"
+if [ "$RETVAL" != "0" ]; then
+  echo "Install failed? Errorcode $RETVAL from 'opensearch --version'"
+  exit 1
+fi
+
+runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch-plugin install analysis-icu
+RETVAL="$?"
+if [ "$RETVAL" != "0" ]; then
+  echo "Install failed? Errorcode $RETVAL from analysis-icu installation"
   exit 1
 fi
 
