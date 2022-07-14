@@ -627,7 +627,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF (Length(options.exclude_urls) > 0)
           INSERT [ name := "exclude-urls", value := Detokenize(options.exclude_urls, "\t") ] INTO vars AT END;
 
-        STRING queryvalue := __FormatQuery(indexid, query, [ language := options.lang ]);
+        STRING queryvalue := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]);
         IF(IsDebugTagEnabled("consilio:searches"))
           LogDebug("consilio:searches", "Indexmanager search", CELL[ ...searchstart, query := queryvalue ]);
 

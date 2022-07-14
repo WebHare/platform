@@ -525,7 +525,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
            , haserrors := errorrec.haserrors;
 
       //BOOLEAN inactive := catalog.status < 0;
-      BOOLEAN inactive := catalog.type = 0 AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
+      BOOLEAN inactive := catalog.type = whconstant_consilio_catalogtype_managed AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
       STRING catalogsize := "";
       INTEGER catalog_indexmanager := SELECT AS INTEGER indexmanager FROM consilio.catalog_indexmanagers WHERE COLUMN catalogid = VAR catalog.id;
       IF (catalog_indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))

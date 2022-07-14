@@ -88,8 +88,12 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
       , __opensearch := FALSE //TODO: If Consilio indexmanager no longer has to be supported, make this the default and remove the whole modecheck stuff
       ], options, [ optional := ["__opensearch" ]]);
 
-    IF (field = "")
+  IF (field = "")
     THROW NEW Exception("Query field is required for match query");
+
+  //Have to move this optimization here, because some tests rely on CQMatch always doing this (so we can't wait for __delayed_cqmatch)
+  IF (IsTypeIDArray(TypeID(value)) AND Length(value) = 0)
+    RETURN CQNothing();
 
   //If unsure whether we'll be testing against OS or Indexmgr, delay evalation
   IF(NOT CellExists(options,'__opensearch'))
