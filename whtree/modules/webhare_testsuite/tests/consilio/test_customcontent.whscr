@@ -6,7 +6,6 @@ LOADLIB "wh::float.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
-LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -704,7 +703,7 @@ MACRO TestTypes()
   catalog->ReindexCatalog();
   maincatalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
-  WaitForCatalogDone(maincatalog);
+  maincontentsource->WaitForIndexingDone();
 
   RECORD res := RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
   TestEq(
