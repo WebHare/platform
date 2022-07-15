@@ -26,11 +26,10 @@ MACRO TestSuggestFields()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  //having indexnames makes log analysis easier
+  catalog := CreateConsilioCatalog("consilio:testfw_suggestfields", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
 
-  catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+  OBJECT csource := catalog->AddCustomContentSource("webhare_testsuite:customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
@@ -40,7 +39,7 @@ MACRO TestSuggestFields()
 
   // Clear the index
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  csource->WaitForIndexingDone();
 
   testfw->BeginWork();
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
@@ -57,10 +56,10 @@ MACRO TestSuggestFields()
 
   // Rebuild the index
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  csource->WaitForIndexingDone();
 
   // Create a suggester object
-  OBJECT suggest_obj := OpenSuggestObject(testfw->GetCatalogName_1());
+  OBJECT suggest_obj := OpenSuggestObject("consilio:testfw_suggestfields");
 
   // Return all terms starting with "a"
   RECORD ARRAY suggestions := suggest_obj->GetSuggestions("a", 0);
@@ -143,12 +142,12 @@ MACRO TestSuggestAPI()
 {
   //Note: backend is an internal API and allowed to change as long as we fix our JS wrappers
 
-  STRING suggesttoken := GetConsilioRPCToken(testfw->GetCatalogName_1());
+  STRING suggesttoken := GetConsilioRPCToken("consilio:testfw_suggestfields");
   RECORD result;
 
   TestThrowsLike("*Autosuggest is not enabled*", PTR testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo"));
 
-  suggesttoken := GetConsilioRPCToken(testfw->GetCatalogName_1(), [ autosuggest := TRUE ]);
+  suggesttoken := GetConsilioRPCToken("consilio:testfw_suggestfields", [ autosuggest := TRUE ]);
   result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo");
   TestEqMembers([[ text  := "aap boom" ]], result.suggestions, "*");
 }
@@ -170,7 +169,7 @@ MACRO TestSuggestFieldsLegacy()
   csource->ReindexContentSource([ rebuild := TRUE ]);
   csource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  OBJECT suggest_obj := OpenSuggestObject(testfw->GetCatalogName_1());
+  OBJECT suggest_obj := OpenSuggestObject("consilio:testfw_suggestfields");
 
   // Return all terms starting with "bla"
   RECORD ARRAY suggestions := suggest_obj->GetSuggestions("bla", 0);
@@ -179,7 +178,7 @@ MACRO TestSuggestFieldsLegacy()
   TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "blafile");
 
   //Test new api
-  suggestions := GetConsilioSuggestions(testfw->GetCatalogName_1(), "bla");
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "bla");
   TestEq(2, Length(suggestions));
   TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "blabla");
   TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "blafile");
@@ -190,8 +189,7 @@ RunTestframework(
     , PTR TestSuggestAPI
     , PTR TestSuggestFieldsLegacy
     ],
-    [ consilio := TRUE
-    , testusers :=
+    [ testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
         ]
     ]);

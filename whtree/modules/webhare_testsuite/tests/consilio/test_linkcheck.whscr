@@ -52,6 +52,4 @@ MACRO TestServerStatus()
 }
 
 RunTestFramework( [ PTR TestServerStatus
-                  ],
-                  [ consilio := TRUE
                   ]);

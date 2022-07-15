@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -33,7 +32,8 @@ PUBLIC MACRO TestModernSiteProfileIndices()
          ], SELECT AS STRING ARRAY tag FROM contentsources WHERE tag != "" ORDER BY tag);
 
   maincatalog->ReindexCatalog();
-  WaitForCatalogDone(maincatalog);
+  FOREVERY(RECORD csource FROM contentsources)
+    maincatalog->OpenContentSource(csource.tag)->WaitForIndexingDone();
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
@@ -78,7 +78,6 @@ ASYNC MACRO TestCatalogApp()
 
 RunTestFramework( [ PTR TestModernSiteProfileIndices
                   , PTR TestCatalogApp
-                  ], [ consilio := TRUE
-                     , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

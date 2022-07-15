@@ -20,7 +20,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq, TestEqFloat, TestThrowsLike, TestRejectedLike, TestEqLike, TestEqTextBlob, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException, TestUnreachable, TestAssert;
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/internal/testframework.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -431,7 +431,7 @@ MACRO DispatchCallbacks()
 }
 
 
-OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO just move them to their own whlib/object/freestanding functions
+STATIC OBJECTTYPE TestFramework
 <
   BOOLEAN didruntests;
   BOOLEAN _hasfailed;
@@ -964,8 +964,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     //Remove any consilio indices
     RECORD ARRAY catalogstodelete := SELECT *
                                        FROM ListConsilioCatalogs()
-                                      WHERE tag LIKE "webhare_testsuite:consiliotest_*"  //old GetCatalogName_1/GetCatalogName_2, they may still influence consilio API using tests
-                                            OR tag LIKE "consilio:testfw_*"; //consilio API users should use these names now for clarity
+                                      WHERE tag LIKE "consilio:testfw_*"; //consilio API users should use these names now for clarity
     IF(Length(catalogstodelete) > 0)
     {
       GetPrimary()->BeginWork();
@@ -2152,7 +2151,6 @@ STRING FUNCTION GenerateName(MACRO PTR test)
     @cell(boolean) options.wrdschema
     @cell(boolean) options.wrdauth Set to true to setup the testschema for users/role/rights. Implicity set if testusers or testroles are set
     @cell(boolean) options.usedatabase
-    @cell(boolean) options.consilio
     @cell(string array) options.addinterfacealiases
     @cell(boolean) options.mailwhitelists
 */
@@ -2170,7 +2168,6 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , wrdschema := TRUE
                               , wrdauth := FALSE
                               , usedatabase := TRUE
-                              , consilio := FALSE
                               , addinterfacealiases := STRING[]
                               , mailwhitelists := TRUE
                               , canceltasks := STRING[] //ignored and deprecated - tests always cancel all tasks.
@@ -2217,9 +2214,6 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
   testfw := NEW TestFramework(options);
 
   testfw->addinterfacealiases := addinterfacealiases;
-
-  IF(options.consilio)
-    EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(testfw) BY ConsilioTestExtensions;
 
   testfw->profile := options.profile;
   testfw->debug := options.debug;

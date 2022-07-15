@@ -25,11 +25,10 @@ MACRO TestBoostWords()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
-
-  //having indexnames makes log analysis easier
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_boostwords", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+
+  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
@@ -63,7 +62,7 @@ MACRO TestBoostWords()
   csource->WaitForIndexingDone([ verbose := TRUE ]);
   Print("it's indexed\n");
 
-  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  OBJECT search_obj := OpenSearchObject("en", "consilio:testfw_boostwords");
   search_obj->empty_result_record := DEFAULT RECORD;
   search_obj->summary_length := 0;
 
@@ -166,8 +165,7 @@ MACRO TestBoostWords()
 
 RunTestframework(
     [ PTR TestBoostWords ],
-    [ consilio := TRUE
-    , testusers :=
+    [ testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
         ]
     ]);

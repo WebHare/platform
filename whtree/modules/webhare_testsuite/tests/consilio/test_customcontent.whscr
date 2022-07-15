@@ -6,7 +6,6 @@ LOADLIB "wh::float.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
-LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -51,36 +50,34 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
 // Wait for command completion, then require that index & db are fully synced
 MACRO TestCompleteSyncAfterCommand()
 {
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
   TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
 }
 
 MACRO TestCustomContent()
 {
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  testfw->BeginWork();
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
+  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
   BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
 
-  //having indexnames makes log analysis easier
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
-
-  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
+  search_obj := OpenSearchObject("en", "consilio:testfw_customcontent");
   RECORD res;
 
   // Prefix for object/group ids, just to stress the itf
   STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
 
-  testfw->BeginWork();
 
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  contentsource := catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+  contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
       ]);
 
-  TestThrowsLike(`*contentsource with tag '${testfw->GetCustomContentName()}' already exists*`, PTR catalog->AddCustomContentSource(testfw->GetCustomContentName(), "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
+  TestThrowsLike(`*contentsource with tag '${"webhare_testsuite:beta_customsource"}' already exists*`, PTR catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
@@ -90,7 +87,7 @@ MACRO TestCustomContent()
 
   // Clear the index
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   TestEQ(0, LENGTH(SearchAll("")));
 
@@ -274,13 +271,13 @@ MACRO TestCustomContent()
       ], res.results[0]);
 
   //Find nothing
-  res := RunConsilioSearch(testfw->GetCatalogName_1(), DEFAULT RECORD);
+  res := RunConsilioSearch("consilio:testfw_customcontent", DEFAULT RECORD);
   TestEq(0,Length(res.results));
 
-  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAll());
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQAll());
   TestEq(6,Length(res.results));
 
-  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQParseUserQuery(""));
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQParseUserQuery(""));
   TestEq(0,Length(res.results));
 
   // Rebuild testing update object, delete object, delete group, keep group, add group/object
@@ -366,7 +363,8 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
+
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1",     indexdate := MakeDate(1970, 1, 10) ]
       , [ groupid := idprefix||"c",   objectid := idprefix||"c1",     indexdate := MakeDate(1970, 1, 10) ]
@@ -397,7 +395,7 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "list" ]
@@ -411,7 +409,7 @@ MACRO TestCustomContent()
   contentsource->ReindexObject(idprefix||"a", idprefix||"a1_withdata");
   contentsource->ReindexObject(idprefix||"b", idprefix||"b2_withdata");
   contentsource->ReindexObject(idprefix||"d", idprefix||"d1_withdata_fromlist");
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "fetch" ]
@@ -443,7 +441,7 @@ MACRO TestCustomContent()
 
   __ConsilioClearErrors(contentsource->id);
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   RECORD ARRAY relevanterrors;
   relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
@@ -464,7 +462,7 @@ MACRO TestCustomContent()
 
   __ConsilioClearErrors(contentsource->id);
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
   relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
@@ -484,7 +482,7 @@ MACRO TestCustomContent()
 
   __ConsilioClearErrors(contentsource->id);
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource->id) LIKE "*process exited with exit code 1*");
   TestEQ(
@@ -519,7 +517,7 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   TestEQ(
       [ [ groupid := idprefix||"a", objectid := idprefix||"a1", indexdate := MakeDate(1970, 1, 10), date_adate := MakeDate(2010, 1, 1) ]
@@ -577,7 +575,7 @@ MACRO TestCustomContent()
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
   }
 
-  res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
@@ -590,7 +588,7 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 
   res := search_obj->Search("+body:a1", 0, 1000);
   TestEQ(1, res.totalcount);
@@ -653,12 +651,12 @@ MACRO TestCustomContent()
   testfw->CommitWork();
 
   catalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
+  contentsource->WaitForIndexingDone();
 }
 
 MACRO TestTypes()
 {
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  OBJECT catalog := OpenConsilioCatalog("consilio:testfw_customcontent");
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   OBJECT maincontentsource := maincatalog->OpenContentSource("webhare_testsuite:dbindex");
   BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
@@ -704,8 +702,8 @@ MACRO TestTypes()
 
   catalog->ReindexCatalog();
   maincatalog->ReindexCatalog();
-  testfw->WaitQueueEmpty();
-  WaitForCatalogDone(maincatalog);
+  contentsource->WaitForIndexingDone();
+  maincontentsource->WaitForIndexingDone();
 
   RECORD res := RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
   TestEq(
@@ -820,8 +818,7 @@ RunTestframework(
     [ PTR TestCustomContent
     , PTR TestTypes
     ],
-    [ consilio := TRUE
-    , testusers :=
+    [ testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
         ]
     ]);
