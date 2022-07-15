@@ -427,14 +427,14 @@ MACRO RotateTest()
 
   //  CreateDiskfileFromBlob("/tmp/imgcanvas.png", TRUE, FALSE, imgcanvas->ExportAsPNG(TRUE));
   //  CreateDiskfileFromBlob("/tmp/imgsrc.png", TRUE, FALSE, imgsrc->ExportAsPNG(TRUE));
-  TestEqCanvas(GetTestFilePath("exif/landscape_1.jpg"), canvas_imgl6, 2000);
+  TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl6, 2000);
 
   OBJECT canvas_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "none", fixorientation := TRUE ]);
   TEstEq(600, canvas_imgl7->width);
-  TestEqCanvas(GetTestFilePath("exif/landscape_1.jpg"), canvas_imgl7, 2000);
+  TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl7, 2000);
 
   OBJECT fit_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "fill", setwidth := 150, setheight := 100 ]);
-  TestEqCanvas(GetTestFilePath("exif/landscape_7_fill.jpg"), fit_imgl7, 2);
+  TestEqCanvas(Resolve("data/exif/landscape_7_fill.jpg"), fit_imgl7, 2);
 
 
   CloseTest("TestGraphics: RotateTest");
