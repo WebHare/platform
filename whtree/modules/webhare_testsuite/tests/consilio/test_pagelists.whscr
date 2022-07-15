@@ -76,7 +76,7 @@ MACRO TestSubpageIndexing()
   testfw->CommitWork();
 
   // Clear the index
-  catalog->ReindexCatalog([ rebuild := TRUE ]);
+  catalog->ReindexCatalog(); //don't rebuild := TRUE .. this destroys mappings ... https://gitlab.webhare.com/webharebv/codekloppers/-/issues/555
   csource->WaitForIndexingDone();
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;

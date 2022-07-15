@@ -1543,7 +1543,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     INSERT csourcesettings INTO consilio.contentsources;
 
     OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
+    INSERT PTR contentsource->ReindexContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
 
     contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
