@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD testindex1, testindex2;
+
+MACRO Prepare()
+{
+  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
+  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+
+  testfw->BeginWork();
+
+  //Verify and cleanup from any previously (aborted)? testrun
+  FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
+    cat->DetachIndex(toremove.id);
+  TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${cat->tag}" should have all attachments removed after initial cleanup`);
+
+  //If we run with WEBHARE_PREFERINDEXMANAGER - one part will be Indexmanager and one part will be OpenSearch.
+  INTEGER index1id := cat->AttachIndex(0);
+  testindex1 := cat->ListAttachedIndices()[0];
+  TestEqLike("c_??*", testindex1.indexname, "test for properly structured builtin indexname");
+
+  STRING index2name := Left(testindex1.indexname, Length(testindex1.indexname) - 3) || "_b2";
+  cat->AttachIndex(builtin_opensearch.id, [ indexname := index2name]); //add a second instance.. use initial indexname to still ensure uniqueness
+  testindex2 := cat->ListAttachedIndices()[0];
+
+  TestEqMembers([[ id := index1id
+                 , primary := TRUE
+                 , indexname := testindex1.indexname
+                 ]
+                ,[ type := "opensearch"
+                 , primary := FALSE
+                 , indexname := index2name
+                 ]
+                ], cat->ListAttachedIndices(), "*");
+
+  testfw->CommitWork();
+}
+
+RunTestframework(
+    [ PTR Prepare
+    ]);

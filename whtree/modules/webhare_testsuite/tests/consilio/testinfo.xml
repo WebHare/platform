@@ -29,6 +29,7 @@
   <test script="test_pagelists.whscr" />
 
   <test script="test_moduleindices.whscr" />
+  <test script="test_multiindex.whscr" />
 
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />
