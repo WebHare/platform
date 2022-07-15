@@ -1457,7 +1457,7 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
     //FIXME multiindex support.
     RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ options.suffix ]);
-    IF(res.status != SearchOk)
+    IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
       THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
 
     IF(options.suffix IN this->ensured)

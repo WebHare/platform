@@ -1698,13 +1698,13 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   RECORD result := [ status := SearchUnavailable
                    , deleted := 0
                    ];
-
   RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid, [ withdeleted := TRUE ]) : GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
-
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                   EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
+                                  EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
 
+  /* TODO this approach really just returns the *last* deletion status, and may (re)delete multiple indices if already marked
+     as deletion. This looping should probably happen in the catalog api */
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     IF ((indexmgrid != 0 AND indexmanager.id != indexmgrid) OR indexid = 0)
