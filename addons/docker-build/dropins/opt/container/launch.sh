@@ -35,18 +35,16 @@ if [ -n "$WHBUILD_ISTESTSUITEBUILD" ]; then
   touch /opt/whdata/dbase/*
 fi
 
-# Extracting embedded webhare_testsuite - the currently tested module still relies on it
+# Extract embedded webhare_testsuite
 if [ -n "$WH_EXTRACTTESTSUITE" ]; then
-  echo `date` Extracting module webhare_testsuite
-  if ! tar -C /opt/whdata/installedmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
+  echo "$(date) Extracting module webhare_testsuite"
+  mkdir -p /opt/whmodules/
+  if ! tar -C /opt/whmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
     echo "Failed to extract testsuite!"
     exit 1
   fi
 
-  echo `date` Start fixmodules for webhare_testsuite
-  wh fixmodules webhare_testsuite #download deps for basetest
-
-  echo `date` "Finished initial webhare_testsuite preparation"
+  echo "$(date) Finished initial webhare_testsuite preparation"
 fi
 
 # Mount needed data for restores
