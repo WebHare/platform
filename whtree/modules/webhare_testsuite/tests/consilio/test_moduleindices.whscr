@@ -61,13 +61,16 @@ MACRO Prepare()
     INTEGER index1id := cat->AttachIndex(builtin_opensearch_id);
     IF(#usedcatalog = 0) //we'll use testindex for some further tests
     {
-      TestEqMembers( [[ id := index1id
-                      , indexmanager := builtin_opensearch.id
-                      , type := "opensearch"
-                      ]], OpenConsilioCatalog(usedcatalog)->ListAttachedIndices(), "*");
-
-      testindex := OpenConsilioCatalog(usedcatalog)->ListAttachedIndices()[0];
+      testindex := cat->ListAttachedIndices()[0];
       TestEqLike("c_??*", testindex.indexname, "test for properly structured builtin indexname");
+
+      TestEqMembers([[ id := index1id
+                     , indexmanager := builtin_opensearch.id
+                     , type := "opensearch"
+                     , primary := TRUE
+                     , indexname := testindex.indexname
+                     ]
+                    ], cat->ListAttachedIndices(), "*");
     }
   }
   testfw->CommitWork();
@@ -88,6 +91,7 @@ MACRO TestESCreationAPIs()
              , name := "mock_external_index"
              ] INTO consilio.indexmanagers;
   TestThrowsLike("*indexname*required*", PTR catalog->AttachIndex(mock_external_index));
+  TestThrowsLike("*indexname*lowercase*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "_U" ]));
   catalog->AttachIndex(mock_external_index, [ indexname := "dummyname" ]);
 
   testfw->RollbackWork();

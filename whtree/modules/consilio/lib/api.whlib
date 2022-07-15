@@ -1089,7 +1089,7 @@ STATIC OBJECTTYPE Catalog
     RETURN
         SELECT catalog_indexmanagers.id
              , catalog_indexmanagers.indexname
-             , catalog_indexmanagers.primary
+             , catalog_indexmanagers.primary //FIXME under discussion, perhaps searchpriority or searchorder? don't rely on this yet...
              , indexmanager :=        indexmanagers.id
              , indexmanager_name :=   indexmanagers.name
              , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
@@ -1098,7 +1098,7 @@ STATIC OBJECTTYPE Catalog
          WHERE catalog_indexmanagers.catalogid = this->catalog.id
                AND indexmanagers.id = catalog_indexmanagers.indexmanager
                AND NOT deleted
-      ORDER BY NOT primary;
+      ORDER BY primary DESC;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -1146,12 +1146,15 @@ STATIC OBJECTTYPE Catalog
       ELSE
         THROW NEW Exception(`An indexname is required when using an external indexmanager`);
 
+    IF(options.indexname != ToLowercase(options.indexname))
+        THROW NEW Exception(`An indexname must be lowercase`);
+
     INTEGER newid := MakeAutonumber(consilio.catalog_indexmanagers, "id");
     INSERT CELL[ id := newid
                , catalogid :=    this->id
                , indexmanager := usemgr.id
                , options.indexname
-               , primary := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id) = 0
+               , primary := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id AND NOT deleted) = 0
                , rebuild :=      TRUE
                ] INTO consilio.catalog_indexmanagers;
 
@@ -1827,7 +1830,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , fieldgroups := STRING[]
                               , managed := TRUE
                               , lang := ""
-                              ], options, [ optional := ["indexmanager"] ]);
+                              ], options);
 
   INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
 
