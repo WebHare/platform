@@ -4,6 +4,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -1146,8 +1147,12 @@ STATIC OBJECTTYPE Catalog
       ELSE
         THROW NEW Exception(`An indexname is required when using an external indexmanager`);
 
+    //OpenSearch requires lowercasen names;
     IF(options.indexname != ToLowercase(options.indexname))
-        THROW NEW Exception(`An indexname must be lowercase`);
+      THROW NEW Exception(`An indexname must be lowercase`);
+    //We want to reserve '-' to detect suffixes, reserve names starting with _ and . for internal/dashboard stuff, and just limit names further to be on the safe side
+    IF(NOT NEW Regex("^[a-z][_a-z0-9]*$")->Test(options.indexname))
+      THROW NEW Exception(`Invalid indexname '${options.indexname}'`);
 
     INTEGER newid := MakeAutonumber(consilio.catalog_indexmanagers, "id");
     INSERT CELL[ id := newid

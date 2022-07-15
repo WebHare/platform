@@ -72,6 +72,8 @@ MACRO Prepare()
                      ]
                     ], cat->ListAttachedIndices(), "*");
     }
+
+    Print(cat->GetStorageInfo()||"\n");
   }
   testfw->CommitWork();
 }
@@ -92,6 +94,7 @@ MACRO TestESCreationAPIs()
              ] INTO consilio.indexmanagers;
   TestThrowsLike("*indexname*required*", PTR catalog->AttachIndex(mock_external_index));
   TestThrowsLike("*indexname*lowercase*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "_U" ]));
+  TestThrowsLike("*Invalid*indexname*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "-u" ]));
   catalog->AttachIndex(mock_external_index, [ indexname := "dummyname" ]);
 
   testfw->RollbackWork();
