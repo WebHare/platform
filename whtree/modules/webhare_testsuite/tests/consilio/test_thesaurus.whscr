@@ -27,7 +27,7 @@ MACRO TestThesaurus()
   BOOLEAN is_opensearch := testcatalog->ListAttachedIndices()[0].type = "opensearch";
 
   //having indexnames makes log analysis easier
-  Print(`${testcatalog->tag} (${testcatalog->id}) => ${testcatalog->indexname}\n`);
+  Print(testcatalog->GetStorageInfo() || "\n");
 
   OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ maxgroupobjects :=      1000

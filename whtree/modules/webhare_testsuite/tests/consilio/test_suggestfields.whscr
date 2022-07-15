@@ -27,7 +27,7 @@ MACRO TestSuggestFields()
   DELETE FROM webhare_testsuite.consilio_index;
 
   catalog := CreateConsilioCatalog("consilio:testfw_suggestfields", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+  Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT csource := catalog->AddCustomContentSource("webhare_testsuite:customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"

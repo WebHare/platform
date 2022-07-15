@@ -86,7 +86,7 @@ MACRO TestWHFSContentHandler()
   // While we wait for the background contenthandlers to do their work.. we can inspect it directly too
   OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
   Testeq(TRUE, ObjectExists(catalog), `Catalog '${whconstant_consilio_catalog_whfs}' gone?`);
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+  Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
   // The proxy object CustomContentProvider we get is pretty useless for deeper testing

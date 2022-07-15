@@ -1106,6 +1106,20 @@ STATIC OBJECTTYPE Catalog
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
   }
 
+  /** Describe how the catalog is stored. Useful for debugging
+      @return Storage info, will not contain linefeeds but should be considered free form (so we can extend/modify it later) */
+  PUBLIC STRING FUNCTION GetStorageInfo()
+  {
+    STRING ARRAY storage;
+    FOREVERY(RECORD attachedindex FROM this->ListAttachedIndices())
+      INSERT attachedindex.indexname INTO storage AT END;
+
+    IF(Length(storage) >= 1)
+      RETURN `${this->tag} => (${Detokenize(storage,', ')})`;
+    ELSE
+      RETURN `${this->tag} => (unattached)`;
+  }
+
   /// Explicitly refresh. You'll sometimes need this to ensure visibility of recent index changes
   PUBLIC MACRO Refresh()
   {

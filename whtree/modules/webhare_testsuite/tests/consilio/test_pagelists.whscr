@@ -69,7 +69,7 @@ MACRO TestSubpageIndexing()
   testfw->BeginWork();
 
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_subpages", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+  Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT csource := catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
 
