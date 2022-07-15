@@ -59,7 +59,7 @@ MACRO TestCustomContent()
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
-  BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   search_obj := OpenSearchObject("en", "consilio:testfw_customcontent");
   RECORD res;
@@ -659,7 +659,7 @@ MACRO TestTypes()
   OBJECT catalog := OpenConsilioCatalog("consilio:testfw_customcontent");
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   OBJECT maincontentsource := maincatalog->OpenContentSource("webhare_testsuite:dbindex");
-  BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   //having indexnames makes log analysis easier
   Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}, ${maincatalog->tag} (${maincatalog->id}) => ${maincatalog->indexname}\n`);

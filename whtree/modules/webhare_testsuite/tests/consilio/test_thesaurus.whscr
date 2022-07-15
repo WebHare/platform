@@ -24,7 +24,7 @@ MACRO TestThesaurus()
   DELETE FROM webhare_testsuite.consilio_index;
 
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
-  BOOLEAN is_opensearch := testcatalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+  BOOLEAN is_opensearch := testcatalog->ListAttachedIndices()[0].type = "opensearch";
 
   //having indexnames makes log analysis easier
   Print(`${testcatalog->tag} (${testcatalog->id}) => ${testcatalog->indexname}\n`);

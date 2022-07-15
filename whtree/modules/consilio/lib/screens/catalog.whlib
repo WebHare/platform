@@ -246,13 +246,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
         this->RunMessageBox(".sendingcommandfailed");
   }
 
-  MACRO DoAddCatalog()
-  {
-    INTEGER newcatalog := this->RunScreen("#catalogeditor");
-    IF(newcatalog != 0)
-      ^catalogs->selection := SELECT * FROM ^catalogs->rows WHERE catalog = TRUE AND id = newcatalog;
-  }
-
   MACRO DoAddContentSource()
   {
     INTEGER newcontentsource := this->RunScreen("#contentsourceeditor" , [ catalog := ^catalogs->selection.id ]);
@@ -763,7 +756,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     {
       this->catalogid := data.id;
       this->catalog := OpenConsilioCatalogById(this->catalogid);
-      this->org_indexmanagers := SELECT AS STRING ARRAY GetSHA1Hash(EncodeHSON(CELL[ indexmanager, indexname ])) FROM this->catalog->catalogindices;
+      this->org_indexmanagers := SELECT AS STRING ARRAY GetSHA1Hash(EncodeHSON(CELL[ indexmanager, indexname ])) FROM this->catalog->ListAttachedIndices();
       RECORD catalog := SELECT * FROM consilio.catalogs WHERE id = this->catalogid;
       this->id->value := ToString(this->catalogid);
       ^name->value := catalog.name;
@@ -771,7 +764,6 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       this->debuglevel->value := catalog.loglevel;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-edit", catalog.name);
       this->priority->value := catalog.priority;
-      ^indexmanagers->value := this->catalog->catalogindices;
       ^type->value := catalog.type;
     }
     ELSE
@@ -780,8 +772,17 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       this->debuglevel->visible := FALSE;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-new");
     }
-    ^indexmanagers->AddAction(this->GetTid(".refreshsizes"), PTR this->DoRefreshSizes, [ requireselection := FALSE ]);
+    ^attachedindices->AddAction(this->GetTid(".refreshsizes"), PTR this->DoRefreshSizes, [ requireselection := FALSE ]);
     this->GotInterval();
+  }
+
+  RECORD ARRAY FUNCTION GetAttachedIndices()
+  {
+    RETURN SELECT rowkey := id
+                , indexmanager_name
+                , indexname
+                , size := -1
+             FROM this->catalog->ListAttachedIndices();
   }
 
   ASYNC MACRO GotInterval()

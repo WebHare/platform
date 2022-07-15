@@ -176,7 +176,18 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
     }
 
     IF(catalog->definedby != want.definedby OR catalog->lang != want.lang)
-      catalog->UpdateCatalog( CELL[ want.definedby, want.lang ]);
+    {
+      TRY
+      {
+        catalog->UpdateCatalog( CELL[ want.definedby, want.lang ]);
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2, `Failed to update catalog '${want.tag}: ${e->what}\n`);
+        CONTINUE;
+      }
+    }
 
     IF(want.managed)
       UpdateManagedCatalog(catalog, want);
