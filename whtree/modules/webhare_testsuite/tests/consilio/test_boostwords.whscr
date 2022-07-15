@@ -97,11 +97,11 @@ MACRO TestBoostWords()
 
   testfw->WaitForPublishCompletion(siteroot->id);
   csource->ReindexContentSource([ rebuild := TRUE ]);
-  csource->WaitForIndexingDone([ verbose := TRUE ]);
-  csource->catalog->Refresh();
+  csource->WaitForIndexingDone([ verbose := TRUE ]); //implies catalog->refresh
 
   // Search for 'important', which will now return both files, starting with file 2, as it has 'important' in its keywords
   results := search_obj->Search("important", 0, 10);
+  dumpvalue(results,'tree');
   TestEq(
       [ totalcount := 2
       , results :=
