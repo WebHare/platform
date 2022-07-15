@@ -35,8 +35,6 @@ MACRO Prepare()
 
 MACRO TestESCreationAPIs()
 {
-  __indexmanager_debugall := TRUE;
-  //__webbrowser_debugall := TRUE;
 
   // Ensure it doesn't exist in ES ... we'll do a raw action
   TestEq(TRUE, GetBuiltinElasticSearchId() != 0, "Must have a builtin ES configured!");

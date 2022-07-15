@@ -11,8 +11,6 @@ PUBLIC BOOLEAN running_in_fetcher;
 /// Are we allowed to print Defer: Connection?
 PUBLIC BOOLEAN print_defer_connection := TRUE;
 
-PUBLIC BOOLEAN __indexmanager_debugall;
-
 /// Number of times to try to connect to the Consilio index manager
 PUBLIC CONSTANT INTEGER consilio_maxtries := 3;
 /// Timeout for Consilio index manager connections, in seconds
