@@ -14,6 +14,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD testindex1, testindex2;
+//Views straight to the two separate catalogs..
+OBJECT cat_index1_view, cat_index2_view;
 
 MACRO Prepare()
 {
@@ -34,7 +36,7 @@ MACRO Prepare()
 
   STRING index2name := Left(testindex1.indexname, Length(testindex1.indexname) - 3) || "_b2";
   cat->AttachIndex(builtin_opensearch.id, [ indexname := index2name]); //add a second instance.. use initial indexname to still ensure uniqueness
-  testindex2 := cat->ListAttachedIndices()[0];
+  testindex2 := cat->ListAttachedIndices()[1];
 
   TestEqMembers([[ id := index1id
                  , primary := TRUE
@@ -46,9 +48,34 @@ MACRO Prepare()
                  ]
                 ], cat->ListAttachedIndices(), "*");
 
+  cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE ]);
+  cat_index1_view->AttachIndex(0, [ indexname := testindex1.indexname ]);
+  cat_index2_view := CreateConsilioCatalog("consilio:testfw_index2_view", [ managed := FALSE ]);
+  cat_index2_view->AttachIndex(0, [ indexname := testindex2.indexname ]);
+
+  Print(`${cat->GetStorageInfo()}, ${cat_index1_view->GetStorageInfo()}, ${cat_index2_view->GetStorageInfo()}\n`);
+  TestEq(testindex1.indexname, cat_index1_view->ListAttachedIndices()[0].indexname);
+  TestEq(testindex2.indexname, cat_index2_view->ListAttachedIndices()[0].indexname);
+  TestEq(index2name, cat_index2_view->ListAttachedIndices()[0].indexname);
+
   testfw->CommitWork();
+}
+
+MACRO TestUnmanagedActions()
+{
+  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(RECORD[], cat->ListSuffixes());
+
+  cat->EnsureIndex( [ suffix := "sfx1", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+  cat->EnsureIndex( [ suffix := "sfx2", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+
+  //Verify index creation
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat_index1_view->ListSuffixes() ORDER BY suffix);
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat_index2_view->ListSuffixes() ORDER BY suffix);
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat->ListSuffixes() ORDER BY suffix);
 }
 
 RunTestframework(
     [ PTR Prepare
+    , PTR TestUnmanagedActions
     ]);
