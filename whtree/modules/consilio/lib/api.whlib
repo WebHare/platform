@@ -22,6 +22,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
@@ -1475,10 +1476,10 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
     RECORD indexmgr := this->ListAttachedIndices();
-    IF(NOT RecordExists(indexmgr))
+    IF(NOT RecordExists(indexmgr) OR indexmgr.type != "opensearch")
       RETURN RECORD[] ; //TODO or should we throw ?
 
-    RETURN ToRecordArray(GetIndexManagerIndexList(indexmgr.indexmanager, [ indexsuffixes := this->id ]).suffixes, "suffix");
+    RETURN ListOpenSearchIndexSuffixes(indexmgr.indexmanager, indexmgr.indexname);
   }
 >;
 

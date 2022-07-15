@@ -104,7 +104,7 @@ MACRO TestESCreationAPIs()
 
   // EnsureIt still doesn't exist on the index manager
   RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
   // Try the low level API first. Make sure it does exist
   catalog->EnsureIndex();
@@ -122,13 +122,10 @@ MACRO TestESCreationAPIs()
   // Delete it again from the index manager
   catalog->DeleteIndex();
   result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
   // Create a subindex
   catalog->EnsureIndex([suffix := "suffix"]);
-  result := GetIndexManagerIndexList(testindex.indexmanager, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(TRUE, "suffix" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
 
   checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(),  "GET", `/${testindex.indexname}-suffix/_mapping`, DEFAULT RECORD);
@@ -139,28 +136,15 @@ MACRO TestESCreationAPIs()
 
   // Delete it again from the index manager
   catalog->DeleteIndex();
-  result := GetIndexManagerIndexList(testindex.indexmanager, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(FALSE, "suffix" IN result.suffixes);
   TestEq(RECORD[], catalog->ListSuffixes());
 
   // Create two subindices
   catalog->EnsureIndex([ suffix := "suffix1" ] );
   catalog->EnsureIndex([ suffix := "suffix2" ] );
-  result := GetIndexManagerIndexList(testindex.indexmanager, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(2, Length(result.suffixes));
-  TestEq(TRUE, "suffix1" IN result.suffixes);
-  TestEq(TRUE, "suffix2" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix1" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // Delete one of the subindices
   catalog->DeleteIndex([ suffix := "suffix1" ]);
-  result := GetIndexManagerIndexList(testindex.indexmanager, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(1, Length(result.suffixes));
-  TestEq(FALSE, "suffix1" IN result.suffixes);
-  TestEq(TRUE, "suffix2" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // We should be able open to the catalog
@@ -184,20 +168,20 @@ MACRO TestESCreationAPIs()
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
 }
 
 MACRO TestESBulkInsertion()
