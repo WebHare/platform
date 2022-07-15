@@ -198,6 +198,11 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
           RECORD ARRAY matchagainst := SELECT * FROM indexmanagers WHERE indexname != "";
 
           RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
+          //fix counters which are sometiems 0s or strings...
+          indexlist := EnforceStructure([[ "docs.count" := 0i64
+                                         , "pri.store.size" := 0i64
+                                         ]
+                                        ], indexlist);
 
           // Unmanaged indices may have a suffix: <indexname>-<suffix>
           indexlist := SELECT *
@@ -212,8 +217,8 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
                             , suffix := Substring(indexname, Length(matchindex.indexname)+1)
                             , health
                             , status
-                            , docs := ToInteger(indexlist."docs.count", 0)
-                            , size := ToInteger(indexlist."pri.store.size", 0)
+                            , docs := indexlist."docs.count"
+                            , size := indexlist."pri.store.size"
                             , indexname
                          FROM indexlist
                         WHERE RecordExists(matchindex);
