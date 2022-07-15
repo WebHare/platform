@@ -55,15 +55,15 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
     IF (result.status = SearchOk)
     {
       // Delete unknown indexes from the indexmanager
-      FOREVERY (INTEGER indexid FROM result.indices)
+      FOREVERY (RECORD idx FROM result.indices)
       {
-        IF (indexid = 0)
+        IF (idx.indexid = 0)
           CONTINUE;
-        RECORD catalog := SELECT * FROM indices WHERE id = indexid AND indexmanager = indexmgr.id;
+        RECORD catalog := SELECT * FROM indices WHERE id = idx.indexid AND indexmanager = indexmgr.id;
         IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*" OR catalog.deleted)
-          DeleteIndexManagerContentSource(indexmgr.id, indexid, 0);
+          DeleteIndexManagerContentSource(indexmgr.id, idx.indexid, 0);
         ELSE
-          INSERT indexid INTO presentindexids AT END;
+          INSERT idx.indexid INTO presentindexids AT END;
       }
     }
     ELSE
