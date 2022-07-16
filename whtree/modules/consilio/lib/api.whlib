@@ -71,6 +71,13 @@ PUBLISHER SEARCH FIELDS
 
 INTEGER modecheck;
 
+//Is this a valid indexname for use in Consilio?
+PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
+{
+  //We want to reserve '-' to detect suffixes, reserve names starting with _ and . for internal/dashboard stuff, and just limit names further to be on the safe side
+  //48 is an estimate of what appeared to be reasonable
+  RETURN NEW Regex("^[a-z][_a-z0-9]*$")->Test(name) AND Length(name) < 48;
+}
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
         type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means
@@ -489,6 +496,7 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
               , type := type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
               , isbuiltin := address IN ["builtin","builtin-opensearch"]
               , isdefault := address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch")
+              , name
            FROM consilio.indexmanagers;
 }
 
@@ -1151,8 +1159,7 @@ STATIC OBJECTTYPE Catalog
     //OpenSearch requires lowercasen names;
     IF(options.indexname != ToLowercase(options.indexname))
       THROW NEW Exception(`An indexname must be lowercase`);
-    //We want to reserve '-' to detect suffixes, reserve names starting with _ and . for internal/dashboard stuff, and just limit names further to be on the safe side
-    IF(NOT NEW Regex("^[a-z][_a-z0-9]*$")->Test(options.indexname))
+    IF(NOT IsValidConsilioIndexName(options.indexname))
       THROW NEW Exception(`Invalid indexname '${options.indexname}'`);
 
     INTEGER newid := MakeAutonumber(consilio.catalog_indexmanagers, "id");

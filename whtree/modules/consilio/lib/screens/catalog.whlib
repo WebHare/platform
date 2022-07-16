@@ -756,7 +756,6 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     {
       this->catalogid := data.id;
       this->catalog := OpenConsilioCatalogById(this->catalogid);
-      this->org_indexmanagers := SELECT AS STRING ARRAY GetSHA1Hash(EncodeHSON(CELL[ indexmanager, indexname ])) FROM this->catalog->ListAttachedIndices();
       RECORD catalog := SELECT * FROM consilio.catalogs WHERE id = this->catalogid;
       this->id->value := ToString(this->catalogid);
       ^name->value := catalog.name;
@@ -782,6 +781,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
                 , indexmanager_name
                 , indexname
                 , size := -1
+                , primary
              FROM this->catalog->ListAttachedIndices();
   }
 
@@ -809,34 +809,25 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     ^indexmanagers->Invalidate();
   }
 
-  RECORD FUNCTION GotIndexManagerRowEdit(RECORD data)
+  MACRO GotIndexManagerRowEdit(RECORD data)
   {
-    INTEGER ARRAY used_indexmanagers := SELECT AS INTEGER ARRAY indexmanager FROM ^indexmanagers->rows WHERE NOT RecordExists(data) OR indexmanager != data.indexmanager;
-
-    RECORD ARRAY allowed_indexmanagers :=
-        SELECT rowkey := id
-             , title := name
-          FROM consilio.indexmanagers
-         WHERE id NOT IN used_indexmanagers;
-
-    IF (IsDefaultValue(allowed_indexmanagers))
+    INTEGER sel := this->RunScreen("#editcatalogindex", CELL[ this->catalog, id := RecordExists(data) ? data.rowkey : 0 ]);
+    IF(sel != 0)
     {
-      this->RunSimpleScreen("error", this->GetTid(".allindexmanagersadded"));
-      RETURN DEFAULT RECORD;
+      ^attachedindices->Invalidate();
+      ^attachedindices->value := sel;
     }
+  }
 
-    data := this->RunScreen("#editcatalogindex", CELL
-        [ data
-        , initdata :=
-              [ catalogname :=    ^name->value
-              , isfirst :=        IsDefaultValue(^indexmanagers->value)
-              ]
-        , allowed_indexmanagers
-        ]);
+  MACRO GotIndexManagerRowDelete(RECORD data)
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeleteindex")) != "yes")
+      RETURN;
 
-    IF (RecordExists(data) AND data.primary)
-      UPDATE ^indexmanagers->value SET primary := FALSE;
-    RETURN data;
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->catalog->DetachIndex(data.rowkey);
+    work->Finish();
+    ^attachedindices->Invalidate();
   }
 
   RECORD ARRAY FUNCTION MapIndexManagerRows(RECORD ARRAY rows)
@@ -861,9 +852,6 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       {
         work->AddErrorFor(^name, GetTid("consilio:catalog.messages.catalognameexists", ^name->value));
       }
-
-      IF ((SELECT AS INTEGER Sum(primary?1:0) - 1 FROM ^indexmanagers->value) != 0)
-        work->AddErrorFor(^indexmanagers, GetTid("consilio:catalog.messages.primarycatalogindexrequired"));
     }
 
     RECORD catalog :=
@@ -875,6 +863,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
         ];
 
     INTEGER newcatalogid;
+    //FIXME should go through APIs
     IF(this->catalogid = 0)
     {
       newcatalogid := MakeAutonumber(consilio.catalogs, "id");
@@ -888,13 +877,10 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     BOOLEAN need_rebuild;
     IF (NOT work->HasFailed())
     {
-      // Rebuild if there
-      STRING ARRAY new_indexmanagers := SELECT AS STRING ARRAY GetSHA1Hash(EncodeHSON(CELL[ indexmanager, indexname ])) FROM ^indexmanagers->value;
-      need_rebuild := IsValueSet(ArrayDelete(new_indexmanagers, this->org_indexmanagers));
-
-      OpenConsilioCatalogById(this->catalogid ?? newcatalogid)->UpdateCatalog(
-          [ indexmanagers :=    (SELECT indexmanager, indexname, primary FROM ^indexmanagers->value)
-          ]);
+      //nothing to update right now ?
+      //OpenConsilioCatalogById(this->catalogid ?? newcatalogid)->UpdateCatalog(
+      //    [ indexmanagers :=    (SELECT indexmanager, indexname, primary FROM ^indexmanagers->value)
+      //    ]);
     }
 
     GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
@@ -903,13 +889,6 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       RETURN 0;
 
     BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
-
-    IF (need_rebuild)
-    {
-      FOREVERY(RECORD csource FROM this->catalog->ListContentSources())
-        this->catalog->OpenContentSourceById(csource.id)->ReindexContentSource([ rebuild := TRUE ]);
-    }
-
     RETURN newcatalogid ?? this->catalogid;
   }
 
@@ -921,48 +900,62 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE EditCatalogIndex EXTEND TolliumScreenBase
 <
-  BOOLEAN was_primary;
+  OBJECT catalog;
+  INTEGER indexid;
 
   MACRO Init(RECORD data)
   {
-    ^row->^indexmanager->options :=
-        SELECT *
-          FROM data.allowed_indexmanagers
-      ORDER BY title;
+    this->catalog := data.catalog;
 
-    IF (RecordExists(data.data))
-      ^row->value := data.data;
-    ELSE
+    ^indexmanager->options := SELECT rowkey := id, title := name, tolliumselected := isdefault, isbuiltin
+                                FROM ListIndexManagers()
+                            ORDER BY ToUppercase(name);
+
+    RECORD indexinfo;
+    IF(data.id != 0)
     {
-      ^row->^indexmanager->value := GetDefaultIndexManager();
-      ^row->^indexname->value := Substitute(data.initdata.catalogname, ":", whconstant_consilio_module_sep) ?? __GenerateIndexName();
-      ^row->^primary->value := data.initdata.isfirst;
+      indexinfo := SELECT * FROM this->catalog->ListAttachedIndices() WHERE id = data.id;
+      IF(NOT RecordExists(indexinfo))
+        THROW NEW Exception(`Index #${data.id} no longer exists?`);
+
+      this->indexid := data.id;
+      ^indexmanager->value := indexinfo.indexmanager;
+      ^indexname->value := indexinfo.indexname;
+      ^primary->value := indexinfo.primary;
+
+      //no edit support yet
+      ^indexmanager->enabled := FALSE;
+      ^indexname->enabled := FALSE;
+      ^primary->enabled := FALSE;
+    }
+    ELSE //Adding
+    {
+      ^primary->visible := FALSE; //can't set this (yet?)
     }
   }
 
-  MACRO GotIndexManagerSelect()
+  MACRO OnGotIndexManagerChange()
   {
-    // FIXME: do consilio indices require an index name?
-    //^row->^indexname->visible := ^indexmanager->selection.type = whconstant_consilio_indexmanager_opensearch;
-    //^row->^indexname->required := ^row->^indexname->visible;
+    ^indexname->required := NOT ^indexmanager->selection.isbuiltin;
   }
 
-  RECORD FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
-    OBJECT feedback := this->BeginFeedback();
+    IF(this->indexid != 0)
+      RETURN this->indexid; //not supporting edit yet
+
+    OBJECT work := this->BeginWork();
 
     //we can always relax restrictions.. but for now we specifically allow only one __ and no - (and just forbid most things just in case)
-    IF(^row->^indexname->visible AND NOT NEW RegEx("^[a-z][_a-z0-9]*$")->Test(^row->^indexname->prefix || ^row->^indexname->value))
-      feedback->AddErrorFor(^row->^indexname, this->GetTid(".invalidindexname"));
+    STRING indexname := ToLowercase(^indexname->value);
+    IF(indexname != "" AND NOT IsValidConsilioIndexName(indexname))
+      work->AddErrorFor(^indexname, this->GetTid(".invalidindexname"));
 
-    IF (NOT feedback->Finish())
-      RETURN DEFAULT RECORD;
+    IF(work->HasFailed())
+      RETURN work->Finish();
 
-    RECORD retval := ^row->value;
-    IF (NOT ^row->^indexname->required)
-      retval.indexname := "";
-
-    RETURN retval;
+    INTEGER newindexid := this->catalog->AttachIndex(^indexmanager->value, CELL[indexname]);
+    RETURN work->Finish() ? newindexid : 0;
   }
 >;
 
