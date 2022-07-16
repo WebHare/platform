@@ -64,6 +64,9 @@ MACRO Prepare()
 MACRO TestUnmanagedActions()
 {
   OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
+  IF(RecordExists(SELECT FROM cat->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
+    RETURN; //can't run suffix tests on old indexmgr
+
   TestEq(RECORD[], cat->ListSuffixes());
 
   cat->EnsureIndex( [ suffix := "sfx1", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);

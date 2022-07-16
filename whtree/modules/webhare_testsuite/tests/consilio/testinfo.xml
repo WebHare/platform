@@ -14,6 +14,11 @@
     <arg param="listenport"/>
     <arg param="indexdir"/>
   </test>
+
+  <!-- API tests should go before other tests -->
+  <test script="test_moduleindices.whscr" />
+  <test script="test_multiindex.whscr" />
+
   <test script="test_siteprofile_indices.whscr" />
   <test script="test_consilioapi.whscr" />
   <test script="test_robots.whscr" />
@@ -27,9 +32,6 @@
   <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" />
   <test script="test_pagelists.whscr" />
-
-  <test script="test_moduleindices.whscr" />
-  <test script="test_multiindex.whscr" />
 
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />
