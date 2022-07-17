@@ -777,12 +777,13 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetAttachedIndices()
   {
+    RECORD ARRAY indexmanagers := ListIndexManagers();
     RETURN SELECT rowkey := id
-                , indexmanager_name
+                , indexmanager_name := (SELECT AS STRING name FROM indexmanagers WHERE indexmanagers.id = attached.indexmanager)
                 , indexname
                 , size := -1
                 , primary
-             FROM this->catalog->ListAttachedIndices();
+             FROM this->catalog->ListAttachedIndices() AS attached;
   }
 
   ASYNC MACRO GotInterval()

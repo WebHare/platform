@@ -488,7 +488,9 @@ RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
 
 }
 
-/** @short List configured index managers */
+/** @short List configured index managers
+    @cell (string) return.type Index type: 'opensearch'
+    @cell (string) return.url URL to connect to the server */
 PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 {
   BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "";
@@ -497,6 +499,7 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
               , isbuiltin := address IN ["builtin","builtin-opensearch"]
               , isdefault := address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch")
               , name
+              , url := address = "builtin" ? "" : address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
            FROM consilio.indexmanagers;
 }
 
@@ -1090,7 +1093,6 @@ STATIC OBJECTTYPE Catalog
       @cell(integer) id ID (for update and delete)
       @cell(string) indexname Name of the index on the indexmanager
       @cell(integer) indexmanager Id of the indexmanager
-      @cell(string) indexmanager_name Name of the indexmanager
       @cell(string) type Type of the indexmanager (opensearch)
       @cell(boolean) primary Whether this is the primary catalogindex
   */
@@ -1101,7 +1103,6 @@ STATIC OBJECTTYPE Catalog
              , catalog_indexmanagers.indexname
              , catalog_indexmanagers.primary //FIXME under discussion, perhaps searchpriority or searchorder? don't rely on this yet...
              , indexmanager :=        indexmanagers.id
-             , indexmanager_name :=   indexmanagers.name
              , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers

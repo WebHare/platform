@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -23,7 +24,7 @@ STRING ARRAY testcatalogs := [ "webhare_testsuite:testindex"
                              , "webhare_testsuite:circular_module_reference"
                              ];
 RECORD testindex;
-INTEGER builtin_opensearch_id;
+RECORD builtin_opensearch;
 
 MACRO Prepare()
 {
@@ -31,8 +32,11 @@ MACRO Prepare()
     Print(`Note that moduleindices explicitly runs against OpenSearch even when legacy indexmanager is thhe default\n`);
 
   TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
-  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
-  builtin_opensearch_id := builtin_opensearch.id;
+  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+
+  //Verify the found opensearch url is correct
+  TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
+  TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
 
   testfw->BeginWork();
 
@@ -58,7 +62,7 @@ MACRO Prepare()
     TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${usedcatalog}" should not start with any initially attached indices`);
     TestThrowsLike("Unexpected *INDEXMANAGER*", PTR cat->UpdateCatalog([ indexmanager := builtin_opensearch.id]), "Old API has been dropped");
 
-    INTEGER index1id := cat->AttachIndex(builtin_opensearch_id);
+    INTEGER index1id := cat->AttachIndex(builtin_opensearch.id);
     IF(#usedcatalog = 0) //we'll use testindex for some further tests
     {
       testindex := cat->ListAttachedIndices()[0];
@@ -88,7 +92,7 @@ MACRO TestESCreationAPIs()
   //we'll be rolling back this externalindex, just testing the API.
   INTEGER mock_external_index := MakeAutonumber(consilio.indexmanagers, "id");
   INSERT CELL[ id := mock_external_index
-             , address := `http://127.0.0.1:${GetWebhareConfiguration().baseport + 6}/`
+             , address := builtin_opensearch.url
              , type := whconstant_consilio_indexmanager_opensearch
              , name := "mock_external_index"
              ] INTO consilio.indexmanagers;
