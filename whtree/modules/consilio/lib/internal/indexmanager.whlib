@@ -167,7 +167,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
       CASE whconstant_consilio_indexmanager_legacybackend
       {
         // No support for unmanaged indices
-        IF (options.indexsuffixes = "")
+        //IF (options.indexsuffixes = "") but this option no longer exists anyway
         {
           RECORD response := SendToConsilio(indexmanager.id, 0, "/indexlist", DEFAULT RECORD ARRAY, "POST");
           result.status := response.status;
