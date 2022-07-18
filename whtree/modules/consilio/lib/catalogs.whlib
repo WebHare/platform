@@ -401,6 +401,9 @@ STATIC OBJECTTYPE Catalog
 <
   RECORD catalog;
 
+  //suffixes that we have ensured to exist
+  STRING ARRAY ensuredsuffixes;
+
   /// @type(integer) Id of this catalog
   PUBLIC PROPERTY id(this->catalog.id,-);
 
@@ -573,6 +576,47 @@ STATIC OBJECTTYPE Catalog
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
   }
 
+  /** List the contentsources in this catalog
+      @return List of contentsources
+      @cell(integer) return.id Id of the contentsource
+      @cell(string) return.contentprovider Content provider type
+      @cell(string) return.contentobject Content objecttype implement with this source
+      @cell(string) return.tag Tag of the contentsource
+      @cell(string) return.title Title of the contentsource
+      @cell(integer) return.fsobject Associated filesystem object
+      @cell(boolean) return.isorphan Whether the contentsource is an orphan
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
+    options := ValidateOptions([ __withdeleted := FALSE ], options);
+    RECORD ARRAY sources :=
+        SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
+             , id
+             , contentprovider
+                                //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
+             , contentobject := CellExists(settings, 'contentobject') AND settings.contentobject != "" ? settings.library || "#" || settings.contentobject : ""
+             , tag
+             , title
+             , fsobject
+             , isorphan := orphansince != DEFAULT DATETIME
+             , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
+                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
+                                AND fsobject = 0
+                                AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
+                               )
+             , definedby
+          FROM consilio.contentsources
+         WHERE catalogid = this->catalog.id;
+
+    IF (NOT options.__withdeleted)
+      sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
+
+    RETURN sources;
+  }
+
   MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, BOOLEAN strict, INTEGER ARRAY contentsourceids)
   {
     EnsureIndexManagerIndex(this->id, CELL
@@ -640,6 +684,32 @@ STATIC OBJECTTYPE Catalog
     }
 
     EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
+  }
+
+  /** @short Make sure the (sub)index exists on the index manager
+      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
+      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
+      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
+  */
+  PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ suffix := ""
+                               , fieldgroups := STRING[]
+                               , strict := TRUE
+                               ], options);
+
+    INTEGER ARRAY contentsources;
+    IF(this->ismanaged)
+    {
+      IF(options.suffix != "" OR Length(options.fieldgroups) > 0 OR NOT options.strict)
+        THROW NEW Exception(`Managed catalogs do not allow EnsureIndex configuration`);
+      contentsources := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
+    }
+
+    this->DoEnsureIndex(options.suffix, options.fieldgroups, options.strict, contentsources);
+
+    IF(options.suffix NOT IN this->ensuredsuffixes AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
+      INSERT options.suffix INTO this->ensuredsuffixes AT END;
   }
 
   /** @short Get the catalog's synonyms list
@@ -727,9 +797,6 @@ STATIC OBJECTTYPE Catalog
 
 STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 <
-  //have we ensured yet that the index exists?
-  STRING ARRAY ensured;
-
   /** @short Add objects to this catalog
       @param objects The objects to add
       @cell(string) objects.objectid Unique objectid. Reusing this will replace the document in the index+suffix combo
@@ -747,7 +814,7 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
     // @cell objects.suggestfields
     // @cell objects.suggestprefixes
 
-    IF(options.suffix NOT IN this->ensured)
+    IF(options.suffix NOT IN this->ensuredsuffixes)
       this->EnsureIndex(CELL[ options.suffix ]);
 
     objects := SELECT objectid, documentfields FROM objects;
@@ -776,24 +843,6 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
     }
   }
 
-  /** @short Make sure the (sub)index exists on the index manager
-      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
-      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
-  */
-  PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions([ suffix := ""
-                               , fieldgroups := STRING[]
-                               , strict := TRUE
-                               ], options);
-
-    this->DoEnsureIndex(options.suffix, options.fieldgroups, options.strict, INTEGER[]);
-
-    IF(options.suffix NOT IN this->ensured AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
-      INSERT options.suffix INTO this->ensured AT END;
-  }
-
   /** @short Delete the (sub)index from the index manager
       @cell(string) options.suffix Set this parameter to only delete the subindex with this suffix
   */
@@ -806,8 +855,8 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
     IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
       THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
 
-    IF(options.suffix IN this->ensured)
-      DELETE FROM this->ensured AT SearchElement(this->ensured, options.suffix);
+    IF(options.suffix IN this->ensuredsuffixes)
+      DELETE FROM this->ensuredsuffixes AT SearchElement(this->ensuredsuffixes, options.suffix);
   }
 
   /** @short List suffixes created in this index
@@ -825,53 +874,6 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
 STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 <
-  /** @short Make sure the (sub)index exists on the index manager
-      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
-      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
-  */
-  PUBLIC MACRO EnsureIndex()
-  {
-    this->DoEnsureIndex("", STRING[], TRUE, SELECT AS INTEGER ARRAY id FROM this->ListContentSources());
-  }
-
-  /** List the contentsources in this catalog
-      @return List of contentsources
-      @cell(integer) return.id Id of the contentsource
-      @cell(string) return.contentprovider Content provider type
-      @cell(string) return.contentobject Content objecttype implement with this source
-      @cell(string) return.tag Tag of the contentsource
-      @cell(string) return.title Title of the contentsource
-      @cell(integer) return.fsobject Associated filesystem object
-      @cell(boolean) return.isorphan Whether the contentsource is an orphan
-  */
-  PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions([ __withdeleted := FALSE ], options);
-    RECORD ARRAY sources :=
-        SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
-             , id
-             , contentprovider
-                                //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
-             , contentobject := CellExists(settings, 'contentobject') AND settings.contentobject != "" ? settings.library || "#" || settings.contentobject : ""
-             , tag
-             , title
-             , fsobject
-             , isorphan := orphansince != DEFAULT DATETIME
-             , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
-                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
-                                AND fsobject = 0
-                                AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
-                               )
-             , definedby
-          FROM consilio.contentsources
-         WHERE catalogid = this->catalog.id;
-
-    IF (NOT options.__withdeleted)
-      sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
-
-    RETURN sources;
-  }
-
   OBJECT FUNCTION CreateContentSource(RECORD csourcesettings)
   {
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
