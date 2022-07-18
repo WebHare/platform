@@ -193,7 +193,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
         {
           //Find the indices we were expecting here
           RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
-          //fix counters which are sometiems 0s or strings...
+          //fix counters which are sometimes 0s or strings...
           indexlist := EnforceStructure([[ "docs.count" := 0i64
                                          , "pri.store.size" := 0i64
                                          ]
