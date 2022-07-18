@@ -978,6 +978,43 @@ HERE
     exit 255
     ;;
 
+  "__autocomplete_wh")
+    autocomplete_init_compwords
+
+    if [ "$COMP_CWORD" == "1" ]; then
+      # Return list of commands (line separated)
+      IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$(wh __listcommands)"
+    fi
+
+    autocomplete_print_compreply
+    ;;
+
+  "__autocomplete_whcd")
+    autocomplete_init_compwords
+
+    if [ "$COMP_CWORD" == "1" ]; then
+      CUR="${COMP_WORDS[1]}"
+      MODULEPREFIX=${CUR%%/*}
+
+      if [ "$MODULEPREFIX" == "$CUR" ]; then
+        # no slash, return module list (space separated) and append a slash
+        read -r -a COMPREPLY <<< "$(wh getmodulelist)"
+        COMPREPLY=("${COMPREPLY[@]/%//}")
+      else
+        # Calculate the path within the module
+        SUBPATH=${CUR#"$MODULEPREFIX/"}
+
+        # cd to the module root and complete the subpath there. Add the module prefix and append a slash
+        pushd "$(wh getmoduledir "$MODULEPREFIX")" > /dev/null || return
+        # Parse list of directories (line separated)
+        IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$(compgen -d -P "$MODULEPREFIX/" -S / -- "${SUBPATH}")"
+        popd > /dev/null || return
+      fi
+    fi
+
+    autocomplete_print_compreply
+    ;;
+
   *)
     if [[ $INSTR =~ .*:.* ]]; then
       TARGETMODULE=${INSTR%:*}

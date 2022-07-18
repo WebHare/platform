@@ -135,7 +135,6 @@ PUBLIC SCHEMA
   , STRING "relkind" ///< r = ordinary table, i = index, S = sequence, t = TOAST table, v = view, m = materialized view, c = composite type, f = foreign table, p = partitioned table, I = partitioned index
   , INTEGER "relnatts" ///< Number of user columns in the relation (system columns not counted). There must be this many corresponding entries in pg_attribute. See also pg_attribute.attnum.
   , INTEGER "relchecks" ///< Number of CHECK constraints on the table; see pg_constraint catalog
-  , BOOLEAN "relhasoids" ///< True if we generate an OID for each row of the relation
   , BOOLEAN "relhasrules" ///< True if table has (or once had) rules; see pg_rewrite catalog
   , BOOLEAN "relhastriggers" ///< True if table has (or once had) triggers; see pg_trigger catalog
   , BOOLEAN "relhassubclass" ///< True if table has (or once had) any inheritance children
@@ -187,7 +186,6 @@ PUBLIC SCHEMA
     //conffeqop oid[] pg_operator.oid If a foreign key, list of the equality operators for FK = FK comparisons
     //conexclop oid[] pg_operator.oid If an exclusion constraint, list of the per-column exclusion operators
     //conbin  pg_node_tree    If a check constraint, an internal representation of the expression
-  , STRING "consrc" ///<  If a check constraint, a human-readable representation of the expression
   > "pg_constraint"
 , TABLE
   < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
@@ -257,81 +255,106 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   //, indpred pg_node_tree    Expression tree (in nodeToString() representation) for partial index predicate. Null if not a partial index.
   > "pg_index"
 , TABLE
-  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
-  , INTEGER "opcmethod" // Index access method operator class is for
-  , STRING "opcname" // Name of this operator class
-  , INTEGER "opcnamespace" // Namespace of this operator class
-  , INTEGER "opcowner" // Owner of the operator class
-  , INTEGER "opcfamily" // Operator family containing the operator class
-  , INTEGER "opcintype" // Data type that the operator class indexes
-  , BOOLEAN "opcdefault" // True if this operator class is the default for opcintype
-  , INTEGER "opckeytype" // Type of data stored in index, or zero if same as opcintype
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , INTEGER "opcmethod" ///< Index access method operator class is for
+  , STRING "opcname" ///< Name of this operator class
+  , INTEGER "opcnamespace" ///< Namespace of this operator class
+  , INTEGER "opcowner" ///< Owner of the operator class
+  , INTEGER "opcfamily" ///< Operator family containing the operator class
+  , INTEGER "opcintype" ///< Data type that the operator class indexes
+  , BOOLEAN "opcdefault" ///< True if this operator class is the default for opcintype
+  , INTEGER "opckeytype" ///< Type of data stored in index, or zero if same as opcintype
   > "pg_opclass"
 , TABLE
-  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
-  , STRING "proname" // Name of the function
-  , INTEGER "pronamespace" // The OID of the namespace that contains this function
-  , INTEGER "proowner" // Owner of the function
-  , INTEGER "prolang" // Implementation language or call interface of this function
-  , FLOAT "procost" // Estimated execution cost (in units of cpu_operator_cost); if proretset, this is cost per row returned
-  , FLOAT "prorows" // Estimated number of result rows (zero if not proretset)
-  , INTEGER "provariadic" // Data type of the variadic array parameter's elements, or zero if the function does not have a variadic parameter
-  , INTEGER "protransform" // Calls to this function can be simplified by this other function (see Section 38.10.10)
-  , STRING "prokind" // f for a normal function, p for a procedure, a for an aggregate function, or w for a window function
-  , BOOLEAN "prosecdef" // Function is a security definer (i.e., a “setuid” function)
-  , BOOLEAN "proleakproof"  // The function has no side effects. No information about the arguments is conveyed except via the return value. Any function that might throw an error depending on the values of its arguments is not leak-proof.
-  , BOOLEAN "proisstrict" // Function returns null if any call argument is null. In that case the function won't actually be called at all. Functions that are not “strict” must be prepared to handle null inputs.
-  , BOOLEAN "proretset" // Function returns a set (i.e., multiple values of the specified data type)
-  , STRING "provolatile" // provolatile tells whether the function's result depends only on its input arguments, or is affected by outside factors. It is i for “immutable” functions, which always deliver the same result for the same inputs. It is s for “stable” functions, whose results (for fixed inputs) do not change within a scan. It is v for “volatile” functions, whose results might change at any time. (Use v also for functions with side-effects, so that calls to them cannot get optimized away.)
-  , STRING "proparallel" // proparallel tells whether the function can be safely run in parallel mode. It is s for functions which are safe to run in parallel mode without restriction. It is r for functions which can be run in parallel mode, but their execution is restricted to the parallel group leader; parallel worker processes cannot invoke these functions. It is u for functions which are unsafe in parallel mode; the presence of such a function forces a serial execution plan.
-  , INTEGER "pronargs" // Number of input arguments
-  , INTEGER "pronargdefaults" // Number of arguments that have defaults
-  , INTEGER "prorettype" // Data type of the return value
-  , INTEGER ARRAY "proargtypes" // An array with the data types of the function arguments. This includes only input arguments (including INOUT and VARIADIC arguments), and thus represents the call signature of the function.
-  , INTEGER ARRAY "proallargtypes" // An array with the data types of the function arguments. This includes all arguments (including OUT and INOUT arguments); however, if all the arguments are IN arguments, this field will be null. Note that subscripting is 1-based, whereas for historical reasons proargtypes is subscripted from 0.
-  , STRING ARRAY "proargmodes" // An array with the modes of the function arguments, encoded as i for IN arguments, o for OUT arguments, b for INOUT arguments, v for VARIADIC arguments, t for TABLE arguments. If all the arguments are IN arguments, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
-  , STRING ARRAY "proargnames" // An array with the names of the function arguments. Arguments without a name are set to empty strings in the array. If none of the arguments have a name, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "proname" ///< Name of the function
+  , INTEGER "pronamespace" ///< The OID of the namespace that contains this function
+  , INTEGER "proowner" ///< Owner of the function
+  , INTEGER "prolang" ///< Implementation language or call interface of this function
+  , FLOAT "procost" ///< Estimated execution cost (in units of cpu_operator_cost); if proretset, this is cost per row returned
+  , FLOAT "prorows" ///< Estimated number of result rows (zero if not proretset)
+  , INTEGER "provariadic" ///< Data type of the variadic array parameter's elements, or zero if the function does not have a variadic parameter
+  , STRING "prokind" ///< f for a normal function, p for a procedure, a for an aggregate function, or w for a window function
+  , BOOLEAN "prosecdef" ///< Function is a security definer (i.e., a “setuid” function)
+  , BOOLEAN "proleakproof"  ///< The function has no side effects. No information about the arguments is conveyed except via the return value. Any function that might throw an error depending on the values of its arguments is not leak-proof.
+  , BOOLEAN "proisstrict" ///< Function returns null if any call argument is null. In that case the function won't actually be called at all. Functions that are not “strict” must be prepared to handle null inputs.
+  , BOOLEAN "proretset" ///< Function returns a set (i.e., multiple values of the specified data type)
+  , STRING "provolatile" ///< provolatile tells whether the function's result depends only on its input arguments, or is affected by outside factors. It is i for “immutable” functions, which always deliver the same result for the same inputs. It is s for “stable” functions, whose results (for fixed inputs) do not change within a scan. It is v for “volatile” functions, whose results might change at any time. (Use v also for functions with side-effects, so that calls to them cannot get optimized away.)
+  , STRING "proparallel" ///< proparallel tells whether the function can be safely run in parallel mode. It is s for functions which are safe to run in parallel mode without restriction. It is r for functions which can be run in parallel mode, but their execution is restricted to the parallel group leader; parallel worker processes cannot invoke these functions. It is u for functions which are unsafe in parallel mode; the presence of such a function forces a serial execution plan.
+  , INTEGER "pronargs" ///< Number of input arguments
+  , INTEGER "pronargdefaults" ///< Number of arguments that have defaults
+  , INTEGER "prorettype" ///< Data type of the return value
+  , INTEGER ARRAY "proargtypes" ///< An array with the data types of the function arguments. This includes only input arguments (including INOUT and VARIADIC arguments), and thus represents the call signature of the function.
+  , INTEGER ARRAY "proallargtypes" ///< An array with the data types of the function arguments. This includes all arguments (including OUT and INOUT arguments); however, if all the arguments are IN arguments, this field will be null. Note that subscripting is 1-based, whereas for historical reasons proargtypes is subscripted from 0.
+  , STRING ARRAY "proargmodes" ///< An array with the modes of the function arguments, encoded as i for IN arguments, o for OUT arguments, b for INOUT arguments, v for VARIADIC arguments, t for TABLE arguments. If all the arguments are IN arguments, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  , STRING ARRAY "proargnames" ///< An array with the names of the function arguments. Arguments without a name are set to empty strings in the array. If none of the arguments have a name, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
   //, proargdefaults  pg_node_tree    Expression trees (in nodeToString() representation) for default values. This is a list with pronargdefaults elements, corresponding to the last N input arguments (i.e., the last N proargtypes positions). If none of the arguments have defaults, this field will be null.
-  , INTEGER ARRAY "protrftypes" // Data type OIDs for which to apply transforms.
-  , STRING "prosrc" // This tells the function handler how to invoke the function. It might be the actual source code of the function for interpreted languages, a link symbol, a file name, or just about anything else, depending on the implementation language/call convention.
-  , STRING "probin" // Additional information about how to invoke the function. Again, the interpretation is language-specific.
-  , STRING ARRAY "proconfig" // Function's local settings for run-time configuration variables
+  , INTEGER ARRAY "protrftypes" ///< Data type OIDs for which to apply transforms.
+  , STRING "prosrc" ///< This tells the function handler how to invoke the function. It might be the actual source code of the function for interpreted languages, a link symbol, a file name, or just about anything else, depending on the implementation language/call convention.
+  , STRING "probin" ///< Additional information about how to invoke the function. Again, the interpretation is language-specific.
+  , STRING ARRAY "proconfig" ///< Function's local settings for run-time configuration variables
   //, proacl  aclitem[]   Access privileges; see GRANT and REVOKE for details  > pg_proc
   > "pg_proc"
 , TABLE
-  < STRING "locktype" // Type of the lockable object: relation, extend, page, tuple, transactionid, virtualxid, object, userlock, or advisory
-  , INTEGER "database" NULL := -1 // OID of the database in which the lock target exists, or zero if the target is a shared object, or null if the target is a transaction ID
-  , INTEGER "relation" NULL := 0 // OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation
-  , INTEGER "page" NULL := -1 // Page number targeted by the lock within the relation, or null if the target is not a relation page or tuple
-  , INTEGER "tuple" NULL := -1 // Tuple number targeted by the lock within the page, or null if the target is not a tuple
-  , STRING "virtualxid" NULL := "" // Virtual ID of the transaction targeted by the lock, or null if the target is not a virtual transaction ID
-  , INTEGER "transactionid" NULL := -1 // ID of the transaction targeted by the lock, or null if the target is not a transaction ID
-  , INTEGER "classid" NULL := -1 // OID of the system catalog containing the lock target, or null if the target is not a general database object
-  , INTEGER "objid" NULL := 0 // OID column  OID of the lock target within its system catalog, or null if the target is not a general database object
+  < STRING "locktype" ///< Type of the lockable object: relation, extend, page, tuple, transactionid, virtualxid, object, userlock, or advisory
+  , INTEGER "database" NULL := -1 ///< OID of the database in which the lock target exists, or zero if the target is a shared object, or null if the target is a transaction ID
+  , INTEGER "relation" NULL := 0 ///< OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation
+  , INTEGER "page" NULL := -1 ///< Page number targeted by the lock within the relation, or null if the target is not a relation page or tuple
+  , INTEGER "tuple" NULL := -1 ///< Tuple number targeted by the lock within the page, or null if the target is not a tuple
+  , STRING "virtualxid" NULL := "" ///< Virtual ID of the transaction targeted by the lock, or null if the target is not a virtual transaction ID
+  , INTEGER "transactionid" NULL := -1 ///< ID of the transaction targeted by the lock, or null if the target is not a transaction ID
+  , INTEGER "classid" NULL := -1 ///< OID of the system catalog containing the lock target, or null if the target is not a general database object
+  , INTEGER "objid" NULL := 0 ///< OID column  OID of the lock target within its system catalog, or null if the target is not a general database object
   , INTEGER "objsubid" NULL := -1 //Column number targeted by the lock (the classid and objid refer to the table itself), or zero if the target is some other general database object, or null if the target is not a general database object
-  , STRING "virtualtransaction" // Virtual ID of the transaction that is holding or awaiting this lock
-  , INTEGER "pid" NULL := 0 // Process ID of the server process holding or awaiting this lock, or null if the lock is held by a prepared transaction
-  , STRING "mode" // Name of the lock mode held or desired by this process (see Section 13.3.1 and Section 13.2.3)
-  , BOOLEAN "granted" // True if lock is held, false if lock is awaited
-  , BOOLEAN "fastpath" // True if lock was taken via fast path, false if taken via main lock table
-  > "pg_locks"
+  , STRING "virtualtransaction" ///< Virtual ID of the transaction that is holding or awaiting this lock
+  , INTEGER "pid" NULL := 0 ///< Process ID of the server process holding or awaiting this lock, or null if the lock is held by a prepared transaction
+  , STRING "mode" ///< Name of the lock mode held or desired by this process (see Section 13.3.1 and Section 13.2.3)
+  , BOOLEAN "granted" ///< True if lock is held, false if lock is awaited
+  , BOOLEAN "fastpath" ///< True if lock was taken via fast path, false if taken via main lock table
+  > "pg_locks" ///< List of locks
 , TABLE
-  < INTEGER "seqrelid" // The OID of the pg_class entry for this sequence
-  , INTEGER "seqtypid" // Data type of the sequence
-  , INTEGER64 "seqstart" // Start value of the sequence
-  , INTEGER64 "seqincrement" // Increment value of the sequence
-  , INTEGER64 "seqmax" // Maximum value of the sequence
-  , INTEGER64 "seqmin" // Minimum value of the sequence
-  , INTEGER64 "seqcache" // Cache size of the sequence
-  , BOOLEAN "seqcycle" // Whether the sequence cycles
-  > "pg_sequence"
+  < INTEGER "seqrelid" ///< The OID of the pg_class entry for this sequence
+  , INTEGER "seqtypid" ///< Data type of the sequence
+  , INTEGER64 "seqstart" ///< Start value of the sequence
+  , INTEGER64 "seqincrement" ///< Increment value of the sequence
+  , INTEGER64 "seqmax" ///< Maximum value of the sequence
+  , INTEGER64 "seqmin" ///< Minimum value of the sequence
+  , INTEGER64 "seqcache" ///< Cache size of the sequence
+  , BOOLEAN "seqcycle" ///< Whether the sequence cycles
+  > "pg_sequence" ///< List of sequences
 , TABLE
-  < STRING "schemaname" // Name of schema containing table and index
-  , STRING "tablename" // Name of table the index is for
-  , STRING "indexname" // Name of index
-  , STRING "tablespace" // Name of tablespace containing index (null if default for database)
-  , STRING "indexdef" // Index definition (a reconstructed CREATE INDEX command)
-  > "pg_indexes"
+  < STRING "schemaname" ///< Name of schema containing table and index
+  , STRING "tablename" ///< Name of table the index is for
+  , STRING "indexname" ///< Name of index
+  , STRING "tablespace" ///< Name of tablespace containing index (null if default for database)
+  , STRING "indexdef" ///< Index definition (a reconstructed CREATE INDEX command)
+  > "pg_indexes" ///< List of indexes
+, TABLE
+  < INTEGER "classid" // The OID of the system catalog the dependent object is in
+  , INTEGER "objid" // The OID of the specific dependent object
+  , INTEGER "objsubid" ///< For a table column, this is the column number (the objid and classid refer to the table itself). For all other object types, this column is zero.
+  , INTEGER "refclassid" ///< The OID of the system catalog the referenced object is in
+  , INTEGER "refobjid" ///< The OID of the specific referenced object
+  , INTEGER "refobjsubid" // For a table column, this is the column number (the refobjid and refclassid refer to the table itself). For all other object types, this column is zero.
+  , STRING "deptype" ///< A code defining the specific semantics of this dependency relationship; see text.
+  > "pg_depend" ///< List of dependencies
+, TABLE
+  < INTEGER "oid" ///< Row identifier
+  , INTEGER "adrelid" ///< The table this column belongs to
+  , INTEGER "adnum" ///< The number of the column
+  //, INTEGER "adbin" pg_node_tree   The column default value, in nodeToString() representation. Use pg_get_expr(adbin, adrelid) to convert it to an SQL expression.
+  > "pg_attrdef" ///< Column default values
+, TABLE
+  < INTEGER "oid" // Row identifier
+  , STRING "lanname" // Name of the language
+  , INTEGER "lanowner" // Owner of the language
+  , BOOLEAN "lanispl" // This is false for internal languages (such as SQL) and true for user-defined languages. Currently, pg_dump still uses this to determine which languages need to be dumped, but this might be replaced by a different mechanism in the future.
+  , BOOLEAN "lanpltrusted" // True if this is a trusted language, which means that it is believed not to grant access to anything outside the normal SQL execution environment. Only superusers can create functions in untrusted languages.
+  , INTEGER "lanplcallfoid" // For noninternal languages this references the language handler, which is a special function that is responsible for executing all functions that are written in the particular language
+  , INTEGER "laninline" // This references a function that is responsible for executing “inline” anonymous code blocks (DO blocks). Zero if inline blocks are not supported.
+  , INTEGER "lanvalidator" // This references a language validator function that is responsible for checking the syntax and validity of new functions when they are created. Zero if no validator is provided.
+  //, "lanacl" aclitem[] Access privileges; see Section 5.7 for details
+  > "pg_language" ///< List of function/stored procedure languages
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA

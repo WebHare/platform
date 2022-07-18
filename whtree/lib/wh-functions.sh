@@ -380,3 +380,39 @@ c()
   done
   echo -e "$RESULT"
 }
+
+# Initialize COMP_WORDS, COMP_CWORD and COMPREPLY. Split on whitespace only, ignoring COMP_WORDBREAKS
+autocomplete_init_compwords()
+{
+  # Parse COMP_LINE, split on whitespace only. Append a char to make sure trailing whitespace isn't lost
+  if [ -n "$COMP_POINT" ]; then
+    read -r -a COMP_WORDS <<< "${COMP_LINE:0:$COMP_POINT}z"
+  else
+    read -r -a COMP_WORDS <<< "${COMP_LINE}z"
+  fi
+  # Find last word and remove the added char from it
+  COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1))
+  COMP_WORDS[$COMP_CWORD]=${COMP_WORDS[$COMP_CWORD]:0:${#COMP_WORDS[$COMP_CWORD]}-1}
+  # Make sure COMPREPLY is initialized
+  COMPREPLY=()
+}
+
+# Print all matches from COMPREPLY, but only those that don't change stuff left to the cursor
+autocomplete_print_compreply()
+{
+  local LASTWORD_PARTS LASTWORD_LASTPART STRIP_CHARS PREFIX
+  # Parse the last word using the COMP_WORDBREAKS, append a char to detect stuff ending on a word break
+  IFS="$COMP_WORDBREAKS" read -r -a LASTWORD_PARTS <<< "${COMP_WORDS[$COMP_CWORD]}z"
+  # And remove that added character again
+  LASTWORD_LASTPART=${LASTWORD_PARTS[${#LASTWORD_PARTS[@]}-1]}
+  # calc how many characters from the last word won't be replaced by the shell
+  STRIP_CHARS=$((${#COMP_WORDS[$COMP_CWORD]} - ${#LASTWORD_LASTPART} + 1))
+  # Make sure we only let suggestions through that append (not those that change stuff left to the cursor)
+  TESTLEN=${#COMP_WORDS[$COMP_CWORD]}
+  PREFIX="${COMP_WORDS[$COMP_CWORD]:0:TESTLEN}"
+  for i in "${COMPREPLY[@]}"; do
+    if [ "${i:0:$TESTLEN}" == "$PREFIX" ]; then
+      echo "${i:$STRIP_CHARS}"
+    fi
+  done
+}

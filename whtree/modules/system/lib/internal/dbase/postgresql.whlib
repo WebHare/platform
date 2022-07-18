@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
@@ -136,14 +137,11 @@ RECORD ARRAY FUNCTION GetSchemata(OBJECT trans)
 {
   IF(NOT have_schemata)
   {
-    SCHEMA is LIKE postgresql_information_schema;
-    is := BindTransactionToSchema(trans->id, "information_schema");
-
     schemata :=
         SELECT *
              , have_tables :=   FALSE
              , tables :=        RECORD[]
-          FROM is.schemata
+          FROM trans->GetSchemaListing()
       ORDER BY schema_name;
     have_schemata := TRUE;
   }
@@ -413,7 +411,8 @@ RECORD ARRAY FUNCTION GetTriggers(OBJECT trans)
 PUBLIC MACRO ClearAllPostgreSQLSchemaCaches()
 {
   have_schemata := FALSE;
-  have_indices:= FALSE;
+  have_indices := FALSE;
+  have_triggers := FALSE;
 }
 
 PUBLIC RECORD FUNCTION GeneratePostgreSQLIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
@@ -439,9 +438,17 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLPostupdateSQLCommands(RECORD ARRAY sche
   {
     RECORD ARRAY current_tables := GetTables(trans, schemaspec.name);
 
+    STRING ARRAY dropped_tables;
     FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
       IF(RecordExists(SELECT FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name)))
+      {
+        INSERT tablerec.name INTO dropped_tables AT END;
         context->AddTransOp(PTR trans->DropTable(schemaspec.name, tablerec.name));
+        DELETE FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name);
+      }
+
+    STRING ARRAY final_tables := GetSortedSet(SELECT AS STRING ARRAY table_name FROM current_tables);
+    DropUnusedAutonumberFunctions(context, schemaspec, final_tables, dropped_tables);
   }
   RETURN context->ResultsSoFar();
 }
@@ -646,10 +653,11 @@ STRING FUNCTION GetColumnBaseDef(RECORD colrec)
   RETURN def;
 }
 
-MACRO DropColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
+STRING FUNCTION DropColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
 {
   STRING def := `ALTER TABLE ${PostgreSQLEscapeIdentifier(tableschema)}.${PostgreSQLEscapeIdentifier(tablename)} DROP CONSTRAINT ${PostgreSQLEscapeIdentifier(colrec.foreignkey_constraint_name)}`;
   context->AddCommand(def);
+  RETURN colrec.foreignkey_constraint_name;
 }
 
 MACRO SetColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
@@ -688,13 +696,61 @@ BOOLEAN FUNCTION AreExpressionsEquivalent(STRING frompostgresql, STRING canonica
   RETURN frompostgresql = "";
 }
 
+STRING FUNCTION GetIndexPredicateExpression(RECORD schemaspec, RECORD tablerec, RECORD ind)
+{
+  STRING expr;
+  IF (ind.nonullstores)
+  {
+    FOREVERY (RECORD col FROM ind.columns)
+    {
+      IF (#col != 0)
+        expr := expr || " AND ";
+      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+      IF (NOT RecordExists(colrec))
+        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+      IF (colrec.dbtype = "webhare_internal.webhare_blob" OR colrec.references_table != "")
+        expr := expr || `(${PostgreSQLEscapeIdentifier(col.name)} IS NOT NULL)`;
+      ELSE
+      {
+        STRING colexpr := PostgreSQLEscapeIdentifier(col.name);
+        IF (colrec.defval LIKE "*::text") // text cast?
+        {
+          // Text cast on wrd.entity_settings also casts the column and gets extra parentheses
+          // should be: ((attribute IS NOT NULL) AND ((unique_rawdata)::text <> \'\'::text))
+          expr := expr || `((${colexpr})${SubString(colrec.defval, SearchLastSubString(colrec.defval, "::"))} <> ${colrec.defval})`;
+        }
+        ELSE
+          expr := expr || `(${colexpr} <> ${colrec.defval})`;
+      }
+    }
+    IF (LENGTH(ind.columns) > 1)
+      expr := `(${expr})`;
+  }
+  ELSE IF (ind.null_partial)
+  {
+    FOREVERY (RECORD col FROM ind.columns)
+    {
+      IF (#col != 0)
+        expr := expr || " OR ";
+      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+      IF (NOT RecordExists(colrec))
+        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+      expr := expr || `(${PostgreSQLEscapeIdentifier(col.name)} IS NULL)`;
+    }
+    IF (LENGTH(ind.columns) > 1)
+      expr := `(${expr})`;
+  }
+  RETURN expr;
+}
+
 STRING FUNCTION GetIndexColumnExpression(RECORD colrec, RECORD ind)
 {
   STRING expr := PostgreSQLEscapeIdentifier(colrec.name);
 
   IF (colrec.dbtype = "varchar")
   {
-
     BOOLEAN too_long := colrec.maxlength > max_varchar_indexcolsize;
     STRING ARRAY conversions;
     IF (too_long AND NOT ind.is_unique)
@@ -752,37 +808,9 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
 
   cmd := cmd || colpart;
 
-  IF (ind.nonullstores)
-  {
-    cmd := cmd || " WHERE ";
-    FOREVERY (RECORD col FROM ind.columns)
-    {
-      IF (#col != 0)
-        cmd := cmd || " AND ";
-      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
-      IF (NOT RecordExists(colrec))
-        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
-
-      IF (colrec.dbtype = "webhare_internal.webhare_blob" OR colrec.references_table != "")
-        cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NOT NULL)`;
-      ELSE
-        cmd := cmd || `${PostgreSQLEscapeIdentifier(col.name)} <> ${colrec.defval}`;
-    }
-  }
-  ELSE IF (ind.null_partial)
-  {
-    cmd := cmd || " WHERE ";
-    FOREVERY (RECORD col FROM ind.columns)
-    {
-      IF (#col != 0)
-        cmd := cmd || " OR ";
-      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
-      IF (NOT RecordExists(colrec))
-        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
-
-      cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NULL)`;
-    }
-  }
+  STRING indpred := GetIndexPredicateExpression(schemaspec, tablerec, ind);
+  IF (indpred != "")
+    cmd := cmd || " WHERE " || indpred;
 
   RETURN cmd;
 }
@@ -919,6 +947,128 @@ END;$$`);
   context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(col.name)} SET DEFAULT ${col.defval}`);
 }
 
+BOOLEAN FUNCTION CompareIndexDef(RECORD schemaspec, RECORD tablerec, RECORD ind, RECORD old_index)
+{
+  // Check if the indexdefinition is identical
+  BOOLEAN is_identical := old_index.indisunique = ind.is_unique
+                          AND old_index.table_name = tablerec.name
+                          AND AreExpressionsEquivalent(old_index.indpred, ind.predicate);
+
+  IF (NOT is_identical OR LENGTH(old_index.cols) != LENGTH(ind.columns))
+    is_identical := FALSE;
+  ELSE
+  {
+    STRING method := "btree";
+    FOREVERY (RECORD col FROM ind.columns)
+    {
+      STRING expr := old_index.cols[#col].indexpr ?? old_index.cols[#col].attname;
+
+      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+      IF (NOT RecordExists(colrec))
+        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
+
+      STRING expect := GetIndexColumnExpression(colrec, ind);
+
+      IF (NOT AreExpressionsEquivalent(expr, expect))
+        is_identical := FALSE;
+      IF (old_index.amname != method)
+        is_identical := FALSE;
+    }
+  }
+  RETURN is_identical;
+}
+
+MACRO RenameConstraints(OBJECT context, RECORD schemaspec, RECORD tablerec, RECORD curtab, STRING ARRAY dropped_constraints)
+{
+  RECORD ARRAY constraints :=
+      SELECT *
+        FROM postgresql_pg_catalog.pg_constraint
+       WHERE conrelid = curtab.object_id
+         AND conname NOT LIKE `${tablerec.name}_*`
+         AND conname NOT IN dropped_constraints;
+
+  FOREVERY (RECORD constraint FROM constraints)
+  {
+    STRING ARRAY attr_names :=
+        SELECT AS STRING ARRAY attname
+          FROM postgresql_pg_catalog.pg_attribute
+          WHERE attrelid = curtab.object_id
+            AND attnum IN INTEGER ARRAY(constraint.conkey)
+      ORDER BY SearchElement(constraint.conkey, attnum);
+
+    STRING newname;
+    SWITCH (constraint.contype)
+    {
+      CASE "c"  { newname := `${tablerec.name}_${Detokenize(attr_names, "_")}_check`; } // check
+      CASE "f"  { newname := `${tablerec.name}_${Detokenize(attr_names, "_")}_fkey`; } // foreign key
+      CASE "u"  { newname := `${tablerec.name}_${Detokenize(attr_names, "_")}_key`; } // unique
+      CASE "p"  { newname := `${tablerec.name}_pkey`; } // primary key
+    }
+    IF (IsDefaultValue(newname) OR LENGTH(newname) > 64)
+    {
+      PRINT(`Cannot rename constraint ${constraint.conname} of type ${EncodeJSON(constraint.contype)} on ${schemaspec.name}.${tablerec.name}`);
+      CONTINUE;
+    }
+
+    STRING cmd := `ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} RENAME CONSTRAINT ${PostgreSQLEscapeIdentifier(constraint.conname)} to ${PostgreSQLEscapeIdentifier(newname)}`;
+    context->AddCommand(cmd);
+  }
+}
+
+MACRO DropUnusedAutonumberFunctions(OBJECT context, RECORD schemaspec, STRING ARRAY final_tables, STRING ARRAY dropped_tables)
+{
+  // this only drop autonumnber functions that don't match the table name, not from columns that previously had a autonumber!
+  INTEGER namespace := SELECT AS INTEGER oid FROM postgresql_pg_catalog.pg_namespace WHERE nspname = schemaspec. name;
+
+  RECORD ARRAY procs :=
+      SELECT oid
+           , pronamespace
+           , proname
+        FROM postgresql_pg_catalog.pg_proc
+       WHERE proname LIKE "webhare_autonrs_*"
+         AND pronamespace = namespace;
+
+  // Old system.rights tables can still hold references to autonumber functions, don't drop those
+  INTEGER ARRAY depd :=
+     SELECT AS INTEGER ARRAY refobjid
+       FROM postgresql_pg_catalog.pg_depend
+      WHERE refobjid IN (SELECT AS INTEGER ARRAY oid FROM procs);
+
+  FOREVERY (RECORD proc FROM procs)
+  {
+    BOOLEAN is_used, is_dropped;
+    FOREVERY (STRING name FROM final_tables)
+      IF (proc.proname LIKE `webhare_autonrs_${name}_*`)
+        is_used := TRUE;
+    FOREVERY (STRING name FROM dropped_tables)
+      IF (proc.proname LIKE `webhare_autonrs_${name}_*`)
+        is_dropped := TRUE;
+
+    IF (NOT is_used AND (proc.oid NOT IN depd OR is_dropped))
+      context->AddCommand(`DROP FUNCTION IF EXISTS ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(proc.proname)}`);
+  }
+}
+
+MACRO DropUnusedSequences(OBJECT context, RECORD schemaspec, RECORD tablerec, RECORD curtab)
+{
+  RECORD ARRAY sequences :=
+      SELECT pg_sequence.*
+           , attname
+        FROM postgresql_pg_catalog.pg_sequence
+           , postgresql_pg_catalog.pg_depend
+           , postgresql_pg_catalog.pg_attribute
+       WHERE pg_depend.refobjid = curtab.object_id
+         AND pg_depend.classid = pg_depend.refclassid // both pg_class
+         AND pg_sequence.seqrelid = pg_depend.objid
+         AND pg_attribute.attrelid = curtab.object_id
+         AND pg_attribute.attnum = pg_depend.refobjsubid;
+
+  sequences := EnrichWithTable(sequences, "seqrelid", postgresql_pg_catalog.pg_class, CELL[ "relname" ], [ primarykey := "oid" ]);
+  FOREVERY (RECORD sequence FROM sequences)
+    IF (sequence.relname LIKE `webhare_seq_*` AND sequence.relname NOT LIKE `webhare_seq_${tablerec.name}_*`)
+      context->AddCommand(`DROP SEQUENCE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(sequence.relname)}`);
+}
+
 PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -938,6 +1088,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
     FOREVERY(RECORD tablerec FROM schemaspec.tables)
     {
       RECORD curtab := SELECT * FROM current_tables WHERE table_name = tablerec.name;
+
+      STRING ARRAY dropped_constraints;
 
       // Internal columns aren't stored in PostgreSQL
       DELETE FROM tablerec.cols WHERE internalcolumnname != "";
@@ -963,7 +1115,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                 OR (ToUppercase(curcol.on_delete) ?? "NO ACTION") != (ToUppercase(coldef.ondelete) ?? "NO ACTION"))
             {
               IF (curcol.referenced_table_name != "")
-                DropColumnFkey(context, schemaspec.name, tablerec.name, curcol);
+                INSERT DropColumnFkey(context, schemaspec.name, tablerec.name, curcol) INTO dropped_constraints AT END;
               IF(coldef.references_table != "")
                 INSERT INTO fkeys_to_update(schemaname, tablename, colrec) VALUES(schemaspec.name, tablerec.name, coldef) AT END;
             }
@@ -1021,7 +1173,6 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
             BOOLEAN rebuildautonumberconfig;
             IF (NOT AreExpressionsEquivalent(curcol.column_default, coldef.defval))
             {
-              PRINT(`Non eq defaults: '${curcol.column_default}' vs '${coldef.defval}'\n`);
               IF (curcol.column_default != "")
                 context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} DROP DEFAULT`);
               IF (coldef.defval != "")
@@ -1084,6 +1235,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
         FOREVERY (RECORD trigger FROM triggers)
           context->AddCommand(`DROP TRIGGER ${PostgreSQLEscapeIdentifier(trigger.triggername)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`);
+
+        RenameConstraints(context, schemaspec, tablerec, curtab, dropped_constraints);
       }
       ELSE
       {
@@ -1125,11 +1278,14 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
       }
 
       {
-        // Get current indices in the schema (index names are scoped to their schema)
-        RECORD ARRAY current_indices :=
-                                SELECT *
-                                  FROM GetIndices(trans) AS indices
-                                 WHERE table_schema = schemaspec.name;
+        // Get current indices for this table (index names are scoped to their schema)
+        RECORD ARRAY current_wh_indices :=
+            SELECT *
+                 , used :=      FALSE
+              FROM GetIndices(trans) AS indices
+             WHERE table_schema = schemaspec.name
+               AND table_name = tablerec.name
+               AND (index_name LIKE "*_wh_*" OR index_name LIKE "*_whnp_*" OR index_name LIKE "*_whfk_*");
 
         tablerec.indices :=
             SELECT *
@@ -1139,7 +1295,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
         /* Multi-column unique indices have the problem that when at least one NULL is
            present in their columns, they won't enforce uniqueness of the other columns
-           anymore. Toi solve this we create null-partial indices for all those indices.
+           anymore. To solve this we create null-partial indices for all those indices.
            It will contain only rows with at least one NULL, and coalesces those NULLs
            to the default value for their type.
         */
@@ -1191,66 +1347,90 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
           }
         }
 
+        // Calculate the index predicate and column expressions for the indexes
         FOREVERY (RECORD ind FROM tablerec.indices)
         {
-          // Name used for the index in PostgreSQL
-          STRING name := ind.useindexname;
-
-          RECORD old_index := SELECT * FROM current_indices WHERE index_name = name;
-
-          IF (RecordExists(old_index))
+          INSERT CELL method := "btree" INTO tablerec.indices[#ind];
+          FOREVERY (RECORD col FROM ind.columns)
           {
-            // Check if the indexdefinition is identical; if not delete the old index
-            BOOLEAN is_identical := old_index.indisunique = ind.is_unique
-                                    AND old_index.table_name = tablerec.name;
-
-            IF (is_identical AND LENGTH(old_index.cols) != LENGTH(ind.columns))
-              is_identical := FALSE;
-            ELSE
-            {
-              STRING method := "btree";
-              FOREVERY (RECORD col FROM ind.columns)
-              {
-                STRING expr := old_index.cols[#col].indexpr ?? old_index.cols[#col].attname;
-
-                RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
-                IF (NOT RecordExists(colrec))
-                  THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
-
-                STRING expect := GetIndexColumnExpression(colrec, ind);
-
-                IF (NOT AreExpressionsEquivalent(expr, expect))
-                  is_identical := FALSE;
-                IF (old_index.amname != method)
-                  is_identical := FALSE;
-              }
-            }
-            IF (NOT is_identical)
-            {
-              STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(name)}`;
-              context->AddCommand(cmd);
-            }
-            ELSE
-              CONTINUE; // Skip creation step, the old index is identical.
+            RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+            IF (NOT RecordExists(colrec))
+              THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
+            INSERT CELL expr := GetIndexColumnExpression(colrec, ind) INTO tablerec.indices[#ind].columns[#col];
           }
-
-          IF (options.skipcreateindices)
-            CONTINUE;
-
-          // Create the new index
-          STRING cmd := GenerateCreateIndexCommandFromSpec(schemaspec, tablerec, ind, name);
-          context->AddCommand(cmd);
+          INSERT CELL predicate := GetIndexPredicateExpression(schemaspec, tablerec, ind) INTO tablerec.indices[#ind];
         }
 
-        RECORD ARRAY kill_indices := SELECT obsoleteindices.*
-                                       FROM tablerec.obsoleteindices, current_indices
-                                      WHERE ToUppercase(obsoleteindices.name) = ToUppercase(current_indices.index_name);
+        // Match indices on name. Drop if the name match hasn't got the same definition
+        RECORD ARRAY notfound;
+        FOREVERY (RECORD ind FROM tablerec.indices)
+        {
+          RECORD old_index := SELECT * FROM current_wh_indices WHERE index_name = ind.useindexname;
+          IF (NOT RecordExists(old_index))
+          {
+            INSERT ind INTO notfound AT END;
+            CONTINUE;
+          }
+
+          UPDATE current_wh_indices SET used := TRUE WHERE index_name = ind.useindexname;
+          IF (CompareIndexDef(schemaspec, tablerec, ind, old_index))
+            CONTINUE;
+
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(old_index.index_name)}`;
+          context->AddCommand(cmd);
+
+          INSERT ind INTO notfound AT END;
+        }
+
+        // Check if any of the remaining indexes has the same definition.
+        FOREVERY (RECORD ind FROM notfound)
+        {
+          RECORD match :=
+              SELECT *
+                FROM current_wh_indices
+               WHERE NOT used
+                 AND CompareIndexDef(schemaspec, tablerec, ind, current_wh_indices);
+
+          IF (RecordExists(match))
+          {
+            UPDATE current_wh_indices SET used := TRUE WHERE index_name = match.index_name;
+            STRING cmd := `ALTER INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(match.index_name)} RENAME TO ${PostgreSQLEscapeIdentifier(ind.useindexname)}`;
+            context->AddCommand(cmd);
+          }
+          ELSE
+          {
+            // Create the new index
+            STRING cmd := GenerateCreateIndexCommandFromSpec(schemaspec, tablerec, ind, ind.useindexname);
+            context->AddCommand(cmd);
+          }
+        }
+
+        STRING ARRAY obsolete_index_unames;
+        FOREVERY (RECORD rec FROM schemaspec.obsoletetables)
+        {
+          // Add the regular _wh_ and the _whnp_ names to the list of names
+          INSERT ToUppercase(`${tablerec.name}_wh_${rec.name}`) INTO obsolete_index_unames AT END;
+          INSERT ToUppercase(`${tablerec.name}_whnp_${rec.name}`) INTO obsolete_index_unames AT END;
+        }
+
+        // Remove indices explicityly obsoleted or with old names (this drops old non-mentioned indexes on table rename!)
+        RECORD ARRAY kill_indices :=
+            SELECT *
+              FROM current_wh_indices
+             WHERE NOT used
+               AND ((ToUppercase(index_name) NOT LIKE ToUppercase(`${tablerec.name}_wh_*`) AND
+                        ToUppercase(index_name) NOT LIKE ToUppercase(`${tablerec.name}_whnp_*`))
+                    OR (ToUppercase(index_name) IN obsolete_index_unames));
+
         FOREVERY(RECORD indexdef FROM kill_indices)
         {
-          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(indexdef.name)}`;
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(indexdef.index_name)}`;
           context->AddCommand(cmd);
         }
       }
+
+      IF (RecordExists(curtab))
+        DropUnusedSequences(context, schemaspec, tablerec, curtab);
     }
 
     /* Reduce impact of obsoleted tables (but physical drop will wait till the real end) */
@@ -1453,17 +1633,19 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
              , is_implicit :=   index_name NOT LIKE `${tabledef.name}_wh_*`
           FROM GetIndices(trans) AS indices
          WHERE table_schema = schemadef.name
-           AND table_name = tabledef.name
-           AND (options.withimplicitindices ? TRUE : index_name LIKE `${tabledef.name}_wh_*`)
-           ;
+           AND table_name = tabledef.name;
 
     FOREVERY (RECORD ind FROM current_indices)
     {
+      IF (NOT options.withimplicitindices AND ind.is_implicit)
+        CONTINUE;
+
       RECORD indexdef :=
           [ name :=           ind.is_implicit ? ind.index_name : SubString(ind.index_name, LENGTH(`${tabledef.name}_wh_`))
           , is_implicit :=    ind.is_implicit
           , is_unique :=      ind.indisunique
           , is_uppercase :=   FALSE
+          , nonullstores :=   ind.indpred != ""
           , cols :=           RECORD[]
           ];
 

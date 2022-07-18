@@ -3,8 +3,44 @@ LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/db/tablecreate.whlib";
+
+
+RECORD ARRAY FUNCTION FindPGObjectsWithName(STRING mask)
+{
+  INTEGER namespace_oid := SELECT AS INTEGER oid FROM postgresql_pg_catalog.pg_namespace WHERE nspname = "webhare_testsuite_temp";
+
+  RECORD ARRAY pg_classes :=
+      SELECT type :=    "pg_class"
+           , name :=    relname
+           , oid
+           , ns_oid :=  relnamespace
+        FROM postgresql_pg_catalog.pg_class
+       WHERE relnamespace = namespace_oid
+         AND relname LIKE mask;
+
+  RECORD ARRAY pg_constraints :=
+      SELECT type :=    "pg_constraint"
+           , name :=    conname
+           , oid
+           , ns_oid :=  connamespace
+        FROM postgresql_pg_catalog.pg_constraint
+       WHERE connamespace = namespace_oid
+         AND conname LIKE mask;
+
+  RECORD ARRAY pg_proc :=
+      SELECT type :=    "pg_proc"
+           , name :=    proname
+           , oid
+           , ns_oid :=  pronamespace
+        FROM postgresql_pg_catalog.pg_proc
+       WHERE pronamespace = namespace_oid
+         AND proname LIKE mask;
+
+  RETURN pg_classes CONCAT pg_constraints CONCAT pg_proc;
+}
 
 
 MACRO TestByteaConversion()
@@ -152,6 +188,60 @@ MACRO TestMultiColumnUniqueIndex()
   TestEQLike("ERROR:*duplicate key value violates unique constraint*", (errors??[[message := "no error"]])[0].message);
 }
 
+MACRO TestRenameCleanup()
+{
+  ApplyTempDatabaseSchema(`
+    <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+      <d:table name="basetable" primarykey="id">
+        <d:integer name="id" autonumberstart="1"/>
+      </d:table>
+      <d:table name="renametest" primarykey="id">
+        <d:integer name="id" autonumberstart="1"/>
+        <d:integer name="ref" references="webhare_testsuite_temp.basetable" />
+        <d:integer name="parent" references=".renametest" />
+        <d:varchar name="name" maxlength="256"/>
+        <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true" />
+        <d:index name="nameindex" columns="name(32)" />
+      </d:table>
+    </databaseschema>
+`);
+
+  testfw->BeginWork();
+  GetPrimary()->__ExecSQL(`ALTER TABLE webhare_testsuite_temp.renametest RENAME TO othername`);
+  testfw->CommitWork();
+
+  ClearAllPostgreSQLSchemaCaches();
+  // also change foreign reference of parent to basetable, that confused contraint renames
+  ApplyTempDatabaseSchema(`
+    <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+      <d:table name="basetable" primarykey="id">
+        <d:integer name="id" autonumberstart="1"/>
+      </d:table>
+      <d:table name="othername" primarykey="id">
+        <d:integer name="id" autonumberstart="1"/>
+        <d:integer name="ref" references="webhare_testsuite_temp.basetable" />
+        <d:integer name="parent" references=".basetable" />
+        <d:varchar name="name" maxlength="256"/>
+        <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true" />
+      </d:table>
+    </databaseschema>
+`);
+
+  TestEQ(RECORD[], FindPGObjectsWithName("*renametest*"));
+
+  ClearAllPostgreSQLSchemaCaches();
+  ApplyTempDatabaseSchema(`
+    <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+      <d:table name="basetable" primarykey="id">
+        <d:integer name="id" autonumberstart="1"/>
+      </d:table>
+      <d:obsoletetable name="othername" />
+    </databaseschema>
+`);
+
+  TestEQ(RECORD[], FindPGObjectsWithName("*othername*"));
+}
+
 MACRO Cleanup()
 {
   ApplyTempDatabaseSchema(`
@@ -171,5 +261,6 @@ RunTestframework([ PTR SetupTempSchema
                  , PTR TestColumnCreate()
                  , PTR TestColumnAttributes
                  , PTR TestMultiColumnUniqueIndex
+                 , PTR TestRenameCleanup
                  , PTR Cleanup
                  ]);
