@@ -438,15 +438,17 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLPostupdateSQLCommands(RECORD ARRAY sche
   {
     RECORD ARRAY current_tables := GetTables(trans, schemaspec.name);
 
+    STRING ARRAY dropped_tables;
     FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
       IF(RecordExists(SELECT FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name)))
       {
+        INSERT tablerec.name INTO dropped_tables AT END;
         context->AddTransOp(PTR trans->DropTable(schemaspec.name, tablerec.name));
         DELETE FROM current_tables WHERE ToUppercase(table_name) = ToUppercase(tablerec.name);
       }
 
     STRING ARRAY final_tables := GetSortedSet(SELECT AS STRING ARRAY table_name FROM current_tables);
-    DropUnusedAutonumberFunctions(context, schemaspec, final_tables);
+    DropUnusedAutonumberFunctions(context, schemaspec, final_tables, dropped_tables);
   }
   RETURN context->ResultsSoFar();
 }
@@ -1013,7 +1015,7 @@ MACRO RenameConstraints(OBJECT context, RECORD schemaspec, RECORD tablerec, RECO
   }
 }
 
-MACRO DropUnusedAutonumberFunctions(OBJECT context, RECORD schemaspec, STRING ARRAY final_tables)
+MACRO DropUnusedAutonumberFunctions(OBJECT context, RECORD schemaspec, STRING ARRAY final_tables, STRING ARRAY dropped_tables)
 {
   // this only drop autonumnber functions that don't match the table name, not from columns that previously had a autonumber!
   INTEGER namespace := SELECT AS INTEGER oid FROM postgresql_pg_catalog.pg_namespace WHERE nspname = schemaspec. name;
@@ -1034,12 +1036,15 @@ MACRO DropUnusedAutonumberFunctions(OBJECT context, RECORD schemaspec, STRING AR
 
   FOREVERY (RECORD proc FROM procs)
   {
-    BOOLEAN is_used;
+    BOOLEAN is_used, is_dropped;
     FOREVERY (STRING name FROM final_tables)
       IF (proc.proname LIKE `webhare_autonrs_${name}_*`)
         is_used := TRUE;
+    FOREVERY (STRING name FROM dropped_tables)
+      IF (proc.proname LIKE `webhare_autonrs_${name}_*`)
+        is_dropped := TRUE;
 
-    IF (NOT is_used AND proc.oid NOT IN depd)
+    IF (NOT is_used AND (proc.oid NOT IN depd OR is_dropped))
       context->AddCommand(`DROP FUNCTION IF EXISTS ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(proc.proname)}`);
   }
 }
@@ -1370,9 +1375,6 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
           UPDATE current_wh_indices SET used := TRUE WHERE index_name = ind.useindexname;
           IF (CompareIndexDef(schemaspec, tablerec, ind, old_index))
             CONTINUE;
-
-          DumpValue(tablerec.indices, "boxed");
-          ABORT(CELL[ table_schema := schemaspec.name, table_name := tablerec.name, ind, old_index ]);
 
           STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(old_index.index_name)}`;
           context->AddCommand(cmd);
