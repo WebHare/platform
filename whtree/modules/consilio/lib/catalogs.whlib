@@ -397,7 +397,7 @@ STATIC OBJECTTYPE ContentSource
 /** Catalog object
     @public
 */
-STATIC OBJECTTYPE Catalog
+STATIC OBJECTTYPE ConsilioCatalog
 <
   RECORD catalog;
 
@@ -793,10 +793,7 @@ STATIC OBJECTTYPE Catalog
                , trace := ArraySlice(GetStackTrace(),2)
                ];
   }
->;
 
-STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
-<
   /** @short Add objects to this catalog
       @param objects The objects to add
       @cell(string) objects.objectid Unique objectid. Reusing this will replace the document in the index+suffix combo
@@ -882,10 +879,7 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 
     RETURN ListOpenSearchIndexSuffixes(indexmgr.indexmanager, indexmgr.indexname);
   }
->;
 
-STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
-<
   OBJECT FUNCTION CreateContentSource(RECORD csourcesettings)
   {
     IF(NOT this->ismanaged)
@@ -1090,12 +1084,9 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
       SELECT * FROM consilio.catalogs
        WHERE ToUppercase(name) = ToUppercase(tag)
              AND name NOT LIKE "$consilio$deleted$*";
+
   IF(RecordExists(match))
-  {
-    IF (match.type = whconstant_consilio_catalogtype_unmanaged)
-      RETURN NEW UnmanagedCatalog(match);
-    RETURN NEW ManagedCatalog(match);
-  }
+    RETURN NEW ConsilioCatalog(match);
   ELSE
     RETURN DEFAULT OBJECT;
 }
@@ -1110,12 +1101,9 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
       SELECT * FROM consilio.catalogs
        WHERE catalogs.id = VAR id
              AND name NOT LIKE "$consilio$deleted$*";
+
   IF(RecordExists(match))
-  {
-    IF (match.type = whconstant_consilio_catalogtype_unmanaged)
-      RETURN NEW UnmanagedCatalog(match);
-    RETURN NEW ManagedCatalog(match);
-  }
+    RETURN NEW ConsilioCatalog(match);
   ELSE
     RETURN DEFAULT OBJECT;
 }
