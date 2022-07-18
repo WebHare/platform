@@ -38,12 +38,10 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
       SELECT catalogs.id
            , catalogs.name
            , catalog_indexmanagers.indexmanager
-           , catalog_indexmanagers.deleted
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
        WHERE catalog_indexmanagers.indexmanager = forindexmanager
-             AND catalog_indexmanagers.catalogid = catalogs.id
-             AND NOT deleted;
+             AND catalog_indexmanagers.catalogid = catalogs.id;
   STRING now := DateTimeToString(GetCurrentDateTime());
 
   INTEGER ARRAY presentindexids;
@@ -61,7 +59,7 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
         IF (idx.indexid = 0)
           CONTINUE;
         RECORD catalog := SELECT * FROM indices WHERE id = idx.indexid AND indexmanager = indexmgr.id;
-        IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*" OR catalog.deleted)
+        IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*")
           DeleteIndexManagerContentSource(indexmgr.id, idx.indexid, 0);
         ELSE
           INSERT idx.indexid INTO presentindexids AT END;
@@ -118,14 +116,12 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   {
     RECORD catalog :=
         SELECT catalogs.id
-             , catalog_indexmanagers.rebuild
              , catalog_indexmanagers.indexmanager
              , catalogs.type
           FROM consilio.catalogs
              , consilio.catalog_indexmanagers
          WHERE catalogs.id = data.indexid
                AND catalog_indexmanagers.catalogid = catalogs.id
-               AND NOT deleted
                AND name NOT LIKE "$consilio$deleted$*";
 
     IF (NOT RecordExists(catalog))
@@ -133,18 +129,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
     IF (catalog.type = whconstant_consilio_catalogtype_unmanaged)
       RETURN result; // Unmanaged index, nothing to do
-
-    // If rebuilding a specific index, check if it should be rebuilt completely (i.e. if it should be deleted first)
-    IF (options.rebuild)
-    {
-      IF (RecordExists(catalog) AND catalog.rebuild)
-      {
-        DeleteIndexManagerContentSource(catalog.indexmanager, catalog.id, 0);
-        EnsureIndexManagerIndex(catalog.id);
-        FOREVERY (INTEGER sourceid FROM SELECT AS INTEGER ARRAY id FROM consilio.contentsources WHERE catalogid = catalog.id AND contentsources.tag NOT LIKE "$consilio$deleted$*")
-          EnsureIndexManagerContentsource(catalog.id, sourceid);
-      }
-    }
   }
 
   IF (data.contentsourceid = 0)
@@ -186,7 +170,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                    AND catalog_indexmanagers.catalogid = catalogs.id
                                    AND (VAR data.indexid = 0
                                        OR catalogs.id = VAR data.indexid)
-                                   AND NOT deleted
                                    AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
@@ -1069,10 +1052,6 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
    WHERE status > 0
          AND id = VAR data.contentsourceid
          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-  UPDATE consilio.catalog_indexmanagers
-     SET rebuild := FALSE
-   WHERE catalogid = data.indexid
-     AND NOT deleted;
 
   RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
   IF (Length(commiterrors) > 0)

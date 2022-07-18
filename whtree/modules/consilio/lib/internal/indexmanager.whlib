@@ -1862,7 +1862,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
            , catalog_indexmanagers.indexname
            , indextype := catalogs.type
            , indexid := catalogs.id
-           , primary
+           , primary := catalog_indexmanagers.searchpriority > 0 //we should obsolete this but probably the entire GetIndexManagers API
         FROM consilio.indexmanagers
            , consilio.catalog_indexmanagers
            , consilio.catalogs
@@ -1872,8 +1872,8 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
              AND (options.withdeleted
                 ? TRUE
-                : (NOT deleted AND catalogs.name NOT LIKE "$consilio$deleted$*"))
-    ORDER BY primary DESC;
+                : (catalogs.name NOT LIKE "$consilio$deleted$*"))
+    ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 
 /** @short Find the indexmanager for an index
@@ -1901,7 +1901,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
            , catalog_indexmanagers.indexname
            , catalogs.lang
            , indextype := catalogs.type
-           , primary
+           , primary := catalog_indexmanagers.searchpriority > 0 //we should obsolete this but probably the entire GetIndexManagers API
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
            , consilio.indexmanagers
@@ -1911,8 +1911,8 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (options.withdeleted
                 ? TRUE
-                : (NOT deleted AND catalogs.name NOT LIKE "$consilio$deleted$*"))
-    ORDER BY primary DESC;
+                : (catalogs.name NOT LIKE "$consilio$deleted$*"))
+    ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 
 RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restrict, DATETIME searchdate, INTEGER numresults)

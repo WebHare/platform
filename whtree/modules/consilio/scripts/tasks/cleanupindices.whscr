@@ -35,7 +35,6 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
         SELECT catalogs.id
              , catalogs.name
              , catalogdeleted :=        name LIKE "$consilio$deleted$*"
-             , catalogindexdeleted :=   deleted
              , catalogindexid :=        catalog_indexmanagers.id
           FROM consilio.catalogs
              , consilio.catalog_indexmanagers
@@ -45,8 +44,8 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
            AND (indexrec.indexname = "" ? TRUE : indexname = indexrec.indexname);
 
     BOOLEAN none_found := IsDefaultValue(cats);
-    BOOLEAN any_active := RecordExists(SELECT FROM cats WHERE NOT catalogdeleted AND NOT catalogindexdeleted);
-    INTEGER ARRAY deleted_cis := SELECT AS INTEGER ARRAY id FROM cats WHERE catalogdeleted OR catalogindexdeleted;
+    BOOLEAN any_active := RecordExists(SELECT FROM cats WHERE NOT catalogdeleted);
+    INTEGER ARRAY deleted_cis := SELECT AS INTEGER ARRAY id FROM cats WHERE catalogdeleted;
 
     IF (none_found OR IsValueSet(deleted_cis))
     {

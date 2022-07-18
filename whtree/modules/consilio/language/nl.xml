@@ -132,7 +132,7 @@
       <text tid="indexmanager">Indexmanager</text>
       <text tid="indexname">Indexnaam</text>
       <text tid="invalidindexname">Invalide indexnaam. De naam moet beginnen met een letter en mag alleen bestaan uit de karakters 0-9 en a-z en een liggend streepje (_)</text>
-      <text tid="primary">Primaire index</text>
+      <text tid="searchpriority">Zoekprioriteit</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>

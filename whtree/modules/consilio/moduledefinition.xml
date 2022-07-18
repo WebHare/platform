@@ -161,21 +161,14 @@
           Index name in OpenSearch
         </d:documentation>
       </d:varchar>
-      <d:boolean name="primary">
+      <d:integer name="searchpriority">
         <d:documentation>
-          This is the primary index manager for this catalog (the catalog that will be searched)
+          The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
         </d:documentation>
-      </d:boolean>
-      <d:boolean name="rebuild">
-        <d:documentation>
-          The catalog should be rebuilt completely (its language or mapping has changed)
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="deleted">
-        <d:documentation>
-          The index should be deleted on the indexmanager
-        </d:documentation>
-      </d:boolean>
+      </d:integer>
+      <d:obsoletecolumn name="rebuild" />
+      <d:obsoletecolumn name="deleted" />
+      <d:obsoletecolumn name="primary" />
     </d:table>
 
     <d:table name="contentsources" primarykey="id">

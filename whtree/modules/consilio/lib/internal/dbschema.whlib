@@ -24,9 +24,7 @@ PUBLIC SCHEMA
     , INTEGER "catalogid" NULL := 0
     , INTEGER "indexmanager" NULL := 0
     , STRING "indexname"
-    , BOOLEAN "primary"
-    , BOOLEAN "rebuild"
-    , BOOLEAN "deleted"
+    , INTEGER "searchpriority"
     > catalog_indexmanagers
   , TABLE
     < INTEGER "id" NULL := 0

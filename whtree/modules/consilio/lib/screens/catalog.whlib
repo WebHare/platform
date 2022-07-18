@@ -528,8 +528,8 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       INTEGER catalog_indexmanager :=
           SELECT AS INTEGER indexmanager
             FROM consilio.catalog_indexmanagers
-           WHERE COLUMN catalogid = VAR catalog.id AND NOT deleted
-        ORDER BY primary DESC;
+           WHERE COLUMN catalogid = VAR catalog.id
+        ORDER BY searchpriority DESC;
 
       IF (catalog_indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
         catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
@@ -783,7 +783,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
                 , indexmanager_name := (SELECT AS STRING name FROM indexmanagers WHERE indexmanagers.id = attached.indexmanager)
                 , indexname
                 , size := -1
-                , primary
+                , primary := searchpriority > 0
              FROM this->catalog->ListAttachedIndices() AS attached;
   }
 
@@ -923,16 +923,16 @@ PUBLIC STATIC OBJECTTYPE EditCatalogIndex EXTEND TolliumScreenBase
       this->indexid := data.id;
       ^indexmanager->value := indexinfo.indexmanager;
       ^indexname->value := indexinfo.indexname;
-      ^primary->value := indexinfo.primary;
+      ^searchpriority->value := indexinfo.searchpriority;
 
       //no edit support yet
       ^indexmanager->enabled := FALSE;
       ^indexname->enabled := FALSE;
-      ^primary->enabled := FALSE;
+      ^searchpriority->enabled := FALSE;
     }
     ELSE //Adding
     {
-      ^primary->visible := FALSE; //can't set this (yet?)
+      ^searchpriority->visible := FALSE; //can't set this (yet?)
     }
   }
 

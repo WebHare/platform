@@ -288,9 +288,7 @@
     <body>
       <select name="indexmanager" type="pulldown" required="true" rowkeytype="integer" onchange="OnGotIndexManagerChange"/>
       <textedit name="indexname" width="1pr" />
-      <line layout="left">
-        <checkbox name="primary" title="" labeltid=".primary" />
-      </line>
+      <textedit name="searchpriority" maxlength="6" maxvalue="1000" minvalue="0" emptyvalue="0" valuetype="integer" />
     </body>
   </screen>
 
