@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -49,9 +50,9 @@ MACRO Prepare()
                 ], cat->ListAttachedIndices(), "*");
 
   cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE ]);
-  cat_index1_view->AttachIndex(0, [ indexname := testindex1.indexname ]);
+  cat_index1_view->AttachIndex(testindex1.indexmanager, [ indexname := testindex1.indexname ]);
   cat_index2_view := CreateConsilioCatalog("consilio:testfw_index2_view", [ managed := FALSE ]);
-  cat_index2_view->AttachIndex(0, [ indexname := testindex2.indexname ]);
+  cat_index2_view->AttachIndex(testindex2.indexmanager, [ indexname := testindex2.indexname ]);
 
   Print(`${cat->GetStorageInfo()}, ${cat_index1_view->GetStorageInfo()}, ${cat_index2_view->GetStorageInfo()}\n`);
   TestEq(testindex1.indexname, cat_index1_view->ListAttachedIndices()[0].indexname);
