@@ -17,6 +17,7 @@ LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEq,
                                        max_float_dev_in_recordarray,
                                        show_test_progress
                                        ;
+LOADLIB "mod::system/lib/resources.whlib";
 
 RECORD ARRAY FUNCTION DoCompile(STRING filename) __ATTRIBUTES__(EXTERNAL "wh_selfcompile");
 RECORD FUNCTION DoRun(STRING filename, STRING ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_selfcompile");
@@ -29,14 +30,8 @@ IF(whtree="")
 IF(whtree="")
   ABORT("WHTREE variable unset");
 
-PUBLIC STRING selftests_hsengine_tests_dir := CollapsePath(whtree || "/modules/webhare_testsuite/tests/baselibs/hsengine") || "/";
-IF (GetEnvironmentVariable("WEBHARE_IN_DOCKER") = "1")
-  selftests_hsengine_tests_dir := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "installedmodules/webhare_testsuite/tests/baselibs/hsengine") || "/";
-PUBLIC STRING selftests_whtree_dir := whtree;
-
 STRING compilefilename_whlib := GenerateTemporaryPathname() || ".whlib";
 STRING compilefilename_script := GenerateTemporaryPathname() || ".whscr";
-STRING testdata_basepath;
 
 
 // Standard libraries that will be included in all tests
@@ -45,8 +40,6 @@ STRING standard_loadlibs := "<?wh "
   || "LOADLIB \"wh::money.whlib\" __ATTRIBUTES__(USED);"
   || "LOADLIB \"wh::float.whlib\" __ATTRIBUTES__(USED);"
   || " ?>";
-
-SetTestDataDirectory(selftests_hsengine_tests_dir || "data/");
 
 /*****************************************
  * ContainsErrors, Returns if any errors are in a messages list
@@ -501,18 +494,7 @@ PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAUL
     ReportError(report || `Expected:\n${test}\nGot:\n${GetAnnotatedResults(test, compileerrors)}`, compileerrors, options.annotation);
 }
 
-PUBLIC MACRO SetTestDataDirectory(STRING testdatadir)
-{
-  IF(IsPathAbsolute(testdatadir))
-    testdata_basepath := testdatadir;
-  ELSE
-    testdata_basepath := CollapsePath(GetCurrentPath() || "/" || testdatadir);
-}
-PUBLIC STRING FUNCTION GetTestFilePath(STRING name)
-{
-  RETURN MergePath(testdata_basepath,name);
-}
 PUBLIC BLOB FUNCTION OpenTestFile(STRING name)
 {
-  RETURN GetDiskResource(GetTestFilePath(name));
+  RETURN GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/" || name);
 }

@@ -5,6 +5,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 
 RECORD result;
@@ -135,8 +136,8 @@ MACRO NoDirectLoadlibtest()
 
 MACRO TranslateLibraryPath()
 {
-  STRING whpath := MergePath(selftests_whtree_dir, "modules/system/whlibs/");
-  STRING whrespath := MergePath(selftests_whtree_dir, "modules/system/whres/");
+  STRING whpath := GetWebHareResourceDiskPath("mod::system/whlibs/");
+  STRING whrespath := GetWebHareResourceDiskPath("mod::system/whres/");
 
   TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(whpath || "/internal/formatter.whlib"));
   TestEq("whres::asn1/ldap.asn1", __HS_INTERNAL_TRANSLATELIBRARYPATH(whrespath || "/asn1/ldap.asn1"));

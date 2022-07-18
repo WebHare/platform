@@ -9,6 +9,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
+
 STRING cbresult := "";
 BOOLEAN cbtext := FALSE;
 
@@ -1701,7 +1703,7 @@ MACRO TestXXE()
 
   STRING xxe :=
 `<!DOCTYPE xxe [
-    <!ENTITY externalEntity SYSTEM "file://${GetTestFilePath("validation.xml")}">
+    <!ENTITY externalEntity SYSTEM "file://${GetWebHareResourceDiskPath(Resolve("data/validation.xml"))}">
 ]><attack>&externalEntity;</attack>`;
   dom := MakeXMLDocument(StringToBlob(xxe));
   TestEq('<!DOCTYPE xxe><attack></attack>', dom->outerxml); //entity is not really deccoded

@@ -346,7 +346,7 @@ MACRO MiscTest()
   TestEq(".txt", GetExtensionFromPath("/my/dir/.htaccess.txt"));
 
   //Test openining a nonexisting file
-  STRING testfile := selftests_hsengine_tests_dir || "does-not-exist.txt";
+  STRING testfile := "/tmp/does-not-exist-" || GenerateUFS128BitId();
   BLOB testblob := MakeBlobFromDiskfile(testfile);
 //  BLOB testblob := OpenTestFile("does-not-exist.txt");
   TestEq(0, Length(testblob));

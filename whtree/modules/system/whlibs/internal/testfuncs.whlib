@@ -9,6 +9,8 @@ LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
+
 STRING  test_prefix;      // Prefix used for generating test sites/users/folders etc
 STRING  test_name;        // Name of the current test
 BOOLEAN test_open;        // Is there an open test?
@@ -355,16 +357,16 @@ PUBLIC MACRO TestEqLike(STRING mask, STRING actual, STRING annotation DEFAULTSTO
   }
 }
 
-PUBLIC MACRO TestEqCanvas(STRING sourcepath, OBJECT gencanvas, FLOAT maxmse, STRING annotation DEFAULTSTO "")
+PUBLIC MACRO TestEqCanvas(STRING resource, OBJECT gencanvas, FLOAT maxmse, STRING annotation DEFAULTSTO "")
 {
   //ADDME Cache source versions between tests
-  OBJECT sourcecanvas := CreateCanvasFromBlob(GetDiskResource(sourcepath));
+  OBJECT sourcecanvas := CreateCanvasFromBlob(GetWebhareResource(resource));
 
   FLOAT mse := sourcecanvas->CompareWithCanvas(gencanvas);
   IF(mse <= maxmse)
     RETURN;
 
-  STRING basename := GetNameFromPath(sourcepath);
+  STRING basename := GetNameFromPath(resource);
 
   STRING basedir := GetTempDir();
   STRING basecopy := basedir || "/" || basename || ".ref.png";
@@ -373,7 +375,7 @@ PUBLIC MACRO TestEqCanvas(STRING sourcepath, OBJECT gencanvas, FLOAT maxmse, STR
   STRING diffnoalphacopy := basedir || "/" || basename || ".gen.diff-noalpha.png";
 
   StoreDiskFile(gencopy, gencanvas->ExportAsPNG(FALSE));
-  StoreDiskFile(basecopy, GetDiskResource(sourcepath));
+  StoreDiskFile(basecopy, GetWebhareResource(resource));
 
   //create a difference version
   gencanvas->blendmode := "DIFFERENCEALL";
@@ -388,7 +390,7 @@ PUBLIC MACRO TestEqCanvas(STRING sourcepath, OBJECT gencanvas, FLOAT maxmse, STR
 
   Print("\n");
   Print("Image compare failed. MSE = " || FormatFloat(mse,2) || ", maximum = " || FormatFloat(maxmse,2) || "\n");
-  Print("Reference version:  " || sourcepath || "\n");
+  Print("Reference version:  " || resource || "\n");
   Print("Generated version:  " || gencopy || "\n");
   Print("Difference w/alpha: " || diffcopy || "\n");
   Print("Difference opaque:  " || diffnoalphacopy || "\n");

@@ -516,20 +516,18 @@ HERE
       version=$version"
   fi
 
-  if [ -n "$ISMODULETEST" ]; then
-    echo "`date` fixup/chown modules (npm etc)"
-    if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
-      die "chown modules failed"
-    fi
+  echo "$(date) fixup/chown modules (npm etc)"
+  if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
+    die "chown modules failed"
+  fi
 
-    if version_gte $version 4.35 ; then
-      if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlyinstalledmodules ; then
-        testfail "wh fixmodules failed"
-      fi
-    else
-      if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlybroken --onlymodules ; then
-        testfail "wh fixmodules failed"
-      fi
+  if version_gte "$version" 4.35 ; then
+    if ! $SUDO docker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
+      testfail "wh fixmodules failed"
+    fi
+  else
+    if ! $SUDO docker exec "$CONTAINERID" wh fixmodules --onlybroken --onlymodules ; then
+      testfail "wh fixmodules failed"
     fi
   fi
 }
@@ -542,18 +540,20 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
-echo "`date` Wait for poststartdone container1"
-if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
+echo "$(date) Wait for poststartdone container1"
+if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
   testfail "Wait for poststartdone container1 failed"
   FATALERROR=1
 fi
+echo "$(date) container1 poststartdone"
 
 if [ -n "$TESTFW_TWOHARES" ]; then
-  echo "`date` Wait for poststartdone container2"
-  if ! $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor --timeout 600 poststartdone ; then
+  echo "$(date) Wait for poststartdone container2"
+  if ! $SUDO docker exec "$TESTENV_CONTAINER2" wh waitfor --timeout 600 poststartdone ; then
     testfail "Wait for poststartdone container2 failed"
     FATALERROR=1
   fi
+  echo "$(date) container2 poststartdone"
 fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
@@ -563,12 +563,12 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module"
     # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --filemask '*' --color $TESTINGMODULENAME ; then
+    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule --filemask '*' --color "$TESTINGMODULENAME" ; then
       testfail "wh checkmodule failed"
     fi
 
     echo "$(date) System-wide check (eg against siteprofile inconsistencies)"
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkwebhare ; then
+    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkwebhare ; then
       testfail "wh checkwebhare failed"
     fi
   fi
