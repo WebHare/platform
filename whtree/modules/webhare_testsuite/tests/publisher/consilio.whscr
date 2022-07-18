@@ -25,8 +25,7 @@ MACRO ConsilioTest()
   OBJECT contentsource_2 := catalog_2->AddPublisherContentSource(subfolder->id);
   testfw->CommitWork();
 
-  Print(`${catalog_1->tag} (${catalog_1->id}) => ${catalog_1->indexname}\n`);
-  Print(`${catalog_2->tag} (${catalog_2->id}) => ${catalog_2->indexname}\n`);
+  Print(catalog_1->GetStorageInfo() || ", " || catalog_2->GetStorageInfo() || "\n");
 
   testfw->BeginWork();
 

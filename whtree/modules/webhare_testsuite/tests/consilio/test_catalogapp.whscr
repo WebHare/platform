@@ -1,0 +1,68 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+
+OBJECT cat;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+  cat := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(TRUE, ObjectExists(cat), `Catalog "webhare_testsuite:testindex" should exist`);
+  FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
+    cat->DetachIndex(toremove.id);
+  cat->AttachIndex(0);
+  cat->AttachIndex(0);
+  //TODO work with suffixes too
+  //TODO set up a managed catalog and set up some contentsources
+  testfw->CommitWork();
+
+  Print(cat->GetStorageInfo() || "\n");
+
+  cat->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
+  cat->AddObjects([[ objectid := "test1"
+                   , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
+                  ]],[ suffix := "sub1", synchronous := TRUE ]);
+}
+
+ASYNC MACRO TestCatalogApp()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("consilio:config"));
+  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testindex";
+  TestEq(TRUE, RecordExists(TT("catalogs")->selection));
+
+  AWAIT ExpectScreenChange(+1, PTR TT("catalogs")->openaction->TolliumClick);
+  TestEq(2, Length(TT("attachedindices")->rows));
+  INTEGER ARRAY currows := SELECT AS INTEGER ARRAY rowkey FROM TT("attachedindices")->rows;
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("attachedindices->add"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq(3, Length(TT("attachedindices")->rows));
+  //ensure a new row was selected
+  TestEq(TRUE, TT("attachedindices")->value != 0);
+  TestEq(TRUE, TT("attachedindices")->value NOT IN currows);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("attachedindices->edit"));
+  TestEq(TRUE, TT("indexname")->value != "");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok") );
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("attachedindices->delete"));
+  TestEq(2, Length(TT("attachedindices")->rows));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+RunTestframework(
+    [ PTR Prepare
+    , PTR TestCatalogApp
+    ],
+    [ testusers :=
+        [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+        ]
+    ]);

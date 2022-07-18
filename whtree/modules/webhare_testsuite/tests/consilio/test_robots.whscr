@@ -15,7 +15,7 @@ MACRO TestHTMLIndexing()
   // First page has robots "index, follow" -> both pages should be indexed
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots");
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+  Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id, [ enabled := FALSE ]); //disable it so we can manually control the frontend (and can avoid WaitIndexDone etc) without risking conflicting/duplicate index actions

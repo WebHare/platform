@@ -1101,3 +1101,23 @@ RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
   }
   RETURN decoded;
 }
+
+PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndexSuffixes(INTEGER indexmanager, STRING forindexname)
+{
+  RECORD response := SendToElasticsearch(indexmanager, "", "/_cat/indices/?format=json&bytes=b", DEFAULT RECORD, "GET", [throwonfailure := TRUE]);
+  RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
+
+  // Unmanaged indices may have a suffix: <indexname>-<suffix>
+  indexlist := SELECT TEMPORARY toks := Tokenize(indexlist."index",'-')
+                    , indexname := toks[0]
+                    , suffix := Length(toks) > 1 ? toks[1] : ""
+                    , health
+                    , status
+                    , docs := ToInteger(indexlist."docs.count", 0)
+                    , size := ToInteger(indexlist."pri.store.size", 0)
+                 FROM indexlist
+                WHERE indexlist."index" LIKE VAR forindexname || "-*"
+                      OR indexlist."index" = VAR forindexname;
+
+  RETURN SELECT suffix FROM indexlist; //TODO more columns..
+}

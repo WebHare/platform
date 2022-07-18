@@ -69,14 +69,14 @@ MACRO TestSubpageIndexing()
   testfw->BeginWork();
 
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_subpages", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
-  Print(`${catalog->tag} (${catalog->id}) => ${catalog->indexname}\n`);
+  Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT csource := catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ definedby := "consilio.test_pagelists" ]);
 
   testfw->CommitWork();
 
   // Clear the index
-  catalog->ReindexCatalog([ rebuild := TRUE ]);
+  catalog->ReindexCatalog(); //don't rebuild := TRUE .. this destroys mappings ... https://gitlab.webhare.com/webharebv/codekloppers/-/issues/555
   csource->WaitForIndexingDone();
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;

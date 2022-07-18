@@ -14,7 +14,7 @@ LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/consilio.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection, __indexmanager_debugall;
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection;
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
 LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
@@ -141,7 +141,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 
 /** @short Get a list of indices from an indexmanager
     @param indexmgrid The id of the indexmanager
-    @cell options.indexsuffixes Return the suffixes of the index with this ID
     @return The result
     @cell(string) return.status The result status
     @cell(integer array) return.indices The list of index id's known by this
@@ -151,17 +150,15 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ indexsuffixes := 0
+      [ withdeleted := FALSE
       ], options);
 
   RECORD result :=
       [ status := SearchIndexNotFound
       , indices := DEFAULT RECORD ARRAY
-      , suffixes := DEFAULT STRING ARRAY
-      , statuses := DEFAULT RECORD ARRAY
       ];
 
-  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
+  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid, CELL[ options.withdeleted ]);
   RECORD indexmanager := indexmanagers;
   IF (RecordExists(indexmanager))
   {
@@ -170,7 +167,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
       CASE whconstant_consilio_indexmanager_legacybackend
       {
         // No support for unmanaged indices
-        IF (options.indexsuffixes = 0)
+        //IF (options.indexsuffixes = "") but this option no longer exists anyway
         {
           RECORD response := SendToConsilio(indexmanager.id, 0, "/indexlist", DEFAULT RECORD ARRAY, "POST");
           result.status := response.status;
@@ -195,62 +192,35 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
         IF (response.status = SearchOk)
         {
           //Find the indices we were expecting here
-          RECORD ARRAY matchagainst := SELECT * FROM indexmanagers WHERE indexname != "";
-
           RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
+          //fix counters which are sometimes 0s or strings...
+          indexlist := EnforceStructure([[ "docs.count" := 0i64
+                                         , "pri.store.size" := 0i64
+                                         ]
+                                        ], indexlist);
 
           // Unmanaged indices may have a suffix: <indexname>-<suffix>
-          indexlist := SELECT *
-                            , indexname := indexlist."index"
-                            , matchindex := (SELECT *
-                                               FROM indexmanagers
-                                              WHERE indexlist."index" = indexname
-                                                    OR indexlist."index" LIKE indexname || "-*")
-                         FROM indexlist;
-
-          indexlist := SELECT indexid := matchindex.indexid
-                            , suffix := Substring(indexname, Length(matchindex.indexname)+1)
+          indexlist := SELECT TEMPORARY toks := Tokenize(indexlist."index",'-')
+                            , indexname := toks[0]
+                            , suffix := Length(toks) > 1 ? toks[1] : ""
                             , health
                             , status
-                            , docs := ToInteger(indexlist."docs.count", 0)
-                            , size := ToInteger(indexlist."pri.store.size", 0)
-                            , indexname
-                         FROM indexlist
-                        WHERE RecordExists(matchindex);
+                            , docs := indexlist."docs.count"
+                            , size := indexlist."pri.store.size"
+                            , indexid := (SELECT AS INTEGER indexid FROM indexmanagers WHERE indexname = toks[0])
+                         FROM indexlist;
 
-          IF (options.indexsuffixes != 0)
-          {
-            result.statuses :=
-                SELECT suffix
-                     , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
-                     , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
-                     , docs := Sum(docs)
-                     , size := Sum(size)
-                  FROM indexlist
-                 WHERE indexid = options.indexsuffixes
-                 GROUP BY suffix;
-            result.suffixes :=
-                SELECT AS STRING ARRAY suffix
-                  FROM result.statuses;
-          }
-          ELSE
-          {
-            result.statuses :=
-                SELECT indexid
-                     , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
-                     , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
-                     , docs := Sum(docs)
-                     , size := Sum(size)
-                     , indexnames := GroupedValues(indexname)
-                  FROM indexlist
-                 WHERE indexid != 0
-              GROUP BY indexid;
+          indexlist :=
+              SELECT health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
+                   , status := PickFirst(SELECT AS STRING ARRAY status FROM GroupedValues(indexlist) ORDER BY SearchElement([ "close", "open" ], status))
+                   , docs := Sum(docs)
+                   , size := Sum(size)
+                   , indexname
+                   , indexid := ANY(indexid)
+                FROM indexlist
+            GROUP BY indexname;
 
-            FOREVERY (RECORD rec FROM result.statuses)
-              FOREVERY (STRING indexname FROM rec.indexnames)
-                INSERT CELL[ rec.indexid, indexname ] INTO result.indices AT END;
-            result.indices := SELECT * FROM result.indices ORDER BY indexid, indexname;
-          }
+          result.indices := SELECT indexid, indexname FROM indexlist ORDER BY indexid, indexname;
         }
       }
     }
@@ -1698,13 +1668,13 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   RECORD result := [ status := SearchUnavailable
                    , deleted := 0
                    ];
-
   RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid, [ withdeleted := TRUE ]) : GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
-
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                   EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
+                                  EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
 
+  /* TODO this approach really just returns the *last* deletion status, and may (re)delete multiple indices if already marked
+     as deletion. This looping should probably happen in the catalog api */
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     IF ((indexmgrid != 0 AND indexmanager.id != indexmgrid) OR indexid = 0)

@@ -1,6 +1,8 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
@@ -8,102 +10,145 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-
-STRING testindex_indexname;
+STRING ARRAY testcatalogs := [ "webhare_testsuite:testindex"
+                             , "webhare_testsuite:module_reference"
+                             , "webhare_testsuite:duplicate_fieldnames"
+                             , "webhare_testsuite:circular_index_direct"
+                             , "webhare_testsuite:circular_index_indirect"
+                             , "webhare_testsuite:circular_module_reference"
+                             ];
+RECORD testindex;
+RECORD builtin_opensearch;
 
 MACRO Prepare()
 {
-  // Ensure it doesn't exist in ES ... we'll do a raw action
-  TestEq(TRUE, GetBuiltinElasticSearchId() != 0, "Must have a builtin ES configured!");
+  IF(GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "")
+    Print(`Note that moduleindices explicitly runs against OpenSearch even when legacy indexmanager is thhe default\n`);
+
+  TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
+  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+
+  //Verify the found opensearch url is correct
+  TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
+  TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
 
   testfw->BeginWork();
-  OBJECT testindex := OpenConsilioCatalog("webhare_testsuite:testindex");
-  testindex->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
-  OpenConsilioCatalog("webhare_testsuite:module_reference")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
-  OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
-  OpenConsilioCatalog("webhare_testsuite:circular_index_direct")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
-  OpenConsilioCatalog("webhare_testsuite:circular_index_indirect")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
-  OpenConsilioCatalog("webhare_testsuite:circular_module_reference")->UpdateCatalog([ indexmanager := GetBuiltinElasticSearchId() ]);
+
+  //Verify and cleanup from any previously (aborted)? testrun
+  FOREVERY(STRING usedcatalog FROM testcatalogs)
+  {
+    OBJECT cat := OpenConsilioCatalog(usedcatalog);
+    TestEq(TRUE, ObjectExists(cat), `Catalog "${usedcatalog}" should exist`);
+    FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
+      cat->DetachIndex(toremove.id);
+    TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${usedcatalog}" should have all attachments removed after initial cleanup`);
+  }
+
   testfw->CommitWork();
 
-  testindex_indexname := (SELECT AS STRING indexname FROM consilio.catalog_indexmanagers WHERE catalogid = testindex->id);
-}
+  FixConsilioIndices();
 
+  //Attach them
+  testfw->BeginWork();
+  FOREVERY(STRING usedcatalog FROM testcatalogs)
+  {
+    OBJECT cat := OpenConsilioCatalog(usedcatalog);
+    TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${usedcatalog}" should not start with any initially attached indices`);
+    TestThrowsLike("Unexpected *INDEXMANAGER*", PTR cat->UpdateCatalog([ indexmanager := builtin_opensearch.id]), "Old API has been dropped");
+
+    INTEGER index1id := cat->AttachIndex(builtin_opensearch.id);
+    IF(#usedcatalog = 0) //we'll use testindex for some further tests
+    {
+      testindex := cat->ListAttachedIndices()[0];
+      TestEqLike("c_??*", testindex.indexname, "test for properly structured builtin indexname");
+
+      TestEqMembers([[ id := index1id
+                     , indexmanager := builtin_opensearch.id
+                     , type := "opensearch"
+                     , primary := TRUE
+                     , indexname := testindex.indexname
+                     ]
+                    ], cat->ListAttachedIndices(), "*");
+    }
+
+    Print(cat->GetStorageInfo()||"\n");
+  }
+  testfw->CommitWork();
+}
 
 MACRO TestESCreationAPIs()
 {
-  __indexmanager_debugall := TRUE;
-  //__webbrowser_debugall := TRUE;
-
-  // Ensure it doesn't exist in ES ... we'll do a raw action
-  TestEq(TRUE, GetBuiltinElasticSearchId() != 0, "Must have a builtin ES configured!");
-
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
 
-  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex_indexname}*`, DEFAULT RECORD);
+  testfw->BeginWork();
+  TestThrowsLike("No such indexmanager*", PTR catalog->AttachIndex(9999999));
+
+  //we'll be rolling back this externalindex, just testing the API.
+  INTEGER mock_external_index := MakeAutonumber(consilio.indexmanagers, "id");
+  INSERT CELL[ id := mock_external_index
+             , address := builtin_opensearch.url
+             , type := whconstant_consilio_indexmanager_opensearch
+             , name := "mock_external_index"
+             ] INTO consilio.indexmanagers;
+  TestThrowsLike("*indexname*required*", PTR catalog->AttachIndex(mock_external_index));
+  TestThrowsLike("*indexname*lowercase*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "_U" ]));
+  TestThrowsLike("*Invalid*indexname*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "-u" ]));
+  catalog->AttachIndex(mock_external_index, [ indexname := "dummyname" ]);
+
+  testfw->RollbackWork();
+
+  // Ensure it doesn't exist in ES ... we'll do a raw action
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
 
   // EnsureIt still doesn't exist on the index manager
-  RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
+  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
   // Try the low level API first. Make sure it does exist
   catalog->EnsureIndex();
-  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
-  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `/${testindex_indexname}/_mapping`, DEFAULT RECORD);
+  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `/${testindex.indexname}/_mapping`, DEFAULT RECORD);
   //dumpvalue(checkindex,'tree');
-  TestEq("keyword", GetCell(checkindex.result, testindex_indexname).mappings.properties.keyword.type);
-  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_indexname).mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
+  TestEq("keyword", GetCell(checkindex.result, testindex.indexname).mappings.properties.keyword.type);
+  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex.indexname).mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
   catalog->EnsureIndex(); //calling twice should be okay, it's "Ensure" not "Create"
 
   // Delete it again from the index manager
   catalog->DeleteIndex();
-  result := GetIndexManagerIndexList(catalog->indexmanager.id);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  result := GetIndexManagerIndexList(testindex.indexmanager);
+  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
   // Create a subindex
   catalog->EnsureIndex([suffix := "suffix"]);
-  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(TRUE, "suffix" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
 
-  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(),  "GET", `/${testindex_indexname}-suffix/_mapping`, DEFAULT RECORD);
+  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(),  "GET", `/${testindex.indexname}-suffix/_mapping`, DEFAULT RECORD);
   //dumpvalue(checkindex,'tree');
-  TestEq("keyword", GetCell(checkindex.result, testindex_indexname || "-suffix").mappings.properties.keyword.type);
+  TestEq("keyword", GetCell(checkindex.result, testindex.indexname || "-suffix").mappings.properties.keyword.type);
 
   catalog->EnsureIndex([suffix := "suffix"]); //calling twice should be okay, it's "Ensure" not "Create"
 
   // Delete it again from the index manager
   catalog->DeleteIndex();
-  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(FALSE, "suffix" IN result.suffixes);
   TestEq(RECORD[], catalog->ListSuffixes());
 
   // Create two subindices
   catalog->EnsureIndex([ suffix := "suffix1" ] );
   catalog->EnsureIndex([ suffix := "suffix2" ] );
-  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(2, Length(result.suffixes));
-  TestEq(TRUE, "suffix1" IN result.suffixes);
-  TestEq(TRUE, "suffix2" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix1" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // Delete one of the subindices
   catalog->DeleteIndex([ suffix := "suffix1" ]);
-  result := GetIndexManagerIndexList(catalog->indexmanager.id, [ indexsuffixes := catalog->id ]);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-  TestEq(1, Length(result.suffixes));
-  TestEq(FALSE, "suffix1" IN result.suffixes);
-  TestEq(TRUE, "suffix2" IN result.suffixes);
   TestEq(RECORD[[ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // We should be able open to the catalog
@@ -111,47 +156,47 @@ MACRO TestESCreationAPIs()
   TestEq(TRUE, ObjectExists(catalog));
 
   // It still doesn't exist on the index manager
-  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Make sure it does exist
   catalog->EnsureIndex();
-  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Delete it again from the index manager
   catalog->DeleteIndex();
-  result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLIKE("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
 }
 
 MACRO TestESBulkInsertion()
 {
   // Ensure index doesn't exist in ES ... we'll do a raw action
-  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex_indexname}*`, DEFAULT RECORD);
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
 
   // Make sure it's indeed nonexistent
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   TestEq(TRUE, ObjectExists(catalog));
-  RECORD result := GetIndexManagerIndexList(catalog->indexmanager.id);
+  RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   //Offering an undeclared cell must fail (this tests ES error handling, if we start catching errors earlier we might need something else or a raw mode to explicitly trigger ES error handling)
@@ -400,9 +445,9 @@ MACRO TestESBulkInsertion()
       ],[ suffix := "sub1" ]);
 
   //Verify ds_Text's mapping
-  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `${testindex_indexname}-sub1/_mapping`, DEFAULT RECORD);
-  TestEq("keyword", GetCell(checkindex.result, testindex_indexname || "-sub1").mappings.properties.group_record_field.properties.ds_text.type);
-  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
+  RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `${testindex.indexname}-sub1/_mapping`, DEFAULT RECORD);
+  TestEq("keyword", GetCell(checkindex.result, testindex.indexname || "-sub1").mappings.properties.group_record_field.properties.ds_text.type);
+  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
   // Throw some objects into a suffix. We want the index to sort it out
   RECORD ARRAY docs;
@@ -430,8 +475,8 @@ MACRO TestESBulkInsertion()
                             ]);
 
   //Verify subindex was properly ensured
-  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `${testindex_indexname}-sub2/_mapping`, DEFAULT RECORD);
-  TestEq("keyword", GetCell(checkindex.result, testindex_indexname || "-sub2").mappings.properties.keyword.type);
+  checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", `${testindex.indexname}-sub2/_mapping`, DEFAULT RECORD);
+  TestEq("keyword", GetCell(checkindex.result, testindex.indexname || "-sub2").mappings.properties.keyword.type);
 
   res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
   //dumpvalue(res,'tree');
@@ -446,7 +491,7 @@ MACRO TestESBulkInsertion()
 MACRO TestESLangFeatures()
 {
   // Recreate the index
-  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex_indexname}*`, DEFAULT RECORD);
+  SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   catalog->EnsureIndex();
 

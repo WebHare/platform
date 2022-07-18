@@ -26,6 +26,7 @@
     </textgroup>
     <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
       <text tid="allindexmanagersadded">All indexmanagers zijn al toegevoegd</text>
+      <text tid="confirmdeleteindex">Weet je zeker dat je deze index wil ontkoppelen?</text>
       <text tid="debuglevel">Logniveau catalogus</text>
       <text tid="debuglevel-0">Alleen fouten</text>
       <text tid="debuglevel-1">Overgeslagen documenten</text>

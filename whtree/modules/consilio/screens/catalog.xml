@@ -34,7 +34,6 @@
       <action name="showerrors" onexecute="doshowerrors">
         <enableon source="catalogs" min="1" max="1" checkflags="haserrors" />
       </action>
-      <action name="addcatalog" onexecute="doaddcatalog" shortcut="ctrl+shift+n" frameflags="ismanager" />
       <action name="addcontentsource" onexecute="doaddcontentsource" shortcut="ctrl+alt+n">
         <enableon source="catalogs" min="1" max="1" checkflags="standardcatalog !readonly manageable" />
       </action>
@@ -73,7 +72,6 @@
     <menus>
       <menu name="mainmenu">
         <item tid=".catalog">
-          <item action="addcatalog" disablemode="hidden" />
           <item action="addcontentsource" name="addcontentsource_menu" tid=".addcontentsource" />
           <divider />
           <item action="edititem" name="edititem_menu" tid=".edititem" />
@@ -97,7 +95,6 @@
         <item action="exit" disablemode="hidden" />
       </menu>
       <menu name="addmenu">
-        <item action="addcatalog" />
         <item action="addcontentsource" />
       </menu>
       <menu name="contextmenu">
@@ -270,17 +267,17 @@
         <option rowkey="1" tid=".type-module" />
       </select>
       <heading tid=".indexmanagers" />
-      <arrayedit name="indexmanagers"
+      <listedit name="attachedindices"
                  onrowedit="GotIndexManagerRowEdit"
-                 onmaprows="MapIndexManagerRows"
+                 onrowdelete="GotIndexManagerRowDelete"
+                 ongetrows="GetAttachedIndices"
                  highlightname="primary"
                  height="1pr"
-                 errorlabeltid=".indexmanagers"
                  >
         <column name="indexmanager_name" type="text" />
         <column name="indexname" type="text" />
-        <column name="size" type="integer" align="right" width="10x" />
-      </arrayedit>
+        <column name="size" type="integer" align="right" width="10x" emptyvalue="-1"/>
+      </listedit>
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel"/>
@@ -288,14 +285,11 @@
   </screen>
 
   <screen name="editcatalogindex" gid=".editcatalogindex" footerbuttons="ok cancel">
-    <compositions>
-      <record name="row" />
-    </compositions>
     <body>
-      <select composition="row" cellname="indexmanager" name="indexmanager" type="pulldown" required="true" rowkeytype="integer" onchange="GotIndexManagerSelect" />
-      <textedit composition="row" cellname="indexname" width="1pr" required="true" />
+      <select name="indexmanager" type="pulldown" required="true" rowkeytype="integer" onchange="OnGotIndexManagerChange"/>
+      <textedit name="indexname" width="1pr" />
       <line layout="left">
-        <checkbox composition="row" cellname="primary" title="" labeltid=".primary" />
+        <checkbox name="primary" title="" labeltid=".primary" />
       </line>
     </body>
   </screen>

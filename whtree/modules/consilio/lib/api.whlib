@@ -4,6 +4,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -21,6 +22,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
@@ -69,6 +71,13 @@ PUBLISHER SEARCH FIELDS
 
 INTEGER modecheck;
 
+//Is this a valid indexname for use in Consilio?
+PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
+{
+  //We want to reserve '-' to detect suffixes, reserve names starting with _ and . for internal/dashboard stuff, and just limit names further to be on the safe side
+  //48 is an estimate of what appeared to be reasonable
+  RETURN NEW Regex("^[a-z][_a-z0-9]*$")->Test(name) AND Length(name) < 48;
+}
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
         type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means
@@ -477,6 +486,21 @@ RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
                 AND tag NOT LIKE "$consilio$deleted$*"
        ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match
 
+}
+
+/** @short List configured index managers
+    @cell (string) return.type Index type: 'opensearch'
+    @cell (string) return.url URL to connect to the server */
+PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
+{
+  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "";
+  RETURN SELECT id
+              , type := type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
+              , isbuiltin := address IN ["builtin","builtin-opensearch"]
+              , isdefault := address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch")
+              , name
+              , url := address = "builtin" ? "" : address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
+           FROM consilio.indexmanagers;
 }
 
 /** @short Look up the 'best' catalog for a folder/site
@@ -1060,62 +1084,32 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 
-  /** Index manager of this catalog
-      @cell id Id of the indexmanager
-      @cell name Name of the indexmanager
-      @cell type Type of the indexmanager (1: Consilio, 2: OpenSearch)
-      @deprecated Use indexmanagers, this property only gives back the first indexmanager
-  */
-  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
-
-  /** List of indices for this catalog. First returned record is the primary index
-      @cell(string) indexname Name of the index on the indexmanager
-      @cell(integer) indexmanager Id of the indexmanager
-      @cell(string) indexmanager_name Name of the indexmanager
-      @cell(integer) indexmanager_type Type of the indexmanager (1: Consilio, 2: OpenSearch)
-      @cell(boolean) primary Whether this is the primary catalogindex
-  */
-  PUBLIC PROPERTY catalogindices(GetCatalogIndices, -);
-
-  /** Name of the index on the index manager (OpenSearch only). Deprecated: use the property 'indexmanagers',
-      this property only gives back data for the the first indexmanager
-  */
-  PUBLIC PROPERTY indexname(GetIndexName, -);
-
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
   }
 
-  RECORD FUNCTION GetIndexManager()
+  /** List of indices for this catalog. First returned record is the primary index
+      @cell(integer) id ID (for update and delete)
+      @cell(string) indexname Name of the index on the indexmanager
+      @cell(integer) indexmanager Id of the indexmanager
+      @cell(string) type Type of the indexmanager (opensearch)
+      @cell(boolean) primary Whether this is the primary catalogindex
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListAttachedIndices()
   {
     RETURN
-        SELECT id :=    indexmanager
-             , name :=  indexmanager_name
-             , type :=  indexmanager_type
-          FROM this->GetCatalogIndices()
-      ORDER BY indexmanager;
-  }
-
-  RECORD ARRAY FUNCTION GetCatalogIndices()
-  {
-    RETURN
-        SELECT indexmanager :=        indexmanagers.id
-             , indexmanager_name :=   indexmanagers.name
-             , indexmanager_type :=   indexmanagers.type
+        SELECT catalog_indexmanagers.id
              , catalog_indexmanagers.indexname
-             , catalog_indexmanagers.primary
+             , catalog_indexmanagers.primary //FIXME under discussion, perhaps searchpriority or searchorder? don't rely on this yet...
+             , indexmanager :=        indexmanagers.id
+             , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
          WHERE catalog_indexmanagers.catalogid = this->catalog.id
                AND indexmanagers.id = catalog_indexmanagers.indexmanager
                AND NOT deleted
-      ORDER BY NOT primary;
-  }
-
-  STRING FUNCTION GetIndexName()
-  {
-    RETURN SELECT AS STRING indexname FROM this->GetCatalogIndices();
+      ORDER BY primary DESC;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -1123,10 +1117,81 @@ STATIC OBJECTTYPE Catalog
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
   }
 
+  /** Describe how the catalog is stored. Useful for debugging
+      @return Storage info, will not contain linefeeds but should be considered free form (so we can extend/modify it later) */
+  PUBLIC STRING FUNCTION GetStorageInfo()
+  {
+    STRING ARRAY storage;
+    FOREVERY(RECORD attachedindex FROM this->ListAttachedIndices())
+      INSERT attachedindex.indexname INTO storage AT END;
+
+    IF(Length(storage) >= 1)
+      RETURN `${this->tag} => (${Detokenize(storage,', ')})`;
+    ELSE
+      RETURN `${this->tag} => (unattached)`;
+  }
+
   /// Explicitly refresh. You'll sometimes need this to ensure visibility of recent index changes
   PUBLIC MACRO Refresh()
   {
-    RefreshIndexManager(this->indexmanager.id, this->id);
+    //TODO cache these ids... they won't change that often..
+    //TODO suffixes? or just always attach a wildcard? or should the caller ghive us the suffix(es) to  refresh?
+    FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE type = "opensearch")
+      RefreshIndexManager(opensearch.indexmanager, this->id);
+  }
+
+  /** Attach an index (backing store) to a catalog
+      @parmm indexmanager Index manager to use. Use 0 for the builtin index manager
+      @cell(string) options.indexname Index name
+      @return ID of the newly attached index*/
+  PUBLIC INTEGER FUNCTION AttachIndex(INTEGER indexmanager, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ indexname := "" ], options);
+    RECORD usemgr := SELECT * FROM ListIndexManagers() WHERE VAR indexmanager = 0 ? isdefault : id = VAR indexmanager;
+    IF(NOT RecordExists(usemgr))
+      THROW NEW Exception(indexmanager != 0 ? `No such indexmanager #${indexmanager}` : "No default indexmanager configured");
+
+    IF(options.indexname = "")
+    {
+      IF(usemgr.isbuiltin)
+        options.indexname := __GenerateIndexName();
+      ELSE
+        THROW NEW Exception(`An indexname is required when using an external indexmanager`);
+    }
+
+    //OpenSearch requires lowercasen names;
+    IF(options.indexname != ToLowercase(options.indexname))
+      THROW NEW Exception(`An indexname must be lowercase`);
+    IF(NOT IsValidConsilioIndexName(options.indexname))
+      THROW NEW Exception(`Invalid indexname '${options.indexname}'`);
+
+    INTEGER newid := MakeAutonumber(consilio.catalog_indexmanagers, "id");
+    INSERT CELL[ id := newid
+               , catalogid :=    this->id
+               , indexmanager := usemgr.id
+               , options.indexname
+               , primary := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id AND NOT deleted) = 0
+               , rebuild :=      TRUE
+               ] INTO consilio.catalog_indexmanagers;
+
+    // Ensure the indexes are created at the indexmanagers
+    IF (this->ismanaged)
+      EnsureIndexManagerIndex(this->id);
+
+    RETURN newid;
+  }
+
+  PUBLIC MACRO DetachIndex(INTEGER indexid)
+  {
+    RECORD todelete := SELECT * FROM consilio.catalog_indexmanagers WHERE id = indexid AND catalogid = this->id;
+    IF(NOT RecordExists(todelete))
+      THROW NEW Exception(`No such attached index #${indexid}`);
+
+    UPDATE consilio.catalog_indexmanagers
+       SET deleted := TRUE
+     WHERE id = VAR indexid;
+
+    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP (TODO only for builtin indexmanagers?)
   }
 
   /** Update catalog settings
@@ -1137,8 +1202,6 @@ STATIC OBJECTTYPE Catalog
   {
     settings := ValidateOptions([ definedby := ""
                                 , lang := ""
-                                , indexmanager := 0
-                                , indexmanagers := RECORD[]
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
@@ -1150,94 +1213,10 @@ STATIC OBJECTTYPE Catalog
     IF (language_changed AND this->ismanaged)
       INSERT CELL rebuild := TRUE INTO catalog_index_updates;
 
-    UPDATE consilio.catalogs SET RECORD CELL[ ...settings, DELETE indexmanager, DELETE indexmanagers ] WHERE id = this->id;
-
-    IF (CellExists(settings, "indexmanager"))
-    {
-      IF (CellExists(settings, "indexmanagers"))
-        THROW NEW Exception(`Specifying both "indexmanager" and "indexmanagers" is not allowed`);
-      IF (settings.indexmanager != (RecordExists(this->indexmanager) ? this->indexmanager.id : 0))
-      {
-        IF (settings.indexmanager = 0)
-          DELETE FROM consilio.catalog_indexmanagers WHERE catalogid = this->id;
-        ELSE IF (NOT RecordExists(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id AND NOT deleted))
-          INSERT CELL[ catalogid := this->id, settings.indexmanager, indexname := __GenerateIndexName(), primary := TRUE ] INTO consilio.catalog_indexmanagers;
-        ELSE
-        {
-          INTEGER ARRAY current := SELECT AS INTEGER ARRAY id FROM consilio.catalog_indexmanagers WHERE catalogid = this->id AND NOT deleted;
-          IF (LENGTH(current) > 1)
-            THROW NEW Exception(`Cannot update multiple indexmanagers using 'indexmanager'`);
-
-          UPDATE consilio.catalog_indexmanagers SET indexmanager := settings.indexmanager WHERE catalogid = this->id AND NOT deleted;
-        }
-      }
-    }
-    ELSE IF (CellExists(settings, "indexmanagers"))
-    {
-      RECORD ARRAY indexmanagers :=
-          SELECT AS RECORD ARRAY ValidateOptions(
-                    [ indexmanager :=   0
-                    , indexname :=      ""
-                    , primary :=        FALSE
-                    ], indexmanagers)
-            FROM settings.indexmanagers;
-
-      IF (IsValueSet(indexmanagers) AND LENGTH(SELECT FROM indexmanagers WHERE primary) != 1)
-        THROW NEW Exception(`When setting one or more indexmanagers, exactly one should be primary`);
-      IF (LENGTH(indexmanagers) != LENGTH(ArrayDelete(GetSortedSet(SELECT AS INTEGER ARRAY indexmanager FROM indexmanagers), [ 0 ])))
-        THROW NEW Exception(`Duplicate indexmanager id or 0 found as indexmanager id`);
-
-      RECORD ARRAY current :=
-          SELECT id
-               , indexmanager
-               , primary
-               , indexname
-               , used :=        FALSE
-            FROM consilio.catalog_indexmanagers
-           WHERE catalogid = this->catalog.id AND NOT deleted;
-
-      FOREVERY (RECORD rec FROM indexmanagers)
-      {
-        RECORD curr := SELECT * FROM current WHERE indexmanager = rec.indexmanager;
-        IF (RecordExists(curr))
-        {
-          RECORD upd := catalog_index_updates;
-          IF (rec.indexname != "" AND curr.indexname != rec.indexname)
-            upd := CELL[ rec.indexname, rebuild := TRUE ];
-          IF (curr.primary != rec.primary)
-            INSERT CELL primary := rec.primary INTO upd;
-          IF (RecordExists(upd))
-            UPDATE consilio.catalog_indexmanagers SET RECORD upd WHERE id = curr.id;
-          UPDATE current SET used := TRUE WHERE id = curr.id;
-        }
-        ELSE
-        {
-          INSERT CELL
-              [ catalogid :=      this->id
-              , rec.indexmanager
-              , indexname :=      rec.indexname ?? __GenerateIndexName()
-              , rec.primary
-              , rebuild :=        TRUE
-              ] INTO consilio.catalog_indexmanagers;
-        }
-      }
-      FOREVERY (RECORD curr FROM current)
-        IF (NOT curr.used)
-        {
-          UPDATE consilio.catalog_indexmanagers
-             SET deleted := TRUE
-           WHERE id = curr.id;
-
-          GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
-        }
-    }
+    UPDATE consilio.catalogs SET RECORD settings WHERE id = this->id;
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
-
-    // Ensure the indexes are created at the indexmanagers
-    IF (this->ismanaged)
-      EnsureIndexManagerIndex(this->id);
 
     IF (language_changed)
     {
@@ -1271,7 +1250,7 @@ STATIC OBJECTTYPE Catalog
         ]);
 
     // Legacy backend doesn't support mapping
-    IF (this->indexmanager.type = whconstant_consilio_indexmanager_legacybackend)
+    IF (NOT RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type = "opensearch"))
       RETURN;
 
     RECORD newmapping;
@@ -1489,8 +1468,10 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   PUBLIC MACRO DeleteIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([suffix := ""], options);
-    RECORD res := DeleteIndexManagerContentSource(this->indexmanager.id, this->id, 0, CELL[ options.suffix ]);
-    IF(res.status != SearchOk)
+
+    //FIXME multiindex support.
+    RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ options.suffix ]);
+    IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
       THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
 
     IF(options.suffix IN this->ensured)
@@ -1502,10 +1483,11 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
       @cell(string) return.suffix Suffix name. Can be empty for the main index*/
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
-    IF(NOT RecordExists(this->indexmanager))
+    RECORD indexmgr := this->ListAttachedIndices();
+    IF(NOT RecordExists(indexmgr) OR indexmgr.type != "opensearch")
       RETURN RECORD[] ; //TODO or should we throw ?
 
-    RETURN ToRecordArray(GetIndexManagerIndexList(this->indexmanager.id, [ indexsuffixes := this->id ]).suffixes, "suffix");
+    RETURN ListOpenSearchIndexSuffixes(indexmgr.indexmanager, indexmgr.indexname);
   }
 >;
 
@@ -1575,12 +1557,11 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     INSERT csourcesettings INTO consilio.contentsources;
 
     OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
+    INSERT PTR contentsource->ReindexContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
 
     contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    IF (this->indexmanager.type = whconstant_consilio_indexmanager_opensearch)
-      this->EnsureIndex();
+    this->EnsureIndex();
 
     RETURN contentsource;
   }
@@ -1845,7 +1826,6 @@ PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
     @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE
-    @cell options.indexmanager The id of the index manager to use (if not given and the catalog is managed we will select the default manager)
     @return(object #Catalog) Catalog object
 */
 PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1859,15 +1839,12 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
 
   options := ValidateOptions( [ loglevel := 0
                               , priority := 0
-                              , indexmanager := 0
                               , title := ""
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
                               , fieldgroups := STRING[]
                               , managed := TRUE
                               , lang := ""
-                              ], options, [ optional := ["indexmanager"] ]);
-
-  INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : options.managed ? GetDefaultIndexManager() : 0;
+                              ], options);
 
   INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
 
@@ -1883,20 +1860,15 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , fieldgroups := Detokenize(options.fieldgroups, " ")
              , options.lang
              ] INTO consilio.catalogs;
-  IF (indexmanager != 0)
-    INSERT CELL[ catalogid := indexid
-               , indexmanager
-               , indexname := __GenerateIndexName()
-               , primary := TRUE
-               ] INTO consilio.catalog_indexmanagers;
+
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   OBJECT catalog := OpenConsilioCatalogById(indexid);
-  IF(catalog->ismanaged) //only managed indices are created directly, as with unmanaged the caller might want to create only suffixed indices
+  IF(options.managed)  //only managed indices are attached immediately - with unmanaged the caller might want to create only suffixed indices
   {
     TRY
     {
-      catalog->EnsureIndex();
+      catalog->AttachIndex(0);
     }
     CATCH
     {

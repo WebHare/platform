@@ -26,6 +26,7 @@
     </textgroup>
     <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
       <text tid="allindexmanagersadded">All index managers have already been added</text>
+      <text tid="confirmdeleteindex">Are you sure you want to detach this index?</text>
       <text tid="debuglevel">Log level catalog</text>
       <text tid="debuglevel-0">Errors only</text>
       <text tid="debuglevel-1">Skipped documents</text>
