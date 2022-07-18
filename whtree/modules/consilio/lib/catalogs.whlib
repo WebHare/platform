@@ -806,6 +806,9 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   */
   PUBLIC MACRO AddObjects(RECORD ARRAY objects, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(this->ismanaged)
+      THROW NEW Exception(`Managed catalogs do not support manual document management`);
+
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
                                 , synchronous := FALSE
@@ -831,6 +834,9 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(this->ismanaged)
+      THROW NEW Exception(`Managed catalogs do not support manual document management`);
+
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
                                 , synchronous := FALSE
@@ -848,6 +854,9 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   */
   PUBLIC MACRO DeleteIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(this->ismanaged)
+      THROW NEW Exception(`Managed catalogs do not support manual document management`);
+
     options := ValidateOptions([suffix := ""], options);
 
     //FIXME multiindex support.
@@ -864,6 +873,9 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
       @cell(string) return.suffix Suffix name. Can be empty for the main index*/
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
+    IF(this->ismanaged)
+      THROW NEW Exception(`Managed catalogs do not support manual document management`);
+
     RECORD indexmgr := this->ListAttachedIndices();
     IF(NOT RecordExists(indexmgr) OR indexmgr.type != "opensearch")
       RETURN RECORD[] ; //TODO or should we throw ?
@@ -876,6 +888,9 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 <
   OBJECT FUNCTION CreateContentSource(RECORD csourcesettings)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
     csourcesettings := CELL[ id := srcid
                            , catalogid := this->catalog.id
@@ -909,6 +924,9 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
   */
   PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
     options :=  ValidateOptions(
         CELL[ ...default_contentsource_options
             , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
@@ -938,31 +956,6 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
                                           ]);
   }
 
-  INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER searchid DEFAULTSTO -1)
-  {
-    INTEGER res;
-    FOREVERY (RECORD contentsource FROM (
-        SELECT id, fsobject
-          FROM consilio.contentsources
-         WHERE id != searchid
-               AND contentsources.catalogid = VAR indexid
-               AND contentprovider = "publisher:webhare"
-               AND tag NOT LIKE "$consilio$deleted$*"))
-    {
-      IF ((contentsource.fsobject = folderid) OR IsFolderAncestorOf(contentsource.fsobject, folderid)) // folderid is already covered by searchroot
-      {
-        res := -1;
-        BREAK;
-      }
-      ELSE IF (IsFolderAncestorOf(folderid, contentsource.fsobject)) // folderid contains searchroot
-      {
-        res := 1;
-        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
-      }
-    }
-    RETURN res;
-  }
-
   /** Add a new custom content source to a index
       @param tag Tag of the new content source
       @param contentsourceobject Library and name of object that handles indexing (lib#name)
@@ -975,6 +968,9 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
   */
   PUBLIC OBJECT FUNCTION AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
     IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
       THROW NEW Exception(`Invalid content source tag '${tag}'`);
 
@@ -1010,6 +1006,9 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
   */
   PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
     RECORD match :=
         SELECT *
           FROM consilio.contentsources
@@ -1021,22 +1020,15 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
       RETURN DEFAULT OBJECT;
   }
 
-  /** Rebuild all content sources in this catalog
-      @long Force reindexing of everything in this content source. The check takes place in the background */
-  //PUBLIC MACRO RebuildAllContentSources()
-  //{
-  //  STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
-  //  IF(IsDebugTagEnabled("consilio:queues"))
-  //    LogDebug("consilio", "ContentSource::RebuildContentSource", this->GetBaseDebugInfo());
-  //  SendQueueManagerData(GetQueueDataFromCommand(command));
-  //}
-
   /** @short Open catalog by id
       @param id Id of the contentsource
       @return(object #ContentSource) The content source object
   */
   PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+
     RECORD match := SELECT * FROM consilio.contentsources WHERE contentsources.id = VAR id AND tag NOT LIKE "$consilio$deleted$*";
     IF(RecordExists(match))
       RETURN NEW ContentSource(this, match);
@@ -1046,6 +1038,9 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 
   PUBLIC MACRO ReindexCatalog(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(NOT this->ismanaged)
+      THROW NEW Exception(`ReindexCatalog rebuilds using content sources, but unmanaged catalogs do not support these`);
+
     options := ValidateOptions([ rebuild := FALSE ], options);
 
     STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->id;
@@ -1215,4 +1210,3 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
 
   RETURN catalog;
 }
-
