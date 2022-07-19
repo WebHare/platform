@@ -632,7 +632,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     RETURN sources;
   }
 
-  MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, BOOLEAN strict, INTEGER ARRAY contentsourceids)
+  MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, INTEGER ARRAY contentsourceids)
   {
     EnsureIndexManagerIndex(this->id, CELL
         [ suffix
@@ -662,7 +662,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
     ELSE
     {
-      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, strict);
+      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
     }
     IF (Length(contentsourceids) > 0)
     {
@@ -673,7 +673,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       IF (RecordExists(properties))
       {
         IF (NOT RecordExists(newmapping))
-          newmapping := CELL[ properties, strict ];
+          newmapping := CELL[ properties, strict := TRUE ];
         ELSE
           newmapping.properties := properties;
       }
@@ -704,13 +704,11 @@ STATIC OBJECTTYPE ConsilioCatalog
   /** @short Make sure the (sub)index exists on the index manager
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
       @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
-      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
   */
   PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ suffix := ""
                                , fieldgroups := STRING[]
-                               , strict := TRUE
                                ], options);
 
     IF(options.suffix != "" AND NOT this->suffixed)
@@ -719,12 +717,12 @@ STATIC OBJECTTYPE ConsilioCatalog
     INTEGER ARRAY contentsources;
     IF(this->managed)
     {
-      IF(options.suffix != "" OR Length(options.fieldgroups) > 0 OR NOT options.strict)
+      IF(options.suffix != "" OR Length(options.fieldgroups) > 0)
         THROW NEW Exception(`Managed catalogs do not allow EnsureIndex configuration`);
       contentsources := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
     }
 
-    this->DoEnsureIndex(options.suffix, options.fieldgroups, options.strict, contentsources);
+    this->DoEnsureIndex(options.suffix, options.fieldgroups, contentsources);
 
     IF(options.suffix NOT IN this->ensuredsuffixes AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
       INSERT options.suffix INTO this->ensuredsuffixes AT END;
