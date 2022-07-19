@@ -40,11 +40,11 @@ MACRO Prepare()
   testindex2 := cat->ListAttachedIndices()[1];
 
   TestEqMembers([[ id := index1id
-                 , primary := TRUE
+                 , searchpriority := 100
                  , indexname := testindex1.indexname
                  ]
                 ,[ type := "opensearch"
-                 , primary := FALSE
+                 , searchpriority := 0
                  , indexname := index2name
                  ]
                 ], cat->ListAttachedIndices(), "*");

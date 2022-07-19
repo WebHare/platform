@@ -568,7 +568,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   {
     RECORD result :=
         [ anychanges := FALSE
-        , rebuild := FALSE
         ];
 
     RECORD ARRAY existingfields :=
@@ -646,14 +645,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
           WHERE id IN (SELECT AS INTEGER ARRAY id FROM existingfields);
 
     // Update the content source in the index manager
-    result.rebuild := EnsureIndexManagerContentsource(this->indexid, this->contentsourceid) = SearchRebuildCatalog;
-    IF (result.rebuild)
-    {
-      // The type could not be added/updated; the content source should be re-added
-      UPDATE consilio.catalog_indexmanagers
-         SET rebuild := TRUE
-       WHERE catalogid = this->indexid;
-    }
+    EnsureIndexManagerContentsource(this->indexid, this->contentsourceid);
 
     // Any fields have changed or any existing fields are deleted
     result.anychanges := result.anychanges OR Length(existingfields) > 0;

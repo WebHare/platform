@@ -132,7 +132,7 @@
       <text tid="indexmanager">Index manager</text>
       <text tid="indexname">Index name</text>
       <text tid="invalidindexname">Invalid index name. The name must start with a letter and consist of only characters in range 0-9 and a-z and an underscore (_)</text>
-      <text tid="primary">Primary index</text>
+      <text tid="searchpriority">Search priority</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>

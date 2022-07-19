@@ -429,22 +429,21 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(string) indexname Name of the index on the indexmanager
       @cell(integer) indexmanager Id of the indexmanager
       @cell(string) type Type of the indexmanager (opensearch)
-      @cell(boolean) primary Whether this is the primary catalogindex
+      @cell(integer) searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
   */
   PUBLIC RECORD ARRAY FUNCTION ListAttachedIndices()
   {
     RETURN
         SELECT catalog_indexmanagers.id
              , catalog_indexmanagers.indexname
-             , catalog_indexmanagers.primary //FIXME under discussion, perhaps searchpriority or searchorder? don't rely on this yet...
+             , catalog_indexmanagers.searchpriority
              , indexmanager :=        indexmanagers.id
              , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
          WHERE catalog_indexmanagers.catalogid = this->catalog.id
                AND indexmanagers.id = catalog_indexmanagers.indexmanager
-               AND NOT deleted
-      ORDER BY primary DESC;
+     ORDER BY searchpriority DESC, catalog_indexmanagers.id;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -505,8 +504,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                , catalogid :=    this->id
                , indexmanager := usemgr.id
                , options.indexname
-               , primary := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id AND NOT deleted) = 0
-               , rebuild :=      TRUE
+               , searchpriority := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id) = 0 ? 100 : 0
                ] INTO consilio.catalog_indexmanagers;
 
     // Ensure the indexes are created at the indexmanagers
@@ -522,8 +520,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(NOT RecordExists(todelete))
       THROW NEW Exception(`No such attached index #${indexid}`);
 
-    UPDATE consilio.catalog_indexmanagers
-       SET deleted := TRUE
+    DELETE FROM consilio.catalog_indexmanagers
      WHERE id = VAR indexid;
 
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP (TODO only for builtin indexmanagers?)
@@ -541,12 +538,8 @@ STATIC OBJECTTYPE ConsilioCatalog
                                              , title := "settings"
                                              ]);
 
-    RECORD catalog_index_updates;
-
     // If the catalog language changes, the catalog has to be rebuilt
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
-    IF (language_changed AND this->ismanaged)
-      INSERT CELL rebuild := TRUE INTO catalog_index_updates;
 
     UPDATE consilio.catalogs SET RECORD settings WHERE id = this->id;
 
@@ -1066,8 +1059,7 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
            , id := catalogid
         FROM consilio.catalog_indexmanagers
        WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM catalogs)
-         AND NOT deleted
-    ORDER BY primary DESC;
+    ORDER BY searchpriority DESC;
   catalogs := JoinArrays(catalogs, "id", indexmanagers, [ indexmanager := 0 ], [ rightouterjoin := TRUE ]);
   IF (options.__withdeleted)
     catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;

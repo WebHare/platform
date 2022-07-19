@@ -34,20 +34,6 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
         ] INTO messages AT END;
   }
 
-  INTEGER ARRAY rebuild_catalogs :=
-      SELECT AS INTEGER ARRAY DISTINCT catalogid
-        FROM consilio.catalog_indexmanagers
-       WHERE rebuild
-         AND NOT deleted;
-
-  FOREVERY (INTEGER catalog FROM rebuild_catalogs)
-  {
-    INSERT
-        [ msg := ":Catalog #" || catalog || " should be rebuilt completely"
-        , jumpto := [ app := "consilio:config", catalog := catalog, action := "rebuild" ]
-        ] INTO messages AT END;
-  }
-
   FOREVERY(STRING msg FROM STRING ARRAY(WaitForPromise(indexmanagerpromise)))
     IF (msg != "")
       INSERT [ msg := ":" || msg ] INTO messages AT END;
