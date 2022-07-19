@@ -1,30 +1,18 @@
-# Module index definitions
+# Field types
 
-Elasticsearch indices can be defined within a module definition. Managing these indices, adding content sources and indexing
-data isn't handled by Consilio for now.
-
-## Defining an index
-
-Add an `<index>` node to the `<consilio>` node in the module definition and add field nodes to it:
+Add a fieldgroup to your `<catalog>` to explicitly define the fields to use:
 
 ```xml
 <consilio>
-  <index tag="myindex">
+  <catalog tag="myindex" managed="false" fieldgroup="myindexfields" />
+  <fieldgroup tag="myindexfields">
     <text name="title" />
     <text name="body" />
-  </index>
+  </fieldgroup>
 </consilio>
 ```
 
-## Creating an index
-
-An index defined in the module definition is meant to be managed explicitly, so it isn't automatically created and you cannot
-add content sources to it. To create a module index on the index manager, use the catalog interface:
-
-```harescript
-OBJECT catalog := OpenConsilioCatalog("mymodule:myindex");
-catalog->EnsureIndex();
-```
+Consilio exposes the following OpenSearch field types:
 
 ## Field types
 

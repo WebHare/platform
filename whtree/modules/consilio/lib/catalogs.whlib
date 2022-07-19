@@ -475,7 +475,12 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     STRING ARRAY storage;
     FOREVERY(RECORD attachedindex FROM this->ListAttachedIndices())
-      INSERT attachedindex.indexname INTO storage AT END;
+    {
+      IF(attachedindex.type = "opensearch")
+        INSERT attachedindex.indexname INTO storage AT END;
+      ELSE
+        INSERT `{${attachedindex.type}}${attachedindex.indexname}` INTO storage AT END;
+    }
 
     IF(Length(storage) >= 1)
       RETURN `${this->tag} => (${Detokenize(storage,', ')})`;
@@ -601,6 +606,8 @@ STATIC OBJECTTYPE ConsilioCatalog
           ];
       UpdateIndexManagerIndexSettings(this->id, indexsettings);
     }
+
+    this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
     RETURN language_changed;
   }
 
@@ -657,26 +664,40 @@ STATIC OBJECTTYPE ConsilioCatalog
     RETURN sources;
   }
 
-  MACRO DoEnsureIndex(STRING suffix, STRING ARRAY fieldgroups, INTEGER ARRAY contentsourceids)
+  MACRO EnsureSuffixCreated(STRING suffix)
   {
-    EnsureIndexManagerIndex(this->id, CELL
-        [ suffix
-        , throwonfailure := TRUE
-        , synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms()
-        ]);
+    IF(suffix = "" OR NOT IsValidConsilioIndexName(suffix))
+      THROW NEW Exception(`Invalid suffix name '${suffix}'`);
+    IF (RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
+      THROW NEW Exception(`Legacy indexmanagers do not support suffixes`);
 
-    // Legacy backend doesn't support mapping
-    IF (NOT RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type = "opensearch"))
-      RETURN;
+    this->EnsureIndexSettings([suffix]);
+    this->EnsureFieldGroupsApplied([suffix]);
+    IF(suffix NOT IN this->ensuredsuffixes)
+      INSERT suffix INTO this->ensuredsuffixes AT END;
+  }
 
-    RECORD newmapping;
-    IF (Length(fieldgroups) = 0)
+  MACRO EnsureIndexSettings(STRING ARRAY suffixes)
+  {
+    FOREVERY(STRING suffix FROM suffixes)
     {
-      fieldgroups :=
-          SELECT AS STRING ARRAY fieldgroup
-            FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = this->id), " "), "fieldgroup")
-           WHERE fieldgroup != "";
+      EnsureIndexManagerIndex(this->id, CELL
+          [ suffix
+          , throwonfailure := TRUE
+          , synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms()
+          ]);
     }
+  }
+
+  MACRO EnsureFieldGroupsApplied(STRING ARRAY suffixes)
+  {
+    RECORD newmapping;
+    STRING ARRAY fieldgroups;
+    fieldgroups :=
+        SELECT AS STRING ARRAY fieldgroup
+          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = this->id), " "), "fieldgroup")
+         WHERE fieldgroup != "";
+
     IF(Length(fieldgroups) = 0)
     {
       TRY
@@ -689,68 +710,75 @@ STATIC OBJECTTYPE ConsilioCatalog
     {
       newmapping := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
     }
-    IF (Length(contentsourceids) > 0)
-    {
-      RECORD ARRAY basefields := this->managed ? defaultmappingfields : RECORD[];
-      IF (RecordExists(newmapping))
-        basefields := basefields CONCAT newmapping.properties;
-      RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
-      IF (RecordExists(properties))
-      {
-        IF (NOT RecordExists(newmapping))
-          newmapping := CELL[ properties, strict := TRUE ];
-        ELSE
-          newmapping.properties := properties;
-      }
-    }
-    IF (NOT RecordExists(newmapping))
-      RETURN;
 
-    //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
-    //TODO how to remove a dynamic template?
-    //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
-    RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ suffix, throwonfailure := TRUE ]);
-    RECORD finalupdate := PrepareMappingUpdate(newmapping);
-
-    STRING ARRAY newtemplates;
-    FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
-      INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
-
-    FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
-    {
-      STRING name := UnpackRecord(templ)[0].name;
-      IF(name NOT IN newtemplates)
-        INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
-    }
-
-    EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
-  }
-
-  /** @short Make sure the (sub)index exists on the index manager
-      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(string) options.fieldgroups Override fieldgroups used to ensure mapping
-  */
-  PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions([ suffix := ""
-                               , fieldgroups := STRING[]
-                               ], options);
-
-    IF(options.suffix != "" AND NOT this->suffixed)
-        THROW NEW Exception(`Suffixes are not enabled for this catalog`);
-
-    INTEGER ARRAY contentsources;
     IF(this->managed)
     {
-      IF(options.suffix != "" OR Length(options.fieldgroups) > 0)
-        THROW NEW Exception(`Managed catalogs do not allow EnsureIndex configuration`);
-      contentsources := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
+      INTEGER ARRAY contentsourceids := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
+      IF (Length(contentsourceids) > 0)
+      {
+        RECORD ARRAY basefields := this->managed ? defaultmappingfields : RECORD[];
+        IF (RecordExists(newmapping))
+          basefields := basefields CONCAT newmapping.properties;
+        RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
+        IF (RecordExists(properties))
+        {
+          IF (NOT RecordExists(newmapping))
+            newmapping := CELL[ properties, strict := TRUE ];
+          ELSE
+            newmapping.properties := properties;
+        }
+      }
+      IF (NOT RecordExists(newmapping))
+        RETURN;
     }
 
-    this->DoEnsureIndex(options.suffix, options.fieldgroups, contentsources);
+    FOREVERY(STRING suffix FROM suffixes)
+    {
+      //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
+      //TODO how to remove a dynamic template?
+      //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
+      RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ suffix, throwonfailure := TRUE ]);
+      RECORD finalupdate := PrepareMappingUpdate(newmapping);
 
-    IF(options.suffix NOT IN this->ensuredsuffixes AND Length(options.fieldgroups) = 0) //overriding fieldgroups does not count as having guaranteed ensurance
-      INSERT options.suffix INTO this->ensuredsuffixes AT END;
+      STRING ARRAY newtemplates;
+      FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
+        INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
+
+      FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
+      {
+        STRING name := UnpackRecord(templ)[0].name;
+        IF(name NOT IN newtemplates)
+          INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
+      }
+
+      EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
+    }
+  }
+
+  /** @short Make sure configuration is applied and, if unsuffixed, the root index exists
+      @cell(string array) options.suffixes Update the configuration of the specified suffixes only, and ensure they exist
+  */
+  PUBLIC MACRO ApplyConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //TODO? allow us to explicitly specify suffixes to ensure/reconfigure
+    options := ValidateOptions(CELL[ suffixes := STRING[] ], options, [ optional := ["suffixes" ]]);
+
+    STRING ARRAY updatesuffixes;
+    IF(CellExists(options, 'suffixes'))
+    {
+      updatesuffixes := options.suffixes;
+    }
+    ELSE
+    {
+      updatesuffixes := SELECT AS STRING ARRAY suffix FROM this->ListSuffixes();
+      IF(NOT this->suffixed AND "" NOT IN updatesuffixes)
+        INSERT "" INTO updatesuffixes AT END; //ApplyConfiguration to an empty catalog should
+    }
+
+    this->EnsureIndexSettings(updatesuffixes);
+    IF(RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type != "legacy-indexmanager"))
+      this->EnsureFieldGroupsApplied(updatesuffixes);
+    this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
   }
 
   /** @short Get the catalog's synonyms list
@@ -855,8 +883,8 @@ STATIC OBJECTTYPE ConsilioCatalog
     // @cell objects.suggestfields
     // @cell objects.suggestprefixes
 
-    IF(options.suffix NOT IN this->ensuredsuffixes)
-      this->EnsureIndex(CELL[ options.suffix ]);
+    IF(options.suffix != "" AND options.suffix NOT IN this->ensuredsuffixes)
+      this->EnsureSuffixCreated(options.suffix);
 
     objects := SELECT objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
@@ -887,36 +915,33 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
   }
 
-  /** @short Delete the (sub)index from the index manager
-      @cell(string) options.suffix Set this parameter to only delete the subindex with this suffix
+  /** @short Delete a suffix from the index manager
+      @param suffix Suffix to delete. Empty to delete an unsuffixed unamnaged index (which can then be recreated using ApplyConfiguration)
   */
-  PUBLIC MACRO DeleteIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC MACRO DeleteSuffix(STRING suffix)
   {
     IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
-
-    options := ValidateOptions([suffix := ""], options);
+    IF(suffix != "" AND NOT this->suffixed)
+      THROW NEW Exception(`Cannot DeleteSuffix on a non-suffixed catalog`);
 
     //FIXME multiindex support.
-    RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ options.suffix ]);
+    RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ suffix ]);
     IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
       THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
 
-    IF(options.suffix IN this->ensuredsuffixes)
-      DELETE FROM this->ensuredsuffixes AT SearchElement(this->ensuredsuffixes, options.suffix);
+    IF(suffix IN this->ensuredsuffixes)
+      DELETE FROM this->ensuredsuffixes AT SearchElement(this->ensuredsuffixes, suffix);
   }
 
   /** @short List suffixes created in this index
       @return The suffixes
-      @cell(string) return.suffix Suffix name. Can be empty for the main index*/
+      @cell(string) return.suffix Suffix name. Can be empty for the main index */
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
-    IF(this->managed)
-      THROW NEW Exception(`Managed catalogs do not support manual document management`);
-
     RECORD indexmgr := this->ListAttachedIndices();
     IF(NOT RecordExists(indexmgr) OR indexmgr.type != "opensearch")
-      RETURN RECORD[] ; //TODO or should we throw ?
+      RETURN RECORD[]; //TODO or should we throw ?
 
     RETURN ListOpenSearchIndexSuffixes(indexmgr.indexmanager, indexmgr.indexname);
   }
@@ -945,7 +970,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    this->EnsureIndex();
+    this->ApplyConfiguration();
 
     RETURN contentsource;
   }

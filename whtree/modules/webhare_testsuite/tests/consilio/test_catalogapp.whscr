@@ -24,7 +24,6 @@ MACRO Prepare()
 
   Print(cat->GetStorageInfo() || "\n");
 
-  cat->EnsureIndex( [ suffix := "sub1" ]);
   cat->AddObjects([[ objectid := "test1"
                    , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
                   ]],[ suffix := "sub1", synchronous := TRUE ]);

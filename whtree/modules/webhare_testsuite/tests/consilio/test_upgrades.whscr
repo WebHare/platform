@@ -22,12 +22,12 @@ MACRO TestOldIndexSyntax()
     legacytoolslog->DetachIndex(toremove.id);
 
   legacytoolslog->AttachIndex(0);
-  legacytoolslog->EnsureIndex();
+  legacytoolslog->ApplyConfiguration([ suffixes := ["sfx1"]]);
   testfw->CommitWork();
 
   RECORD indexinfo := legacytoolslog->ListAttachedIndices()[0];
-  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_mapping`, DEFAULT RECORD).result;
-  TestEq("keyword", GetCell(mapping,indexinfo.indexname).mappings.properties.minfin.properties.theme.type, "Verify that the fieldgroup got applied");
+  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}-sfx1/_mapping`, DEFAULT RECORD).result;
+  TestEq("keyword", GetCell(mapping,indexinfo.indexname || "-sfx1").mappings.properties.minfin.properties.theme.type, "Verify that the fieldgroup got applied");
 
   testfw->BeginWork();
   legacytoolslog->UpdateCatalog([ suffixed := FALSE ]);

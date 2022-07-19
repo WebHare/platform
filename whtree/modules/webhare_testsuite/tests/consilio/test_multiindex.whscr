@@ -59,6 +59,14 @@ MACRO Prepare()
   TestEq(testindex2.indexname, cat_index2_view->ListAttachedIndices()[0].indexname);
   TestEq(index2name, cat_index2_view->ListAttachedIndices()[0].indexname);
 
+  cat->AddObjects([[ objectid := "test0"
+                   , documentfields := [ title := "Object 0" ]
+                  ]],[ synchronous := TRUE ]);
+
+  //FIXME Verify the actual objects appeared in both
+
+  TestEqMembers([[ suffix := "" ]], cat->ListSuffixes(), "*");
+
   testfw->CommitWork();
 }
 

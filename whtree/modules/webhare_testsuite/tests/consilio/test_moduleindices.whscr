@@ -101,8 +101,9 @@ MACRO TestESCreationAPIs()
   TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
   // Try the low level API first. Make sure it does exist
-  catalog->EnsureIndex();
+  catalog->ApplyConfiguration();
   result := GetIndexManagerIndexList(testindex.indexmanager);
+
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
@@ -111,10 +112,10 @@ MACRO TestESCreationAPIs()
   TestEq("keyword", GetCell(checkindex.result, testindex.indexname).mappings.properties.keyword.type);
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex.indexname).mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
-  catalog->EnsureIndex(); //calling twice should be okay, it's "Ensure" not "Create"
+  catalog->ApplyConfiguration(); //calling twice should be okay, it's an Ensure not a "Create"
 
   // Delete it again from the index manager
-  catalog->DeleteIndex();
+  catalog->DeleteSuffix("");
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
 
@@ -124,26 +125,25 @@ MACRO TestESCreationAPIs()
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
   testfw->CommitWork();
 
-  catalog->EnsureIndex([suffix := "suffix"]);
-  TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
+  catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);
+  TestEq(RECORD[[ suffix := "suffix" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(),  "GET", `/${testindex_suffixed.indexname}-suffix/_mapping`, DEFAULT RECORD);
   //dumpvalue(checkindex,'tree');
   TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-suffix").mappings.properties.keyword.type);
 
-  catalog->EnsureIndex([suffix := "suffix"]); //calling twice should be okay, it's "Ensure" not "Create"
+  catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);  //calling twice should be okay, it's "Ensure" not "Create"
 
   // Delete it again from the index manager
-  catalog->DeleteIndex();
+  catalog->DeleteSuffix("");
   TestEq(RECORD[], catalog->ListSuffixes());
 
   // Create two subindices
-  catalog->EnsureIndex([ suffix := "suffix1" ] );
-  catalog->EnsureIndex([ suffix := "suffix2" ] );
+  catalog->ApplyConfiguration([ suffixes := ["suffix1","suffix2"]]);
   TestEq(RECORD[[ suffix := "suffix1" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // Delete one of the subindices
-  catalog->DeleteIndex([ suffix := "suffix1" ]);
+  catalog->DeleteSuffix("suffix1");
   TestEq(RECORD[[ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
   // We should be able open to the catalog
@@ -155,32 +155,32 @@ MACRO TestESCreationAPIs()
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Make sure it does exist
-  catalog->EnsureIndex();
+  catalog->ApplyConfiguration();
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Delete it again from the index manager
-  catalog->DeleteIndex();
+  catalog->DeleteSuffix("");
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Check if duplicate fieldnames through including field groups are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->EnsureIndex());
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->ApplyConfiguration());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->EnsureIndex());
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
 }
 
 MACRO TestESBulkInsertion()
@@ -207,7 +207,6 @@ MACRO TestESBulkInsertion()
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
   testfw->CommitWork();
 
-  catalog->EnsureIndex( [ suffix := "sub1" ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
@@ -357,7 +356,6 @@ MACRO TestESBulkInsertion()
   catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:storeonly" ] ]);
   testfw->CommitWork();
 
-  catalog->EnsureIndex([ suffix := "sub1" ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ indexed := "test", stored := "test" ]
@@ -385,7 +383,7 @@ MACRO TestESBulkInsertion()
   testfw->BeginWork();
   catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields", "webhare_testsuite:unspecifiedwildcards" ] ]);
   testfw->CommitWork();
-  catalog->EnsureIndex( [ suffix := "sub1" ]);
+
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'unspecified_record.xyz' := 43 ]
@@ -501,7 +499,7 @@ MACRO TestESLangFeatures()
   // Recreate the index
   SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
-  catalog->EnsureIndex();
+  catalog->ApplyConfiguration();
 
   // As defined in the module definition
   TestEq("nl", catalog->lang);
