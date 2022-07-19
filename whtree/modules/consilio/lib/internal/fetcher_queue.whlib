@@ -35,7 +35,6 @@ RECORD FUNCTION GetCacheablePriorityLookupTables()
                   (SELECT id
                         , priority
                      FROM consilio.catalogs
-                    WHERE name NOT LIKE "$consilio$deleted$*"
                     ORDER BY id)
             , contentsources :=
                   (SELECT contentsources.id
@@ -43,7 +42,6 @@ RECORD FUNCTION GetCacheablePriorityLookupTables()
                      FROM consilio.contentsources
                         , consilio.catalogs
                     WHERE catalogid = catalogs.id
-                          AND catalogs.name NOT LIKE "$consilio$deleted$*"
                           AND contentsources.tag NOT LIKE "$consilio$deleted$*"
                     ORDER BY contentsources.id)
             ]

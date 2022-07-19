@@ -614,8 +614,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// Delete this catalog
   PUBLIC MACRO DeleteSelf()
   {
-    UPDATE consilio.catalogs SET name := "$consilio$deleted$" || id WHERE id = this->id;
-    UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE catalogid = this->id;
+    DELETE FROM consilio.catalogs WHERE id = this->id;
 
     GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     this->catalog.id := 0; //to be safe
@@ -1116,26 +1115,16 @@ STATIC OBJECTTYPE ConsilioCatalog
     @cell return.id Catalog id
     @cell return.tag Catalog tag
     @cell(boolean) return.managed True if this is managed catalog (supports contentsources)
-    @cell return.indexmanager Index manager
 */
 PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ __withdeleted := FALSE ], options);
+  options := ValidateOptions(CELL[], options);
   RECORD ARRAY catalogs :=
       SELECT id
            , tag := name
            , managed := type = whconstant_consilio_catalogtype_managed
-        FROM consilio.catalogs
-       WHERE options.__withdeleted OR name NOT LIKE "$consilio$deleted$*";
-  RECORD ARRAY indexmanagers :=
-      SELECT indexmanager
-           , id := catalogid
-        FROM consilio.catalog_indexmanagers
-       WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM catalogs)
-    ORDER BY searchpriority DESC;
-  catalogs := JoinArrays(catalogs, "id", indexmanagers, [ indexmanager := 0 ], [ rightouterjoin := TRUE ]);
-  IF (options.__withdeleted)
-    catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;
+        FROM consilio.catalogs;
+
   RETURN catalogs;
 }
 
@@ -1147,8 +1136,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
 {
   RECORD match :=
       SELECT * FROM consilio.catalogs
-       WHERE ToUppercase(name) = ToUppercase(tag)
-             AND name NOT LIKE "$consilio$deleted$*";
+       WHERE ToUppercase(name) = ToUppercase(tag);
 
   IF(RecordExists(match))
     RETURN NEW ConsilioCatalog(match);
@@ -1164,8 +1152,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
 {
   RECORD match :=
       SELECT * FROM consilio.catalogs
-       WHERE catalogs.id = VAR id
-             AND name NOT LIKE "$consilio$deleted$*";
+       WHERE catalogs.id = VAR id;
 
   IF(RecordExists(match))
     RETURN NEW ConsilioCatalog(match);

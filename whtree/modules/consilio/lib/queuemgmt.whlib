@@ -10,7 +10,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, Co
 
 BOOLEAN FUNCTION IsValidIndexId(INTEGER indexid)
 {
-  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.catalogs WHERE name NOT LIKE "$consilio$deleted$*");
+  RETURN indexid IN [ 0 ] CONCAT (SELECT AS INTEGER ARRAY id FROM consilio.catalogs);
 }
 
 INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)

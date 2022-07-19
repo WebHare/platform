@@ -34,7 +34,6 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
     RECORD ARRAY cats :=
         SELECT catalogs.id
              , catalogs.name
-             , catalogdeleted :=        name LIKE "$consilio$deleted$*"
              , catalogindexid :=        catalog_indexmanagers.id
           FROM consilio.catalogs
              , consilio.catalog_indexmanagers
@@ -44,10 +43,9 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
            AND (indexrec.indexname = "" ? TRUE : indexname = indexrec.indexname);
 
     BOOLEAN none_found := IsDefaultValue(cats);
-    BOOLEAN any_active := RecordExists(SELECT FROM cats WHERE NOT catalogdeleted);
-    INTEGER ARRAY deleted_cis := SELECT AS INTEGER ARRAY id FROM cats WHERE catalogdeleted;
+    BOOLEAN any_active := RecordExists(cats);
 
-    IF (none_found OR IsValueSet(deleted_cis))
+    IF (none_found)
     {
       STRING status := SearchOk;
       IF (NOT any_active)
@@ -59,9 +57,6 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
       }
       IF (result.status IN [ SearchOk, SearchIndexNotFound ])
       {
-        trans->BeginWork();
-        DELETE FROM consilio.catalog_indexmanagers WHERE id IN deleted_cis;
-        trans->CommitWork();
       }
       ELSE
       {
@@ -75,22 +70,11 @@ FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
   }
 }
 
-RECORD ARRAY catalogs := ListConsilioCatalogs([ __withdeleted := TRUE ]);
+RECORD ARRAY catalogs := ListConsilioCatalogs();
 FOREVERY (RECORD cat FROM catalogs)
 {
   IF (debug)
     Print(`Checking catalog '${cat.tag}' (${cat.id})\n`);
-  IF (cat.isdeleted AND cat.id NOT IN indexedcatalogs AND cat.id NOT IN faileddeletes)
-  {
-    // This catalog didn't exist on the index manager, delete it from the database
-    IF (debug)
-      Print(`Delete catalog '${cat.tag}' (${cat.id}) from database\n`);
-    trans->BeginWork();
-    DELETE FROM consilio.catalogs WHERE id = cat.id;
-    trans->CommitWork();
-    DELETE FROM catalogs WHERE id = cat.id;
-    CONTINUE;
-  }
 
   // Open the catalog
   OBJECT catalog := OpenConsilioCatalogById(cat.id);

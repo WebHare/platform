@@ -34,7 +34,6 @@ RECORD ARRAY to_recheck := SELECT contentsources.id
                             WHERE contentsources.catalogid = catalogs.id
                                   AND contentsources.status >= 0
                                   AND contentprovider IN [ "consilio:custom" ]
-                                  AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
 IF (Length(to_recheck) = 0 AND settings.debug)
@@ -117,7 +116,6 @@ to_recheck := SELECT contentsources.id
                WHERE contentsources.catalogid = catalogs.id
                      AND contentsources.status >= 0
                      AND contentprovider = "publisher:webhare"
-                     AND catalogs.name NOT LIKE "$consilio$deleted$*"
                      AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
 IF (Length(to_recheck) = 0 AND settings.debug)
