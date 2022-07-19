@@ -142,6 +142,11 @@
           Index base language
         </d:documentation>
       </d:varchar>
+      <d:varchar name="suffix" maxlength="32">
+        <d:documentation>
+          Suffix for suffixed indices. Will currently contain either `-*` or be empty.
+        </d:documentation>
+      </d:varchar>
     </d:table>
 
     <d:table name="catalog_indexmanagers" primarykey="id">

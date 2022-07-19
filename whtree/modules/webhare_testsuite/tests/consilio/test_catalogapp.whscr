@@ -12,8 +12,8 @@ OBJECT cat;
 MACRO Prepare()
 {
   testfw->BeginWork();
-  cat := OpenConsilioCatalog("webhare_testsuite:testindex");
-  TestEq(TRUE, ObjectExists(cat), `Catalog "webhare_testsuite:testindex" should exist`);
+  cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  TestEq(TRUE, ObjectExists(cat), `Catalog "webhare_testsuite:testindex_suffixed" should exist`);
   FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
     cat->DetachIndex(toremove.id);
   cat->AttachIndex(0);
@@ -33,7 +33,7 @@ MACRO Prepare()
 ASYNC MACRO TestCatalogApp()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("consilio:config"));
-  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testindex";
+  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testindex_suffixed";
   TestEq(TRUE, RecordExists(TT("catalogs")->selection));
 
   AWAIT ExpectScreenChange(+1, PTR TT("catalogs")->openaction->TolliumClick);

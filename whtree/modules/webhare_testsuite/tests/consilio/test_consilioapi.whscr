@@ -20,8 +20,8 @@ MACRO TestConsilioAPI()
 
   OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1");
   OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2");
-  TestEq(TRUE, testcatalog1->ismanaged);
-  TestEq(TRUE, SELECT AS BOOLEAN ismanaged FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
+  TestEq(TRUE, testcatalog1->managed);
+  TestEq(TRUE, SELECT AS BOOLEAN managed FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
 
   //having indexnames makes log analysis easier
   Print(testcatalog1->GetStorageInfo() || ", " || testcatalog2->GetStorageInfo() || "\n");

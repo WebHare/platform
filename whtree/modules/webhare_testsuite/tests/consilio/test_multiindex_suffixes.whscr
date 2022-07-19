@@ -20,8 +20,7 @@ OBJECT cat_index1_view, cat_index2_view;
 
 MACRO Prepare()
 {
-  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
-  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
 
   testfw->BeginWork();
 
@@ -30,13 +29,12 @@ MACRO Prepare()
     cat->DetachIndex(toremove.id);
   TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${cat->tag}" should have all attachments removed after initial cleanup`);
 
-  //If we run with WEBHARE_PREFERINDEXMANAGER - one part will be Indexmanager and one part will be OpenSearch.
   INTEGER index1id := cat->AttachIndex(0);
   testindex1 := cat->ListAttachedIndices()[0];
   TestEqLike("c_??*", testindex1.indexname, "test for properly structured builtin indexname");
 
   STRING index2name := Left(testindex1.indexname, Length(testindex1.indexname) - 3) || "_b2";
-  cat->AttachIndex(builtin_opensearch.id, [ indexname := index2name]); //add a second instance.. use initial indexname to still ensure uniqueness
+  cat->AttachIndex(0, [ indexname := index2name]); //add a second instance.. use initial indexname to still ensure uniqueness
   testindex2 := cat->ListAttachedIndices()[1];
 
   TestEqMembers([[ id := index1id
@@ -49,9 +47,9 @@ MACRO Prepare()
                  ]
                 ], cat->ListAttachedIndices(), "*");
 
-  cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE ]);
+  cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE, suffixed := TRUE ]);
   cat_index1_view->AttachIndex(testindex1.indexmanager, [ indexname := testindex1.indexname ]);
-  cat_index2_view := CreateConsilioCatalog("consilio:testfw_index2_view", [ managed := FALSE ]);
+  cat_index2_view := CreateConsilioCatalog("consilio:testfw_index2_view", [ managed := FALSE, suffixed := TRUE ]);
   cat_index2_view->AttachIndex(testindex2.indexmanager, [ indexname := testindex2.indexname ]);
 
   Print(`${cat->GetStorageInfo()}, ${cat_index1_view->GetStorageInfo()}, ${cat_index2_view->GetStorageInfo()}\n`);
@@ -62,6 +60,24 @@ MACRO Prepare()
   testfw->CommitWork();
 }
 
+MACRO TestUnmanagedActions()
+{
+  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  IF(RecordExists(SELECT FROM cat->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
+    RETURN; //can't run suffix tests on old indexmgr
+
+  TestEq(RECORD[], cat->ListSuffixes());
+
+  cat->EnsureIndex( [ suffix := "sfx1", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+  cat->EnsureIndex( [ suffix := "sfx2", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+
+  //Verify index creation
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat_index1_view->ListSuffixes() ORDER BY suffix);
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat_index2_view->ListSuffixes() ORDER BY suffix);
+  TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat->ListSuffixes() ORDER BY suffix);
+}
+
 RunTestframework(
     [ PTR Prepare
+    , PTR TestUnmanagedActions
     ]);

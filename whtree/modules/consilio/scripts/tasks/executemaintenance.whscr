@@ -28,7 +28,7 @@ FOREVERY(RECORD source FROM brokensources)
 {
   trans->BeginWork();
   OBJECT cat := OpenConsilioCatalogById(source.catalogid);
-  IF(cat->ismanaged)
+  IF(cat->managed)
   {
     FOREVERY(INTEGER toremove FROM source.toremove)
       cat->OpenContentSourceById(toremove)->DeleteSelf();

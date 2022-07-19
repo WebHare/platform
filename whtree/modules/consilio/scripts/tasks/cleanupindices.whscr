@@ -94,7 +94,7 @@ FOREVERY (RECORD cat FROM catalogs)
 
   // Open the catalog
   OBJECT catalog := OpenConsilioCatalogById(cat.id);
-  IF(NOT ObjectExists(catalog) OR NOT catalog->ismanaged)
+  IF(NOT ObjectExists(catalog) OR NOT catalog->managed)
     CONTINUE; //already gone..
 
   // Check the catalog's content sources
