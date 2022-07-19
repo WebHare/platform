@@ -34,6 +34,8 @@ CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
                                                      , enabled := TRUE
                                                      ];
 
+CONSTANT STRING default_suffix_mask := "-*";
+
 STRING FUNCTION __GenerateIndexName()
 {
   RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
@@ -557,7 +559,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
       settings := CELL[ ...settings
                       , DELETE suffixed
-                      , suffix := settings.suffixed ? ".*" : ""
+                      , suffix := settings.suffixed ? default_suffix_mask : ""
                       ];
     }
 
@@ -1157,7 +1159,7 @@ PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
     @param options Options
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
-    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE (formerly named 'managed')
+    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE
     @cell(boolean) options.suffixed Create a suffixed catalog
     @return(object #Catalog) Catalog object
 */
@@ -1194,7 +1196,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.definedby
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
-             , suffix := options.suffixed ? "-*" : ""
+             , suffix := options.suffixed ? default_suffix_mask : ""
              , fieldgroups := Detokenize(options.fieldgroups, " ")
              , options.lang
              ] INTO consilio.catalogs;
