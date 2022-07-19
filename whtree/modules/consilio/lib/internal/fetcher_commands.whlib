@@ -30,46 +30,9 @@ RECORD ARRAY contentproviders; // List of content providers
 //
 
 // Check the state of the Consilio index
-PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
+PUBLIC RECORD FUNCTION CheckIndexState()
 {
-  FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE " || forindexmanager);
-
-  RECORD ARRAY indices :=
-      SELECT catalogs.id
-           , catalogs.name
-           , catalog_indexmanagers.indexmanager
-        FROM consilio.catalogs
-           , consilio.catalog_indexmanagers
-       WHERE catalog_indexmanagers.indexmanager = forindexmanager
-             AND catalog_indexmanagers.catalogid = catalogs.id;
-  STRING now := DateTimeToString(GetCurrentDateTime());
-
-  INTEGER ARRAY presentindexids;
-  FOREVERY (RECORD indexmgr FROM SELECT id FROM consilio.indexmanagers WHERE id = forindexmanager AND address LIKE "builtin*") //Only clean up builtin Elasticsearches, others may be shared!
-  {
-    // Get a list of known indexes within the index
-    print_defer_connection := FALSE; //Defer:connection interfers with us reporting the index is down
-    RECORD result := GetIndexManagerIndexList(indexmgr.id);
-    print_defer_connection := TRUE;
-    IF (result.status = SearchOk)
-    {
-      // Delete unknown indexes from the indexmanager
-      FOREVERY (RECORD idx FROM result.indices)
-      {
-        IF (idx.indexid = 0)
-          CONTINUE;
-        RECORD catalog := SELECT * FROM indices WHERE id = idx.indexid AND indexmanager = indexmgr.id;
-        IF (NOT RecordExists(catalog))
-          DeleteIndexManagerContentSource(indexmgr.id, idx.indexid, 0);
-        ELSE
-          INSERT idx.indexid INTO presentindexids AT END;
-      }
-    }
-    ELSE
-    {
-      RETURN [ success := FALSE ];
-    }
-  }
+  FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE");
 
   // Send a CheckIndex for each index which does not have an "ok" status or that aren't present in the Consilio index
   RECORD ARRAY outdated_sources :=
@@ -78,14 +41,8 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
            , last_indexed
            , status
         FROM consilio.contentsources
-       WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM indices) //is in scope of this checkindexstate
-             AND (status > 0 //is updating or rebuikd
-                  OR catalogid NOT IN presentindexids)
+       WHERE (status > 0)
              AND tag NOT LIKE "$consilio$deleted$*"; //or not even there!
-  FOREVERY (INTEGER indexid FROM SELECT AS INTEGER ARRAY DISTINCT COLUMN indexid FROM outdated_sources)
-  {
-    EnsureIndexManagerIndex(indexid);
-  }
 
   RETURN
       [ tocheck := outdated_sources

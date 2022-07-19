@@ -2,12 +2,14 @@
 
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -19,54 +21,85 @@ BOOLEAN changes;
 BOOLEAN debug := "--debug" IN GetConsoleArguments();
 
 // Delete indices from the index managers that are no longer referred to or are marked for deletion
-INTEGER ARRAY indexedcatalogs, faileddeletes;
-FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
+RECORD old_indexmgr := SELECT id, name FROM consilio.indexmanagers WHERE address = "builtin";
+IF(RecordExists(old_indexmgr)) //For these we keep the old loop
 {
+  RECORD result := GetIndexmanagerIndexList(old_indexmgr.id);
+  IF (debug)
+    Print(`Checking index manager ${old_indexmgr.id}: ${result.status}\n`);
+  IF (result.status = SearchOk)
+  {
+    FOREVERY (RECORD indexrec FROM result.indices)
+    {
+      // Get the list of all catalogs + catalog indices for the indexid+indexname pair
+      RECORD ARRAY cats :=
+          SELECT catalogs.id
+               , catalogs.name
+               , catalogindexid :=        catalog_indexmanagers.id
+            FROM consilio.catalogs
+               , consilio.catalog_indexmanagers
+           WHERE catalogs.id = indexrec.indexid
+             AND catalog_indexmanagers.catalogid = catalogs.id
+             AND catalog_indexmanagers.indexmanager = VAR old_indexmgr.id
+             AND (indexrec.indexname = "" ? TRUE : indexname = indexrec.indexname);
+
+      BOOLEAN none_found := IsDefaultValue(cats);
+      BOOLEAN any_active := RecordExists(cats);
+
+      IF (none_found)
+      {
+        STRING status := SearchOk;
+        IF (NOT any_active)
+        {
+          result := DeleteIndexManagerIndex(old_indexmgr.id, indexrec.indexid, indexrec.indexname);
+          IF (debug)
+            Print(`  Deleted index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${old_indexmgr.name}: ${result.status}\n`);
+          status := result.status;
+        }
+        IF (result.status IN [ SearchOk, SearchIndexNotFound ])
+        {
+        }
+        ELSE
+        {
+          PrintTo(2, `  Failed deleting index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${old_indexmgr.name}: ${result.status}\n`);
+          SetConsoleExitCode(1);
+        }
+      }
+    }
+  }
+}
+
+FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin)
+{
+  //We gaarbage collect indexmanagers we fully control ourselves
   RECORD result := GetIndexmanagerIndexList(indexmanager.id);
   IF (debug)
     Print(`Checking index manager ${indexmanager.id}: ${result.status}\n`);
   IF (result.status != SearchOk)
     CONTINUE;
 
-  FOREVERY (RECORD indexrec FROM result.indices)
+  STRING ARRAY expected_indices := SELECT AS STRING ARRAY indexname
+                                     FROM consilio.catalog_indexmanagers
+                                    WHERE catalog_indexmanagers.indexmanager = VAR indexmanager.id
+                                 ORDER BY indexname;
+
+  DELETE FROM result.indices WHERE BinaryFind(expected_indices, indexname) != -1;
+  FOREVERY(RECORD toremove FROM result.indices)
   {
-    // Get the list of all catalogs + catalog indices for the indexid+indexname pair
-    RECORD ARRAY cats :=
-        SELECT catalogs.id
-             , catalogs.name
-             , catalogindexid :=        catalog_indexmanagers.id
-          FROM consilio.catalogs
-             , consilio.catalog_indexmanagers
-         WHERE catalogs.id = indexrec.indexid
-           AND catalog_indexmanagers.catalogid = catalogs.id
-           AND catalog_indexmanagers.indexmanager = VAR indexmanager.id
-           AND (indexrec.indexname = "" ? TRUE : indexname = indexrec.indexname);
-
-    BOOLEAN none_found := IsDefaultValue(cats);
-    BOOLEAN any_active := RecordExists(cats);
-
-    IF (none_found)
+    IF(toremove.indexname NOT LIKE "c_*")  //definately not autocreated by us... let's leave it for the sysop to figure out
     {
-      STRING status := SearchOk;
-      IF (NOT any_active)
-      {
-        result := DeleteIndexManagerIndex(indexmanager.id, indexrec.indexid, indexrec.indexname);
-        IF (debug)
-          Print(`  Deleted index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${indexmanager.name}: ${result.status}\n`);
-        status := result.status;
-      }
-      IF (result.status IN [ SearchOk, SearchIndexNotFound ])
-      {
-      }
-      ELSE
-      {
-        PrintTo(2, `  Failed deleting index ${indexrec.indexid} (name: ${EncodeJSON(indexrec.indexname)}) from index manager ${indexmanager.name}: ${result.status}\n`);
-        SetConsoleExitCode(1);
-        INSERT indexrec.indexid INTO faileddeletes AT END;
-      }
+      Print(`Index '${toremove.indexname}' appears to be unattached\n`);
+      CONTINUE;
     }
-    IF (any_active)
-      INSERT indexrec.indexid INTO indexedcatalogs AT END;
+    FOREVERY(STRING suffix FROM toremove.suffixes)
+    {
+      STRING msg := `Deleting unattached index '${toremove.indexname}' with suffix '${suffix}'`;
+      LogDebug("consilio:cleanupindices", msg, CELL[ action := "delete", toremove.indexname, suffix ]);
+      IF(debug)
+        Print(msg || "\n");
+
+      SendToElasticsearch(indexmanager.id, toremove.indexname || (suffix != "" ? "-" || suffix : "*"), "", DEFAULT RECORD, "DELETE", [ throwonfailure := TRUE ]);
+    }
   }
 }
 

@@ -184,12 +184,11 @@ STRING ARRAY FUNCTION TokenizeCommand(STRING command)
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION MakeQueueCmdCheckIndexState(INTEGER indexmanager)
+PUBLIC RECORD FUNCTION MakeQueueCmdCheckIndexState()
 {
   RETURN [ success := TRUE
          , action := "CHECKINDEXSTATE"
          , commanddate := GetCurrentDateTime()
-         , indexmanager := indexmanager
          ];
 }
 
@@ -203,7 +202,7 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
   {
     CASE "CHECKINDEXSTATE"
     {
-      RETURN MakeQueueCmdCheckIndexState(ToInteger(arguments[0],0));
+      RETURN MakeQueueCmdCheckIndexState();
     }
     CASE "CHECKINDEX", "UPDATEINDEX"
     {
@@ -471,7 +470,7 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
   {
     CASE "CHECKINDEXSTATE"
     {
-      RETURN data.action || " " || data.indexmanager;
+      RETURN data.action;
     }
     CASE "CHECKINDEX", "UPDATEINDEX"
     {

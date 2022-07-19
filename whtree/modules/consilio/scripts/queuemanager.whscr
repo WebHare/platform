@@ -1279,10 +1279,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
     IF(NOT args.noinitialqueue)
     {
       this->DebugLog("Queueing initial CheckIndexState command");
-      FOREVERY (RECORD indexmgr FROM SELECT id FROM consilio.indexmanagers)
-      {
-        this->AddToQueue(MakeQueueCmdCheckIndexState(indexmgr.id));
-      }
+      this->AddToQueue(MakeQueueCmdCheckIndexState());
     }
   }
 

@@ -177,6 +177,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
             result.indices :=
                 SELECT DISTINCT indexid
                      , indexname :=   ""
+                     , suffixes := STRING[""]
                   FROM indexlist
                  WHERE indexid != 0
               ORDER BY indexid;
@@ -215,10 +216,11 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
                    , size := Sum(size)
                    , indexname
                    , indexid := ANY(indexid)
+                   , suffixes := GroupedValues(suffix)
                 FROM indexlist
             GROUP BY indexname;
 
-          result.indices := SELECT indexid, indexname FROM indexlist ORDER BY indexid, indexname;
+          result.indices := SELECT indexid, indexname, suffixes FROM indexlist ORDER BY indexid, indexname;
         }
       }
     }
