@@ -169,9 +169,9 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   FOREVERY(RECORD want FROM wantcatalogs)
   {
     OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang ]);
-    IF(catalog->ismanaged != want.managed)
+    IF(catalog->managed != want.managed)
     {
-      PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->ismanaged ? "" : "not "}managed, it probably needs to be recreated\n`);
+      PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);
       CONTINUE;
     }
 
@@ -241,7 +241,9 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         }
         ELSE
         {
-          OBJECT newindex := CreateConsilioCatalog(tag, [ priority := setpriority, managed := FALSE ]);
+          OBJECT newindex := CreateConsilioCatalog(tag, [ priority := setpriority
+                                                        , managed := FALSE
+                                                        ]);
           indexrec := CELL[ newindex->id, name := tag ];
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;

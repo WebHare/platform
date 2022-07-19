@@ -414,7 +414,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   PUBLIC PROPERTY lang(this->catalog.lang,-);
 
   /// @type(boolean) Is this a managed catalog?
-  PUBLIC PROPERTY ismanaged(GetIsManaged,-);
+  PUBLIC PROPERTY managed(GetManaged,-);
 
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
@@ -446,7 +446,7 @@ STATIC OBJECTTYPE ConsilioCatalog
      ORDER BY searchpriority DESC, catalog_indexmanagers.id;
   }
 
-  BOOLEAN FUNCTION GetIsManaged()
+  BOOLEAN FUNCTION GetManaged()
   {
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
   }
@@ -508,7 +508,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                ] INTO consilio.catalog_indexmanagers;
 
     // Ensure the indexes are created at the indexmanagers
-    IF (this->ismanaged)
+    IF (this->managed)
       EnsureIndexManagerIndex(this->id);
 
     RETURN newid;
@@ -581,7 +581,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     options := ValidateOptions([ __withdeleted := FALSE ], options);
@@ -635,7 +635,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       TRY
         newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = this->id);
       CATCH (OBJECT e)
-        IF (NOT this->ismanaged)
+        IF (NOT this->managed)
           THROW;
     }
     ELSE
@@ -644,7 +644,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
     IF (Length(contentsourceids) > 0)
     {
-      RECORD ARRAY basefields := this->ismanaged ? defaultmappingfields : RECORD[];
+      RECORD ARRAY basefields := this->managed ? defaultmappingfields : RECORD[];
       IF (RecordExists(newmapping))
         basefields := basefields CONCAT newmapping.properties;
       RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
@@ -692,7 +692,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                                ], options);
 
     INTEGER ARRAY contentsources;
-    IF(this->ismanaged)
+    IF(this->managed)
     {
       IF(options.suffix != "" OR Length(options.fieldgroups) > 0 OR NOT options.strict)
         THROW NEW Exception(`Managed catalogs do not allow EnsureIndex configuration`);
@@ -796,7 +796,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO AddObjects(RECORD ARRAY objects, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->ismanaged)
+    IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
 
     options := ValidateOptions( [ suffix := ""
@@ -824,7 +824,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->ismanaged)
+    IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
 
     options := ValidateOptions( [ suffix := ""
@@ -844,7 +844,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO DeleteIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->ismanaged)
+    IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
 
     options := ValidateOptions([suffix := ""], options);
@@ -863,7 +863,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(string) return.suffix Suffix name. Can be empty for the main index*/
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
-    IF(this->ismanaged)
+    IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
 
     RECORD indexmgr := this->ListAttachedIndices();
@@ -875,7 +875,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   OBJECT FUNCTION CreateContentSource(RECORD csourcesettings)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
@@ -911,7 +911,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     options :=  ValidateOptions(
@@ -955,7 +955,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC OBJECT FUNCTION AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
@@ -993,7 +993,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     RECORD match :=
@@ -1013,7 +1013,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     RECORD match := SELECT * FROM consilio.contentsources WHERE contentsources.id = VAR id AND tag NOT LIKE "$consilio$deleted$*";
@@ -1025,7 +1025,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   PUBLIC MACRO ReindexCatalog(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT this->ismanaged)
+    IF(NOT this->managed)
       THROW NEW Exception(`ReindexCatalog rebuilds using content sources, but unmanaged catalogs do not support these`);
 
     options := ValidateOptions([ rebuild := FALSE ], options);
@@ -1042,7 +1042,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     @return List of catalogs
     @cell return.id Catalog id
     @cell return.tag Catalog tag
-    @cell(boolean) return.ismanaged True if this is managed catalog (supports contentsources)
+    @cell(boolean) return.managed True if this is managed catalog (supports contentsources)
     @cell return.indexmanager Index manager
 */
 PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1051,7 +1051,7 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
   RECORD ARRAY catalogs :=
       SELECT id
            , tag := name
-           , ismanaged := type = whconstant_consilio_catalogtype_managed
+           , managed := type = whconstant_consilio_catalogtype_managed
         FROM consilio.catalogs
        WHERE options.__withdeleted OR name NOT LIKE "$consilio$deleted$*";
   RECORD ARRAY indexmanagers :=
@@ -1134,7 +1134,7 @@ PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
     @param options Options
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
-    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE
+    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE (formerly named 'managed')
     @return(object #Catalog) Catalog object
 */
 PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
