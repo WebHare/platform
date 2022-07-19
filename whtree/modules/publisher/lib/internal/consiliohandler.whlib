@@ -27,7 +27,7 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjectsForFolder(INTEGER folderid)
 PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD ARRAY results;
-  options := ValidateOptions([ eventid := "", debug := FALSE, progress := FALSE ], options);
+  options := ValidateOptions([ eventid := "", debug := FALSE, progress := FALSE, refresh := TRUE ], options);
 
   IF(NOT ObjectExists(publisher_fsobjects_source))
   {
@@ -105,7 +105,11 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
       Print("\n");
   }
 
-  IF (options.eventid != "")
+  //5.02+ Refresh the catalog - most of our users want this because they want a visibility guarantee
+  IF(options.refresh)
+    publisher_fsobjects_source->catalog->Refresh();
+
+  IF(options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
 }
 
