@@ -120,6 +120,10 @@ MACRO TestESCreationAPIs()
 
   // Create a subindex
   catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+  testfw->CommitWork();
+
   catalog->EnsureIndex([suffix := "suffix"]);
   TestEq(RECORD[[ suffix := "suffix" ]], catalog->ListSuffixes());
 
@@ -187,6 +191,8 @@ MACRO TestESBulkInsertion()
   // Make sure it's indeed nonexistent
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
   TestEq(TRUE, ObjectExists(catalog));
+  Print(catalog->GetStorageInfo()||"\n");
+
   RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
@@ -197,7 +203,11 @@ MACRO TestESBulkInsertion()
                     ]],[ suffix := "sub1"]));
 
   //But we should be able to manually offer it if we specify a mapping containing it
-  catalog->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
+  testfw->CommitWork();
+
+  catalog->EnsureIndex( [ suffix := "sub1" ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
@@ -343,7 +353,11 @@ MACRO TestESBulkInsertion()
   TestEq(0, res.totalcount);
 
   //Test store-only fields
-  catalog->EnsureIndex([ suffix := "sub1", fieldgroups := [ "webhare_testsuite:storeonly" ] ]);
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:storeonly" ] ]);
+  testfw->CommitWork();
+
+  catalog->EnsureIndex([ suffix := "sub1" ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
                      , documentfields := [ indexed := "test", stored := "test" ]
@@ -368,7 +382,10 @@ MACRO TestESBulkInsertion()
       ],[ suffix := "sub1" ]));
 
   //But we should be able to set it through a wildcard if we add it
-  catalog->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:unspecifiedwildcards" ] ]);
+  testfw->BeginWork();
+  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields", "webhare_testsuite:unspecifiedwildcards" ] ]);
+  testfw->CommitWork();
+  catalog->EnsureIndex( [ suffix := "sub1" ]);
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'unspecified_record.xyz' := 43 ]

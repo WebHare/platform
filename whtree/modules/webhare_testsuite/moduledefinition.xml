@@ -346,7 +346,6 @@
       <float name="float_field" />
       <datetime name="date_field" />
       <boolean name="bool_field" />
-      <record name="unspecified_record" />
       <record name="record_field" strict="false">
         <text name="record_text_field" />
         <integer name="dn_*" />

@@ -41,6 +41,14 @@ STRING FUNCTION __GenerateIndexName()
   RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
 }
 
+STRING FUNCTION BuildFieldgroups(STRING ARRAY fieldgroups)
+{
+  //TODO validate whether these groups exist so we give Errors Early ?
+  IF(Length(fieldgroups) = 0)
+    RETURN "";
+  RETURN Detokenize(GetSortedSet(fieldgroups),' ');
+}
+
 //Is this a valid indexname for use in Consilio?
 PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
 {
@@ -544,6 +552,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     settings := ValidateOptions([ definedby := ""
                                 , lang := ""
+                                , fieldgroups := STRING[]
                                 , suffixed := TRUE
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
@@ -551,6 +560,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     // If the catalog language changes, the catalog has to be rebuilt
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
+    BOOLEAN fieldgroups_changed;
 
     IF(CellExists(settings, 'suffixed'))
     {
@@ -562,6 +572,21 @@ STATIC OBJECTTYPE ConsilioCatalog
                       , suffix := settings.suffixed ? default_suffix_mask : ""
                       ];
     }
+
+    IF(CellExists(settings, 'fieldgroups'))
+    {
+      STRING newval := BuildFieldgroups(settings.fieldgroups);
+      DELETE CELL fieldgroups FROM settings;
+
+      IF(newval != this->catalog.fieldgroups)
+      {
+        INSERT CELL fieldgroups := newval INTO settings;
+        fieldgroups_changed := TRUE;
+      }
+    }
+
+    IF(Length(UnpackRecord(settings)) = 0)
+      RETURN FALSE; //no change
 
     UPDATE consilio.catalogs SET RECORD settings WHERE id = this->id;
 
@@ -1195,7 +1220,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
              , suffix := options.suffixed ? default_suffix_mask : ""
-             , fieldgroups := Detokenize(options.fieldgroups, " ")
+             , fieldgroups := BuildFieldgroups(options.fieldgroups)
              , options.lang
              ] INTO consilio.catalogs;
 
