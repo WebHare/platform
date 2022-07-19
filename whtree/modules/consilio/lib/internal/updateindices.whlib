@@ -55,6 +55,20 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     INSERT catalog INTO wantcatalogs AT END;
   }
 
+  FOREVERY(RECORD indexnode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "index")) //support for <index> should be dropped ASAP
+  {
+    RECORD catalog := CELL[ tag := ToLowercase(`${indexnode.module}:${indexnode.node->GetAttribute("tag")}`)
+                          , priority := ParseXSInt(indexnode.node->Getattribute("priority"))
+                          , definedby := "<index> " || indexnode.resource || ":" || indexnode.node->linenum
+                          , contentsources := RECORD[]
+                          , managed := FALSE
+                          , suffixed := TRUE
+                          , fieldgroups := ParseXSList(indexnode.node->GetAttribute("tag"))
+                          , lang := ""
+                          ];
+    INSERT catalog INTO wantcatalogs AT END;
+  }
+
   RECORD siteprofs := GetCachedSiteProfiles();
   FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
   {
@@ -176,11 +190,11 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
       CONTINUE;
     }
 
-    IF(catalog->definedby != want.definedby OR catalog->lang != want.lang)
+    IF(catalog->definedby != want.definedby OR catalog->lang != want.lang OR catalog->suffixed != want.suffixed)
     {
       TRY
       {
-        catalog->UpdateCatalog( CELL[ want.definedby, want.lang ]);
+        catalog->UpdateCatalog( CELL[ want.definedby, want.lang, want.suffixed ]);
       }
       CATCH(OBJECT e)
       {
@@ -197,64 +211,6 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->CommitWork();
 }
 
-MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ modules := STRING[]
-      , reportmissing := FALSE
-      ], options);
-
-  OBJECT trans := GetPrimary();
-  IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
-    RETURN; //consilio is not initialized yet!
-
-  trans->BeginWork();
-
-  //gather requested indices
-  RECORD ARRAY allindices;
-  FOREVERY (STRING mod FROM GetInstalledModuleNames())
-  {
-    IF (Length(options.modules) > 0 AND mod NOT IN options.modules)
-      CONTINUE;
-
-    OBJECT xmldoc := GetModuleDefinitionXML(mod);
-    FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
-      FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "index"))
-      {
-        STRING tag := mod || ":" || indexnode->GetAttribute("tag");
-        INTEGER setpriority := ParseXSInt(indexnode->Getattribute("priority"));
-
-        // Update or create the index
-        RECORD indexrec := SELECT * FROM consilio.catalogs WHERE ToUppercase(name) = ToUppercase(VAR tag);
-        IF (RecordExists(indexrec))
-        {
-          IF (indexrec.type != whconstant_consilio_catalogtype_unmanaged)
-          {
-            PrintTo(2,`There already is an index named '${tag}', which is not a module index\n`);
-            SetConsoleExitCode(1);
-            CONTINUE;
-          }
-          /* Nothing to update (yet?)
-          UPDATE consilio.catalog
-             SET
-           WHERE id = indexrec.id;
-          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);*/
-        }
-        ELSE
-        {
-          OBJECT newindex := CreateConsilioCatalog(tag, [ priority := setpriority
-                                                        , managed := FALSE
-                                                        , suffixed := TRUE
-                                                        ]);
-          indexrec := CELL[ newindex->id, name := tag ];
-        }
-        INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
-      }
-  }
-
-  trans->CommitWork();
-}
-
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -265,7 +221,6 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   TRY
   {
     UpdateModuleCatalogs(CELL[options.reportmissing]);
-    UpdateModuleIndices(CELL[options.reportmissing]);
   }
   FINALLY
   {

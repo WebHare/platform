@@ -331,7 +331,6 @@
       <datetime name="fieldgroup_datetime" />
     </fieldgroup>
 
-    <!-- legacy syntax -->
     <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
     <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" />
 
@@ -433,6 +432,18 @@
     <addtowhfsindex privatefolder="addtowhfsindex/beforerepository" priority="beforerepository" />
     <addtowhfsindex privatefolder="addtowhfsindex/beforesites" priority="beforesites" />
     <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
+
+
+    <!-- legacy syntax -->
+    <index tag="toolslog">
+      <datetime name="@timestamp" />
+      <record name="minfin">
+        <keyword name="theme" />
+        <keyword name="tool" />
+        <keyword name="type" />
+        <integer name="versionnr" />
+      </record>
+    </index>
   </consilio>
 
   <hooking>

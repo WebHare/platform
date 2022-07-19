@@ -1,0 +1,46 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestOldIndexSyntax()
+{
+  testfw->BeginWork();
+
+  //A catalog created using a legacy <index tag (we'll drop support soon!) should be an Unmanaged Suffixed catalog
+  OBJECT legacytoolslog := OpenConsilioCatalog("webhare_testsuite:toolslog");
+  TestEq(FALSE, legacytoolslog->managed);
+  TestEq(TRUE, legacytoolslog->suffixed, "Catalog is not initially suffixed - you may have to `wh consilio:updateindices` first");
+
+  FOREVERY(RECORD toremove FROM legacytoolslog->ListAttachedIndices())
+    legacytoolslog->DetachIndex(toremove.id);
+
+  legacytoolslog->AttachIndex(0);
+  legacytoolslog->EnsureIndex();
+  testfw->CommitWork();
+
+  RECORD indexinfo := legacytoolslog->ListAttachedIndices()[0];
+  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_mapping`, DEFAULT RECORD).result;
+  TestEq("keyword", GetCell(mapping,indexinfo.indexname).mappings.properties.minfin.properties.theme.type, "Verify that the fieldgroup got applied");
+
+  testfw->BeginWork();
+  legacytoolslog->UpdateCatalog([ suffixed := FALSE ]);
+  TestEq(FALSE, legacytoolslog->suffixed);
+  testfw->CommitWork();
+
+  TestEq(FALSE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
+
+  FixConsilioIndices();
+
+  TestEq(TRUE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
+}
+
+RunTestframework(
+    [ PTR TestOldIndexSyntax
+    ]);

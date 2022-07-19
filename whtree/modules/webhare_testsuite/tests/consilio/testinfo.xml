@@ -34,6 +34,7 @@
   <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" />
   <test script="test_pagelists.whscr" />
+  <test script="test_upgrades.whscr" unlessenvironset="WEBHARE_PREFERINDEXMANAGER"/>
 
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />
