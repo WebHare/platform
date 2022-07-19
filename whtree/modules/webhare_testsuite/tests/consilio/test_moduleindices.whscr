@@ -45,20 +45,6 @@ MACRO Prepare()
     TestEq(TRUE, ObjectExists(cat), `Catalog "${usedcatalog}" should exist`);
     FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
       cat->DetachIndex(toremove.id);
-    TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${usedcatalog}" should have all attachments removed after initial cleanup`);
-  }
-
-  testfw->CommitWork();
-
-  FixConsilioIndices();
-
-  //Attach them
-  testfw->BeginWork();
-  FOREVERY(STRING usedcatalog FROM testcatalogs)
-  {
-    OBJECT cat := OpenConsilioCatalog(usedcatalog);
-    TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${usedcatalog}" should not start with any initially attached indices`);
-    TestThrowsLike("Unexpected *INDEXMANAGER*", PTR cat->UpdateCatalog([ indexmanager := builtin_opensearch.id]), "Old API has been dropped");
 
     INTEGER index1id := cat->AttachIndex(builtin_opensearch.id);
     IF(#usedcatalog = 0) //we'll use testindex for some further tests
