@@ -33,6 +33,9 @@ MACRO SiteRenameTest()
   TestEq(savename || ".xxx", OpenSiteByName(savename || ".xxx")->rootobject->name);
 
   testfw->CommitWork();
+
+  WaitForPublishCompletion(testsite->id, [ accepterrors := TRUE ]);
+
   testfw->BeginWork();
   OpenSiteByName(savename || ".xxx")->rootobject->UpdateMetadata([name := savename]);
   TestEq(TRUE, Objectexists(OpenSiteByName(savename)));
