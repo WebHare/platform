@@ -29,6 +29,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
                           , contentsources := RECORD[]
                           , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
+                          , suffixed := ParseXSBoolean(catalognode.node->GetAttribute("suffixed"))
                           , fieldgroups := ParseXSList(catalognode.node->GetAttribute("fieldgroups"))
                           , lang := catalognode.node->GetAttribute("lang")
                           ];
@@ -168,7 +169,7 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang ]);
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang, want.suffixed ]);
     IF(catalog->managed != want.managed)
     {
       PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);
@@ -243,6 +244,7 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           OBJECT newindex := CreateConsilioCatalog(tag, [ priority := setpriority
                                                         , managed := FALSE
+                                                        , suffixed := TRUE
                                                         ]);
           indexrec := CELL[ newindex->id, name := tag ];
         }

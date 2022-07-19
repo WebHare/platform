@@ -333,6 +333,8 @@
 
     <!-- legacy syntax -->
     <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
+    <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" />
+
     <fieldgroup tag="testindexfields">
       <datetime name="@timestamp" />
       <text name="title" />

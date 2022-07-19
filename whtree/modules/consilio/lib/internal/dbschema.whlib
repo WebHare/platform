@@ -17,6 +17,7 @@ PUBLIC SCHEMA
     , INTEGER "type"
     , STRING "fieldgroups"
     , STRING "lang"
+    , STRING "suffix"
     ; KEY id
     > catalogs
   , TABLE

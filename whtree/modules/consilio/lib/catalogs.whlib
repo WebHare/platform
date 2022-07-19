@@ -416,6 +416,9 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// @type(boolean) Is this a managed catalog?
   PUBLIC PROPERTY managed(GetManaged,-);
 
+  /// @type(boolean) Is this catalogs suffixed?
+  PUBLIC PROPERTY suffixed(GetSuffixed,-);
+
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 
@@ -449,6 +452,11 @@ STATIC OBJECTTYPE ConsilioCatalog
   BOOLEAN FUNCTION GetManaged()
   {
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;
+  }
+
+  BOOLEAN FUNCTION GetSuffixed()
+  {
+    RETURN this->catalog.suffix != "";
   }
 
   /** Describe how the catalog is stored. Useful for debugging
@@ -534,12 +542,24 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     settings := ValidateOptions([ definedby := ""
                                 , lang := ""
+                                , suffixed := TRUE
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
 
     // If the catalog language changes, the catalog has to be rebuilt
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
+
+    IF(CellExists(settings, 'suffixed'))
+    {
+      IF(settings.suffixed AND this->managed)
+        THROW NEW Exception(`A managed index can't be set to suffixed`);
+
+      settings := CELL[ ...settings
+                      , DELETE suffixed
+                      , suffix := settings.suffixed ? ".*" : ""
+                      ];
+    }
 
     UPDATE consilio.catalogs SET RECORD settings WHERE id = this->id;
 
@@ -690,6 +710,9 @@ STATIC OBJECTTYPE ConsilioCatalog
                                , fieldgroups := STRING[]
                                , strict := TRUE
                                ], options);
+
+    IF(options.suffix != "" AND NOT this->suffixed)
+        THROW NEW Exception(`Suffixes are not enabled for this catalog`);
 
     INTEGER ARRAY contentsources;
     IF(this->managed)
@@ -1135,6 +1158,7 @@ PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
     @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE (formerly named 'managed')
+    @cell(boolean) options.suffixed Create a suffixed catalog
     @return(object #Catalog) Catalog object
 */
 PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1152,10 +1176,14 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
                               , fieldgroups := STRING[]
                               , managed := TRUE
+                              , suffixed := FALSE
                               , lang := ""
                               ], options);
 
   INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
+
+  IF(options.suffixed AND options.managed)
+    THROW NEW Exception(`A managed index can't be set to suffixed`);
 
   // Create index
   INSERT CELL[ id := indexid
@@ -1166,6 +1194,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.definedby
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
+             , suffix := options.suffixed ? "-*" : ""
              , fieldgroups := Detokenize(options.fieldgroups, " ")
              , options.lang
              ] INTO consilio.catalogs;

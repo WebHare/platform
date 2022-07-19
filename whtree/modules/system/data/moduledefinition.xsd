@@ -2144,6 +2144,12 @@
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="suffixed" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Enable index suffixes (partitioning)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="fieldgroups" type="ScopedNameList">
       <xs:annotation>
         <xs:documentation>List of fieldgroups for unmanaged catalog initialization</xs:documentation>
