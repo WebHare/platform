@@ -56,22 +56,6 @@ PUBLIC CONSTANT INTEGER default_contentcheckinterval:= 1440;
 PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
 
 
-PUBLIC INTEGER FUNCTION GetBuiltinElasticSearchId()
-{
-  RETURN SELECT AS INTEGER id
-           FROM consilio.indexmanagers
-          WHERE address IN ["builtin-opensearch"];
-}
-
-PUBLIC INTEGER FUNCTION GetDefaultIndexManager()
-{
-  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "";
-  RETURN SELECT AS INTEGER id
-           FROM consilio.indexmanagers
-          WHERE address IN ["builtin","builtin-opensearch"]
-       ORDER BY address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch") DESC; //prefer consilio - for now, unless testfw indicates ES should have priority
-}
-
 PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
 {
   RETURN ToInteger(SubString(EncodeBase16(GetMD5Hash(url)), 0, 7), 0, 16);
@@ -109,30 +93,6 @@ PUBLIC STRING FUNCTION CleanWhitespace(STRING text)
 
   // Trim leading and trailing whitespace and return
   RETURN TrimWhitespace(text);
-}
-
-PUBLIC STRING FUNCTION DetectContentType(RECORD contenttypeheader, STRING filename, BLOB filecontent)
-{
-  STRING contenttype;
-
-  // First look at the content type the server sent us
-  IF (RecordExists(contenttypeheader))
-  {
-    INTEGER typeend := SearchSubstring(contenttypeheader.value, ";");
-    IF (typeend >= 0)
-      contenttype := Substring(contenttypeheader.value, 0, typeend);
-    ELSE
-      contenttype := contenttypeheader.value;
-  }
-
-  // Some standard content types that we assume being defined
-  // by the webserver in order to be able to view websites on it
-  IF (ToUppercase(contenttype) IN [ "TEXT/HTML", "TEXT/CSS", "IMAGE/JPEG", "IMAGE/GIF", "IMAGE/PNG" ])
-    RETURN contenttype;
-
-  // If we can detect the file type ourselved, use that, otherwise
-  // use the content type received from the server
-  RETURN ScanBlob(filecontent, filename).mimetype;
 }
 
 PUBLIC STRING FUNCTION DateTimeToString(DATETIME value)
