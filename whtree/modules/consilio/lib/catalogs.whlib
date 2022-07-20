@@ -916,7 +916,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   }
 
   /** @short Delete a suffix from the index manager
-      @param suffix Suffix to delete. Empty to delete an unsuffixed unamnaged index (which can then be recreated using ApplyConfiguration)
+      @param suffix Suffix to delete. Empty to delete an unsuffixed unmanaged index (which can then be recreated using ApplyConfiguration)
   */
   PUBLIC MACRO DeleteSuffix(STRING suffix)
   {

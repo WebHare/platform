@@ -12,7 +12,7 @@ By default a catalog is considered 'managed'. A managed catalog has one or more
 content sources which provide the data to store in the index.
 
 ## Publisher content sources
-Individual sites can add themselves as a Publishier content source using
+Individual sites can add themselves as a Publisher content source using
 `sitesettings` in their siteprofiles
 
 ```xml
@@ -46,7 +46,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCatalogSources()
 
 ## Unmanaged catalogs
 Unmanaged catalogs do not support sources but require you to manually add content.
-To set up an unmanage catalog, specify the `managed="false"` attribute to the
+To set up an unmanaged catalog, specify the `managed="false"` attribute to the
 `<catalog>`. You may additionally add the `suffixed="true"` flag to be able
 to partition the data into multiple indices (with the same base name but a
 different suffix).
