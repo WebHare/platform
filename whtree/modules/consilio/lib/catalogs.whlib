@@ -62,7 +62,7 @@ PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
     @cell (string) return.url URL to connect to the server */
 PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 {
-  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "";
+  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "" OR IsDebugTagEnabled("consilio:preferlegacy");
   RETURN SELECT id
               , type := type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
               , isbuiltin := address IN ["builtin","builtin-opensearch"]
