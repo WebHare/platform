@@ -772,7 +772,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     {
       updatesuffixes := SELECT AS STRING ARRAY suffix FROM this->ListSuffixes();
       IF(NOT this->suffixed AND "" NOT IN updatesuffixes)
-        INSERT "" INTO updatesuffixes AT END; //ApplyConfiguration to an empty catalog should
+        INSERT "" INTO updatesuffixes AT END; //on an empty unsuffixed catalog, even unmanaged, create and configure the root index
     }
 
     this->EnsureIndexSettings(updatesuffixes);
