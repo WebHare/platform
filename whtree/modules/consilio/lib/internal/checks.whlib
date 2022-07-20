@@ -2,6 +2,8 @@
 
 LOADLIB "wh::promise.whlib";
 
+LOADLIB "mod::system/lib/services.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
@@ -43,28 +45,36 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
 
 MACRO CheckIndexManager(INTEGER indexmgrid, MACRO PTR onresolve, MACRO PTR onreject)
 {
-  RECORD result := GetIndexManagerState(indexmgrid);
-  IF (result.status != SearchOk)
+  TRY
   {
-    onresolve(`Could not connect to index manager #${indexmgrid}: ${result.status}`);
-    RETURN;
-  }
-  ELSE
-  {
-    // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
-    IF ("indexstatus=0" IN result.msg)
+    RECORD result := GetIndexManagerState(indexmgrid);
+    IF (result.status != SearchOk)
     {
-      // Find the watermark
-      STRING watermark := Substring(SELECT AS STRING msg FROM ToRecordArray(result.msg, "msg") WHERE msg LIKE "disk.watermark=*", 15);
-      // We don't have to show "false" (not threshold active) or "ok" (threshold not triggered)
-      IF (watermark NOT IN [ "", "false", "ok" ])
+      onresolve(`Could not connect to index manager #${indexmgrid}: ${result.status}`);
+      RETURN;
+    }
+    ELSE
+    {
+      // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
+      IF ("indexstatus=0" IN result.msg)
       {
-        // Watermark has the form <low|high|flood>=<value>, where value is percentage full, or byte value free
-        STRING ARRAY parts := Tokenize(watermark, "=");
-        onresolve(`Index manager #${indexmgrid} has disk watermark ${parts[0]} (${parts[1] LIKE "*%" ? `> ${parts[1]} in use` : `< ${parts[1]} free`})`);
-        RETURN;
+        // Find the watermark
+        STRING watermark := Substring(SELECT AS STRING msg FROM ToRecordArray(result.msg, "msg") WHERE msg LIKE "disk.watermark=*", 15);
+        // We don't have to show "false" (not threshold active) or "ok" (threshold not triggered)
+        IF (watermark NOT IN [ "", "false", "ok" ])
+        {
+          // Watermark has the form <low|high|flood>=<value>, where value is percentage full, or byte value free
+          STRING ARRAY parts := Tokenize(watermark, "=");
+          onresolve(`Index manager #${indexmgrid} has disk watermark ${parts[0]} (${parts[1] LIKE "*%" ? `> ${parts[1]} in use` : `< ${parts[1]} free`})`);
+          RETURN;
+        }
       }
     }
+    onresolve("");
   }
-  onresolve("");
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    onresolve(`Could not connect to index manager #${indexmgrid}: ${e->what}`);
+  }
 }
