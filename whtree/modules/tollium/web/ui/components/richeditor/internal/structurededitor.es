@@ -1611,6 +1611,7 @@ export default class StructuredEditor extends EditorBase
             if (block && block.surrogate)
               block = null;
 
+            let isreallist = type.style.islist;
             if (initialblockstyle)
             {
               if (!type.style.islist)
@@ -1622,6 +1623,16 @@ export default class StructuredEditor extends EditorBase
             {
               // Non-list in list block. Just parse the contents
               this.parseContainerContentsRecursive(child, block, topblocklist, textstyles, null, options);
+            }
+            else if (type.style.islist && !isreallist) // initial blockstyle is a list
+            {
+              let subblock = { type: 'list', style: type.style, nodes: [], surrogate: true };
+              topblocklist.push(subblock);
+
+              let listitem = { type: 'listitem', nodes: [], listitems: subblock.nodes, style: type.style };
+              subblock.nodes.push(listitem);
+
+              this.parseContainerContentsRecursive(child, listitem, topblocklist, textstyles, null, options);
             }
             else if (type.style.islist)
             {
@@ -1845,6 +1856,12 @@ export default class StructuredEditor extends EditorBase
           {
             if (!node.nodes.length)
               continue;
+
+            if (inlist && node.temporary && node.nodes.length == 1)
+            {
+              locator = this._insertParsed(locator, node.nodes[0].nodes, inblock, inlist, intable, preservelocators, undoitem);
+              continue;
+            }
 
             let res = this.insertBlockNode(locator, node.style, false, preservelocators, undoitem, node.anchor);
             for (var j = 0; j < node.nodes.length; ++j)
