@@ -13,5 +13,4 @@
   <test script="test_work.whscr"/>
   <test script="test_whtrans.whscr"/>
   <group name="blobs"><test script="testrunner.whscr"><arg param="scriptpath"/><arg value="blob-tests.whscr"/></test></group>
-  <test script="test_schemadefs.whscr"/>
 </group>

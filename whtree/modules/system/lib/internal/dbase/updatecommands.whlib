@@ -4,11 +4,6 @@ LOADLIB "wh::internal/transbase.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
-STRING FUNCTION XMLComment(STRING input)
-{
-  RETURN `<!-- ${Substitute(input,'--','- -')} -->`;
-}
-
 RECORD ARRAY FUNCTION ValidateSchemaSpecs(RECORD ARRAY schemaspecs)
 {
   FOREVERY (RECORD rec FROM schemaspecs)
@@ -173,91 +168,6 @@ PUBLIC RECORD FUNCTION GetSchemaModuleDefinition(OBJECT trans, STRING schemaname
 {
   options := ValidateOptions([ withimplicitindices := FALSE ], options);
   RETURN GetPostgreSQLDatabaseSchemaDef(trans, schemaname, options);
-}
-
-PUBLIC STRING FUNCTION GetSchemaModuleDef(OBJECT trans, STRING schemaname)
-{
-  RECORD schemadef := GetPostgreSQLDatabaseSchemaDef(trans, schemaname);
-  RETURN RecordExists(schemadef) ? GenerateDatabaseSchemaXMLFromSchemaDef(schemadef) : "";
-}
-
-PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
-{
-  STRING def := '<databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">\n';
-
-  FOREVERY (RECORD tabledef FROM schemadef.tables)
-  {
-    def := `${def}  <d:table name="${ToLowercase(EncodeValue(tabledef.name))}"`;
-    IF (tabledef.primarykey != "")
-      def := `${def} primarykey="${ToLowercase(EncodeValue(tabledef.primarykey))}"`;
-    IF (tabledef.legacy_readaccessmgr != "")
-      def := `${def} legacy_readaccessmgr="${ToLowercase(EncodeValue(tabledef.legacy_readaccessmgr))}"`;
-    IF (tabledef.legacy_writeaccessmgr != "")
-      def := `${def} legacy_writeaccessmgr="${ToLowercase(EncodeValue(tabledef.legacy_writeaccessmgr))}"`;
-    def := `${def} >\n`;
-
-    FOREVERY (RECORD coldef FROM tabledef.cols)
-    {
-      def := `${def}    <d:${ToLowercase(coldef.dbtype)} name="${EncodeValue(ToLowercase(coldef.name))}"`;
-      IF (coldef.references_table != "")
-      {
-        STRING refto := `${coldef.references_schema = schemadef.name ? "" : `${coldef.references_schema}`}.${coldef.references_table}`;
-        def := `${def} references="${EncodeValue(ToLowercase(refto))}"`;
-        IF (coldef.ondelete != "")
-          def := def || ' ondelete="' || ToLowercase(coldef.ondelete) || '"';
-      }
-
-      INTEGER64 autonumberstart := Cellexists(coldef,'autonumberstart') ? coldef.autonumberstart : 0i64;
-      IF (coldef.isunique)
-        def := def || ' unique="true"';
-      IF (NOT coldef.nullable)
-        def := def || ' nullable="false"';
-      IF (coldef.noupdate)
-        def := def || ' noupdate="true"';
-      IF (coldef.defval != "")
-          def := def || ` default="${coldef.defval}"`;
-      IF (autonumberstart > 0)
-        def := def||' autonumberstart="' || autonumberstart || '"';
-      IF (CellExists(coldef, "maxlength") AND coldef.maxlength != 0)
-        def := def||' maxlength="' || coldef.maxlength || '"';
-      IF(coldef.internalcolumnname!="")
-        def := def||' internalcolumnname="' || EncodeValue(coldef.internalcolumnname) || '"';
-
-      def := def || ' />';
-
-      //We output the raw defaultvalue as a comment if we didn't manage to encode it as a WebHare value
-      IF(CellExists(coldef,'defval_raw') AND coldef.defval_raw != "" AND coldef.defval = "" AND autonumberstart = 0 AND NOT coldef.defval_isdefault)
-        def := `${def} ${XMLComment(`Cannot encode default value: ${coldef.defval_raw}`)}`;
-
-      def := def || '\n';
-    }
-
-    FOREVERY (RECORD indexdef FROM tabledef.indices)
-    {
-      STRING cols;
-      FOREVERY (RECORD col FROM indexdef.cols)
-      {
-        IF (#col != 0)
-          cols := cols || " ";
-        cols := cols || col.name;
-        IF (col.len != 0)
-          cols := cols || "(" || col.len || ")";
-      }
-      def := def || '    <d:index name="' || EncodeValue(indexdef.name) || '" columns="' || EncodeValue(cols) || '"';
-      IF (indexdef.is_unique)
-        def := def || ' unique="true"';
-      IF (indexdef.is_uppercase)
-        def := def || ' uppercase="true"';
-      IF (indexdef.nonullstores)
-        def := def || ' nonullstores="true"';
-      def := def || ' />\n';
-
-    }
-    def := def || '  </d:table>\n';
-  }
-
-  def := def || '</databaseschema>';
-  RETURN def;
 }
 
 PUBLIC MACRO ExecuteSQLUpdates(OBJECT trans, RECORD ARRAY cmds)
