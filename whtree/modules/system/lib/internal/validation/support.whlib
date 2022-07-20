@@ -55,6 +55,14 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   /** List of warnings @includecelldef #hints */
   PUBLIC RECORD ARRAY hints;
 
+  /** List of icons
+      @cell resourcename Resource name
+      @cell line Line number
+      @cell col Column number
+      @cell icon Icon reference
+  */
+  PUBLIC RECORD ARRAY icons;
+
   /** Create a new XML validatior base object
       @param(object %XMLDocument) xmldoc XML document to validate
       @param respath Resource path of the document
