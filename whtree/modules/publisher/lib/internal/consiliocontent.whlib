@@ -280,7 +280,11 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                    ] INTO mapping AT END;
           }
         }
-        CATCH {}
+        CATCH(OBJECT e)
+        {
+          LogHarescriptException(e);
+          CONTINUE; //TODO better logging or somehow make more visible something can't be indexed
+        }
       }
     }
 
