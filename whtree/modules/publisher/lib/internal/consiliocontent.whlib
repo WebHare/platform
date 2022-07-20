@@ -231,11 +231,15 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , [ name := "date_modification", value := DEFAULT DATETIME ]
         , [ name := "date_publication", value := DEFAULT DATETIME ]
         ];
-    FOREVERY (RECORD indexfield FROM GetIndexFields())
+
+    RECORD ARRAY indexfields := GetIndexFields();
+    RECORD ARRAY instancecache := this->GetInstanceCache(indexfields, 0);
+
+    FOREVERY (RECORD indexfield FROM indexfields)
     {
       TRY
       {
-        RECORD defaultvalue := this->ParseIndexField(DEFAULT RECORD, 0, indexfield, 0);
+        RECORD defaultvalue := this->ParseIndexField(DEFAULT RECORD, 0, indexfield, 0, instancecache);
         IF (Length(indexfield.arraymembers) > 0)
         {
           FOREVERY (RECORD subfield FROM indexfield.arraymembers)
@@ -407,22 +411,39 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
            ];
   }
 
+  RECORD ARRAY FUNCTION GetInstanceCache(RECORD ARRAY indexfields, INTEGER objid)
+  {
+    RETURN
+        SELECT TEMPORARY whfstype := OpenWHFSType(namespace)
+             , namespace
+             , whfstype := whfstype
+             , data := objid = 0 ? whfstype->defaultinstance : whfstype->GetInstanceData(objid)
+             , members := whfstype->members
+          FROM indexfields
+         WHERE namespace != ""
+      GROUP BY namespace
+      ORDER BY namespace;
+  }
+
   RECORD FUNCTION AddParsedIndexFields(OBJECT fsobj, RECORD fields, INTEGER arrayid)
   {
+    RECORD ARRAY indexfields := GetIndexFields();
+    RECORD ARRAY instancecache := this->GetInstanceCache(indexfields, fsobj->id);
+
     FOREVERY (RECORD indexfield FROM GetIndexFields())
     {
       // Parse the contenttype data and store it in a module field
-      fields := this->ParseIndexField(fields, fsobj->id, indexfield, arrayid);
+      fields := this->ParseIndexField(fields, fsobj->id, indexfield, arrayid, instancecache);
     }
     DELETE CELL _arrayname, _arraylength FROM fields;
     RETURN fields;
   }
 
-  RECORD FUNCTION ParseIndexField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid)
+  RECORD FUNCTION ParseIndexField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, RECORD ARRAY instancecache)
   {
     IF (indexfield.namespace != "" AND indexfield.membername != "")
     {
-      RETURN this->ParseContentTypeField(fields, objid, indexfield, arrayid);
+      RETURN this->ParseContentTypeField(fields, objid, indexfield, arrayid, instancecache);
     }
     ELSE IF (indexfield.fieldfunc != "")
     {
@@ -432,28 +453,33 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
       THROW NEW Exception("Indexfield not properly configured");
   }
 
-  RECORD FUNCTION ParseContentTypeField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid)
+  RECORD FUNCTION ParseContentTypeField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, RECORD ARRAY instancecache)
   {
-    OBJECT indextype := OpenWHFSType(indexfield.namespace);
+    RECORD pos := RecordLowerBound(instancecache, indexfield, [ "NAMESPACE" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception(`Internal error, instance ${indexfield.namespace} should be in cache`);
+
+    RECORD cachedata := instancecache[pos.position];
+    OBJECT indextype := cachedata.whfstype;
     IF (NOT ObjectExists(indextype))
       THROW NEW Exception("Content type '" || indexfield.namespace || "' to index not found");
 
     // Find the requested member
     RECORD memberrec :=
           SELECT *
-            FROM indextype->members
+            FROM cachedata.members
            WHERE ToUppercase(name) = ToUppercase(indexfield.membername);
     IF (NOT RecordExists(memberrec))
       THROW NEW Exception("Member '" || indexfield.membername || "' not found in content type '" || indexfield.namespace || "' to index");
 
     // Get the requested member value
-    RECORD indexdata := objid > 0 ? indextype->GetInstanceData(objid) : indextype->defaultinstance;
+    RECORD indexdata := cachedata.data;
     VARIANT membervalue := GetCell(indexdata, memberrec.name);
 
-    RETURN this->ParseMemberValue(fields, objid, indexfield, indextype, memberrec, membervalue, arrayid, TRUE);
+    RETURN this->ParseMemberValue(fields, objid, indexfield, indextype, cachedata.members, memberrec, membervalue, arrayid, TRUE);
   }
 
-  RECORD FUNCTION ParseMemberValue(RECORD fields, INTEGER objid, RECORD indexfield, OBJECT indextype, RECORD memberrec, VARIANT membervalue, INTEGER arrayid, BOOLEAN recurse)
+  RECORD FUNCTION ParseMemberValue(RECORD fields, INTEGER objid, RECORD indexfield, OBJECT indextype, RECORD ARRAY allmembers, RECORD memberrec, VARIANT membervalue, INTEGER arrayid, BOOLEAN recurse)
   {
     IF (memberrec.type = 12) // Array
     {
@@ -480,7 +506,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
           // Find the requested array member
           memberrec :=
                 SELECT *
-                  FROM indextype->members
+                  FROM allmembers
                  WHERE parent = memberparent
                        AND ToUppercase(name) = ToUppercase(arrayfield.membername);
           IF (NOT RecordExists(memberrec))
@@ -501,7 +527,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
           }
           ELSE
           {
-            RECORD parsed := this->ParseMemberValue(DEFAULT RECORD, objid, CellUpdate(indexfield, "fieldname", fieldname), indextype, memberrec, GetCell(membervalue[arrayid], arrayfield.membername), arrayid, FALSE);
+            RECORD parsed := this->ParseMemberValue(DEFAULT RECORD, objid, CellUpdate(indexfield, "fieldname", fieldname), indextype, allmembers, memberrec, GetCell(membervalue[arrayid], arrayfield.membername), arrayid, FALSE);
             // If the array field has a default value, the DEFAULT RECORD is returned
             IF (RecordExists(parsed))
             {
