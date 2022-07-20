@@ -159,7 +159,6 @@
         <textedit name="maxtasktime" valuetype="integer" width="5x" tid=".maxtasktime" composition="queuemanager" cellname="maxfetchtime" />
         <text title="" valuetid=".seconds" />
       </line>
-      <textedit name="maxgroupobjects" valuetype="integer" width="10x" composition="queuemanager" cellname="maxgroupobjects" />
       <line>
         <select name="debuglevel_queuemanager" tid=".debuglevel_queuemanager" composition="queuemanager" cellname="loglevel" type="radio" rowkeytype="integer">
           <option rowkey="0" /><!-- Errors only -->
