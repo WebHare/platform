@@ -555,30 +555,57 @@ PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleEventCallbackEvents(INTEGER handle, STR
     INTEGER ARRAY check_readhandles := waitreadhandles;
     INTEGER ARRAY check_writehandles := waitwritehandles;
 
+    IF (type = "handle-read")
+    {
+      INTEGER pos := SearchElement(check_readhandles, handle);
+      IF (pos != -1)
+        DELETE FROM check_readhandles AT pos;
+    }
+    ELSE
+    {
+      INTEGER pos := SearchElement(waitwritehandles, handle);
+      IF (pos != -1)
+        DELETE FROM waitwritehandles AT pos;
+    }
+
+    // check all other handles, but handle them max 1 time in this loop
     WHILE (TRUE)
     {
-      // Do the callbacks
-      did_anything := HandleSignalledCBHandle(handle, type) OR did_anything;
+      did_anything := __INTERNAL_HandleSignalledCBHandle(handle, type) OR did_anything;
 
-      check_readhandles := IntersectIntegerArrays(waitreadhandles, check_readhandles);
-      check_writehandles := IntersectIntegerArrays(waitwritehandles, check_writehandles);
+      check_readhandles := IntersectIntegerArrays(check_readhandles, waitreadhandles);
+      check_writehandles := IntersectIntegerArrays(check_writehandles, waitwritehandles);
+      IF (IsDefaultValue(check_readhandles) AND IsDefaultValue(check_writehandles))
+        BREAK;
 
       RECORD rec := __HS_WAITFORMULTIPLEUNTIL(check_readhandles, check_writehandles, DEFAULT DATETIME);
-      IF (LENGTH(rec.read) != 0)
+      IF (IsValueSet(rec.read))
       {
         handle := rec.read[0];
         type := "handle-read";
+        check_readhandles := ArraySlice(rec.read, 1);
+        check_writehandles := rec.write;
       }
       ELSE IF (LENGTH(rec.write) != 0)
       {
         handle := rec.write[0];
         type := "handle-write";
+        check_readhandles := rec.read;
+        check_writehandles := ArraySlice(rec.write, 1);
       }
       ELSE
         BREAK;
     }
   }
 
+  did_anything := __INTERNAL_HandleTimeouts() OR did_anything;
+
+  RETURN did_anything;
+}
+
+PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleTimeouts()
+{
+  BOOLEAN did_anything;
   WHILE (LENGTH(timedcallbackregistrations) > 0 AND timedcallbackregistrations[0].when <= GetCurrentDateTime())
   {
     RECORD reg := timedcallbackregistrations[0].data[0];
@@ -593,11 +620,13 @@ PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleEventCallbackEvents(INTEGER handle, STR
     did_anything := TRUE;
     RunMicroTasks();
   }
+
   IF (NOT did_anything)
     did_anything := RunMicroTasks();
 
   RETURN did_anything;
 }
+
 
 STATIC OBJECTTYPE EventCallbackSerializer
 <
@@ -659,7 +688,7 @@ STATIC OBJECTTYPE EventCallbackSerializer
   }
 >;
 
-BOOLEAN FUNCTION HandleSignalledCBHandle(INTEGER handle, STRING type)
+PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleSignalledCBHandle(INTEGER handle, STRING type)
 {
   BOOLEAN did_anything;
   IF (handle = eventstream)
@@ -797,7 +826,7 @@ BOOLEAN FUNCTION RunMicroTasks()
 PUBLIC MACRO __HS_ProcessCurrentBroadcasts()
 {
   IF (eventstream > 0)
-    HandleSignalledCBHandle(eventstream, "handle-read");
+    __INTERNAL_HandleSignalledCBHandle(eventstream, "handle-read");
 }
 
 /** Tries to read an event from an event stream

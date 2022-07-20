@@ -620,7 +620,6 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
       IF (NOT __ConsilioUpdateConfiguration([ "debuglevel", ToString(this->debuglevel_queuemanager->value)
                                             , "numworkers", ToString(this->numworkers->value)
                                             , "maxtasktime", ToString(this->maxtasktime->value)
-                                            , "maxgroupobjects", ToString(this->maxgroupobjects->value)
                                             ]))
         this->RunMessageBox(".sendingcommandfailed");
     }

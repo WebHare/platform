@@ -1131,7 +1131,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
         FOREVERY (INTEGER handle FROM rec.read)
         {
           IF (handle IN waithandles)
-            have_callback := have_callback OR __INTERNAL_HandleEventCallbackEvents(handle, "handle-read");
+            have_callback := __INTERNAL_HandleSignalledCBHandle(handle, "handle-read") OR have_callback;
           IF (handle IN readhandles AND (multiple_return OR NOT RecordExists(retval)))
             INSERT [ type := "handle-read", handle := handle ] INTO retval AT END;
         }
@@ -1142,7 +1142,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
         FOREVERY (INTEGER handle FROM rec.write)
         {
           IF (handle IN waitwritehandles)
-            have_callback := have_callback OR __INTERNAL_HandleEventCallbackEvents(handle, "handle-write");
+            have_callback := __INTERNAL_HandleSignalledCBHandle(handle, "handle-write") OR have_callback;
           IF (handle IN writehandles AND (multiple_return OR NOT RecordExists(retval)))
             INSERT [ type := "handle-write", handle := handle ] INTO retval AT END;
         }
@@ -1157,7 +1157,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
       }
 
       IF (now >= event_timeout)
-        have_callback := __INTERNAL_HandleEventCallbackEvents(-1) OR have_callback;
+        have_callback := __INTERNAL_HandleTimeouts() OR have_callback;
 
       IF (RecordExists(retval) AND NOT multiple_return)
         RETURN retval;

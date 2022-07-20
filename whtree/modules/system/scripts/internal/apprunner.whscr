@@ -113,7 +113,7 @@ OBJECTTYPE Application
 
     IF(outp="") //might indicate a termination
       ScheduleMicroTask(PTR this->CheckDeadApp);
-    ELSE WHILE(this->output LIKE "*\n")
+    ELSE WHILE(this->output LIKE "*\n*")
       this->output := PrintOutputLine(this->name, FALSE, this->output);
   }
   MACRO OnAppErrors()
@@ -123,7 +123,7 @@ OBJECTTYPE Application
 
     IF(errp="") //might indicate a termination
       ScheduleMicroTask(PTR this->CheckDeadApp);
-    ELSE WHILE(this->errors LIKE "*\n")
+    ELSE WHILE(this->errors LIKE "*\n*")
       this->errors := PrintOutputLine(this->name, TRUE, this->errors);
   }
 
