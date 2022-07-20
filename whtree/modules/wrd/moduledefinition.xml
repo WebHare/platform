@@ -720,14 +720,14 @@
     </xmlschemas>
   </documentation>
 
-  <validation>
+  <development>
     <xmlfiletype name="wrdschema"
                  namespaceuri="http://www.webhare.net/xmlns/wrd/schemadefinition"
                  rootnodes="schemadefinition"
                  schemalocation="data/schemadefinition.xsd"
                  library="lib/internal/schemadef.whlib"
                  objectname="WRDSchemaDefinitionFile" />
-  </validation>
+  </development>
 
   <wrdschemas>
     <schema tag="testschema" title="WebHare testsuite test schema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" maxservertype="development"/>

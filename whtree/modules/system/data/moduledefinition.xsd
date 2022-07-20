@@ -205,7 +205,8 @@
       </xs:element>
       <xs:element name="logging" type="Logging"  />
       <xs:element name="documentation" /> <!-- ADDME specify this node -->
-      <xs:element name="validation" type="Validation" />
+      <xs:element name="development" type="Development" />
+      <xs:element name="validation" type="Development" /> <!-- FIXME remove, legacy, but some modules still use <validation> ... -->
       <xs:any namespace="##other" processContents="lax"/>
     </xs:choice>
   </xs:group>
@@ -2594,14 +2595,14 @@
 
   <!-- ****************************************************
 
-       Validation
+       Development and validation
 
   ***************************************************** -->
 
 
-  <xs:complexType name="Validation">
+  <xs:complexType name="Development">
     <xs:sequence>
-      <xs:element name="xmlfiletype" maxOccurs="unbounded">
+      <xs:element name="xmlfiletype" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="name" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
           <xs:attribute name="extensions">

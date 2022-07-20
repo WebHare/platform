@@ -2213,7 +2213,7 @@ The full base URL on which this site will be published, calculated by combining 
     <log name="accounting" filename="accounting" mseconds="true" />
   </logging>
 
-  <validation>
+  <development>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/serverconfig" rootnodes="serverconfig" schemalocation="data/serverconfig.xsd" />
@@ -2223,7 +2223,7 @@ The full base URL on which this site will be published, calculated by combining 
     <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />
-  </validation>
+  </development>
 
   <wrdschemas>
     <schema tag="config" definitionfile="data/wrdschemas/config.wrdschema.xml" />

@@ -1136,10 +1136,10 @@
     </xmlschemas>
   </documentation>
 
-  <validation>
+  <development>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/siteprofile" schemalocation="data/siteprofile.xsd" rootnodes="siteprofile" validator="lib/internal/siteprofiles/validation.whlib#SiteprofValidator"/>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/forms" schemalocation="x-webhare-builtin-xsd:components.xsd?type=formcomponents" rootnodes="formdefinitions" validator="lib/internal/forms/validation.whlib#FormdefValidator"/>
-  </validation>
+  </development>
 
   <wrdschemas>
     <schema tag="feedback" title="Feedback storage schema" definitionfile="mod::publisher/data/wrdschemas/feedback.wrdschema.xml" />

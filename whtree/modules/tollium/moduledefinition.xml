@@ -90,7 +90,7 @@
     </xmlschemas>
   </documentation>
 
-  <validation>
+  <development>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/screens"
                  rootnodes="screens"
                  schemalocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents"
@@ -99,7 +99,7 @@
                  rootnodes="language"
                  schemalocation="data/screens.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/icons" rootnodes="icon" schemalocation="data/icons.xsd" />
-  </validation>
+  </development>
 
   <hooking>
     <target name="appstartup" />
