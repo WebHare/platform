@@ -376,8 +376,7 @@ STATIC OBJECTTYPE SearchObject
     INTEGER indexid :=
         SELECT AS INTEGER id
           FROM consilio.catalogs
-          WHERE ToUppercase(name) = ToUppercase(initdata.catalog)
-                AND name NOT LIKE "$consilio$deleted$*";
+          WHERE ToUppercase(name) = ToUppercase(initdata.catalog);
     IF (indexid <= 0)
       THROW NEW SearchException(SearchIndexNotFound, "Could not find catalog '" || initdata.catalog || "'");
 
@@ -690,9 +689,8 @@ OBJECTTYPE SuggestObject
     INTEGER indexid :=
         SELECT AS INTEGER id
           FROM consilio.catalogs
-          WHERE ToUppercase(name) = ToUppercase(initdata.catalog)
-                AND id > 0 // Don't return the module index
-                AND name NOT LIKE "$consilio$deleted$*"; // Don't return deleted indices
+          WHERE ToUppercase(name) = ToUppercase(initdata.catalog);
+
     IF (indexid = 0)
       THROW NEW SearchException(SearchIndexNotFound, "Could not find catalog '" || initdata.catalog || "'");
 
@@ -765,8 +763,8 @@ PUBLIC RECORD FUNCTION GetQueryResults(STRING catalog, STRING tag, DATETIME from
   INTEGER indexid :=
       SELECT AS INTEGER id
         FROM consilio.catalogs
-        WHERE ToUppercase(name) = ToUppercase(catalog)
-              AND name NOT LIKE "$consilio$deleted$*";
+        WHERE ToUppercase(name) = ToUppercase(catalog);
+
   IF (indexid <= 0)
     RETURN [ status := SearchIndexNotFound ];
 
@@ -785,7 +783,6 @@ PUBLIC RECORD FUNCTION GetCatalogList(/*unused*/STRING password DEFAULTSTO "")
   // Get the list of accessible indices
   STRING ARRAY names := SELECT AS STRING ARRAY name
                           FROM consilio.catalogs
-                         WHERE name NOT LIKE "$consilio$deleted$*"
                          ORDER BY ToUppercase(name);
   RETURN [ status := SearchOk, cataloglist := names ];
 }
@@ -798,9 +795,7 @@ PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalog_name, /*unused*/STRING
   RETURN
       (SELECT AS INTEGER id + 1
          FROM consilio.catalogs
-         WHERE ToUppercase(name) = ToUppercase(catalog_name)
-               AND id > 0 // Don't return the (obsolete) module index
-               AND name NOT LIKE "$consilio$deleted$*") - 1; // Don't return deleted indices
+         WHERE ToUppercase(name) = ToUppercase(catalog_name)) - 1;
 }
 
 PUBLIC INTEGER FUNCTION GetContentSourceIdByTag(STRING contentsource_tag)
@@ -825,7 +820,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerStatus(INTEGER indexmgrid)
 
 RECORD FUNCTION GetIndexQueryResults(INTEGER indexid, STRING tag/*unused*/, DATETIME fromdate)
 {
-  IF (NOT RecordExists(SELECT FROM consilio.catalogs WHERE id = indexid AND id > 0 AND name NOT LIKE "$consilio$deleted$*"))
+  IF (NOT RecordExists(SELECT FROM consilio.catalogs WHERE id = indexid))
     RETURN [ status := SearchIndexNotFound ];
 
   RECORD ARRAY results := SELECT when

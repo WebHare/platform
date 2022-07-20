@@ -5,6 +5,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
@@ -175,15 +176,20 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
     RETURN; //consilio is not initialized yet!
 
   RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
-
-  INTEGER builtin_indexmanager := GetDefaultIndexManager();
-  IF(builtin_indexmanager = 0)
-    DELETE FROM wantcatalogs WHERE managed;  //don't create managed catalogs until index storage is ready
+  BOOLEAN havedefaultindexmanager := RecordExists(SELECT FROM ListIndexManagers() WHERE isdefault);
 
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang, want.suffixed ]);
+    OBJECT catalog := OpenConsilioCatalog(want.tag);
+    IF(NOT ObjectExists(catalog))
+    {
+      IF(want.managed AND NOT havedefaultindexmanager)
+        CONTINUE; //we cannot create catalogs if the defaultindexmanager doesn't exist (yet)
+
+       catalog := CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang, want.suffixed ]);
+    }
+    INSERT CELL catalog := catalog INTO wantcatalogs[#want];
     IF(catalog->managed != want.managed)
     {
       PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);
@@ -206,9 +212,12 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 
     IF(want.managed)
       UpdateManagedCatalog(catalog, want);
-
   }
   trans->CommitWork();
+
+  FOREVERY(RECORD want FROM wantcatalogs)
+    IF(want.managed AND want.catalog->managed)
+      want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
 }
 
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)

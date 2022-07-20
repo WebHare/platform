@@ -35,7 +35,6 @@ RECORD FUNCTION GetCacheablePriorityLookupTables()
                   (SELECT id
                         , priority
                      FROM consilio.catalogs
-                    WHERE name NOT LIKE "$consilio$deleted$*"
                     ORDER BY id)
             , contentsources :=
                   (SELECT contentsources.id
@@ -43,7 +42,6 @@ RECORD FUNCTION GetCacheablePriorityLookupTables()
                      FROM consilio.contentsources
                         , consilio.catalogs
                     WHERE catalogid = catalogs.id
-                          AND catalogs.name NOT LIKE "$consilio$deleted$*"
                           AND contentsources.tag NOT LIKE "$consilio$deleted$*"
                     ORDER BY contentsources.id)
             ]
@@ -186,12 +184,11 @@ STRING ARRAY FUNCTION TokenizeCommand(STRING command)
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION MakeQueueCmdCheckIndexState(INTEGER indexmanager)
+PUBLIC RECORD FUNCTION MakeQueueCmdCheckIndexState()
 {
   RETURN [ success := TRUE
          , action := "CHECKINDEXSTATE"
          , commanddate := GetCurrentDateTime()
-         , indexmanager := indexmanager
          ];
 }
 
@@ -205,7 +202,7 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
   {
     CASE "CHECKINDEXSTATE"
     {
-      RETURN MakeQueueCmdCheckIndexState(ToInteger(arguments[0],0));
+      RETURN MakeQueueCmdCheckIndexState();
     }
     CASE "CHECKINDEX", "UPDATEINDEX"
     {
@@ -473,7 +470,7 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
   {
     CASE "CHECKINDEXSTATE"
     {
-      RETURN data.action || " " || data.indexmanager;
+      RETURN data.action;
     }
     CASE "CHECKINDEX", "UPDATEINDEX"
     {

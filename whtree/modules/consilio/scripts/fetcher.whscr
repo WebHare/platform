@@ -204,7 +204,7 @@ MACRO ExecuteDecodedCommand(RECORD data)
   {
     CASE "CHECKINDEXSTATE"
     {
-      RECORD result := CheckIndexState(data.indexmanager);
+      RECORD result := CheckIndexState();
       IF(result.success)
       {
         FOREVERY (RECORD indexrec FROM result.tocheck)

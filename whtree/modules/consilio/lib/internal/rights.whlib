@@ -14,8 +14,7 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
              , icon := "consilio:consilio"
              , wrdschemaid := id
           FROM consilio.catalogs
-         WHERE id = objectid
-               AND name NOT LIKE "$consilio$deleted$*";
+         WHERE id = objectid;
   }
 
   PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
@@ -23,8 +22,7 @@ PUBLIC OBJECTTYPE CatalogObjectTypeDescriber EXTEND ObjectTypeDescriber
     RETURN
         SELECT AS INTEGER ARRAY id
           FROM consilio.catalogs
-         WHERE user->HasRightOn("consilio:read", id)
-               AND name NOT LIKE "$consilio$deleted$*";
+         WHERE user->HasRightOn("consilio:read", id);
   }
 
   PUBLIC UPDATE BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)

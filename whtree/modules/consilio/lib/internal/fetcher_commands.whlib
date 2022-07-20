@@ -30,46 +30,9 @@ RECORD ARRAY contentproviders; // List of content providers
 //
 
 // Check the state of the Consilio index
-PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
+PUBLIC RECORD FUNCTION CheckIndexState()
 {
-  FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE " || forindexmanager);
-
-  RECORD ARRAY indices :=
-      SELECT catalogs.id
-           , catalogs.name
-           , catalog_indexmanagers.indexmanager
-        FROM consilio.catalogs
-           , consilio.catalog_indexmanagers
-       WHERE catalog_indexmanagers.indexmanager = forindexmanager
-             AND catalog_indexmanagers.catalogid = catalogs.id;
-  STRING now := DateTimeToString(GetCurrentDateTime());
-
-  INTEGER ARRAY presentindexids;
-  FOREVERY (RECORD indexmgr FROM SELECT id FROM consilio.indexmanagers WHERE id = forindexmanager AND address LIKE "builtin*") //Only clean up builtin Elasticsearches, others may be shared!
-  {
-    // Get a list of known indexes within the index
-    print_defer_connection := FALSE; //Defer:connection interfers with us reporting the index is down
-    RECORD result := GetIndexManagerIndexList(indexmgr.id);
-    print_defer_connection := TRUE;
-    IF (result.status = SearchOk)
-    {
-      // Delete unknown indexes from the indexmanager
-      FOREVERY (RECORD idx FROM result.indices)
-      {
-        IF (idx.indexid = 0)
-          CONTINUE;
-        RECORD catalog := SELECT * FROM indices WHERE id = idx.indexid AND indexmanager = indexmgr.id;
-        IF (NOT RecordExists(catalog) OR catalog.name LIKE "$consilio$deleted$*")
-          DeleteIndexManagerContentSource(indexmgr.id, idx.indexid, 0);
-        ELSE
-          INSERT idx.indexid INTO presentindexids AT END;
-      }
-    }
-    ELSE
-    {
-      RETURN [ success := FALSE ];
-    }
-  }
+  FetcherDebug(ConsilioDebugInfo, "Processing CHECKINDEXSTATE");
 
   // Send a CheckIndex for each index which does not have an "ok" status or that aren't present in the Consilio index
   RECORD ARRAY outdated_sources :=
@@ -78,14 +41,8 @@ PUBLIC RECORD FUNCTION CheckIndexState(INTEGER forindexmanager)
            , last_indexed
            , status
         FROM consilio.contentsources
-       WHERE catalogid IN (SELECT AS INTEGER ARRAY id FROM indices) //is in scope of this checkindexstate
-             AND (status > 0 //is updating or rebuikd
-                  OR catalogid NOT IN presentindexids)
+       WHERE (status > 0)
              AND tag NOT LIKE "$consilio$deleted$*"; //or not even there!
-  FOREVERY (INTEGER indexid FROM SELECT AS INTEGER ARRAY DISTINCT COLUMN indexid FROM outdated_sources)
-  {
-    EnsureIndexManagerIndex(indexid);
-  }
 
   RETURN
       [ tocheck := outdated_sources
@@ -121,8 +78,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
           FROM consilio.catalogs
              , consilio.catalog_indexmanagers
          WHERE catalogs.id = data.indexid
-               AND catalog_indexmanagers.catalogid = catalogs.id
-               AND name NOT LIKE "$consilio$deleted$*";
+               AND catalog_indexmanagers.catalogid = catalogs.id;
 
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
@@ -170,7 +126,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                    AND catalog_indexmanagers.catalogid = catalogs.id
                                    AND (VAR data.indexid = 0
                                        OR catalogs.id = VAR data.indexid)
-                                   AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     INTEGER ARRAY indexmanagers;
@@ -203,8 +158,8 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                         , consilio.catalogs
                     WHERE contentsources.catalogid = catalogs.id
                           AND contentsources.id = VAR data.contentsourceid
-                          AND catalogs.name NOT LIKE "$consilio$deleted$*"
                           AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
   IF (NOT RecordExists(source))
   {
     result.error :=
@@ -248,8 +203,10 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
           FROM consilio.contentsources
          WHERE id = source.id
                AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
     IF (Length(change_status) > 0)
       LogDebug("consilio", "ContentSourceStatus", change_status);
+
     UPDATE consilio.contentsources
        SET status := (options.rebuild OR status = 2) ? 2 : 1
          , last_indexed := VAR data.commanddate
@@ -1112,7 +1069,6 @@ RECORD ARRAY FUNCTION GetAllContentSources()
               , consilio.catalogs
           WHERE contentsources.status >= 0
                 AND contentsources.catalogid = catalogs.id
-                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 
@@ -1127,7 +1083,6 @@ RECORD FUNCTION GetContentSource(INTEGER contentsourceid)
           WHERE contentsources.id = contentsourceid
                 AND contentsources.catalogid = catalogs.id
                 //AND contentsources.status >= 0 //if a specific ID is selected, this is an explicit CheckGroup and we should ignore the status field
-                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 
@@ -1142,7 +1097,6 @@ RECORD ARRAY FUNCTION GetContentSourcesForIndex(INTEGER indexid)
           WHERE contentsources.catalogid = VAR indexid
                 AND contentsources.catalogid = catalogs.id
                 AND contentsources.status >= 0
-                AND catalogs.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }
 

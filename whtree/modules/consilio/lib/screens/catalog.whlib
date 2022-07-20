@@ -133,7 +133,7 @@ PUBLIC RECORD FUNCTION GetConsilioStatus()
                    , lasterrors := RECORD[]
                    ];
 
-  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.catalogs WHERE name NOT LIKE "$consilio$deleted$*")
+  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.catalogs)
     status.catalogsizes := CellInsert(status.catalogsizes, catalog.name, GetIndexManagerSize(catalog.id));
   IF (NOT RecordExists(status.catalogsizes))
   {
@@ -431,7 +431,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                  , catalogtag := catalogs.name
                               FROM consilio.contentsources, consilio.catalogs
                              WHERE contentsources.catalogid = catalogs.id
-                                   AND catalogs.name NOT LIKE "$consilio$deleted$"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     RECORD ARRAY fsobjects := SELECT id, whfspath
@@ -482,9 +481,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     RECORD ARRAY accessible_indices :=
         SELECT *
           FROM consilio.catalogs
-         WHERE id > 0
-               AND this->tolliumuser->HasRightOn("consilio:read", id)
-               AND name NOT LIKE "$consilio$deleted$*"
+         WHERE this->tolliumuser->HasRightOn("consilio:read", id)
          ORDER BY ToUppercase(name), id;
 
     FOREVERY (RECORD catalog FROM accessible_indices)

@@ -598,6 +598,7 @@
 
   <development>
     <debugflag name="changes" description="Log change actions" />
+    <debugflag name="preferlegacy" description="Prefer the legacy indexmanager for newly attached indices (WEBHARE_PREFERINDEXMANAGER)" />
     <debugflag name="searches" description="Log searches" />
     <debugflag name="traffic" description="RPClog indexmanager traffic" />
   </development>

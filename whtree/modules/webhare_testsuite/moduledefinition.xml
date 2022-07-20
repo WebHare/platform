@@ -405,6 +405,7 @@
     </fieldgroup>
 
     <fieldgroup tag="nosuchfieldyet">
+      <keyword name="nosuchfieldyet_extra" />
       <record name="no">
         <record name="such">
           <record name="field">

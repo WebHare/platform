@@ -149,16 +149,14 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 */
 PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(
-      [ withdeleted := FALSE
-      ], options);
+  options := ValidateOptions(CELL[], options);
 
   RECORD result :=
       [ status := SearchIndexNotFound
       , indices := DEFAULT RECORD ARRAY
       ];
 
-  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid, CELL[ options.withdeleted ]);
+  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid);
   RECORD indexmanager := indexmanagers;
   IF (RecordExists(indexmanager))
   {
@@ -179,6 +177,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
             result.indices :=
                 SELECT DISTINCT indexid
                      , indexname :=   ""
+                     , suffixes := STRING[""]
                   FROM indexlist
                  WHERE indexid != 0
               ORDER BY indexid;
@@ -217,10 +216,11 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
                    , size := Sum(size)
                    , indexname
                    , indexid := ANY(indexid)
+                   , suffixes := GroupedValues(suffix)
                 FROM indexlist
             GROUP BY indexname;
 
-          result.indices := SELECT indexid, indexname FROM indexlist ORDER BY indexid, indexname;
+          result.indices := SELECT indexid, indexname, suffixes FROM indexlist ORDER BY indexid, indexname;
         }
       }
     }
@@ -547,7 +547,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := options.session
       ];
 
-  STRING catalog := SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid AND name NOT LIKE "$consilio$deleted$*";
+  STRING catalog := SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid;
   IF (catalog = "")
     RETURN result;
 
@@ -1668,7 +1668,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   RECORD result := [ status := SearchUnavailable
                    , deleted := 0
                    ];
-  RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid, [ withdeleted := TRUE ]) : GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
+  RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
                                   EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
@@ -1760,7 +1760,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
                    , deleted := 0
                    ];
 
-  RECORD indexmanager := GetIndexManagers(indexmgrid, [ withdeleted := TRUE ]);
+  RECORD indexmanager := GetIndexManagers(indexmgrid);
 
   IF(IsDebugTagEnabled("consilio:changes"))
     LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
@@ -1843,7 +1843,6 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
 /** @short Find an indexmanager
     @param indexmgrid The id of the indexmanager, or -1 for all indexmanagers
     @cell options.managedonly Only consider managed catalogs
-    @cell options.withdeleted Also return deleted catalogs/catalogindices
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
@@ -1853,7 +1852,6 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
 {
   options := ValidateOptions(
         [ managedonly := FALSE
-        , withdeleted := FALSE
         ], options);
 
   RETURN
@@ -1870,16 +1868,12 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
-             AND (options.withdeleted
-                ? TRUE
-                : (catalogs.name NOT LIKE "$consilio$deleted$*"))
     ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 
 /** @short Find the indexmanager for an index
     @param indexid The id of the index, or 0 for the indexmanagers of all indices
     @cell options.managedonly Only consider managed catalogs
-    @cell options.withdeleted Also return deleted catalogs/catalogindices
     @return The indexmanager(s)
     @cell(integer) return.id The indexmanager id
     @cell(integer) return.type The indexmanager type (currently either 1 for
@@ -1889,7 +1883,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
 {
   options := ValidateOptions(
       [ managedonly := FALSE
-      , withdeleted := FALSE
       ], options);
 
   IF (indexid = 0)
@@ -1909,9 +1902,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND catalog_indexmanagers.indexmanager = indexmanagers.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
-             AND (options.withdeleted
-                ? TRUE
-                : (catalogs.name NOT LIKE "$consilio$deleted$*"))
     ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 

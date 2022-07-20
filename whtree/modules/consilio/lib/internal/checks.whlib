@@ -25,7 +25,6 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
                                          FROM consilio.contentsources, consilio.catalogs
                                         WHERE contentsources.catalogid = catalogs.id
                                               AND contentsources.status = 4
-                                              AND catalogs.name NOT LIKE "$consilio$deleted$*"
                                               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
   FOREVERY (RECORD source FROM brokencontentsources)
