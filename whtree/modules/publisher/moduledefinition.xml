@@ -1139,6 +1139,8 @@
   <development>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/siteprofile" schemalocation="data/siteprofile.xsd" rootnodes="siteprofile" validator="lib/internal/siteprofiles/validation.whlib#SiteprofValidator"/>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/forms" schemalocation="x-webhare-builtin-xsd:components.xsd?type=formcomponents" rootnodes="formdefinitions" validator="lib/internal/forms/validation.whlib#FormdefValidator"/>
+
+    <debugflag name="localfs" description="Filesystem actions on the webserver output" />
   </development>
 
   <wrdschemas>

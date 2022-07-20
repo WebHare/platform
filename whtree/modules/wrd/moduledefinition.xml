@@ -727,6 +727,8 @@
                  schemalocation="data/schemadefinition.xsd"
                  library="lib/internal/schemadef.whlib"
                  objectname="WRDSchemaDefinitionFile" />
+
+    <debugflag name="forcehistory" description="Keep WRD history for all types for at least 1 day and record stack traces" />
   </development>
 
   <wrdschemas>

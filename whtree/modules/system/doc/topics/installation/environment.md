@@ -92,31 +92,13 @@ Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it de
 ## Debugging/selftests
 
 ### WEBHARE_DEBUG
-Set debug flags:
-- `wrq`: Show webrequests (formerly `__webbrowser_debugall := TRUE`)
-- `evt`: Event broadcasts
-- `ahc`: Ad-hoc Cache requests and stores
-- `apr`: All new started scripts make a function CPU profile
-- `cov`: All new started scripts make a coverage profile
-- `que`: Log task/queue actions
-- `asprod`: As production - used to trigger some production-only dialogs/workflows (%IsProductionOrAsIf will evaluate to TRUE)
-- `consilio:queues`: Consilio queue management
-- `consilio:searches`: Consilio searches
-- `consilio:traffic`: Consilio RPC traffic
-- `publisher:localfs`: Filesystem actions on the webserver output
-- `system-cov`: Make a coverage profile for all running scripts while enabled
-- `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
-- `handles`: Record stack traces when handles are created (currently only outputobjects)
-- `postgresql:auto_explain`: Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log
-- `postgresql:logcommands`: Log all SQL queries sent to the PostgreSQL database to the debug log
-- `postgresql:noerrordelay`: Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)
-
-See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
+Set debug flags, eg `WEBHARE_DEBUG=que` to globally enable logging of queue actions. See `wh debug listflags` for an
+up to date listof debugflags suppoted by your local installation. To set multiple flags separate them by commas (`,`).
 
 You can also set custom debug flags for your own modules and check them using %IsDebugTagEnabled. These should be prefixed
-with your modulename and a double colon (`:`)
+with your modulename and a double colon (`:`) and documented in your moduledefinition file.
 
-To set multiple flags separate them by commas (`,`).
+See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner

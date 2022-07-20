@@ -595,4 +595,10 @@
 
     <intercept name="blacklist" target="fetcher_blacklist" interceptfunction="lib/internal/fetcher_blacklisting.whlib#BlacklistIntercept" />
   </hooking>
+
+  <development>
+    <debugflag name="changes" description="Log change actions" />
+    <debugflag name="searches" description="Log searches" />
+    <debugflag name="traffic" description="RPClog indexmanager traffic" />
+  </development>
 </module>
