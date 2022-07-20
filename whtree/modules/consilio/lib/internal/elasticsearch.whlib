@@ -775,6 +775,10 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
               ]
           ];
     }
+    CASE "opensearch"
+    {
+      RETURN query.rawquery;
+    }
     DEFAULT
     {
       THROW NEW Exception("Unknown query type '" || query._type || "'");

@@ -388,6 +388,15 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
   RETURN res;
 }
 
+/** @short Add a raw OpenSearch query
+    @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ]]]`
+    @return Consilio wrapped raw Opensearc query record
+*/
+PUBLIC RECORD FUNCTION CQOpenSearch(RECORD query)
+{
+  RETURN CELL[ _type := "opensearch", rawquery := query ];
+}
+
 RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRING class)
 {
   FOREVERY(STRING opt FROM fields)
