@@ -12,10 +12,10 @@ OBJECT cat;
 MACRO Prepare()
 {
   testfw->BeginWork();
-  cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
-  TestEq(TRUE, ObjectExists(cat), `Catalog "webhare_testsuite:testindex_suffixed" should exist`);
-  FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
-    cat->DetachIndex(toremove.id);
+  cat := CreateConsilioCatalog("consilio:testfw_testindex_suffixed", [ fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ]
+                                                                     , managed := FALSE
+                                                                     , suffixed := TRUE
+                                                                     ]);
   cat->AttachIndex(0);
   cat->AttachIndex(0);
   //TODO work with suffixes too
@@ -24,7 +24,6 @@ MACRO Prepare()
 
   Print(cat->GetStorageInfo() || "\n");
 
-  cat->EnsureIndex( [ suffix := "sub1", fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ] ]);
   cat->AddObjects([[ objectid := "test1"
                    , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
                   ]],[ suffix := "sub1", synchronous := TRUE ]);
@@ -33,7 +32,7 @@ MACRO Prepare()
 ASYNC MACRO TestCatalogApp()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("consilio:config"));
-  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testindex_suffixed";
+  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "consilio:testfw_testindex_suffixed";
   TestEq(TRUE, RecordExists(TT("catalogs")->selection));
 
   AWAIT ExpectScreenChange(+1, PTR TT("catalogs")->openaction->TolliumClick);

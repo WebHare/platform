@@ -36,7 +36,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
   RECORD query := CQMatch("contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
-    dumpvalue(query,'tree');
+
   RECORD res := search_obj->SearchQuery(query, 0, 1000);
   RETURN
       SELECT groupid

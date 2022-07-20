@@ -8,8 +8,12 @@ Consilio catalogs are owned by a module and specified in their moduledefinition.
   </consilio>
 ```
 
-Individual sites can add themselves using `sitesettings` in their siteprofiles
+By default a catalog is considered 'managed'. A managed catalog has one or more
+content sources which provide the data to store in the index.
 
+## Publisher content sources
+Individual sites can add themselves as a Publisher content source using
+`sitesettings` in their siteprofiles
 
 ```xml
   <sitesettings>
@@ -38,6 +42,24 @@ PUBLIC RECORD ARRAY FUNCTION GetCatalogSources()
            FROM system.fs_objects
           WHERE type = 2; //index all system folders
 }
+```
+
+## Unmanaged catalogs
+Unmanaged catalogs do not support sources but require you to manually add content.
+To set up an unmanaged catalog, specify the `managed="false"` attribute to the
+`<catalog>`. You may additionally add the `suffixed="true"` flag to be able
+to partition the data into multiple indices (with the same base name but a
+different suffix).
+
+An unmanaged catalog does not automatically create its indices. To create an
+the indices on the index manager, use the Consilio Catalogs app or the
+catalogs.whlib API:
+
+```harescript
+OBJECT catalog := OpenConsilioCatalog("mymodule:myindex");
+IF(Length(catalog->ListAttachedIndices()) = 0) // nothing configured yet?
+  catalog->AttachIndex(0); // attach to default builtin indexmanager
+catalog->ApplyConfiguration(); // explicitly update mappings
 ```
 
 ## Legacy catalogs

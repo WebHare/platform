@@ -20,14 +20,13 @@ OBJECT cat_index1_view, cat_index2_view;
 
 MACRO Prepare()
 {
-  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  OBJECT cat;
 
   testfw->BeginWork();
-
-  //Verify and cleanup from any previously (aborted)? testrun
-  FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
-    cat->DetachIndex(toremove.id);
-  TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${cat->tag}" should have all attachments removed after initial cleanup`);
+  cat := CreateConsilioCatalog("consilio:testfw_testindex_suffixed", [ fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ]
+                                                                     , managed := FALSE
+                                                                     , suffixed := TRUE
+                                                                     ]);
 
   INTEGER index1id := cat->AttachIndex(0);
   testindex1 := cat->ListAttachedIndices()[0];
@@ -46,6 +45,7 @@ MACRO Prepare()
                  , indexname := index2name
                  ]
                 ], cat->ListAttachedIndices(), "*");
+  TestEq(RECORD[], cat->ListSuffixes());
 
   cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE, suffixed := TRUE ]);
   cat_index1_view->AttachIndex(testindex1.indexmanager, [ indexname := testindex1.indexname ]);
@@ -62,14 +62,11 @@ MACRO Prepare()
 
 MACRO TestUnmanagedActions()
 {
-  OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
-  IF(RecordExists(SELECT FROM cat->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
-    RETURN; //can't run suffix tests on old indexmgr
+  OBJECT cat := OpenConsilioCatalog("consilio:testfw_testindex_suffixed");
 
   TestEq(RECORD[], cat->ListSuffixes());
 
-  cat->EnsureIndex( [ suffix := "sfx1", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
-  cat->EnsureIndex( [ suffix := "sfx2", fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+  cat->ApplyConfiguration( [ suffixes := ["sfx1","sfx2"] ]);
 
   //Verify index creation
   TestEq([[ suffix := "sfx1" ], [ suffix := "sfx2"] ], SELECT * FROM cat_index1_view->ListSuffixes() ORDER BY suffix);
