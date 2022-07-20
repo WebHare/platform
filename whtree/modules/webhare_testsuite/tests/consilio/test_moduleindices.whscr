@@ -212,8 +212,42 @@ MACRO TestESBulkInsertion()
                      , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
                     ]],[ suffix := "sub1", synchronous := TRUE ]);
 
+  // Test searching for nothing (some queries optimize to CQNothing - this shouldn't crash)
+  RECORD res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQNothing(),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEqMembers([ totalcount := 0, results := RECORD[]], res, "*");
+
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAll(),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
+
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQNot(CQNothing()),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
+
   // Test record mapping
-  RECORD res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
+
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAnd([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount);
+
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQOr([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
