@@ -54,7 +54,7 @@ RECORD ARRAY FUNCTION GetXMLValidators()
     CATCH
       CONTINUE;
 
-    OBJECT ARRAY xmltypes := doc->GetEvaluatedElements(resolver, "/m:module/m:validation/m:xmlfiletype");
+    OBJECT ARRAY xmltypes := doc->GetEvaluatedElements(resolver, "/m:module/m:development/m:xmlfiletype | /m:module/m:validation/m:xmlfiletype");
     FOREVERY (OBJECT node FROM xmltypes)
     {
       RECORD filetype := [ module :=         module

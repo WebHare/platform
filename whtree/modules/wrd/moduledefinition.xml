@@ -720,14 +720,16 @@
     </xmlschemas>
   </documentation>
 
-  <validation>
+  <development>
     <xmlfiletype name="wrdschema"
                  namespaceuri="http://www.webhare.net/xmlns/wrd/schemadefinition"
                  rootnodes="schemadefinition"
                  schemalocation="data/schemadefinition.xsd"
                  library="lib/internal/schemadef.whlib"
                  objectname="WRDSchemaDefinitionFile" />
-  </validation>
+
+    <debugflag name="forcehistory" description="Keep WRD history for all types for at least 1 day and record stack traces" />
+  </development>
 
   <wrdschemas>
     <schema tag="testschema" title="WebHare testsuite test schema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" maxservertype="development"/>

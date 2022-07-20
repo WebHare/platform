@@ -203,7 +203,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       ^columns->rows := DEFAULT RECORD ARRAY;
       ^indices->rows := DEFAULT RECORD ARRAY;
-      ^definition->value := "";
       RETURN;
     }
 
@@ -211,15 +210,12 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       ^columns->rows := DEFAULT RECORD ARRAY;
       ^indices->rows := DEFAULT RECORD ARRAY;
-      ^definition->value := "";
       RETURN;
     }
     IF(curitem.isschema)
     {
       ^columns->rows := DEFAULT RECORD ARRAY;
       ^indices->rows := DEFAULT RECORD ARRAY;
-      //^definition->value := GetSchemaDefStatement(curitem.rowkey) || "\n\n" || GetSchemaModuleDef(curitem.rowkey);
-      ^definition->value := GetSchemaModuleDef(GetPrimary(), curitem.schema_name);
       ^databasewhlib->value := GetDatabaseWHLIB(GetPrimary(), curitem.schema_name);
       RETURN;
     }

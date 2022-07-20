@@ -9,6 +9,7 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
 
@@ -27,6 +28,7 @@ Commands:
   processlist                         Show the list of processes
   joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
   terminate [process] [mask]          Terminate jobs in a process
+  listflags                           List available debug flags
   getconfig                           Show currently enabled debug features
   setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
   getsecret <name>                    Get a secret
@@ -39,6 +41,22 @@ See https://www.webhare.dev/reference/installation/environment for available deb
 `);
   SetConsoleExitCode(error = "" ? 0 : 1);
   TerminateScript();
+}
+
+RECORD ARRAY FUNCTION GatherDebugFlags()
+{
+  RECORD ARRAY allflags;
+  FOREVERY(RECORD flag FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "debugflag"))
+  {
+    STRING name := flag.node->GetAttribute("name");
+    IF(flag.module != "system" )
+      name := flag.module || ":" || name;
+
+    INSERT CELL[ name
+               , description := flag.node->GetAttribute("description")
+               ] INTO allflags AT END;
+  }
+  RETURN allflags;
 }
 
 MACRO ExitWithError(STRING error)
@@ -390,6 +408,16 @@ Executed instrs.:   ${stats.instructions}
 
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
       ShowDebugConfig(debugconfig);
+    }
+    CASE "listflags"
+    {
+      RECORD ARRAY allflags := SELECT * FROM GatherDebugFlags() ORDER BY name;
+      INTEGER maxflaglength := SELECT AS INTEGER MAX(Length(name)) FROM allflags;
+      FOREVERY(RECORD flag FROM allflags)
+      {
+        STRING padflag := flag.name || RepeatText(" ", maxflaglength - Length(flag.name));
+        Print(`${padflag}  ${flag.description}\n`);
+      }
     }
     CASE "", "help"
     {

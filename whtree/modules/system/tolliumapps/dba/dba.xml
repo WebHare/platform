@@ -106,21 +106,9 @@
                 </list>
               </panel>
             </tab>
-            <tab tid=".defs" name="definitionstab" spacers="none">
-              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
-              <codeedit name="definition" width="1pr" height="1pr" />
-            </tab>
             <tab tid=".databasewhlib" name="databasewhlibtab" spacers="none">
               <visibleon source="databases" checkflags="isschema" min="1" max="1" />
               <codeedit name="databasewhlib" width="1pr" height="1pr" />
-            </tab>
-            <tab tid=".roles">
-              <visibleon source="databases" checkflags="isschema" min="1" max="1" />
-              <list name="roles"
-                    selectmode="single">
-                <column width="12x" type="integer" name="roleid" />
-                <column type="text" name="name" />
-              </list>
             </tab>
           </tabs>
         </part>
