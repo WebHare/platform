@@ -71,7 +71,7 @@ IF(RecordExists(old_indexmgr)) //For these we keep the old loop
 
 FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin)
 {
-  //We gaarbage collect indexmanagers we fully control ourselves
+  //We garbage collect indexmanagers we fully control ourselves
   RECORD result := GetIndexmanagerIndexList(indexmanager.id);
   IF (debug)
     Print(`Checking index manager ${indexmanager.id}: ${result.status}\n`);

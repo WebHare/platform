@@ -201,7 +201,8 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
              , status := (options.rebuild OR status = 2) ? 2 : 1
              , last_indexed := VAR data.commanddate
           FROM consilio.contentsources
-         WHERE id = source.id;
+         WHERE id = source.id
+               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     IF (Length(change_status) > 0)
       LogDebug("consilio", "ContentSourceStatus", change_status);
