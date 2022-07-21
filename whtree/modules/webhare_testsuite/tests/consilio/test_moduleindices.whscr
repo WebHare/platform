@@ -424,7 +424,7 @@ MACRO TestESBulkInsertion()
   TestEq([ indexed := "test", stored := "test" ], res.results[0]);
 
   // The 'stored' field cannot be searched on
-  TestThrowsLike("*Cannot search*stored*not indexed*", PTR RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("stored", "=", "test"), [ throwonfailure := TRUE ]));
+  TestThrowsLike("*Cannot search*stored*not indexed*", PTR RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("stored", "=", "test")));
 
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(

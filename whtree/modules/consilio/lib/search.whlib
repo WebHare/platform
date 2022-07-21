@@ -277,7 +277,6 @@ STATIC OBJECTTYPE SearchObject
   //
 
   PUBLIC BOOLEAN debug;
-  PUBLIC BOOLEAN throwonfailure;
 
   /** @short The language used for searching
   */
@@ -506,14 +505,16 @@ STATIC OBJECTTYPE SearchObject
         , this->session
         , addscore
         , this->debug
-        , this->throwonfailure
+        , throwonfailure := TRUE
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
 
     RECORD result := SearchIndexManager(this->catalog_id, query, options);
-    IF (result.status != SearchOk)
+    IF (result.status != SearchOk) //though actually all SearchIndexManager non-ok paths should be capable of throwing (no-attached-indices might not yet?)
+    {
       THROW NEW SearchException(result.status, "Search error: " || result.status);
+    }
 
     // Update our session
     IF (RecordExists(this->session))
