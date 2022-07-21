@@ -10,6 +10,7 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -17,19 +18,12 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 STRING ARRAY testcatalogs := [ "webhare_testsuite:testindex"
                              , "webhare_testsuite:testindex_suffixed"
                              , "webhare_testsuite:module_reference"
-                             , "webhare_testsuite:duplicate_fieldnames"
-                             , "webhare_testsuite:circular_index_direct"
-                             , "webhare_testsuite:circular_index_indirect"
-                             , "webhare_testsuite:circular_module_reference"
                              ];
 RECORD testindex, testindex_suffixed;
 RECORD builtin_opensearch;
 
 MACRO Prepare()
 {
-  IF(GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "")
-    Print(`Note that moduleindices explicitly runs against OpenSearch even when legacy indexmanager is thhe default\n`);
-
   TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
   builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
 
@@ -39,7 +33,14 @@ MACRO Prepare()
 
   testfw->BeginWork();
 
+  //Force deletion and recreation... they'll be garbage collected...
+  DELETE FROM consilio.catalogs WHERE name IN testcatalogs;
+  testfw->CommitWork();
+
+  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+
   //Verify and cleanup from any previously (aborted)? testrun
+  testfw->BeginWork();
   FOREVERY(STRING usedcatalog FROM testcatalogs)
   {
     OBJECT cat := OpenConsilioCatalog(usedcatalog);
@@ -58,8 +59,11 @@ MACRO Prepare()
                      , type := "opensearch"
                      , searchpriority := 100
                      , indexname := testindex.indexname
+                     , readonly := FALSE
                      ]
                     ], cat->ListAttachedIndices(), "*");
+
+      cat->AttachIndex(builtin_opensearch.id, [ readonly := TRUE ]);
     }
     ELSE IF(#usedcatalog = 1)
     {
@@ -89,21 +93,26 @@ MACRO TestESCreationAPIs()
   TestThrowsLike("*indexname*required*", PTR catalog->AttachIndex(mock_external_index));
   TestThrowsLike("*indexname*lowercase*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "_U" ]));
   TestThrowsLike("*Invalid*indexname*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "-u" ]));
-  catalog->AttachIndex(mock_external_index, [ indexname := "dummyname" ]);
+  catalog->AttachIndex(mock_external_index, [ indexname := "dummyname", readonly := TRUE ]);
 
   testfw->RollbackWork();
 
-  // Ensure it doesn't exist in ES ... we'll do a raw action
-  SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
+  // Verify the readonly index was not created
+  RECORD ARRAY indices := catalog->ListAttachedIndices();
+  TestEq(TRUE, indices[1].readonly);
 
-  // EnsureIt still doesn't exist on the index manager
+  TestEq(TRUE, RecordExists(SendRawJSONToElasticsearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}`, DEFAULT RECORD).result));
+  TestThrowsLike("*404*", PTR SendRawJSONToElasticsearch(indices[1].indexmanager, "GET", `/${indices[1].indexname}`, DEFAULT RECORD));
+
+  // Explicitly delete from ES
+  SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
   TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
+  TestEq(RECORD[], catalog->ListSuffixes());
 
-  // Try the low level API first. Make sure it does exist
+  // Recreate it
   catalog->ApplyConfiguration();
   result := GetIndexManagerIndexList(testindex.indexmanager);
-
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
@@ -112,7 +121,9 @@ MACRO TestESCreationAPIs()
   TestEq("keyword", GetCell(checkindex.result, testindex.indexname).mappings.properties.keyword.type);
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex.indexname).mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
+  __did_opensearch_close_and_reopen := FALSE; //it seems we lack another way to observe an unneeded change happening
   catalog->ApplyConfiguration(); //calling twice should be okay, it's an Ensure not a "Create"
+  TestEq(FALSE, __did_opensearch_close_and_reopen, "Apply should have been a no-op");
 
   // Delete it again from the index manager
   catalog->DeleteSuffix("");
@@ -121,6 +132,7 @@ MACRO TestESCreationAPIs()
 
   // Create a subindex
   catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  TestEq(RECORD[], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
   testfw->CommitWork();
@@ -150,12 +162,6 @@ MACRO TestESCreationAPIs()
   catalog := OpenConsilioCatalog("webhare_testsuite:module_reference");
   TestEq(TRUE, ObjectExists(catalog));
 
-  // It still doesn't exist on the index manager
-  result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-
-  // Make sure it does exist
-  catalog->ApplyConfiguration();
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
@@ -165,22 +171,25 @@ MACRO TestESCreationAPIs()
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
 
   // Check if duplicate fieldnames through including field groups are properly detected
+  testfw->BeginWork();
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->ApplyConfiguration());
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->AttachIndex(0));
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
+  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
+  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
+  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
+
+  testfw->RollbackWork();
 }
 
 MACRO TestESBulkInsertion()

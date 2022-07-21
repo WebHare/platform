@@ -36,11 +36,65 @@ MACRO TestOldIndexSyntax()
 
   TestEq(FALSE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
 
-  FixConsilioIndices();
+  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
 
   TestEq(TRUE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
 }
 
+MACRO TestIndexConfiguration(BOOLEAN expect_proper, OBJECT catalog)
+{
+  RECORD indexinfo := catalog->ListAttachedIndices()[0];
+  RECORD settings := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  settings := Getcell(settings, indexinfo.indexname).settings;
+  IF(expect_proper)
+  {
+    TestEq("icu_tokenizer", settings."index".analysis.analyzer.CONSILIO_ANALYZER.tokenizer);
+  }
+  ELSE
+  {
+    TestEq(FALSE, CellExists(settings."index", "analysis"));
+  }
+
+  //TestEq(expect_proper ? cell[x:=42] : CELL[], GetCell(mapping, indexinfo.indexname).mapings);
+  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_mapping`, DEFAULT RECORD).result;
+  IF(expect_proper)
+    TestEqMembers([ properties := CELL[] ], GetCell(mapping, indexinfo.indexname).mappings, '*');
+  ELSE
+    TestEq(CELL[], GetCell(mapping, indexinfo.indexname).mappings);
+}
+
+MACRO TestOpeningExternalIndex()
+{
+  testfw->BeginWork();
+
+  //A catalog without a consilio_analysis (eg legacy wobcovid19) crashed during adding objects
+  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+  STRING updateindexname := "c_upgradetest_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  TestEq(TRUE, SendRawJSONToElasticsearch(builtin_opensearch.id, "PUT", `/${updateindexname}`, DEFAULT RECORD).result.acknowledged);
+
+  //Now create catalog on top of this existing index
+  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_upgradetest", [ managed := FALSE
+                                                                             , fieldgroups := ["webhare_testsuite:pagelistfields" ]
+                                                                             ]);
+  TestEq(FALSE, testcatalog->suffixed);
+  INTEGER newattachment := testcatalog->AttachIndex(builtin_opensearch.id, [ indexname := updateindexname, readonly := TRUE ]);
+  Print(testcatalog->GetStorageInfo()||'\n');
+
+  //At this point consilio should *not* yet have intervened... attachindex on an unmanaged index should be a no-op
+  TestIndexConfiguration(FALSE, testcatalog);
+  testcatalog->DetachIndex(newattachment);
+
+  //Normal AttachIndex immediately applies our configuration
+  testcatalog->AttachIndex(builtin_opensearch.id, [ indexname := updateindexname, readonly := FALSE ]);
+  TestIndexConfiguration(TRUE, testcatalog);
+
+  testcatalog->AddObjects([[ objectid := "x123", documentfields := [ myfield1 := "hi this is a test" ]]]);
+  TestEqMembers([[ suffix := "" ]], testcatalog->ListSuffixes(), "*");
+
+  testfw->CommitWork();
+}
+
 RunTestframework(
     [ PTR TestOldIndexSyntax
+    , PTR TestOpeningExternalIndex
     ]);

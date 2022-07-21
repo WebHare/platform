@@ -59,7 +59,6 @@ catalogs.whlib API:
 OBJECT catalog := OpenConsilioCatalog("mymodule:myindex");
 IF(Length(catalog->ListAttachedIndices()) = 0) // nothing configured yet?
   catalog->AttachIndex(0); // attach to default builtin indexmanager
-catalog->ApplyConfiguration(); // explicitly update mappings
 ```
 
 ## Legacy catalogs

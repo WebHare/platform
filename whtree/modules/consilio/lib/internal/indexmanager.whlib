@@ -268,129 +268,80 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
   RETURN result;
 }
 
-PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
+BOOLEAN FUNCTION IsOutofdateAnalysis(RECORD currentanalysis, RECORD newanalysis)
 {
-  options := ValidateOptions(
-      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := TRUE
-      , synonyms := STRING[]
-      ], options);
-
-  STRING result := SearchOk;
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  IF (NOT RecordExists(indexmanagers))
-   THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
-
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
-  {
-    SWITCH (indexmanager.type)
-    {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        // Not supported, ignore
-      }
-      CASE whconstant_consilio_indexmanager_opensearch
-      {
-        IF (indexmanager.indexname = "")
-          THROW NEW Exception(`Index #${indexid} has no name`);
-        ELSE IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged AND options.suffix != "")
-          THROW NEW Exception("Cannot specify a suffix for a non-module index");
-
-        RECORD settings := CELL
-              // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
-            [ number_of_replicas := 0
-              // Language-specific analysis settings
-            , analysis := GetAnalysisForLanguage(indexmanager.lang)
-            ];
-        // Add the synonyms filter
-        INSERT CELL synonym := CELL
-            [ type := "synonym_graph"
-            , options.synonyms
-            ] INTO settings.analysis.filter;
-
-        IF(IsDebugTagEnabled("consilio:changes"))
-          LogDebug("consilio:searches", "EnsureIndexManagerIndex", CELL[ indexid, ...indexmanager, settings ]);
-
-        TRY
-        {
-          RECORD response := SendToElasticsearch(indexmanager.id,
-                                                indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""),
-                                                "",
-                                                CELL[ settings ],
-                                                "PUT",
-                                                [ throwonfailure := TRUE ]);
-          result := response.status;
-        }
-        CATCH(OBJECT<ElasticSearchException> e)
-        {
-          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
-            result := SearchOk;
-          ELSE IF (options.throwonfailure)
-            THROW;
-          ELSE
-            result := SearchHTTPError;
-        }
-      }
-    }
-  }
-
-  RETURN result;
+  CONSTANT RECORD structure := [ filter := [ synonym := [ synonyms := STRING[] ]]];
+  currentanalysis := EnforceStructure(structure, currentanalysis);
+  newanalysis := EnforceStructure(structure, newanalysis);
+  RETURN EncodeHSON(currentanalysis) != EncodeHSON(newanalysis);
 }
 
-PUBLIC STRING FUNCTION UpdateIndexManagerIndexSettings(INTEGER indexid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC BOOLEAN __did_opensearch_close_and_reopen; //tests currently need this to verify that we didn't unnecessarily close an index.
+
+PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING indexname, STRING suffix, STRING ARRAY synonyms, STRING lang)
 {
-  options := ValidateOptions(
-      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      ], options);
+  RECORD setanalysis := GetAnalysisForLanguage(lang);
+  // Add the synonyms filter
+  INSERT CELL synonym := CELL
+      [ type := "synonym_graph"
+      , synonyms
+      ] INTO setanalysis.filter;
 
-  STRING result := SearchOk;
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "EnsureOpenSearchIndexConfiguration", CELL[ indexmanager, indexname, suffix, synonyms, lang ]);
 
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  STRING fullname := indexname || (suffix != "" ? "-" || suffix : "");
+  TRY
   {
-    SWITCH (indexmanager.type)
+    SendToElasticsearch(indexmanager, fullname, "",
+         CELL[ settings := [ number_of_replicas := 0 // we don't configure replication on our own indicessettings
+                           , analysis := setanalysis
+                           ]
+             ], "PUT", [ throwonfailure := TRUE ]);
+  }
+  CATCH(OBJECT<ElasticSearchException> e)
+  {
+    IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
     {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        // Not supported, ignore
-      }
-      CASE whconstant_consilio_indexmanager_opensearch
-      {
-        // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
-        BOOLEAN close_index := CellExists(settings, "analysis");
+      //Then just update the configuration
 
-        IF(IsDebugTagEnabled("consilio:changes"))
-          LogDebug("consilio:changes", "UpdateIndexManagerIndexSettings", CELL[ indexid, ...indexmanager, settings, close_index ]);
+      // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
+      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]).result;
+      currentsettings := GetCell(currentsettings, fullname).settings;
 
-        RECORD response;
+      RECORD applysettings;
+      IF(NOT CellExists(currentsettings."index",'analysis') OR IsOutofdateAnalysis(currentsettings."index".analysis, setanalysis))
+        INSERT CELL analysis := setanalysis INTO applysettings;
+
+      IF(RecordExists(applysettings))
+      {
+        BOOLEAN close_index := CellExists(applysettings, "analysis");
         IF (close_index)
         {
-          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
-          IF (response.status != SearchOk)
-            RETURN response.status;
+          __did_opensearch_close_and_reopen := TRUE;
+          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
         }
 
         // Update the settings
-        response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_settings", settings, "PUT", [ throwonfailure := TRUE ]);
-        IF (response.status != SearchOk)
-          RETURN response.status;
-
-        // Open the index again if needed
-        IF (close_index)
+        TRY
         {
-          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_open", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
-          IF (response.status != SearchOk)
-            RETURN response.status;
+          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT", [ throwonfailure := TRUE ]);
         }
-
-        result := response.status;
+        FINALLY
+        {
+          // Open the index again if needed. Even if /_settings throws
+          IF (close_index)
+            SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST", [ throwonfailure := FALSE ]);
+        }
       }
     }
+    ELSE
+    {
+      THROW;
+    }
   }
-
-  RETURN result;
 }
+
 
 PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER contentsourceid)
 {
@@ -1198,7 +1149,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
   }
 
   STRING result;
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
   IF (IsDefaultValue(indexmanagers))
     result := SearchIndexNotFound;
   FOREVERY (RECORD indexmanager FROM indexmanagers)
@@ -1852,6 +1803,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
 {
   options := ValidateOptions(
         [ managedonly := FALSE
+        , excludereadonly := FALSE
         ], options);
 
   RETURN
@@ -1868,6 +1820,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
+             AND (options.excludereadonly ? catalog_indexmanagers.readonly = FALSE : TRUE)
     ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 
@@ -1883,6 +1836,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
 {
   options := ValidateOptions(
       [ managedonly := FALSE
+      , excludereadonly := FALSE
       ], options);
 
   IF (indexid = 0)
@@ -1902,6 +1856,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND catalog_indexmanagers.catalogid = catalogs.id
              AND catalog_indexmanagers.indexmanager = indexmanagers.id
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
+             AND (options.excludereadonly ? catalog_indexmanagers.readonly = FALSE : TRUE)
     ORDER BY catalog_indexmanagers.searchpriority DESC;
 }
 

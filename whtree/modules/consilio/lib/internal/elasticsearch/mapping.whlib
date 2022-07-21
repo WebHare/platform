@@ -44,7 +44,7 @@ PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
 {
   OBJECT node := GetIndexFieldDefinitionNode(name, "catalog") ?? GetIndexFieldDefinitionNode(name, "index");
   IF(NOT ObjectExists(node))
-    THROW NEW Exception(`Cannot find catalog mapping for '${name}'`);
+    RETURN DEFAULT RECORD; //GetIndexFieldDefinition is used in locations where a fielddefinition is optional - so don't require one
 
   RETURN ParseIndexField(node, Tokenize(name,':')[0], defaultparentstate);
 }

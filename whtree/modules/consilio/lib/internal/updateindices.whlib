@@ -28,6 +28,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     RECORD catalog := CELL[ tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`)
                           , priority := ParseXSInt(catalognode.node->Getattribute("priority"))
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+                          , sourcemodule := catalognode.module
                           , contentsources := RECORD[]
                           , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
                           , suffixed := ParseXSBoolean(catalognode.node->GetAttribute("suffixed"))
@@ -61,6 +62,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     RECORD catalog := CELL[ tag := ToLowercase(`${indexnode.module}:${indexnode.node->GetAttribute("tag")}`)
                           , priority := ParseXSInt(indexnode.node->Getattribute("priority"))
                           , definedby := "<index> " || indexnode.resource || ":" || indexnode.node->linenum
+                          , sourcemodule := indexnode.module
                           , contentsources := RECORD[]
                           , managed := FALSE
                           , suffixed := TRUE
@@ -169,13 +171,18 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ reportmissing := FALSE
+      , limitmodule := ""
       ], options);
 
   OBJECT trans := GetPrimary();
   IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
     RETURN; //consilio is not initialized yet!
 
-  RECORD ARRAY wantcatalogs := SELECT *, catalog := DEFAULT OBJECT FROM GetRequiredCatalogs();
+  RECORD ARRAY wantcatalogs := SELECT *
+                                    , catalog := DEFAULT OBJECT
+                                 FROM GetRequiredCatalogs()
+                                WHERE (options.limitmodule = "" ? TRUE : sourcemodule =  options.limitmodule);
+
   BOOLEAN havedefaultindexmanager := RecordExists(SELECT FROM ListIndexManagers() WHERE isdefault);
 
   trans->BeginWork();
@@ -216,7 +223,7 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->CommitWork();
 
   FOREVERY(RECORD want FROM wantcatalogs)
-    IF(want.managed AND want.catalog->managed)
+    IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
       want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
 }
 
@@ -224,12 +231,13 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ reportmissing := FALSE
+      , limitmodule := ""
       ], options);
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
   TRY
   {
-    UpdateModuleCatalogs(CELL[options.reportmissing]);
+    UpdateModuleCatalogs(CELL[options.reportmissing, options.limitmodule]);
   }
   FINALLY
   {
