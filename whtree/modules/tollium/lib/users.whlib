@@ -838,7 +838,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   */
   PUBLIC BOOLEAN FUNCTION ShowDeveloperOptions()
   {
-    RETURN this->HasRight("system:sysop") AND this->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+    RETURN this->HasRight("system:sysop") AND this->GetRegistryKey("system.prefs.showdeveloperapps", GetDtapStage() = "development");
   }
 
   PUBLIC BOOLEAN FUNCTION AddFavorite(STRING app, RECORD target, RECORD message, STRING title, STRING icon)

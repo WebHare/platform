@@ -87,8 +87,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->thousandsep->SetValueIfValid(locale.thousandseparator);
     this->browsertitleprefix->value := this->contexts->user->GetRegistryKey("system.prefs.browsertitleprefix", "");
 
-    this->showdeveloperapps->visible := this->contexts->user->HasRight("system:sysop");
-    this->showdeveloperapps->value := this->contexts->user->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+    ^showdeveloperapps->visible := this->contexts->user->HasRight("system:sysop");
+    ^showdeveloperapps->value := this->contexts->user->GetRegistryKey("system.prefs.showdeveloperapps", GetDtapStage() = "development");
 
     // These settings (decimal sep, thousand sep and background) can only be changed by the sysop and the user himself
     OBJECT dlg := this->LoadScreen(".notificationsettings", [ parentframe := this->frame ]);
@@ -235,7 +235,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF(this->language->value != oldlanguage)
       work->AddWarning(GetTidForLanguage(this->language->value, "system:userrights.dialogues.languagechanged"));
 
-    this->contexts->user->SetRegistryKey("system.prefs.showdeveloperapps", this->showdeveloperapps->value);
+    IF(^showdeveloperapps->visible)
+      this->contexts->user->SetRegistryKey("system.prefs.showdeveloperapps", ^showdeveloperapps->value);
 
     //get the original rows, but overwrite the title inside them
     RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM this->shortcuts->value;
