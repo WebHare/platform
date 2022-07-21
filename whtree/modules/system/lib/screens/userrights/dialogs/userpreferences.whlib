@@ -99,14 +99,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     }
 
     RECORD unitinfo;
-    IF(NOT ObjectExists(this->userobj->wrdentity))
-    {
-      // This means we're logged in as an override user; let's tell the user and exit:
-      this->RunSimpleScreen("info", this->GetTid(".noprefsforoverride"));
-      this->TolliumCloseScreen();
-      this->TolliumExecuteCancel();
-      RETURN;
-    }
 
     RECORD locale := this->pvt_user->GetLocale();
 
@@ -692,6 +684,12 @@ PUBLIC MACRO RunUserPreferences(OBJECT parent, RECORD options)
     IF(GetDtapStage() = "development")
       error := error || "\n\nFor developers: there was no 'userapi' in the current context.\n\nThere may be an issue with the currently cached siteprofiles and you may need to perfom a `wh softreset --sp` or to restart the webserver (or WebHare entirely)";
     parent->RunSimpleScreen("error", error);
+    RETURN;
+  }
+  IF(NOT ObjectExists(parent->contexts->user->entity))
+  {
+    // This means we're logged in as an override user; let's tell the user and exit:
+    parent->RunSimpleScreen("info", GetTid("system:userrights.edituser.noprefsforoverride"));
     RETURN;
   }
   parent->RunScreen("mod::system/screens/userrights/dialogs/userpreferences.xml#userpreferences");
