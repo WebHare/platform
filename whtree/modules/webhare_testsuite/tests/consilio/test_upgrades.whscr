@@ -86,12 +86,13 @@ MACRO TestOpeningExternalIndex()
 
   //Normal AttachIndex immediately applies our configuration
   testcatalog->AttachIndex(builtin_opensearch.id, [ indexname := updateindexname, readonly := FALSE ]);
-  TestIndexConfiguration(TRUE, testcatalog);
+  TestIndexConfiguration(FALSE, testcatalog);
+  testfw->CommitWork();
 
+  TestIndexConfiguration(TRUE, testcatalog);
   testcatalog->AddObjects([[ objectid := "x123", documentfields := [ myfield1 := "hi this is a test" ]]]);
   TestEqMembers([[ suffix := "" ]], testcatalog->ListSuffixes(), "*");
 
-  testfw->CommitWork();
 }
 
 RunTestframework(

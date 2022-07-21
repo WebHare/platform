@@ -7,6 +7,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -67,6 +68,55 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
            FROM consilio.indexmanagers;
 }
 
+///Object to delay (and block!) updates to indices which still need to apply their configuration
+STATIC OBJECTTYPE CatalogCommitHandler EXTEND TransactionFinishHandlerBase
+<
+  INTEGER ARRAY reconfigurecatalogs;
+
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    FOREVERY(INTEGER catalog FROM this->reconfigurecatalogs)
+    {
+      OBJECT cat := OpenConsilioCatalogById(catalog);
+      IF(ObjectExists(cat))
+        cat->ApplyConfiguration();
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasPendingUpdates(INTEGER catalog)
+  {
+    RETURN catalog IN this->reconfigurecatalogs;
+  }
+
+  PUBLIC MACRO RequestReconfigureCatalog(INTEGER catalog)
+  {
+    IF(catalog NOT IN this->reconfigurecatalogs)
+      INSERT catalog INTO this->reconfigurecatalogs AT END;
+  }
+>;
+
+OBJECT FUNCTION GetCatalogCommitHandler()
+{
+  OBJECT trans := GetPrimary();
+
+  OBJECT handler := trans->GetFinishHandler("consilio:catalogcommithandler");
+  IF (NOT ObjectExists(handler))
+  {
+    handler := NEW CatalogCommitHandler;
+    trans->SetFinishHandler("consilio:catalogcommithandler", handler);
+  }
+  RETURN handler;
+}
+
+MACRO VerifyCatalogSafeToUpdate(INTEGER catalog)
+{
+  IF(GetPrimary()->IsWorkOpen())
+  {
+    OBJECT handler := GetPrimary()->GetFinishHandler("consilio:catalogcommithandler");
+    IF (ObjectExists(handler) AND handler->HasPendingUpdates(catalog))
+      THROW NEW Exception(`You must commit the current transaction to ensure the newly attached indices are registered in the database`);
+  }
+}
 
 /** Content source object
     @public
@@ -534,9 +584,9 @@ STATIC OBJECTTYPE ConsilioCatalog
                , searchpriority := Length(SELECT FROM consilio.catalog_indexmanagers WHERE catalogid = this->id) = 0 ? 100 : 0
                ] INTO consilio.catalog_indexmanagers;
 
-    // Ensure the indexes are created at the indexmanagers
-    IF (NOT options.readonly)
-      this->ApplyConfiguration(); //TODO only needed for the new index, not all attached indices
+    //This will ensure the index is setup after Commit (it's unsafe to create it right away, cleanupindices might 'disagree' - and this *does* happen during eg. CI)
+    IF(NOT options.readonly)
+      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
 
     RETURN newid;
   }
@@ -602,8 +652,8 @@ STATIC OBJECTTYPE ConsilioCatalog
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
-    IF (language_changed)
-      this->ApplyConfiguration();
+    IF(language_changed)
+      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
 
     this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
     RETURN language_changed;
@@ -829,8 +879,8 @@ STATIC OBJECTTYPE ConsilioCatalog
       anychanges := TRUE;
     }
 
-    IF (anychanges)
-      this->ApplyConfiguration();
+    IF(anychanges)
+      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
   }
 
   RECORD FUNCTION GetBaseDebugInfo()
@@ -852,6 +902,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
+    VerifyCatalogSafeToUpdate(this->id);
 
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
@@ -881,6 +932,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
 
+    VerifyCatalogSafeToUpdate(this->id);
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
                                 , synchronous := FALSE
@@ -948,7 +1000,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     contentsource->OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    this->ApplyConfiguration();
+    GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
 
     RETURN contentsource;
   }
@@ -984,7 +1036,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       }
       ELSE IF (IsFolderAncestorOf(targetfolder, contentsource.fsobject)) // folderid contains searchroot
       {
-        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
+        UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder (FIXME sure? what if the siteprl is configured to just recreate this situation? )
       }
     }
 

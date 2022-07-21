@@ -174,20 +174,25 @@ MACRO TestESCreationAPIs()
   testfw->BeginWork();
   catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->AttachIndex(0));
+  catalog->AttachIndex(0);
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->ApplyConfiguration());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
+  catalog->AttachIndex(0);
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
+
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
+  catalog->AttachIndex(0);
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
 
   // Check if circular fieldgroup references are properly detected
   catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
   TestEq(TRUE, ObjectExists(catalog));
-  TestThrowsLike("Index is too deep!", PTR catalog->AttachIndex(0));
+  catalog->AttachIndex(0);
+  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
 
   testfw->RollbackWork();
 }
@@ -585,6 +590,7 @@ MACRO TestESLangFeatures()
   testfw->BeginWork();
   TestEq(TRUE, catalog->UpdateCatalog([ lang := "en" ]));
   TestEq("en", catalog->lang);
+  TestThrowsLike("*must commit*", PTR catalog->AddObjects([ doc ], [ synchronous := TRUE ]));
   testfw->CommitWork();
 
   // Reindex the document (an unmanaged index isn't rebuilt automatically)

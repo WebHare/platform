@@ -61,6 +61,8 @@ IF(Length(catalog->ListAttachedIndices()) = 0) // nothing configured yet?
   catalog->AttachIndex(0); // attach to default builtin indexmanager
 ```
 
+The indices aren't actually created until you've committed the current transaction.
+
 ## Legacy catalogs
 Legacy catalogs may not follow the `module:tag` naming convention. We recommend
 creating new catalogs using the above syntax and switching your code to use
