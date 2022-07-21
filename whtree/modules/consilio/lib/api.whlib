@@ -159,7 +159,7 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
 }
 
 /** Returns a query record that will never match anything
-    @long This exists so some query operator will potimize themselves to CQNothing.
+    @long This exists so query operators can optimize themselves into CQNothing.
     @return Consilio query record
 */
 PUBLIC RECORD FUNCTION CQNothing()
