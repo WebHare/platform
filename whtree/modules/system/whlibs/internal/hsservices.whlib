@@ -1172,8 +1172,12 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
   }
 }
 
-/** @deprecated Use WaitUntil with multiple := TRUE */
-PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
+/** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached. Deprecated, use WaitUntil with multiple := TRUE
+    @param waitfor @includecelldef #WaitUntil.waitfor
+    @param until @includecelldef #WaitUntil.until
+    @return @includecelldef #WaitUntil.return
+*/
+PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until) __ATTRIBUTES__(DEPRECATED "Use WaitUntil with multiple := TRUE")
 {
   RETURN WaitUntil(CELL[ multiple := TRUE, ...waitfor], until);
 }
