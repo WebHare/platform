@@ -154,7 +154,7 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
     STRING errortext := Length(sendresult.failures) > 0 ? sendresult.failures[0].text : smtpconn.conn->lasterror.message;
 
     BOOLEAN isfatal := (error.code / 100) = 5;
-    STRING message := error.code || " " || errortext;
+    STRING message := LimitUTF8Bytes(error.code || " " || errortext, 512);
     RETURN CELL[ ...baseretval, nextaction := isfatal ? "bounce" : "retry", response := message ];
   }
   RETURN CELL[ ...baseretval, nextaction := "sent", success := TRUE, response := sendresult.message ];
