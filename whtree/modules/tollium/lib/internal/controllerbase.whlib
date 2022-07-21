@@ -1342,7 +1342,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   OBJECT ARRAY stolen_screens;
 
   RECORD ARRAY controllermessagequeue;
-  STRING browsertitleprefix;
 
   // Set if there are issues to report with this application (appmenu should contain the issue)
   BOOLEAN _issueflag;
@@ -1472,8 +1471,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// @type(object %TolliumContexts) Tollium contexts
   PUBLIC PROPERTY contexts(this->pvt_contexts,-);
 
-  PUBLIC PROPERTY webbrowsertitleprefix(browsertitleprefix, SetBrowserTitlePrefix);
-
   PUBLIC MACRO PTR __onnoforwardprogress;
   PUBLIC MACRO PTR __onnoactionhandlerfound;
   PUBLIC MACRO PTR __onnodrophandlerfound;
@@ -1527,12 +1524,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   {
     this->title := title;
     this->ExtUpdatedAppTitle();
-  }
-
-  MACRO SetBrowserTitlePrefix(STRING prefix)
-  {
-    this->browsertitleprefix := prefix;
-    this->ExtUpdatedController();
   }
 
   MACRO SetApplicationTarget(RECORD newtarget)

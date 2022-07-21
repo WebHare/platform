@@ -253,7 +253,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
     }
 
-    this->tolliumcontroller->webbrowsertitleprefix := user->GetRegistryKey("system.prefs.browsertitleprefix","");
     RETURN TRUE;
   }
 

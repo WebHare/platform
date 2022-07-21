@@ -312,7 +312,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     BroadcastEvent("tollium:userprefs." || userobj->id, DEFAULT RECORD);
     this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
 
-    this->tolliumcontroller->webbrowsertitleprefix := user->GetRegistryKey("system.prefs.browsertitleprefix","");
     RETURN TRUE;
   }
 
