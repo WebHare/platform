@@ -45,6 +45,10 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   {
     this->policy := GetPolicyForUser(this->contexts, this->contexts->user->entityid);
 
+    //app passwords currently only make sense for webdav, so hide the option if you're not allowed to do that
+    ^openapppasswords->enabled := this->contexts->user->HasRight("system:webdav");
+    ^appaccounts->visible := ^openapppasswords->enabled;
+
     this->ConfigurePrefsTab();
     this->LoadFavorites();
 
