@@ -227,3 +227,9 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexThesaurus(INTEGER indexid)
        WHERE COLUMN catalogid = VAR indexid;
 
 }
+
+PUBLIC STRING FUNCTION GenerateConsilioIndexName()
+{
+  RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+}
+

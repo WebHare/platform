@@ -175,7 +175,7 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
     RETURN; //consilio is not initialized yet!
 
-  RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
+  RECORD ARRAY wantcatalogs := SELECT *, catalog := DEFAULT OBJECT FROM GetRequiredCatalogs();
   BOOLEAN havedefaultindexmanager := RecordExists(SELECT FROM ListIndexManagers() WHERE isdefault);
 
   trans->BeginWork();
@@ -189,7 +189,7 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 
        catalog := CreateConsilioCatalog(want.tag, CELL[ want.managed, want.lang, want.suffixed ]);
     }
-    INSERT CELL catalog := catalog INTO wantcatalogs[#want];
+    wantcatalogs[#want].catalog := catalog;
     IF(catalog->managed != want.managed)
     {
       PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);

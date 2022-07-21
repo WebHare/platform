@@ -36,11 +36,6 @@ CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
 
 CONSTANT STRING default_suffix_mask := "-*";
 
-STRING FUNCTION __GenerateIndexName()
-{
-  RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
-}
-
 STRING FUNCTION BuildFieldgroups(STRING ARRAY fieldgroups)
 {
   //TODO validate whether these groups exist so we give Errors Early ?
@@ -511,7 +506,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(options.indexname = "")
     {
       IF(usemgr.isbuiltin)
-        options.indexname := __GenerateIndexName();
+        options.indexname := GenerateConsilioIndexName();
       ELSE
         THROW NEW Exception(`An indexname is required when using an external indexmanager`);
     }

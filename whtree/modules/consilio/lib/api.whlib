@@ -159,9 +159,10 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
 }
 
 /** Returns a query record that will never match anything
+    @long This exists so query operators can optimize themselves into CQNothing.
     @return Consilio query record
 */
-RECORD FUNCTION CQNothing()
+PUBLIC RECORD FUNCTION CQNothing()
 {
   RETURN [ _type := "nothing"
          , boost := 1f
@@ -256,10 +257,8 @@ RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required)
     ELSE IF(query._type = "nothing")
     {
       IF(required)  //In a serie of ANDs, nothing matches a poison.
-      {
-        resultquery.subqueries := RECORD[];
-        RETURN resultquery;
-      }
+        RETURN CQNothing();
+
       //but for OR queries, just ignore it
     }
     ELSE

@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
@@ -27,8 +29,7 @@ SCHEMA
     , INTEGER "catalogid" NULL := 0
     , INTEGER "indexmanager" NULL := 0
     , STRING "indexname"
-    , BOOLEAN "primary"
-    , BOOLEAN "rebuild"
+    , INTEGER "searchpriority"
     > catalog_indexmanagers
   , TABLE
     < INTEGER "id" NULL := 0
@@ -110,8 +111,8 @@ FOREVERY (RECORD indexrec FROM SELECT * FROM consilio.catalogs)
     INSERT CELL
         [ catalogid := indexrec.id
         , indexmanager := indexrec.indexmanager
-        , indexname := indexrec.indexname
-        , primary := TRUE
+        , indexname := indexrec.indexname ?? GenerateConsilioIndexName() //in case for some reason indexname conversion didn't run
+        , searchpriority := 100
         ] INTO consilio.catalog_indexmanagers;
 
 // Set references
