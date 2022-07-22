@@ -28,9 +28,7 @@
             <textedit name="fullname" cellname="wrd_title" composition="userobj" readonly="true" tid=".fullname" />
             <textedit name="username" tid=".username" />
             <authenticationsettings name="authenticationsettings" />
-            <line>
-              <text valuetid=".appaccountstab" action="openapppasswords" title="" />
-            </line>
+            <text name="appaccounts" valuetid=".appaccountstab" action="openapppasswords" title="" />
           </tab>
           <tab name="preferences">
             <select name="language" type="pulldown" tid=".prefslang" />

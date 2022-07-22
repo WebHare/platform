@@ -27,21 +27,9 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   // Global variables and such
   //
 
-  OBJECT pvt_user;
-
-  /// Whether the edited user is the current user
-  BOOLEAN isself;
-
   RECORD policy;
 
   FUNCTION PTR notificationsubmit;
-
-  // -----------------------------------------------------------------------------
-  //
-  // Public properties
-  //
-
-  PUBLIC PROPERTY user(pvt_user, -);
 
   // -----------------------------------------------------------------------------
   //
@@ -55,31 +43,26 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->pvt_user := this->tolliumuser;
+    this->policy := GetPolicyForUser(this->contexts, this->contexts->user->entityid);
 
-    this->policy := GetPolicyForUser(this->contexts, this->pvt_user->entityid);
+    //app passwords currently only make sense for webdav, so hide the option if you're not allowed to do that
+    ^openapppasswords->enabled := this->contexts->user->HasRight("system:webdav");
+    ^appaccounts->visible := ^openapppasswords->enabled;
 
     this->ConfigurePrefsTab();
     this->LoadFavorites();
 
-    IF(this->username->value = "")
-      this->username->value := this->pvt_user->login;
-
+    this->username->value := this->contexts->user->login;
     this->username->readonly := TRUE;
     this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
 
-    IF (ObjectExists(this->pvt_user))
-    {
-      STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
+    STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
 
-      ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
-      ^authenticationsettings->LoadEntityField(this->pvt_user->entity, this->contexts->userapi->wrdschema->accountpasswordtag);
-      ^authenticationsettings->allowsecondfactor := __MatchesAnyMask(this->pvt_user->login, allowsecondfactormasks);
+    ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
+    ^authenticationsettings->LoadEntityField(this->contexts->user->entity, this->contexts->userapi->wrdschema->accountpasswordtag);
+    ^authenticationsettings->allowsecondfactor := __MatchesAnyMask(this->contexts->user->login, allowsecondfactormasks);
 
-      ^entitylistener->masks := this->contexts->userapi->wrdschema->accounttype->GetEventMasks();
-    }
-    ELSE
-      ^authenticationsettings->visible := FALSE;
+    ^entitylistener->masks := this->contexts->userapi->wrdschema->accounttype->GetEventMasks();
 
     IF(this->contexts->userapi->wrdschema->accountemailtag = ""
        OR this->contexts->userapi->wrdschema->accountlogintag = this->contexts->userapi->wrdschema->accountemailtag)
@@ -92,39 +75,23 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       this->username->cellname := this->contexts->userapi->wrdschema->accountemailtag;
     }
 
-    this->userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0);
-    IF(NOT ObjectExists(this->pvt_user))
-    {
-      THROW NEW Exception("Cannot load preferences of nonexisting user");
-    }
+    this->userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, this->contexts->user->entityid);
 
     RECORD unitinfo;
-    IF(NOT ObjectExists(this->userobj->wrdentity))
-    {
-      // This means we're logged in as an override user; let's tell the user and exit:
-      this->RunSimpleScreen("info", this->GetTid(".noprefsforoverride"));
-      this->TolliumCloseScreen();
-      this->TolliumExecuteCancel();
-      RETURN;
-    }
 
-    RECORD locale := this->pvt_user->GetLocale();
+    RECORD locale := this->contexts->user->GetLocale();
 
     this->language->SetValueIfValid(locale.language);
     this->timezone->SetValueIfValid(locale.timezone);
     this->decimalsep->SetValueIfValid(locale.decimalseparator);
     this->thousandsep->SetValueIfValid(locale.thousandseparator);
-    this->browsertitleprefix->value := this->pvt_user->GetRegistryKey("system.prefs.browsertitleprefix", "");
+    this->browsertitleprefix->value := this->contexts->user->GetRegistryKey("system.prefs.browsertitleprefix", "");
 
-    this->showdeveloperapps->visible := ObjectExists(this->tolliumuser) AND this->tolliumuser->HasRight("system:sysop");
-    this->showdeveloperapps->value := this->pvt_user->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+    ^showdeveloperapps->visible := this->contexts->user->HasRight("system:sysop");
+    ^showdeveloperapps->value := this->contexts->user->GetRegistryKey("system.prefs.showdeveloperapps", GetDtapStage() = "development");
 
     // These settings (decimal sep, thousand sep and background) can only be changed by the sysop and the user himself
-    BOOLEAN changepersonalsettings := this->tolliumuser->HasRight("system:sysop") OR (ObjectExists(this->user) AND this->tolliumuser->entityid = this->user->entityid);
-    this->decimalsep->visible := changepersonalsettings;
-    this->thousandsep->visible := changepersonalsettings;
-    this->notificationstab->visible := changepersonalsettings;
-    OBJECT dlg := this->LoadScreen(".notificationsettings", [ user := this->pvt_user, parentframe := this->frame ]);
+    OBJECT dlg := this->LoadScreen(".notificationsettings", [ parentframe := this->frame ]);
     this->notificationstab->contents := dlg;
     this->notificationsubmit := PTR dlg->Submit;
     this->frame->onmessage := PTR this->OnMessage;
@@ -165,9 +132,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO RefreshWarnings()
   {
-    IF (NOT ObjectExists(this->userobj->wrdentity))
-      RETURN;
-
     BOOLEAN passwordexpired, passwordabouttoexpire, passwordrequire2fa;
     TRY
     {
@@ -239,7 +203,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO DoOpenAppPassWords()
   {
-    this->LoadScreen(".appaccounts", [ user := this->pvt_user ])->RunModal();
+    this->RunScreen("#appaccounts");
   }
 
   BOOLEAN FUNCTION Submit()
@@ -250,77 +214,41 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF (this->decimalsep->value = this->thousandsep->value)
       work->AddError(GetTid("system:sysmgmt.decimalsepandthousandsepmustdiffer"));
 
-    OBJECT user;
-    TRY
-    {
-      INTEGER oldentityid := this->userobj->entityid;
+    this->userobj->StoreEntity(work);
 
-      INTEGER id := this->userobj->StoreEntity(work);
-      IF (id != 0)
-      {
-        //FIXME why would we need to sync ? this->contexts->userapi->SyncUserAfterUpdate(id);
-        user := this->contexts->userapi->GetUser(id);
-      }
-      ELSE
-        user := this->pvt_user;
-    }
-    CATCH (OBJECT e)
-    {
-      // FIXME: localization!
-      work->AddError(e->what);
-    }
+    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
 
-    IF (NOT work->Finish())
-      RETURN FALSE;
+    IF (MemberExists(this->tolliumcontroller, "webunloadtext"))
+      this->tolliumcontroller->webunloadtext := this->showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
 
-    work := this->BeginUnvalidatedWork(); //FIXME sucks to close/reopen, but needed until rightsmgmt is sane without weblets
+    STRING oldlanguage := this->contexts->user->GetLocale().language;
+    this->contexts->user->SetLocale([ language := this->language->value
+                                    , timezone := this->timezone->value
+                                    , decimalseparator := this->decimalsep->value
+                                    , thousandseparator := this->thousandsep->value
+                                    ]);
+    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
 
-    IF (NOT user->ExistsInDatabase())
-      work->AddError(GetTid("system:userrights.errors.selecteduserhasbeendeleted"));
+    IF (this->notificationstab->visible)
+      this->notificationsubmit();
 
-    OBJECT userobj := user->entity;
+    IF(this->language->value != oldlanguage)
+      work->AddWarning(GetTidForLanguage(this->language->value, "system:userrights.dialogues.languagechanged"));
 
-    BOOLEAN changepersonalsettings := this->tolliumuser->HasRight("system:sysop") OR (ObjectExists(this->user) AND this->tolliumuser->entityid = this->user->entityid);
-    IF(changepersonalsettings)
-    {
-      user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
-
-      IF (MemberExists(this->tolliumcontroller, "webunloadtext"))
-        this->tolliumcontroller->webunloadtext := this->showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
-
-      STRING oldlanguage := user->GetLocale().language;
-      user->SetLocale([ language := this->language->value
-                      , timezone := this->timezone->value
-                      , decimalseparator := this->decimalsep->value
-                      , thousandseparator := this->thousandsep->value
-                      ]);
-      user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
-
-      IF (this->notificationstab->visible)
-        this->notificationsubmit();
-
-      IF(user->entityid = this->tolliumuser->entityid)
-      {
-        IF(this->language->value != oldlanguage)
-          work->AddWarning(GetTidForLanguage(this->language->value, "system:userrights.dialogues.languagechanged"));
-      }
-    }
-    user->SetRegistryKey("system.prefs.showdeveloperapps", this->showdeveloperapps->value);
+    IF(^showdeveloperapps->visible)
+      this->contexts->user->SetRegistryKey("system.prefs.showdeveloperapps", ^showdeveloperapps->value);
 
     //get the original rows, but overwrite the title inside them
     RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM this->shortcuts->value;
-    this->tolliumuser->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+    this->contexts->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
 
     IF(NOT work->Finish())
       RETURN FALSE;
 
-    this->pvt_user := user;
+    BroadcastEvent("system:unit.change." || this->contexts->user->GetParentUnitId(), DEFAULT RECORD);
+    BroadcastEvent("tollium:userprefs." || this->contexts->user->entityid, DEFAULT RECORD);
+    this->contexts->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
 
-    BroadcastEvent("system:unit.change." || this->pvt_user->GetParentUnitId(), DEFAULT RECORD);
-    BroadcastEvent("tollium:userprefs." || userobj->id, DEFAULT RECORD);
-    this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
-
-    this->tolliumcontroller->webbrowsertitleprefix := user->GetRegistryKey("system.prefs.browsertitleprefix","");
     RETURN TRUE;
   }
 
@@ -331,8 +259,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO LoadFavorites()
   {
-    RECORD ARRAY favorites := this->tolliumuser->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
-    RECORD ARRAY allapps := GetAllApplications(this->user);
+    RECORD ARRAY favorites := this->contexts->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RECORD ARRAY allapps := GetAllApplications(this->contexts->user);
 
     this->shortcuts->value := SELECT app := (SELECT AS STRING title FROM allapps WHERE name = favorites.app) ?? favorites.app
                                    , title
@@ -382,7 +310,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 >;
 
 PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
-< OBJECT userobj;
+<
   BOOLEAN embedded;
   OBJECT towlservice;
 
@@ -398,21 +326,17 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->userobj := data.user;
     this->embedded := CellExists(data, "parentframe") AND ObjectExists(data.parentframe);
     this->towlservice := NEW TowlServiceObject;
     this->lastpermissionstate := "unknown";
 
-    this->listener->masks := [ "tollium:towl.notificationsettings." || this->tolliumuser->entityid ];
+    this->listener->masks := [ "tollium:towl.notificationsettings." || this->contexts->user->entityid ];
 
-    IF (ObjectExists(this->userobj))
-    {
-      this->timeout->value := this->towlservice->GetUserTimeout(this->userobj) / 1000;
-      INTEGER userpriority := this->towlservice->GetNotificationPriority(this->userobj, "");
-      this->onlypriority->value := userpriority != -4;
-      this->showpriority->value := userpriority != -4 ? userpriority : 0;
-      this->showon->SetValueIfValid(this->userobj->GetRegistryKey("system.prefs.shownotifications", "desktop"));
-    }
+    this->timeout->value := this->towlservice->GetUserTimeout(this->contexts->user) / 1000;
+    INTEGER userpriority := this->towlservice->GetNotificationPriority(this->contexts->user, "");
+    this->onlypriority->value := userpriority != -4;
+    this->showpriority->value := userpriority != -4 ? userpriority : 0;
+    this->showon->SetValueIfValid(this->contexts->user->GetRegistryKey("system.prefs.shownotifications", "desktop"));
 
     this->buttons->visible := NOT this->embedded;
 
@@ -479,9 +403,9 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
     IF (NOT this->embedded)
       work := this->BeginWork();
 
-    this->userobj->SetRegistryKey("system.prefs.shownotifications", this->showon->value);
-    this->towlservice->SetUserTimeout(this->userobj, this->timeout->value * 1000);
-    this->towlservice->SetNotificationPriority(this->userobj, "", this->onlypriority->value ? this->showpriority->value : -4);
+    this->contexts->user->SetRegistryKey("system.prefs.shownotifications", this->showon->value);
+    this->towlservice->SetUserTimeout(this->contexts->user, this->timeout->value * 1000);
+    this->towlservice->SetNotificationPriority(this->contexts->user, "", this->onlypriority->value ? this->showpriority->value : -4);
 
     IF (ObjectExists(work))
       RETURN work->Finish();
@@ -516,16 +440,13 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
 
   MACRO RefreshNotificationsList()
   {
-    IF (NOT ObjectExists(this->userobj))
-      RETURN;
-
     RECORD ARRAY notifications := SELECT towl_notifications.*
                                        , modulename := modules.name
                                     FROM system.towl_notifications
                                        , system.modules
                                    WHERE towl_notifications.module = modules.id;
     notifications := SELECT *
-                          , userpriority := this->towlservice->GetNotificationPriority(this->userobj, modulename || ":" || name)
+                          , userpriority := this->towlservice->GetNotificationPriority(this->contexts->user, modulename || ":" || name)
                        FROM notifications;
     notifications := SELECT *
                           , statustext := this->GetNotificationStatusText(userpriority)
@@ -573,7 +494,7 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
     IF (dlg->RunModal() = "ok")
     {
       OBJECT work := this->BeginWork();
-      this->towlservice->SetNotificationPriority(this->userobj, notification.name, dlg->priority);
+      this->towlservice->SetNotificationPriority(this->contexts->user, notification.name, dlg->priority);
       work->Finish();
     }
   }
@@ -584,7 +505,7 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
     IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletenotification", notification.title)) = "yes")
     {
       OBJECT work := this->BeginWork();
-      this->towlservice->SetNotificationPriority(this->userobj, notification.name, -4);
+      this->towlservice->SetNotificationPriority(this->contexts->user, notification.name, -4);
       work->Finish();
     }
   }
@@ -634,14 +555,12 @@ PUBLIC OBJECTTYPE AppAccounts EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->user := data.user;
     this->appaccounts->wrdtype := this->contexts->userapi->wrdschema->GetType("WHUSER_APPACCOUNT");
-    this->appaccounts->entitycontext := [ wrd_leftentity := this->user->entityid ];
+    this->appaccounts->entitycontext := [ wrd_leftentity := this->contexts->user->entityid ];
   }
 
   BOOLEAN FUNCTION Submit()
   {
-    ///
     RETURN TRUE;
   }
 >;
@@ -662,10 +581,8 @@ PUBLIC OBJECTTYPE AppAccount EXTEND TolliumScreenBase
     IF(work->HasFailed())
       RETURN work->Finish();
 
-    OBJECT user := this->contexts->userapi->GetUser(this->entitycontext.wrd_leftentity);
-
-    RECORD res := user->CreateAppPassword(this->scope->value, this->device->value);
-    this->login->value := this->tolliumuser->login;
+    RECORD res := this->contexts->user->CreateAppPassword(this->scope->value, this->device->value);
+    this->login->value := this->contexts->user->login;
     this->password->value := res.password;
     this->newid := res.id;
 
@@ -692,6 +609,12 @@ PUBLIC MACRO RunUserPreferences(OBJECT parent, RECORD options)
     IF(GetDtapStage() = "development")
       error := error || "\n\nFor developers: there was no 'userapi' in the current context.\n\nThere may be an issue with the currently cached siteprofiles and you may need to perfom a `wh softreset --sp` or to restart the webserver (or WebHare entirely)";
     parent->RunSimpleScreen("error", error);
+    RETURN;
+  }
+  IF(NOT ObjectExists(parent->contexts->user->entity))
+  {
+    // This means we're logged in as an override user; let's tell the user and exit:
+    parent->RunSimpleScreen("info", GetTid("system:userrights.edituser.noprefsforoverride"));
     RETURN;
   }
   parent->RunScreen("mod::system/screens/userrights/dialogs/userpreferences.xml#userpreferences");

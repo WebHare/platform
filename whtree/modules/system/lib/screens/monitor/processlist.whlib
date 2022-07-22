@@ -222,9 +222,7 @@ PUBLIC OBJECTTYPE ProcessList EXTEND DashboardPanelBase
   MACRO OnPrefsChange(RECORD ARRAY events DEFAULTSTO DEFAULT RECORD ARRAY)
   {
     // Disable debugging when debugger isn't visible in the menu
-    this->debugprocess->enabled :=
-        this->tolliumuser->GetRegistryKey("system.prefs.showdeveloperapps", FALSE)
-        OR this->tolliumuser->entityid = 0; // allow for overrideuser
+    ^debugprocess->enabled := this->contexts->user->ShowDeveloperOptions();
   }
 
   STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)

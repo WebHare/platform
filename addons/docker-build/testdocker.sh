@@ -35,6 +35,7 @@ ARTIFACTS=
 NOPULL=0
 LOCALDEPS=
 NOCHECKMODULE=
+FIXEDCONTAINERNAME=
 
 while true; do
  if [ "$1" == "--cpuset-cpus" ]; then
@@ -46,7 +47,8 @@ while true; do
     shift
     shift
   elif [ "$1" == "--containername" ]; then
-    DOCKERARGS="$DOCKERARGS --name=${2}"
+    FIXEDCONTAINERNAME="$2"
+    DOCKERARGS="$DOCKERARGS --name=${FIXEDCONTAINERNAME}"
     shift
     shift
   elif [ "$1" == "--coverage" ]; then
@@ -145,6 +147,14 @@ if [ "$COVERAGE" == "1" ]; then
 elif [ "$PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
+
+if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
+  echo "Removing container '${FIXEDCONTAINERNAME}'"
+  if ! docker rm -f "$FIXEDCONTAINERNAME" ; then
+    exit 1
+  fi
+fi
+
 
 TESTLIST="$@"
 BUILDDIR="$PWD"
