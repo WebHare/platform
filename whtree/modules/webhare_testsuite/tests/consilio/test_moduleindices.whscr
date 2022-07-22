@@ -24,6 +24,27 @@ RECORD builtin_opensearch;
 
 MACRO Prepare()
 {
+  TestEq(FALSE, IsValidConsilioIndexName("_abc"));
+  TestEq(FALSE, IsValidConsilioIndexName(".kibana"));
+  TestEq(FALSE, IsValidConsilioIndexName("KIBANA"));
+  TestEq(TRUE, IsValidConsilioIndexName("mydata"));
+  TestEq(FALSE, IsValidConsilioIndexName("mydata-"));
+  TestEq(FALSE, IsValidConsilioIndexName("mydata_"));
+  TestEq(TRUE, IsValidConsilioIndexName("my_data"));
+  TestEq(FALSE, IsValidConsilioIndexName(""));
+
+  TestEq(FALSE, IsValidConsilioIndexName("2022"));
+  TestEq(FALSE, IsValidConsilioIndexName("2022-05"));
+
+  TestEq(TRUE, IsValidConsilioIndexSuffix("2022"));
+  TestEq(TRUE, IsValidConsilioIndexSuffix("2022-05"));
+  TestEq(FALSE, IsValidConsilioIndexSuffix(""));
+  TestEq(FALSE, IsValidConsilioIndexSuffix("-abc"));
+  TestEq(FALSE, IsValidConsilioIndexSuffix("_abc"));
+  TestEq(FALSE, IsValidConsilioIndexSuffix("ABC"));
+  TestEq(FALSE, IsValidConsilioIndexSuffix("abc-"));
+  TestEq(TRUE, IsValidConsilioIndexSuffix("abc"));
+
   TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
   builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
 

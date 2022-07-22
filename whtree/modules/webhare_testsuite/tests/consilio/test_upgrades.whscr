@@ -69,7 +69,7 @@ MACRO TestOpeningExternalIndex()
 
   //A catalog without a consilio_analysis (eg legacy wobcovid19) crashed during adding objects
   RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
-  STRING updateindexname := "c_upgradetest_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  STRING updateindexname := "c_upgradetest_" || ToLowercase(EncodeBase16(Left(DecodeUFS(GenerateUFS128BitId()),8)));
   TestEq(TRUE, SendRawJSONToElasticsearch(builtin_opensearch.id, "PUT", `/${updateindexname}`, DEFAULT RECORD).result.acknowledged);
 
   //Now create catalog on top of this existing index
