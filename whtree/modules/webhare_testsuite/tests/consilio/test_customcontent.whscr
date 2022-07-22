@@ -48,11 +48,6 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
     ORDER BY groupid, objectid;
 }
 
-INTEGER FUNCTION GetNumJobs()
-{
-  RETURN Length(SELECT FROM __HS_INTERNAL_LISTHANDLES().items WHERE name LIKE "*Job*");
-}
-
 // Wait for command completion, then require that index & db are fully synced
 MACRO TestCompleteSyncAfterCommand()
 {
@@ -62,12 +57,16 @@ MACRO TestCompleteSyncAfterCommand()
 
 MACRO TestCustomContent()
 {
+  TestEq(0, __GetNumSubJobs());
+
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
+  TestEq(0, __GetNumSubJobs());
   Print(catalog->GetStorageInfo() || "\n");
   BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   search_obj := OpenSearchObject("en", "consilio:testfw_customcontent");
+  TestEq(0, __GetNumSubJobs());
   RECORD res;
 
   // Prefix for object/group ids, just to stress the itf
@@ -82,6 +81,7 @@ MACRO TestCustomContent()
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
       ]);
+  TestEq(0, __GetNumSubJobs());
 
   TestThrowsLike(`*contentsource with tag '${"webhare_testsuite:beta_customsource"}' already exists*`, PTR catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
@@ -91,7 +91,7 @@ MACRO TestCustomContent()
 
   testfw->CommitWork();
 
-  TestEq(1,GetNumJobs());
+  TestEq(0, __GetNumSubJobs());
   TestEq(RECORD[], SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
 
   // Clear the index
@@ -120,6 +120,8 @@ MACRO TestCustomContent()
          ,[ groupid := '\n\r\t()[]{}^$+-%!\"b' ]
          ,[ groupid := '\n\r\t()[]{}^$+-%!\"c' ]
          ], SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
+
+  TestEq(0, __GetNumSubJobs());
 
   // Rebuild the index
   catalog->ReindexCatalog();

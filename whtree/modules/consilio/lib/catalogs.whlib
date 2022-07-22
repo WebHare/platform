@@ -295,11 +295,17 @@ STATIC OBJECTTYPE ContentSource
   {
     options := ValidateOptions(CELL[], options);
 
-    OBJECT provider := this->__OpenProvider();
-    RECORD ARRAY groups := SELECT groupid := id FROM provider->ListGroups(DEFAULT DATETIME);
-    provider->Close();
-
-    RETURN groups;
+    OBJECT provider;
+    TRY
+    {
+      provider := this->__OpenProvider();
+      RECORD ARRAY groups := SELECT groupid := id FROM provider->ListGroups(DEFAULT DATETIME);
+      RETURN groups;
+    }
+    FINALLY
+    {
+      provider->Close();
+    }
   }
 
   /** Reindex a group
@@ -1011,7 +1017,15 @@ STATIC OBJECTTYPE ConsilioCatalog
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->ReindexContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
 
-    contentsource->__OpenProvider()->UpdateContentSourceFields();
+    OBJECT prov := contentsource->__OpenProvider();
+    TRY
+    {
+      prov->UpdateContentSourceFields();
+    }
+    FINALLY
+    {
+      prov->CLose();
+    }
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
 
