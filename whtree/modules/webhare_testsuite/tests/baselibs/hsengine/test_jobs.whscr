@@ -1,6 +1,7 @@
 ﻿<?wh
 /// @short Ports functions test
 
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::datetime.whlib";
@@ -20,6 +21,12 @@ MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER han
 MACRO BaseTest()
 {
   OpenTest("TestJobs: Base");
+
+  TestEq(0,__GetNumSubJobs());
+  OBJECT promise := AsyncCallFunctionFromJob("wh::system.whlib#Left", "", 0);
+  TestEq(1,__GetNumSubJobs(), "Must be 1 job here as it can't have had a chance to run yet");
+  WaitForPromise(promise);
+  TestEq(0,__GetNumSubJobs());
 
   SetExternalSessionData("test-1");
 
