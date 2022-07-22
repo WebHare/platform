@@ -16,7 +16,7 @@
   </test>
 
   <!-- API tests should go before other tests -->
-  <test script="test_moduleindices.whscr" />
+  <test script="test_moduleindices.whscr" unlessenvironset="WEBHARE_PREFERINDEXMANAGER" />
   <test script="test_multiindex.whscr" unlessenvironset="WEBHARE_PREFERINDEXMANAGER" />
   <test script="test_multiindex_suffixes.whscr" unlessenvironset="WEBHARE_PREFERINDEXMANAGER" />
   <test script="test_catalogapp.whscr" unlessenvironset="WEBHARE_PREFERINDEXMANAGER" />

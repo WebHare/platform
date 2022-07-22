@@ -50,24 +50,26 @@ MACRO Prepare()
                 ], cat->ListAttachedIndices(), "*");
 
   cat_index1_view := CreateConsilioCatalog("consilio:testfw_index1_view", [ managed := FALSE ]);
-  cat_index1_view->AttachIndex(testindex1.indexmanager, [ indexname := testindex1.indexname ]);
+  cat_index1_view->AttachIndex(testindex1.indexmanager, [ indexname := testindex1.indexname, readonly := TRUE ]);
   cat_index2_view := CreateConsilioCatalog("consilio:testfw_index2_view", [ managed := FALSE ]);
-  cat_index2_view->AttachIndex(testindex2.indexmanager, [ indexname := testindex2.indexname ]);
+  cat_index2_view->AttachIndex(testindex2.indexmanager, [ indexname := testindex2.indexname, readonly := TRUE ]);
 
   Print(`${cat->GetStorageInfo()}, ${cat_index1_view->GetStorageInfo()}, ${cat_index2_view->GetStorageInfo()}\n`);
   TestEq(testindex1.indexname, cat_index1_view->ListAttachedIndices()[0].indexname);
   TestEq(testindex2.indexname, cat_index2_view->ListAttachedIndices()[0].indexname);
   TestEq(index2name, cat_index2_view->ListAttachedIndices()[0].indexname);
 
-  cat->AddObjects([[ objectid := "test0"
-                   , documentfields := [ title := "Object 0" ]
-                  ]],[ synchronous := TRUE ]);
+  TestThrowsLike("*must commit*", PTR cat->AddObjects([[ objectid := "test0"
+                                                       , documentfields := [ title := "Object 0" ]
+                                                      ]],[ synchronous := TRUE ]));
+  testfw->CommitWork();
 
   //FIXME Verify the actual objects appeared in both
 
+  cat->AddObjects([[ objectid := "test0"
+                   , documentfields := [ title := "Object 0" ]
+                  ]],[ synchronous := TRUE ]);
   TestEqMembers([[ suffix := "" ]], cat->ListSuffixes(), "*");
-
-  testfw->CommitWork();
 }
 
 RunTestframework(

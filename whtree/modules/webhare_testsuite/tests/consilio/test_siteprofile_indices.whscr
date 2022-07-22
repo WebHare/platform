@@ -13,7 +13,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC MACRO TestModernSiteProfileIndices()
 {
-  FixConsilioIndices([ reportmissing := TRUE ]);
+  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
 
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   Testeq(TRUE, ObjectExists(maincatalog));

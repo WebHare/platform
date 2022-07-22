@@ -192,6 +192,15 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
 
+  //TODO remove this up when we trust our APIs well enough
+  IF(ToUppercase(method) NOT IN ["HEAD","GET"])
+  {
+    STRING findindexname := suburl LIKE "/*" ? Tokenize(suburl,'/')[1] : suburl;
+    RECORD ARRAY attachedindexinfo := SELECT * FROM consilio.catalog_indexmanagers WHERE indexmanager = indexmgrid AND indexname = findindexname;
+    IF(Length(attachedindexinfo) = 1 AND attachedindexinfo[0].readonly)
+      THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
+  }
+
   WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
 
   INTEGER statuscode;

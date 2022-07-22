@@ -1,10 +1,12 @@
 <?wh
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -32,6 +34,10 @@ MACRO PrepIt()
   OBJECT indexpromise := MakeChangesIndexedPromise();
   testfw->CommitWork();
   WaitForPromise(indexpromise);
+
+  //Make sure publisher:fsobjects is actually uptodate before we start testing (hopefully helps fix the CI race)
+  OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs)->OpenContentSource("publisher:fsobjects");
+  fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
 }
 
 ASYNC MACRO Search()
