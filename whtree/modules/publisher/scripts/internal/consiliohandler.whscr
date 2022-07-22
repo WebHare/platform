@@ -31,28 +31,36 @@ MACRO PrintDebug(STRING text)
 
 BOOLEAN publisher_index_exists;
 
-MACRO EnsurePublisherIndex()
+MACRO EnsurePublisherWHFSIndex()
 {
-  IF (NOT publisher_index_exists)
+  IF (publisher_index_exists)
+    RETURN;
+
+  BOOLEAN didprint;
+  WHILE(TRUE)
   {
-    IF (GetCatalogIdByName(whconstant_consilio_catalog_whfs) = -1)
+    OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+    IF(ObjectExists(catalog) AND catalog->IsReadyForStorage())
+    {
+      PrintDebug("WHFS index appears to be available");
+      publisher_index_exists := TRUE;
+      RETURN;
+    }
+
+    IF(NOT didprint)
     {
       PrintDebug("Publisher index does not exist yet, waiting for it");
-      WHILE (TRUE)
-      {
-        Sleep(50);
-        IF (GetCatalogIdByName(whconstant_consilio_catalog_whfs) != -1)
-          BREAK;
-      }
+      didprint := TRUE;
     }
-    publisher_index_exists := TRUE;
+
+    Sleep(500); //50ms was too aggressive. index creation can easily take a second.
   }
 }
 
 MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
 {
   PrintDebug("Got folder event '" || event || "'");
-  EnsurePublisherIndex();
+  EnsurePublisherWHFSIndex();
 
   FOREVERY(RECORD msg FROM messages)
   {
@@ -95,7 +103,7 @@ MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
 MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
 {
   PrintDebug("Got index request '" || event || "'");
-  EnsurePublisherIndex();
+  EnsurePublisherWHFSIndex();
 
   FOREVERY(RECORD msg FROM msgs)
     ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);

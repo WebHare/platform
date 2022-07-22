@@ -48,6 +48,8 @@ MACRO Prepare()
     FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
       cat->DetachIndex(toremove.id);
 
+    TestEq(FALSE, cat->IsReadyForStorage(), "Can't be ready, no attached indices");
+
     INTEGER index1id := cat->AttachIndex(builtin_opensearch.id);
     IF(#usedcatalog = 0) //we'll use testindex for some further tests
     {
@@ -71,6 +73,11 @@ MACRO Prepare()
     }
 
     Print(cat->GetStorageInfo()||"\n");
+
+    IF(cat->suffixed)
+      TestEq(TRUE, cat->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
+    ELSE
+      TestEq(FALSE, cat->IsReadyForStorage(), "An unsuffixed index is not ready until attached");
   }
   testfw->CommitWork();
 }
@@ -78,6 +85,8 @@ MACRO Prepare()
 MACRO TestESCreationAPIs()
 {
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+
+  TestEq(TRUE, catalog->IsReadyForStorage(), "Has to be ready, CommitWork after AttachIndex synchronously applies the configuration");
 
   testfw->BeginWork();
   TestThrowsLike("No such indexmanager*", PTR catalog->AttachIndex(9999999));
@@ -95,6 +104,11 @@ MACRO TestESCreationAPIs()
   TestThrowsLike("*Invalid*indexname*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "-u" ]));
   catalog->AttachIndex(mock_external_index, [ indexname := "dummyname", readonly := TRUE ]);
 
+  TestEq(TRUE, catalog->IsReadyForStorage(), "Should appear ready, readonly indices not relevant");
+
+  catalog->AttachIndex(mock_external_index, [ indexname := "dummyname2", readonly := FALSE ]);
+  TestEq(FALSE, catalog->IsReadyForStorage(), "Can't be ready, not commited");
+
   testfw->RollbackWork();
 
   // Verify the readonly index was not created
@@ -109,9 +123,11 @@ MACRO TestESCreationAPIs()
   RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
   TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
   TestEq(RECORD[], catalog->ListSuffixes());
+  TestEq(FALSE, catalog->IsReadyForStorage(), "With the index gone, we're no longer ready");
 
   // Recreate it
   catalog->ApplyConfiguration();
+  TestEq(TRUE, catalog->IsReadyForStorage(), "ApplyConfiguration should have fixed it");
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
@@ -205,6 +221,7 @@ MACRO TestESBulkInsertion()
   // Make sure it's indeed nonexistent
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
   TestEq(TRUE, ObjectExists(catalog));
+  TestEq(TRUE, catalog->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
   Print(catalog->GetStorageInfo()||"\n");
 
   RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
