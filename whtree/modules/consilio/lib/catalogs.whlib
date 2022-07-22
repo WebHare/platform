@@ -525,6 +525,21 @@ STATIC OBJECTTYPE ConsilioCatalog
      ORDER BY searchpriority DESC, catalog_indexmanagers.id;
   }
 
+  /** Is this index ready for storing objects ? */
+  PUBLIC BOOLEAN FUNCTION IsReadyForStorage()
+  {
+    RECORD ARRAY indices := SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly;
+    IF(Length(indices) = 0)
+      RETURN FALSE; //we need at least one writable index
+
+    IF(NOT this->suffixed)
+      FOREVERY(RECORD indice FROM SELECT * FROM indices WHERE type = "opensearch") //legacy-indexmanager indices implicitly exist
+        IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
+          RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
   BOOLEAN FUNCTION GetManaged()
   {
     RETURN this->catalog.type = whconstant_consilio_catalogtype_managed;

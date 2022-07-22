@@ -440,17 +440,11 @@ PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
   RETURN -1;
 }
 
-PUBLIC BOOLEAN FUNCTION ElasticsearchMappingExists(INTEGER indexmgrid, INTEGER indexid, STRING type)
+PUBLIC BOOLEAN FUNCTION IsOpenSearchIndexPresent(INTEGER indexmgrid, STRING indexname)
 {
-  RETURN GetAdhocCached(CELL[ type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
-}
-
-RECORD FUNCTION ElasticsearchMappingExists_Uncached(INTEGER indexmgrid, INTEGER indexid, STRING type)
-{
-  RECORD response := SendToElasticsearch(indexmgrid, ToString(indexid), "/_mapping/" || type, DEFAULT RECORD, "GET");
-  RETURN [ value := response.status = SearchOk
-         , eventmasks := [ "consilio:contentsourcestatus" ]
-         ];
+  //Getting just the index isn't enough. It will already stop 404-ing before you can write..
+  RECORD stats := SendToElasticsearch(indexmgrid, indexname, "/_stats", DEFAULT RECORD, "GET");
+  RETURN stats.code = 200 AND stats.result._shards.successful >= 1;
 }
 
 PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER indexid, STRING objectid, STRING suffix DEFAULTSTO "")
