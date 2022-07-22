@@ -23,6 +23,12 @@ PUBLIC MACRO __HS_INTERNAL_REGISTERLOADEDRESOURCE(STRING resourcename) __ATTRIBU
 
 STRING profilingportname := "system:profiles";
 
+PUBLIC INTEGER FUNCTION __GetNumSubJobs() //used for some test APIs. not sure yet if this should be a public API at some point
+{
+  RETURN Length(SELECT FROM __HS_INTERNAL_LISTHANDLES().items WHERE name LIKE "*Job*");
+}
+
+
 /* This library contains support code for debugging purposes */
 
 /** @short Start function profile counting */
