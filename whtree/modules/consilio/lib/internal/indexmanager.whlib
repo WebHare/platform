@@ -1259,7 +1259,12 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                 IF (field LIKE "_*")
                   field := Substring(field, 1);
                 IF (field IN obj.suggestfields AND CellExists(document, field))
+                {
+                  IF(TYPEID(GetCell(document, field)) != TYPEID(STRING))
+                    THROW NEW Exception(`Suggest expected '${field}' to be of type STRING, got ${GetTypeName(TYPEID(GetCell(document, field)))})`);
+
                   tokenizer->AddText(" " || GetCell(document, field));
+                }
               }
               RECORD token := tokenizer->GetNextToken();
               WHILE (RecordExists(token))
