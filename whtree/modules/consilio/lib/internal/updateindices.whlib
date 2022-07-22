@@ -139,9 +139,9 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
       }
 
       IF(currentsources[matchpos].isorphan)
-        contentsource->ReactivateContentSource();
+        contentsource->__ReactivateContentSource();
 
-      contentsource->OpenProvider()->UpdateContentSourceFields();
+      contentsource->__OpenProvider()->UpdateContentSourceFields();
 
       DELETE FROM currentsources AT matchpos; //remove from cleanup list
       CONTINUE;
@@ -164,7 +164,7 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
 
   //mark unreferred catalogs as orphan
   FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
-    catalog->OpenContentSourceById(makeorphansource.id)->MarkAsOrphan();
+    catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
 }
 
 MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)

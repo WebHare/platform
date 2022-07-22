@@ -1119,7 +1119,7 @@ OBJECT FUNCTION GetContentProviderForSource(RECORD source)
   {
     OBJECT catalog := OpenConsilioCatalogById(source.indexid);
     OBJECT contentsource := catalog->OpenContentSourceById(source.id);
-    provider := contentsource->OpenProvider();
+    provider := contentsource->__OpenProvider();
     INSERT INTO cached_providers(id, obj) VALUES(source.id, provider) AT END;
   }
   provider->loglevel := source.loglevel;

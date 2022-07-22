@@ -1289,7 +1289,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
       IF(NOT ObjectExists(this->contentsource))
         THROW NEW Exception(`Unable to open contentsource #${data.contentsource}`);
 
-      cptype := this->contentsource->contentprovider;
+      cptype := this->contentsource->__contentprovider;
     }
 
     //NOTE: we didn't clear out the contentprovider infrastructure because it already exists anyway, but we might still

@@ -88,7 +88,7 @@ MACRO TestWHFSContentHandler()
   Testeq(TRUE, ObjectExists(catalog), `Catalog '${whconstant_consilio_catalog_whfs}' gone?`);
   Print(catalog->GetStorageInfo() || "\n");
 
-  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
+  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->__OpenProvider();
   // The proxy object CustomContentProvider we get is pretty useless for deeper testing
   RECORD initdata := provider->__GetCCPInitData();
   OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);

@@ -142,7 +142,7 @@ FOREVERY (RECORD cat FROM catalogs)
     OBJECT source := catalog->OpenContentSourceById(src.id);
     TRY
     {
-      OBJECT provider := source->OpenProvider();
+      OBJECT provider := source->__OpenProvider();
       IF (provider->UpdateContentSourceFields().anychanges)
         INSERT src.id INTO updated_contentsources AT END;
 

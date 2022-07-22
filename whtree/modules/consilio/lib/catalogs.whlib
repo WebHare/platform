@@ -136,7 +136,7 @@ STATIC OBJECTTYPE ContentSource
   PUBLIC PROPERTY enabled(GetEnabled, -);
 
   /// @type(string) Contentprovidertype (generally publisher:webhare or consilio:custom)
-  PUBLIC PROPERTY contentprovider(this->contentsource.contentprovider, -);
+  PUBLIC PROPERTY __contentprovider(this->contentsource.contentprovider, -); //hiding this API because 'consilio:custom' might stop being a thing in the future
 
   /// @type(integer) Base object for this content source
   PUBLIC PROPERTY fsobject(this->contentsource.fsobject, -);
@@ -156,7 +156,7 @@ STATIC OBJECTTYPE ContentSource
   }
 
   /// Marks this content source as an orphan
-  PUBLIC MACRO MarkAsOrphan()
+  PUBLIC MACRO __MarkAsOrphan()
   {
     UPDATE consilio.contentsources
            SET orphansince := GetCurrentDatetime()
@@ -167,7 +167,7 @@ STATIC OBJECTTYPE ContentSource
   }
 
   /// Reactivate this content source
-  PUBLIC MACRO ReactivateContentSource()
+  PUBLIC MACRO __ReactivateContentSource()
   {
     UPDATE consilio.contentsources
            SET orphansince := DEFAULT DATETIME
@@ -180,7 +180,7 @@ STATIC OBJECTTYPE ContentSource
   /** Construct the provider for this source
       @return Contentprovider object
   */
-  PUBLIC OBJECT FUNCTION OpenProvider()
+  PUBLIC OBJECT FUNCTION __OpenProvider() //this is unsafe as a public API, we'll keep it or some whitebox testing but we should be 'hiding' this in the contentsource API
   {
     RECORD cprec := SELECT * FROM GetContentProviders() WHERE name = this->contentsource.contentprovider;
     IF (NOT RecordExists(cprec))
@@ -998,7 +998,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->ReindexContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
 
-    contentsource->OpenProvider()->UpdateContentSourceFields();
+    contentsource->__OpenProvider()->UpdateContentSourceFields();
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
 
