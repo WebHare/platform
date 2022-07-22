@@ -289,6 +289,19 @@ STATIC OBJECTTYPE ContentSource
       LogDebug("consilio", "ContentSource::ReindexContentSource", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
+
+  /** List groups in the catalog */
+  PUBLIC RECORD ARRAY FUNCTION ListGroups(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[], options);
+
+    OBJECT provider := this->__OpenProvider();
+    RECORD ARRAY groups := SELECT groupid := id FROM provider->ListGroups(DEFAULT DATETIME);
+    provider->Close();
+
+    RETURN groups;
+  }
+
   /** Reindex a group
       @long Reindex a specific group
       @param groupid Group to reindex

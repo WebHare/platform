@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::float.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -47,6 +48,11 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
     ORDER BY groupid, objectid;
 }
 
+INTEGER FUNCTION GetNumJobs()
+{
+  RETURN Length(SELECT FROM __HS_INTERNAL_LISTHANDLES().items WHERE name LIKE "*Job*");
+}
+
 // Wait for command completion, then require that index & db are fully synced
 MACRO TestCompleteSyncAfterCommand()
 {
@@ -85,6 +91,9 @@ MACRO TestCustomContent()
 
   testfw->CommitWork();
 
+  TestEq(1,GetNumJobs());
+  TestEq(RECORD[], SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
+
   // Clear the index
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
@@ -105,6 +114,12 @@ MACRO TestCustomContent()
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, text)
       VALUES(idprefix||"c", idprefix||"c3", MakeDate(1970, 1, 10), "c c3");
   testfw->CommitWork();
+
+
+  TestEq([[ groupid := '\n\r\t()[]{}^$+-%!\"a' ]
+         ,[ groupid := '\n\r\t()[]{}^$+-%!\"b' ]
+         ,[ groupid := '\n\r\t()[]{}^$+-%!\"c' ]
+         ], SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
 
   // Rebuild the index
   catalog->ReindexCatalog();
