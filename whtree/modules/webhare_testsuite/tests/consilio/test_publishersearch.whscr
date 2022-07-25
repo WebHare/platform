@@ -470,6 +470,16 @@ MACRO PublisherSearchTest()
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
 
+  //*this* is a range query
+  rangequery := CQAnd(
+      [ CQRange("arrayfield.date_otherfield@webhare_testsuite", MakeDate(2016, 12, 31), TRUE, MakeDate(2017,1,1), FALSE)
+      , CQMatch("whfstree", "CONTAINS", testsiteid)
+      ]);
+  result := search_obj->SearchQuery(rangequery, 0, -1);
+  TestEq(1, result.totalcount);
+  TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
+  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
+  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
 
   rangequery := CQAnd(
       [ CQMatch("arrayfield.date_otherfield@webhare_testsuite", ">=", MakeDate(2017, 1, 1))
