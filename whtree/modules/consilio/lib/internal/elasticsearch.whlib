@@ -637,8 +637,6 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
               [ should :=
                   [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
                   , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
-                   //FIXME this is needed to get publisher search  to work but i think we're incorrectly using the analyzer here? - https://gitlab.webhare.com/webharebv/codekloppers/-/issues/550#note_137298
-                  , [ match := CellInsert(DEFAULT RECORD, query.field, term) ]
                   ]
               ]
           ];
