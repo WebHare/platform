@@ -432,6 +432,9 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   // Constructor
   //
 
+  /** Creates a new  port handler
+      @param(object #IPCPort) port IPC port to listen on
+  */
   MACRO NEW(OBJECT port)
   {
     this->pvt_port := port;
@@ -537,6 +540,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 
   /** Handles an incoming message
+      @param handle Signalled handle
   */
   MACRO HandleIncomingMessage(INTEGER handle)
   {
@@ -640,6 +644,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
   /** Returns list of internal handles the porthandler needs to wait on. Do NOT override to wait
       on more handles, override WaitForEvent instead.
+      @return List of handles
   */
   PUBLIC INTEGER ARRAY FUNCTION GetDefaultWaitHandles()
   {
@@ -660,6 +665,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
   /** Calculates the next time a timeout action must be undertaken. This function is called
       every time before WaitForEvent is called.
+      @return Next timeout
   */
   DATETIME FUNCTION GetNextTimeout()
   {
@@ -675,9 +681,12 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 
   /** Handle a message
-      @return
-      @cell result.result "message" / "defer"
-      @cell result.msg Message to return (only if result = 'message')
+      @param(object #IPCLinkEndPoint) link Link the message was received on
+      @param message Message data
+      @param replyid Id to use to reply to this message
+      @return Message data
+      @cell return.result "message" / "defer"
+      @cell return.msg Message to return (only if result = 'message')
   */
   RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
   {
@@ -686,6 +695,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 
   /** Called when a new link is accepted
+      @param(object #IPCLinkEndPoint) link New link
   */
   MACRO OnLinkAccepted(OBJECT link)
   {
@@ -693,6 +703,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 
   /** Called when a link has closed
+      @param(object #IPCLinkEndPoint) link Link that has closed
   */
   MACRO OnLinkClosed(OBJECT link)
   {
@@ -700,6 +711,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 
   /** Called when another handle than the listenport or one of the links was returned by WaitForEvent
+      @param handle Signalled handle
   */
   MACRO OnHandleSignalled(INTEGER handle)
   {
@@ -708,6 +720,9 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
   /** Waits for the next message (or event)
       Override if you want to wait for other handles too.
+      @param default_handles Handles to wait on
+      @param wait_until Timeout
+      @return Signalled handle, -1 for time-out
   */
   INTEGER FUNCTION WaitForEvent(INTEGER ARRAY default_handles, DATETIME wait_until)
   {
@@ -722,6 +737,10 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   //
 
   /** Send a reply on a link, in the form the OnMessage return would have sent
+      @param link Link to send the reply on
+      @param message Message to send
+      @param orgmessageid ID of the message to reply to
+      @return @includecelldef #IPCLinkEndPoint::SendReply.return
   */
   RECORD FUNCTION SendPorthandlerReply(OBJECT link, VARIANT message, INTEGER64 orgmessageid)
   {
@@ -736,6 +755,9 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   }
 
   /** Send an exception over the wire
+      @param link Link to send the reply on
+      @param orgmessageid ID of the message to reply to
+      @param e Exception to send
   */
   MACRO SendExceptionReply(OBJECT link, INTEGER64 orgmessageid, OBJECT e)
   {
@@ -778,6 +800,9 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
     }
   }
 
+  /** Adds extra listening port
+      @param(object #IPCPort) port Port to listen on
+  */
   PUBLIC MACRO AddListeningPort(OBJECT port)
   {
     RegisterHandleReadCallback(port->handle, PTR this->HandleIncomingConnection(port));
@@ -814,6 +839,9 @@ PUBLIC RECORD FUNCTION CreateJob(STRING script)
   RETURN res;
 }
 
+/** Closes an input/output pipe of a job
+    @param handle andle of the pipe
+*/
 PUBLIC MACRO CloseJobPipe(INTEGER handle)
 {
   ClosePipe(handle);
@@ -854,8 +882,6 @@ STATIC OBJECTTYPE LocalLock EXTEND __HS_INTERNAL_OutputObject
   // Public interface
   //
 
-  /** Returns whether this object is signalled.
-  */
   UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
   {
     RETURN this->IsReadSignalled();
@@ -993,6 +1019,11 @@ STATIC OBJECTTYPE LocalLockManager
   }
 >;
 
+/** Asynchronously calls a function from within a new job
+    @param func Function reference (in the form "library#functionname")
+    @param args Arguments for the function
+    @return Return value
+*/
 PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY args DEFAULTSTO DEFAULT VARIANT ARRAY) __ATTRIBUTES__(VARARG)
 {
   IF(func NOT LIKE "*#*") //backwards-compatible syntax
@@ -1036,6 +1067,12 @@ PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY
       res.job->Close();
   }
 }
+
+/** Calls a function from within a new job
+    @param func Function reference (in the form "library#functionname")
+    @param args Arguments for the function
+    @return Return value
+*/
 PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFAULTSTO DEFAULT VARIANT ARRAY) __ATTRIBUTES__(VARARG)
 {
   IF(func NOT LIKE "*#*") //backwards-compatible syntax
@@ -1078,6 +1115,9 @@ PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFA
   }
 }
 
+/** Returns whether we're in a job used by (Async)CallFunctionFromJob
+    @return TRUE if this script is running inside a job used by (Async)CallFunctionFromJob
+*/
 PUBLIC BOOLEAN FUNCTION IsWithinFunctionRunningJob()
 {
   RETURN __withinasyncrunner;
