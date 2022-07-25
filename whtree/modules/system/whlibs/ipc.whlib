@@ -1028,7 +1028,10 @@ PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY
   FINALLY
   {
     IF (IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov"))
+    {
+      res.job->ipclink->Close();
       res.job->Release(); // allow reporting to run
+    }
     ELSE
       res.job->Close();
   }
@@ -1066,7 +1069,10 @@ PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFA
   FINALLY
   {
     IF (IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov"))
+    {
+      res.job->ipclink->Close();
       res.job->Release(); // allow reporting to run
+    }
     ELSE
       res.job->Close();
   }
