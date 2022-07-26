@@ -93,8 +93,10 @@ PUBLIC MACRO RestructureEmailForCompatibility(OBJECT dom)
 
     IF(Length(colormatch)=2 OR Length(textdecorationmatch)=2)
     {
-      OBJECT spanwrapper := link->ownerdocument->CreateElement("span");
+      OBJECT spanwrapper := link->ownerdocument->CreateElement("strong"); //use strong instead of span to prevent visited links from turning purple in outlook
       STRING addstyles;
+      IF (NOT ObjectExists(link->Closest("b")))
+        addstyles := "font-weight:normal;"; //if not within a <b>, reset the font weight FIXME: what about font-weight: bold?
       IF(Length(colormatch)=2)
         addstyles:=addstyles||"color:" || colormatch[1].value || ";";
       IF(LengtH(textdecorationmatch)=2)
