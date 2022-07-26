@@ -297,6 +297,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
          CELL[ settings := [ number_of_replicas := 0 // we don't configure replication on our own indicessettings
                            , analysis := setanalysis
                            ]
+             , mappings := [ dynamic := FALSE ]
              ], "PUT", [ throwonfailure := TRUE ]);
   }
   CATCH(OBJECT<ElasticSearchException> e)
