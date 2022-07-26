@@ -26,7 +26,7 @@
 
   <tollium>
     <components namespace="http://www.webhare.net/xmlns/wrd/components" xmlschema="components.xsd" />
-    <debugaction name="entity" library="lib/internal/debugactions.whlib" startmacro="DebugWRDEntity" />
+    <debugaction name="entity" startmacro="lib/internal/debugactions.whlib#DebugWRDEntity" />
   </tollium>
 
   <services>
@@ -721,12 +721,10 @@
   </documentation>
 
   <development>
-    <xmlfiletype name="wrdschema"
-                 namespaceuri="http://www.webhare.net/xmlns/wrd/schemadefinition"
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/wrd/schemadefinition"
                  rootnodes="schemadefinition"
                  schemalocation="data/schemadefinition.xsd"
-                 library="lib/internal/schemadef.whlib"
-                 objectname="WRDSchemaDefinitionFile" />
+                 validator="lib/internal/schemadef.whlib#WRDSchemaDefinitionFile" />
 
     <debugflag name="forcehistory" description="Keep WRD history for all types for at least 1 day and record stack traces" />
   </development>
