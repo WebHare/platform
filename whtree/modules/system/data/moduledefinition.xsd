@@ -300,17 +300,6 @@
             </xs:documentation>
           </xs:annotation>
           <xs:complexType>
-            <xs:sequence>
-              <xs:element name="describer" minOccurs="0">
-                <xs:complexType>
-                  <xs:sequence>
-                    <xs:sequence />  <!-- prevents us from suddenly breaking <describer>  </describer> -->
-                  </xs:sequence>
-                  <xs:attribute name="library" type="xs:string" use="required" />
-                  <xs:attribute name="objectname" type="xs:string" use="required" />
-                </xs:complexType>
-              </xs:element>
-            </xs:sequence>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
             <xs:attribute name="name" type="Name" use="required" />
             <xs:attribute name="rightsgroup" type="sc:OptionallyQualifiedName" />
@@ -722,7 +711,6 @@
       <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
     </xs:sequence>
     <xs:attribute name="name" type="xs:string" />
-    <xs:attribute name="library" type="xs:string"/>
     <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attribute name="objecttype" type="xs:string" /> <!-- legacy support -->
     <xs:attributeGroup ref="ApplicabletoWebHare" />
@@ -757,7 +745,6 @@
   <xs:attributeGroup name="AppAttributes">
     <xs:attribute name="name" type="Name" use="required" />
     <xs:attribute name="screen" type="xs:string" />
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="startmacro" type="xs:string" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:attributeGroup>
@@ -1062,7 +1049,6 @@
       <xs:element name="debugaction" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="name" type="xs:string" use="required" />
-          <xs:attribute name="library" type="xs:string" use="required" />
           <xs:attribute name="startmacro" type="xs:string" use="required" />
         </xs:complexType>
       </xs:element>
@@ -1700,7 +1686,6 @@
   <xs:complexType name="WebDesignPlugin">
     <xs:attribute name="name" type="xs:string" use="required" />
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attribute name="hooksplugins" type="QNameList" />
     <xs:attribute name="hooksfeatures">
@@ -1727,7 +1712,6 @@
 
   <xs:complexType name="VersioningPolicy">
     <xs:attribute name="name" type="xs:string" use="required" />
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
@@ -2487,11 +2471,6 @@
           <xs:annotation>
             <xs:documentation>Add a custom checks to `wh check`.</xs:documentation>
           </xs:annotation>
-          <xs:attribute name="library">
-            <xs:annotation>
-              <xs:documentation>Deprecated since v4.23: library containing the object, relative to the module root</xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
           <xs:attribute name="objectname" use="required">
             <xs:annotation>
               <xs:documentation>Object containing the check code, relative to the module definition. Must derive from CustomCheckBase in mod::system/lib/configure.whlib</xs:documentation>
@@ -2501,7 +2480,6 @@
       </xs:element>
       <xs:element name="apprunnerconfig">
         <xs:complexType>
-          <xs:attribute name="library" type="xs:string" />
           <xs:attribute name="configfunction" type="xs:string" use="required" />
         </xs:complexType>
       </xs:element>
@@ -2604,7 +2582,6 @@
     <xs:sequence>
       <xs:element name="xmlfiletype" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
-          <xs:attribute name="name" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
           <xs:attribute name="extensions">
             <xs:simpleType>
               <xs:list itemType="xs:string" />
@@ -2616,11 +2593,8 @@
               <xs:list itemType="xs:string" />
             </xs:simpleType>
           </xs:attribute>
-          <xs:attribute name="library" type="xs:string" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
-          <xs:attribute name="objectname" type="xs:string" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
           <xs:attribute name="schemalocation" type="xs:string" />
           <xs:attribute name="validator" type="xs:string" />
-          <xs:attribute name="hastids" type="xs:boolean" /> <!-- FIXME deprecated - remove when no longer used by external mods -->
         </xs:complexType>
       </xs:element>
 
