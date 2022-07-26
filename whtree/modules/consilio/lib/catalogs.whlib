@@ -312,7 +312,7 @@ STATIC OBJECTTYPE ContentSource
       @long Reindex a specific group
       @param groupid Group to reindex
       @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
-      @cell(boolean) options.foreground Reindex in the foreground
+      @cell(boolean) options.foreground Reindex in the foreground, wait for index to be refreshed
   */
   PUBLIC MACRO ReindexGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -379,7 +379,7 @@ STATIC OBJECTTYPE ContentSource
       @long Reindex a specific object in a specific group
       @param groupid Group to reindex the object in
       @param objectid Object to reindex
-      @cell(boolean) options.foreground Reindex in the foreground
+      @cell(boolean) options.foreground Reindex in the foreground, wait for index to be refreshed
   */
   PUBLIC MACRO ReindexObject(STRING groupid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -959,7 +959,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   /** @short Delete objects from this catalog
       @param objectids Delete objects with these objectids in the index+suffix combo
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(boolean) options.synchronous Wait for the added documents to become visible
+      @cell(boolean) options.foreground Delete in the foreground, wait for index to be refreshed
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -969,13 +969,14 @@ STATIC OBJECTTYPE ConsilioCatalog
     VerifyCatalogSafeToUpdate(this->id);
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
-                                , synchronous := FALSE
+                                , synchronous := FALSE //legacy, remove as soon as all callers are updated
+                                , foreground := FALSE
                                 ], options);
 
     FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
     {
       STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
-      DeleteIndexManagerObjects(this->id, 0, chunk, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+      DeleteIndexManagerObjects(this->id, 0, chunk, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous OR options.foreground ]);
     }
   }
 
