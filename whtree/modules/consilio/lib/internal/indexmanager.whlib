@@ -674,7 +674,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                      ]);
 
         IF(options.debug)
-          Print("Final Elasticsearch query: " || EncodeJSON(searchquery) || "\n");
+          Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
         RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure , enforce := "_search_get" ]);
         IF(options.debug)
