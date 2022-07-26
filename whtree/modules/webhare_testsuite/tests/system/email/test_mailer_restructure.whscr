@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 STRING torestructure :=
 '<style>a { color:#dddddd; } </style>'
 || '<div id="testlink"><a href="http://nu.nl/" style="font:12px Arial; text-decoration:none">De link</a></div>'
+|| '<div id="boldlink"><b><a href="http://nu.nl/" style="font:12px Arial; text-decoration:none">De link</a></b></div>'
 || '<div id="inlineanchortest"><a href="#inlineanchor" style="font:12px Arial; text-decoration:none">De link</a></div>'
 || '<div id="oldinlineanchortest"><a name="#oldanchor" style="font:12px Arial; text-decoration:none">Old style anchor</a></div>';
 
@@ -24,9 +25,13 @@ MACRO TestRestructure()
   node := dom->GetElement("#testlink > a");
   TestEq("_blank", node->GetAttribute("target"), "Target should have been set to _blank");
 
-  node := dom->GetElement("#testlink > a > span");
-  TestEq(TRUE, ObjectExists(node), "SPAN should have been inserted inside A");
-  TestEq("color:#dddddd;text-decoration:none;", node->Getattribute("style"));
+  node := dom->GetElement("#testlink > a > strong");
+  TestEq(TRUE, ObjectExists(node), "STRONG should have been inserted inside A");
+  TestEq("font-weight:normal;color:#dddddd;text-decoration:none;", node->Getattribute("style"));
+
+  node := dom->GetElement("#boldlink a > strong");
+  TestEq(TRUE, ObjectExists(node), "STRONG should have been inserted inside A");
+  TestEq("color:#dddddd;text-decoration:none;", node->Getattribute("style"), "STRONG within B should not reset font-weight");
 
   node := dom->GetElement("#inlineanchortest > a");
   TestEq("", node->GetAttribute("target"), "Inline anchor must not get an target");
