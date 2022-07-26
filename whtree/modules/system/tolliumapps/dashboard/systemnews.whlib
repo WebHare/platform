@@ -36,16 +36,14 @@ PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
   {
     DATETIME now := GetCurrentDateTime();
 
-    RECORD ARRAY newsentries := this->announcement_type->RunQuery( [ outputcolumns := [ "WRD_CREATIONDATE"
-                                                                                      , "ANNOUNCEMENT_TITLE"
-                                                                                      , "ANNOUNCEMENT_AUTHOR"
-                                                                                      , "ANNOUNCEMENT_UNIT"
-                                                                                      , "WRD_ID"
-                                                                                      , "PUBLISH_FROM"
-                                                                                      , "PUBLISH_UNTIL"
-                                                                                      ]
-                                                                   ] );
-    newsentries := this->wrdschema->^wrd_person->Enrich(newsentries, "announcement_author", [ createdby_string := "WRD_TITLE" ], [ rightouterjoin := TRUE, historymode := "all" ]);
+    // Set historymode to 'all' to return items with a future creation date, add a filter to not return items with a limit date
+    RECORD ARRAY newsentries := this->announcement_type->RunQuery(
+        [ filters := [ [ field := "wrd_limitdate", matchtype := ">", value := GetCurrentDateTime() ] ]
+        , outputcolumns :=
+            [ "wrd_creationdate", "announcement_title", "announcement_author", "announcement_unit", "wrd_id", "publish_from"
+            , "publish_until" ]
+        ,  historymode := "all" ] );
+    newsentries := this->wrdschema->^wrd_person->Enrich(newsentries, "announcement_author", [ createdby_string := "wrd_title" ], [ rightouterjoin := TRUE, historymode := "all" ]);
 
     this->newslist->rows := SELECT title := announcement_title
                                  , creationdate := wrd_creationdate
