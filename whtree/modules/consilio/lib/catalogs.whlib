@@ -45,12 +45,23 @@ STRING FUNCTION BuildFieldgroups(STRING ARRAY fieldgroups)
   RETURN Detokenize(GetSortedSet(fieldgroups),' ');
 }
 
-//Is this a valid indexname for use in Consilio?
+//Name validation: our API integration currently needs to be able to fix an indexname into 64 characters, so we'll allocate 40 chars for the index name.. 64 - 40 - 1 = 23 remaining for the suffix.. let's give it 16 and have headroom left...
+
+/** Is this a valid indexname for use in Consilio?
+*/
 PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
 {
   //We want to reserve '-' to detect suffixes, reserve names starting with _ and . for internal/dashboard stuff, and just limit names further to be on the safe side
+  RETURN NEW Regex("^[a-z][_a-z0-9]*$")->Test(name) AND Length(name) <= 40 AND name NOT LIKE "*_";
+}
+
+/** Is this a valid suffix for use in Consilio?
+*/
+PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexSuffix(STRING suffix)
+{
+  //We'll try to be safe, but accept things that look like dates (2022-05).
   //48 is an estimate of what appeared to be reasonable
-  RETURN NEW Regex("^[a-z][_a-z0-9]*$")->Test(name) AND Length(name) < 48;
+  RETURN NEW Regex("^[a-z0-9]+[-_a-z0-9]+$")->Test(suffix) AND Length(suffix) < 16 AND Right(suffix,1) NOT IN ["_","-"];
 }
 
 /** @short List configured index managers
@@ -747,7 +758,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   MACRO EnsureSuffixCreated(STRING suffix)
   {
-    IF(suffix = "" OR NOT IsValidConsilioIndexName(suffix))
+    IF(suffix = "" OR NOT IsValidConsilioIndexSuffix(suffix))
       THROW NEW Exception(`Invalid suffix name '${suffix}'`);
     IF (RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
       THROW NEW Exception(`Legacy indexmanagers do not support suffixes`);

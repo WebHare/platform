@@ -130,13 +130,20 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
     IF (NOT options.datetimesupport)
     {
       // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
+      // But not if already prefixed with date_ ... as OpenSearch simply wants the raw names (and doesn't inset date_) but Consilio still wants to add date_ itself...
       IF (field LIKE "*.*@*")
       {
-        INTEGER dot := SearchSubstring(field, ".") + 1;
-        field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        IF(field NOT LIKE "*.date_*@*")
+        {
+          INTEGER dot := SearchSubstring(field, ".") + 1;
+          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+        }
       }
       ELSE
-        field := `date_${field}`;
+      {
+        IF(field NOT LIKE "date_*")
+          field := `date_${field}`;
+      }
       lowersearchterm := FormatISO8601DateTime(lowerterm);
       uppersearchterm := FormatISO8601DateTime(upperterm);
     }
