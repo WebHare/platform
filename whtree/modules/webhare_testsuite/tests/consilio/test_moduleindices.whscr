@@ -1,14 +1,12 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
@@ -22,7 +20,7 @@ STRING ARRAY testcatalogs := [ "webhare_testsuite:testindex"
 RECORD testindex, testindex_suffixed;
 RECORD builtin_opensearch;
 
-MACRO Prepare()
+MACRO TestAPI()
 {
   TestEq(FALSE, IsValidConsilioIndexName("_abc"));
   TestEq(FALSE, IsValidConsilioIndexName(".kibana"));
@@ -44,13 +42,12 @@ MACRO Prepare()
   TestEq(FALSE, IsValidConsilioIndexSuffix("ABC"));
   TestEq(FALSE, IsValidConsilioIndexSuffix("abc-"));
   TestEq(TRUE, IsValidConsilioIndexSuffix("abc"));
+}
 
+MACRO TestUpdateIndicesMetadata()
+{
+  //Is updateindices setting up all metadata properly
   TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
-  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
-
-  //Verify the found opensearch url is correct
-  TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
-  TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
 
   testfw->BeginWork();
 
@@ -59,6 +56,15 @@ MACRO Prepare()
   testfw->CommitWork();
 
   FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+}
+
+MACRO PrepareIndices()
+{
+  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+
+  //Verify the found opensearch url is correct
+  TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
+  TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
 
   //Verify and cleanup from any previously (aborted)? testrun
   testfw->BeginWork();
@@ -661,7 +667,9 @@ MACRO TestESDeletion()
 }
 
 RunTestframework(
-    [ PTR Prepare
+    [ PTR TestAPI
+    , PTR TestUpdateIndicesMetadata
+    , PTR PrepareIndices
     , PTR TestESCreationAPIs
     , PTR TestESBulkInsertion
     , PTR TestESLangFeatures
