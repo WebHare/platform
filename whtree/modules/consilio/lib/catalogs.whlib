@@ -324,12 +324,17 @@ STATIC OBJECTTYPE ContentSource
       @param groupid Group to reindex
       @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
       @cell(boolean) options.foreground Reindex in the foreground
+      @cell(boolean) options.refresh Refresh after indexing (if not set refreshes only if indexing in the foreground)
   */
   PUBLIC MACRO ReindexGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ foreground := FALSE
                                 , rebuild := FALSE
-                                ], options);
+                                , refresh := FALSE
+                                ], options, [ optional := [ "refresh" ]
+                                            ]);
+
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.foreground;
 
     IF(options.foreground)
     {
@@ -342,8 +347,9 @@ STATIC OBJECTTYPE ContentSource
               ];
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data, [ rebuild := data.action != "UPDATEGROUP"
-                                        , refresh := TRUE
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data,
+                                        [ rebuild := data.action != "UPDATEGROUP"
+                                        , refresh := refresh
                                         ]);
       IF (Length(result.errors) > 0)
         THROW NEW Exception(result.errors[0].message);
@@ -357,11 +363,18 @@ STATIC OBJECTTYPE ContentSource
     }
   }
 
-  /// Delete a group
+  /** Delete a group
+      @param groupid Group to delete
+      @cell(boolean) options.foreground Delete in the foreground
+      @cell(boolean) options.refresh Refresh after delete (if not set refreshes only if deleting in the foreground)
+  */
   PUBLIC MACRO DeleteGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ foreground := FALSE
-                                ], options);
+                                , refresh := FALSE
+                                ], options, [ optional := [ "refresh" ]]);
+
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.foreground;
 
     IF(options.foreground)
     {
@@ -373,7 +386,7 @@ STATIC OBJECTTYPE ContentSource
               , indexid := this->catalog->id
               ];
 
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteGroup")(data, [ refresh := TRUE ]);
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteGroup")(data, [ refresh := refresh ]);
       IF (RecordExists(result.error))
         THROW NEW Exception(result.error.message);
     }
@@ -391,11 +404,15 @@ STATIC OBJECTTYPE ContentSource
       @param groupid Group to reindex the object in
       @param objectid Object to reindex
       @cell(boolean) options.foreground Reindex in the foreground
+      @cell(boolean) options.refresh Refresh after indexing (if not set refreshes only if indexing in the foreground)
   */
   PUBLIC MACRO ReindexObject(STRING groupid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ foreground := FALSE
-                                ], options);
+                                , refresh := FALSE
+                                ], options, [ optional := [ "refresh" ]]);
+
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.foreground;
 
     IF(options.foreground)
     {
@@ -409,7 +426,7 @@ STATIC OBJECTTYPE ContentSource
               ];
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := TRUE ]);
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := refresh ]);
       IF (Length(result.errors) > 0)
         THROW NEW Exception(result.errors[0].message);
     }
@@ -422,11 +439,16 @@ STATIC OBJECTTYPE ContentSource
     }
   }
 
-  /// Delete an object
+  /** Delete an object
+      @cell(boolean) options.foreground Delete in the foreground
+      @cell(boolean) options.refresh Refresh after deleting (if not set refreshes only if deleting in the foreground) */
   PUBLIC MACRO DeleteObject(STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ foreground := FALSE
-                                ], options);
+                                , refresh := FALSE
+                                ], options, [ optional := [ "refresh" ]]);
+
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.foreground;
 
     IF(options.foreground)
     {
@@ -437,7 +459,7 @@ STATIC OBJECTTYPE ContentSource
               , indexid := this->catalog->id
               ];
 
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteObject")(data, [ refresh := TRUE ]);
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#DeleteObject")(data, [ refresh := refresh ]);
       IF (Length(result.errors) > 0)
         THROW NEW Exception(result.errors[0].message);
     }
@@ -448,6 +470,65 @@ STATIC OBJECTTYPE ContentSource
         LogDebug("consilio", "ContentSource::DeleteObject", CELL[ ...this->GetBaseDebugInfo(), objectid ]);
       SendQueueManagerData(GetQueueDataFromCommand(command));
     }
+  }
+
+  /** Execute multiple reindex actions
+      @long This allows catalogs to combine multiple actions (once support is available). If this action fails halfway
+            through it may be unpredictable which actions succeeded and which failed.
+      @param actions Actions to execute
+      @cell(string) actions.action Action to take. Either `reindex` or `delete`
+      @cell(string) actions.groupid Group ID. Required unless deleting a specific object
+      @cell(string) actions.objectid Explicit object ID, leave empty to reindex/delete the whole group
+      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
+      @cell(boolean) options.foreground Run in the foreground, wait for index to be refreshed
+      @cell(boolean) options.refresh Refresh after the actions (if not set refreshes only if running in the foreground)
+  */
+  PUBLIC MACRO UpdateMultiple(RECORD ARRAY actions, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                , rebuild := FALSE
+                                , refresh := FALSE
+                                ], options, [ optional := [ "refresh" ]]);
+
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.foreground;
+
+    actions := SELECT AS RECORD ARRAY ValidateOptions([ action := ""
+                                                      , groupid := ""
+                                                      , objectid := ""
+                                                      ], actions, [ required := [ "action" ]
+                                                                  , enums := [ action := [ "reindex", "delete" ]]
+                                                                  , title := `actions[${#actions}]`
+                                                                  ]) FROM actions;
+
+    STRING ARRAY objectids_to_delete;
+    FOREVERY(RECORD act FROM actions)
+    {
+      IF(act.action = "reindex")
+      {
+        IF(act.groupid = "")
+          THROW NEW Exception(`Reindex action #${#act} require a groupid`);
+
+        IF(act.objectid = "")
+          this->ReindexGroup(act.groupid, CELL[...options, refresh := FALSE ]);
+        ELSE
+          this->ReindexObject(act.groupid, act.objectid, CELL[ ...options, DELETE rebuild, refresh := FALSE ]); //ReindexObject is currently always a rebuild
+      }
+      ELSE IF(act.action = "delete")
+      {
+        IF(act.objectid != "")
+          INSERT act.objectid INTO objectids_to_delete AT END;
+        ELSE IF(act.groupid != "")
+          this->DeleteGroup(act.groupid, CELL[ ...options, DELETE rebuild, refresh := FALSE ] );
+        ELSE
+          THROW NEW Exception(`Delete action #${#act} requires either a groupid or an objectid`);
+      }
+    }
+
+    IF(Length(objectids_to_delete) > 0)
+      this->catalog->DeleteObjects(objectids_to_delete, CELL[ options.foreground, refresh := FALSE ]);
+
+    IF(refresh)
+      this->catalog->Refresh();
   }
 
   /// Delete this content source
@@ -970,23 +1051,26 @@ STATIC OBJECTTYPE ConsilioCatalog
   /** @short Delete objects from this catalog
       @param objectids Delete objects with these objectids in the index+suffix combo
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
-      @cell(boolean) options.synchronous Wait for the added documents to become visible
+      @cell(boolean) options.foreground Delete in the foreground, wait for index to be refreshed
+      @cell(boolean) options.refresh Refresh after deleting (if not set refreshes only if deleting in the foreground)
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->managed)
-      THROW NEW Exception(`Managed catalogs do not support manual document management`);
-
     VerifyCatalogSafeToUpdate(this->id);
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
-                                , synchronous := FALSE
-                                ], options);
+                                , synchronous := FALSE //legacy, remove as soon as all callers are updated
+                                , foreground := FALSE
+                                , refresh := FALSE
+                                ], options, [ optional := ["refresh"] ]);
+
+    //TODO support background running? we're always running in the foreground now..
+    BOOLEAN refresh := CellExists(options,'refresh') ? options.refresh : options.synchronous OR options.foreground;
 
     FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
     {
       STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
-      DeleteIndexManagerObjects(this->id, 0, chunk, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ throwonfailure := TRUE, options.suffix, refresh ]);
     }
   }
 

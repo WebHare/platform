@@ -450,7 +450,7 @@ MACRO TestESBulkInsertion()
       ], res.results);
 
   // Delete the object
-  catalog->DeleteObjects([ "test1", "test2", "test3" ], [ suffix := "sub1", synchronous := TRUE ]);
+  catalog->DeleteObjects([ "test1", "test2", "test3" ], [ suffix := "sub1", foreground := TRUE ]);
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""

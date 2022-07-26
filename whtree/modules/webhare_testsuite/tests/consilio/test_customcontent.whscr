@@ -348,11 +348,11 @@ MACRO TestCustomContent()
       VALUES(idprefix||"f", idprefix||"f2", MakeDate(1970, 1, 10), (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE objectid = idprefix||"f1"));
   testfw->CommitWork();
 
-  contentsource->DeleteGroup(idprefix||"a");
-  contentsource->DeleteObject(idprefix||"d1");
-  contentsource->ReindexGroup(idprefix||"e");
-  contentsource->ReindexObject(idprefix||"f", idprefix||"f1"); // Must spider to f2
-
+  contentsource->UpdateMultiple([[ action := "delete", groupid := idprefix||"a" ]
+                                ,[ action := "delete", objectid := idprefix||"d1" ]
+                                ,[ action := "reindex", groupid := idprefix||"e" ]
+                                ,[ action := "reindex", groupid := idprefix||"f", objectid :=  idprefix||"f1" ] // Must spider to f2
+                                ]);
   TestCompleteSyncAfterCommand();
 
   // Updates
