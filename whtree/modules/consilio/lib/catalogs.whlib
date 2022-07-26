@@ -439,6 +439,58 @@ STATIC OBJECTTYPE ContentSource
     }
   }
 
+  /** Execute multiple reindex actions
+      @long This allows catalogs to combine multiple actions (once support is available). If this action fails halfway
+            through it may be unpredictable which actions succeeded and which failed.
+      @param actions Actions to execute
+      @cell(string) actions.action Action to take. Either `reindex` or `delete`
+      @cell(string) actions.groupid Group ID. Required unless deleting a specific object
+      @cell(string) actions.objectid Explicit object ID, leave empty to reindex/delete the whole group
+      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
+      @cell(boolean) options.foreground Update in the foreground, wait for index to be refreshed */
+  PUBLIC MACRO UpdateMultiple(RECORD ARRAY actions, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ foreground := FALSE
+                                , rebuild := FALSE
+                                ], options);
+
+    actions := SELECT AS RECORD ARRAY ValidateOptions([ action := ""
+                                                      , groupid := ""
+                                                      , objectid := ""
+                                                      ], actions, [ required := [ "action" ]
+                                                                  , enums := [ action := [ "reindex", "delete" ]]
+                                                                  , title := `actions[${#actions}]`
+                                                                  ]) FROM actions;
+
+    //TODO first step would be to combine refresh actions for foreground things...
+    STRING ARRAY objectids_to_delete;
+    FOREVERY(RECORD act FROM actions)
+    {
+      IF(act.action = "reindex")
+      {
+        IF(act.groupid = "")
+          THROW NEW Exception(`Reindex action #${#act} require a groupid`);
+
+        IF(act.objectid = "")
+          this->ReindexGroup(act.groupid, options);
+        ELSE
+          this->ReindexObject(act.groupid, act.objectid, CELL[ ...options, DELETE rebuild ]); //ReindexObject is currently always a rebuild
+      }
+      ELSE IF(act.action = "delete")
+      {
+        IF(act.objectid != "")
+          INSERT act.objectid INTO objectids_to_delete AT END;
+        ELSE IF(act.groupid != "")
+          this->DeleteGroup(act.groupid, CELL[ ...options, DELETE rebuild ] );
+        ELSE
+          THROW NEW Exception(`Delete action #${#act} requires either a groupid or an objectid`);
+      }
+    }
+
+    IF(Length(objectids_to_delete) > 0)
+      this->catalog->DeleteObjects(objectids_to_delete);
+  }
+
   /// Delete this content source
   PUBLIC MACRO DeleteSelf()
   {
@@ -963,9 +1015,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->managed)
-      THROW NEW Exception(`Managed catalogs do not support manual document management`);
-
     VerifyCatalogSafeToUpdate(this->id);
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
