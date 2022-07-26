@@ -775,12 +775,15 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GetAttachedIndices()
   {
     RECORD ARRAY indexmanagers := ListIndexManagers();
-    RETURN SELECT rowkey := id
-                , indexmanager_name := (SELECT AS STRING name FROM indexmanagers WHERE indexmanagers.id = attached.indexmanager)
-                , indexname
-                , size := -1
-                , primary := searchpriority > 0
-             FROM this->catalog->ListAttachedIndices() AS attached;
+    RECORD ARRAY rows :=
+        SELECT rowkey := id
+             , indexmanager_name := (SELECT AS STRING name FROM indexmanagers WHERE indexmanagers.id = attached.indexmanager)
+             , indexname
+             , primary := searchpriority > 0
+             , sizekey := `${id}:${indexname}`
+          FROM this->catalog->ListAttachedIndices() AS attached;
+
+    RETURN JoinArrays(rows, "sizekey", this->catalogsizes, [ size := -1 ], [ rightouterjoin := TRUE ]);
   }
 
   ASYNC MACRO GotInterval()
@@ -794,17 +797,16 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     IF (this->catalogid != 0)
     {
       RECORD ARRAY catalogsizes;
-      INTEGER ARRAY used_indexmanagers := SELECT AS INTEGER ARRAY indexmanager FROM ^indexmanagers->rows;
-      FOREVERY (INTEGER indexmanager FROM used_indexmanagers)
+      FOREVERY (RECORD row FROM ^attachedindices->rows)
       {
         INSERT CELL
-            [ indexmanager
-            , size :=         GetIndexManagerSize(this->catalogid, CELL[ indexmanager ])
+            [ row.sizekey
+            , size :=         GetIndexManagerSize(this->catalogid, CELL[ indexmanager := row.rowkey, row.indexname ])
             ] INTO catalogsizes AT END;
       }
       this->catalogsizes := catalogsizes;
     }
-    ^indexmanagers->Invalidate();
+    ^attachedindices->Invalidate();
   }
 
   MACRO GotIndexManagerRowEdit(RECORD data)

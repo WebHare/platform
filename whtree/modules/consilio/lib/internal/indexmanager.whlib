@@ -1080,12 +1080,18 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
 {
   options := ValidateOptions(
       [ indexmanager := 0
+      , indexname := ""
       ], options);
 
   INTEGER size := -1;
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  RECORD indexmanager := options.indexmanager = 0 ? RECORD(indexmanagers) : RECORD(SELECT * FROM indexmanagers WHERE id = options.indexmanager);
+  RECORD indexmanager :=
+      SELECT *
+        FROM indexmanagers
+       WHERE (options.indexmanager = 0 ? TRUE : id = options.indexmanager)
+         AND (options.indexname = "" ? TRUE : indexname = options.indexname);
+
   IF (RecordExists(indexmanager))
   {
     SWITCH (indexmanager.type)
