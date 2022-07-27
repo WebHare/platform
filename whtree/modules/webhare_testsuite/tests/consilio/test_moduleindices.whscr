@@ -561,7 +561,7 @@ MACRO TestESBulkInsertion()
 
   //Verify ds_Text's mapping
   RECORD checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub1/_mapping`, DEFAULT RECORD);
-  TestEq(FALSE, CelLExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
+  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
   // Throw some objects into a suffix. We want the index to sort it out

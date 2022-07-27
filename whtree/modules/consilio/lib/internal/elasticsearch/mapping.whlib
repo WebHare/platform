@@ -361,7 +361,7 @@ PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, 
   RETURN CELL[ fields ];
 }
 
-PUBLIC RECORD FUNCTION BuildInternalmetdataFromConfiguration(RECORD config)
+PUBLIC RECORD FUNCTION BuildInternalMetadataFromConfiguration(RECORD config)
 {
   RETURN CELL[ config.fields
              , lastupdate := GetCurrentDatetime()

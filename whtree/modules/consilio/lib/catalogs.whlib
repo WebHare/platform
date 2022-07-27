@@ -771,7 +771,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, contentsourceids);
     IF(EncodeHSON(config.fields) != EncodeHSON(internalmetadata.fields))
     {
-      internalmetadata := BuildInternalmetdataFromConfiguration(config);
+      internalmetadata := BuildInternalMetadataFromConfiguration(config);
       INSERT CELL internalmetadata := EncodeHSONBlob(internalmetadata) INTO settings;
     }
 
@@ -1349,7 +1349,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
 
   // Prepare configuration
   RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, INTEGER[]); //no contentsource ids yet
-  RECORD internalmetadata := BuildInternalmetdataFromConfiguration(config);
+  RECORD internalmetadata := BuildInternalMetadataFromConfiguration(config);
 
   INSERT CELL[ id := indexid
              , name := tag
