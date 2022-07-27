@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
@@ -9,6 +10,7 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -38,6 +40,42 @@ MACRO TestAPI()
   TestEq(FALSE, IsValidConsilioIndexSuffix("ABC"));
   TestEq(FALSE, IsValidConsilioIndexSuffix("abc-"));
   TestEq(TRUE, IsValidConsilioIndexSuffix("abc"));
+
+  RECORD testsitecatalogdef := CalculateExpectedConfiguration(["webhare_testsuite:pagelistfields"], TRUE, INTEGER[]);
+  dumpvalue(testsitecatalogdef,'tree');
+  TestEqMembers([[ name := "myfield1", type := "text" ]], (SELECT * FROM testsitecatalogdef.fields WHERE name = "myfield1"),"*");
+  TestEqMembers([[ name := "groupid", type := "keyword" ]], (SELECT * FROM testsitecatalogdef.fields WHERE name = "groupid"),"*");
+
+  RECORD testindexfieldsdef := CalculateExpectedConfiguration(["webhare_testsuite:testindexfields"], TRUE, INTEGER[]);
+  TestEqMembers([[ name := "record_field", type := "record"
+                 , properties := [[ name := "record_text_field", type := "text" ]
+                                 ,[ name := "dn_*", type := "integer" ]
+                                 ]
+                ]], (SELECT * FROM testindexfieldsdef.fields WHERE name = "record_field"),"*");
+
+  TestEqMembers([[ name := "group_int_field", type := "integer" ]], (SELECT * FROM testindexfieldsdef.fields WHERE name = "group_int_field"),"*", `group_int_field should have been included through <addfieldgroup ref="testgroup" />`);
+  TestEqMembers([[ name := "group_record_field", type := "record"
+                 , properties := [[ name := "group_record_text_field", type := "text" ]
+                                 ,[ name := "ds_*", type := "keyword" ]
+                                 ,[ name := "when", type := "datetime" ]
+                                 ,[ name := "where", type := "latlng" ]
+                                 ,[ name := "db_*", type := "boolean" ]
+                                 ]
+                ]], (SELECT * FROM testindexfieldsdef.fields WHERE name = "group_record_field"),"*");
+
+  // Check if duplicate fieldnames through including field groups are properly detected
+  TestThrowsLike("Duplicate property name 'textfield'", PTR CalculateExpectedConfiguration(["webhare_testsuite:fields_1", "webhare_testsuite:fields_2"], FALSE, INTEGER[]));
+
+  testfw->BeginWork();
+  TestThrowsLike("Duplicate property name 'textfield'", PTR CreateConsilioCatalog("consilio:testfw_invalidindex", [ managed := TRUE, fieldgroups := ["webhare_testsuite:fields_1", "webhare_testsuite:fields_2"] ]));
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_invalidindex", [ managed := TRUE, fieldgroups := ["webhare_testsuite:fields_1" ]]);
+  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->UpdateCatalog([fieldgroups := ["webhare_testsuite:fields_1", "webhare_testsuite:fields_2"]]));
+  testfw->RollbackWork();
+
+  // Check if circular fieldgroup references are properly detected
+  TestThrowsLike("Index is too deep!", PTR CalculateExpectedConfiguration(["webhare_testsuite:circular"], FALSE, INTEGER[]), `Test <catalog tag="circular_index_direct" managed="false" fieldgroups="circular" />`);
+  TestThrowsLike("Index is too deep!", PTR CalculateExpectedConfiguration(["webhare_testsuite:circular_1"], FALSE, INTEGER[]), `Test <catalog tag="circular_index_indirect" managed="false" fieldgroups="circular_1" />`);
+  TestThrowsLike("Index is too deep!", PTR CalculateExpectedConfiguration(["consilio:circular_test_reference_group"], FALSE, INTEGER[]), `<catalog tag="circular_module_reference" managed="false" fieldgroups="consilio:circular_test_reference_group" />`);
 }
 
 MACRO TestUpdateIndicesMetadata()
@@ -51,7 +89,22 @@ MACRO TestUpdateIndicesMetadata()
   DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:*" AND type = whconstant_consilio_catalogtype_unmanaged;
   testfw->CommitWork();
 
-  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:*" ]);
+
+  RECORD ARRAY toolslog_mapping := OpenConsilioCatalog("webhare_testsuite:toolslog")->GetExpectedMapping();
+  TestEq(TRUE, RecordExists(toolslog_mapping), "Should have been able to parse it");
+  //dumpvalue(toolslog_mapping,'tree');
+  TestEqMembers([[ name := "@timestamp", type := "datetime" ]], (SELECT * FROM toolslog_mapping WHERE name = "@timestamp"),"*");
+  TestEqMembers([[ name := "minfin", type := "record", defaultvalue:= DEFAULT RECORD
+                 , properties := [[ name := "theme",     type := "keyword" ]
+                                 ,[ name := "tool",      type := "keyword" ]
+                                 ,[ name := "type",      type := "keyword" ]
+                                 ,[ name := "versionnr", type := "integer" ]
+                                 ]
+                ]], (SELECT * FROM toolslog_mapping WHERE name = "minfin"),"*");
+
+  //TODO maybe we should get rid of the broken indices and only CalculateExpectedConfiguration them to keep logs clean?
+  TestEq(RECORD[], OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames")->GetExpectedMapping());
 }
 
 MACRO PrepareIndices()
@@ -63,7 +116,7 @@ MACRO PrepareIndices()
   TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
 }
 
-MACRO TestESCreationAPIs()
+MACRO TestInitialAttachment()
 {
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   TestEq(FALSE, catalog->IsReadyForStorage(), "Can't be ready, no attached indices");
@@ -88,6 +141,52 @@ MACRO TestESCreationAPIs()
   testfw->CommitWork();
 
   TestEq(TRUE, catalog->IsReadyForStorage(), "Has to be ready, CommitWork after AttachIndex synchronously applies the configuration");
+}
+
+MACRO TestMappingUpdates()
+{
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+
+  //Test fieldgroup updates
+  testfw->BeginWork();
+  TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
+  TestEq(["webhare_testsuite:testindexfields"], catalog->fieldgroups);
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...catalog->fieldgroups ] ]);
+  TestEqMembers([[name := "nosuchfieldyet_extra" ]], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
+
+  RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEq(["missing"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
+  TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "missing"));
+
+  testfw->CommitWork();
+
+  //After commit, the catalogchange should be applied and no issues should remain
+  diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEQ(RECORD[], diff);
+
+  //Now undo the fieldgroup change...
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := STRING[] ]);
+  TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
+
+  catalog->UpdateCatalog(CELL[ fieldgroups := STRING["webhare_testsuite:testindexfields"] ]);
+  TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
+
+  diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEq(["superfluous"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
+  TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "superfluous"));
+
+  testfw->CommitWork();
+
+  //Commit doesn't change a thing - there's no way to get rid of existing mappings
+  diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEq(["superfluous"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
+  TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "superfluous"));
+}
+
+MACRO TestESCreationAPIs()
+{
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
 
   testfw->BeginWork();
   TestThrowsLike("No such indexmanager*", PTR catalog->AttachIndex(9999999));
@@ -195,32 +294,6 @@ MACRO TestESCreationAPIs()
   catalog->DeleteSuffix("");
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
-
-  // Check if duplicate fieldnames through including field groups are properly detected
-  testfw->BeginWork();
-  catalog := OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames");
-  TestEq(TRUE, ObjectExists(catalog));
-  catalog->AttachIndex(0);
-  TestThrowsLike("Duplicate property name 'textfield'", PTR catalog->ApplyConfiguration());
-
-  // Check if circular fieldgroup references are properly detected
-  catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_direct");
-  TestEq(TRUE, ObjectExists(catalog));
-  catalog->AttachIndex(0);
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
-
-  catalog := OpenConsilioCatalog("webhare_testsuite:circular_index_indirect");
-  TestEq(TRUE, ObjectExists(catalog));
-  catalog->AttachIndex(0);
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
-
-  // Check if circular fieldgroup references are properly detected
-  catalog := OpenConsilioCatalog("webhare_testsuite:circular_module_reference");
-  TestEq(TRUE, ObjectExists(catalog));
-  catalog->AttachIndex(0);
-  TestThrowsLike("Index is too deep!", PTR catalog->ApplyConfiguration());
-
-  testfw->RollbackWork();
 }
 
 MACRO TestESBulkInsertion()
@@ -476,69 +549,10 @@ MACRO TestESBulkInsertion()
 
   //But we should be able to set it through a wildcard if we add it
   testfw->BeginWork();
-  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields", "webhare_testsuite:unspecifiedwildcards" ] ]);
+  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields"  ] ]);
   testfw->CommitWork();
 
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := 43 ]
-        ]
-      ],[ suffix := "sub1" ]);
-
-  // Once dynamically initialized, the type is fixed
-  TestThrowsLike("*(mapper_parsing_exception)", PTR catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := "XYZ" ]
-        ]
-      ],[ suffix := "sub1" ]));
-  // The string "44" can be converted to an integer
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := "44" ]
-        ]
-      ],[ suffix := "sub1" ]);
-
-  // Add a datetime property
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields :=
-            [ unspecified_record :=
-                [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
-                , "integer" := 1234
-                , "integer64" := 1024i64 * 1024 * 1024 * 1024
-                , "money" := 1234.56
-                , "float" := .015625
-                , "string" := "1234"
-                ]
-            ]
-        ]
-      ],[ suffix := "sub1", synchronous := TRUE ]);
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQHas("unspecified_record.datetime"),
-      [ mapping :=
-          [ unspecified_record :=
-              [ "datetime" := DEFAULT DATETIME
-              , "integer" := 0
-              , "integer64" := 0i64
-              , "money" := 0m
-              , "float" := 0f
-              , "string" := ""
-              ]
-          ]
-      , summaryfield := ""
-      ]);
-  TestEq(1, res.totalcount);
-  TestEQ(
-      [ unspecified_record :=
-          [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
-          , "integer" := 1234
-          , "integer64" := 1024i64 * 1024 * 1024 * 1024
-          , "money" := 1234.56
-          , "float" := .015625
-          , "string" := "1234"
-          ]
-      ], res.results[0]);
-
-  //Ensure dynamic templates work
+  //WAS: Ensure dynamic templates work. NOW: ensure the field coes not get added
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'group_record_field.ds_text' := 44 ]
@@ -547,7 +561,7 @@ MACRO TestESBulkInsertion()
 
   //Verify ds_Text's mapping
   RECORD checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub1/_mapping`, DEFAULT RECORD);
-  TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties.ds_text.type);
+  TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
   // Throw some objects into a suffix. We want the index to sort it out
@@ -580,7 +594,6 @@ MACRO TestESBulkInsertion()
   TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-sub2").mappings.properties.keyword.type);
 
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
-  //dumpvalue(res,'tree');
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);
 
@@ -653,6 +666,8 @@ RunTestframework(
     [ PTR TestAPI
     , PTR TestUpdateIndicesMetadata
     , PTR PrepareIndices
+    , PTR TestInitialAttachment
+    , PTR TestMappingUpdates
     , PTR TestESCreationAPIs
     , PTR TestESBulkInsertion
     , PTR TestESLangFeatures

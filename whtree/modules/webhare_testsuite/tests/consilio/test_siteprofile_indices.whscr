@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
@@ -13,10 +14,14 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC MACRO TestModernSiteProfileIndices()
 {
-  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:testsitecatalog" ]);
 
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   Testeq(TRUE, ObjectExists(maincatalog));
+
+  RECORD ARRAY testsitecatalog_mapping := maincatalog->GetExpectedMapping();
+  TestEqMembers([[ name := "myfield1", type := "text" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "myfield1"),"*");
+  TestEqMembers([[ name := "groupid", type := "keyword" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "groupid"),"*");
 
   //having indexnames makes log analysis easier
   Print(maincatalog->GetStorageInfo() || "\n");

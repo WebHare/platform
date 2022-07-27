@@ -344,52 +344,6 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
   }
 }
 
-
-PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER contentsourceid)
-{
-  STRING result := SearchOk;
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
-  {
-    SWITCH (indexmanager.type)
-    {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        // Not supported, ignore
-      }
-      CASE whconstant_consilio_indexmanager_opensearch
-      {
-        TRY
-        {
-          RECORD settings := CELL
-              [ properties := GetContentSourcesMapping([ contentsourceid ], defaultmappingfields)
-              , strict := TRUE
-              ];
-          settings := PrepareMappingUpdate(settings);
-
-          IF(IsDebugTagEnabled("consilio:changes"))
-            LogDebug("consilio:changes", "EnsureIndexManagerContentSource", CELL[ indexid, ...indexmanager, settings ]);
-          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping", settings, "PUT", [ throwonfailure := TRUE ]);
-          result := response.status;
-        }
-        CATCH (OBJECT<ElasticSearchException> e)
-        {
-          IF(RecordExists(e->error) AND e->error.type = "illegal_argument_exception" AND e->error.reason LIKE "mapper [*]")
-            result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
-          ELSE
-            THROW;
-        }
-      }
-    }
-  }
-
-  IF (result = SearchOk)
-    BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
-
-  RETURN result;
-}
-
 PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -1960,14 +1914,37 @@ PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
   RETURN fields;
 }
 
+RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
+{
+  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
+
+  RECORD defaultmapping;
+  FOREVERY(RECORD row FROM inprops)
+  {
+    IF(row.type="record")
+      defaultmapping := CELL[ ...defaultmapping
+                            , ...FlattenMapping(SELECT *, name := row.name ||'.' || name FROM row.properties)
+                            ];
+    ELSE
+      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
+  }
+  RETURN defaultmapping;
+}
+
 RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
 {
-  // Get the default result fields
-  RECORD defaultmapping;
-  RECORD ARRAY mapping := GetIndexMapping(indexid);
-  FOREVERY (RECORD field FROM mapping)
-    IF (NOT CellExists(defaultmapping, field.name))
-      defaultmapping := CellInsert(defaultmapping, field.name, field.defaultvalue);
+  // FIXME resolve this cross dependency
+  OBJECT catalog := MakeFunctionPtr("mod::consilio/lib/catalogs.whlib#OpenConsilioCatalogById")(indexid);
+  RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
+  defaultmapping := CELL[ ...defaultmapping
+                        //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
+                        , DELETE indexid
+                        , DELETE date_indexdate
+                        , DELETE date_indexed
+                        , DELETE contentprovider
+                        , DELETE contentsource
+                        , DELETE body
+                        ];
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
 
@@ -1977,47 +1954,4 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
                          , "consilio:indexfields"
                          ]
          ];
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
-{
-  RECORD ARRAY fields;
-  TRY
-  {
-    RECORD def;
-    STRING ARRAY fieldgroups :=
-        SELECT AS STRING ARRAY fieldgroup
-          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = indexid), " "), "fieldgroup")
-         WHERE fieldgroup != "";
-    IF (Length(fieldgroups) > 0)
-      def := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
-    ELSE
-      def := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid);
-    IF (RecordExists(def))
-      fields := def.properties;
-  }
-  CATCH; // No module field definition for this catalog
-
-  INTEGER ARRAY contentsourceids :=
-      SELECT AS INTEGER ARRAY id
-        FROM consilio.contentsources
-       WHERE COLUMN catalogid = VAR indexid
-             AND tag NOT LIKE "$consilio$deleted$*";
-  fields := GetContentSourcesMapping(contentsourceids, fields);
-  /* fields := fields CONCAT
-      SELECT fields.name
-           , fields.type
-           , fields.defaultvalue
-           , fields.tokenized
-           , fields.suggested
-        FROM consilio.contentsourcefields AS fields
-           , consilio.contentsources AS sources
-       WHERE fields.contentsourceid = sources.id
-             AND sources.catalogid = VAR indexid
-             AND sources.tag NOT LIKE "$consilio$deleted$*";
-  fields :=
-      SELECT AS RECORD ARRAY GroupedValues(fields)[0]
-        FROM fields
-       GROUP BY ToUppercase(name); */
-  RETURN fields;
 }

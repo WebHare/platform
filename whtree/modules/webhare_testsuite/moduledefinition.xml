@@ -346,7 +346,7 @@
       <float name="float_field" />
       <datetime name="date_field" />
       <boolean name="bool_field" />
-      <record name="record_field" strict="false">
+      <record name="record_field">
         <text name="record_text_field" />
         <integer name="dn_*" />
       </record>
@@ -356,7 +356,7 @@
     </fieldgroup>
     <fieldgroup tag="testgroup">
       <integer name="group_int_field" />
-      <record name="group_record_field" strict="false">
+      <record name="group_record_field">
         <text name="group_record_text_field" />
         <keyword name="ds_*" />
         <addfieldgroup ref="webhare_testsuite:testsubgroup" />
@@ -387,12 +387,10 @@
       <text name="textfield" />
     </fieldgroup>
 
-    <catalog tag="circular_index_direct" managed="false" fieldgroups="circular" />
     <fieldgroup tag="circular">
       <addfieldgroup ref="circular" />
     </fieldgroup>
 
-    <catalog tag="circular_index_indirect" managed="false" fieldgroups="circular_1" />
     <fieldgroup tag="circular_1">
       <record name="record_1">
         <addfieldgroup ref="circular_2" />
@@ -413,10 +411,6 @@
           </record>
         </record>
       </record>
-    </fieldgroup>
-
-    <fieldgroup tag="unspecifiedwildcards">
-      <record name="unspecified_record" strict="false" />
     </fieldgroup>
 
     <fieldgroup tag="storeonly">

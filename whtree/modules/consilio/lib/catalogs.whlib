@@ -8,6 +8,7 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -28,6 +29,7 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 
 CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
@@ -548,6 +550,9 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 
+  /// @type(string array) Enabled fieldgroups
+  PUBLIC PROPERTY fieldgroups(GetFieldgroups,-);
+
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
@@ -590,6 +595,20 @@ STATIC OBJECTTYPE ConsilioCatalog
           RETURN FALSE;
 
     RETURN TRUE;
+  }
+
+  STRING ARRAY FUNCTION GetFieldgroups()
+  {
+    RETURN ParseXSList(this->catalog.fieldgroups);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetExpectedMapping()
+  {
+    IF(Length(this->catalog.internalmetadata) = 0)
+      RETURN RECORD[];
+
+    RECORD data := DecodeHSONBlob(this->catalog.internalmetadata);
+    RETURN data.fields;
   }
 
   BOOLEAN FUNCTION GetManaged()
@@ -705,7 +724,9 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     // If the catalog language changes, the catalog has to be rebuilt
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
-    BOOLEAN fieldgroups_changed;
+    RECORD cursettings := SELECT * FROM consilio.catalogs WHERE id = this->id;
+    IF(NOT RecordExists(cursettings))
+      THROW NEW Exception(`Catalog ${this->tag} (#${this->id}) is no longer present in the database`);
 
     IF(CellExists(settings, 'suffixed'))
     {
@@ -718,16 +739,40 @@ STATIC OBJECTTYPE ConsilioCatalog
                       ];
     }
 
+    // Determine final fieldgroups
+    STRING ARRAY applyfieldgroups;
     IF(CellExists(settings, 'fieldgroups'))
     {
       STRING newval := BuildFieldgroups(settings.fieldgroups);
+      applyfieldgroups := settings.fieldgroups;
       DELETE CELL fieldgroups FROM settings;
 
       IF(newval != this->catalog.fieldgroups)
-      {
         INSERT CELL fieldgroups := newval INTO settings;
-        fieldgroups_changed := TRUE;
-      }
+    }
+    ELSE
+    {
+      applyfieldgroups := ParseXSList(cursettings.fieldgroups);
+    }
+
+    // Load currently applicable metadta
+    RECORD internalmetadata;
+    IF(Length(cursettings.internalmetadata) != 0)
+      internalmetadata := DecodeHSONBlob(cursettings.internalmetadata);
+
+    internalmetadata := EnforceStructure(CELL[ lastupdate := DEFAULT DATETIME
+                                             , fields := RECORD[]
+                                             ], internalmetadata);
+
+    INTEGER ARRAY contentsourceids;
+    IF(this->managed)
+      contentsourceids := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
+
+    RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, contentsourceids);
+    IF(EncodeHSON(config.fields) != EncodeHSON(internalmetadata.fields))
+    {
+      internalmetadata := BuildInternalMetadataFromConfiguration(config);
+      INSERT CELL internalmetadata := EncodeHSONBlob(internalmetadata) INTO settings;
     }
 
     IF(Length(UnpackRecord(settings)) = 0)
@@ -738,7 +783,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
-    IF(language_changed)
+    IF(language_changed OR CellExists(settings,'internalmetadata'))
       GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
     this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
@@ -821,62 +866,11 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   MACRO EnsureFieldGroupsApplied(STRING ARRAY suffixes)
   {
-    RECORD newmapping;
-    STRING ARRAY fieldgroups;
-    fieldgroups :=
-        SELECT AS STRING ARRAY fieldgroup
-          FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = this->id), " "), "fieldgroup")
-         WHERE fieldgroup != "";
-
-    IF(Length(fieldgroups) = 0)
-    {
-      newmapping := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = this->id);
-    }
-    ELSE
-    {
-      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
-    }
-
-    IF(this->managed)
-    {
-      INTEGER ARRAY contentsourceids := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
-      IF (Length(contentsourceids) > 0)
-      {
-        RECORD ARRAY basefields := this->managed ? defaultmappingfields : RECORD[];
-        IF (RecordExists(newmapping))
-          basefields := basefields CONCAT newmapping.properties;
-        RECORD ARRAY properties := GetContentSourcesMapping(contentsourceids, basefields);
-        IF (RecordExists(properties))
-        {
-          IF (NOT RecordExists(newmapping))
-            newmapping := CELL[ properties, strict := TRUE ];
-          ELSE
-            newmapping.properties := properties;
-        }
-      }
-      IF (NOT RecordExists(newmapping))
-        RETURN;
-    }
+    RECORD ARRAY newmapping := this->GetExpectedMapping();
 
     FOREVERY(STRING suffix FROM suffixes)
     {
-      //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
-      //TODO how to remove a dynamic template?
-      //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
-      RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ suffix, throwonfailure := TRUE ]);
       RECORD finalupdate := PrepareMappingUpdate(newmapping);
-
-      STRING ARRAY newtemplates;
-      FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
-        INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
-
-      FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
-      {
-        STRING name := UnpackRecord(templ)[0].name;
-        IF(name NOT IN newtemplates)
-          INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
-      }
-
       EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
     }
   }
@@ -1096,6 +1090,9 @@ STATIC OBJECTTYPE ConsilioCatalog
     {
       prov->CLose();
     }
+
+    this->UpdateCatalog(DEFAULT RECORD);
+
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
@@ -1350,7 +1347,10 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   IF(options.suffixed AND options.managed)
     THROW NEW Exception(`A managed index can't be set to suffixed`);
 
-  // Create index
+  // Prepare configuration
+  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, INTEGER[]); //no contentsource ids yet
+  RECORD internalmetadata := BuildInternalMetadataFromConfiguration(config);
+
   INSERT CELL[ id := indexid
              , name := tag
              , description := options.title
@@ -1362,6 +1362,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , suffix := options.suffixed ? default_suffix_mask : ""
              , fieldgroups := BuildFieldgroups(options.fieldgroups)
              , options.lang
+             , internalmetadata := EncodeHSONBlob(internalmetadata)
              ] INTO consilio.catalogs;
 
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);

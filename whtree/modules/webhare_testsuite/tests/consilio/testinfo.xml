@@ -29,7 +29,7 @@
   <test script="test_thesaurus.whscr" />
   <test script="test_boostwords.whscr" />
   <test script="test_parsers.whscr" />
-  <test script="test_publishersearch.whscr" />
+  <test script="test_whfs_catalog.whscr" />
   <test script="test_linkcheck.whscr"/>
   <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" />

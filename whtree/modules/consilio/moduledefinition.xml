@@ -147,6 +147,9 @@
           Suffix for suffixed indices. Will currently contain either `-*` or be empty.
         </d:documentation>
       </d:varchar>
+      <d:blob name="internalmetadata">
+        <d:documentation>Internal metadata (eg mapping definitions. hson encoded)</d:documentation>
+      </d:blob>
     </d:table>
 
     <d:table name="catalog_indexmanagers" primarykey="id">

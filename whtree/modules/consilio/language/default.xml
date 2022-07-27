@@ -94,6 +94,7 @@
       <text tid="rebuildcatalog">Rebuild</text>
       <text tid="restart">Restart Queue Manager</text>
       <text tid="showerrors">Show errors</text>
+      <text tid="showfieldmapping">Show field mapping</text>
       <text tid="size">Size</text>
       <text tid="status">Status</text>
       <text tid="taggedcontentsourcetitle"><param p="1"/>: <param p="2"/></text>
@@ -134,6 +135,11 @@
       <text tid="indexname">Index name</text>
       <text tid="invalidindexname">Invalid index name. The name must start with a letter and consist of only characters in range 0-9 and a-z and an underscore (_)</text>
       <text tid="searchpriority">Search priority</text>
+    </textgroup>
+    <textgroup gid="fieldmapping">   <!-- catalog.fieldmapping -->
+      <text tid="fieldmapping">Field mapping</text>
+      <text tid="name">Name</text>
+      <text tid="type">Type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>

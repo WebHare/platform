@@ -76,12 +76,19 @@ MACRO TestCustomContent()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
+  TestEq(RECORD[], SELECT * FROM catalog->GetExpectedMapping() WHERE name = "mapping_datetime");
+
   contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
       , discardsummaries := TRUE
       ]);
   TestEq(0, __GetNumSubJobs());
+
+  TestEqMembers(RECORD[[ name := "mapping_datetime", type := "datetime" ]],
+                (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "mapping_datetime"), '*');
+  TestEqMembers(RECORD[[ name := "_suggested", type := "completion" ]],
+                (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "_suggested"), '*', "verify _suggested is in the catalog as expected (though its a low level thingy?)");
 
   TestThrowsLike(`*contentsource with tag '${"webhare_testsuite:beta_customsource"}' already exists*`, PTR catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
@@ -208,6 +215,8 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
+      , _suggested := is_opensearch ? [ input := ["a","a1"] ] //NOTE this field wasn't returned before the mapping rewrites, but as far as I see it *should* have been as DBContent::GetMapping() returns a suggested field
+                                    : DEFAULT RECORD
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
@@ -237,6 +246,8 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
+      , _suggested := is_opensearch ? [ input := ["a","a1"] ]
+                                    : DEFAULT RECORD
       ], res.results[0]);
 
   search_obj->empty_result_record :=
@@ -749,6 +760,7 @@ MACRO TestTypes()
       , fieldgroup_boolean := TRUE
       , fieldgroup_datetime := MakeDate(2038, 1, 19)
       , myfield1 := ""
+      , _suggested := DEFAULT RECORD
       ], res.results[0]);
 
   res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "=", 9223372036854775807i64));

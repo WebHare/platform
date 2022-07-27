@@ -46,6 +46,10 @@
         <enableon source="catalogs" min="1" checkflags="!readonly manageable" onexecute="dodelete" />
       </action>
 
+      <action name="showfieldmapping">
+        <enableon source="catalogs" min="1" max="1" checkflags="catalog" onexecute="doshowfieldmapping"/>
+      </action>
+
       <action name="previewcatalog" onexecute="dopreviewcatalog" shortcut="ctrl+shift+p">
         <enableon source="catalogs" min="1" max="1" checkflags="previewable" />
       </action>
@@ -85,6 +89,7 @@
           <item action="markcatalogascomplete" />
           <divider />
           <item action="catalogthesaurus" name="catalogthesaurus_menu" tid=".catalogthesaurus" />
+          <item action="showfieldmapping" />
         </item>
         <item action="manageindexmanagers" disablemode="hidden" />
         <item action="blacklist" disablemode="hidden" />
@@ -105,6 +110,7 @@
         <item action="catalogthesaurus" name="catalogthesaurus_contextmenu" tid=".catalogthesaurus" />
         <!-- <item action="queryreport" /> -->
         <divider />
+        <item action="showfieldmapping" />
         <item action="markcatalogascomplete" disablemode="hidden" />
         <item action="delete" />
       </menu>
@@ -476,6 +482,15 @@
         <button action="close" />
       </line>
     </footer>
+  </screen>
+
+  <screen name="fieldmapping" width="90x" height="15gr" allowresize="true" footerbuttons="close" gid=".fieldmapping">
+    <body>
+      <list name="fieldmapping" height="1pr">
+        <column name="name" type="text" />
+        <column name="type" type="text" />
+      </list>
+    </body>
   </screen>
 
 </screens>

@@ -36,7 +36,7 @@ MACRO TestOldIndexSyntax()
 
   TestEq(FALSE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
 
-  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:*" ]);
 
   TestEq(TRUE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
 }
