@@ -462,6 +462,16 @@ MACRO TestIconValidation()
      </screens>`) ]);
 
   TestEq(RECORD[], SELECT line, message FROM res.errors);
+
+  BLOB incorrect_filetype_namespace := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/icontest"
+                tolliumicon="webhare_testsuite:nosuchicon_1" />
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_namespace ]);
+  TestEq([[ line := 4, message := 'Missing icon: \'webhare_testsuite:nosuchicon_1\'' ]
+         ], SELECT line, message FROM res.errors);
 }
 
 MACRO TestValidateWitty()

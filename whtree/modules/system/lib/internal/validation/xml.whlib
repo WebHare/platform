@@ -207,6 +207,7 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
   RETURN CELL[ errors := validator->errors
              , warnings := validator->warnings
              , hints := validator->hints
+             , icons := validator->icons
              , tids
              , eventmasks
              ];

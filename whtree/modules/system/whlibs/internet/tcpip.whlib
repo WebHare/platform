@@ -12,14 +12,25 @@ LOADLIB "wh::internal/interface.whlib";
 
 STATIC OBJECTTYPE SocketException EXTEND Exception
 < INTEGER pvt_errorcode;
+  /// Socket error code
   PUBLIC PROPERTY errorcode(pvt_errorcode, -);
   MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
 >;
 
 //These ciphersuite settings are taken from the current internet.nl requirements. Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will not support IE11 on win8.1 and below
+/** List of currently safe ciphersuites supported by Mozilla. Taken from the current internet.nl
+    requirementsand . Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will
+    not support IE11 on win8.1 and below
+*/
 PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256";
+
+/** List of cyphersuites supported by modern browers. Taken from the current internet.nl
+    requirementsand . Full compliance also requires at least webhare/proxy:2.1.0.
+*/
 PUBLIC CONSTANT STRING default_ciphersuites := `${modern_ciphersuites}:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA`;
 
+/** Default options for secure connections
+*/
 PUBLIC CONSTANT RECORD secureconnection_options :=
     [ ciphersuites := default_ciphersuites
     , securitylevel := 1 //openssl security level. see https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_security_level.html
@@ -32,11 +43,22 @@ STATIC OBJECTTYPE Socket EXTEND __HS_INTERNAL_OutputObject
   // Public properties
   //
 
+  /// @type(string) Local IP address
   PUBLIC PROPERTY localip(GetLocalIP, -);
+
+  /// @type(integer) Local port
   PUBLIC PROPERTY localport(GetLocalPort, -);
+
+  /// @type(string) Remote IP address
   PUBLIC PROPERTY remoteip(GetRemoteIP, -);
+
+  /// @type(integer) Remote port
   PUBLIC PROPERTY remoteport(GetRemotePort, -);
+
+  /// @type(integer) Send buffer size
   PUBLIC PROPERTY sendbuffersize(GetSendBufferSize, SetSendBufferSize);
+
+  /// @type(integer) Timeout in milliseconds
   PUBLIC PROPERTY timeout(GetTimeout, SetTimeout);
 
   // ---------------------------------------------------------------------------
@@ -107,6 +129,7 @@ STATIC OBJECTTYPE Socket EXTEND __HS_INTERNAL_OutputObject
   // Updated functions
   //
 
+  /// Close the socket
   UPDATE PUBLIC MACRO Close()
   {
     CloseSocket(this->pvt_handle);
@@ -117,31 +140,57 @@ STATIC OBJECTTYPE Socket EXTEND __HS_INTERNAL_OutputObject
   // Public interface
   //
 
+  /** Connect to a remote host
+      @param host Host to connect to
+      @param port Port to connect to
+      @return TRUE on a succesful connect, FALSE on failure
+  */
   PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port)
   {
     RETURN ConnectSocket(this->pvt_handle, host, port);
   }
 
+  /** Asynchronously connect to a remote host
+      @param host Host to connect to
+      @param port Port to connect to
+      @return A promise which resolves to TRUE on a succesful connect, FALSE on failure
+  */
   PUBLIC OBJECT FUNCTION AsyncConnect(STRING host, INTEGER port)
   {
     RETURN AsyncConnectSocket(this->pvt_handle, host, port);
   }
 
+  /** @short Bind this TCP/IP socket to an IP address and/or a port
+    @param host IP address or hostname to bind to, or empty for bind-anywhere
+    @param port Port to bind to, or 0 to bind to at any available port
+    @return TRUE on a succesful bind, FALSE on failure
+  */
   PUBLIC BOOLEAN FUNCTION Bind(STRING host, INTEGER port)
   {
     RETURN BindSocket(this->pvt_handle, host, port);
   }
 
+  /** Write data to the socket, returns number of bytes written
+      @param data Data to write to the socket
+      @return Number of bytes actually written.
+  */
   PUBLIC INTEGER FUNCTION Write(STRING data)
   {
     RETURN WriteTo(this->pvt_handle, data);
   }
 
+  /** Returns the last error for this socket
+      @return Last socket error
+  */
   PUBLIC INTEGER FUNCTION GetLastError()
   {
     RETURN GetLastSocketError(this->pvt_handle);
   }
 
+/** @short Shutdown a TCP socket (it will still need a Close call)
+    @param shutdownread True to shutdown reading
+    @param shutdownwrite True to shutdown writing
+  */
   PUBLIC MACRO Shutdown(BOOLEAN shutdownread, BOOLEAN shutdownwrite)
   {
     ShutdownSocket(this->pvt_handle, shutdownread, shutdownwrite);
@@ -166,6 +215,10 @@ STATIC OBJECTTYPE UDPSocket EXTEND Socket
   //
 
   /** @short UDPSend is used to send a datagram over UDP
+      @param remoteip Remote IP address
+      @param remoteport Remote port
+      @param data Data to send
+      @return Whether the send successed
   */
   PUBLIC BOOLEAN FUNCTION SendTo(STRING remoteip, INTEGER remoteport, STRING data)
   {
@@ -173,8 +226,9 @@ STATIC OBJECTTYPE UDPSocket EXTEND Socket
   }
 
   /** @short UDPReceive is used to receive a datagram over UDP
+      @return @includecelldef #ReceiveSocketUDP.return
   */
-  PUBLIC RECORD FUNCTION ReceiveDatagram(INTEGER connectionid)
+  PUBLIC RECORD FUNCTION ReceiveDatagram()
   {
     RETURN ReceiveSocketUDP(this->pvt_handle);
   }
@@ -207,8 +261,8 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
   }
 
   /** Connect to an SSL port
-      @param host
-      @param port
+      @param host Host to connect to
+      @param port Port to connect to
       @param options Connection options
       @cell(string) options.hostname Hostname to use for SNI
       @cell(string)  options.ciphersuites Override the ciphersuites to use
@@ -220,9 +274,9 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
            AND SetSecureConnection(this->pvt_handle, TRUE, options);
   }
 
-  /** Asynchrnously connect to an SSL port
-      @param host
-      @param port
+  /** Asynchronously connect to an SSL port
+      @param host Host to connect to
+      @param port Port to connect to
       @param options Connection options
       @cell(string) options.hostname Hostname to use for SNI
       @cell(string)  options.ciphersuites Override the ciphersuites to use
@@ -236,10 +290,10 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
 
   /** Start SSL over an existing connection
       @param initiate Whether this side is the initiator for the switch to SSL
-      @param options Options
       @param options Connection options
       @cell(string) options.hostname Hostname to use for SNI
-      @cell(string)  options.ciphersuites Override the ciphersuites to use
+      @cell(string) options.ciphersuites Override the ciphersuites to use
+      @return TRUE if initiating the SSL connection was successful
   */
   PUBLIC BOOLEAN FUNCTION StartSSL(BOOLEAN initiate, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -247,6 +301,7 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
   }
 
   /** Listen to incoming connections. The socket becomes signalled upon incoming connections
+      @return TRUE if the operation succeeded
   */
   PUBLIC BOOLEAN FUNCTION Listen()
   {
@@ -255,6 +310,7 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
 
   /** Accepts an incoming connection. When an incoming connection is actually available, a new
       socket for that connection is returned.
+      @return(object #TCPSocket) The socket with the new connection, if one was available. DEFAULT OBJECT otherwise
   */
   PUBLIC OBJECT FUNCTION Accept()
   {
@@ -264,7 +320,8 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
     RETURN NEW TCPSocket(handle);
   }
 
-  /* Returns the last error of this socket
+  /** Returns the last error of this socket
+      @return Error message text
   */
   PUBLIC STRING FUNCTION GetErrorMessage()
   {
@@ -277,6 +334,7 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
   /** Returns the PEM-encoded certificate chain of the peer. Due tot the current design of the SSL code,
       some data need to be have been received before the SSL connection has been setup fully, and the
       peer certificate is available.
+      @return Peer certificate chain
   */
   PUBLIC STRING FUNCTION GetPeerCertificateChain()
   {
@@ -291,7 +349,10 @@ STATIC OBJECTTYPE TCPSocket EXTEND Socket
 // Raw TCP/IP interface
 //
 
-//incomplete, so not documented yet
+/** Creates a new socket
+    @param type Type of socket, "TCP"  or "UDP"
+    @return(object #TCPSocket #UDPSocket) New socket
+*/
 PUBLIC OBJECT FUNCTION CreateSocket(STRING type)
 {
   IF(type = "TCP")
@@ -404,7 +465,7 @@ STRING ARRAY FUNCTION GetConnectIPsForHost(STRING host, INTEGER port)
     @param host IP address to connect to
     @param port Port to connect to
     @return TRUE on a succesful connect, FALSE on failure
-    @see GetLastTCPError
+    @see GetLastSocketError
 */
 PUBLIC BOOLEAN FUNCTION ConnectSocket(INTEGER connectionid, STRING host, INTEGER port)
 {
@@ -417,7 +478,7 @@ PUBLIC BOOLEAN FUNCTION ConnectSocket(INTEGER connectionid, STRING host, INTEGER
     @param host IP address to connect to
     @param port Port to connect to
     @return A promise which resolves to TRUE on a succesful connect, FALSE on failure
-    @see GetLastTCPError
+    @see GetLastSocketError
 */
 PUBLIC OBJECT FUNCTION AsyncConnectSocket(INTEGER connectionid, STRING host, INTEGER port)
 {
@@ -477,7 +538,6 @@ OBJECT FUNCTION* ConnectSocketInternal(INTEGER connectionid, STRING host, INTEGE
 /** @short Make a current TCP connection secure using SSL
     @param connectionid ID of connection to secure
     @param initiate True to initiate a secure connection, false to accept a secure connection
-    @param options
     @cell options.hostname Hostname to use for SNI
     @cell options.ciphersuites Override the ciphersuites to use
     @return True on success
@@ -533,8 +593,8 @@ PUBLIC MACRO SetSocketTimeout(INTEGER connectionid, INTEGER timeout) __ATTRIBUTE
 
 
 /** @short Get the timeout used for sending and receiving calls
-    @param connectionid ID of the connection to set the timeout for
-    @param timeout The timeout in milliseconds (-1 = no timeout or no socket)
+    @param connectionid ID of the connection to get the timeout for
+    @return The timeout in milliseconds (-1 = no timeout or no socket)
 */
 PUBLIC INTEGER FUNCTION GetSocketTimeout(INTEGER connectionid)
 {
@@ -587,10 +647,20 @@ PUBLIC STRING FUNCTION GetRemoteSocketIP(INTEGER connectionid) __ATTRIBUTES__(EX
 PUBLIC INTEGER FUNCTION GetRemoteSocketPort(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
 
 /** @short UDPSend is used to send a datagram over UDP
+    @param connectionid ID of connection to send on
+    @param remoteip Remote IP address
+    @param remoteport Remote port
+    @param data Data to send
+    @return TRUE if data was sent
 */
 PUBLIC BOOLEAN FUNCTION SendSocketUDP(INTEGER connectionid, STRING remoteip, INTEGER remoteport, STRING data) __ATTRIBUTES__(EXTERNAL);
 
 /** @short UDPReceive is used to receive a datagram over UDP
+    @param connectionid ID of connection to receive from
+    @return Received data
+    @cell return.ip Remote IP address
+    @cell return.port Remote port
+    @cell return.data Received data
 */
 PUBLIC RECORD FUNCTION ReceiveSocketUDP(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
 
@@ -598,6 +668,7 @@ PUBLIC RECORD FUNCTION ReceiveSocketUDP(INTEGER connectionid) __ATTRIBUTES__(EXT
     some data need to be have been received before the SSL connection has been setup fully, and the
     peer certificate is available.
     @param connectionid Socket handle
+    @return Certificate chain
 */
 PUBLIC STRING FUNCTION GetSocketPeerCertificateChain(INTEGER connectionid)
 {
@@ -671,11 +742,41 @@ PUBLIC STRING FUNCTION CanonicalizeIPAddress(STRING address, BOOLEAN with_prefix
   RETURN address;
 }
 
+/** Returns whether an IP adress lies within a network prefix
+    @param ip IP address to check
+    @param networkprefix Network prefix
+    @return TRUE if the IP address lies within the prefix
+*/
+PUBLIC BOOLEAN FUNCTION IsIPAddressWithinPrefix(STRING ip, STRING networkprefix)
+{
+  IF (networkprefix NOT LIKE "*/*")
+    THROW NEW Exception(`The network prefix should be in the form "IP/prefixlength"`);
+
+  INTEGER slashpos := SearchSubstring(networkprefix, "/");
+  INTEGER prefixnum := ToInteger(Substring(networkprefix, slashpos + 1),-1);
+  IF (prefixnum < 0)
+    THROW NEW Exception(`Illegal prefix size ${EncodeJSON(Substring(networkprefix, slashpos + 1))}`);
+
+  STRING normalized_prefix := __HS_TCPIP_CanonicalizeIP(Left(networkprefix, slashpos), prefixnum);
+  IF (normalized_prefix = "")
+    THROW NEW Exception(`Error normalizing the network prefix ${EncodeJSON(networkprefix)}`);
+
+  RETURN __HS_TCPIP_CanonicalizeIP(ip, prefixnum) = __HS_TCPIP_CanonicalizeIP(Left(networkprefix, slashpos), prefixnum);
+}
+
+/** Returns whether the specified address is a valid IPv4 address
+    @param address Address to check
+    @return TRUE if the address is a valid IPv4 address
+*/
 PUBLIC BOOLEAN FUNCTION IsValidIPV4Address(STRING address)
 {
   RETURN address NOT LIKE "*:*" AND __HS_TCPIP_CanonicalizeIP(address,32) != "";
 }
 
+/** Returns whether the specified address is a valid IPv6 address
+    @param address Address to check
+    @return TRUE if the address is a valid IPv6 address
+*/
 PUBLIC BOOLEAN FUNCTION IsValidIPV6Address(STRING address)
 {
   RETURN address LIKE "*:*" AND __HS_TCPIP_CanonicalizeIP(address,128) != "";
@@ -694,7 +795,10 @@ PUBLIC BOOLEAN FUNCTION IsValidIPAddress(STRING address)
 /** @short Is an address a private IP address? (localhost or other private space)
     @long Tells whether the address should be considered local or private, eg 192.168.*, 127.0.0.1, 10.*, ::1.... This should
           never be used for any security or authentication purposes, but can be useful to eg. return default values for
-          GEOIP checks */
+          GEOIP checks
+    @param address IP address to check
+    @return TRUE if the IP address is local or private
+*/
 PUBLIC BOOLEAN FUNCTION IsPrivateIPAddress(STRING address)
 {
   IF(address LIKE "*:*")
@@ -729,10 +833,28 @@ PUBLIC BOOLEAN FUNCTION IsPrivateIPAddress(STRING address)
     @return The IP for this hostname, or an empty string if the hostname couldn't be resolved
 */
 PUBLIC STRING FUNCTION ResolveHostname(STRING hostname) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns all IP address es for a hostname, Ipv4 and IPv6
+    @param hostname Host name to look up
+    @return List of IP addresses
+*/
 PUBLIC STRING ARRAY FUNCTION ResolveHostnameAllIPs(STRING hostname) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns the list of IP addresses of this machine
+    @return List of IP addresses
+*/
 PUBLIC STRING ARRAY FUNCTION GetLocalIPs() __ATTRIBUTES__(EXTERNAL);
 
+/** Sets the send buffer size of a socket
+    @param connid Connection id
+    @param buffersize New buffer size
+*/
 PUBLIC MACRO SetSocketSendBufferSize(INTEGER connid, INTEGER buffersize) __ATTRIBUTES__(EXTERNAL);
+
+/** Retuyrns the send buffer size of a socket
+    @param connid Connection id
+    @return Current send buffer size
+*/
 PUBLIC INTEGER FUNCTION GetSocketSendBufferSize(INTEGER connid) __ATTRIBUTES__(EXTERNAL);
 
 /** @short Resolve an IP address to a hostname

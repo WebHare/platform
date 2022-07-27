@@ -11,74 +11,6 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
-// ---------------------------------------------------------------------------
-//
-// Global entity registry node cache
-//
-
-/** @cell entity
-    @cell parent
-    @cell name
-    @cell id
-*/
-RECORD ARRAY registrynodecache;
-
-INTEGER registrynodecache_binding_gen;
-
-INTEGER FUNCTION LookupRegistryNodeFromCache(INTEGER entity, INTEGER parent, STRING uname)
-{
-  IF (registrynodecache_binding_gen != __system_binding_gen)
-    ClearRegistryNodeCache();
-
-  RECORD lookup := RecordLowerBound(registrynodecache,
-      [ entity := entity
-      , parent := parent
-      , uname := uname
-      ], [ "ENTITY", "PARENT", "UNAME" ]);
-
-  IF (lookup.found)
-    RETURN registrynodecache[lookup.position].id;
-
-  RETURN 0;
-}
-
-
-MACRO ClearRegistryNodeCache()
-{
-  registrynodecache_binding_gen := __system_binding_gen;
-  registrynodecache := DEFAULT RECORD ARRAY;
-}
-
-
-MACRO RegistryNodeCacheCommitHandler(BOOLEAN iscommit)
-{
-  // Clear cache upon rollback
-  IF (NOT iscommit)
-    ClearRegistryNodeCache();
-}
-
-
-MACRO InsertRegistryNodeInCache(INTEGER entity, INTEGER parent, STRING uname, INTEGER id, BOOLEAN is_dbase_insert)
-{
-  IF (registrynodecache_binding_gen != __system_binding_gen)
-    ClearRegistryNodeCache();
-
-  RECORD cacherec :=
-      [ entity :=       entity
-      , parent :=       parent
-      , uname :=        uname
-      , id :=           id
-      ];
-
-  RECORD lookup := RecordLowerBound(registrynodecache, cacherec, [ "ENTITY", "PARENT", "UNAME" ]);
-  IF (lookup.found)
-    registrynodecache[lookup.position].id := id;
-  ELSE
-    INSERT cacherec INTO registrynodecache AT lookup.position;
-
-  IF (is_dbase_insert)
-    __INTERNAL_GetSystemSchemaBinding()->RegisterCommitHandler("wrd:objectapi.registrynodecache", PTR RegistryNodeCacheCommitHandler);
-}
 
 STATIC OBJECTTYPE WRDEntityDuplicator
 <
@@ -96,24 +28,24 @@ STATIC OBJECTTYPE WRDEntityDuplicator
       @cell links.obj Type
       @cell links.field Field to search
       @cell attrs List of attributes to process for remapping
-      @cell attrs.attributetype
-      @cell attrs.localtag
-      @cell attrs.domain
+      @cell attrs.attributetype Attribute type
+      @cell attrs.localtag Local attribute tag
+      @cell attrs.domain Domain
       @cell attrs.subfields List of sub-attributes for arrays, same structure
   */
   RECORD ARRAY types;
 
   /** Sorted mapping of ids, sorted on id
       @cell type Entity type id
-      @cell id
+      @cell id Entity id
       @cell toid Remapping
       @cell updates Updates for entity data
   */
   RECORD ARRAY mapping;
 
   /** List of entities to analyze
-      @cell type
-      @cell id
+      @cell(integer) type Entity type
+      @cell(integer) id Entity id
   */
   RECORD ARRAY analyzeworklist;
 
@@ -122,6 +54,12 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     this->options := options;
   }
 
+  /** Get all types that link to this type
+      @param type Type to process
+      @return List of types that link to this type (with wrd_leftentity or wrd_rightentity)
+      @cell return.obj Type that links to this type
+      @cell return.field Field that links to this type ("wrd_leftentity" or "wrd_rightentity")
+  */
   RECORD ARRAY FUNCTION GetLinkTypes(OBJECT type)
   {
     // Get all parent types of the type for links to the parent
@@ -146,7 +84,15 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     RETURN results;
   }
 
-  /// Get the list of attributes that must be processed for remapping
+  /** Get the list of attributes that must be processed for remapping
+      @param type WRD type
+      @param parent Parent attribute
+      @return List of attributes that must be processed
+      @cell return.attributetype Attribute type
+      @cell return.localtag Local tag for the attribute
+      @cell return.domain Domain
+      @cell return.subfields Array subfields (when type is array)
+  */
   RECORD ARRAY FUNCTION GetProcessAttributes(OBJECT type, INTEGER parent)
   {
     RECORD ARRAY result;
@@ -155,7 +101,7 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     {
       SWITCH (rec.attributetype)
       {
-        CASE 1, 8 // domain, domainarray
+        CASE wrd_attributetype_domain, wrd_attributetype_domainarray // domain, domainarray
         {
           INSERT CELL
               [ rec.attributetype
@@ -164,7 +110,7 @@ STATIC OBJECTTYPE WRDEntityDuplicator
               , subfields :=    RECORD[]
               ] INTO result AT END;
         }
-        CASE 13
+        CASE wrd_attributetype_array
         {
           INSERT CELL
               [ rec.attributetype
@@ -178,7 +124,14 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     RETURN result;
   }
 
-  /// Get type data by type id
+  /** Get type data by type id
+      @param type WRD type id
+      @return Type information
+      @cell return.id Type Id
+      @cell return.obj Type object
+      @cell return.attrs Attributes that need to be processed @includecelldef #GetProcessAttributes.return
+      @cell return.links Types that link to this type @includecelldef #GetLinkTypes.return
+  */
   RECORD FUNCTION ProcessType(INTEGER type)
   {
     RECORD pos := RecordLowerBound(this->types, [ id := type ], [ "ID" ]);
@@ -200,9 +153,10 @@ STATIC OBJECTTYPE WRDEntityDuplicator
 
   /** Get the mapping of an id
       @param type Entity type.
-      @param id
+      @param id Id to map
       @param accurate_type If the type is accurate (if not, should be a parent type)
       @param forceduplication If TRUE, force duplication
+      @return Mapped id
   */
   INTEGER FUNCTION GetMapping(INTEGER type, INTEGER id, BOOLEAN accurate_type, BOOLEAN forceduplication)
   {
@@ -236,7 +190,11 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     RETURN rec.toid;
   }
 
-  /// Remap all the links in attribute data
+  /** Remap all the links in attribute data
+      @param rec Entity data
+      @param fields Field processing instructrions @includecelldef #GetProcessAttributes.return
+      @return Remapped entity data
+  */
   RECORD FUNCTION ProcessData(RECORD rec, RECORD ARRAY fields)
   {
     FOREVERY (RECORD field FROM fields)
@@ -244,16 +202,16 @@ STATIC OBJECTTYPE WRDEntityDuplicator
       VARIANT value := GetCell(rec, field.localtag);
       SWITCH (field.attributetype)
       {
-        CASE 1 // domain
+        CASE wrd_attributetype_domain // domain
         {
           value := this->GetMapping(field.domain, value, FALSE, FALSE);
         }
-        CASE 8 // domain array
+        CASE wrd_attributetype_domainarray // domain array
         {
           FOREVERY (INTEGER elt FROM value)
             value[#elt] := this->GetMapping(field.domain, elt, FALSE, FALSE);
         }
-        CASE 13 // array
+        CASE wrd_attributetype_array // array
         {
           FOREVERY (RECORD elt FROM value)
             value[#elt] := this->ProcessData(elt, field.subfields);
@@ -332,6 +290,10 @@ STATIC OBJECTTYPE WRDEntityDuplicator
     }
   }
 
+  /** Run the duplicator
+      @param wrdentity Entity to duplicate
+      @return New entity
+  */
   PUBLIC OBJECT FUNCTION Run(OBJECT wrdentity)
   {
     this->wrdschema := wrdentity->wrdtype->wrdschema;
@@ -572,6 +534,9 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
     RETURN NEW WRDEntityDuplicator(options)->Run(this);
   }
 
+  /** Change all references to this entity to point to another entity instead
+      @param destentity Change all references to this entity to point to this entity instead
+  */
   PUBLIC MACRO MergeEntityInto(INTEGER destentity)
   {
     RECORD entity := SELECT type FROM wrd.entities WHERE id = destentity;

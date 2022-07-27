@@ -20,8 +20,9 @@ STRING FUNCTION EncodeSingleQuoted(STRING input)
 
 STRING FUNCTION FindLogFile(STRING logfilepath)
 {
-  IF(RecordExists(GetDiskFileProperties(logfilepath)))
-    RETURN logfilepath;
+  STRING absolutepath := MergePath(GetCurrentPath(), logfilepath);
+  IF(RecordExists(GetDiskFileProperties(absolutepath)))
+    RETURN absolutepath;
 
   IF(logfilepath NOT LIKE "*/*") //no path info
   {

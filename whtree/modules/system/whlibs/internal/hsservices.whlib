@@ -918,7 +918,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
   }
 >;
 
-/** Handles promise resolved for WaitUntilMultiple
+/** Handles promise resolved for WaitUntil
 */
 OBJECTTYPE PromisesResultKeeper
 < // ---------------------------------------------------------------------------
@@ -1063,43 +1063,17 @@ VARIANT FUNCTION ToArray(VARIANT value, BOOLEAN ignoredefault DEFAULTSTO TRUE)
 */
 PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
 {
-  INSERT CELL multiple := FALSE INTO waitfor;
-  RETURN WaitUntilMultiple(waitfor, until);
-}
-
-/** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached
-    @param waitfor What to wait for
-    @cell(integer array) waitfor.read Return when any of these handles is read-signalled (optional)
-    @cell(integer array) waitfor.write Return when any of these handles is write-signalled (optional)
-    @cell(object array) waitfor.promise Return when any of these promises are fulfilled. Throws when a promise is rejected, returns
-                    the fulfilled promise and the value it resolved to otherwise. (optional)
-    @cell(function ptr array) waitfor.func Return when any of this functions returns TRUE
-    @cell(boolean) waitfor.nothrow If TRUE, rejected promises are returned in the return value, instead of throwing
-                    the exception.
-    @cell(boolean) waitfor.multiple if TRUE, allow returning multiple results
-    @param until Wait until this time
-    @return List of signalled items
-    @cell return.type Reason of exit: 'handle-read', 'handle-write', 'promise', 'timeout', 'func')
-    @cell return.handle Signalled handle
-    @cell return.promise Fulfilled promise (promises only)
-    @cell return.fulfillmenttype Indicates whether the promise was resolved or rejected. Values: "resolved" / "rejected" (promise only)
-    @cell return.value Value the promise resolved to (promises only)
-    @cell return.nr Nr of function that returned TRUE (functions only)
-*/
-PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
-{
   OBJECT promisekeeper;
 
   FOREVERY (RECORD rec FROM UnpackRecord(waitfor))
-    IF (rec.name NOT IN [ "READ", "WRITE", "TIMEOUT", "PROMISE", "NOTHROW", "MULTIPLE", "CALLBACKS" ])
+    IF (rec.name NOT IN [ "READ", "WRITE", "PROMISE", "NOTHROW", "MULTIPLE", "CALLBACKS" ])
       THROW NEW Exception("Illegal option '" || rec.name || "'");
 
-  BOOLEAN multiple_return := NOT CellExists(waitfor, "MULTIPLE") OR waitfor.multiple;
+  BOOLEAN multiple_return := CellExists(waitfor, "MULTIPLE") AND waitfor.multiple;
   BOOLEAN callbacks := CellExists(waitfor, "CALLBACKS") AND waitfor.callbacks;
   INTEGER ARRAY readhandles := CellExists(waitfor, "READ") ? ToArray(waitfor.read, FALSE) : DEFAULT INTEGER ARRAY;
   INTEGER ARRAY writehandles := CellExists(waitfor, "WRITE") ? ToArray(waitfor.write, FALSE) : DEFAULT INTEGER ARRAY;
   OBJECT ARRAY promises := CellExists(waitfor, "PROMISE") ? ToArray(waitfor.promise) : DEFAULT OBJECT ARRAY;
-  //FUNCTION PTR ARRAY funcs := CellExists(waitfor, "FUNC") ? ToArray(waitfor.func) : DEFAULT FUNCTION PTR ARRAY;
   IF (LENGTH(promises) != 0)
   {
     promisekeeper := NEW PromisesResultKeeper(CellExists(waitfor, "NOTHROW") AND waitfor.nothrow);
@@ -1196,6 +1170,16 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
     IF (ObjectExists(promisekeeper))
       promisekeeper->Unsubscribe();
   }
+}
+
+/** Wait until a handle is signalled, a promise is fulfilled or a timeout is reached. Deprecated, use WaitUntil with multiple := TRUE
+    @param waitfor @includecelldef #WaitUntil.waitfor
+    @param until @includecelldef #WaitUntil.until
+    @return @includecelldef #WaitUntil.return
+*/
+PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until) __ATTRIBUTES__(DEPRECATED "Use WaitUntil with multiple := TRUE")
+{
+  RETURN WaitUntil(CELL[ multiple := TRUE, ...waitfor], until);
 }
 
 /** Synchronously waits for a promise to resolve

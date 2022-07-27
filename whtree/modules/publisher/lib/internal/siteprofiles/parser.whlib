@@ -48,6 +48,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   RECORD ARRAY errormessages;
   RECORD ARRAY warnings;
   RECORD ARRAY hints;
+  RECORD ARRAY icons;
   STRING filename;
   OBJECT siteprof;
   OBJECT parameters;
@@ -79,6 +80,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     RETURN this->hints;
   }
+  PUBLIC RECORD ARRAY FUNCTION GetIcons()
+  {
+    RETURN this->icons;
+  }
 
   PUBLIC MACRO AddHint(OBJECT node, STRING message)
   {
@@ -103,6 +108,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
            , col :=          0
            , message :=      error
            ] INTO this->errormessages AT END;
+  }
+  PUBLIC MACRO AddIcon(OBJECT node, STRING icon)
+  {
+    IF (icon != "")
+    {
+      INSERT [ resourcename := this->filename
+             , line  :=        node->linenum
+             , col :=          0
+             , icon :=         icon
+             ] INTO this->icons AT END;
+    }
   }
 
   PUBLIC STRING FUNCTION ParseFSPath(OBJECT node, STRING attrname)
@@ -268,6 +284,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
     ctype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
+    this->AddIcon(ftype, ctype.tolliumicon);
 
     OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
     IF(ObjectExists(dyninfo))
@@ -499,6 +516,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.cloneoncopy := set_cloneoncopy;
     INSERT CELL members := newmembers.members INTO typeinfo;
+
+    this->AddIcon(ctype, typeinfo.tolliumicon);
 
     IF (nodename = "widgettype")
     {
@@ -1381,6 +1400,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           , members :=            DEFAULT RECORD ARRAY
           ];
 
+      this->AddIcon(gtype, typeinfo.tolliumicon);
+
       INSERT typeinfo INTO types AT END;
   }
     RETURN types;
@@ -1431,12 +1452,13 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , errors := RECORD[]
                          , warnings := RECORD[]
                          , hints := RECORD[]
+                         , icons := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
                          ];
 
-  RECORD ARRAY errors, warnings, hints;
+  RECORD ARRAY errors, warnings, hints, icons;
   OBJECT siteprof;
   OBJECT siteprofcontext;
   IF(NOT ObjectExists(parametersingleton))
@@ -1481,12 +1503,14 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     errors := siteprofcontext->GetErrors() CONCAT errors;
     warnings := siteprofcontext->GetWarnings() CONCAT warnings;
     hints := siteprofcontext->GetHints() CONCAT hints;
+    icons := siteprofcontext->GetIcons() CONCAT icons;
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
   }
 
   siteprofdata.errors := errors;
   siteprofdata.warnings := warnings;
   siteprofdata.hints := hints;
+  siteprofdata.icons := icons;
 
   RETURN [ value := siteprofdata
          , ttl := 60*60*1000

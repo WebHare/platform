@@ -109,16 +109,22 @@ RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
   FOREVERY(RECORD icon FROM icons)
     FOREVERY(STRING iconpart FROM Tokenize(icon.icon,'+'))
     {
-      IF(NOT RecordExists(GetImage(iconpart, 24, 24, "", "b", [ nobroken := TRUE ])))
+      OBJECT exc;
+      TRY
       {
-        STRING attr := CellExists(icon, "ATTRNAME") ? icon.attrname : "";
-        INSERT
-            [ resourcename :=   icon.resourcename
-            , message :=    "Missing icon" || (attr != "" ? " from attribute '" || attr || "'" : "") || ": '" || iconpart || "'"
-            , line :=       icon.line
-            , col :=        icon.col
-            ] INTO warnings AT END;
+        IF (RecordExists(GetImage(iconpart, 24, 24, "", "b", [ nobroken := TRUE ])))
+          CONTINUE;
       }
+      CATCH (OBJECT e)
+        exc := e;
+
+      STRING attr := CellExists(icon, "ATTRNAME") ? icon.attrname : "";
+      INSERT
+          [ resourcename :=   icon.resourcename
+          , message :=    "Missing icon" || (attr != "" ? " from attribute '" || attr || "'" : "") || ": '" || iconpart || "'" || (ObjectExists(exc) ? ` (exception: ${exc->what})` : "")
+          , line :=       icon.line
+          , col :=        icon.col
+          ] INTO warnings AT END;
     }
 
   RETURN warnings;

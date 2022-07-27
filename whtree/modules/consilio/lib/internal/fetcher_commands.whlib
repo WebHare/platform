@@ -670,7 +670,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
         // The queue is all done, so all objects within the group that should be indexed have been indexed by now. All objects
         // still in the index belonging to the group with an index date before our task's index date can be removed from the
         // index.
-        IF(NOT options.nocleaning AND NOT got_crash)
+        IF(NOT options.nocleaning AND NOT got_crash AND NOT options.noindexmodify)
         {
           INTEGER to_delete := LENGTH(SELECT FROM existing_objects WHERE NOT referenced);
           FetcherDebug(ConsilioDebugInfo, "Incrementally checking done for cs " || source.id || " group \"" || EncodeJava(data.groupid) || "\", now deleting " || to_delete || " of " || LENGTH(existing_objects) || " pre-existing objects", source.loglevel);
@@ -681,8 +681,9 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
           IF (LENGTH(existing_objects) != 0)
           {
             // Remove them!
-            IF (NOT RemoveOutdatedGroupObjects(source.indexid, source.id, data.groupid, existing_objects, options.noindexmodify, options.refresh))
-              RETURN result;
+            STRING deleteres := DeleteIndexManagerObjects(source.indexid, source.id, (SELECT AS STRING ARRAY id FROM existing_objects), CELL[ options.refresh, throwonfailure := TRUE ]);
+            IF (deleteres != SearchOk)
+              THROW NEW Exception(deleteres);
           }
         }
       }
@@ -1337,7 +1338,8 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
         SELECT TEMPORARY in_all_indexmgrs := Count(*) = LENGTH(indexmanagers)
              , id
              , indexdate :=     in_all_indexmgrs ? Min(indexdate) : DEFAULT DATETIME
-             , commanddate :=   in_all_indexmgrs ? Min(commanddate) : DEFAULT DATETIME
+             // If two attached indices disagree about commanddate we need the highest 'old' commanddate
+             , commanddate :=   Max(commanddate)
           FROM results
       GROUP BY id;
   }

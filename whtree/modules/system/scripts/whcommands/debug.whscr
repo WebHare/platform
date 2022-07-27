@@ -33,6 +33,7 @@ Commands:
   setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
   getsecret <name>                    Get a secret
   setsecret <name=value>...           Setup one or more test secrets
+  findjob jobmask                     Locate the process with the specified job
   stacktrace process jobmask          Get a stack trace of the specified job
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
@@ -174,6 +175,36 @@ ASYNC FUNCTION GetProcessByParam(STRING mask)
   RETURN DEFAULT OBJECT;
 }
 
+ASYNC FUNCTION SearchJobByParam(STRING prefix)
+{
+  RECORD ARRAY result;
+
+  OBJECT processlistener := connection->GetProcessListener();
+  RECORD ARRAY processlist := AWAIT processlistener->RequestUpdate();
+
+  FOREVERY (RECORD processrec FROM processlist)
+  {
+    OBJECT process := processrec.obj;
+    OBJECT listener := process->GetJobListener();
+
+    RECORD ARRAY joblist := AWAIT listener->RequestUpdate();
+    listener->Close();
+
+    FOREVERY (RECORD rec FROM joblist)
+      IF (rec.groupid LIKE prefix || "*")
+      {
+        INSERT CELL
+            [ processrec.processcode
+            , processrec.clientname
+            , rec.groupid
+            , rec.script
+            ] INTO result AT END;
+      }
+  }
+  processlistener->Close();
+  RETURN result;
+}
+
 ASYNC MACRO RunCommand()
 {
   SWITCH (args.command)
@@ -300,6 +331,19 @@ Executed instrs.:   ${stats.instructions}
           ShowSyntax(`Invalid job command '${args.jobcmd}`);
         }
       }
+    }
+
+    CASE "findjob"
+    {
+      ParseSubArgs(
+            [ [ name := "prefix", type := "param", required := TRUE ]
+            ]);
+
+      RECORD ARRAY results := AWAIT SearchJobByParam(args.prefix);
+      IF (IsDefaultValue(results))
+        PRINT(`No job found with prefix ${args.prefix}\n`);
+      ELSE
+        DumpValue(results, [ name := "Matching jobs", format := "boxed" ]);
     }
 
     CASE "terminate"
