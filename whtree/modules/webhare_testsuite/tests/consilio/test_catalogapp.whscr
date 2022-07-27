@@ -54,6 +54,13 @@ ASYNC MACRO TestCatalogApp()
   TestEq(2, Length(TT("attachedindices")->rows));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Show field mapping", [ menuitem := TRUE ]));
+  TestEqMembers([[ name := "nosuchfieldyet_extra", type := "keyword" ]
+                ,[ name := "no", type := "record" ] //TODO subfields
+                ], TT("fieldmapping")->rows, '*');
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }
 

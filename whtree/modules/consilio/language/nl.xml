@@ -94,6 +94,7 @@
       <text tid="rebuildcatalog">Opnieuw opbouwen</text>
       <text tid="restart">Queuemanager herstarten</text>
       <text tid="showerrors">Toon foutmeldingen</text>
+      <text tid="showfieldmapping">Toon veldkoppelingen</text>
       <text tid="size">Grootte</text>
       <text tid="status">Status</text>
       <text tid="taggedcontentsourcetitle"><param p="1"/>: <param p="2"/></text>
@@ -134,6 +135,11 @@
       <text tid="indexname">Indexnaam</text>
       <text tid="invalidindexname">Invalide indexnaam. De naam moet beginnen met een letter en mag alleen bestaan uit de karakters 0-9 en a-z en een liggend streepje (_)</text>
       <text tid="searchpriority">Zoekprioriteit</text>
+    </textgroup>
+    <textgroup gid="fieldmapping">   <!-- catalog.fieldmapping -->
+      <text tid="fieldmapping">Veldkoppelingen</text>
+      <text tid="name">Naam</text>
+      <text tid="type">Type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>

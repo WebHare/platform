@@ -268,6 +268,11 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     }
   }
 
+  MACRO DoShowFieldMapping()
+  {
+    this->RunScreen("#fieldmapping", [ catalog := ^catalogs->selection.id ]);
+  }
+
   MACRO DoDelete()
   {
     RECORD ARRAY killcatalogs := SELECT * FROM ^catalogs->selection WHERE catalog;
@@ -1519,4 +1524,14 @@ PUBLIC STATIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
       this->tolliumresult := "cancel";
     }
   }
+>;
+
+PUBLIC STATIC OBJECTTYPE FieldMapping EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY mapping := OpenConsilioCatalogById(data.catalog)->GetExpectedMapping();
+    ^fieldmapping->rows := SELECT name, type FROM mapping;
+  }
+
 >;
