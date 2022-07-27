@@ -13,10 +13,6 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-STRING ARRAY testcatalogs := [ "webhare_testsuite:testindex"
-                             , "webhare_testsuite:testindex_suffixed"
-                             , "webhare_testsuite:module_reference"
-                             ];
 RECORD testindex, testindex_suffixed;
 RECORD builtin_opensearch;
 
@@ -51,8 +47,8 @@ MACRO TestUpdateIndicesMetadata()
 
   testfw->BeginWork();
 
-  //Force deletion and recreation... they'll be garbage collected...
-  DELETE FROM consilio.catalogs WHERE name IN testcatalogs;
+  //Force deletion and recreation, they'll be garbage collected - but leave managed indices alone, our test doesn't use them and recreation takes time
+  DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:*" AND type = whconstant_consilio_catalogtype_unmanaged;
   testfw->CommitWork();
 
   FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
@@ -65,53 +61,31 @@ MACRO PrepareIndices()
   //Verify the found opensearch url is correct
   TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
   TestEq(TRUE, CellExists(DecodeJSONBlob(testfw->browser->content), "cluster_name"));
-
-  //Verify and cleanup from any previously (aborted)? testrun
-  testfw->BeginWork();
-  FOREVERY(STRING usedcatalog FROM testcatalogs)
-  {
-    OBJECT cat := OpenConsilioCatalog(usedcatalog);
-    TestEq(TRUE, ObjectExists(cat), `Catalog "${usedcatalog}" should exist`);
-    FOREVERY(RECORD toremove FROM cat->ListAttachedIndices())
-      cat->DetachIndex(toremove.id);
-
-    TestEq(FALSE, cat->IsReadyForStorage(), "Can't be ready, no attached indices");
-
-    INTEGER index1id := cat->AttachIndex(builtin_opensearch.id);
-    IF(#usedcatalog = 0) //we'll use testindex for some further tests
-    {
-      testindex := cat->ListAttachedIndices()[0];
-      TestEqLike("c_??*", testindex.indexname, "test for properly structured builtin indexname");
-
-      TestEqMembers([[ id := index1id
-                     , indexmanager := builtin_opensearch.id
-                     , type := "opensearch"
-                     , searchpriority := 100
-                     , indexname := testindex.indexname
-                     , readonly := FALSE
-                     ]
-                    ], cat->ListAttachedIndices(), "*");
-
-      cat->AttachIndex(builtin_opensearch.id, [ readonly := TRUE ]);
-    }
-    ELSE IF(#usedcatalog = 1)
-    {
-      testindex_suffixed := cat->ListAttachedIndices()[0];
-    }
-
-    Print(cat->GetStorageInfo()||"\n");
-
-    IF(cat->suffixed)
-      TestEq(TRUE, cat->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
-    ELSE
-      TestEq(FALSE, cat->IsReadyForStorage(), "An unsuffixed index is not ready until attached");
-  }
-  testfw->CommitWork();
 }
 
 MACRO TestESCreationAPIs()
 {
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(FALSE, catalog->IsReadyForStorage(), "Can't be ready, no attached indices");
+
+  testfw->BeginWork();
+  INTEGER index1id := catalog->AttachIndex(builtin_opensearch.id);
+  testindex := catalog->ListAttachedIndices()[0];
+  TestEqLike("c_??*", testindex.indexname, "test for properly structured builtin indexname");
+
+  TestEqMembers([[ id := index1id
+                 , indexmanager := builtin_opensearch.id
+                 , type := "opensearch"
+                 , searchpriority := 100
+                 , indexname := testindex.indexname
+                 , readonly := FALSE
+                 ]
+                ], catalog->ListAttachedIndices(), "*");
+
+  catalog->AttachIndex(builtin_opensearch.id, [ readonly := TRUE ]);
+  Print(catalog->GetStorageInfo() || "\n");
+  TestEq(FALSE, catalog->IsReadyForStorage(), "An unsuffixed index is not ready until attachment are commited");
+  testfw->CommitWork();
 
   TestEq(TRUE, catalog->IsReadyForStorage(), "Has to be ready, CommitWork after AttachIndex synchronously applies the configuration");
 
@@ -177,6 +151,11 @@ MACRO TestESCreationAPIs()
   catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
   TestEq(RECORD[], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
   testfw->BeginWork();
+  catalog->AttachIndex(0);
+  catalog->AttachIndex(0, [ readonly := TRUE ]);
+  Print(catalog->GetStorageInfo() || "\n");
+  TestEq(TRUE, catalog->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
+  testindex_suffixed := catalog->ListAttachedIndices()[0];
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
   testfw->CommitWork();
 
@@ -204,6 +183,10 @@ MACRO TestESCreationAPIs()
   // We should be able open to the catalog
   catalog := OpenConsilioCatalog("webhare_testsuite:module_reference");
   TestEq(TRUE, ObjectExists(catalog));
+
+  testfw->BeginWork();
+  catalog->AttachIndex(0);
+  testfw->CommitWork();
 
   result := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
