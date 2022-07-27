@@ -432,7 +432,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   // Constructor
   //
 
-  /** Creates a new  port handler
+  /** Creates a new port handler
       @param(object #IPCPort) port IPC port to listen on
   */
   MACRO NEW(OBJECT port)
@@ -840,7 +840,7 @@ PUBLIC RECORD FUNCTION CreateJob(STRING script)
 }
 
 /** Closes an input/output pipe of a job
-    @param handle andle of the pipe
+    @param handle Handle of the pipe
 */
 PUBLIC MACRO CloseJobPipe(INTEGER handle)
 {

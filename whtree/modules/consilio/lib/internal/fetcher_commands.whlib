@@ -1338,6 +1338,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
         SELECT TEMPORARY in_all_indexmgrs := Count(*) = LENGTH(indexmanagers)
              , id
              , indexdate :=     in_all_indexmgrs ? Min(indexdate) : DEFAULT DATETIME
+             // If two attached indices disagree about commanddate we need the highest 'old' commanddate
              , commanddate :=   Max(commanddate)
           FROM results
       GROUP BY id;

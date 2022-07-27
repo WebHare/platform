@@ -509,16 +509,16 @@ PUBLIC MACRO IPtesT()
   TestEq(TRUE, IsPrivateIPAddress("febf::ffff"));
   TestEq(FALSE, IsPrivateIPAddress("fec0::0"));
 
-  TestEq(TRUE, TestIPAddressWithinPrefix("1.2.3.4", "1.2.3.4/32"));
-  TestEq(FALSE, TestIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/32"));
-  TestEq(TRUE, TestIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/31"));
-  TestEq(TRUE, TestIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/31"));
-  TestEq(TRUE, TestIPAddressWithinPrefix("0.0.0.0", "255.255.255.255/0"));
-  TestEq(TRUE, TestIPAddressWithinPrefix("0.0.0.0", "255.255.255.255/0"));
-  TestEq(FALSE, TestIPAddressWithinPrefix("::", "0.0.0.0/0"));
-  TestEq(FALSE, TestIPAddressWithinPrefix("0.0.0.0", "::/0"));
-  TestEq(TRUE, TestIPAddressWithinPrefix("8000::0", "FFFF::/1"));
-  TestEq(FALSE, TestIPAddressWithinPrefix("8000::0", "7FFF::/1"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("1.2.3.4", "1.2.3.4/32"));
+  TestEq(FALSE, IsIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/32"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/31"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("1.2.3.5", "1.2.3.4/31"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("0.0.0.0", "255.255.255.255/0"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("0.0.0.0", "255.255.255.255/0"));
+  TestEq(FALSE, IsIPAddressWithinPrefix("::", "0.0.0.0/0"));
+  TestEq(FALSE, IsIPAddressWithinPrefix("0.0.0.0", "::/0"));
+  TestEq(TRUE, IsIPAddressWithinPrefix("8000::0", "FFFF::/1"));
+  TestEq(FALSE, IsIPAddressWithinPrefix("8000::0", "7FFF::/1"));
 
   CloseTest("TestInternet: IP addresses");
 }
