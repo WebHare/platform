@@ -32,9 +32,15 @@ CONSTANT RECORD defaultparentstate := [ strict := TRUE
 
 RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
 {
+  IF(name LIKE "<index>*") //Pre-5.0 <index> support. Remove at some point...
+  {
+    name := Substring(name,7);
+    type := "index";
+  }
+
   OBJECT node := GetIndexFieldDefinitionNode(name, type);
   IF(NOT ObjectExists(node))
-    THROW NEW Exception(`Cannot find ${type} mapping for '${name}'`);
+    THROW NEW Exception(`Cannot find ${type} mapping '${name}'`);
 
   RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstate);
 }
