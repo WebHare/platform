@@ -51,7 +51,7 @@ MACRO TestUpdateIndicesMetadata()
   DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:*" AND type = whconstant_consilio_catalogtype_unmanaged;
   testfw->CommitWork();
 
-  FixConsilioIndices([ limitmodule := "webhare_testsuite" ]);
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:*" ]);
 }
 
 MACRO PrepareIndices()

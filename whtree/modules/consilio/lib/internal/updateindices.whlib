@@ -168,13 +168,8 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
     catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
 }
 
-MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO UpdateModuleCatalogs(RECORD options)
 {
-  options := ValidateOptions(
-      [ reportmissing := FALSE
-      , limitmodule := ""
-      ], options);
-
   OBJECT trans := GetPrimary();
   IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
     RETURN; //consilio is not initialized yet!
@@ -182,7 +177,7 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD ARRAY wantcatalogs := SELECT *
                                     , catalog := DEFAULT OBJECT
                                  FROM GetRequiredCatalogs()
-                                WHERE (options.limitmodule = "" ? TRUE : sourcemodule =  options.limitmodule);
+                                WHERE ToUppercase(tag) LIKE ToUppercase(options.catalogmask);
 
   BOOLEAN havedefaultindexmanager := RecordExists(SELECT FROM ListIndexManagers() WHERE isdefault);
 
@@ -232,13 +227,13 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ reportmissing := FALSE
-      , limitmodule := ""
+      , catalogmask := "*"
       ], options);
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
   TRY
   {
-    UpdateModuleCatalogs(CELL[options.reportmissing, options.limitmodule]);
+    UpdateModuleCatalogs(options);
   }
   FINALLY
   {
