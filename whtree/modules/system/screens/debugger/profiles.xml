@@ -76,7 +76,7 @@
                     onselect="onprofileselected"
                     borders="top left"
                     >
-                <column name="when" type="time" storeutc="true" precision="milliseconds" width="13x" />
+                <column name="when" type="time" precision="milliseconds" width="13x" />
 <!--                 <column name="source" type="text" width="20x" /> -->
                 <column name="command" type="text" />
 <!--                <column name="type" type="text" width="18x" /> show it as an icon or something if we really need it, but the two row layout was really ugly -->

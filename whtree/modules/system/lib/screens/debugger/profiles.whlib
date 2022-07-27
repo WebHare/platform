@@ -385,7 +385,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->profileslist->rows :=
         SELECT rowkey := id
-             , when := GetMsecondCount(when)
+             , when := GetMsecondCount(this->contexts->user->UTCToLocal(when))
              , source
              , command
              , type
