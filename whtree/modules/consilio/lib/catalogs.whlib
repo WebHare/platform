@@ -834,7 +834,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
     ELSE
     {
-      newmapping := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
+      newmapping := GetFieldgroupsFieldDefinition(fieldgroups);
     }
 
     IF(this->managed)
@@ -849,7 +849,7 @@ STATIC OBJECTTYPE ConsilioCatalog
         IF (RecordExists(properties))
         {
           IF (NOT RecordExists(newmapping))
-            newmapping := CELL[ properties, strict := TRUE ];
+            newmapping := CELL[ properties ];
           ELSE
             newmapping.properties := properties;
         }
@@ -860,23 +860,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     FOREVERY(STRING suffix FROM suffixes)
     {
-      //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
-      //TODO how to remove a dynamic template?
-      //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
-      RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ suffix, throwonfailure := TRUE ]);
       RECORD finalupdate := PrepareMappingUpdate(newmapping);
-
-      STRING ARRAY newtemplates;
-      FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
-        INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
-
-      FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
-      {
-        STRING name := UnpackRecord(templ)[0].name;
-        IF(name NOT IN newtemplates)
-          INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
-      }
-
       EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
     }
   }

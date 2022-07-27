@@ -364,7 +364,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
         {
           RECORD settings := CELL
               [ properties := GetContentSourcesMapping([ contentsourceid ], defaultmappingfields)
-              , strict := TRUE
               ];
           settings := PrepareMappingUpdate(settings);
 
@@ -1990,7 +1989,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
           FROM ToRecordArray(Tokenize((SELECT AS STRING COLUMN fieldgroups FROM consilio.catalogs WHERE id = indexid), " "), "fieldgroup")
          WHERE fieldgroup != "";
     IF (Length(fieldgroups) > 0)
-      def := GetFieldgroupsFieldDefinition(fieldgroups, TRUE);
+      def := GetFieldgroupsFieldDefinition(fieldgroups);
     ELSE
       def := GetIndexFieldDefinition(SELECT AS STRING name FROM consilio.catalogs WHERE id = indexid);
     IF (RecordExists(def))

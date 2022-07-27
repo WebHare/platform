@@ -476,69 +476,10 @@ MACRO TestESBulkInsertion()
 
   //But we should be able to set it through a wildcard if we add it
   testfw->BeginWork();
-  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields", "webhare_testsuite:unspecifiedwildcards" ] ]);
+  catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields"  ] ]);
   testfw->CommitWork();
 
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := 43 ]
-        ]
-      ],[ suffix := "sub1" ]);
-
-  // Once dynamically initialized, the type is fixed
-  TestThrowsLike("*(mapper_parsing_exception)", PTR catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := "XYZ" ]
-        ]
-      ],[ suffix := "sub1" ]));
-  // The string "44" can be converted to an integer
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields := [ 'unspecified_record.xyz' := "44" ]
-        ]
-      ],[ suffix := "sub1" ]);
-
-  // Add a datetime property
-  catalog->AddObjects(
-      [ [ objectid := "test1"
-        , documentfields :=
-            [ unspecified_record :=
-                [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
-                , "integer" := 1234
-                , "integer64" := 1024i64 * 1024 * 1024 * 1024
-                , "money" := 1234.56
-                , "float" := .015625
-                , "string" := "1234"
-                ]
-            ]
-        ]
-      ],[ suffix := "sub1", synchronous := TRUE ]);
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQHas("unspecified_record.datetime"),
-      [ mapping :=
-          [ unspecified_record :=
-              [ "datetime" := DEFAULT DATETIME
-              , "integer" := 0
-              , "integer64" := 0i64
-              , "money" := 0m
-              , "float" := 0f
-              , "string" := ""
-              ]
-          ]
-      , summaryfield := ""
-      ]);
-  TestEq(1, res.totalcount);
-  TestEQ(
-      [ unspecified_record :=
-          [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
-          , "integer" := 1234
-          , "integer64" := 1024i64 * 1024 * 1024 * 1024
-          , "money" := 1234.56
-          , "float" := .015625
-          , "string" := "1234"
-          ]
-      ], res.results[0]);
-
-  //Ensure dynamic templates work
+  //WAS: Ensure dynamic templates work. NOW: ensure the field coes not get added
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'group_record_field.ds_text' := 44 ]
@@ -547,7 +488,7 @@ MACRO TestESBulkInsertion()
 
   //Verify ds_Text's mapping
   RECORD checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub1/_mapping`, DEFAULT RECORD);
-  TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties.ds_text.type);
+  TestEq(FALSE, CelLExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
   // Throw some objects into a suffix. We want the index to sort it out
