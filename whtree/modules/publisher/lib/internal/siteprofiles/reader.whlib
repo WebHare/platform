@@ -1907,8 +1907,7 @@ RECORD ARRAY FUNCTION GetCurrentProfileReferrals()
 
 RECORD ARRAY FUNCTION GetSitesReferredByResources(INTEGER ARRAY siteprofileids)
 {
-  RECORD siteprofs := GetCachedSiteProfiles();
-  RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(siteprofs);
+  RECORD ARRAY activeprofiles := GetCurrentProfileReferrals();
   RETURN SELECT * FROM activeprofiles WHERE IsResourceMatch(VAR siteprofileids, activeprofiles.siteprofileids);
 }
 

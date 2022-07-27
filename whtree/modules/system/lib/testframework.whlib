@@ -1385,6 +1385,9 @@ STATIC OBJECTTYPE TestFramework
     IF(NOT ObjectExists(lock))
       THROW NEW Exception("Unable to acquire the global testframework lock - you cannot run two tests at the same time");
 
+    IF(this->debug)
+      Print(`RunTestframework ${GetBaseNameFrompath(GetHarescriptLoadedLibraries()[0].liburi)} job: ${GetCurrentGroupID()}\n`);
+
     __onmodulelog := PTR this->RecordModuleLogEntry(__onmodulelog, #1, #2);
 
     TRY
