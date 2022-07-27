@@ -130,22 +130,23 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     this->checksitesettings := FALSE;
   }
 
+  OBJECT firstexception;
+  RECORD ARRAY to_reindex;
+  INTEGER ARRAY to_republish_ids;
+  INTEGER ARRAY to_republish_parents;
+
   /** Called when the transaction has committed
   */
-  UPDATE PUBLIC MACRO OnCommit()
+  UPDATE PUBLIC MACRO OnCommitBroadcasts()
   {
     IF(IsDebugTagEnabled("que"))
-      LogDebug("system:whfscommithandler", "commit", CELL[trace := GetStackTrace() ]);
-
-    INTEGER ARRAY sites;
-
-    OBJECT firstexception;
+      LogDebug("system:whfscommithandler", "commitbroadcasts", CELL[trace := GetStackTrace() ]);
 
     //Script update completions must be handled before anything that could synchronously use them, and ideally, before even directly scheduled republished can run
     TRY
       ScanLimitedCompilables(SELECT AS INTEGER ARRAY DISTINCT id FROM this->completions WHERE type IN ["addfile","replacefile"]);
     CATCH (OBJECT e)
-      firstexception := e;
+      this->firstexception := e;
 
     IF (uncommitted_fstypes_changes)
     {
@@ -153,10 +154,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       uncommitted_fstypes_changes := FALSE;
     }
 
-    RECORD ARRAY to_reindex;
-    INTEGER ARRAY to_republish_ids;
-    INTEGER ARRAY to_republish_parents;
-
+    INTEGER ARRAY sites;
     FOREVERY (RECORD rec FROM this->items)
     {
       RECORD data :=
@@ -180,10 +178,10 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
               , isfolder := TRUE
               , isdelete := TRUE
               , events := data.events
-              ] INTO to_reindex AT END;
+              ] INTO this->to_reindex AT END;
 
         IF ("fullrep" IN data.events)
-          INSERT rec.folder INTO to_republish_parents AT END;
+          INSERT rec.folder INTO this->to_republish_parents AT END;
 
         FOREVERY (RECORD obj FROM data.files)
         {
@@ -193,39 +191,47 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
                 , isfolder := obj.isfolder
                 , isdelete := "del" IN obj.events
                 , events := obj.events
-                ] INTO to_reindex AT END;
+                ] INTO this->to_reindex AT END;
 
           IF("rep" IN obj.events AND NOT ArrayIsSetEqual(obj.events, [ "rep", "del" ]))
-            INSERT obj.file INTO to_republish_ids AT END;
+            INSERT obj.file INTO this->to_republish_ids AT END;
         }
       }
     }
 
-    RECORD ARRAY to_republish;
-    IF (IsValueSet(to_republish_parents))
-    {
-      to_republish := to_republish CONCAT
-        SELECT id
-             , priority :=    published%100000
-             , lastpublishtime
-          FROM system.fs_objects
-         WHERE parent IN to_republish_parents
-           AND IsQueuedForPublication(published);
-    }
-
-    IF (IsValueSet(to_republish_ids))
-    {
-      to_republish := to_republish CONCAT
-        SELECT id
-             , priority :=    published%100000
-             , lastpublishtime
-          FROM system.fs_objects
-         WHERE id IN to_republish_ids
-           AND IsQueuedForPublication(published);
-    }
-
     FOREVERY(INTEGER site FROM GetSortedSet(sites))
       BroadcastEvent("system:whfs.site." || site, DEFAULT RECORD);
+  }
+
+  /** Called when the transaction has committed
+  */
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", "commit", CELL[trace := GetStackTrace() ]);
+
+    RECORD ARRAY to_republish;
+    IF (IsValueSet(this->to_republish_parents))
+    {
+      to_republish := to_republish CONCAT
+        SELECT id
+             , priority :=    published%100000
+             , lastpublishtime
+          FROM system.fs_objects
+         WHERE parent IN this->to_republish_parents
+           AND IsQueuedForPublication(published);
+    }
+
+    IF (IsValueSet(this->to_republish_ids))
+    {
+      to_republish := to_republish CONCAT
+        SELECT id
+             , priority :=    published%100000
+             , lastpublishtime
+          FROM system.fs_objects
+         WHERE id IN this->to_republish_ids
+           AND IsQueuedForPublication(published);
+    }
 
     IF(Length(to_republish) > 0)
     {
@@ -272,11 +278,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       }
     }
 
-    IF (Length(to_reindex) > 0 OR Length(this->reindexes) > 0)
+    IF (Length(this->to_reindex) > 0 OR Length(this->reindexes) > 0)
     {
-      INTEGER ARRAY additional := ArrayDelete(this->reindexes, SELECT AS INTEGER ARRAY id FROM to_reindex);
+      INTEGER ARRAY additional := ArrayDelete(this->reindexes, SELECT AS INTEGER ARRAY id FROM this->to_reindex);
       IF (Length(additional) > 0)
-        to_reindex := to_reindex CONCAT
+        this->to_reindex := this->to_reindex CONCAT
             SELECT id
                  , isfolder
                  , isdelete := FALSE
@@ -290,7 +296,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       IF (Length(this->deferredindexpromises) > 0)
         this->eventcallback := RegisterEventCallback(`system:whfs.index.response.${eventid}`, PTR this->ResolveIndexPromises);
 
-      BroadcastEvent(`system:whfs.index.request.${eventid}`, [ to_reindex := to_reindex ]);
+      BroadcastEvent(`system:whfs.index.request.${eventid}`, [ to_reindex := this->to_reindex ]);
     }
     ELSE
     {
@@ -298,8 +304,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
         deferred.resolve(DEFAULT RECORD);
     }
 
-    IF (ObjectExists(firstexception))
-      THROW firstexception;
+    IF (ObjectExists(this->firstexception))
+      THROW this->firstexception;
   }
 
   MACRO ResolveIndexPromises(STRING event, RECORD msg)

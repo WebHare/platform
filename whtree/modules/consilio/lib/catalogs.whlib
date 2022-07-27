@@ -79,51 +79,11 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
            FROM consilio.indexmanagers;
 }
 
-///Object to delay (and block!) updates to indices which still need to apply their configuration
-STATIC OBJECTTYPE CatalogCommitHandler EXTEND TransactionFinishHandlerBase
-<
-  INTEGER ARRAY reconfigurecatalogs;
-
-  UPDATE PUBLIC MACRO OnCommit()
-  {
-    FOREVERY(INTEGER catalog FROM this->reconfigurecatalogs)
-    {
-      OBJECT cat := OpenConsilioCatalogById(catalog);
-      IF(ObjectExists(cat))
-        cat->ApplyConfiguration();
-    }
-  }
-
-  PUBLIC BOOLEAN FUNCTION HasPendingUpdates(INTEGER catalog)
-  {
-    RETURN catalog IN this->reconfigurecatalogs;
-  }
-
-  PUBLIC MACRO RequestReconfigureCatalog(INTEGER catalog)
-  {
-    IF(catalog NOT IN this->reconfigurecatalogs)
-      INSERT catalog INTO this->reconfigurecatalogs AT END;
-  }
->;
-
-OBJECT FUNCTION GetCatalogCommitHandler()
-{
-  OBJECT trans := GetPrimary();
-
-  OBJECT handler := trans->GetFinishHandler("consilio:catalogcommithandler");
-  IF (NOT ObjectExists(handler))
-  {
-    handler := NEW CatalogCommitHandler;
-    trans->SetFinishHandler("consilio:catalogcommithandler", handler);
-  }
-  RETURN handler;
-}
-
 MACRO VerifyCatalogSafeToUpdate(INTEGER catalog)
 {
   IF(GetPrimary()->IsWorkOpen())
   {
-    OBJECT handler := GetPrimary()->GetFinishHandler("consilio:catalogcommithandler");
+    OBJECT handler := GetConsilioFinishHandler(FALSE);
     IF (ObjectExists(handler) AND handler->HasPendingUpdates(catalog))
       THROW NEW Exception(`You must commit the current transaction to ensure the newly attached indices are registered in the database`);
   }
@@ -174,7 +134,7 @@ STATIC OBJECTTYPE ContentSource
            WHERE id = this->contentsource.id
                 AND orphansince = DEFAULT DATETIME;
 
-    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+    GetConsilioFinishHandler()->ScheduleCleanup(); //remove stale indices ASAP
   }
 
   /// Reactivate this content source
@@ -185,7 +145,7 @@ STATIC OBJECTTYPE ContentSource
            WHERE id = this->contentsource.id;
 
     //FIXME schedule recheck on this countent source
-    //GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+    //GetConsilioFinishHandler()->ScheduleCleanup(); //remove stale indices ASAP
   }
 
   /** Construct the provider for this source
@@ -539,7 +499,7 @@ STATIC OBJECTTYPE ContentSource
      WHERE id = this->id;
 
     this->contentsource.id := 0; //to be safe
-    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove deleted contentsources async
+    GetConsilioFinishHandler()->ScheduleCleanup(); //remove deleted contentsources async
   }
 
   /// Wait for catalog being completey done
@@ -712,7 +672,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     //This will ensure the index is setup after Commit (it's unsafe to create it right away, cleanupindices might 'disagree' - and this *does* happen during eg. CI)
     IF(NOT options.readonly)
-      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
+      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
     RETURN newid;
   }
@@ -726,7 +686,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     DELETE FROM consilio.catalog_indexmanagers
      WHERE id = VAR indexid;
 
-    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP (TODO only for builtin indexmanagers?)
+    GetConsilioFinishHandler()->ScheduleCleanup(); //remove stale indices ASAP (TODO only for builtin indexmanagers?)
   }
 
   /** Update catalog settings
@@ -779,7 +739,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
     IF(language_changed)
-      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
+      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
     this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
     RETURN language_changed;
@@ -793,7 +753,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     this->catalog.id := 0; //to be safe
 
-    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+    GetConsilioFinishHandler()->ScheduleCleanup(); //remove stale indices ASAP
   }
 
   /** List the contentsources in this catalog
@@ -1006,7 +966,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
 
     IF(anychanges)
-      GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
+      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
   }
 
   RECORD FUNCTION GetBaseDebugInfo()
@@ -1125,7 +1085,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     INSERT csourcesettings INTO consilio.contentsources;
 
     OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->ReindexContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
+    GetConsilioFinishHandler()->RequestReindexContentSource(contentsource);
 
     OBJECT prov := contentsource->__OpenProvider();
     TRY
@@ -1137,7 +1097,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       prov->CLose();
     }
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    GetCatalogCommitHandler()->RequestReconfigureCatalog(this->id);
+    GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
     RETURN contentsource;
   }

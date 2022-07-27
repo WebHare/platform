@@ -1,12 +1,17 @@
 <?wh
+
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
+
 STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 <
-  PUBLIC BOOLEAN mustcleanupindices;
-  PUBLIC MACRO PTR ARRAY execoncommit;
+  BOOLEAN mustcleanupindices;
+  RECORD ARRAY reconfigurecatalogs;
+  MACRO PTR ARRAY execoncommit;
 
   UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
   {
@@ -16,19 +21,60 @@ STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 
   UPDATE PUBLIC MACRO OnCommit()
   {
+    FOREVERY(RECORD rec FROM this->reconfigurecatalogs)
+      rec.catalog->ApplyConfiguration();
+
     FOREVERY(MACRO PTR todo FROM this->execoncommit)
       todo();
   }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /// Schedule task consilio:cleanupindices
+  PUBLIC MACRO ScheduleCleanup()
+  {
+    this->mustcleanupindices := TRUE;
+  }
+
+  /** Returns whether reconfiguration is requested for a catalog
+      @param catalogid ID of catalog to check
+      @return TRUE if reconfiguration was requested for this catalog
+  */
+  PUBLIC BOOLEAN FUNCTION HasPendingUpdates(INTEGER catalogid)
+  {
+    RECORD pos := RecordLowerBound(this->reconfigurecatalogs, CELL[ id := catalogid ], [ "ID" ]);
+    RETURN pos.found;
+  }
+
+  /** Request reconfiguration for a catalog
+      @param catalog Catalog to reconfigure
+  */
+  PUBLIC MACRO RequestReconfigureCatalog(OBJECT catalog)
+  {
+    RECORD pos := RecordLowerBound(this->reconfigurecatalogs, CELL[ catalog->id ], [ "ID" ]);
+    IF (NOT pos.found)
+      INSERT CELL[ catalog->id, catalog ] INTO this->reconfigurecatalogs AT pos.position;
+  }
+
+  /** Request reindexing a content source
+      @param(object %ContentSource) contentsource Contentsource to reindex
+  */
+  PUBLIC MACRO RequestReindexContentSource(OBJECT contentsource)
+  {
+    INSERT PTR contentsource->ReindexContentSource() INTO this->execoncommit AT END;
+  }
 >;
 
-PUBLIC OBJECT FUNCTION GetConsilioFinishHandler()
+PUBLIC OBJECT FUNCTION GetConsilioFinishHandler(BOOLEAN create DEFAULTSTO TRUE)
 {
   OBJECT handler := GetPrimary()->GetFinishHandler("consilio:finish");
-  IF (NOT ObjectExists(handler))
+  IF (NOT ObjectExists(handler) AND create)
   {
     handler := NEW ConsilioFinishHandler;
     GetPrimary()->SetFinishHandler("consilio:finish", handler);
   }
   RETURN handler;
 }
-

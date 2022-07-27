@@ -1,21 +1,66 @@
 ﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+
+OBJECT trans;
 STRING ARRAY handlerresult;
-MACRO CommitHandler(OBJECT trans, STRING id, BOOLEAN iscommit)
+
+MACRO GotEvent(STRING eventname, RECORD data)
 {
-  trans->BeginWork();
-  STRING val := iscommit ? "commit-" || id : "rollback-" || id;
-  INSERT val INTO handlerresult AT UpperBound(handlerresult, val);
-  trans->CommitWork();
+  INSERT eventname INTO handlerresult AT END;
 }
+
+MACRO CommitHandler(OBJECT ctrans, STRING id, BOOLEAN iscommit)
+{
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+  ctrans->BeginWork();
+  STRING val := iscommit ? "commit-" || id : "rollback-" || id;
+  INSERT val INTO handlerresult AT END;
+  ctrans->CommitWork();
+}
+
+OBJECTTYPE CommitHandlerObj EXTEND TransactionFinishHandlerBase
+<
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT localtrans)
+  {
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+    TestEQ(trans, localtrans);
+    INSERT "h-precommit" INTO handlerresult AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnCommitBroadcasts()
+  {
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+    INSERT "h-commitbroadcasts" INTO handlerresult AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnCommit()
+  {
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+    INSERT "h-commit" INTO handlerresult AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnRollback()
+  {
+    WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+    INSERT "h-rollback" INTO handlerresult AT END;
+  }
+
+
+>;
 
 MACRO TestAutoTransaction()
 {
-  OBJECT trans := OpenPrimary();
+  trans := OpenPrimary();
+  INTEGER cb := RegisterEventCallback("webhare_testsuite:worktest.*", PTR GotEvent);
 
   TestThrowsLike('Commit cannot be used*',PTR trans->Commit());
 
@@ -24,25 +69,48 @@ MACRO TestAutoTransaction()
   trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->SetFinishHandler("x", NEW CommitHandlerObj);
+  trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
   trans->CommitWork();
-  TestEQ([ "commit-1", "commit-2" ], handlerresult);
+  TestEQ([ "h-precommit", "webhare_testsuite:worktest.1", "h-commitbroadcasts", "commit-1", "commit-2", "h-commit" ], handlerresult);
 
   trans->BeginWork();
   handlerresult := DEFAULT STRING ARRAY;
   trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->SetFinishHandler("x", NEW CommitHandlerObj);
+  trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
   trans->RollbackWork();
-  TestEQ([ "rollback-1", "rollback-2" ], handlerresult);
+  TestEQ([ "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
 
   trans->BeginWork();
   handlerresult := DEFAULT STRING ARRAY;
   trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->SetFinishHandler("x", NEW CommitHandlerObj);
+  trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
   trans->Close();
-  TestEQ([ "rollback-1", "rollback-2" ], handlerresult);
+  TestEQ([ "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
+
+  trans := OpenPrimary();
+  trans->BeginWork();
+  handlerresult := DEFAULT STRING ARRAY;
+  trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
+  trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
+  trans->SetFinishHandler("x", NEW CommitHandlerObj);
+  trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
+  INSERT [ parent := -100 ] INTO webhare_testsuite.rights_tree;
+  TRY
+    trans->CommitWork();
+  CATCH;
+  TestEQ([ "h-precommit", "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
+
+  UnregisterCallback(cb);
 }
+
 
 RunTestFramework( [ PTR TestAutoTransaction
                   ], [ usedatabase := FALSE ]);

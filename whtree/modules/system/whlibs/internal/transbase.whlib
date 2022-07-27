@@ -303,7 +303,14 @@ PUBLIC OBJECTTYPE TransactionFinishHandlerBase
 
   }
 
-  /** Called when the transaction has committed
+  /** Called immediately when the transaction has committed, use for event
+      broadcasts only
+  */
+  PUBLIC MACRO OnCommitBroadcasts()
+  {
+  }
+
+  /** Called when the transaction has committed (after all OnCommitBroadcasts calls)
   */
   PUBLIC MACRO OnCommit()
   {
@@ -348,6 +355,9 @@ PUBLIC OBJECTTYPE DatabaseException EXTEND Exception
   // Constructor
   //
 
+  /** Create a new DatabaseException object
+      @param errors @includecelldef #errors
+  */
   MACRO NEW(RECORD ARRAY errors)
   : Exception(errors[0].message)
   {
@@ -362,6 +372,7 @@ PUBLIC OBJECTTYPE DatabaseException EXTEND Exception
 */
 PUBLIC OBJECTTYPE DatabaseReadonlyException EXTEND DatabaseException
 <
+  /// Create a new DatabaseReadonlyException object
   MACRO NEW()
   : DatabaseException([[ tablename := "", columnname := "", message := "The WebHare database is in readonly mode" ]])
   {
@@ -373,6 +384,7 @@ PUBLIC OBJECTTYPE DatabaseReadonlyException EXTEND DatabaseException
     UnregisterTransaction) themselves.
 
     WARNING: The 'build your own' transaction api is subject to change in future versions
+    @topic database/base
 */
 PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 < // ---------------------------------------------------------------------------
@@ -522,6 +534,22 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
     OBJECT firstexception;
 
+    // Do scheduled broadcasts as soon as possible
+    IF (iscommit)
+    {
+      FOREVERY(RECORD evt FROM commitevents)
+        BroadcastEvent(evt.name, evt.data);
+    }
+
+    IF (iscommit)
+    {
+      FOREVERY (RECORD rec FROM objhandlers)
+        TRY
+          rec.obj->OnCommitBroadcasts();
+        CATCH (OBJECT e)
+          firstexception := firstexception ?? e;
+    }
+
     FOREVERY (RECORD rec FROM handlers)
     {
       TRY
@@ -543,11 +571,6 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
         firstexception := firstexception ?? e;
     }
 
-    IF (iscommit)
-    {
-      FOREVERY(RECORD evt FROM commitevents)
-        BroadcastEvent(evt.name, evt.data);
-    }
 
     IF (ObjectExists(firstexception))
       THROW firstexception;
@@ -675,7 +698,6 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   {
     options := ValidateOptions([ mutex := ""
                                , mutexes := STRING[]
-
                                , delayreadonlyerror := FALSE
                                ], options);
     IF (this->pvt_numworks != 0)
@@ -702,6 +724,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     }
   }
 
+  /** Returns whether a specific mutex has been locked via this transaction
+      @param mutexname Mutex to test
+      @return TRUE if this mutex has been locked
+  */
   PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname)
   {
     FOREVERY(OBJECT lock FROM this->pvt_worklocks)
