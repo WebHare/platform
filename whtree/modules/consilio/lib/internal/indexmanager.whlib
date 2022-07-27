@@ -141,6 +141,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 
 /** @short Get a list of indices from an indexmanager
     @param indexmgrid The id of the indexmanager
+    @param options Options
     @return The result
     @cell(string) return.status The result status
     @cell(integer array) return.indices The list of index id's known by this
@@ -1470,7 +1471,9 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
         RECORD query :=
             [ query :=
                 [ bool :=
-                    [ must := (SELECT match := [ objectid := objectid ] FROM ToRecordArray(objectids, "objectid"))
+                    [ must := RECORD[]
+                    , should := (SELECT match := [ objectid := objectid ] FROM ToRecordArray(objectids, "objectid"))
+                    , minimum_should_match := 1
                     ]
                 ]
             ];
