@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD ARRAY FUNCTION GetRequiredCatalogs()
@@ -32,7 +33,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , contentsources := RECORD[]
                           , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
                           , suffixed := ParseXSBoolean(catalognode.node->GetAttribute("suffixed"))
-                          , fieldgroups := ParseXSList(catalognode.node->GetAttribute("fieldgroups"))
+                          , fieldgroups := ParseAndQualifyXMLList(catalognode.module, catalognode.node->GetAttribute("fieldgroups"))
                           , lang := catalognode.node->GetAttribute("lang")
                           ];
 
@@ -66,7 +67,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , contentsources := RECORD[]
                           , managed := FALSE
                           , suffixed := TRUE
-                          , fieldgroups := ParseXSList(indexnode.node->GetAttribute("tag"))
+                          , fieldgroups := [ `<index>${indexnode.module}:${indexnode.node->GetAttribute("tag")}` ]
                           , lang := ""
                           ];
     INSERT catalog INTO wantcatalogs AT END;

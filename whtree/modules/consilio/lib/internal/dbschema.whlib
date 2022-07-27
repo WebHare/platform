@@ -27,6 +27,7 @@ PUBLIC SCHEMA
     , STRING "indexname"
     , INTEGER "searchpriority"
     , BOOLEAN "readonly"
+    ; KEY id
     > catalog_indexmanagers
   , TABLE
     < INTEGER "id" NULL := 0
