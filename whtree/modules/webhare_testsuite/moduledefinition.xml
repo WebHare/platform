@@ -387,12 +387,10 @@
       <text name="textfield" />
     </fieldgroup>
 
-    <catalog tag="circular_index_direct" managed="false" fieldgroups="circular" />
     <fieldgroup tag="circular">
       <addfieldgroup ref="circular" />
     </fieldgroup>
 
-    <catalog tag="circular_index_indirect" managed="false" fieldgroups="circular_1" />
     <fieldgroup tag="circular_1">
       <record name="record_1">
         <addfieldgroup ref="circular_2" />

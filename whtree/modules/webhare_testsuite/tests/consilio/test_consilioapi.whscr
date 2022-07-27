@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -12,6 +13,8 @@ LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 MACRO TestConsilioAPI()
 {
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:testsitecatalog" ]);
+
   testfw->BeginWork();
 
   //webhare_testsuite:testsitecatalog should always exist

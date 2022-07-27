@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 
@@ -38,6 +39,21 @@ MACRO CommitAndWaitForPublisherIndex()
   Print("it's indexed\n");
 }
 
+MACRO TestWHFSCatalog()
+{
+  FixConsilioIndices([ catalogmask := whconstant_consilio_catalog_whfs ]);
+
+  OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  RECORD ARRAY fields := fsobjectssource->GetExpectedMapping();
+
+  TestEqMembers(RECORD[], (SELECT * FROM fields WHERE name LIKE "*.*"),"*");
+  TestEqMembers([[ name := "arrayfield", type := "record"
+                 , properties := [[ name := "arrayfield@webhare_testsuite", type := "keyword" ]
+                                 ,[ name := "date_otherfield@webhare_testsuite", type := "datetime" ] //NOTE implicit adding of date_
+                                 ,[ name := "libraryfield@webhare_testsuite", type := "keyword" ]
+                                 ]
+                ]], (SELECT * FROM fields WHERE name = "arrayfield"), "*");
+}
 
 MACRO TestWHFSContentHandler()
 {
@@ -531,7 +547,7 @@ ASYNC MACRO InspectConsilio()
 
   //A reindex of a file outside a starting point should delete it`
   TTClick(":Reindex");
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id), [ refresh := TRUE ]);
   dumpvalue(result,'tree');
   TestEq(0, result.totalcount);
 
@@ -569,7 +585,8 @@ MACRO TestUpdateCheckIndex()
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");
 }
 
-RunTestframework([ PTR TestWHFSContentHandler
+RunTestframework([ PTR TestWHFSCatalog
+                 , PTR TestWHFSContentHandler
                  , PTR InspectConsilio
                  , PTR PublisherSearchTest
                  , PTR TestUpdateCheckIndex

@@ -1,13 +1,19 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -70,6 +76,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , fieldgroups := [ `<index>${indexnode.module}:${indexnode.node->GetAttribute("tag")}` ]
                           , lang := ""
                           ];
+
     INSERT catalog INTO wantcatalogs AT END;
   }
 
@@ -199,18 +206,16 @@ MACRO UpdateModuleCatalogs(RECORD options)
       CONTINUE;
     }
 
-    IF(catalog->definedby != want.definedby OR catalog->lang != want.lang OR catalog->suffixed != want.suffixed)
+    TRY
     {
-      TRY
-      {
-        catalog->UpdateCatalog( CELL[ want.definedby, want.lang, want.suffixed ]);
-      }
-      CATCH(OBJECT e)
-      {
-        LogHarescriptException(e);
-        PrintTo(2, `Failed to update catalog '${want.tag}: ${e->what}\n`);
-        CONTINUE;
-      }
+      //UpdateCatalog will not do unneeded changes but *will* reverify and update the mapping based on fieldgroups and contentsources.
+      catalog->UpdateCatalog( CELL[ want.definedby, want.lang, want.suffixed, want.fieldgroups ]);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      PrintTo(2, `Failed to update catalog '${want.tag}: ${e->what}\n`);
+      CONTINUE;
     }
 
     IF(want.managed)
@@ -219,8 +224,24 @@ MACRO UpdateModuleCatalogs(RECORD options)
   trans->CommitWork();
 
   FOREVERY(RECORD want FROM wantcatalogs)
-    IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
+  {
+    IF(want.managed AND want.catalog->managed)
+    {
       want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
+
+      IF(NOT want.catalog->suffixed)
+        FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices() WHERE type = "opensearch")
+        {
+          RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, opensearch.indexname);
+          RECORD ARRAY exp := want.catalog->GetExpectedMapping();
+          FOREVERY(RECORD issue FROM CompareMappings(res,exp,""))
+          {
+            //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
+            Print(`Catalog ${want.catalog->tag}: ${issue.issue} field '${issue.field}'\n`);
+          }
+        }
+    }
+  }
 }
 
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)

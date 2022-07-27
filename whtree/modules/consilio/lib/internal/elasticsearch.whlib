@@ -15,6 +15,7 @@ LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/cqmatch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -1125,4 +1126,24 @@ PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndexSuffixes(INTEGER indexmanager, S
                       OR indexlist."index" = VAR forindexname;
 
   RETURN SELECT suffix FROM indexlist; //TODO more columns..
+}
+
+PUBLIC RECORD FUNCTION GetOpenSearchCurrentMapping(INTEGER indexmanagermapping, STRING indexname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      ], options);
+
+  RECORD response := SendToElasticsearch(indexmanagermapping, indexname, "/_mapping", DEFAULT RECORD, "GET", CELL[throwonfailure:=TRUE]);
+
+  RECORD mappings := GetCell(response.result, indexname).mappings;
+  mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
+  RETURN mappings;
+}
+
+PUBLIC RECORD ARRAY FUNCTION VerifyOpensearchMapping(INTEGER indexmanager, STRING indexname, STRING suffix, RECORD ARRAY expectedmapping)
+{
+  IF(suffix != "") ABORT("TODO implement suffixs upported");
+  RECORD res := GetOpenSearchCurrentMapping(indexmanager, indexname);
+  RETURN CompareMappings(res, expectedmapping, "");
 }

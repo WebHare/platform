@@ -18,6 +18,7 @@ PUBLIC SCHEMA
     , STRING "fieldgroups"
     , STRING "lang"
     , STRING "suffix"
+    , BLOB "internalmetadata"
     ; KEY id
     > catalogs
   , TABLE

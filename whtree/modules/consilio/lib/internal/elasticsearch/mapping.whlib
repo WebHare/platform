@@ -1,9 +1,12 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 
@@ -29,7 +32,7 @@ OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
 CONSTANT RECORD defaultparentstate := [ curdepth := 0
                                       ];
 
-RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
+RECORD ARRAY FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
 {
   IF(name LIKE "<index>*") //Pre-5.0 <index> support. Remove at some point...
   {
@@ -44,31 +47,22 @@ RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstate)
   RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstate);
 }
 
-/// Read the field definition of a catalog from the moduledefinition
-PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
-{
-  OBJECT node := GetIndexFieldDefinitionNode(name, "catalog") ?? GetIndexFieldDefinitionNode(name, "index");
-  IF(NOT ObjectExists(node))
-    RETURN DEFAULT RECORD; //GetIndexFieldDefinition is used in locations where a fielddefinition is optional - so don't require one
-
-  RETURN ParseIndexField(node, Tokenize(name,':')[0], defaultparentstate);
-}
-
 /// Read the field definition of a fieldgroup from the moduledefinition
-PUBLIC RECORD FUNCTION GetFieldgroupsFieldDefinition(STRING ARRAY fieldgroups)
+PUBLIC RECORD ARRAY FUNCTION GetFieldgroupsFieldDefinition(STRING ARRAY fieldgroups)
 {
-  RECORD parsed := CELL[ properties := RECORD[] ];
+  RECORD ARRAY properties;
   FOREVERY (STRING fieldgroup FROM fieldgroups)
   {
-    RECORD fielddef := GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[ ...defaultparentstate ]);
-    IF (RecordExists(fielddef))
+    RECORD ARRAY fielddefproperties := GetFieldDefinition(fieldgroup, 'fieldgroup', CELL[ ...defaultparentstate ]);
+    FOREVERY (RECORD prop FROM fielddefproperties)
     {
-      FOREVERY (RECORD prop FROM fielddef.properties)
-        IF (NOT RecordExists(SELECT FROM parsed.properties WHERE name = prop.name))
-          INSERT prop INTO parsed.properties AT END;
+      IF (RecordExists(SELECT FROM properties WHERE ToUppercase(name) = ToUppercase(prop.name)))
+        THROW NEW Exception(`Duplicate property name '${prop.name}'`);
+
+      INSERT prop INTO properties AT END;
     }
   }
-  RETURN RecordExists(parsed.properties) ? parsed : DEFAULT RECORD;
+  RETURN properties;
 }
 
 STRING FUNCTION QualifyName(STRING qualification, STRING name)
@@ -79,21 +73,13 @@ STRING FUNCTION QualifyName(STRING qualification, STRING name)
   RETURN name;
 }
 
-RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
+RECORD ARRAY FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
 {
   state.curdepth := state.curdepth + 1;
   IF(state.curdepth > 6)
     THROW NEW Exception(`Index is too deep!`);
 
   RECORD ARRAY properties;
-
-  IF(fieldnode->localname="catalog")
-    FOREVERY(STRING fieldgroup FROM ParseXSList(fieldnode->GetAttribute("fieldgroups")))
-    {
-      RECORD subresult := GetFieldDefinition(QualifyName(module, fieldgroup), "fieldgroup", state);
-      properties := properties CONCAT subresult.properties;
-    }
-
   FOREVERY(OBJECT subfield FROM fieldnode->ListChildren("*","*"))
   {
     STRING type := subfield->localname;
@@ -103,8 +89,8 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
 
     IF(type = "addfieldgroup") //inclusion, not a sublevel!
     {
-      RECORD subresult := GetFieldDefinition(QualifyName(module, subfield->GetAttribute("ref")), "fieldgroup", state);
-      properties := properties CONCAT subresult.properties;
+      RECORD ARRAY subresult := GetFieldDefinition(QualifyName(module, subfield->GetAttribute("ref")), "fieldgroup", state);
+      properties := properties CONCAT subresult;
 
       ////TODO conflict check?
       CONTINUE;
@@ -112,7 +98,7 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
 
     RECORD field := [ name := subfield->GetAttribute("name")
                     , settings := DEFAULT RECORD
-                    , subfields := ParseIndexField(subfield, module, state)
+                    , properties := ParseIndexField(subfield, module, state)
                     , type := type
                     , defaultvalue := GetFieldTypeDefaultValue(type)
                     ];
@@ -133,23 +119,11 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
     INSERT field INTO properties AT END;
   }
 
-  IF (NOT RecordExists(properties))
-    RETURN DEFAULT RECORD;
-
   STRING dupename := SELECT AS STRING ANY(name) FROM properties GROUP BY ToUppercase(name) HAVING COUNT(*)>1;
   IF(dupename != "")
     THROW NEW Exception(`Duplicate property name '${dupename}'`);
 
-  RETURN CELL[ properties ];
-}
-
-// Remove field and all subfields from the list of fields
-RECORD ARRAY FUNCTION DontDeleteField(INTEGER fieldid, RECORD ARRAY currentfields)
-{
-  FOREVERY (RECORD subfield FROM SELECT * FROM currentfields WHERE parent = fieldid)
-    currentfields := DontDeleteField(subfield.id, currentfields);
-  DELETE FROM currentfields WHERE id = fieldid;
-  RETURN currentfields;
+  RETURN properties;
 }
 
 /// Get the contentsourcefields for a contentsource from the database
@@ -175,12 +149,29 @@ VARIANT FUNCTION ParseDefaultValue(STRING defaultvalue)
   RETURN "";
 }
 
+RECORD ARRAY FUNCTION MakeTree(RECORD ARRAY inprops)
+{
+  RECORD ARRAY treefields := SELECT * FROM inprops WHERE name NOT LIKE "*.*";
+  FOREVERY(STRING recordfield FROM SELECT AS STRING ARRAY DISTINCT Tokenize(name,'.')[0] FROM inprops WHERE name LIKE "*.*")
+  {
+    INSERT [ name := recordfield
+           , type := "record"
+           , settings := DEFAULT RECORD
+           , properties := MakeTree(SELECT *, name := Substring(name, Length(recordfield) + 1) FROM inprops WHERE name LIKE recordfield || ".*")
+           ] INTO treefields AT END;
+  }
+
+  RETURN treefields;
+}
+
 PUBLIC RECORD ARRAY FUNCTION GetContentSourcesMapping(INTEGER ARRAY contentsourceids, RECORD ARRAY basefields)
 {
   //TODO: Check for conflicting mappings instead of ignoring subsequent field definitions
   RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields);
   FOREVERY (INTEGER contentsourceid FROM contentsourceids)
     properties := ParseContentSourceMapping(properties, GetContentSourceFields(contentsourceid));
+
+  properties := MakeTree(properties);
   RETURN properties;
 }
 
@@ -211,7 +202,7 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
           , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
           , field.name
           , settings := DEFAULT RECORD
-          , subfields := DEFAULT RECORD
+          , properties := RECORD[]
           ] INTO properties AT END;
       have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
     }
@@ -223,7 +214,8 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
         [ name := "_suggested"
         , type := "completion"
         , settings := [ analyzer := "consilio_analyzer" ]
-        , subfields := DEFAULT RECORD
+        , properties := RECORD[]
+        //, strict := TRUE
         , defaultvalue := DEFAULT RECORD
         ] INTO properties AT END;
 
@@ -274,21 +266,21 @@ VARIANT FUNCTION GetFieldTypeDefaultValue(STRING type)
 /** @cell input.properties
     @cell return.properties
 */
-PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
+PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
 {
-  IF (NOT RecordExists(input))
+  RECORD properties;
+  BOOLEAN strict := TRUE; //initial true until we find a wildcard
+
+  IF(Length(input_properties) = 0)
     RETURN DEFAULT RECORD;
 
-  RECORD properties;
-  BOOLEAN strict := TRUE; //iniitall true until we find a wildcard
-
-  FOREVERY(RECORD prop FROM input.properties)
+  FOREVERY(RECORD prop FROM input_properties)
   {
     RECORD esfielddata := [ type := prop.type
                           , ...prop.settings
                           ];
 
-    RECORD subfields := PrepareMappingUpdate(prop.subfields);
+    RECORD subfields := PrepareMappingUpdate(prop.properties);
     IF(RecordExists(subfields))
     {
       IF(prop.type="record")
@@ -353,8 +345,71 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD input)
       strict := FALSE;
     }
   }
+
   //https://www.elastic.co/guide/en/elasticsearch/reference/current/dynamic.html
   RETURN CELL[ properties
              , dynamic := strict ? "strict" : "false" //strict: reject all unknown props. false: save in _source but do not index
              ];
+}
+
+PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, BOOLEAN managed, INTEGER ARRAY contentsourceids)
+{
+  RECORD ARRAY fields := GetFieldgroupsFieldDefinition(GetSortedSet(fieldgroups));
+  IF(managed)
+    fields := fields CONCAT GetContentSourcesMapping(contentsourceids, defaultmappingfields);
+
+  RETURN CELL[ fields ];
+}
+
+PUBLIC RECORD FUNCTION BuildInternalmetdataFromConfiguration(RECORD config)
+{
+  RETURN CELL[ config.fields
+             , lastupdate := GetCurrentDatetime()
+             ];
+
+}
+
+PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRING currentprefix)
+{
+  RECORD ARRAY current;
+  IF(RecordExists(res) AND CellExists(res,'properties'))
+    current := UnpackRecord(res.properties); //mapping as reported by opensearch
+
+  RECORD ARRAY mismatches;
+  FOREVERY(RECORD row FROM exp)
+  {
+    STRING field := currentprefix || row.name;
+
+    IF(Right(row.name,1) = '*') //we're requesting a wildcard here...
+    {
+      //Matches all fields matching the pattern
+      DELETE FROM current WHERE ToUppercase(current.name) LIKE ToUppercase(row.name);
+      //TODO we should probably be checking the dynamic templates whether they agree with the field definition(s)
+      CONTINUE;
+    }
+
+    RECORD match := SELECT * FROM current WHERE Touppercase(current.name) = ToUppercase(row.name);
+    IF(NOT RecordExists(match))
+    {
+      INSERT CELL [ field, issue := "missing" ] INTO mismatches AT END;
+    }
+    ELSE
+    {
+      DELETE FROM current WHERE current.name = match.name;
+    }
+
+    IF(row.type = "record") //deeper types to compare
+    {
+      mismatches := mismatches CONCAT CompareMappings(RecordExists(match) ? match.value : DEFAULT RECORD, row.properties, field || '.');
+    }
+  }
+
+  FOREVERY(RECORD superfluous FROM current)
+  {
+    STRING field := currentprefix || ToLowercase(superfluous.name);
+    INSERT CELL [ field, issue := "superfluous" ] INTO mismatches AT END;
+    IF(CellExists(superfluous.value, 'properties'))
+      mismatches := mismatches CONCAT CompareMappings(superfluous.value, RECORD[], field || '.');
+  }
+  RETURN mismatches;
 }
