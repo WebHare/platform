@@ -215,7 +215,8 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
-      , _suggested := [ input := ["a","a1"] ] //NOTE this field wasn't returned before the mapping rewrites, but as far as I see it *should* have been as DBContent::GetMapping() returns a suggested field
+      , _suggested := is_opensearch ? [ input := ["a","a1"] ] //NOTE this field wasn't returned before the mapping rewrites, but as far as I see it *should* have been as DBContent::GetMapping() returns a suggested field
+                                    : DEFAULT RECORD
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
@@ -245,7 +246,8 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
-      , _suggested := [ input := ["a","a1"] ]
+      , _suggested := is_opensearch ? [ input := ["a","a1"] ]
+                                    : DEFAULT RECORD
       ], res.results[0]);
 
   search_obj->empty_result_record :=
