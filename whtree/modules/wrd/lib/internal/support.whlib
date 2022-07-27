@@ -863,7 +863,7 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
   /** Called when the transaction has committed
   */
-  UPDATE PUBLIC MACRO OnCommit()
+  UPDATE PUBLIC MACRO OnCommitBroadcasts()
   {
     BOOLEAN anylistchange;
     FOREVERY (RECORD type FROM this->types)
