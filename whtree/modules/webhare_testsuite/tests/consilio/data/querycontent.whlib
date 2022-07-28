@@ -1,0 +1,65 @@
+<?wh
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+
+CONSTANT RECORD ARRAY contentdatabase :=
+  [ [ groupid := "QC1"
+    , body := "This is the first document in the content database"
+    , textfield := "text number one"
+    , keywordfield := "keyword number one"
+    , shortkeyword := "eins"
+    ]
+  , [ groupid := "QC2"
+    , body := "This is the second document in the content database"
+    , textfield := "text number two"
+    , keywordfield := "keyword number two"
+    , shortkeyword := "zwei"
+    ]
+  , [ groupid := "QC3"
+    , body := "This is the third document in the content database"
+    , textfield := "text number three"
+    , keywordfield := "keyword number three"
+    , shortkeyword := "drei"
+    ]
+  ];
+
+PUBLIC STATIC OBJECTTYPE QueryContent EXTEND CustomContentBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RECORD ARRAY mapping := this->defaultmapping CONCAT
+        [ /*[ name := "_body",                   tokenized := TRUE, suggested := TRUE ]  TODO should we do this? do we need it for tests?
+        , */
+          [ name := "textfield",               value := "", type := "text" ]
+        , [ name := "keywordfield",            value := "", type := "keyword" ]
+        , [ name := "shortkeyword",            value := "", type := "keyword" ]
+        ];
+    RETURN mapping;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
+  {
+    RETURN [ status := "result"
+           , groups := (SELECT DISTINCT id := groupid FROM contentdatabase)
+           ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListObjects(DATETIME indexdate, STRING findgroupid)
+  {
+    RETURN [ status := "result"
+           , objects := (SELECT id := "O" || #contentdatabase FROM contentdatabase WHERE groupid = findgroupid)
+          ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME indexdate, STRING findgroupid, STRING findobjectid)
+  {
+    RECORD item := SELECT * FROM contentdatabase WHERE groupid = findgroupid AND "O" || #contentdatabase = findobjectid;
+    IF(NOT RecordExists(item))
+      THROW NEW Exception("Missing item " || findgroupid || " " || findobjectid);
+
+    RETURN [ status := "result"
+           , document_body := item.body
+           , document_fields := CELL[ ...item, DELETE body, DELETE groupid ]
+           ];
+  }
+
+>;
