@@ -423,9 +423,8 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
     @cell(record array) return.results Results
     @cell(record) return.session Search session
 */
-PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD useroptions)
+PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD useroptions, RECORD indexoptions)
 {
-  RECORD indexoptions := GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
   RECORD defaultoptions :=
       [ first := 0
       , count := 0
@@ -2030,46 +2029,4 @@ PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
       INSERT ToLowercase(field.name) INTO fields AT END;
   }
   RETURN fields;
-}
-
-RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
-{
-  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
-
-  RECORD defaultmapping;
-  FOREVERY(RECORD row FROM inprops)
-  {
-    IF(row.type="record")
-      defaultmapping := CELL[ ...defaultmapping
-                            , ...FlattenMapping(SELECT *, name := row.name ||'.' || name FROM row.properties)
-                            ];
-    ELSE
-      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
-  }
-  RETURN defaultmapping;
-}
-
-RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
-{
-  // FIXME resolve this cross dependency
-  OBJECT catalog := MakeFunctionPtr("mod::consilio/lib/catalogs.whlib#OpenConsilioCatalogById")(indexid);
-  RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
-  defaultmapping := CELL[ ...defaultmapping
-                        //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
-                        , DELETE indexid
-                        , DELETE date_indexdate
-                        , DELETE date_indexed
-                        , DELETE contentprovider
-                        , DELETE contentsource
-                        , DELETE body
-                        ];
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-
-  RETURN [ value := CELL [ defaultmapping, indexmanagers ]
-         , ttl := 15 * 60 * 1000
-         , eventmasks := [ "consilio:contentsourceschanged"
-                         , "consilio:indexfields"
-                         ]
-         ];
 }

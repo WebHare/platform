@@ -1003,7 +1003,7 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
     }
     ELSE
     {
-      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ]);
+      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ], __GetIndexManagerOptions(catalogid));
     }
   }
 }
