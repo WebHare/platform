@@ -50,6 +50,8 @@ STRING FUNCTION BuildFieldgroups(STRING ARRAY fieldgroups)
 //Name validation: our API integration currently needs to be able to fix an indexname into 64 characters, so we'll allocate 40 chars for the index name.. 64 - 40 - 1 = 23 remaining for the suffix.. let's give it 16 and have headroom left...
 
 /** Is this a valid indexname for use in Consilio?
+    @param name Name to check
+    @return TRUE if the name is a valid indexname
 */
 PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
 {
@@ -58,6 +60,8 @@ PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexName(STRING name)
 }
 
 /** Is this a valid suffix for use in Consilio?
+    @param suffix Suffix to check
+    @return TRUE if the suffix is a valid suffix
 */
 PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexSuffix(STRING suffix)
 {
@@ -67,8 +71,13 @@ PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexSuffix(STRING suffix)
 }
 
 /** @short List configured index managers
-    @cell (string) return.type Index type: 'opensearch'
-    @cell (string) return.url URL to connect to the server */
+    @return List of index managers
+    @cell(integer) return.id ID of the indexmanager
+    @cell(boolean) return.isbuiltin Whether this is a builtin indexmanager
+    @cell(boolean) return.isdefault Whether this is the default builtin indexmanager
+    @cell(string) return.name Name of the indexmanager
+    @cell(string) return.type Index type: 'opensearch' or 'legacy-indexmanager'
+    @cell(string) return.url URL to connect to the server */
 PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 {
   BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "" OR IsDebugTagEnabled("consilio:preferlegacy");
@@ -180,7 +189,7 @@ STATIC OBJECTTYPE ContentSource
   }
 
   /** Update content source settings
-      @record settings Settings to apply
+      @param settings Settings to apply
       @cell(string) settings.definedby Definition location */
   PUBLIC MACRO UpdateContentSource(RECORD settings)
   {
@@ -263,7 +272,11 @@ STATIC OBJECTTYPE ContentSource
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 
-  /** List groups in the catalog */
+  /** List groups in the catalog
+      @param options Options
+      @return List of groups
+      @cell(string) return.id Group id
+  */
   PUBLIC RECORD ARRAY FUNCTION ListGroups(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(CELL[], options);
@@ -402,6 +415,7 @@ STATIC OBJECTTYPE ContentSource
   }
 
   /** Delete an object
+      @param objectid Object id of the object to delete
       @cell(boolean) options.foreground Delete in the foreground
       @cell(boolean) options.refresh Refresh after deleting (if not set refreshes only if deleting in the foreground) */
   PUBLIC MACRO DeleteObject(STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -504,14 +518,18 @@ STATIC OBJECTTYPE ContentSource
     GetConsilioFinishHandler()->ScheduleCleanup(); //remove deleted contentsources async
   }
 
-  /// Wait for catalog being completey done
+  /** Wait for catalog being completey done
+      @param options @includecelldef #DoWaitForContentSourceDone.options
+  */
   PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     DoWaitForContentSourceDone(this->id, options);
     this->catalog->Refresh();
   }
 
-  /// Get the path this source refers to
+  /** Get the path this source refers to
+      @return WHFS path of the WHFS source object
+  */
   PUBLIC STRING FUNCTION GetWHFSPath()
   {
     IF(this->contentsource.fsobject = 0)
@@ -559,12 +577,13 @@ STATIC OBJECTTYPE ConsilioCatalog
   }
 
   /** List of indices for this catalog. First returned record is the primary index
-      @cell(integer) id ID (for update and delete)
-      @cell(string) indexname Name of the index on the indexmanager
-      @cell(integer) indexmanager Id of the indexmanager
-      @cell(string) type Type of the indexmanager (opensearch)
-      @cell(integer) searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
-      @cell(boolean) readonly If true, the attached index is readonly
+      @return List of attached indices
+      @cell(integer) return.id ID (for update and delete)
+      @cell(string) return.indexname Name of the index on the indexmanager
+      @cell(integer) return.indexmanager Id of the indexmanager
+      @cell(string) return.type Type of the indexmanager (opensearch)
+      @cell(integer) return.searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
+      @cell(boolean) return.readonly If true, the attached index is readonly
   */
   PUBLIC RECORD ARRAY FUNCTION ListAttachedIndices()
   {
@@ -582,7 +601,9 @@ STATIC OBJECTTYPE ConsilioCatalog
      ORDER BY searchpriority DESC, catalog_indexmanagers.id;
   }
 
-  /** Is this index ready for storing objects ? */
+  /** Is this index ready for storing objects ?
+      @return TRUE if the index is ready
+  */
   PUBLIC BOOLEAN FUNCTION IsReadyForStorage()
   {
     RECORD ARRAY indices := SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly;

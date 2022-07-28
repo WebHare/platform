@@ -1294,7 +1294,7 @@ void GetDESCrypt(const void *keydata, unsigned keylen, const void *saltdata, uns
    - we can enable partial writes (see SSL_write manpage) so that we get data
      in 16KB chunks - allows us to lower our own buffering requirements? */
 
-SSLContext::SSLContext(bool is_server, std::string const &ciphersuite, int securitylevel)
+SSLContext::SSLContext(bool is_server, std::string const &ciphersuite, int securitylevel, uint64_t ssloptions)
 : is_server(is_server)
 {
         ctx=SSL_CTX_new(is_server ? SSLv23_server_method() : SSLv23_client_method());
@@ -1312,6 +1312,7 @@ SSLContext::SSLContext(bool is_server, std::string const &ciphersuite, int secur
                                            | SSL_OP_SINGLE_DH_USE //http://www.opensource.apple.com/source/apache/apache-678/mod_ssl/pkg.sslmod/ssl_engine_init.c doe sit
                                            | SSL_OP_CIPHER_SERVER_PREFERENCE
                                            | SSL_OP_SINGLE_ECDH_USE
+                                           | ssloptions
                                            );
 
         SSL_CTX_set_ecdh_auto((SSL_CTX*)ctx, 1);

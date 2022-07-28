@@ -72,7 +72,7 @@ Points to a script that will be sourced by 'wh' and can filter any command passe
 ## Networking
 Changing the bindings of internal ports gives you more flexibility to route internal WebHare traffic or to access ports
 for debugging but may have serious repercussions for security. Be very careful when opening these ports and make sure
-they are properly firewalled from externa ltraffic
+they are properly firewalled from external traffic
 
 ### WEBHARE_SECUREPORT_BINDIP
 Set the IP address binding for the secure/trusted port (usually 13684). If not set it defaults to localhost. This port is

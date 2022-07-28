@@ -34,6 +34,13 @@ PUBLIC CONSTANT STRING default_ciphersuites := `${modern_ciphersuites}:ECDHE-ECD
 PUBLIC CONSTANT RECORD secureconnection_options :=
     [ ciphersuites := default_ciphersuites
     , securitylevel := 1 //openssl security level. see https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_security_level.html
+    , ssloptions := STRING[]
+    ];
+
+/** Default meta-options for secure connections
+*/
+PUBLIC CONSTANT RECORD secureconnection_optionsmeta :=
+    [ enums := [ ssloptions := [ "SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION" ] ]
     ];
 
 
@@ -546,9 +553,9 @@ PUBLIC BOOLEAN FUNCTION SetSecureConnection(INTEGER connectionid, BOOLEAN initia
 {
   options := ValidateOptions([ hostname := ""
                              , ...secureconnection_options
-                             ], options);
+                             ], options, secureconnection_optionsmeta);
 
-  RETURN __HS_TCPIP_SetSecureConnection(connectionid, initiate, options.ciphersuites, options.hostname, options.securitylevel);
+  RETURN __HS_TCPIP_SetSecureConnection(connectionid, initiate, options.ciphersuites, options.hostname, options.securitylevel, options.ssloptions);
 }
 
 
