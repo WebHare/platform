@@ -1366,7 +1366,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       {
         CASE "virtualfs"
         {
-          STRING library := subchild->GetAttribute("library");
           RECORD virtualfs := [ name := subchild->GetAttribute("name")
                               , objectname := subchild->GetAttribute("objectname")
                               , ...ParseChecks(this->moduledef.name, subchild, TRUE)
