@@ -7,6 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
@@ -1079,10 +1080,87 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
   RETURN size;
 }
 
+STRING FUNCTION AddRefreshToURLPart(STRING urlpart, VARIANT refresh)
+{
+  IF (IsDefaultValue(refresh))
+    refresh := "false";
+  ELSE IF (TypeID(refresh) = TypeID(BOOLEAN))
+    refresh := "wait_for";
+  ELSE IF (TypeID(refresh) != TypeID(STRING) OR refresh NOT IN [ "force", "wait_for" ])
+    THROW NEW Exception(`Unexpected refresh option value ${EncodeJSON(refresh)}`);
+  ELSE
+    refresh := refresh IN [ "false", "wait_for" ] ? refresh : "true";
+  IF (refresh != "false")
+    RETURN `${urlpart}${SearchSubString(urlpart, "?") = -1 ? "?" : "&"}refresh=${refresh}`;
+  RETURN urlpart;
+}
+
+STATIC OBJECTTYPE IndexManagerBulkKeeper
+<
+  RECORD ARRAY _requests;
+
+  /** Add bulk requests for an OpenSearch indexmanager
+      @param indexmanagerid Indexmanager id
+      @param indexname Name of the index
+      @param requests List of requests to add for this index
+      @cell options.suffix Suffix
+  */
+  PUBLIC MACRO AddOpenSearchRequests(INTEGER indexmanagerid, STRING indexname, RECORD ARRAY requests, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ suffix :=       ""
+        ], options);
+
+    RECORD rec := CELL
+        [ indexmanagerid
+        , finalindexname :=       indexname  || (options.suffix != "" ? "-" || options.suffix : "")
+        , requests
+        ];
+
+    RECORD pos := RecordLowerBound(this->_requests, rec, [ "INDEXMANAGERID", "FINALINDEXNAME" ]);
+    IF (pos.found)
+      this->_requests[pos.position].requests := this->_requests[pos.position].requests CONCAT requests;
+    ELSE
+      INSERT rec INTO this->_requests AT pos.position;
+  }
+
+  /** Execute the collected bulk operations
+      @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
+      @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
+      @return Result code
+  */
+  PUBLIC STRING FUNCTION Execute(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ refresh :=            FALSE
+        , throwonfailure :=     FALSE
+        ], options,
+        [ notypecheck := [ "refresh" ]
+        ]);
+
+    STRING retval := SearchOk;
+    FOREVERY (RECORD rec FROM this->_requests)
+    {
+      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST", CELL[ options.throwonfailure ]);
+      IF (response.status != SearchOk)
+        retval := response.status;
+    }
+    RETURN retval;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetIndexManagerBulkKeeper()
+{
+  RETURN NEW IndexManagerBulkKeeper;
+}
+
+
+
 // @cell objects.objectid
 // @cell objects.documentfields
 // @cell objects.suggestfields (only used by legacy consilio, opensearch uses the mapping's suggested property)
 // @cell objects.suggestprefixes (only used by legacy consilio)
+// @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
 PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                                               RECORD contentsource,
                                               STRING groupid,
@@ -1094,6 +1172,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
       , refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , throwonfailure := FALSE
+      , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -1189,11 +1268,16 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
               INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
             }
 
-            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
-            IF (response.status != SearchOk)
+            IF (ObjectExists(options.bulk))
+              options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
+            ELSE
             {
-              result := result ?? response.status;
-              BREAK;
+              response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+              IF (response.status != SearchOk)
+              {
+                result := result ?? response.status;
+                BREAK;
+              }
             }
           }
         }
@@ -1244,9 +1328,18 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             // optional_source
             INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
           }
-          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
-          IF (response.status != SearchOk)
-            result := result ?? response.status;
+
+          IF (ObjectExists(options.bulk))
+          {
+            options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
+            result := SearchOk;
+          }
+          ELSE
+          {
+            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST");
+            IF (response.status != SearchOk)
+              result := result ?? response.status;
+          }
         }
 
         IF (result = "")
@@ -1363,7 +1456,8 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
     @param objectids The objects to delete
     @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
     @cell(string) options.suffix Sub-index suffix, for unmanaged indices, Elasticsearch only
-    @cell(boolean) options.throwonfailure Throw on failre, Elasticsearch only
+    @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
+    @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
     @return If the deletion was successful for all affected indexmanagers
 */
 PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER contentsourceid, STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1372,6 +1466,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
       [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , throwonfailure := FALSE
+      , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -1415,28 +1510,51 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
                 SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
                   FROM ToRecordArray(objectids, "objectid");
 
-            RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
-            IF (response.status != SearchOk)
-              result := result ?? response.status;
+            IF (ObjectExists(options.bulk))
+              options.bulk->AddOperation(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
+            ELSE
+            {
+              RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+              IF (response.status != SearchOk)
+                result := result ?? response.status;
+            }
           }
           CONTINUE;
         }
 
-        RECORD query :=
-            [ query :=
-                [ bool :=
-                    [ must := RECORD[]
-                    , should := (SELECT match := [ objectid := objectid ] FROM ToRecordArray(objectids, "objectid"))
-                    , minimum_should_match := 1
-                    ]
-                ]
-            ];
-        IF (contentsourceid != 0)
-          INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+        IF (indexid != 0)
+        {
+          RECORD ARRAY bulkrequests :=
+              SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, "") ]
+                FROM ToRecordArray(objectids, "objectid");
 
-        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
-        IF (response.status != SearchOk)
-          result := response.status;
+          IF (ObjectExists(options.bulk))
+            options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests);
+          ELSE
+          {
+            RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+            IF (response.status != SearchOk)
+              result := result ?? response.status;
+          }
+        }
+        ELSE
+        {
+          RECORD query :=
+              [ query :=
+                  [ bool :=
+                      [ must := RECORD[]
+                      , should := (SELECT match := [ objectid := objectid ] FROM ToRecordArray(objectids, "objectid"))
+                      , minimum_should_match := 1
+                      ]
+                  ]
+              ];
+          IF (contentsourceid != 0)
+            INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+
+          RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", AddRefreshToURLPart(`/_delete_by_query`, options.refresh), query, "POST");
+          IF (response.status != SearchOk)
+            result := response.status;
+        }
       }
     }
   }

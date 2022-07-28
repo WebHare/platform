@@ -498,6 +498,15 @@ test.registerTests(
       test.eq('284', img.getAttribute("height"));
     }
 
+  , "Test RTE with failing CSS loads"
+  , async function()
+    {
+      await test.load(test.getTestScreen('tests/richdoc.main,loadfailingcss'));
+      await test.wait("ui");
+
+      // should be visible
+      test.clickTolliumLabel("Tab with Structured RTE");
+    }
 
     // ADDME: test dirtying via keyboard interaction (selenium!), editing blocks, some mouse interaction stuff
   ]);

@@ -128,6 +128,9 @@ PUBLIC OBJECTTYPE ManagedTaskBase
 >;
 
 /** @private deprecated
+    @param module Task module
+    @param name Task name
+    @param nexttime Next time to run
 */
 PUBLIC MACRO SchedulePredefinedSingleShotTask(STRING module, STRING name, DATETIME nexttime) __ATTRIBUTES__(DEPRECATED "Switch to ScheduleTimedTask (but make sure you have work open or use PushWork/PopWork!)")
 {

@@ -1035,7 +1035,8 @@ class PreloadedCSS
     this.addcss = links.map(href => ({ type:"link", src: href }));
 
     let rules = RTE.register(this);
-    this.loadpromise = Promise.all(rules.map(rule => rule.promise).filter(_ => _.then(r => true, e => false))).then(arr => arr.reduce((p,c)=>p&&c, true));
+    // Wait for all rule promises, return false if any gave back an error
+    this.loadpromise = Promise.all(rules.map(rule => rule.promise.then(r => true, e => false))).then(arr => arr.every(_=>_));
   }
 
   clone()

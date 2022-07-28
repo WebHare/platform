@@ -628,12 +628,13 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
         }
 
         //ADDME: Combine the objects to delete, the objects to index and the deletion of outdated objects into one bulk action?
+        OBJECT bulk := GetIndexManagerBulkKeeper();
 
         FOREVERY (RECORD req FROM todelete)
         {
           FetcherDebug(ConsilioDebugSkipped, "Object \"" || EncodeJava(req.objectid) || "\" from group \"" || EncodeJava(data.groupid) || "\" could not be found, deleting it", source.loglevel);
 
-          STRING delresult := DeleteObjectFromIndex(provider->indexid, source.id, data.groupid, req.objectid, options.noindexmodify, options.refresh);
+          STRING delresult := DeleteObjectFromIndex(provider->indexid, source.id, data.groupid, req.objectid, options.noindexmodify, options.refresh, CELL[ bulk ]);
           IF (delresult = SearchSleep)
             RETURN result;
           ELSE IF (delresult != SearchOk)
@@ -656,9 +657,10 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                                              , suggestprefixes
                                                              , indextypes :=             CellExists(toadd, "INDEXTYPES") ? toadd.indextypes : STRING[]
                                                              , indexversions :=          CellExists(toadd, "INDEXVERSIONS") ? toadd.indexversions : STRING[]
-                                                          FROM toadd),
+                                                          FROM toadd), CELL
                                                        [ discardsummaries := provider->discardsummaries
                                                        , refresh := options.refresh
+                                                       , bulk
                                                        ]);
 
             IF (addresult != SearchOk)
@@ -686,6 +688,8 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
               THROW NEW Exception(deleteres);
           }
         }
+
+        bulk->Execute(CELL[ throwonfailure := TRUE, options.refresh ]);
       }
 
       provider->OnGroupDone(data.commanddate, data.groupid);
@@ -1593,8 +1597,12 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
   }
 }
 
-STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, STRING groupid, STRING objectid, BOOLEAN noindexmodify, BOOLEAN refresh)
+STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, STRING groupid, STRING objectid, BOOLEAN noindexmodify, BOOLEAN refresh, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ bulk := DEFAULT OBJECT
+      ], options);
+
   IF (noindexmodify)
     RETURN SearchOk;
 
@@ -1602,7 +1610,7 @@ STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, ST
   INTEGER loglevel := RecordExists(source) ? source.loglevel : -1;
 
   FetcherDebug(ConsilioDebugInfo, `Deleting object '${EncodeJava(objectid)}'${ groupid != "" ? `, group '${EncodeJava(groupid)}'` : "" } from contentsource ${contentsource}`, loglevel);
-  RETURN DeleteIndexManagerObject(indexid, contentsource, objectid, [ refresh := refresh ]);
+  RETURN DeleteIndexManagerObject(indexid, contentsource, objectid, CELL[ refresh, options.bulk ]);
 }
 
 STRING FUNCTION DeleteGroupFromContentSource(INTEGER contentsource, STRING groupid, BOOLEAN noindexmodify, BOOLEAN refresh)

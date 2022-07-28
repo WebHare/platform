@@ -56,6 +56,16 @@ STATIC OBJECTTYPE TasksFinishHandler EXTEND TransactionFinishHandlerBase
     AsyncExecuteEphemeralTasks(tohandle);
   }
 
+  /** Schedule an ephemeral task to run
+      @param task Task data
+      @cell task.tasktype Type of the task
+      @cell task.taskdata Task data
+      @cell task.workertype Worker type
+      @cell task.priority Task priority
+      @cell task.options @includecelldef mod::system/scripts/internal/managedqueuemgr.whscr#QueueMgrClientConnection::RunEphemeralTask.options
+      @cell task.resolve Called with result
+      @cell task.reject Called with exeception
+  */
   PUBLIC MACRO AddEphemeralTask(RECORD task)
   {
     INSERT task INTo this->scheduledephemeraltasks AT END;
