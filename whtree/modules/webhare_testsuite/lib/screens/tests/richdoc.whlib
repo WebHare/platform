@@ -27,6 +27,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 //    this->editor->type := "email";
     this->editor->value := this->GetMailValue(GetWebhareResource("mod::webhare_testsuite/data/test/emailinit.eml"));
 
+    IF (CellExists(data, "params") AND "loadfailingcss" IN data.params)
+      ^structured->SetupForRTDType("http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc-cssfail");
+
     this->structured->ondirty := PTR this->GotDirty;
     this->structured->value := GetTestRTD( [ bigstructure := "bigstructure" IN data.params ]);
 

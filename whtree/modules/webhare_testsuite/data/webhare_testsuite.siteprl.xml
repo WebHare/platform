@@ -261,6 +261,20 @@
     </blockstyles>
   </rtdtype>
 
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc-cssfail">
+    <css path="test/rte-structure-fail.css" />
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" containertag="h1" textstyles="i u" />
+      <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
+      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
+      <tablestyle tag="MYTABLE" />
+      <tablestyle tag="OTHERTABLE" />
+      <cellstyle tag="REDPILL" title="Red cell" />
+      <cellstyle tag="BLUEPILL" title="Blue cell" />
+    </blockstyles>
+  </rtdtype>
+
   <!-- test pagelist -->
   <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/pagelist"
             kind="virtualfile"
