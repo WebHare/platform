@@ -7,6 +7,11 @@ LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 INTEGER waitindex;
 
+/** Wait for a contentsource to finish indexing
+    @param contentsourceid Id of the contentsource
+    @cell(boolean) options.verbose Whether to print progress messages
+    @cell(datetime) options.deadline Deadline to wait for
+*/
 PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ verbose := FALSE
