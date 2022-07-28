@@ -524,7 +524,15 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
   MACRO CloseJob()
   {
     IF (ObjectExists(this->job))
+    {
+      IF (IsProfilingEnabled())
+      {
+        // Do a clean shutdown to get the profiles
+        this->job->SendInterrupt();
+        this->job->Wait(AddTimeToDate(50, GetCurrentDateTime()));
+      }
       this->job->Close();
+    }
     IF (this->job_outputstream != 0)
       ClosePipe(this->job_outputstream);
     this->job_outputstream := 0;

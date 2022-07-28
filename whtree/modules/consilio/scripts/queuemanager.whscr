@@ -71,6 +71,7 @@ OBJECTTYPE Worker
   //
 
   /** @short Create a new worker using the given script
+      @param script Script to run
   */
   MACRO NEW(STRING script)
   {
@@ -129,6 +130,15 @@ OBJECTTYPE Worker
       INTEGER pid := this->pvt_pid;
       IF (IsProcessRunning(pid))
       {
+        IF (IsProfilingEnabled())
+        {
+          // Send an interrupt to try and get a clean shutdown. Allow 250 ms for shutdown
+          InterruptProcess(pid);
+          DATETIME deadline := AddTimeToDate(100, GetCurrentDateTime());
+          WHILE (GetCurrentDateTime() < deadline AND IsProcessRunning(pid))
+            Sleep(10);
+        }
+
         // If the process is (still) running, terminate it
         TerminateProcess(pid);
       }

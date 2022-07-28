@@ -1055,7 +1055,11 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
 PUBLIC MACRO ClearCaches(STRING eventname, RECORD data)
 {
   FetcherDebug(ConsilioDebugInfo, "Clearing fetcher provider cache");
+  RECORD ARRAY old_providers := cached_providers;
   cached_providers := DEFAULT RECORD ARRAY;
+
+  FOREVERY (RECORD rec FROM old_providers)
+    rec.obj->Close();
 }
 
 

@@ -140,6 +140,12 @@ MACRO AddToCommandQueue(STRING cmd)
     INSERT GetQueueDataFromCommand(cmd) INTO cmdqueue AT END;
 }
 
+MACRO GotInterrupt()
+{
+  ClearCaches("", DEFAULT RECORD);
+  TerminateScript();
+}
+
 IF(args.exec != "")
 {
   //ADDME profiling support
@@ -163,6 +169,7 @@ ELSE
   //
 
   RegisterEventCallback("consilio:contentsourceschanged", PTR ClearCaches);
+  AddInterruptCallback(PTR GotInterrupt);
 
   WHILE (TRUE)
   {
