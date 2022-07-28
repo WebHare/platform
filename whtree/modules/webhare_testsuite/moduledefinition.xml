@@ -374,7 +374,6 @@
       <text name="testsuite" />
     </fieldgroup>
 
-    <catalog tag="circular_module_reference" managed="false" fieldgroups="consilio:circular_test_reference_group" />
     <fieldgroup tag="circular_test_reference_group">
       <addfieldgroup ref="consilio:circular_test_reference_group" />
     </fieldgroup>
