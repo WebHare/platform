@@ -1,8 +1,8 @@
 #!/bin/bash
+set -e
 
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
 # wh builddocker && wh testdocker --nocleanup --tag=-external -w local consilio
-
 
 echo "Max open files: $(ulimit -n)"
 
@@ -58,11 +58,27 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   CHPST="chpst -u opensearch:opensearch:whdata "
 else
   _JAVA_OPTIONS="$_JAVA_OPTIONS -Djava.security.manager=allow"    #linux opensearch 1.3.2 doesn't seem to like securitymanager anymore but brew does
+fi
 
-  # We don't currently have a way to check if the installed plugin versions match the Opensearch version, so we'll just remove
-  # and reinstall the necessary plugins on startup
-  "$OPENSEARCHBINARY-plugin" remove analysis-icu
-  "$OPENSEARCHBINARY-plugin" install analysis-icu
+if [ -z "$WEBHARE_IN_DOCKER" ]; then
+
+  if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
+    echo "WEBHARE_CHECKEDOUT_TO is not set?"
+    exit 1
+  fi
+
+  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version)"
+  CHECKOUTSTATE="$WEBHARE_CHECKEDOUT_TO/.checkoutstate"
+
+  LAST_OPENSEARCHVERSION="$(cat "$CHECKOUTSTATE"/lastopensearchversion 2>/dev/null || true)"
+  if [ "$CURRENT_OPENSEARCHVERSION" != "$LAST_OPENSEARCHVERSION" ]; then
+    # Reinstall our plugins when Opensearch is updated
+    "$OPENSEARCHBINARY-plugin" remove analysis-icu 2>/dev/null || true
+    "$OPENSEARCHBINARY-plugin" install analysis-icu
+
+    mkdir -p "$CHECKOUTSTATE"
+    echo "$CURRENT_OPENSEARCHVERSION" > "$CHECKOUTSTATE"/lastopensearchversion
+  fi
 fi
 
 exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
