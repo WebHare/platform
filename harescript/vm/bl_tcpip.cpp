@@ -635,8 +635,13 @@ void HS_TCPIP_CreateSecureSocket(HareScript::VarId id_set, HareScript::VirtualMa
         for (unsigned i = 0, e = HSVM_ArrayLength(*vm, HSVM_Arg(5)); i < e; ++i)
         {
                 std::string option = HSVM_StringGetSTD(*vm, HSVM_ArrayGetRef(*vm, HSVM_Arg(5), i));
-                if (option == "SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION")
+                if (option == "SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION"sv)
                     ssloptions |= SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION;
+                else
+                {
+                        HSVM_ThrowException(*vm, ("Unknown ssl option " + Blex::AnyToJSON(option)).c_str());
+                        return;
+                }
         }
 
         HSVM_BooleanSet(*vm, id_set, context->tcpip.CreateSecureSocket( HSVM_IntegerGet(*vm, HSVM_Arg(0))
