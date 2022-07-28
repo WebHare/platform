@@ -355,6 +355,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
   RECORD webharetrustedport;
 
+  PUBLIC STRING ARRAY ssloptions;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -950,7 +952,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         IF(this->debug OR __webbrowser_debugall)
           Print(`Securing connection...\n`);
 
-        IF(NOT SetSecureConnection(connid, TRUE, [ hostname := server ]))
+        IF(NOT SetSecureConnection(connid, TRUE, CELL[ hostname := server, this->ssloptions ]))
         {
           this->pvt_sockerr := GetLastSocketError(connid);
           this->MyErrorHandler("Could not establish secure connection");
