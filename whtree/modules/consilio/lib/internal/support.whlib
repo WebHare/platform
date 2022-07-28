@@ -55,6 +55,11 @@ PUBLIC CONSTANT INTEGER default_contentcheckinterval:= 1440;
 */
 PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
 
+PUBLIC CONSTANT INTEGER contentsourcestatus_disabled := -1;
+PUBLIC CONSTANT INTEGER contentsourcestatus_idle := 0;
+PUBLIC CONSTANT INTEGER contentsourcestatus_updating := 1;
+PUBLIC CONSTANT INTEGER contentsourcestatus_rebuilding := 2;
+PUBLIC CONSTANT INTEGER contentsourcestatus_error := 4;
 
 PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
 {

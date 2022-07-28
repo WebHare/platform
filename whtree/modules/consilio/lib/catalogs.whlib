@@ -1093,7 +1093,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                            , csourcesettings.definedby
                            , ...csourcesettings
                            , data := EncodeHSON(CellExists(csourcesettings,'data') ? csourcesettings.data : DEFAULT RECORD)
-                           , status := csourcesettings.enabled ? 0 : -1
+                           , status := csourcesettings.enabled ? contentsourcestatus_idle : contentsourcestatus_disabled
                            , DELETE enabled
                            ];
 
