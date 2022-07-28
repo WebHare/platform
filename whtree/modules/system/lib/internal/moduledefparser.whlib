@@ -1368,15 +1368,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         {
           STRING library := subchild->GetAttribute("library");
           RECORD virtualfs := [ name := subchild->GetAttribute("name")
-                              , objectname := subchild->HasAttribute("objecttype") ? subchild->GetAttribute("objecttype") : subchild->GetAttribute("objectname")
+                              , objectname := subchild->GetAttribute("objectname")
                               , ...ParseChecks(this->moduledef.name, subchild, TRUE)
                               ];
 
-          //TODO start removing library= at some point. either directly or with warnings, i'm not sure there *are* much external users to worry about
-          IF(library != "")
-            virtualfs.objectname := "module::" || this->moduledef.name || "/" || library || "#" || virtualfs.objectname;
-          ELSE
-            virtualfs.objectname := MakeAbsoluteResourcePath(this->respath, virtualfs.objectname);
+          virtualfs.objectname := MakeAbsoluteResourcePath(this->respath, virtualfs.objectname);
 
           INSERT virtualfs INTO this->moduledef.virtualfs AT END;
         }
