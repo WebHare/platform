@@ -225,7 +225,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    IF(want.managed AND want.catalog->managed)
+    IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
     {
       want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
 

@@ -102,9 +102,6 @@ MACRO TestUpdateIndicesMetadata()
                                  ,[ name := "versionnr", type := "integer" ]
                                  ]
                 ]], (SELECT * FROM toolslog_mapping WHERE name = "minfin"),"*");
-
-  //TODO maybe we should get rid of the broken indices and only CalculateExpectedConfiguration them to keep logs clean?
-  TestEq(RECORD[], OpenConsilioCatalog("webhare_testsuite:duplicate_fieldnames")->GetExpectedMapping());
 }
 
 MACRO PrepareIndices()
