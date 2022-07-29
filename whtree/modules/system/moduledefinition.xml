@@ -692,12 +692,12 @@ True if this port should support virtual hosting.
       </d:blob>
       <d:integer name="failures">
         <d:documentation>
-          Number of task failures so far (exceptions and ABORTs)
+          Number of sequential task failures so far (exceptions and ABORTs). A restart will reset this
         </d:documentation>
       </d:integer>
       <d:integer name="iterations">
         <d:documentation>
-          For restartable tasks, how many iterations we've done
+          For restartable tasks, how many iterations we've done. Used by the queuemgr to detect a requested task restart
         </d:documentation>
       </d:integer>
       <d:boolean name="iscancelled">
