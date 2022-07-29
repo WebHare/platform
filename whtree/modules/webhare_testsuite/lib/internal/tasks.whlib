@@ -110,8 +110,8 @@ PUBLIC OBJECTTYPE TemporaryFailingTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD data)
   {
-    DATETIME nextretry := ReadRegistryKey("webhare_testsuite.tests.tempfailretryat", [ fallback := DEFAULT DATETIME ]);
-    this->ResolveByTemporaryFailure(data, "Temporary failure", nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ nextretry ]);
+    data := ValidateOptions([ nextretry := DEFAULT DATETIME ], data);
+    this->ResolveByTemporaryFailure(data, "Temporary failure", data.nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ data.nextretry ]);
   }
 >;
 
