@@ -106,7 +106,7 @@ MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
   EnsurePublisherWHFSIndex();
 
   FOREVERY(RECORD msg FROM msgs)
-    ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug ]);
+    ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug, msg.refresh ]);
 }
 
 

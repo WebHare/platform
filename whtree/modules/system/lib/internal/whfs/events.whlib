@@ -296,7 +296,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       IF (Length(this->deferredindexpromises) > 0)
         this->eventcallback := RegisterEventCallback(`system:whfs.index.response.${eventid}`, PTR this->ResolveIndexPromises);
 
-      BroadcastEvent(`system:whfs.index.request.${eventid}`, [ to_reindex := this->to_reindex ]);
+      // Refresh if there are waiters
+      BroadcastEvent(`system:whfs.index.request.${eventid}`,
+          [ to_reindex := this->to_reindex
+          , refresh := Length(this->deferredindexpromises) > 0
+          ]);
     }
     ELSE
     {

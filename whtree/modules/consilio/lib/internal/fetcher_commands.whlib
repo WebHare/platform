@@ -501,7 +501,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
          @cell date_indexdate Indexdate for this object
          @cell date_indexed Commanddate of command that added this object
       */
-      RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields);
+      RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields, CELL[ options.refresh ]);
 
       // Get a list of object ids from the provider within the group
       // This is the initial list of objects to fetch; new objects will be added as they are encountered while fetching
@@ -976,6 +976,9 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
     RETURN result;
   }
 
+  // Make sure all modifications are visible after cleanup
+  RefreshAttachedIndices(data.indexid);
+
   INTEGER loglevel := (SELECT AS INTEGER catalogs.loglevel + 1 FROM consilio.catalogs WHERE id = data.indexid) - 1;
   IF(NOT options.nocleaning AND data.active AND NOT data.dontdelete)
   {
@@ -983,7 +986,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
     IF (NOT options.noindexmodify)
     {
       // All objects in the index with an index date before this task's index date can be removed from the index.
-      RECORD deleteresult := DeleteIndexManagerOutdated(data.indexid, data.contentsourceid, "", "", data.commanddate);
+      RECORD deleteresult := DeleteIndexManagerOutdated(data.indexid, data.contentsourceid, "", "", data.commanddate, [ refresh := TRUE ]);
 
       // -1: error, -2: connection error or consilio unavailable
       IF (deleteresult.deleted < 0)
@@ -1299,13 +1302,20 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
     @param contentsourceid ID of the content source
     @param groupid Id of the group
     @param extrafields List of other fields to return
+    @cell(boolean) options.refresh Refresh index before querying
     @return Group objects
     @cell return.id Object id
     @cell return.modificationdate Recorded modificationdate (from FetchObject)
     @cell return.commanddate Date of command that added the object
 */
-RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING groupid, STRING ARRAY extrafields)
+RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING groupid, STRING ARRAY extrafields, RECORD options)
 {
+  options := ValidateOptions(
+      [ refresh :=      FALSE
+      ], options,
+      [ notypecheck := [ "refresh" ]
+      ]);
+
   RECORD mapping :=
       [ date_indexdate := DEFAULT DATETIME
       , date_indexed := DEFAULT DATETIME
@@ -1319,6 +1329,10 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 
   // Get all available groups (might take some time if the source has millions of objects)
   INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
+
+  // A refresh is needed when modifications of a queued command haven't been picked up yet
+  IF (options.refresh)
+    RefreshAttachedIndices(indexid);
 
   RECORD ARRAY results;
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
@@ -1383,49 +1397,6 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
   {
     DeleteIndexManagerContentSource(0, indexid, contentsource);
   }
-}
-
-
-/** Remove existing objects that aren't needed anymore
-    @param indexid
-    @param contentsourceid
-    @param groupid
-    @param objects
-    @cell objects.id
-    @cell objects.commanddate
-    @return TRUE if success
-*/
-BOOLEAN FUNCTION RemoveOutdatedGroupObjects(INTEGER indexid, INTEGER contentsourceid, STRING groupid, RECORD ARRAY objects, BOOLEAN noindexmodify, BOOLEAN refresh)
-{
-  INTEGER loglevel := -1;
-  RECORD source := GetContentSource(contentsourceid);
-  IF (RecordExists(source))
-    loglevel := source.loglevel;
-  FetcherDebug(ConsilioDebugInfo, "Deleting " || LENGTH(objects) || " outdated objects for cs " || contentsourceid || ", group \"" || EncodeJava(groupid) || "\"", loglevel);
-
-  IF (noindexmodify)
-    RETURN TRUE;
-
-  FOREVERY (RECORD rec FROM objects)
-  {
-    FetcherDebug(ConsilioDebugInfo, "Deleting unreferenced object \"" || EncodeJava(rec.id) || "\" from group \"" || EncodeJava(groupid) || "\"", loglevel);
-
-    /* Use deleteoutdated to remove only the objects not newer than commanddate (needs AddTimeToDate(1, X), because
-       consilio removes everything older instead.
-    */
-    RECORD result := DeleteIndexManagerOutdated(indexid, contentsourceid, groupid, rec.id, AddTimeToDate(1, rec.commanddate), [ refresh := refresh ]);
-    IF (result.deleted < 0)
-    {
-      FetcherDebug(ConsilioDebugAll, "Could not delete outdated object \"" || EncodeJava(rec.id) || "\" in group \"" || EncodeJava(groupid) || "\"", loglevel);
-      IF (result.deleted = -2)
-        RETURN FALSE;
-    }
-
-    IF (Length(result.active) != 0)
-      FetcherDebug(ConsilioDebugInfo, "Could not delete outdated object \"" || EncodeJava(rec.id) || "\" in group \"" || EncodeJava(groupid) || "\", newer version already present: " || Detokenize(result.active, ","), loglevel);
-  }
-
-  RETURN TRUE;
 }
 
 

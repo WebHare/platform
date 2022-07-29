@@ -669,8 +669,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     //TODO cache these ids... they won't change that often..
     //TODO suffixes? or just always attach a wildcard? or should the caller ghive us the suffix(es) to  refresh?
-    FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE type = "opensearch")
-      RefreshIndexManager(opensearch.indexmanager, this->id);
+    RefreshAttachedIndices(this->id);
   }
 
   /** Attach an index (backing store) to a catalog
