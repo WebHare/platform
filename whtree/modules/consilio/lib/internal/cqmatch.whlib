@@ -54,7 +54,7 @@ PUBLIC RECORD FUNCTION __CQMatch(STRING field, STRING matchtype, VARIANT value, 
       RETURN [ _type := "boolean"
              , subqueries :=
                  (SELECT query :=
-                           CELL[ _type := "term"
+                           CELL[ _type := matchtype = "IN" ? "literal" : "term"
                                , field
                                , term
                                , boost := 1f

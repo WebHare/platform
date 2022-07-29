@@ -25,6 +25,7 @@
   <test script="test_consilioapi.whscr" />
   <test script="test_robots.whscr" />
   <test script="test_customcontent.whscr" />
+  <test script="test_queries.whscr" />
   <test script="test_suggestfields.whscr" />
   <test script="test_thesaurus.whscr" />
   <test script="test_boostwords.whscr" />

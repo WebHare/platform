@@ -1,0 +1,91 @@
+<?wh
+
+/* For (temporarily?) legacy compatibility testing of the CQ operators, try
+WEBHARE_PREFERINDEXMANAGER=1 wh run mod::webhare_testsuite/tests/consilio/test_queries.whscr
+*/
+
+LOADLIB "wh::devsupport.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+STRING ARRAY FUNCTION ExecTestQuery(RECORD inquery)
+{
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", inquery, [ debug := TRUE ]);
+  RETURN SELECT AS STRING ARRAY groupid FROM searchres.results ORDER BY groupid;
+}
+
+MACRO PrepareCustomCatalog()
+{
+  TestEq(0, __GetNumSubJobs());
+
+  testfw->BeginWork();
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_queries");
+  Print(catalog->GetStorageInfo() || "\n");
+  testfw->CommitWork();
+
+  //TODO can we remove this intermediate work? it'll probably require the fetcher to not start indexing objects until the index attachments are complete
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  OBJECT contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", Resolve("data/querycontent.whlib#QueryContent"),
+      [ title :=            "BETA_CUSTOMSOURCE"
+      , maxgroupobjects :=  1000
+      , discardsummaries := TRUE
+      ]);
+
+
+  RECORD ARRAY mapping := catalog->GetExpectedMapping();
+  dumpvalue(mapping,'tree');
+
+  TestEqMembers([[ name := "textfield", type := "text" ]], (SELECT * FROM mapping WHERE name = "textfield"),"*");
+  TestEqMembers([[ name := "keywordfield", type := "keyword" ]], (SELECT * FROM mapping WHERE name = "keywordfield"),"*");
+  testfw->CommitWork();
+
+  TestEq([[ groupid := "QC1" ], [ groupid := "QC2" ], [ groupid := "QC3" ]],
+         SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
+  contentsource->WaitForIndexingDone();
+}
+
+MACRO RunTheQueries()
+{
+  OBJECT catalog := OpenConsilioCatalog("consilio:testfw_queries");
+  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
+
+  //CQMatch is for keyword fields (inequality comparisions make sense here), CQContains will be for text fields
+  TestEq(["QC1"], ExecTestQuery(CQMatch("groupid", "=", "QC1")));
+  TestEq(["QC2"], ExecTestQuery(CQMatch("groupid", "=", "QC2")));
+  TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("groupid", "IN", ["QC3","QC2"])));
+
+  //Keywords like equality operators
+  TestEq(STRING[], ExecTestQuery(CQMatch("shortkeyword", "=", "zero")));
+  TestEq(["QC1"], ExecTestQuery(CQMatch("shortkeyword", "=", "eins")));
+
+  TestEq(["QC1"], ExecTestQuery(CQMatch("keywordfield", "=", "keyword number one")));
+  IF(is_opensearch) //only opensearch supports treating space-separated as opaque in keyword fields
+  {
+    TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "Keyword number one")), "keywordfields are case sensitive");
+    TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "keyword")), "Must match exactly");
+  }
+
+  //Inequality
+  TestEq(["QC1","QC2"], ExecTestQuery(CQMatch("shortkeyword", ">=", "eins")));
+  TestEq(["QC2"], ExecTestQuery(CQMatch("shortkeyword", ">", "eins")));
+  TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<", "zwei")));
+  TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<=", "zwei")));
+
+  IF(is_opensearch) //only opensearch supports treating space-separated as opaque in keyword fields
+  {
+    TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">=", "keyword number one")));
+    TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
+    TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("keywordfield", "<", "keyword number two")));
+    TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", "<=", "keyword number two")));
+  }
+}
+
+RunTestframework(
+    [ PTR PrepareCustomCatalog
+    , PTR RunTheQueries
+    ]);
