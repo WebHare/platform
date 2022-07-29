@@ -96,7 +96,7 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
     Print(`\n`);
 
   // If anything was deleted or updated, refresh the index to make sure the results are available
-  IF (Length(to_delete) + Length(to_update) > 0)
+  IF (options.refresh AND Length(to_delete) + Length(to_update) > 0)
   {
     IF (options.progress)
       Print("Refreshing index...");
@@ -104,10 +104,6 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
     IF (options.progress)
       Print("\n");
   }
-
-  //5.02+ Refresh the catalog - most of our users want this because they want a visibility guarantee
-  IF(options.refresh)
-    publisher_fsobjects_source->catalog->Refresh();
 
   IF(options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
