@@ -123,7 +123,7 @@ FOREVERY (RECORD cat FROM catalogs)
     IF (src.isdeleted)
     {
       // This content source is marked for deletion, delete it from the index manager, then from the database
-      RECORD result := DeleteIndexManagerContentSource(cat.indexmanager, cat.id, src.id);
+      RECORD result := DeleteIndexManagerContentSource(0, cat.id, src.id);
       IF (debug)
         Print(`  Deleted content source: ${result.status}\n`);
       IF (result.status = SearchOk)

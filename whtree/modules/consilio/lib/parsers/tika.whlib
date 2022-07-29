@@ -1,13 +1,23 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
 
 LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 
+
+PUBLIC STRING FUNCTION __GetTikaCacheRoot()
+{
+  RETURN `${GetModuleStorageRoot("consilio")}tikacache/`;
+}
 
 PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -32,13 +42,76 @@ PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAU
   }
 }
 
-PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN contentlinksonly)
+RECORD FUNCTION CachableParseTikaPage(BLOB file)
 {
   OBJECT doc := ParseUsingTIKA(file);
-  RECORD parsed_page := ParseHTMLPage(StringToBlob(doc->body->outerhtml), contentlinksonly);
+  RECORD parsed_page := ParseHTMLPage(StringToBlob(doc->body->outerhtml), FALSE);
   OBJECT meta_titlenode := doc->QuerySelector(`meta[name="dc:title"]`);
   IF(ObjectExists(meta_titlenode))
     parsed_page.title := meta_titlenode->GetAttribute("content");
 
   RETURN parsed_page;
+}
+
+PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN _contentlinksonly_ignored)
+{
+  // contentlinksonly isn't actually used in ParseHTMLPage, so we'll ignore it
+
+  STRING hash := ToLowercase(EncodeBase16(GetHashForBlob(file, "SHA-256")));
+  STRING cachefilepath := `${__GetTikaCacheRoot()}${Left(hash, 2)}/${SubString(hash, 2)}.hson`;
+  BLOB cachefilecontents := GetDiskResource(cachefilepath, [ allowmissing := TRUE ]);
+
+  DATETIME now := GetCurrentDateTime();
+  RECORD cachefiledata :=
+      [ data :=           DEFAULT RECORD
+      , lastuse :=        now
+      , creationdate :=   DEFAULT DATETIME
+      , filesize :=       0i64
+      , versiontag :=     ""
+      ];
+
+  IF (IsValueSet(cachefilecontents))
+  {
+    TRY
+      cachefiledata := EnforceStructure(cachefiledata, DecodeHSONBlob(cachefilecontents));
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+  }
+
+  BOOLEAN needwrite := FALSE;
+  IF (cachefiledata.versiontag != whconstants_consilio_tikacache_versiontag OR NOT RecordExists(cachefiledata.data))
+  {
+    cachefiledata.data := CachableParseTikaPage(file);
+    cachefiledata.lastuse := now;
+    cachefiledata.versiontag := whconstants_consilio_tikacache_versiontag;
+    cachefiledata.creationdate := now;
+    cachefiledata.filesize := LENGTH64(file);
+    needwrite := TRUE;
+  }
+  ELSE IF (GetDayCount(cachefiledata.lastuse) != GetDayCount(now))
+  {
+    cachefiledata.lastuse := now;
+    needwrite := TRUE;
+  }
+
+  IF (needwrite)
+  {
+    TRY
+    {
+      CreateDiskDirectoryRecursive(GetDirectoryFromPath(cachefilepath), TRUE);
+      StoreDiskFile(cachefilepath, EncodeHSONBlob(cachefiledata));
+    }
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+  }
+
+  RETURN cachefiledata.data;
+}
+
+/** Clears the tika cache
+*/
+PUBLIC MACRO ClearTikaCache()
+{
+  FOREVERY (RECORD rec FROM ReadDiskDirectory(__GetTikaCacheRoot(), "*"))
+    DeleteDiskDirectoryRecursive(rec.path);
 }

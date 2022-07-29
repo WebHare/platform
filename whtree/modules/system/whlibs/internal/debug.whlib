@@ -95,5 +95,11 @@ PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
   RETURN __debugconfig;
 }
 
-
-
+/** Returns whether profiling is enabled. If so, jobs and processes need extra care so they can
+    shutdown cleanly (eg using TerminateScript) so they can send they profiles before being closed
+    @return TRUE if currently profiling
+*/
+PUBLIC BOOLEAN FUNCTION IsProfilingEnabled()
+{
+  RETURN IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov");
+}

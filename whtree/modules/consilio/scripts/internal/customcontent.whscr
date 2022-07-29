@@ -18,6 +18,8 @@ RECORD rec := iochan->ReceiveMessage(MAX_DATETIME);
 IF (rec.status != "ok")
   THROW NEW Exception("Expected a message to be present from IPC parent link at startup");
 
+AddInterruptCallback(PTR TerminateScript);
+
 // Set and check library and contentobject
 TRY
 {

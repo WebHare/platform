@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::consilio/lib/parsers/tika.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
@@ -8,6 +11,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 MACRO TestTika()
 {
+  ClearTikaCache();
+
   /* to test this yourself:
      /usr/local/Cellar/openjdk/18/bin/java -jar $(wh getmoduledir system)/data/engines/tika-app.jar --config=$(wh getmoduledir system)/data/engines/tika-default-config.xml --html $(wh getmoduledir webhare_testsuite)/tests/baselibs/hsengine/data/testole_plaindoc.doc | less
   */
@@ -18,9 +23,24 @@ MACRO TestTika()
   //verify text extraction
   TestEq("Handleiding WebHare Professional", TrimWhitespace(doc->QuerySelector("h1")->textcontent));
 
-  RECORD docrec := ParseTikaPage(GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc"), TRUE);
+  BLOB resource := GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc");
+  RECORD docrec := ParseTikaPage(resource, TRUE);
   TestEq("Handleiding WebHare Professional", docrec.title);
   TestEqLike("*In deze handleiding wordt u stap voor stap door de interface van WebHare Professional geleid.*", docrec.text);
+
+  // Test if the cache file is present
+  STRING hash := ToLowercase(EncodeBase16(GetHashForBlob(resource, "SHA-256")));
+  STRING path := MergePath(__GetTikaCacheRoot(), Left(hash, 2) || "/" || SubString(hash, 2) || ".hson");
+  TestEq(TRUE, RecordExists(GetDiskFileProperties(path)));
+
+  // Modify the cache file to be sure it is used
+  RECORD data := DecodeHSONBlob(GetDiskResource(path));
+  data.data.title := "modified title";
+  StoreDiskFile(path, EncodeHSONBLob(data), [ overwrite := TRUE ]);
+
+  // Should be read from the cache
+  docrec := ParseTikaPage(resource, TRUE);
+  TestEq("modified title", docrec.title);
 }
 
 RunTestframework([ PTR TestTika

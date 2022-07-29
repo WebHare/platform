@@ -242,3 +242,6 @@ PUBLIC CONSTANT STRING ARRAY whconstant_harescript_autoloaded_libraries :=
     , "wh::internal/hsservices.whlib"
     , "mod::system/lib/internal/harescript/preload.whlib"
     ];
+
+// Version tag for the tika cache entries
+PUBLIC CONSTANT STRING whconstants_consilio_tikacache_versiontag := "1";

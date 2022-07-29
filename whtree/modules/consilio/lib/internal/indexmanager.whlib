@@ -1084,7 +1084,7 @@ STRING FUNCTION AddRefreshToURLPart(STRING urlpart, VARIANT refresh)
   IF (IsDefaultValue(refresh))
     refresh := "false";
   ELSE IF (TypeID(refresh) = TypeID(BOOLEAN))
-    refresh := "wait_for";
+    refresh := "true";
   ELSE IF (TypeID(refresh) != TypeID(STRING) OR refresh NOT IN [ "force", "wait_for" ])
     THROW NEW Exception(`Unexpected refresh option value ${EncodeJSON(refresh)}`);
   ELSE
@@ -1687,6 +1687,35 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
   RETURN result;
 }
 
+/** Refreshes all attached indices of a catalog, so all pendinging updates
+    and deletes are visible afterwards
+    @param catalogid Id of the catalog to red
+    @return Execution result status
+*/
+PUBLIC STRING FUNCTION RefreshAttachedIndices(INTEGER catalogid)
+{
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(catalogid);
+  STRING result := SearchOk;
+
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        // no-op
+      }
+      CASE whconstant_consilio_indexmanager_opensearch
+      {
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_refresh", DEFAULT RECORD, "GET");
+        IF (response.status != SearchOk)
+          result := response.status;
+      }
+    }
+  }
+  RETURN result;
+}
+
 /** Deletes all documents in an index from a specific contentsource
     @param indexmgrid Id of the indexmanager to use
     @param indexid Id of the index
@@ -1843,34 +1872,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
 
   RETURN result;
 }
-
-PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
-{
-  STRING result := SearchOk;
-  IF(indexid=0)
-    THROW NEW Exception(`Specify the indexid please!`); //it looks like noone was using this, so we can simplify this API further? checking...
-
-  RECORD indexmanager :=/* indexmgrid != 0
-      ? GetIndexManagers(indexmgrid)
-      : */GetIndexManagersForIndex(indexid);
-  IF (RecordExists(indexmanager))
-  {
-    SWITCH (indexmanager.type)
-    {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        // Not supported, ignore
-      }
-      CASE whconstant_consilio_indexmanager_opensearch
-      {
-        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "", "/_refresh", DEFAULT RECORD, "GET");
-        result := response.status;
-      }
-    }
-  }
-  RETURN result;
-}
-
 
 // -----------------------------------------------------------------------------
 //

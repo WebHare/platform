@@ -71,6 +71,7 @@ OBJECTTYPE Worker
   //
 
   /** @short Create a new worker using the given script
+      @param script Script to run
   */
   MACRO NEW(STRING script)
   {
@@ -129,6 +130,15 @@ OBJECTTYPE Worker
       INTEGER pid := this->pvt_pid;
       IF (IsProcessRunning(pid))
       {
+        IF (IsProfilingEnabled())
+        {
+          // Send an interrupt to try and get a clean shutdown. Allow 250 ms for shutdown
+          InterruptProcess(pid);
+          DATETIME deadline := AddTimeToDate(100, GetCurrentDateTime());
+          WHILE (GetCurrentDateTime() < deadline AND IsProcessRunning(pid))
+            Sleep(10);
+        }
+
         // If the process is (still) running, terminate it
         TerminateProcess(pid);
       }
@@ -286,7 +296,6 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
             a new queue item based on the incoming data. If the queued item is scheduled, GetCommandFromQueueData is called
             to generate a command string from the data. This command is then sent to a worker.
       @param input The input as received from the console
-      @return The data record
   */
   MACRO ProcessCommandInput(STRING input)
   {
@@ -306,7 +315,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
       @long This function is called after error output is received (i.e. data that is written to standard error by the
             worker process).
       @param worker The worker (a record from the workers array) that wrote the data
-      @param output The data that was written by the worker
+      @param errors The data that was written by the worker
   */
   MACRO ProcessWorkerErrors(RECORD worker, STRING errors)
   {
@@ -324,6 +333,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
 
 
   /** @short Get a list of handles to wait for, besides the worker handles
+      @return List of handles
   */
   INTEGER ARRAY FUNCTION GetAdditionalHandles()
   {
@@ -342,6 +352,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   /** @short Returns whether the debug log is enabled
       @long This function is called to determine whether debugging is enabled. In the default implementation
             it just return TRUE, but it can be updated to do something else.
+      @return Whether the debug log is enabled
   */
   BOOLEAN FUNCTION DebugLogEnabled()
   {
@@ -369,6 +380,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
       @long This function can be updated if extra fields are needed by an extended queue manager. Be sure to call
             QueueManangerBase::GetEmptyQueueItem() to get an empty queue item record with all fields required by the base
             queue manager. Extra fields can be inserted into this record.
+      @return Empty queue item
   */
   RECORD FUNCTION GetEmptyQueueItem()
   {
@@ -388,6 +400,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
       @long This function is called to retrieve the next queue item which can be processed by an available worker. This
             default implementation returns a queue item which has no associated worker, has the highest priority and has
             been queued the longest time.
+      @return Next queue item to process
   */
   RECORD FUNCTION GetNextQueueItem()
   {
@@ -400,7 +413,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   /** @short Remove the given item from the queue
       @long This function removes the item from the queue. The default implementation just deletes the item record from the
             queue array. If the item has the flag requeueafterfinish set, the flag is cleared and the item is left on queue
-      @return If the item was requeued, the new item
+      @param queueitem Item to remove
   */
   MACRO DequeueItem(RECORD queueitem)
   {
@@ -453,7 +466,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   //
 
   /** @short Initialize the queue manager
-      @param numworker The number of workers to run
+      @param numworkers The number of workers to run
       @param workerscript The script workers should run
   */
   PUBLIC MACRO Init(INTEGER numworkers, STRING workerscript)
@@ -753,6 +766,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
       @long If processing the task takes more than the given number of milliseconds, the worker is killed and restarted and
             the task the worker had been working on is removed from the queue. If set to 0, the worker may run indefinitely
             on a task.
+      @param msecs Maximum number of milliseconds a worker may work a a single task
   */
   PUBLIC MACRO SetMaxTaskTime(INTEGER msecs)
   {
@@ -763,6 +777,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   /** @short Set the time after which a worker will be restarted (set to 0 for no limit)
       @long After a worker finishes a task, it will be restarted if it has been running for more than the given number of
             milliseconds. If set to 0, the running time of the worker will not be checked.
+      @param msecs Maximum number of milliseconds to run after which a worker will be restarted
   */
   PUBLIC MACRO SetMaxWorkerRunTime(INTEGER msecs)
   {
@@ -774,6 +789,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   /** @short Set the number of tasks after which a worker will be restarted (set to 0 for no limit)
       @long After a worker finishes a task, it will be restarted if it has processed the given number of tasks. If set to 0,
             the number of tasks processed by the worker will not be checked.
+      @param tasks Maximum number of tasks to process after which a worker will be restarted
   */
   PUBLIC MACRO SetMaxWorkerTasks(INTEGER tasks)
   {
@@ -800,6 +816,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   //
 
   /** @short Generate a new queue item id
+      @return New queue id
   */
   INTEGER64 FUNCTION GetNewQueueId()
   {
@@ -810,6 +827,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 
   /** @short Get the worker with the current process handle
+      @param handle Handle to search
       @return Returns the worker record from the list of workers, or a default record if there is no worker with the given
               handle
       @cell return.handle The worker process identifier
@@ -825,6 +843,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 
   /** @short Get the queue item with the given id
+      @param queueitemid Id of the queue item
       @return The item from the queue, or a default record if there is no queue item with the given id
       @cell return.id The queue item identifier
       @cell return.worker The handle of the worker processing this queue item
@@ -839,6 +858,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 
   /** @short Get the current queue item from an old copy
+      @param oldqueueitem Queue item
       @return The item from the queue, or a default record if this queue item doesn't exist anymore
       @cell return.id The queue item identifier
       @cell return.worker The handle of the worker processing this queue item
@@ -873,10 +893,9 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
       @long This function adds the given queue data record to the queue. If there is a worker available, the new queue item
             is scheduled for the worker.
       @param data The data record, as queued by AddToQueue and passed to GetCommandFromQueueData
-      @param priority Priority for the queue item; the higher this number, the higher the priority (defaults to 0)
-      @return
-      @cell found Whether the item already existed
-      @cell item The queued item (when not found, the new item, else the item on queue)
+      @return Result
+      @cell return.found Whether the item already existed
+      @cell return.item The queued item (when not found, the new item, else the item on queue)
   */
   RECORD FUNCTION AddToQueue(RECORD data)
   {
@@ -929,6 +948,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 
   /** @short Reset the timeout for the given queue item
+      @param queueitem Queue item to reset the timeout for
   */
   MACRO ResetQueueItemTimeout(RECORD queueitem)
   {
@@ -956,6 +976,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 
   /** @short Update queue item
+      @param queueitem New queue item data
   */
   MACRO UpdateQueueItem(RECORD queueitem)
   {
@@ -1253,12 +1274,12 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
 
 
   /** List of errors, ordered by contentsourceid,
-      @cell(datetime) when
-      @cell(integer) contentsourceid
-      @cell(string) command
-      @cell(string) error
-      @cell(string) what
-      @cell(string array) trace
+      @cell(datetime) when Error date
+      @cell(integer) contentsourceid Content source id
+      @cell(string) command Command that triggered the error
+      @cell(string) error Error data
+      @cell(string) what Error data
+      @cell(string array) trace Stack trace
   */
   RECORD ARRAY errorlist;
 

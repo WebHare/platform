@@ -8,7 +8,7 @@
 LOADLIB "wh::internal/formatter.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncContext, __HS_INTERNAL_RemoveAsyncContext, __HS_INTERNAL_AsyncContext, GetAsyncStackTrace, PrintTo, __HS_GETRESETTHROWVAR, __HS_THROWEXCEPTION, __HS_TYPEID, __HS_SQL_SortArray;
-LOADLIB "wh::internal/debug.whlib" EXPORT LogDebug, IsDebugTagEnabled;
+LOADLIB "wh::internal/debug.whlib" EXPORT LogDebug, IsDebugTagEnabled, IsProfilingEnabled;
 
 RECORD abort_errordata;
 PUBLIC MACRO PTR __system_reflecthook;
