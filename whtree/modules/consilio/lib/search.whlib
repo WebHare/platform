@@ -4,6 +4,8 @@
     @private Searching should be done through api.whlib (cacheable and without the option for string-merge built queries)
 */
 
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib"
@@ -30,6 +32,52 @@ PUBLIC OBJECTTYPE SearchException EXTEND Exception
     this->code := errorcode;
   }
 >;
+
+RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
+{
+  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
+
+  RECORD defaultmapping;
+  FOREVERY(RECORD row FROM inprops)
+  {
+    IF(row.type="record")
+      defaultmapping := CELL[ ...defaultmapping
+                            , ...FlattenMapping(SELECT *, name := row.name ||'.' || name FROM row.properties)
+                            ];
+    ELSE
+      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
+  }
+  RETURN defaultmapping;
+}
+
+RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
+{
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
+  defaultmapping := CELL[ ...defaultmapping
+                        //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
+                        , DELETE indexid
+                        , DELETE date_indexdate
+                        , DELETE date_indexed
+                        , DELETE contentprovider
+                        , DELETE contentsource
+                        , DELETE body
+                        ];
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RETURN [ value := CELL [ defaultmapping, indexmanagers ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "consilio:contentsourceschanged"
+                         , "consilio:indexfields"
+                         ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
+{
+  RETURN GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
+}
 
 
 /** @short Get a description for an error code
@@ -510,7 +558,7 @@ STATIC OBJECTTYPE SearchObject
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
 
-    RECORD result := SearchIndexManager(this->catalog_id, query, options);
+    RECORD result := SearchIndexManager(this->catalog_id, query, options, __GetIndexManagerOptions(this->catalog_id));
     IF (result.status != SearchOk) //though actually all SearchIndexManager non-ok paths should be capable of throwing (no-attached-indices might not yet?)
     {
       THROW NEW SearchException(result.status, "Search error: " || result.status);

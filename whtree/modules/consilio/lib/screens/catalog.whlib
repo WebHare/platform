@@ -1003,7 +1003,7 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
     }
     ELSE
     {
-      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ]);
+      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ], __GetIndexManagerOptions(catalogid));
     }
   }
 }
@@ -1324,7 +1324,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
     UPDATE consilio.contentsources
            SET maxgroupobjects := ^maxgroupobjects->value
              , discardsummaries := ^discardsummaries->value
-             , status := ^disablesource->value ? -1 : status = -1 ? 0 : status //flip status to -1 to disable, 0 to re-enable and otherwise leave alone
+             , status := ^disablesource->value ? contentsourcestatus_disabled : status = contentsourcestatus_disabled ? contentsourcestatus_idle : status //flip status to -1 to disable, 0 to re-enable and otherwise leave alone
              , fsobject := ^folder->value
          WHERE id = finalsource->id;
 

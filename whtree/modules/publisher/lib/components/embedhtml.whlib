@@ -8,26 +8,6 @@ LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE EmbeddedHTMLObject EXTEND WidgetBase
-<
-  UPDATE PUBLIC MACRO Render()
-  {
-    Print('<div style="padding:0 10px;min-height:60px;font-size:80%">');
-    Print(EncodeHTML(this->data.html));
-    Print('</div>');
-  }
-
-  UPDATE PUBLIC MACRO RenderLive()
-  {
-    Print(this->data.html);
-  }
-
-  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
-  {
-    Print(this->data.html);
-  }
->;
-
 PUBLIC OBJECTTYPE EmbedHTML EXTEND TolliumTabsExtensionBase
 <
   UPDATE PUBLIC MACRO PostInitExtension()

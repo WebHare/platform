@@ -90,31 +90,15 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   IF (data.contentsourceid = 0)
   {
     GetPrimary()->BeginWork();
-    RECORD ARRAY change_status :=
-        SELECT id
-             , status := (options.rebuild OR status = 2) ? 2 : 1
-             , last_indexed := VAR data.commanddate
-          FROM consilio.contentsources
-         WHERE status >= 0
-               AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
-               AND tag NOT LIKE "$consilio$deleted$*";
-    IF (Length(change_status) > 0)
-      LogDebug("consilio", "ContentSourceStatus", change_status);
     UPDATE consilio.contentsources
-       SET status := (options.rebuild OR status = 2) ? 2 : 1
+       SET status := (options.rebuild OR status = contentsourcestatus_rebuilding) ? contentsourcestatus_rebuilding : contentsourcestatus_updating
          , last_indexed := VAR data.commanddate
-     WHERE status >= 0
+     WHERE status >= contentsourcestatus_idle
            AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-    IF (Length(commiterrors) > 0)
-    {
-      result.error :=
-          [ message := "Errors while committing catalog " || data.indexid || " status (catalog should be checked): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-          , level := 0
-          ];
-      RETURN result;
-    }
+
+    GetPrimary()->CommitWork();
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting ${data.indexid != 0 ? `contentsources in index ${data.indexid}` : `all contentsources`} to update/rebuild`);
 
     RECORD ARRAY sources := SELECT DISTINCT contentsources.id
                                  , indexid := catalogs.id
@@ -196,32 +180,14 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   {
     GetPrimary()->BeginWork();
 
-    RECORD ARRAY change_status :=
-        SELECT id
-             , status := (options.rebuild OR status = 2) ? 2 : 1
-             , last_indexed := VAR data.commanddate
-          FROM consilio.contentsources
-         WHERE id = source.id
-               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-
-    IF (Length(change_status) > 0)
-      LogDebug("consilio", "ContentSourceStatus", change_status);
-
     UPDATE consilio.contentsources
-       SET status := (options.rebuild OR status = 2) ? 2 : 1
+       SET status := (options.rebuild OR status = contentsourcestatus_rebuilding) ? contentsourcestatus_rebuilding : contentsourcestatus_updating
          , last_indexed := VAR data.commanddate
      WHERE id = source.id
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
-    RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-    IF (Length(commiterrors) > 0)
-    {
-      result.error :=
-          [ message := "Errors while committing content source " || source.id || " status (content source should be checked): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-          , level := 0
-          ];
-      RETURN result;
-    }
+    GetPrimary()->CommitWork();
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to update/rebuild`);
   }
 
   // Broadcast event that the status has changed
@@ -241,27 +207,14 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   CATCH (OBJECT e)
   {
     GetPrimary()->BeginWork();
-    RECORD ARRAY change_status :=
-        SELECT id
-             , status := 4
-          FROM consilio.contentsources
-         WHERE id = VAR data.contentsourceid
-               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    IF (Length(change_status) > 0)
-      LogDebug("consilio", "ContentSourceStatus", change_status);
     UPDATE consilio.contentsources
-       SET status := 4
+       SET status := contentsourcestatus_error
      WHERE id = VAR data.contentsourceid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-    IF (Length(commiterrors) > 0)
-    {
-      result.error :=
-          [ message := "Errors while committing content source " || data.contentsourceid || " status (could not instantiate provider): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-          , level := 2
-          ];
-      RETURN result;
-    }
+
+    GetPrimary()->CommitWork();
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to error`, CELL[e->what,e->trace]);
+
     BroadcastEvent("consilio:contentsource." || data.contentsourceid, DEFAULT RECORD);
 
     result.error :=
@@ -309,27 +262,13 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                               ]);
 
     GetPrimary()->BeginWork();
-    RECORD ARRAY change_status :=
-        SELECT id
-             , status := 4
-          FROM consilio.contentsources
-         WHERE id = VAR data.contentsourceid
-               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    IF (Length(change_status) > 0)
-      LogDebug("consilio", "ContentSourceStatus", change_status);
     UPDATE consilio.contentsources
-       SET status := 4
+       SET status := contentsourcestatus_error
      WHERE id = VAR data.contentsourceid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-    IF (Length(commiterrors) > 0)
-    {
-      result.error :=
-          [ message := "Errors while committing content source " || data.contentsourceid || " status (harescript exception): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-          , level := 2
-          ];
-      RETURN result;
-    }
+    GetPrimary()->CommitWork();
+
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to error`, CELL[e->what,e->trace]);
     BroadcastEvent("consilio:contentsource." || data.contentsourceid, DEFAULT RECORD);
 
     result.error :=
@@ -348,28 +287,13 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
                               ]);
 
     GetPrimary()->BeginWork();
-    RECORD ARRAY change_status :=
-        SELECT id
-             , status := 4
-          FROM consilio.contentsources
-         WHERE id = VAR data.contentsourceid
-               AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    IF (Length(change_status) > 0)
-      LogDebug("consilio", "ContentSourceStatus", change_status);
     UPDATE consilio.contentsources
-       SET status := 4
+       SET status := contentsourcestatus_error
      WHERE id = VAR data.contentsourceid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-    IF (Length(commiterrors) > 0)
-    {
-      result.error :=
-          [ message := "Errors while committing content source " || data.contentsourceid || " status (unknown exception): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-          , level := 2
-          ];
-      RETURN result;
-    }
-    BroadcastEvent("consilio:contentsource." || data.contentsourceid, DEFAULT RECORD);
+
+    GetPrimary()->CommitWork();
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to error`, CELL[e->what,e->trace]);
 
     result.error :=
         [ message := e->what
@@ -1000,30 +924,14 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
 
   INTEGER oldstatus := SELECT AS INTEGER status FROM consilio.contentsources WHERE id = VAR data.contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
-  RECORD ARRAY change_status :=
-      SELECT id
-           , status := 0
-        FROM consilio.contentsources
-       WHERE status > 0
-             AND id = VAR data.contentsourceid
-             AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-  IF (Length(change_status) > 0)
-    LogDebug("consilio", "ContentSourceStatus", change_status);
   UPDATE consilio.contentsources
-     SET status := 0
-   WHERE status > 0
+     SET status := contentsourcestatus_idle
+   WHERE status > contentsourcestatus_idle
          AND id = VAR data.contentsourceid
          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
-  RECORD ARRAY commiterrors := GetPrimary()->CommitWork();
-  IF (Length(commiterrors) > 0)
-  {
-    result.error :=
-        [ message := "Errors while committing content source " || data.contentsourceid || " status (content source is ready): " || Detokenize((SELECT AS STRING ARRAY message FROM commiterrors), "; ")
-        , level := 0
-        ];
-    RETURN result;
-  }
+  GetPrimary()->CommitWork();
+  LogDebug("consilio:fetcher","CheckIndexState", `Committed setting ${data.indexid != 0 ? `contentsources in index ${data.indexid}` : `all contentsources`} to idle (was ${oldstatus})`);
   BroadcastEvent("consilio:contentsource." || data.contentsourceid, DEFAULT RECORD);
 
   IF (NOT RecordExists(SELECT FROM consilio.contentsources WHERE catalogid = VAR data.indexid AND status != 0))

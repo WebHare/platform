@@ -4,6 +4,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 INTEGER waitindex;
 
@@ -23,6 +24,8 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
     THROW NEW Exception(`WaitContentSourceDone: No such content source #${contentsourceid}`);
 
   STRING describesource := `content source #${contentsourceid} (tag '${contentsource.tag}', type '${contentsource.contentprovider}', fsobject ${contentsource.fsobject})`;
+  IF(contentsource.status = contentsourcestatus_disabled)
+    THROW NEW Exception(`Cannot wait for disabled ${describesource}`); //'cannot wait for disabled contentsource ...'
 
   OBJECT eventmgr := NEW EventManager;
   waitindex := waitindex + 1;
@@ -78,5 +81,22 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
   FINALLY
   {
     eventmgr->Close();
+  }
+
+  //Check for errors
+  INTEGER contentsourcestatus  := SELECT AS INTEGER status FROM consilio.contentsources WHERE id = contentsourceid;
+  IF(contentsourcestatus != contentsourcestatus_idle)
+  {
+    STRING status := contentsource.status >= -1 AND contentsource.status <= 4
+                          ? ["disabled","idle","being updated","being rebuild","unavailable","error"][contentsource.status + 1]
+                          : "unknown";
+
+    STRING err := `Unexpected status '${status}' (${contentsource.status}) after waiting for ${describesource}`;
+    RECORD ARRAY relevanterrors := SELECT * FROM __ConsilioGetErrors().errors WHERE errors.contentsourceid = VAR contentsourceid;
+
+    Print(err||"\n");
+    DumpValue(relevanterrors, [ name := "", format := 'boxed' ]);
+    LogDebug("consilio:dowaitforcontentsource", err, CELL[ contentsource, relevanterrors ]);
+    ABORT(err);
   }
 }
