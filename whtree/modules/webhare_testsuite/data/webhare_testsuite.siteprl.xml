@@ -244,6 +244,8 @@
         <string name="arrayfield" />
         <datetime name="otherfield" />
       </array>
+      <string name="textfield" />
+      <string name="keywordfield" />
     </members>
   </filetype>
 
