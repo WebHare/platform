@@ -89,6 +89,23 @@ test.registerTests(
                 `datepicker must be above component. datepicker bottom ${picker.getBoundingClientRect().bottom} comp top ${test.compByName("thecomponent$*").getBoundingClientRect().top}`);
     }
 
+  , "suggestion test"
+  , async function()
+    {
+      let suggestion = test.compByTitle("suggestion");
+      setDate(suggestion, "1-7-2021");
+      setTime(suggestion, "00:00:00");
+      test.click(test.compByName("readvaluebutton"));
+      await test.wait("ui");
+
+      test.click(test.compByName("componentpanel").querySelector('.tollium__datetime__togglepicker'));
+
+      let picker = test.qS('.tollium__datetime__picker');
+      test.true(picker);
+      test.eq("7", picker.querySelector(".tollium__datetime__picker__monthselect").value);
+      test.eq("2021", picker.querySelector(".tollium__datetime__picker__yearselect").value);
+    }
+
   , "Initial tests"
   , async function()
     {

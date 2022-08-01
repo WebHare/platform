@@ -31,6 +31,7 @@ export default class ObjDateTime extends ComponentBase
     this.lasterportedvalue = null;
     this.type=data.type;
     this.precision=data.precision;
+    this.suggestion=data.suggestion;
 
     // Build our DOM
     this.fieldtype = data.fieldtype;
@@ -72,34 +73,41 @@ export default class ObjDateTime extends ComponentBase
     }
   }
 
+  _parseTolliumValue(value)
+  {
+    let tpos = value.indexOf('T');
+    return (
+      { year:   parseInt(value.substr(0, tpos - 4),10)
+      , month:  parseInt(value.substr(tpos - 4, 2),10)
+      , day:    parseInt(value.substr(tpos - 2, 2),10)
+      , hour:   parseInt(value.substr(tpos + 1,2),10)
+      , min:    parseInt(value.substr(tpos + 3,2),10)
+      , sec:    parseInt(value.substr(tpos + 5,2),10)
+      , msec:   parseInt(value.substr(tpos + 8,3),10)
+      });
+  }
+
   /** Store the value in the node, no callbacks
   */
   _setValueInternal(value)
   {
     var dateval='', timeval='';
-    var tpos = value.indexOf('T');
-    if(value && this.datefield)
+    if (value)
     {
-      var year = parseInt(value.substr(0, tpos - 4),10);
-      var month = parseInt(value.substr(tpos - 4, 2),10);
-      var day = parseInt(value.substr(tpos - 2, 2),10);
-
-      //Just plain db format
-      dateval = (year < 1000 ? ("000"+year).slice(-4) : year) + "-" + ("0"+month).slice(-2) + "-" +  ("0"+day).slice(-2);
-    }
-
-    if(value && this.timefield)
-    {
-      var hour = parseInt(value.substr(tpos + 1,2),10);
-      var min = parseInt(value.substr(tpos + 3,2),10);
-      var sec = parseInt(value.substr(tpos + 5,2),10);
-      var msec = parseInt(value.substr(tpos + 8,3),10);
-
-      timeval = ("0"+hour).slice(-2) + ":" + ("0"+min).slice(-2);
-      if(this.precision=='seconds' || this.precision=='milliseconds')
-        timeval += ':' + ("0"+sec).slice(-2);
-      if(this.precision=='milliseconds')
-        timeval += '.' + ("00"+msec).slice(-3);
+      let parsed = this._parseTolliumValue(value);
+      if (this.datefield)
+      {
+        //Just plain db format
+        dateval = (parsed.year < 1000 ? ("000"+parsed.year).slice(-4) : parsed.year) + "-" + ("0"+parsed.month).slice(-2) + "-" +  ("0"+parsed.day).slice(-2);
+      }
+      if(this.timefield)
+      {
+        timeval = ("0"+parsed.hour).slice(-2) + ":" + ("0"+parsed.min).slice(-2);
+        if(this.precision=='seconds' || this.precision=='milliseconds')
+          timeval += ':' + ("0"+parsed.sec).slice(-2);
+        if(this.precision=='milliseconds')
+          timeval += '.' + ("00"+parsed.msec).slice(-3);
+      }
     }
 
     if(this.datefield)
@@ -229,7 +237,19 @@ export default class ObjDateTime extends ComponentBase
     this.node = <t-datetime data-name={this.name} propTodd={this} title={this.hint||''} />;
     if(this.fieldtype == 'date' || this.fieldtype=='datetime')
     {
-      this.datefield = <input type="date" placeholder={this.placeholder} data-format={this.dateformat} />;
+      let suggestion_isodate = "";
+      if (this.suggestion)
+      {
+        let parsed = this._parseTolliumValue(this.suggestion);
+        suggestion_isodate = (parsed.year < 1000 ? ("000"+parsed.year).slice(-4) : parsed.year) + "-" + ("0"+parsed.month).slice(-2) + "-" +  ("0"+parsed.day).slice(-2);
+      }
+
+      this.datefield =
+          <input type="date"
+                 placeholder={this.placeholder}
+                 data-format={this.dateformat}
+                 data-suggestion={suggestion_isodate}
+                 />;
       this.datefield.addEventListener("wh:datepicker-built", evt => this.onDatepickerBuilt(evt))
       this.node.appendChild(this.datefield);
       this.datefield.required = data.required;
