@@ -208,7 +208,6 @@ MACRO TestMarkAsTemporaryFailure()
   FOR (INTEGER itr := 0; itr <= 7; itr := itr + 1)
   {
     testfw->BeginWork();
-    WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", DEFAULT DATETIME);
     taskstart := GetCurrentDateTime();
     taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD);
 
@@ -240,9 +239,8 @@ MACRO TestMarkAsTemporaryFailure()
     // Test honouring specifying retryat option
     testfw->BeginWork();
     retryat := AddTimeToDate(2 * 60 * 1000, GetCurrentDateTime());
-    WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", retryat);
     taskstart := GetCurrentDateTime();
-    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD);
+    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", CELL[ nextretry := retryat ]);
     testfw->CommitWork();
 
     descr := WaitForError(taskid);
@@ -263,7 +261,6 @@ ASYNC MACRO TestNotBeforeTasks()
   testfw->BeginWork();
   INTEGER taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
   INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
-  WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", DEFAULT DATETIME);
   INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD, [ notbefore := AddTimeToDate(60000, now) ]);
   testfw->CommitWork();
 

@@ -44,6 +44,7 @@ MACRO TestWHFSCatalog()
   FixConsilioIndices([ catalogmask := whconstant_consilio_catalog_whfs ]);
 
   OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  Print(fsobjectssource->GetStorageInfo() || "\n");
   RECORD ARRAY fields := fsobjectssource->GetExpectedMapping();
 
   TestEqMembers(RECORD[], (SELECT * FROM fields WHERE name LIKE "*.*"),"*");
@@ -53,6 +54,12 @@ MACRO TestWHFSCatalog()
                                  ,[ name := "libraryfield@webhare_testsuite", type := "keyword" ]
                                  ]
                 ]], (SELECT * FROM fields WHERE name = "arrayfield"), "*");
+  TestEqMembers([[ name := "whfstree", type := "integer"
+                ]], (SELECT * FROM fields WHERE name = "whfstree"), "*");
+  TestEqMembers([[ name := "textfield@webhare_testsuite", type := "text"
+                ]], (SELECT * FROM fields WHERE name = "textfield@webhare_testsuite"), "*");
+  TestEqMembers([[ name := "keywordfield@webhare_testsuite", type := "keyword"
+                ]], (SELECT * FROM fields WHERE name = "keywordfield@webhare_testsuite"), "*");
 }
 
 MACRO TestWHFSContentHandler()

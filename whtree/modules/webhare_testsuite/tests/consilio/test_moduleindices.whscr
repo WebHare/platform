@@ -179,6 +179,24 @@ MACRO TestMappingUpdates()
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["superfluous"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "superfluous"));
+
+  //Test direct conflicts
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:conflicttest_blue" ] ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:conflicttest_red" ] ]);
+  testfw->CommitWork();
+
+  diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEq(["superfluous","typemismatch"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
+  TestEq(["c_keyword","c_text"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "typemismatch"));
+
+  // Reset configuration for later tests
+  testfw->BeginWork();
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
+  testfw->CommitWork();
 }
 
 MACRO TestESCreationAPIs()

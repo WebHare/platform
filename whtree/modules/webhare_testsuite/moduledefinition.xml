@@ -235,7 +235,7 @@
       <string name="secondhareinterface" />
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
-      <datetime name="tempfailretryat" />
+      <obsoletekey name="tempfailretryat" />
       <boolean name="taskthrownow" />
     </node>
     <node name="apis">
@@ -298,6 +298,8 @@
       <addaction tid="module.testaction" screen="feedback.frompublisher" addtomenu="actions" />
     </filemgrextension>
 
+    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="textfield" tokenized="true"/>
+    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="keywordfield" />
     <indexfield name="contenttypefield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testfield" />
     <indexfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#gettestfield" />
     <indexfield name="arrayfield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
@@ -354,6 +356,17 @@
       <latlng name="latlng_field" />
       <addfieldgroup ref="testgroup" />
     </fieldgroup>
+
+    <fieldgroup tag="conflicttest_blue">
+      <text name="c_text" />
+      <keyword name="c_keyword" />
+    </fieldgroup>
+
+    <fieldgroup tag="conflicttest_red">
+      <keyword name="c_text" />
+      <text name="c_keyword" />
+    </fieldgroup>
+
     <fieldgroup tag="testgroup">
       <integer name="group_int_field" />
       <record name="group_record_field">

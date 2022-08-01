@@ -237,7 +237,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
           FOREVERY(RECORD issue FROM CompareMappings(res,exp,""))
           {
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
-            Print(`Catalog ${want.catalog->tag}: ${issue.issue} field '${issue.field}'\n`);
+            Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message}\n`);
           }
         }
     }

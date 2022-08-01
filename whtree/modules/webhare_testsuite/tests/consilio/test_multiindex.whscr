@@ -20,6 +20,7 @@ OBJECT cat_index1_view, cat_index2_view;
 
 MACRO Prepare()
 {
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:testindex" ]);
   OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
   RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
 
