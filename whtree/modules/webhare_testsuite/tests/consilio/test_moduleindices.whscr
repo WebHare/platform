@@ -198,8 +198,9 @@ MACRO TestMappingUpdates()
   testfw->CommitWork();
 
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
-  TestEq(["superfluous","typemismatch"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
+  TestEq(["parammismatch", "superfluous","typemismatch"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["c_keyword","c_text"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "typemismatch"));
+  TestEq(["c_ignoreabove","c_indexoptions"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "parammismatch"));
 
   // Reset configuration for later tests
   testfw->BeginWork();

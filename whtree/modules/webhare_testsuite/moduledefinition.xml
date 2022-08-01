@@ -360,11 +360,15 @@
     <fieldgroup tag="conflicttest_blue">
       <text name="c_text" />
       <keyword name="c_keyword" />
+      <text name="c_indexoptions" index_options="positions" />  <!-- The default for OpenSearch -->
+      <keyword name="c_ignoreabove" />
     </fieldgroup>
 
     <fieldgroup tag="conflicttest_red">
       <keyword name="c_text" />
       <text name="c_keyword" />
+      <text name="c_indexoptions" />
+      <keyword name="c_ignoreabove" ignore_above="256" />
     </fieldgroup>
 
     <fieldgroup tag="testgroup">
