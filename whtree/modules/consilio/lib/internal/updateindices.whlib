@@ -115,7 +115,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
   RETURN wantcatalogs;
 }
 
-MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
+MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 {
   RECORD ARRAY currentsources := catalog->ListContentSources();
   FOREVERY(RECORD source FROM want.contentsources)
@@ -170,6 +170,17 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
     }
   }
 
+  IF(options.switchtoopensearch)
+  {
+    RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+
+    FOREVERY(RECORD legacy FROM SELECT * FROM catalog->ListAttachedIndices() WHERE type = "legacy-indexmanager")
+    {
+      catalog->DetachIndex(legacy.id);
+      catalog->AttachIndex(builtin_opensearch.id);
+    }
+  }
+
   //mark unreferred catalogs as orphan
   FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
     catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
@@ -219,7 +230,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
     }
 
     IF(want.managed)
-      UpdateManagedCatalog(catalog, want);
+      UpdateManagedCatalog(catalog, want, options);
   }
   trans->CommitWork();
 
@@ -237,7 +248,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
           FOREVERY(RECORD issue FROM CompareMappings(res,exp,""))
           {
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
-            Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message}\n`);
+            Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
           }
         }
     }
@@ -249,6 +260,7 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   options := ValidateOptions(
       [ reportmissing := FALSE
       , catalogmask := "*"
+      , switchtoopensearch := FALSE
       ], options);
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");

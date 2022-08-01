@@ -134,7 +134,7 @@
       </d:varchar>
       <d:varchar name="fieldgroups" maxlength="512">
         <d:documentation>
-          Field groups included in the catalog mapping as set by either updateindices.whscr or the catalog API.
+          Field groups included in the catalog mapping as set by either wh consilio:update or the catalog API.
         </d:documentation>
       </d:varchar>
       <d:varchar name="lang" maxlength="5">
