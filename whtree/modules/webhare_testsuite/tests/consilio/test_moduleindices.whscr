@@ -148,14 +148,18 @@ MACRO TestMappingUpdates()
   testfw->BeginWork();
   TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
   TestEq(["webhare_testsuite:testindexfields"], catalog->fieldgroups);
-  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...catalog->fieldgroups ] ]);
+  catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...catalog->fieldgroups ]
+                             , title := "added nosuchfieldyet"
+                             ]);
   TestEqMembers([[name := "nosuchfieldyet_extra" ]], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
+  TestEq("added nosuchfieldyet", catalog->title);
 
   RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["missing"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "missing"));
 
   testfw->CommitWork();
+  TestEq("added nosuchfieldyet", OpenConsilioCatalog(catalog->tag)->title);
 
   //After commit, the catalogchange should be applied and no issues should remain
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
@@ -163,7 +167,9 @@ MACRO TestMappingUpdates()
 
   //Now undo the fieldgroup change...
   testfw->BeginWork();
-  catalog->UpdateCatalog(CELL[ fieldgroups := STRING[] ]);
+  catalog->UpdateCatalog(CELL[ fieldgroups := STRING[]
+                             , title := ""
+                             ]);
   TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
 
   catalog->UpdateCatalog(CELL[ fieldgroups := STRING["webhare_testsuite:testindexfields"] ]);
@@ -174,6 +180,8 @@ MACRO TestMappingUpdates()
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "superfluous"));
 
   testfw->CommitWork();
+  TestEq("", OpenConsilioCatalog(catalog->tag)->title);
+  TestEq("", catalog->title);
 
   //Commit doesn't change a thing - there's no way to get rid of existing mappings
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());

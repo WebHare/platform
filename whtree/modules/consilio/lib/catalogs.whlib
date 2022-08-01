@@ -550,6 +550,9 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// @type(string) Tag of this catalog
   PUBLIC PROPERTY tag(this->catalog.name,-);
 
+  /// @type(string) Catalog title
+  PUBLIC PROPERTY title(this->catalog.description,-);
+
   /// @type(string) Language of this catalog
   PUBLIC PROPERTY lang(this->catalog.lang,-);
 
@@ -732,6 +735,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                                 , lang := ""
                                 , fieldgroups := STRING[]
                                 , suffixed := TRUE
+                                , title := ""
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
@@ -741,6 +745,14 @@ STATIC OBJECTTYPE ConsilioCatalog
     RECORD cursettings := SELECT * FROM consilio.catalogs WHERE id = this->id;
     IF(NOT RecordExists(cursettings))
       THROW NEW Exception(`Catalog ${this->tag} (#${this->id}) is no longer present in the database`);
+
+    IF(CellExists(settings, 'title'))
+    {
+      settings := CELL[ ...settings
+                      , description := settings.title
+                      , DELETE title
+                      ];
+     }
 
     IF(CellExists(settings, 'suffixed'))
     {
