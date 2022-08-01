@@ -150,16 +150,20 @@ MACRO TestMappingUpdates()
   TestEq(["webhare_testsuite:testindexfields"], catalog->fieldgroups);
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...catalog->fieldgroups ]
                              , title := "added nosuchfieldyet"
+                             , priority := 2
                              ]);
   TestEqMembers([[name := "nosuchfieldyet_extra" ]], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
   TestEq("added nosuchfieldyet", catalog->title);
+  TestEq(2, catalog->priority);
 
   RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["missing"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "missing"));
 
   testfw->CommitWork();
+
   TestEq("added nosuchfieldyet", OpenConsilioCatalog(catalog->tag)->title);
+  TestEq(2, OpenConsilioCatalog(catalog->tag)->priority);
 
   //After commit, the catalogchange should be applied and no issues should remain
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
@@ -169,6 +173,7 @@ MACRO TestMappingUpdates()
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := STRING[]
                              , title := ""
+                             , priority := 0
                              ]);
   TestEqMembers(RECORD[], (SELECT * FROM catalog->GetExpectedMapping() WHERE name = "nosuchfieldyet_extra"), "*");
 
@@ -182,6 +187,7 @@ MACRO TestMappingUpdates()
   testfw->CommitWork();
   TestEq("", OpenConsilioCatalog(catalog->tag)->title);
   TestEq("", catalog->title);
+  TestEq(0, OpenConsilioCatalog(catalog->tag)->priority);
 
   //Commit doesn't change a thing - there's no way to get rid of existing mappings
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
