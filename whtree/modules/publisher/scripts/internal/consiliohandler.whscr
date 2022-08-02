@@ -7,6 +7,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/whfscatalog.whlib";
 
 LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
@@ -106,7 +107,7 @@ MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
   EnsurePublisherWHFSIndex();
 
   FOREVERY(RECORD msg FROM msgs)
-    ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26), debug, msg.refresh ]);
+    ReindexWHFSChanges(msg.to_reindex, CELL[ __eventid := Substring(event, 26), __debug := debug, msg.refresh ]);
 }
 
 

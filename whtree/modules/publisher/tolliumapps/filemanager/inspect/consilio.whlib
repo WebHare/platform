@@ -5,6 +5,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/pagelists.whlib";
 LOADLIB "mod::consilio/lib/screens/catalog.whlib";
+LOADLIB "mod::consilio/lib/whfscatalog.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -14,7 +15,6 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
-LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
 PUBLIC RECORD ARRAY FUNCTION GetSubFiles(INTEGER objid)
 {
