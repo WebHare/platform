@@ -3,8 +3,9 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -34,6 +35,21 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
+PUBLIC RECORD FUNCTION HookRunner(STRING name, RECORD data)
+{
+  OpenPrimary();
+  data := RunModuleHookTarget("publisher:whfsindex_priority", data);
+
+  // Listen to all loaded libraries, non-builtin only
+  STRING ARRAY eventmasks := GetResourceEventMasks(
+      SELECT AS STRING ARRAY liburi
+        FROM GetAllUsedHarescriptLibraries()
+       WHERE liburi NOT LIKE "wh::*"
+         AND (liburi LIKE "mod::*/*" ? SubString(Tokenize(liburi, "/")[0], 5) NOT IN whconstant_builtinmodules : TRUE));
+
+  RETURN CELL[ data, eventmasks ];
+}
+
 RECORD FUNCTION GetCacheableModuleStartingPoints()
 {
   RECORD ARRAY startingpoints;
@@ -52,19 +68,17 @@ RECORD FUNCTION GetCacheableModuleStartingPoints()
            ] INTO startingpoints AT END;
   }
 
-  TRY
-  {
-    RECORD res := RunModuleHookTarget("publisher:whfsindex_priority", CELL[ startingpoints ]);
-    startingpoints := EnforceStructure(
-        [ [ folder :=     -1
-          , whfspath :=   ""
-          , priority :=   ""
-          , boost :=      ""
-          ]
-        ], res.startingpoints);
-  }
-  CATCH (OBJECT e)
-    LogHarescriptException(e);
+  RECORD res := CallFunctionFromJob(Resolve("#HookRunner"), "publisher:whfsindex_priorities", CELL[ startingpoints ]);
+
+  startingpoints := EnforceStructure(
+    [ [ folder :=     -1
+      , whfspath :=   ""
+      , priority :=   ""
+      , boost :=      ""
+      ]
+    ], res.data.startingpoints);
+
+  STRING ARRAY eventmasks := res.eventmasks;
 
   startingpoints :=
       SELECT TEMPORARY priority_pos := SearchElement(["beforerepository","beforesites","aftersites"], priority)
@@ -74,16 +88,9 @@ RECORD FUNCTION GetCacheableModuleStartingPoints()
            , boost
         FROM startingpoints;
 
-  // Listen to all loaded libraries, non-builtin only
-  STRING ARRAY eventmasks := GetResourceEventMasks(
-      SELECT AS STRING ARRAY liburi
-        FROM GetAllUsedHarescriptLibraries()
-       WHERE liburi NOT LIKE "wh::*"
-         AND (liburi LIKE "mod::*/*" ? SubString(Tokenize(liburi, "/")[0], 5) NOT IN whconstant_builtinmodules : TRUE));
-
   RETURN [ ttl := 15 * 60 * 1000
          , value := startingpoints
-         , eventmasks :=      [ "system:modulesupdate", ...eventmasks ]
+         , eventmasks :=      [ "system:modulesupdate", ...res.eventmasks ]
          ];
 }
 
