@@ -10,8 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 MACRO Main()
 {
-  RECORD ARRAY options := [ [ name := "switchtoopensearch", type := "switch" ]
-                          , [ name := "zapbroken", type := "switch" ] //undocumented for now as i think we should more carefully compare settings before randomly ApplyingConfiguration
+  RECORD ARRAY options := [ [ name := "zapbroken", type := "switch" ] //undocumented for now as i think we should more carefully compare settings before randomly ApplyingConfiguration
                           , [ name := "catalogmask", type := "param" ]
                           ];
 
@@ -19,13 +18,11 @@ MACRO Main()
   IF(NOT RecordExists(cmdargs))
   {
     Print("Syntax: wh consilio:updatecatalogs [options] [mask]\n");
-    Print("  --switchtoopensearch: Migrate all legacy indexmanager indices to OpenSearch\n");
     Print("  catalogmask:          Wildcard mask of catalogs to update\n");
     TerminateScriptWithError("");
   }
 
-  FixConsilioIndices(CELL[ cmdargs.switchtoopensearch
-                         , catalogmask := cmdargs.catalogmask ?? "*"
+  FixConsilioIndices(CELL[ catalogmask := cmdargs.catalogmask ?? "*"
                          , cmdargs.zapbroken
                          ]);
 }

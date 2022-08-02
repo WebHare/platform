@@ -12,7 +12,6 @@
   <servicemanager>
     <runonce tag="migrate_indices_v2" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
     <runonce tag="setupopensearch" script="scripts/runonce/setupopensearch.whscr" when="poststart" />
-    <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" ifenvironset="WEBHARE_PREFERINDEXMANAGER" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
     <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
     <task runat="27   3 * * *"  runtz="maintenance" tag="maintenance_task" script="scripts/tasks/executemaintenance.whscr" description="Consilio maintenance task" />

@@ -168,17 +168,6 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
     }
   }
 
-  IF(options.switchtoopensearch)
-  {
-    RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
-
-    FOREVERY(RECORD legacy FROM SELECT * FROM catalog->ListAttachedIndices() WHERE type = "legacy-indexmanager")
-    {
-      catalog->DetachIndex(legacy.id);
-      catalog->AttachIndex(builtin_opensearch.id);
-    }
-  }
-
   //mark unreferred catalogs as orphan
   FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
     catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
@@ -236,6 +225,16 @@ MACRO UpdateModuleCatalogs(RECORD options)
   {
     IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
     {
+      RECORD ARRAY indices := want.catalog->ListAttachedIndices();
+      IF(Length(indices) = 0)
+      {
+        Print(`Managed catalog '${want.tag}' has no attached index yet, adding one\n`);
+        trans->BeginWork();
+        want.catalog->AttachIndex(0);
+        want.catalog->ReindexCatalog();
+        trans->CommitWork();
+      }
+
       TRY
       {
         // zapbroken can autodestroy 'fix' anything broken, but shouldn't we be first comparing whether the index needs changes before blindly applying mappings everywhere ? (and then get rid of this double-try?)
@@ -248,7 +247,6 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
         IF(options.zapbroken)
         {
-          RECORD ARRAY indices := want.catalog->ListAttachedIndices();
           IF(Length(indices) = 1 AND indices[0].isbuiltin)
           {
             Print(`Reattaching blank index\n`);
@@ -289,7 +287,6 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   options := ValidateOptions(
       [ reportmissing := FALSE
       , catalogmask := "*"
-      , switchtoopensearch := FALSE
       , zapbroken := FALSE
       ], options);
 

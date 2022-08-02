@@ -154,20 +154,7 @@ testtollium:
     expire_in: 1 week
   interruptible: true
 
-testconsilio:
-  stage: test
-  except:
-    - /^docs\/.*$/
-  script:
-    - TESTFW_WEBHARE_PREFERINDEXMANAGER=1 whtree/bin/wh testdocker --tag=-external consilio
-  artifacts:
-    paths:
-      - artifacts/
-    when: always
-    expire_in: 1 week
-  interruptible: true
-
-testelasticsearch:
+testopensearch:
   stage: test
   except:
     - /^docs\/.*$/

@@ -26,6 +26,11 @@ SCHEMA
     > catalogs
   , TABLE
     < INTEGER "id" NULL := 0
+    , STRING "address"
+    ; KEY id
+    > indexmanagers
+  , TABLE
+    < INTEGER "id" NULL := 0
     , INTEGER "catalogid" NULL := 0
     , INTEGER "indexmanager" NULL := 0
     , STRING "indexname"
@@ -74,9 +79,17 @@ SCHEMA
 OBJECT trans := OpenPrimary();
 consilio := BindTransactionToSchema(trans->id, "consilio"); //we can do this already, BindTransactionToSchema does not validate anything on the DB
 
+IF (trans->ColumnExists("consilio", "indexmanagers", "id") AND RecordExists(SELECT FROM consilio.indexmanagers WHERE address = "builtin"))
+{
+  Print("Deleting legacy Consilio index manager\n"); //updateindices will restore and attach new indices
+  trans->BeginWork();
+  DELETE FROM consilio.indexmanagers WHERE address = "builtin"; //remove any legacy indexmanager
+  trans->CommitWork();
+}
+
 IF (trans->ColumnExists("consilio", "catalog_indexmanagers", "id"))
 {
-  //Prepare for nulling constraint
+  //Prepare for the indexmanager != 0 constraint. We messed this up on V1 of the migration
   trans->BeginWork();
   DELETE FROM consilio.catalog_indexmanagers WHERE indexmanager = 0;
   trans->CommitWork();
