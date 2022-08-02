@@ -243,39 +243,7 @@
 
     <d:obsoletetable name="mapping" />
 
-    <d:table name="contentsourcefields" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="contentsourceid" references=".contentsources" ondelete="cascade" nullable="0">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="64">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="type" maxlength="64">
-        <d:documentation>
-          Field type
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="defaultvalue" maxlength="4096">
-        <d:documentation>
-          HSON-encoded default value
-        </d:documentation>
-      </d:varchar>
-      <d:boolean name="tokenized">
-        <d:documentation>
-          If the field should be tokenized when indexed, or if it should be treated as keyword field
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="suggested">
-        <d:documentation>
-          If the contents of the field is used for suggestions
-        </d:documentation>
-      </d:boolean>
-    </d:table>
+    <d:obsoletetable name="contentsourcefields" />
 
     <!-- Link checking -->
     <d:table name="checked_links" primarykey="id">

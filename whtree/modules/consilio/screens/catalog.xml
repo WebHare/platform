@@ -489,6 +489,7 @@
       <list name="fieldmapping" height="1pr">
         <column name="name" type="text" />
         <column name="type" type="text" />
+        <column name="definedby" type="text" />
       </list>
     </body>
   </screen>

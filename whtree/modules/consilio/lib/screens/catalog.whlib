@@ -14,6 +14,7 @@ LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
@@ -1531,7 +1532,7 @@ PUBLIC STATIC OBJECTTYPE FieldMapping EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     RECORD ARRAY mapping := OpenConsilioCatalogById(data.catalog)->GetExpectedMapping();
-    ^fieldmapping->rows := SELECT name, type FROM mapping;
+    ^fieldmapping->rows := SELECT name, type, definedby FROM mapping;
   }
 
 >;

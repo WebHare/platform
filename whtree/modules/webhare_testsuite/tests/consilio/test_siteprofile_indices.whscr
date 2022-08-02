@@ -1,12 +1,14 @@
 <?wh
 LOADLIB "wh::ipc.whlib";
-
-LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -14,6 +16,10 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC MACRO TestModernSiteProfileIndices()
 {
+  testfw->BeginWork();
+  DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:testsitecatalog";
+  testfw->CommitWork();
+
   FixConsilioIndices([ catalogmask := "webhare_testsuite:testsitecatalog" ]);
 
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
@@ -22,6 +28,16 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   RECORD ARRAY testsitecatalog_mapping := maincatalog->GetExpectedMapping();
   TestEqMembers([[ name := "myfield1", type := "text" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "myfield1"),"*");
   TestEqMembers([[ name := "groupid", type := "keyword" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "groupid"),"*");
+  TestEqMembers([[ name := "mapping_integer", type := "integer" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "mapping_integer"),"*");
+  TestEqMembers([[ name := "description", type := "text", suggested := TRUE, settings := [ index_options := "offsets"] ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "description"),"*");
+  TestEq(["body", "description", "keywords", "title"], GetSortedSet(maincatalog->__GetSuggestedFields())); //TODO If __GetSuggestedFields goes, consider checking testsitecatalog_mapping
+
+  RECORD testindex := maincatalog->ListAttachedIndices()[0];
+  IF(testindex.type = "opensearch")
+  {
+    RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", maincatalog->GetExpectedMapping());
+    TestEq(RECORD[], diff);
+  }
 
   //having indexnames makes log analysis easier
   Print(maincatalog->GetStorageInfo() || "\n");
@@ -38,7 +54,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
 
   maincatalog->ReindexCatalog();
   FOREVERY(RECORD csource FROM contentsources)
-    maincatalog->OpenContentSource(csource.tag)->WaitForIndexingDone();
+    maincatalog->OpenContentSourceById(csource.id)->WaitForIndexingDone();
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);

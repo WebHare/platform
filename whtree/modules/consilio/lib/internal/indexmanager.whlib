@@ -1161,7 +1161,7 @@ PUBLIC OBJECT FUNCTION GetIndexManagerBulkKeeper()
 // @cell objects.suggestfields (only used by legacy consilio, opensearch uses the mapping's suggested property)
 // @cell objects.suggestprefixes (only used by legacy consilio)
 // @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
-PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
+PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
                                               RECORD contentsource,
                                               STRING groupid,
                                               RECORD ARRAY objects,
@@ -1182,6 +1182,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                 , indexversions :=          CellExists(objects, "INDEXVERSIONS") ? objects.indexversions : STRING[]
              FROM objects;
 
+  INTEGER indexid := catalog->id;
   IF(IsDebugTagEnabled("consilio:changes"))
   {
     LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options := CELL[ ...options, bulk := GetObjectTypeName(options.bulk) ] ]);
@@ -1283,7 +1284,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
         }
         ELSE
         {
-          STRING ARRAY suggestfields := SELECT AS STRING ARRAY name FROM GetContentSourceFields(contentsource.id) WHERE suggested;
+          STRING ARRAY suggestfields := catalog->__GetSuggestedFields();
 
           RECORD ARRAY bulkrequests;
           FOREVERY (RECORD obj FROM objects)

@@ -142,10 +142,8 @@ FOREVERY (RECORD cat FROM catalogs)
     OBJECT source := catalog->OpenContentSourceById(src.id);
     TRY
     {
+      //FIXME do we want/need this? who supplies GetContentSourceTitle, does it usefully change all the time?
       OBJECT provider := source->__OpenProvider();
-      IF (provider->UpdateContentSourceFields().anychanges)
-        INSERT src.id INTO updated_contentsources AT END;
-
       STRING title := provider->GetContentSourceTitle();
       IF (title != src.title)
         UPDATE consilio.contentsources SET title := VAR title WHERE id = src.id;

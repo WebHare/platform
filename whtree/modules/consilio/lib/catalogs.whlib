@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -584,6 +585,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(string) return.type Type of the indexmanager (opensearch)
       @cell(integer) return.searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
       @cell(boolean) return.readonly If true, the attached index is readonly
+      @cell(boolean) return.isbuiltin If true, the indexmanager is builtin
   */
   PUBLIC RECORD ARRAY FUNCTION ListAttachedIndices()
   {
@@ -594,6 +596,7 @@ STATIC OBJECTTYPE ConsilioCatalog
              , catalog_indexmanagers.readonly
              , indexmanager :=        indexmanagers.id
              , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
+             , isbuiltin := indexmanagers.address IN ["builtin","builtin-opensearch"]
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
          WHERE catalog_indexmanagers.catalogid = this->catalog.id
@@ -630,6 +633,12 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     RECORD data := DecodeHSONBlob(this->catalog.internalmetadata);
     RETURN data.fields;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION __GetSuggestedFields() //FIXME - Not sure if we need to keep this API - AddIndexManagerObjects can probably just walk the mapping
+  {
+    RECORD _sug := SELECT * FROM this->GetExpectedMapping() WHERE name = "_suggested";
+    RETURN RecordExists(_sug) ? _sug.__suggestedfields : STRING[];
   }
 
   BOOLEAN FUNCTION GetManaged()
@@ -794,11 +803,11 @@ STATIC OBJECTTYPE ConsilioCatalog
                                              , fields := RECORD[]
                                              ], internalmetadata);
 
-    INTEGER ARRAY contentsourceids;
+    RECORD ARRAY contentsources;
     IF(this->managed)
-      contentsourceids := SELECT AS INTEGER ARRAY id FROM this->ListContentSources();
+      contentsources := this->ListContentSources([__withdata := TRUE]);
 
-    RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, contentsourceids);
+    RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, this->tag, contentsources);
     IF(EncodeHSON(config.fields) != EncodeHSON(internalmetadata.fields))
     {
       internalmetadata := BuildInternalMetadataFromConfiguration(config);
@@ -846,9 +855,10 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
-    options := ValidateOptions([ __withdeleted := FALSE ], options);
+    options := ValidateOptions([ __withdeleted := FALSE, __withdata := FALSE ], options);
     RECORD ARRAY sources :=
         SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
+             , __data := options.__withdata ? data : ""
              , id
              , contentprovider
                                 //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
@@ -1028,7 +1038,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     objects := SELECT objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
     {
-      AddIndexManagerObjects(this->id, DEFAULT RECORD, "", chunk.docs, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
     }
   }
 
@@ -1110,16 +1120,6 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     GetConsilioFinishHandler()->RequestReindexContentSource(contentsource);
-
-    OBJECT prov := contentsource->__OpenProvider();
-    TRY
-    {
-      prov->UpdateContentSourceFields();
-    }
-    FINALLY
-    {
-      prov->CLose();
-    }
 
     this->UpdateCatalog(DEFAULT RECORD);
 
@@ -1222,6 +1222,8 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+    IF(tag = "")
+      THROW NEW Exception(`Missing tag for contentsource to open`);
 
     RECORD match :=
         SELECT *
@@ -1378,7 +1380,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     THROW NEW Exception(`A managed index can't be set to suffixed`);
 
   // Prepare configuration
-  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, INTEGER[]); //no contentsource ids yet
+  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, tag, RECORD[]); //no contentsource ids yet
   RECORD internalmetadata := BuildInternalMetadataFromConfiguration(config);
 
   INSERT CELL[ id := indexid

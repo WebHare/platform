@@ -1,0 +1,122 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+PUBLIC CONSTANT STRING ARRAY supported_field_types :=
+    [ "boolean", "completion", "datetime", "float", "integer", "integer64", "ipaddress", "keyword", "latlng", "money", "record", "text" ];
+
+/** @short Get all content providers as offered by all modules
+    @param resourcemanager A WebHare resource manager
+    @return All available content providers
+    @cell return.name The content provider name
+    @cell return.tid Tid for the content provider title
+    @cell return.settings Name of the provider's settings screen
+    @cell return.createcontentprovider A function which returns a content provider object
+*/
+PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
+{
+  RECORD ARRAY contentproviders := GetAdHocCached([ type := "contentproviders" ], PTR GetContentProviders_Uncached);
+  RETURN SELECT name
+              , title
+              , icon
+              , createcontentprovider := PTR MakeObject(contentproviderobject)
+           FROM contentproviders;
+}
+
+RECORD FUNCTION GetContentProviders_Uncached()
+{
+  RECORD ARRAY contentproviders;
+  FOREVERY (RECORD module FROM GetWebHareModules())
+  {
+    FOREVERY (RECORD cp FROM module.contentproviders)
+    {
+      INSERT [ name := cp.name
+             , title := cp.title
+             , icon := cp.icon
+             , contentproviderobject := cp.contentproviderobject
+             ] INTO contentproviders AT END;
+    }
+  }
+  RETURN [ value := contentproviders
+         , ttl := 6 * 60 * 60 * 1000 // Can be cached until next cache/soft reset, but provide some number now
+         ];
+}
+
+/** Construct the provider for this source
+    @return Contentprovider object
+*/
+PUBLIC OBJECT FUNCTION OpenContentSourceProvider(STRING catalogtag, RECORD contentsource)
+{
+  RECORD cprec := SELECT * FROM GetContentProviders() WHERE name = contentsource.contentprovider;
+  IF (NOT RecordExists(cprec))
+    THROW NEW Exception(`Content provider '${contentsource.contentprovider}' not found for content source #${contentsource.id}`);
+
+  OBJECT cpobj := cprec.createcontentprovider();
+
+  // Decode the source-specific data
+  RECORD source := contentsource;
+  RECORD csdata := DecodeHSON(source.__data);
+  DELETE CELL data FROM source;
+  INSERT CELL data := csdata INTO source;
+
+  // Add the contentlinksonly flag (in the future this might be made configurable)
+  INSERT CELL contentlinksonly := ReadRegistryKey("consilio.linkchecker.contentlinksonly") INTO source;
+
+  source := CELL[ ...source
+                , contentsourceid := contentsource.id
+                , contentsourcetag := contentsource.tag
+                , catalogtag := catalogtag
+                ];
+  cpobj->Init(source);
+  RETURN cpobj;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContentSourceFieldMapping(STRING catalogtag, RECORD contentsource)
+{
+  OBJECT prov;
+  RECORD ARRAY fields;
+  TRY
+  {
+    prov := OpenContentSourceProvider(catalogtag, contentsource);
+    fields := prov->GetMapping();
+  }
+  CATCH(OBJECT e) //TODO get these internal errors to bubble up somewhere in the catalog or wh check
+  {
+    LogHarescriptException(e);
+    RETURN RECORD[];
+  }
+  FINALLY
+  {
+    IF(ObjectExists(prov))
+      prov->Close();
+  }
+
+  RECORD ARRAY mappedfields;
+  FOREVERY (RECORD field FROM fields)
+  {
+    STRING field_type := CellExists(field, "type") ? field.type: "";
+    IF (field_type != "" AND field_type NOT IN supported_field_types)
+      THROW NEW Exception(`Unsupported field type '${field.type}'`);
+    VARIANT defaultvalue;
+    IF(CellExists(field, "value"))
+      defaultvalue := field.value;
+    ELSE
+      defaultvalue := "";
+    BOOLEAN field_tokenized := CellExists(field, "tokenized") ? field.tokenized : CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING);
+    BOOLEAN field_suggested := CellExists(field, "suggested") ? field.suggested : FALSE;
+
+    INSERT CELL[ field.name
+               , type := field_type
+               , defaultvalue
+               , tokenized := field_tokenized
+               , suggested := field_suggested
+               , contentsource.definedby
+               ] INTO mappedfields AT END;
+  }
+  RETURN mappedfields;
+}
+

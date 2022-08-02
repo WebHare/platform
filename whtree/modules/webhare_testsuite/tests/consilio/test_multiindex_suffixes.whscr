@@ -43,6 +43,7 @@ MACRO Prepare()
                 ,[ type := "opensearch"
                  , searchpriority := 0
                  , indexname := index2name
+                 , isbuiltin := TRUE
                  ]
                 ], cat->ListAttachedIndices(), "*");
   TestEq(RECORD[], cat->ListSuffixes());
