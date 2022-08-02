@@ -553,6 +553,9 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// @type(string) Catalog title
   PUBLIC PROPERTY title(this->catalog.description,-);
 
+  /// @type(integer) Catalog indexing priority (0 is default, higher priorities get indexed earlier)
+  PUBLIC PROPERTY priority(this->catalog.priority,-);
+
   /// @type(string) Language of this catalog
   PUBLIC PROPERTY lang(this->catalog.lang,-);
 
@@ -736,6 +739,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                                 , fieldgroups := STRING[]
                                 , suffixed := TRUE
                                 , title := ""
+                                , priority := 0
                                 ], settings, [ optional := ["*"]
                                              , title := "settings"
                                              ]);
