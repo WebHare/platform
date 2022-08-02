@@ -29,7 +29,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   TestEqMembers([[ name := "myfield1", type := "text" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "myfield1"),"*");
   TestEqMembers([[ name := "groupid", type := "keyword" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "groupid"),"*");
   TestEqMembers([[ name := "mapping_integer", type := "integer" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "mapping_integer"),"*");
-  TestEqMembers([[ name := "description", type := "text", suggested := TRUE ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "description"),"*");
+  TestEqMembers([[ name := "description", type := "text", suggested := TRUE, settings := [ index_options := "offsets"] ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "description"),"*");
   TestEq(["body", "description", "keywords", "title"], GetSortedSet(maincatalog->__GetSuggestedFields())); //TODO If __GetSuggestedFields goes, consider checking testsitecatalog_mapping
 
   RECORD testindex := maincatalog->ListAttachedIndices()[0];

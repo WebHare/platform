@@ -153,7 +153,7 @@ RECORD ARRAY FUNCTION MakeTree(RECORD ARRAY inprops)
 RECORD ARRAY FUNCTION GetContentSourcesMapping(RECORD ARRAY contentsources, STRING catalogtag, RECORD ARRAY basefields)
 {
   //TODO: Check for conflicting mappings instead of ignoring subsequent field definitions
-  RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields);
+  RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields); //TODO Seems dupe with the ParseContentSourceMapping call below but the _body hack probably needs some fixing before combining both
 
   RECORD ARRAY fields; //gather all fields together so we can do one pass of _suggested generation
   /*TODO We need to optimize publisher:webhare contentsources, a catalog can have hundreds of them but they'll all have the same field definition
@@ -173,6 +173,10 @@ RECORD ARRAY FUNCTION GetContentSourcesMapping(RECORD ARRAY contentsources, STRI
 
   properties := EnforceStructure([[ suggested := FALSE ]], properties);
   properties := ParseContentSourceMapping(properties, fields);
+
+  FOREVERY(RECORD prop FROM properties)
+    IF(prop.type = "text") //set the default for contentsource fields we also set for module mappings..
+      INSERT CELL index_options := "offsets" INTO properties[#prop].settings;
 
   // If there are any suggested fields, add a '_suggested' field with 'completion' type
   STRING ARRAY suggestedfields := (SELECT AS STRING ARRAY name FROM properties WHERE suggested);
