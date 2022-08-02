@@ -225,7 +225,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
     CATCH(OBJECT e)
     {
       LogHarescriptException(e);
-      PrintTo(2, `Failed to update catalog '${want.tag}: ${e->what}\n`);
+      PrintTo(2, `Failed to update catalog '${want.tag}': ${e->what}\n`);
       CONTINUE;
     }
 
@@ -238,7 +238,38 @@ MACRO UpdateModuleCatalogs(RECORD options)
   {
     IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
     {
-      want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
+      TRY
+      {
+        // zapbroken can autodestroy 'fix' anything broken, but shouldn't we be first comparing whether the index needs changes before blindly applying mappings everywhere ? (and then get rid of this double-try?)
+        want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2, `Failed to reconfigure catalog '${want.tag}': ${e->what}\n`);
+
+        IF(options.zapbroken)
+        {
+          RECORD ARRAY indices := want.catalog->ListAttachedIndices();
+          IF(Length(indices) = 1 AND indices[0].isbuiltin)
+          {
+            Print(`Reattaching blank index\n`);
+            trans->BeginWork();
+            want.catalog->DetachIndex(indices[0].id);
+            want.catalog->AttachIndex(indices[0].indexmanager);
+            trans->CommitWork();
+
+            TRY
+            {
+              want.catalog->ApplyConfiguration();
+            }
+            CATCH(OBJECT e2)
+            {
+              PrintTo(2, `Failed to reconfigure recreated indices for catalog  '${want.tag}': ${e2->what}\n`);
+            }
+          }
+        }
+      }
 
       IF(NOT want.catalog->suffixed)
         FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices() WHERE type = "opensearch")
@@ -261,6 +292,7 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       [ reportmissing := FALSE
       , catalogmask := "*"
       , switchtoopensearch := FALSE
+      , zapbroken := FALSE
       ], options);
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");

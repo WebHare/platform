@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/database.whlib";
 MACRO Main()
 {
   RECORD ARRAY options := [ [ name := "switchtoopensearch", type := "switch" ]
+                          , [ name := "zapbroken", type := "switch" ] //undocumented for now as i think we should more carefully compare settings before randomly ApplyingConfiguration
                           , [ name := "catalogmask", type := "param" ]
                           ];
 
@@ -25,6 +26,7 @@ MACRO Main()
 
   FixConsilioIndices(CELL[ cmdargs.switchtoopensearch
                          , catalogmask := cmdargs.catalogmask ?? "*"
+                         , cmdargs.zapbroken
                          ]);
 }
 
