@@ -38,7 +38,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
 
   maincatalog->ReindexCatalog();
   FOREVERY(RECORD csource FROM contentsources)
-    maincatalog->OpenContentSource(csource.tag)->WaitForIndexingDone();
+    maincatalog->OpenContentSourceById(csource.id)->WaitForIndexingDone();
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);

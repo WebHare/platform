@@ -1222,6 +1222,8 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
+    IF(tag = "")
+      THROW NEW Exception(`Missing tag for contentsource to open`);
 
     RECORD match :=
         SELECT *

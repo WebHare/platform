@@ -1426,7 +1426,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupConsilioTest(RECORD options DEFAULTSTO DE
   RunTestFramework(MACRO PTR[]);
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   FOREVERY(RECORD csource FROM catalog->ListContentSources())
-    catalog->OpenContentSource(csource.tag)->WaitForIndexingDone();
+    catalog->OpenContentSourceById(csource.id)->WaitForIndexingDone();
   RETURN CELL[];
 }
 

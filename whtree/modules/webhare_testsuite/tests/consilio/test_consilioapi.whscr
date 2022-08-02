@@ -28,6 +28,8 @@ MACRO TestConsilioAPI()
 
   //having indexnames makes log analysis easier
   Print(testcatalog1->GetStorageInfo() || ", " || testcatalog2->GetStorageInfo() || "\n");
+  TestThrowsLike("*Missing tag for*", PTR testcatalog1->OpenContentSource(""), "Explicitly block for ambiguity");
+  TestEq(DEFAULT OBJECT, testcatalog1->OpenContentSource("nosuchsource"));
 
   OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ enabled := FALSE ] );
 
