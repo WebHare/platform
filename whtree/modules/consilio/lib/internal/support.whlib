@@ -181,7 +181,7 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-opensearch"))
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE address="builtin-opensearch"))
     INSERT
         [ name := "consilio:opensearch"
         , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]

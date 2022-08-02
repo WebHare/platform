@@ -226,7 +226,6 @@ MACRO TestESCreationAPIs()
   INTEGER mock_external_index := MakeAutonumber(consilio.indexmanagers, "id");
   INSERT CELL[ id := mock_external_index
              , address := builtin_opensearch.url
-             , type := whconstant_consilio_indexmanager_opensearch
              , name := "mock_external_index"
              ] INTO consilio.indexmanagers;
   TestThrowsLike("*indexname*required*", PTR catalog->AttachIndex(mock_external_index));
