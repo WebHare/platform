@@ -265,7 +265,7 @@ class Calendar2 extends CalendarTable
     this.yearspinner.min = this.mindate ? this.mindate.year : 1901;
     this.yearspinner.max = this.maxdate ? this.maxdate.year : 2099;
 
-    let showdate = this.date ?? suggestion ?? max ?? this.today;
+    let showdate = this.date ?? suggestion ?? this.today;
     if( this.maxdate && datehelpers.makeJSUTCDate(showdate) > datehelpers.makeJSUTCDate(this.maxdate) )
       showdate = this.maxdate;
 
@@ -420,8 +420,6 @@ class DatePicker extends Calendar2
     // this._node.addEventListener("wh:datepicker-request");
 
     this._anchornode = this._datenode.nextSibling;
-
-    //TODO support 'suggested' date? ie go to specific month & year but do not select anything yet
 
     this._calendarnode = dompack.create('div', { className: this.options.baseclass }); //tabindex:0 ?
     this._addMeToNode(this._calendarnode);
