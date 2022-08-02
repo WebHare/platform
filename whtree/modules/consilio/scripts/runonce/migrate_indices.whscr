@@ -72,6 +72,16 @@ SCHEMA
   > consilio;
 
 OBJECT trans := OpenPrimary();
+consilio := BindTransactionToSchema(trans->id, "consilio"); //we can do this already, BindTransactionToSchema does not validate anything on the DB
+
+IF (trans->ColumnExists("consilio", "catalog_indexmanagers", "id"))
+{
+  //Prepare for nulling constraint
+  trans->BeginWork();
+  DELETE FROM consilio.catalog_indexmanagers WHERE indexmanager = 0;
+  trans->CommitWork();
+  RETURN;
+}
 
 // Nothing to do if already migrated or nothing to migrate
 IF (trans->ColumnExists("consilio", "catalogs", "id") OR NOT trans->ColumnExists("consilio", "indices", "id"))
@@ -102,8 +112,6 @@ FOREVERY (RECORD dbtable FROM dbschema.tables)
 // Update the database
 RECORD result := GeneratePostgreSQLDependentSQLCommands([ dbschema ],trans);
 ExecuteSQLUpdates(trans, result.commands);
-
-consilio := BindTransactionToSchema(trans->id, "consilio");
 
 // Link to the index' index manager, if any
 FOREVERY (RECORD indexrec FROM SELECT * FROM consilio.catalogs)

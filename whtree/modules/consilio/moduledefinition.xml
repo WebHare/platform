@@ -10,7 +10,7 @@
   </meta>
 
   <servicemanager>
-    <runonce tag="migrate_indices" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
+    <runonce tag="migrate_indices_v2" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
     <runonce tag="setupopensearch" script="scripts/runonce/setupopensearch.whscr" when="poststart" />
     <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" ifenvironset="WEBHARE_PREFERINDEXMANAGER" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
@@ -159,7 +159,7 @@
           The catalog
         </d:documentation>
       </d:integer>
-      <d:integer name="indexmanager" references=".indexmanagers" ondelete="set default">
+      <d:integer name="indexmanager" references=".indexmanagers" ondelete="cascade" nullable="false">
         <d:documentation>
           The index manager that is responsible for this catalog
         </d:documentation>
