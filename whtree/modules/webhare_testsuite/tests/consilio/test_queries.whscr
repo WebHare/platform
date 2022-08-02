@@ -1,9 +1,5 @@
 <?wh
 
-/* For (temporarily?) legacy compatibility testing of the CQ operators, try
-WEBHARE_PREFERINDEXMANAGER=1 wh run mod::webhare_testsuite/tests/consilio/test_queries.whscr
-*/
-
 LOADLIB "wh::devsupport.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
