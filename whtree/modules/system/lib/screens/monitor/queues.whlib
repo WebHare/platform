@@ -142,7 +142,6 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
       {
         RECORD statusrow :=
             [ name := indexmanager.name
-            , type := this->indexmanagers->GetIcon(GetIndexManagerIcon(indexmanager.type))
             , indexstatus := this->GetTid(".indexmanagerstatus.unknown")
             , janitor_nexttask := DEFAULT DATETIME
             ];

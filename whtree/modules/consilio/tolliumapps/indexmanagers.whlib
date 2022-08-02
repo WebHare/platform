@@ -22,8 +22,6 @@ PUBLIC STATIC OBJECTTYPE IndexManagers EXTEND TolliumScreenBase
     RETURN SELECT rowkey := id
                 , name
                 , address := address LIKE "builtin*" ? `<${this->GetTid(".address-builtin")}>` : address
-                , type := type = whconstant_consilio_indexmanager_legacybackend ? this->GetTid(".indexmgr-builtin") : this->GetTid(".indexmgr-elasticsearch")
-                , icon := ^mgrs->embeddedlist->GetIcon(type = whconstant_consilio_indexmanager_legacybackend ? "consilio:consilio" : type = whconstant_consilio_indexmanager_opensearch ? "consilio:elastic" : "")
              FROM consilio.indexmanagers;
   }
   MACRO OnEditMgr(RECORD row)

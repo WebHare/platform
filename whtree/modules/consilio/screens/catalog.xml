@@ -139,7 +139,7 @@
               savestate="selection expanded"
               ongetrows="ongetcatalogs"
               eventmasks="consilio:contentsourceschanged">
-          <column name="tag" type="text" width="1pr" tid="~tag" iconname="icon" tree="true" />
+          <column name="tag" type="text" width="1pr" tid="~tag" tree="true" />
           <column name="title" type="text" width="2pr" tid="~title" />
           <column name="definedby" type="text" width="1pr" />
           <column name="size" type="text" width="10x" align="right" />

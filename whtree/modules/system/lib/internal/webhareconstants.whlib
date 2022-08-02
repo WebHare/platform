@@ -184,8 +184,7 @@ PUBLIC CONSTANT INTEGER whconstant_consilio_osportoffset := 6;
 //name of the publisher whfs catalog
 PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "publisher:whfs";
 
-//our 2 indexmanager backends
-PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_legacybackend := 1;
+//our only indexmanager backends
 PUBLIC CONSTANT INTEGER whconstant_consilio_indexmanager_opensearch := 2;
 
 //our 2 index types
