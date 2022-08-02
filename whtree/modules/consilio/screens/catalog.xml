@@ -173,13 +173,6 @@
           <option rowkey="3" /><!-- All debugging information -->
         </select>
       </line>
-      <line>
-        <select name="debuglevel_indexmanager" type="radio" rowkeytype="integer">
-          <option rowkey="0" /><!-- Fatal errors -->
-          <option rowkey="1" /><!-- Statistics -->
-          <option rowkey="2" /><!-- Debug -->
-        </select>
-      </line>
       <line layout="left">
         <checkbox name="enablelinkchecker" title="" labeltid=".enablelinkchecker" />
       </line>

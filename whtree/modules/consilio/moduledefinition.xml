@@ -530,10 +530,10 @@
     </node>
     <!-- Migrated to consilio.indexmanagers -->
     <node name="indexmanager">
-      <boolean name="enablestemming" initialval="true" description="Enable stemming functionality" />
-      <integer name="loglevel" initialval="0" description="Logging level" />
-      <string name="servername" initialval="127.0.0.1" description="IP address for the index manager process" />
-      <integer name="serverport" initialval="7524" description="TCP port for the index manager process" />
+      <obsoletenode  name="enablestemming" />
+      <obsoletenode name="loglevel" />
+      <obsoletenode name="servername" />
+      <obsoletenode name="serverport" />
     </node>
     <node name="suggest">
       <integer name="maxconcurrent" initialval="10" description="Maximum of concurrent suggest queries" />

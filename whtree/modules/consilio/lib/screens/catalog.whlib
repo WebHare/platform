@@ -361,8 +361,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     IF (RecordExists(^catalogs->selection))
     {
       this->LoadScreen(".thesaurus", [ indexid := ^catalogs->selection.id ])->RunModal();
-      //IF (NOT __ConsilioUpdateConfiguration([ "indexmanager", "thesaurus" ]))
-      //  this->RunMessageBox(".sendingcommandfailed");
     }
   }
 
@@ -596,7 +594,6 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
   MACRO Init()
   {
     this->queuemanager->ReadFromRegistry();
-    this->debuglevel_indexmanager->value := ReadRegistryKey("consilio.indexmanager.loglevel");
     this->enablelinkchecker->value := ReadRegistryKey("consilio.linkchecker.enabled");
   }
 
@@ -608,24 +605,9 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
       RETURN work->Cancel();
 
     this->queuemanager->WriteToRegistry();
-    WriteRegistryKey("consilio.indexmanager.loglevel", this->debuglevel_indexmanager->value);
     WriteRegistryKey("consilio.linkchecker.enabled", this->enablelinkchecker->value);
 
     BOOLEAN finished := work->Finish();
-    IF (finished)
-    {
-      // Signal the IndexManager that the configuration has changed
-      BroadcastEvent("consilio:indexmanager.config",
-          [ loglevel :=     this->debuglevel_indexmanager->value
-          ]);
-
-      // Send new configuration to the QueueManager
-      IF (NOT __ConsilioUpdateConfiguration([ "debuglevel", ToString(this->debuglevel_queuemanager->value)
-                                            , "numworkers", ToString(this->numworkers->value)
-                                            , "maxtasktime", ToString(this->maxtasktime->value)
-                                            ]))
-        this->RunMessageBox(".sendingcommandfailed");
-    }
 
     RETURN finished;
   }

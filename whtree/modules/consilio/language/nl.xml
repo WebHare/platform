@@ -163,10 +163,6 @@
       <text tid="wordnotfound">Het woord '<param p="1"/>' kon niet worden gevonden.</text>
     </textgroup>
     <textgroup gid="options">   <!-- catalog.options -->
-      <text tid="debuglevel_indexmanager">Logniveau indexmanager</text>
-      <text tid="debuglevel_indexmanager-0">Alleen fouten</text>
-      <text tid="debuglevel_indexmanager-1">Algemene informatie</text>
-      <text tid="debuglevel_indexmanager-2">Alle debuginformatie</text>
       <text tid="debuglevel_queuemanager">Logniveau queuemanager</text>
       <text tid="debuglevel_queuemanager-0">Alleen fouten</text>
       <text tid="debuglevel_queuemanager-1">Overgeslagen documenten</text>

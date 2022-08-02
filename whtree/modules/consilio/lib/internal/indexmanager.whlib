@@ -56,62 +56,6 @@ PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waitunti
 }
 
 
-/** @short Configure the indexmanager
-    @param param What to configure ("all" or "stopwords")
-    @return Result status
-*/
-PUBLIC STRING FUNCTION ConfigureIndexManager(STRING param)
-{
-  STRING res;
-
-  // Only Consilio indexmanagers have to be configured
-  FOREVERY (INTEGER id FROM SELECT AS INTEGER ARRAY COLUMN id FROM consilio.indexmanagers WHERE type = whconstant_consilio_indexmanager_legacybackend)
-  {
-    // Configure loglevel too
-    BroadcastEvent("consilio:indexmanager.config",
-        [ loglevel :=     ReadRegistryKey("consilio.indexmanager.loglevel")
-        ]);
-
-    STRING indexmgrres := ConfigureConsilioIndexManager(id, param);
-    IF (indexmgrres != SearchOk)
-      res := res ?? indexmgrres; // Keep first error code
-  }
-  res := res ?? SearchOk;
-
-  RETURN res;
-}
-
-/** @short Clear the indexmanager status
-    @long This call only applies to Consilio indexmanagers and is ignored for
-        Elasticsearch indexmanagers (i.e. always returns SearchOk).
-    @param indexmgrid The id of the indexmanager
-    @return Result status
-*/
-PUBLIC STRING FUNCTION ClearIndexManagerStatus(INTEGER indexmgrid)
-{
-  RECORD indexmanager := GetIndexManagers(indexmgrid);
-
-  STRING res := SearchIndexNotFound;
-  IF (RecordExists(indexmanager))
-  {
-    SWITCH (indexmanager.type)
-    {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        RECORD response := SendToConsilio(indexmanager.id, 0, "/setstatus", DEFAULT RECORD ARRAY, "POST");
-        res := response.status;
-      }
-      CASE whconstant_consilio_indexmanager_opensearch
-      {
-        // Not supported, ignore
-        res := SearchOk;
-      }
-    }
-  }
-
-  RETURN res;
-}
-
 PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 {
   RECORD result :=
