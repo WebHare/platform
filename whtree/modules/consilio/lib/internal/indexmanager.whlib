@@ -3,6 +3,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
@@ -1183,7 +1184,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
 
   IF(IsDebugTagEnabled("consilio:changes"))
   {
-    LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options ]);
+    LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options := CELL[ ...options, bulk := GetObjectTypeName(options.bulk) ] ]);
     FOREVERY(RECORD obj FROM objects)
       LogDebug("consilio:changes", "AddIndexManagerObjects #" || #obj, obj);
   }

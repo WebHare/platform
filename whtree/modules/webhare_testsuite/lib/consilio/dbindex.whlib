@@ -1,5 +1,7 @@
 ﻿<?wh
 
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
@@ -128,6 +130,16 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
       THROW NEW Exception("BETATEST-CRASH");
     IF (rec.text = "ABORT")
       ABORT("ABORT");
+    IF (rec.text = "JUMBOTEXT")
+    {
+      // Create a text with a length larger than the default max length for summary generation/highlighting (which is 1000000
+      // by default)
+      INTEGER stream := CreateStream();
+      PrintTo(stream, "aap ");
+      FOR (INTEGER i := 0; i < 100000; i := i + 1)
+        PrintTo(stream, "noot mies\n");
+      rec.text := BlobToString(MakeBlobFromStream(stream));
+    }
 
     RECORD result :=
         [ status :=              "result"

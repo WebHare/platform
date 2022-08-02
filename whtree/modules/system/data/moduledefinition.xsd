@@ -2210,6 +2210,21 @@
             <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="index_options" default="offsets">
+            <xs:annotation>
+              <xs:documentation>
+                What information should be stored in the index, for search and highlighting purposes, defaults to `offsets`.
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="docs" />
+                <xs:enumeration value="freqs" />
+                <xs:enumeration value="positions" />
+                <xs:enumeration value="offsets" />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
 

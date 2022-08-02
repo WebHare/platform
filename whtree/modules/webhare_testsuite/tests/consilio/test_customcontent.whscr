@@ -674,6 +674,26 @@ MACRO TestCustomContent()
     TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   }
 
+  IF (is_opensearch)
+  {
+    // OpenSearch has a limit on the length of a field that is used for summary generating/search result highlighting. This
+    // limit is 1000000 characters by default. The text "JUMBOTEXT" creates a long (>1000000 bytes) body, which should not
+    // result in an error "The length of [body] field of [0] doc of [c_169796706807a7a5e599837bf630d4c1] index has exceeded
+    // [1000000] - maximum allowed to be analyzed for highlighting". The 'index_options := "offsets"' setting of text fields
+    // should prevent this error and return the indexed document.
+    testfw->BeginWork();
+    DELETE FROM webhare_testsuite.consilio_index;
+    INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
+         VALUES(idprefix||"a", idprefix||"a1", "JUMBOTEXT");
+    testfw->CommitWork();
+
+    catalog->ReindexCatalog();
+    contentsource->WaitForIndexingDone();
+
+    res := search_obj->SearchQuery(CQMatch("body", "=", "aap"), 0, 1000);
+    TestEq(1, res.totalcount);
+  }
+
   testfw->BeginWork();
   DELETE FROM webhare_testsuite.consilio_index;
   testfw->CommitWork();
