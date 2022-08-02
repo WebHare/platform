@@ -206,7 +206,7 @@ test.registerTests(
       //verify the picker sticks to the bottom of our input
       let datepicker = test.qS('.datetime__picker');
       let replacingnode = test.qS("[name=dateofbirth]").nextSibling;
-      test.eq(replacingnode.getBoundingClientRect().bottom, datepicker.getBoundingClientRect().top);
+      test.eq(Math.ceil(replacingnode.getBoundingClientRect().bottom), datepicker.getBoundingClientRect().top);
 
       test.eq(1, test.qSA(".datetime__picker__day--today").length, "should be only one 'TODAY'");
       test.eq(1, test.qSA(".datetime__picker__day--selected").length, "should be only one selected");

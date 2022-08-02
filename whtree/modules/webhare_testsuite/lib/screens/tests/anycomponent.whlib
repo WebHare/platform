@@ -182,6 +182,14 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
           INSERT btn INTO this->comp->buttons AT END;
         }
       }
+      CASE "datetime"
+      {
+        this->AddComponents(
+            [ [ membername := "suggestion"
+              , type :=       "datetime"
+              ]
+            ]);
+      }
       CASE "image"
       {
         IF (type = "overlays")
@@ -509,6 +517,15 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
           comp->onchange := PTR this->OnPropChange(prop);
           options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
         }
+        CASE "datetime"
+        {
+          OBJECT comp := this->CreateTolliumComponent("datetime");
+          INSERT CELL comp := comp INTO prop;
+          comp->type := "datetime";
+          comp->title := prop.membername;
+          comp->onselect := PTR this->OnPropChange(prop);
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+        }
         CASE "checkbox", "optional-handler"
         {
           OBJECT comp := this->CreateTolliumComponent("checkbox", [ namebase := prop.membername ]);
@@ -581,7 +598,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     {
       SWITCH (prop.type)
       {
-        CASE "textedit-integer", "checkbox", "pulldown"
+        CASE "textedit-integer", "checkbox", "pulldown", "datetime"
         {
           prop.comp->value := GetMember(this->comp, prop.membername);
         }

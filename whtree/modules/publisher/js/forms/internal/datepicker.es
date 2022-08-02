@@ -258,14 +258,19 @@ class Calendar2 extends CalendarTable
     this.mindate = datehelpers.parseISODate(this._datenode.min, { nofail: true });
     this.maxdate = datehelpers.parseISODate(this._datenode.max, { nofail: true });
     this.date = datehelpers.parseISODate(this._datenode.value, { nofail: true });
+    let suggestion = datehelpers.parseISODate(this._datenode.dataset.suggestion, { nofail: true });
+    let max = datehelpers.parseISODate(this._datenode.max);
     this.today = datehelpers.getLocalToday();
 
     this.yearspinner.min = this.mindate ? this.mindate.year : 1901;
     this.yearspinner.max = this.maxdate ? this.maxdate.year : 2099;
 
-    let showdate = this.date ? this.date : this.today;
+    let showdate = this.date ?? suggestion ?? this.today;
     if( this.maxdate && datehelpers.makeJSUTCDate(showdate) > datehelpers.makeJSUTCDate(this.maxdate) )
       showdate = this.maxdate;
+
+    if (!this._currentdate)
+      this._currentdate = showdate;
 
     this.setMonthTable( showdate );
   }
@@ -322,6 +327,7 @@ class Calendar2 extends CalendarTable
 
     // Locale.addEvent("change", this.onLanguageChange.bind(this));
     this._startOverlayDismissCapture();
+    this._onYearMonthChange();
   }
 
   setMonthTable(showdate)
@@ -414,9 +420,6 @@ class DatePicker extends Calendar2
     // this._node.addEventListener("wh:datepicker-request");
 
     this._anchornode = this._datenode.nextSibling;
-
-    //TODO support 'suggested' date? ie go to specific month & year but do not select anything yet
-    this._currentdate = this._datenode.value ? datehelpers.parseISODate(this._datenode.value) : (this._datenode.max ? datehelpers.parseISODate(this._datenode.max) : datehelpers.getLocalToday() );
 
     this._calendarnode = dompack.create('div', { className: this.options.baseclass }); //tabindex:0 ?
     this._addMeToNode(this._calendarnode);

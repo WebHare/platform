@@ -13,6 +13,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
   /// Types of state to save
   STRING ARRAY pvt_savestate;
   DATETIME pvt_value;
+  DATETIME pvt_suggestion;
 
   BOOLEAN pvt_invaliddate;
   BOOLEAN pvt_invalidtime;
@@ -46,6 +47,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
   PUBLIC DATETIME emptyvalue;
   PUBLIC MACRO PTR onselect;
   PUBLIC PROPERTY storeutc(pvt_storeutc, SetStoreUTC);
+  PUBLIC PROPERTY suggestion(pvt_suggestion, SetSuggestion);
 
   // Initialization stuff
   MACRO NEW()
@@ -135,6 +137,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
   {
     RETURN this->pvt_value != DEFAULT DATETIME ? this->pvt_value : this->emptyvalue;
   }
+
   DATETIME FUNCTION ClampValue(DATETIME inval)
   {
     IF (inval = MAX_DATETIME)
@@ -197,6 +200,12 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
       this->pvt_cutoffyear := year;
       this->ExtUpdatedComponent();
     }
+  }
+
+  MACRO SetSuggestion(DATETIME newsuggestion)
+  {
+    this->pvt_suggestion := newsuggestion;
+    this->ExtUpdatedComponent();
   }
 
   // Getter-setter functions
@@ -371,6 +380,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
 
                          , startyear := this->startyear
                          , endyear   := this->endyear
+                         , suggestion := FormatISO8601Datetime(this->pvt_suggestion, "day", "milliseconds", "", FALSE)
                          ];
 
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
