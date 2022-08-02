@@ -584,6 +584,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(string) return.type Type of the indexmanager (opensearch)
       @cell(integer) return.searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
       @cell(boolean) return.readonly If true, the attached index is readonly
+      @cell(boolean) return.isbuiltin If true, the indexmanager is builtin
   */
   PUBLIC RECORD ARRAY FUNCTION ListAttachedIndices()
   {
@@ -594,6 +595,7 @@ STATIC OBJECTTYPE ConsilioCatalog
              , catalog_indexmanagers.readonly
              , indexmanager :=        indexmanagers.id
              , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
+             , isbuiltin := indexmanagers.address IN ["builtin","builtin-opensearch"]
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
          WHERE catalog_indexmanagers.catalogid = this->catalog.id
