@@ -149,8 +149,6 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
       IF(currentsources[matchpos].isorphan)
         contentsource->__ReactivateContentSource();
 
-      contentsource->__OpenProvider()->UpdateContentSourceFields();
-
       DELETE FROM currentsources AT matchpos; //remove from cleanup list
       CONTINUE;
     }

@@ -412,6 +412,8 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
       RETURN result;
     }
 
+    OBJECT catalog := OpenConsilioCatalogById(provider->indexid);
+
     TRY
     {
       // Did we get an exception (if so, no cleaning for this group)
@@ -572,7 +574,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
             // Send page to the IndexManager for each index
             DATETIME uploadstart := GetCurrentDatetime();
             FetcherDebug(ConsilioDebugAll, "Sending indexed documents to IndexManager", source.loglevel);
-            STRING addresult := AddIndexManagerObjects(provider->indexid,
+            STRING addresult := AddIndexManagerObjects(catalog,
                                                        source,
                                                        data.groupid,
                                                        (SELECT objectid
@@ -783,7 +785,8 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
         // Send page to the IndexManager for each index
         DATETIME uploadstart := GetCurrentDatetime();
         FetcherDebug(ConsilioDebugAll, "Sending indexed document to IndexManager", source.loglevel);
-        STRING addresult := AddIndexManagerObjects(provider->indexid,
+        OBJECT catalog := OpenConsilioCatalogById(provider->indexid);
+        STRING addresult := AddIndexManagerObjects(catalog,
                                                    source,
                                                    data.groupid,
                                                    [ [ objectid := data.objectid

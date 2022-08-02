@@ -5,16 +5,14 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 
 
-PUBLIC CONSTANT STRING ARRAY supported_field_types :=
-    [ "boolean", "completion", "datetime", "float", "integer", "integer64", "ipaddress", "keyword", "latlng", "money", "record", "text" ];
-
-OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
+RECORD FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
 {
   IF(name NOT LIKE "?*:?*" OR name LIKE "*:*:*")
     THROW NEW Exception(`No such definition '${name}'`);
@@ -24,9 +22,12 @@ OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
   FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
     FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", type))
       IF(indexnode->localname = type AND indexnode->GetAttribute("tag") = parts[1])
-        RETURN indexnode;
+        RETURN CELL[ line := indexnode->linenum
+                   , resourcename := GetModuleDefinitionXMLResourceName(parts[0])
+                   , node := indexnode
+                   ];
 
-  RETURN DEFAULT OBJECT;
+  RETURN DEFAULT RECORD;
 }
 
 CONSTANT RECORD defaultparentstate := [ curdepth := 0
@@ -40,8 +41,8 @@ RECORD ARRAY FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parent
     type := "index";
   }
 
-  OBJECT node := GetIndexFieldDefinitionNode(name, type);
-  IF(NOT ObjectExists(node))
+  RECORD node := GetIndexFieldDefinitionNode(name, type);
+  IF(NOT RecordExists(node))
     THROW NEW Exception(`Cannot find ${type} mapping '${name}'`);
 
   RETURN ParseIndexField(node, Tokenize(name,':')[0], parentstate);
@@ -73,14 +74,14 @@ STRING FUNCTION QualifyName(STRING qualification, STRING name)
   RETURN name;
 }
 
-RECORD ARRAY FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
+RECORD ARRAY FUNCTION ParseIndexField(RECORD field, STRING module, RECORD state)
 {
   state.curdepth := state.curdepth + 1;
   IF(state.curdepth > 6)
     THROW NEW Exception(`Index is too deep!`);
 
   RECORD ARRAY properties;
-  FOREVERY(OBJECT subfield FROM fieldnode->ListChildren("*","*"))
+  FOREVERY(OBJECT subfield FROM field.node->ListChildren("*","*"))
   {
     STRING type := subfield->localname;
 
@@ -96,15 +97,16 @@ RECORD ARRAY FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD st
       CONTINUE;
     }
 
-    RECORD field := [ name := subfield->GetAttribute("name")
-                    , settings := DEFAULT RECORD
-                    , properties := ParseIndexField(subfield, module, state)
-                    , type := type
-                    , defaultvalue := GetFieldTypeDefaultValue(type)
-                    ];
+    RECORD fielddef := CELL[ name := subfield->GetAttribute("name")
+                           , settings := DEFAULT RECORD
+                           , properties := ParseIndexField(CELL[...field, node := subfield], module, state)
+                           , type := type
+                           , defaultvalue := GetFieldTypeDefaultValue(type)
+                           , definedby := `${field.resourcename}:${subfield->linenum}`
+                           ];
 
     IF (subfield->HasAttribute("storeonly"))
-      INSERT CELL "index" := NOT ParseXSBoolean(subfield->GetAttribute("storeonly")) INTO field.settings;
+      INSERT CELL "index" := NOT ParseXSBoolean(subfield->GetAttribute("storeonly")) INTO fielddef.settings;
 
     SWITCH(type)
     {
@@ -112,17 +114,17 @@ RECORD ARRAY FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD st
       {
         STRING index_options := subfield->GetAttribute("index_options");
         // Defaults to "offsets", which isn't the default for OpenSearch, so adding it here explicitly
-        INSERT CELL index_options := index_options ?? "offsets" INTO field.settings;
+        INSERT CELL index_options := index_options ?? "offsets" INTO fielddef.settings;
       }
       CASE "keyword"
       {
         INTEGER ignore_above := ParseXSInt(subfield->GetAttribute("ignore_above"));
         IF (ignore_above != 0)
-          INSERT CELL ignore_above := ignore_above INTO field.settings;
+          INSERT CELL ignore_above := ignore_above INTO fielddef.settings;
       }
     }
 
-    INSERT field INTO properties AT END;
+    INSERT fielddef INTO properties AT END;
   }
 
   STRING dupename := SELECT AS STRING ANY(name) FROM properties GROUP BY ToUppercase(name) HAVING COUNT(*)>1;
@@ -130,29 +132,6 @@ RECORD ARRAY FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD st
     THROW NEW Exception(`Duplicate property name '${dupename}'`);
 
   RETURN properties;
-}
-
-/// Get the contentsourcefields for a contentsource from the database
-PUBLIC RECORD ARRAY FUNCTION GetContentSourceFields(INTEGER contentsourceid)
-{
-  RETURN
-      SELECT name
-           , type
-           , defaultvalue := ParseDefaultValue(defaultvalue)
-           , tokenized
-           , suggested
-        FROM consilio.contentsourcefields
-       WHERE COLUMN contentsourceid = VAR contentsourceid
-       ORDER BY ToUppercase(name)
-              , id;
-}
-
-VARIANT FUNCTION ParseDefaultValue(STRING defaultvalue)
-{
-  TRY
-    RETURN DecodeHSON(defaultvalue);
-  CATCH;
-  RETURN "";
 }
 
 RECORD ARRAY FUNCTION MakeTree(RECORD ARRAY inprops)
@@ -164,18 +143,51 @@ RECORD ARRAY FUNCTION MakeTree(RECORD ARRAY inprops)
            , type := "record"
            , settings := DEFAULT RECORD
            , properties := MakeTree(SELECT *, name := Substring(name, Length(recordfield) + 1) FROM inprops WHERE name LIKE recordfield || ".*")
+           , definedby := "GetContentSourcesMapping implicit record"
            ] INTO treefields AT END;
   }
 
   RETURN treefields;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetContentSourcesMapping(INTEGER ARRAY contentsourceids, RECORD ARRAY basefields)
+RECORD ARRAY FUNCTION GetContentSourcesMapping(RECORD ARRAY contentsources, STRING catalogtag, RECORD ARRAY basefields)
 {
   //TODO: Check for conflicting mappings instead of ignoring subsequent field definitions
   RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields);
-  FOREVERY (INTEGER contentsourceid FROM contentsourceids)
-    properties := ParseContentSourceMapping(properties, GetContentSourceFields(contentsourceid));
+
+  RECORD ARRAY fields; //gather all fields together so we can do one pass of _suggested generation
+  /*TODO We need to optimize publisher:webhare contentsources, a catalog can have hundreds of them but they'll all have the same field definition
+         for now we'll just look at the first. ideally we'd get rid of intermediate consilio:custom and contentsources would either declare XML
+         (and then we know we only need to check one) or they'd indicate that their mapping is truly dynamic (and there shouldn't be hundreds of those */
+  BOOLEAN seenpublisherwebhare;
+  FOREVERY (RECORD contentsource FROM SELECT * FROM contentsources) //skip contentproviders we know to not have subfields
+  {
+    IF(contentsource.contentprovider = "publisher:webhare")
+      IF(seenpublisherwebhare)
+        CONTINUE;
+      ELSE
+        seenpublisherwebhare := TRUE; //and process it just this once...
+
+    fields := fields CONCAT GetContentSourceFieldMapping(catalogtag, contentsource);
+  }
+
+  properties := EnforceStructure([[ suggested := FALSE ]], properties);
+  properties := ParseContentSourceMapping(properties, fields);
+
+  // If there are any suggested fields, add a '_suggested' field with 'completion' type
+  STRING ARRAY suggestedfields := (SELECT AS STRING ARRAY name FROM properties WHERE suggested);
+  IF(Length(suggestedfields) > 0)
+    INSERT
+        [ name := "_suggested"
+        , type := "completion"
+        , settings := [ analyzer := "consilio_analyzer" ]
+        , properties := RECORD[]
+        //, strict := TRUE
+        , defaultvalue := DEFAULT RECORD
+        , definedby := "GetContentSourcesMapping implicit completion field"
+        //Putting this here, maybe we'll have multiple suggested fields in the future. Prefix with __ because 'maybe'
+        , __suggestedfields := suggestedfields
+        ] INTO properties AT END;
 
   properties := MakeTree(properties);
   RETURN properties;
@@ -184,11 +196,13 @@ PUBLIC RECORD ARRAY FUNCTION GetContentSourcesMapping(INTEGER ARRAY contentsourc
 RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD ARRAY fields)
 {
   BOOLEAN have_suggested;
+
   FOREVERY (RECORD field FROM fields)
   {
     IF (field.name LIKE "_*")
     {
       // Overwrite standard field settings, like "body"
+      // FIXME This makes application of settings ordering dependent... but nothing actually enforces contentsource ordering. If this is only used to set _body (or other well known fields) to suggested, can't we handle that explicitly?
       STRING fieldname := Substring(field.name, 1);
       INTEGER idx := (SELECT AS INTEGER #properties + 1 FROM properties WHERE name = fieldname) - 1;
       IF (idx >= 0)
@@ -197,7 +211,9 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
             [ ...properties[idx]
             , type := GetTypeFromFieldDef(field)
             ];
-        have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
+
+        IF(field.suggested)
+          properties[idx].suggested := TRUE;
       }
     }
     ELSE IF (NOT RecordExists(SELECT FROM properties WHERE name = field.name))
@@ -209,22 +225,11 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
           , field.name
           , settings := DEFAULT RECORD
           , properties := RECORD[]
+          , field.definedby
+          , suggested := CellExists(field,"suggested") ? field.suggested : FALSE
           ] INTO properties AT END;
-      have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
     }
   }
-
-  // If there are any suggested fields, add a '_suggested' field with 'completion' type
-  IF (have_suggested AND NOT RecordExists(SELECT FROM properties WHERE name = "_suggested"))
-    INSERT
-        [ name := "_suggested"
-        , type := "completion"
-        , settings := [ analyzer := "consilio_analyzer" ]
-        , properties := RECORD[]
-        //, strict := TRUE
-        , defaultvalue := DEFAULT RECORD
-        ] INTO properties AT END;
-
   RETURN properties;
 }
 
@@ -365,11 +370,14 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
              ];
 }
 
-PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, BOOLEAN managed, INTEGER ARRAY contentsourceids)
+PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, BOOLEAN managed, STRING catalogtag, RECORD ARRAY contentsources)
 {
   RECORD ARRAY fields := GetFieldgroupsFieldDefinition(GetSortedSet(fieldgroups));
   IF(managed)
-    fields := fields CONCAT GetContentSourcesMapping(contentsourceids, defaultmappingfields);
+  {
+    RECORD ARRAY basefields := SELECT *, definedby := "defaultmappingfields" FROM defaultmappingfields;
+    fields := fields CONCAT GetContentSourcesMapping(contentsources, catalogtag, basefields);
+  }
 
   RETURN CELL[ fields ];
 }
@@ -404,7 +412,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
     RECORD match := SELECT * FROM current WHERE Touppercase(current.name) = ToUppercase(row.name);
     IF(NOT RecordExists(match))
     {
-      INSERT CELL [ field, issue := "missing", message := `Not present in current mapping` ] INTO mismatches AT END;
+      INSERT CELL [ field, row.definedby, issue := "missing", message := `Not present in current mapping` ] INTO mismatches AT END;
     }
     ELSE
     {
@@ -414,7 +422,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
 
       IF(expectfieldtype != currentfieldtype)
       {
-        INSERT CELL [ field, issue := "typemismatch", message := `Expected type '${expectfieldtype}' but mapped as '${currentfieldtype}'`] INTO mismatches AT END;
+        INSERT CELL [ field, row.definedby, issue := "typemismatch", message := `Expected type '${expectfieldtype}' but mapped as '${currentfieldtype}'`] INTO mismatches AT END;
       }
       ELSE IF (row.type = "text")
       {
@@ -443,7 +451,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
   FOREVERY(RECORD superfluous FROM current)
   {
     STRING field := currentprefix || ToLowercase(superfluous.name);
-    INSERT CELL [ field, issue := "superfluous", message := `Not expected in current mapping` ] INTO mismatches AT END;
+    INSERT CELL [ field, definedby := "", issue := "superfluous", message := `Not expected in current mapping` ] INTO mismatches AT END;
     IF(CellExists(superfluous.value, 'properties'))
       mismatches := mismatches CONCAT CompareMappings(superfluous.value, RECORD[], field || '.');
   }

@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser.whlib";
+LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
@@ -564,132 +565,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
     this->pvt_maxgroupobjects := newmax;
   }
 
-  PUBLIC RECORD FUNCTION UpdateContentSourceFields()
-  {
-    RECORD result :=
-        [ anychanges := FALSE
-        ];
-
-    RECORD ARRAY existingfields :=
-        SELECT * FROM consilio.contentsourcefields
-         WHERE contentsourceid = this->contentsourceid;
-    INTEGER ARRAY todelete;
-
-    RECORD ARRAY fields;
-    TRY
-    {
-      fields := this->GetMapping();
-    }
-    CATCH(OBJECT e)
-    {
-      LogHarescriptException(e);
-      RETURN result;
-    }
-    FOREVERY (RECORD field FROM fields)
-    {
-      STRING field_type := CellExists(field, "type") ? field.type: "";
-      IF (field_type != "" AND field_type NOT IN supported_field_types)
-        THROW NEW Exception(`Unsupported field type '${field.type}'`);
-      STRING field_value := CellExists(field, "value") ? EncodeHSON(field.value) : "";
-      BOOLEAN field_tokenized := CellExists(field, "tokenized") ? field.tokenized : CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING);
-      BOOLEAN field_suggested := CellExists(field, "suggested") ? field.suggested : FALSE;
-
-      RECORD existing :=
-          SELECT *
-               , idx := #existingfields
-            FROM existingfields
-           WHERE ToUppercase(name) = ToUppercase(field.name);
-      IF (NOT RecordExists(existing))
-      {
-        result.anychanges := TRUE;
-        // Add the new field
-        INSERT CELL
-            [ this->contentsourceid
-            , field.name
-            , type := field_type
-            , defaultvalue := field_value
-            , tokenized := field_tokenized
-            , suggested := field_suggested
-            ] INTO consilio.contentsourcefields;
-      }
-      ELSE
-      {
-        IF (existing.type != field_type
-            OR existing.defaultvalue != field_value
-            OR existing.tokenized != field_tokenized
-            OR existing.suggested != field_suggested)
-        {
-          result.anychanges := TRUE;
-          // Update the existing field
-          UPDATE consilio.contentsourcefields
-             SET type := field_type
-               , defaultvalue := field_value
-               , tokenized := field_tokenized
-               , suggested := field_suggested
-           WHERE id = existing.id;
-        }
-        // Case changed from upper to lower (we used to store UnpackRecord's field names, but we now default to lowercase for
-        // better compatibility with OpenSearch)
-        IF (existing.name != field.name)
-          UPDATE consilio.contentsourcefields
-             SET name := field.name
-           WHERE id = existing.id;
-      }
-      // Remove the existing field from the list, so it isn't deleted afterwards
-      IF (RecordExists(existing))
-        DELETE FROM existingfields AT existing.idx;
-    }
-
-    // existingfields now only contains non-referenced fields
-    DELETE FROM consilio.contentsourcefields
-          WHERE id IN (SELECT AS INTEGER ARRAY id FROM existingfields);
-
-    // Any fields have changed or any existing fields are deleted
-    result.anychanges := result.anychanges OR Length(existingfields) > 0;
-    IF (result.anychanges)
-      GetPrimary()->BroadcastOnCommit("consilio:contentsourcefields." || this->contentsourceid, DEFAULT RECORD);
-
-    RETURN result;
-  }
-
   PUBLIC MACRO Close()
   {
   }
 >;
-
-/** @short Get all content providers as offered by all modules
-    @param resourcemanager A WebHare resource manager
-    @return All available content providers
-    @cell return.name The content provider name
-    @cell return.tid Tid for the content provider title
-    @cell return.settings Name of the provider's settings screen
-    @cell return.createcontentprovider A function which returns a content provider object
-*/
-PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
-{
-  RECORD ARRAY contentproviders := GetAdHocCached([ type := "contentproviders" ], PTR GetContentProviders_Uncached);
-  RETURN SELECT name
-              , title
-              , icon
-              , createcontentprovider := PTR MakeObject(contentproviderobject)
-           FROM contentproviders;
-}
-
-RECORD FUNCTION GetContentProviders_Uncached()
-{
-  RECORD ARRAY contentproviders;
-  FOREVERY (RECORD module FROM GetWebHareModules())
-  {
-    FOREVERY (RECORD cp FROM module.contentproviders)
-    {
-      INSERT [ name := cp.name
-             , title := cp.title
-             , icon := cp.icon
-             , contentproviderobject := cp.contentproviderobject
-             ] INTO contentproviders AT END;
-    }
-  }
-  RETURN [ value := contentproviders
-         , ttl := 6 * 60 * 60 * 1000 // Can be cached until next cache/soft reset, but provide some number now
-         ];
-}

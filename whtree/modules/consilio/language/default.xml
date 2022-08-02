@@ -137,6 +137,7 @@
       <text tid="searchpriority">Search priority</text>
     </textgroup>
     <textgroup gid="fieldmapping">   <!-- catalog.fieldmapping -->
+      <text tid="definedby">Defined by</text>
       <text tid="fieldmapping">Field mapping</text>
       <text tid="name">Name</text>
       <text tid="type">Type</text>
