@@ -154,7 +154,7 @@ testtollium:
     expire_in: 1 week
   interruptible: true
 
-testopensearch:
+testconsilio:
   stage: test
   except:
     - /^docs\/.*$/

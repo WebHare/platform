@@ -105,9 +105,6 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
         compilerloc.SetIPAddress("127.0.0.1");
         compilerloc.SetPort(baseport +1);
 
-        consilioloc.SetIPAddress("127.0.0.1");
-        consilioloc.SetPort(baseport + 3);
-
         only_shipped_fonts = options.Switch("onlyshippedfonts");
 
         if(options.Exists("moduledir"))

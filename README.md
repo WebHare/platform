@@ -3,8 +3,7 @@
 This project contains:
 - The HareScript engine, modules and tests
 - Webserver
-- Consilio
-- The system, publisher, wrd and tollium modules
+- The system, publisher, consilio, wrd and tollium modules
 - The testsuite for the above modules
 
 # License

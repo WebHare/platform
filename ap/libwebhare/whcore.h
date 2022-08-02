@@ -397,8 +397,6 @@ class BLEXLIB_PUBLIC Connection
         Blex::SocketAddress dbaseaddr;
         ///And where is the compile server?
         Blex::SocketAddress compilerloc;
-        ///And where is the consilio server?
-        Blex::SocketAddress consilioloc;
         ///Base directory for data (has no default, but if set, modifies the default for data directories)
         std::string basedatadir;
         ///Directory for the WebHare loadable modules (/lib) - this is sometimes needed to point DEBUG builds to the DEBUG version of loadable HareScript modules
