@@ -97,7 +97,9 @@ MACRO TestWHFSContentHandler()
     beforerepositoryfolder->OpenByName("privatetestfile1.txt")->RecycleSelf();
   privatetestfile1 :=  beforerepositoryfolder->EnsureFile([name:="privatetestfile1.txt", title := "private blafile", data := StringToBlob("blabliblo"), publish := TRUE]);
 
-  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ beforerepositoryfolder->id
+  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted_more")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted")->id
+                                                  , beforerepositoryfolder->id
                                                   , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforesites")->id
                                                   , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/aftersites")->id
                                                   , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/anywhere")->id
@@ -122,10 +124,10 @@ MACRO TestWHFSContentHandler()
   TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
 
   INTEGER ARRAY expected_offsets := SELECT AS INTEGER ARRAY #startingpoints FROM startingpoints WHERE folder IN expected_addtowhfsindex;
-  TestEq(TRUE, expected_offsets[0] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforerepository should be before repository");
-  TestEq(TRUE, expected_offsets[1] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforesites should be AFTER repository");
-  TestEq(TRUE, expected_offsets[1] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our beforesites should be BEFORE the test site");
-  TestEq(TRUE, expected_offsets[2] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our aftersites should be AFTER the test site");
+  TestEq(TRUE, expected_offsets[2] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforerepository should be before repository");
+  TestEq(TRUE, expected_offsets[3] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforesites should be AFTER repository");
+  TestEq(TRUE, expected_offsets[3] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our beforesites should be BEFORE the test site");
+  TestEq(TRUE, expected_offsets[4] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our aftersites should be AFTER the test site");
 
   print("counting... ");
   STRING ARRAY groupids := SELECT AS STRING ARRAY id FROM realprovider->ListGroups(DEFAULT DATETIME).groups ORDER BY id;
@@ -135,6 +137,10 @@ MACRO TestWHFSContentHandler()
   TestEq(TRUE, BinaryFind(groupids, "fsobj_" || testroot->id) != -1, "Test folder should be in scope of publisher search");
   TestEq(TRUE, BinaryFind(groupids, "fsobj_" || file_1->id) != -1, "For now individual files are still in sope");
   TestEq(TRUE, BinaryFind(groupids, "fsobj_" || subfolder->id) != -1, "Test subfolder should also be in scope of publisher search");
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_repository) < BinaryFind(groupids, "fsobj_" || OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/nonboosted")->id), "Non-boosted repository file should be indexed after repository");
+
+  // No duplicates
+  TestEQ(LENGTH(GetSortedSet(groupids)), LENGTH(groupids));
 
   RECORD ARRAY resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testroot->id, RECORD[], [ rebuild := TRUE ]).objects;
   TestEq(TRUE, RecordExists(SELECT FROM resultobjects WHERE id = "fsobj_" || testroot->id));

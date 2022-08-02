@@ -458,6 +458,7 @@
 
   <hooking>
     <target name="siteprofilehook" />
+    <intercept name="publisher_whfsindex" target="publisher:whfsindex_priority" interceptfunction="lib/internal/hooks.whlib#HookPublisherIndexPriorities" />
   </hooking>
 
 </module>

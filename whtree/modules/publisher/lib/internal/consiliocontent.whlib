@@ -3,7 +3,9 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -25,16 +27,32 @@ LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
+
+
+PUBLIC RECORD FUNCTION HookRunner(STRING name, RECORD data)
+{
+  OpenPrimary();
+  data := RunModuleHookTarget("publisher:whfsindex_priority", data);
+
+  // Listen to all loaded libraries, non-builtin only
+  STRING ARRAY eventmasks := GetResourceEventMasks(
+      SELECT AS STRING ARRAY liburi
+        FROM GetAllUsedHarescriptLibraries()
+       WHERE liburi NOT LIKE "wh::*"
+         AND (liburi LIKE "mod::*/*" ? SubString(Tokenize(liburi, "/")[0], 5) NOT IN whconstant_builtinmodules : TRUE));
+
+  RETURN CELL[ data, eventmasks ];
+}
 
 RECORD FUNCTION GetCacheableModuleStartingPoints()
 {
-  RECORD ARRAY spoints;
+  RECORD ARRAY startingpoints;
   RECORD ARRAY added := GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "addtowhfsindex");
   FOREVERY(RECORD toadd FROM added)
   {
@@ -43,18 +61,36 @@ RECORD FUNCTION GetCacheableModuleStartingPoints()
     IF(targetpath NOT LIKE basepath || "*") //scope escape?
       CONTINUE;
 
-    INTEGER toadd_priority := SearchElement(["beforerepository","beforesites","aftersites"], toadd.node->GetAttribute("priority"));
-    //map it to sortable priority, with -1 mapped to 'after sites'
-    toadd_priority := [4,0,2,4][toadd_priority+1];
     INSERT [ folder := -1 //needs lookup
            , whfspath := targetpath
-           , priority := toadd_priority
-           ] INTO spoints AT END;
+           , priority := toadd.node->GetAttribute("priority")
+           , boost := ""
+           ] INTO startingpoints AT END;
   }
 
+  RECORD res := CallFunctionFromJob(Resolve("#HookRunner"), "publisher:whfsindex_priorities", CELL[ startingpoints ]);
+
+  startingpoints := EnforceStructure(
+    [ [ folder :=     -1
+      , whfspath :=   ""
+      , priority :=   ""
+      , boost :=      ""
+      ]
+    ], res.data.startingpoints);
+
+  STRING ARRAY eventmasks := res.eventmasks;
+
+  startingpoints :=
+      SELECT TEMPORARY priority_pos := SearchElement(["beforerepository","beforesites","aftersites"], priority)
+           , folder
+           , whfspath :=        folder > 0 ? OpenWHFSObject(folder)->whfspath : whfspath
+           , priority :=        [5,1,3,5][priority_pos+1]
+           , boost
+        FROM startingpoints;
+
   RETURN [ ttl := 15 * 60 * 1000
-         , value := spoints
-         , eventmasks := ["system:modulesupdate"]
+         , value := startingpoints
+         , eventmasks :=      [ "system:modulesupdate", ...res.eventmasks ]
          ];
 }
 
@@ -300,7 +336,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
   PUBLIC RECORD ARRAY FUNCTION GetWHFSStartingPoints()
   {
     RECORD ARRAY spoints := SELECT folder := id
-                                 , priority := id = whconstant_whfsid_repository ? 1 : 3
+                                 , priority := id = whconstant_whfsid_repository ? 2 : 4
+                                 , boost := ""
                               FROM system.sites
                              WHERE id != whconstant_whfsid_webharebackend
                           ORDER BY id = whconstant_whfsid_repository DESC
@@ -308,25 +345,39 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                                  , locked = FALSE DESC       // don't rush to index locked sites, that indicates them are likely being unmaintained and probaly less important
                                  , Length(outputfolder);     // prefer 'homepages' over deeper sites
 
+
     FOREVERY(RECORD modulepath FROM GetWHFSIndexModuleStartingPoints())
     {
-      INTEGER startfolder := LookupWHFSObject(0, modulepath.whfspath);
+      INTEGER startfolder := modulepath.folder > 0 ? modulepath.folder : LookupWHFSObject(0, modulepath.whfspath);
       IF(startfolder <= 0) //not found, or ... root?!
+      {
+        PRINT(`${modulepath.whfspath} not found\n`);
         CONTINUE;
+      }
 
-      INSERT CELL[ folder := startfolder, modulepath.priority] INTO spoints AT END;
+      INSERT CELL[ folder := startfolder, modulepath.priority, modulepath.boost ] INTO spoints AT END;
     }
-    RETURN SELECT * FROM spoints ORDER BY priority;
+
+    spoints := SELECT * FROM spoints ORDER BY priority, boost DESC;
+
+    RETURN spoints;
   }
 
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
   {
     RECORD ARRAY groups;
+
     FOREVERY(RECORD startingpoint FROM this->GetWHFSStartingPoints())
     {
       INTEGER ARRAY sitefolders := INTEGER[startingpoint.folder] CONCAT GetWHFSDescendantIds(startingpoint.folder, TRUE, TRUE, 32, FALSE); //folders: true, files: TRUE, maxdepth: 32, onlypublished: false
-      groups := groups CONCAT SELECT id := "fsobj_" || id FROM ToRecordArray(sitefolders,"id");
+      groups := groups CONCAT
+          SELECT id := "fsobj_" || id
+            FROM ToRecordArray(sitefolders,"id");
     }
+
+    // the starting points can be nested, so do an afterfilter to get rid of double
+    // group ids. Keep the first one (the startingpoints were already ordered)
+    groups := SELECT id FROM groups GROUP BY id ORDER BY Any(#groups);
 
     RETURN [ status := "result"
            , groups := groups

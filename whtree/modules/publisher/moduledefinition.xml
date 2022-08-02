@@ -1126,6 +1126,7 @@
     <target name="findopen" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="findopen_precheck" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
+    <target name="whfsindex_priority" /> <!-- Hooks for publisher:whfs index priority -->
   </hooking>
 
   <documentation>

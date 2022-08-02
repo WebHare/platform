@@ -55,10 +55,13 @@ OBJECT testsite := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontent
                                                                 ]);
 
 OBJECT addtowhfsindex := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "addtowhfsindex"]);
-addtowhfsindex->EnsureFolder([name := "beforerepository"]);
+OBJECT before_repo := addtowhfsindex->EnsureFolder([name := "beforerepository"]);
 addtowhfsindex->EnsureFolder([name := "beforesites"]);
 addtowhfsindex->EnsureFolder([name := "aftersites"]);
 addtowhfsindex->EnsureFolder([name := "anywhere"]);
+before_repo->EnsureFile([ name := "boosted" ]);
+before_repo->EnsureFile([ name := "boosted_more" ]);
+before_repo->EnsureFile([ name := "nonboosted" ]);
 
 OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
 
