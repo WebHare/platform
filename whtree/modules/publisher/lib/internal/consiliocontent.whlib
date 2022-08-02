@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -327,7 +328,6 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
       groups := groups CONCAT SELECT id := "fsobj_" || id FROM ToRecordArray(sitefolders,"id");
     }
 
-
     RETURN [ status := "result"
            , groups := groups
            ];
@@ -335,6 +335,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
   UPDATE PUBLIC RECORD FUNCTION ListObjects3(DATETIME indexdate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
   {
+    DATETIME start := GetCurrentDatetime();
     STRING ARRAY parts := Tokenize(groupid, "_");
     INTEGER fsobjid := Length(parts) >= 2 AND parts[0] = "fsobj" ? ToInteger(parts[1], 0) : 0;
     OBJECT fsobj := OpenWHFSObject(fsobjid);
@@ -428,12 +429,35 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
       CATCH (OBJECT e)
       {
         LogHarescriptException(e);
+
+        IF(IsDebugTagEnabled("consilio:whfscatalog"))
+        {
+          LogDebug("consilio:whfscatalog", "ListObjects3", CELL [ runtime_ms := GetMsecsDifference(start, GetCurrentDatetime())
+                                                                , fsobj->id
+                                                                , fsobj->whfspath
+                                                                , fsobj->type
+                                                                , fsobj->parentsite
+                                                                , error := e->what
+                                                                ]);
+        }
+
         RETURN [ status := e EXTENDSFROM LibraryVersionConflictException ? "outofdate" : "error"
                , error := e->what
                ];
       }
     }
 
+    //TODO stats like this should be enable-able for all contentsources, not just us.. but we still need information such as whfspath of the actual objects, not ids. return some context ?
+    IF(IsDebugTagEnabled("consilio:whfscatalog"))
+    {
+      LogDebug("consilio:whfscatalog", "ListObjects3", CELL [ runtime_ms := GetMsecsDifference(start, GetCurrentDatetime())
+                                                            , numobjects := Length(objects)
+                                                            , fsobj->id
+                                                            , fsobj->whfspath
+                                                            , fsobj->type
+                                                            , fsobj->parentsite
+                                                            ]);
+    }
     RETURN [ status := "result"
            , objects := objects
            ];
