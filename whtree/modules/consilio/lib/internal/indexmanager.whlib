@@ -35,7 +35,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
 {
   waituntil := waituntil ?? MAX_DATETIME;
-  RECORD indexmanager := SELECT type FROM consilio.indexmanagers WHERE id = indexmgrid;
+  RECORD indexmanager := SELECT FROM consilio.indexmanagers WHERE id = indexmgrid;
 
   IF (RecordExists(indexmanager))
     RETURN WaitForElasticsearch(indexmgrid, waituntil);
@@ -1432,7 +1432,6 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
 
   RETURN
       SELECT indexmanagers.id
-           , indexmanagers.type
            , catalog_indexmanagers.indexname
            , indextype := catalogs.type
            , indexid := catalogs.id
@@ -1468,7 +1467,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
 
   RETURN
       SELECT indexmanagers.id
-           , indexmanagers.type
            , catalog_indexmanagers.indexname
            , catalogs.lang
            , indextype := catalogs.type

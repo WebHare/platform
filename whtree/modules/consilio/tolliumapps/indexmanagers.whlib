@@ -56,12 +56,11 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     IF(data.id != 0)
     {
       ^indexmgr->value := SELECT * FROM consilio.indexmanagers WHERE id = data.id;
-      this->builtinaddress := ^address->value IN ["builtin","builtin-opensearch"];
+      this->builtinaddress := ^address->value = "builtin-opensearch";
       IF (this->builtinaddress)
       {
         ^address->enabled := FALSE;
         ^address->value := `<${this->GetTid(".address-builtin")}>`;
-        ^type->enabled := FALSE;
       }
 
       // Read Elasticsearch configuration
@@ -79,14 +78,8 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
       ^watermark_flood->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.flood_stage") ? this->cursettings."cluster.routing.allocation.disk.watermark.flood_stage" : "";
     }
 
-    this->OnTypeChange();
-  }
-  MACRO OnTypeChange()
-  {
-    ^settings->type := "regular";
-
     //require address if we've already got a builtin version of this one
-    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE type = ^type->value AND id != this->id AND address IN ["builtin","builtin-opensearch"]);
+    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE id != this->id AND address = "builtin-opensearch");
   }
   BOOLEAN FUNCTION Submit()
   {

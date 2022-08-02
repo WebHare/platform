@@ -17,14 +17,10 @@
       <record name="indexmgr" />
     </compositions>
     <body spacers="none">
-      <tabs name="settings" type="server">
+      <tabs name="settings">
         <tab tid=".general" spacers="top left right bottom">
           <textedit composition="indexmgr" cellname="name" required="true" />
           <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
-          <select composition="indexmgr" cellname="type" name="type" type="radio" rowkeytype="integer" onchange="ontypechange">
-            <option rowkey="1" tid=".indexmgr-builtin" />
-            <option rowkey="2" tid=".indexmgr-elasticsearch" selected="true" />
-          </select>
         </tab>
         <tab tid=".elasticsearch" spacers="top left right bottom">
           <line layout="left">

@@ -426,11 +426,8 @@
         </d:documentation>
       </d:varchar>
 
-      <d:integer name="type" nullable="0">
-        <d:documentation>
-          1: consilio, 2: elasticsearch
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="type"/>
+
       <d:varchar name="address" unique="1" nullable="0" maxlength="512">
         <d:documentation>
           Connect url, including username and password, if necessary (may be "builtin" for type 1)

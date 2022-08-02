@@ -134,7 +134,7 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
   RECORD ARRAY FUNCTION GetConsilioWorkers()
   {
     RECORD ARRAY statusrows;
-    FOREVERY (RECORD indexmanager FROM SELECT id, name, type FROM consilio.indexmanagers)
+    FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
     {
       RECORD status := GetIndexManagerStatus(indexmanager.id);
       Print("IndexManager status:\n" || AnyToString(status, "tree"));
