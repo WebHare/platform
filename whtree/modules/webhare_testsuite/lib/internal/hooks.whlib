@@ -5,18 +5,23 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 PUBLIC RECORD FUNCTION HookPublisherIndexPriorities(RECORD data)
 {
-  data.startingpoints := data.startingpoints CONCAT
-      [ [ folder :=       -1
-        , whfspath :=     OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted_more")->whfspath
-        , priority :=     "beforerepository"
-        , boost :=        "2"
-        ]
-      , [ folder :=       OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted")->id
-        , whfspath :=     ""
-        , priority :=     "beforerepository"
-        , boost :=        "1"
-        ]
-      ];
-
+  //Our testfolders may not exist early in startup
+  OBJECT boost1 := OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted_more");
+  OBJECT boost2 := OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted");
+  IF(ObjectExists(boost1) AND ObjectExists(boost2))
+  {
+    data.startingpoints := data.startingpoints CONCAT
+        [ [ folder :=       -1
+          , whfspath :=     OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted_more")->whfspath
+          , priority :=     "beforerepository"
+          , boost :=        "2"
+          ]
+        , [ folder :=       OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository/boosted")->id
+          , whfspath :=     ""
+          , priority :=     "beforerepository"
+          , boost :=        "1"
+          ]
+        ];
+  }
   RETURN data;
 }
