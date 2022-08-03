@@ -15,6 +15,3 @@ Utilities, preferably free-standing code (hardly any dependencies), not browser 
 
 - wh/
 Libraries to access WebHare specific functionality
-
-Candidates for externalizing (unstable, not needed in our core?)
-- dom/resizelistener
