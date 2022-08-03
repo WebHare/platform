@@ -11,7 +11,6 @@
     </debugsettings>
     <debugsettings title="Tollium debugging">
       <option tag="ild" title="Image loading: debug SVG composition" />
-      <option tag="ilc" title="Image loading: Force &lt;canvas>" />
       <option tag="isc" title="Image editor: Debug smartcrop" />
       <option tag="ixf" title="Image editor: Experimental functions" />
       <option tag="rll" title="Render label lines" />

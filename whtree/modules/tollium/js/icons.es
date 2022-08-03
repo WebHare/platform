@@ -1,8 +1,5 @@
 import * as dompack from "dompack";
-import * as browser from "dompack/extra/browser";
 import * as toddrpc from "./internal/todd.rpc.json";
-
-let usecanvas = browser.getName()=="ie" || dompack.debugflags.ilc;
 
 // Canvas pixel ratio
 var canvasRatio = (function()
@@ -29,12 +26,6 @@ var loadimgtimeout = null;
 // Load the image(s) and apply to an <img> node src
 export function updateCompositeImage(imgnode, imgnames, width, height, color)
 {
-  if(usecanvas && imgnode.nodeName=='IMG')
-  {
-    console.error("img should be a <canvas>", usecanvas);
-    throw new Error("img should be a <canvas>");
-  }
-
   // If a white image is requested, fallback to (inverted) black if white not directly available
   if (color == "w")
     color = "w,b";
@@ -125,7 +116,7 @@ async function loadImages()
 
   try
   {
-    let result = await toddrpc.retrieveImages(toload, !!dompack.debugflags.ild, !usecanvas, browser.getName()=='ie');
+    let result = await toddrpc.retrieveImages(toload, !!dompack.debugflags.ild);
 
     if (dompack.debugflags.ild)
       console.info("Received "+result.images.length+" images",result);
@@ -157,7 +148,7 @@ async function loadImages()
       cached.result = loadedimg.result;
 
       // If no src was returned, the image is broken
-      if (!cached.result && !usecanvas)
+      if (!cached.result)
         cached.result = "/.tollium/ui/img/broken.svg";
 
       // Store the loaded image
@@ -188,16 +179,7 @@ function applyLoadedResultToImage(cached,img)
 {
   img.width = cached.data.width;
   img.height = cached.data.height;
-  if(!usecanvas)
-  {
-    img.src = cached.result;
-  }
-  else
-  {
-    let ctx = img.getContext("2d");
-    ctx.clearRect(0,0,img.width,img.height);
-    ctx.drawImage(cached.result, 0, 0, img.width, img.height);
-  }
+  img.src = cached.result;
 }
 
 async function processImage(key, images, data)
@@ -227,7 +209,7 @@ async function processImage(key, images, data)
   }
 
   // Apply overlays, if any
-  if (images.length == 1 && !usecanvas)
+  if (images.length == 1)
   {
     // No extra processing has to be done; return the current image data as data URI
     return { key, result: "data:" + basetype + ";base64," + basedata };
@@ -388,7 +370,7 @@ async function processImage(key, images, data)
     for (layercanvas of canvasstack)
       ctx.drawImage(layercanvas, 0, 0);
 
-    return { key, result: usecanvas ? canvas : canvas.toDataURL() };
+    return { key, result: canvas.toDataURL() };
   }
   catch (e)
   {
@@ -448,22 +430,12 @@ export function createImage(imgname, width, height, color, eloptions)
 
 export function createCompositeImage(imgnames, width, height, color, eloptions)
 {
-  let imgnode = dompack.create(usecanvas ? 'canvas':'img', { width, height, ...eloptions });
+  let imgnode = dompack.create('img', { width, height, ...eloptions });
   updateCompositeImage(imgnode, imgnames, width, height, color);
   return imgnode;
 }
 
 export function updateImage(imgnode, imgname, width, height, color)
 {
-  if(usecanvas && imgnode.nodeName=='IMG')
-  {
-    console.error("img should be a <canvas>", usecanvas);
-    throw new Error("img should be a <canvas>");
-  }
   return updateCompositeImage(imgnode, imgname.split("+"), width, height, color);
-}
-
-export function requireCanvas()
-{
-  return usecanvas;
 }

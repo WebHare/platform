@@ -231,11 +231,10 @@ PUBLIC RECORD FUNCTION RPC_RunToddComm(RECORD request)
   RETURN response;
 }
 
-PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache, BOOLEAN nobroken, BOOLEAN rewritestyles)
+PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache)
 {
   RECORD options := [ nocache := nocache
-                    //, nobroken := TRUE // Broken images are handled client-side
-                    , nobroken := nobroken
+                    , nobroken := TRUE
                     ];
   FOREVERY (RECORD img FROM images)
   {
@@ -243,7 +242,7 @@ PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache, 
     FOREVERY (STRING imgname FROM img.data.imgnames)
     {
       retrieved := retrieved CONCAT
-          ((SELECT data := EncodeBase64(rewritestyles AND type="image/svg+xml" ? RewriteImgStyles(data, imgname) : BlobToString(data, -1))
+          ((SELECT data := EncodeBase64(BlobToString(data, -1))
                  , type
                  , color
                  , invertable

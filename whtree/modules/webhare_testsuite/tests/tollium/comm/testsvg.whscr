@@ -27,7 +27,7 @@ MACRO TestIconRewrites()
   */
 
   // Test the black image
-  RECORD imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  RECORD imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   STRING svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -37,7 +37,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
   // Test the color image
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "c", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -47,7 +47,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#3091DD;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
   // Test the white image
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "w", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -57,7 +57,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#F3F3F3;}*.ST1{FILL:#4A4A4A;}*", ToUppercase(style->textContent));
 
   // Test if the black image is returned if multiple colors requested
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -66,7 +66,7 @@ MACRO TestIconRewrites()
   TestEq(TRUE, ObjectExists(style));
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,w", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -75,7 +75,7 @@ MACRO TestIconRewrites()
   TestEq(TRUE, ObjectExists(style));
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c,w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_1"], color := "b,c,w", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -85,7 +85,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
   // Test if the black image is returned if (non-existing) color is requested with black fallback
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_2"], color := "c,b", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_2"], color := "c,b", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -95,7 +95,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
   // Test if the black image is returned if (non-existing) color is requested and only a non color-coded black image is available
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_3"], color := "c", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_3"], color := "c", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   svgdata := DecodeBase64(imgs.images[0].images[0].data);
@@ -105,7 +105,7 @@ MACRO TestIconRewrites()
   TestEqLike("*.ST0{FILL:#4A4A4A;}*.ST1{FILL:#F3F3F3;}*", ToUppercase(style->textContent));
 
   // Test non-svg image
-  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_4"], color := "w", height := 32, width := 32 ] ] ], FALSE, FALSE, TRUE);
+  imgs := RPC_RetrieveImages([ [ data := [ imgnames :=[ "webhare_testsuite:testicon_4"], color := "w", height := 32, width := 32 ] ] ], FALSE);
   TestEq(1,Length(imgs.images));
   TestEq(1,Length(imgs.images[0].images));
   TestEq("image/png", imgs.images[0].images[0].type); //should be unprocessed

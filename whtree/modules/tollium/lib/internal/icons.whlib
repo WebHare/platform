@@ -482,17 +482,3 @@ PUBLIC RECORD ARRAY FUNCTION GetImage(STRING name, INTEGER width, INTEGER height
                         ], PTR GetCacheableImage(name, width, height, color, options));
 }
 
-PUBLIC STRING FUNCTION RewriteImgStyles(BLOB inimage, STRING imagename)
-{
-  OBJECT svg := MakeXMLDocument(inimage);
-  IF(NOT ObjectExists(svg->documentelement))
-    THROW NEW Exception("Unable to process image " || imagename);
-
-  FOREVERY(OBJECT styletag FROM svg->GetElementsByTagName('style')->GetCurrentElements())
-  {
-    OBJECT cssom := MakeCSSStyleSheet(StringToBlob(styletag->textcontent));
-    cssom->RewriteDomStyles(svg);
-  }
-  RETURN svg->documentelement->outerxml;
-}
-
