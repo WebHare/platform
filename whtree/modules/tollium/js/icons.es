@@ -24,7 +24,7 @@ var imagequeue = new Map();
 var imagecache = new Map();
 
 // Used to coalesce image loading
-var loadimgtimeout = null;
+var loadimgtimeout = null, loadimglock = null;
 
 // Load the image(s) and apply to an <img> node src
 export function updateCompositeImage(imgnode, imgnames, width, height, color)
@@ -88,13 +88,17 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color)
   {
     if (dompack.debugflags.ild)
       console.log("Setting image loading timeout");
+    loadimglock = dompack.flagUIBusy();
     loadimgtimeout = window.setTimeout(loadImages, 1);
   }
 }
 
 async function loadImages()
 {
-  loadimgtimeout = window.clearTimeout(loadimgtimeout);
+  loadimgtimeout = null;
+  loadimglock.release();
+  loadimglock = null;
+
   let lock = dompack.flagUIBusy();
 
   // Make a list of images to load
@@ -423,6 +427,11 @@ export function resetImageCache()
   imagequeue.clear();
   imagecache.clear();
   loadimgtimeout = window.clearTimeout(loadimgtimeout);
+  if(loadimglock)
+  {
+    loadimglock.release();
+    loadimglock = null;
+  }
 
   loadMissingImages({ force: true });
 }
