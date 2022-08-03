@@ -776,15 +776,6 @@ export function selectFiles(options)
 
   //let selectlock = dompack.flagUIBusy();
 
-  // IE 10 & 11 won't open the file browser if the input element isn't in the DOM
-  if (browser.getName() == 'ie')
-  {
-    if (lastinputnode)
-      document.body.removeChild(lastinputnode);
-    lastinputnode = input;
-    document.body.appendChild(input);
-  }
-
   // Set a handler on next action to capture someone cancelling the upload without telling us (browsers dont inform us the dialog is gone)
   var canceluploadhandler = function()
   {

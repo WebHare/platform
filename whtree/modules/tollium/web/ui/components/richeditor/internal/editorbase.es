@@ -917,21 +917,8 @@ export default class EditorBase
   {
     this.undonode.focus();
 
-    if (browser.getName() == "ie" || browser.getName() == "edge")
-    {
-      /* In IE11 and edge InsertHTML doesn't work. Using ms-beginUndoUnit / ms-endUndoUnit to record the modification
-         of the undonode into the undo buffer. Recording the body changes with undo unit crashed edge 16.16299, so this
-         is somewhat safer. Plus, it follows the rest of the browsers.
-      */
-      this.undonode.ownerDocument.execCommand('ms-beginUndoUnit');
-      this.undonode.textContent = this.undopos + "";
-      this.undonode.ownerDocument.execCommand('ms-endUndoUnit');
-    }
-    else
-    {
-      this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
-      this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
-    }
+    this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
+    this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
 
     this.getContentBodyNode().focus();
     this.selectRange(item.postselection);

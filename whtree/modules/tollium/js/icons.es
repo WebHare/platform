@@ -297,20 +297,15 @@ async function processImage(key, images, data)
         layerctx = layercanvas.getContext("2d");
       }
 
-      if (browser.getName() == "edge") // Explicitly setting destination size messes up scaling in Edge
-        layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey);
-      else
+      try
       {
-        try
-        {
-          layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
-        }
-        catch (e)
-        {
-          // IE 11 sometimes doesn't want to render SVG on load event, wait a millisecond sometimes fixes it
-          await new Promise(resolve => setTimeout(resolve, 1));
-          layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
-        }
+        layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
+      }
+      catch (e)
+      {
+        // IE 11 sometimes doesn't want to render SVG on load event, wait a millisecond sometimes fixes it
+        await new Promise(resolve => setTimeout(resolve, 1));
+        layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
       }
 
       if (idx && knockout) // Knockout overlay

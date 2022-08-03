@@ -244,19 +244,12 @@ test.registerTests(
       }
     }
 
-  , { name: 'selectionrestore-validbefore-takefocus'
-    , wait: function(doc,win,callback)
-      {
-        var rte=win.rte.getEditor();
-        win.focus();
-        rte.takeFocus();
-
-        // Little time to give IE time to restore selection on focus
-        if (browser.getName() === "ie")
-          setTimeout(callback, 10);
-        else
-          callback();
-      }
+  , 'selectionrestore-validbefore-takefocus'
+  , function()
+    {
+      var rte = test.getWin().rte.getEditor();
+      test.getWin().focus();
+      rte.takeFocus();
     }
 /*
     // wait for it to load again...
