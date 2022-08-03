@@ -33,14 +33,20 @@ PUBLIC OBJECTTYPE ConsilioAutoComplete EXTEND TolliumAutoSuggestBase
 
   MACRO NEW(RECORD data)
   {
-    this->suggest := OpenSuggestObject(data.catalog);
-    this->suggest->document_count := data.doccount;
+    IF (data.catalog != "")
+    {
+      this->suggest := OpenSuggestObject(data.catalog);
+      this->suggest->document_count := data.doccount;
+    }
     this->count := data.count;
   }
 
   PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
   {
     RECORD ARRAY words;
+
+    IF (NOT ObjectExists(this->suggest))
+      RETURN words;
 
     FOREVERY (RECORD suggestion FROM this->suggest->GetSuggestions(curtext, this->count))
     {

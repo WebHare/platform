@@ -990,7 +990,9 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
       this->^query->value := CellExists(catalog,'query') ? catalog.query : '';
     }
 
-    ^consilio_autosuggest->SetSearchCatalog(this->catalog_name);
+    OBJECT catalogobj := OpenConsilioCatalog(catalog.tag);
+    IF (RecordExists(SELECT FROM catalogobj->GetExpectedMapping() AS mapping WHERE CellExists(mapping, "suggested") ? mapping.suggested : FALSE))
+      ^consilio_autosuggest->SetSearchCatalog(this->catalog_name);
   }
 
   MACRO DoSearch(BOOLEAN showall DEFAULTSTO FALSE)
