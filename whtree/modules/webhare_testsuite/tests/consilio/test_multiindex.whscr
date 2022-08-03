@@ -31,7 +31,6 @@ MACRO Prepare()
     cat->DetachIndex(toremove.id);
   TestEq(RECORD[], cat->ListAttachedIndices(), `Catalog "${cat->tag}" should have all attachments removed after initial cleanup`);
 
-  //If we run with WEBHARE_PREFERINDEXMANAGER - one part will be Indexmanager and one part will be OpenSearch.
   INTEGER index1id := cat->AttachIndex(0);
   testindex1 := cat->ListAttachedIndices()[0];
   TestEqLike("c_??*", testindex1.indexname, "test for properly structured builtin indexname");

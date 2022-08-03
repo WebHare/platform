@@ -191,12 +191,6 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_legacybackend AND address="builtin"))
-    INSERT
-        [ name := "consilio:indexmanager"
-        , args := STRING["consilio","--listenport",ToString(GetWebHareConfiguration().baseport+3)]
-        , isstandalone := TRUE
-        ] INTO apps AT END;
   IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-opensearch"))
     INSERT
         [ name := "consilio:opensearch"

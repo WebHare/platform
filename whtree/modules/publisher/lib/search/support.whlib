@@ -8,20 +8,3 @@ LOADLIB "mod::system/lib/database.whlib";
 // In a separate library, so both moduledefparser.whlib and searchfilters.whlib can loadlib it without causing recursive loadlibs
 PUBLIC RECORD __searchfilterprops;
 
-
-/** @short Reindex a single file or folder in the Publisher search index
-    @long This function can be used to have the changes to a file or folder reindexed in the Publisher search index, _after_
-        they have been committed to the database. When reindexing a folder, its contents is reindexed recursively. Use only
-        when an application depends on the object to be indexed as this function bypasses Consilio queueing.
-    @param objectid Id of the object to reindex
-    @param isfolder If the object is a folder or file
- */
-PUBLIC MACRO ReindexPublisherObject(INTEGER objectid, BOOLEAN isfolder)
-{
-  ReindexWHFSChanges(
-      [ CELL[ id := objectid
-            , isfolder
-            , isdelete := NOT RecordExists(SELECT FROM system.fs_objects WHERE id = objectid)
-            ]
-      ]);
-}

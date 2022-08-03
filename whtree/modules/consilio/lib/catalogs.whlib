@@ -71,17 +71,16 @@ PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexSuffix(STRING suffix)
     @cell(boolean) return.isbuiltin Whether this is a builtin indexmanager
     @cell(boolean) return.isdefault Whether this is the default builtin indexmanager
     @cell(string) return.name Name of the indexmanager
-    @cell(string) return.type Index type: 'opensearch' or 'legacy-indexmanager'
+    @cell(string) return.type Index type: 'opensearch'
     @cell(string) return.url URL to connect to the server */
 PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 {
-  BOOLEAN prefer_legacy_indexmanager := GetEnvironmentVariable("WEBHARE_PREFERINDEXMANAGER") != "" OR IsDebugTagEnabled("consilio:preferlegacy");
   RETURN SELECT id
-              , type := type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
-              , isbuiltin := address IN ["builtin","builtin-opensearch"]
-              , isdefault := address = (prefer_legacy_indexmanager ? "builtin" : "builtin-opensearch")
+              , type := "opensearch"
+              , isbuiltin := address = "builtin-opensearch"
+              , isdefault := address = "builtin-opensearch"
               , name
-              , url := address = "builtin" ? "" : address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
+              , url := address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
            FROM consilio.indexmanagers;
 }
 

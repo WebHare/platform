@@ -502,7 +502,7 @@ void Connection::ProcessRequestHeader()
         if (!OkToContinue())
              return;
 
-        if (disk_file_path.empty() && !contenttype) //No disk_file_path resolved, and not forced into a handler yet? (eg consilio,compiler)
+        if (disk_file_path.empty() && !contenttype) //No disk_file_path resolved, and not forced into a handler yet? (eg compiler)
         {
                 bool expandable_to_defaultpage = !requested_path.empty() && requested_path.end()[-1]=='/';
                 if (!request->website)

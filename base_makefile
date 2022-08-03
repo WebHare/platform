@@ -386,9 +386,8 @@ parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
 parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
-AP_DEPLOYABLES_SERVERS = webserver appserver consilio whmanager
-AP_DEPLOYABLES_UTILS = runscript whcompile webhare # oleexplode  consiliotool
-AP_CONSILIO_TESTS = consiliotest
+AP_DEPLOYABLES_SERVERS = webserver appserver whmanager
+AP_DEPLOYABLES_UTILS = runscript whcompile webhare # oleexplode
 ap_DEPLOYABLES_WHAP = \
 	$(AP_libwebhare) \
 	lib/hsm_system_geoip$(DLL_SUFFIX) \
@@ -397,11 +396,9 @@ ap_DEPLOYABLES_WHAP = \
 ap_DEPLOYABLES = $(ap_DEPLOYABLES_WHAP)
 AP_libwebhare = lib/libblex_webhare$(DLL_SUFFIX)
 
-consiliotool_EXTRALINKFILES = $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp))
-
 PCH_HEADERS+=ap/libwebhare/allincludes.h
 
-ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests libwebhare utils webserver whmanager
+ap_SRCDIRS = addons addons/system_geoip appserver libwebhare utils webserver whmanager
 
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
@@ -642,10 +639,7 @@ ap-clean:
 build.ap: $(ap_DEPLOYABLES) $(ap_NONDEPLOYABLES)
 	>build.ap
 
-success.ap ap-test: bin/consiliotest build.ap
-  ifneq ($(SKIPCONSILIOTEST),1)
-		$(SRCDIR)/ap/consilio/tests/runconsiliotest.sh $(SRCDIR)/ap/consilio/tests/data
-  endif
+success.ap ap-test: build.ap
 	> success.ap
 
 ap_libwebhare_CPPFILES = $(call GetSrcFiles,ap/libwebhare/*.cpp)
@@ -675,15 +669,8 @@ bin/$(1): ap/utils/$1.o $($(1)_EXTRALINKFILES) $(ap_libwebhare_OBJFILES) lib/lib
 endif
 endef
 
-define ApConsilioTestTarget
-bin/$(1): $2/$1.o $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp)) $(filter-out $(call GetObjFiles,ap/consilio/tests/consilio*.cpp),$(call GetObjFiles,ap/consilio/tests/*.cpp)) $(AP_libwebhare)
-	$$(call LinkExecutable,$2/$1.o $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp)) $(filter-out $(call GetObjFiles,ap/consilio/tests/consilio*.cpp),$(call GetObjFiles,ap/consilio/tests/*.cpp)),$$@,blex_webhare $(HS_LIBS))
-ALL_TESTFILES+=bin/$(1)
-endef
-
 $(foreach mod,$(AP_DEPLOYABLES_SERVERS),$(eval $(call ApServerTarget,$(mod))))
 $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
-$(foreach mod,$(AP_CONSILIO_TESTS),$(eval $(call ApConsilioTestTarget,$(mod),ap/consilio/tests)))
 
 
 #################################################
@@ -826,7 +813,7 @@ endif # end darwin check
 #
 
 #ADDME autogenerate lists below
-BIN_ALIASES = consilio webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
+BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
 
 showtargets:
