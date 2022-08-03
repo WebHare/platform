@@ -190,7 +190,6 @@ export class TableEditor
                    , resize_table: true
                    , ...options
                    };
-    this.fixContentEditable = this.node.isContentEditable && !browser.getName() === "ie";
 
     this.node.propWhTableEditor = this;
     this.node.classList.add("wh-rtd-table");

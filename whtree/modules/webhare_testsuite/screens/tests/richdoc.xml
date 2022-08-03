@@ -3,7 +3,7 @@
          xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
          lib="screens/tests/richdoc.whlib">
 
-  <screen name="main" title="Rich Text Editor" icon="wrd_organizer:mailclient"
+  <screen name="main" title="Rich Text Editor"
           width="800px" height="600px" allowresize="true" menubar="menubar">
     <actions>
       <action name="openhtml" title="Open HTML..." onexecute="doopenhtml" />

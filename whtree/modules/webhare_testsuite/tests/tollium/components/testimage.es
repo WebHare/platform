@@ -1,5 +1,4 @@
 import * as test from "@mod-tollium/js/testframework";
-import * as browser from 'dompack/extra/browser';
 
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/basecomponents.imagetest')
@@ -11,11 +10,8 @@ test.registerTests(
       {
         var img = test.compByName('image').querySelector('img,canvas');
 
-        if(browser.getName() != 'ie') //on IE placeholders are canvasses instead of images... we'll just skip the test
-        {
-          test.eq(300, img.naturalWidth);
-          test.eq(300, img.naturalHeight);
-        }
+        test.eq(300, img.naturalWidth);
+        test.eq(300, img.naturalHeight);
         test.true(img.closest('.t-image--clickable'));
         test.false(test.compByName('image').classList.contains('todd--disabled'));
 
@@ -31,11 +27,8 @@ test.registerTests(
         var img = test.compByName('image').querySelector('img,canvas');
 
         //tollium scales up SVGs to match the devicePixelRatio
-        if(browser.getName() != 'ie') //on IE placeholders are canvasses instead of images... we'll just skip the test
-        {
-          test.eq(100 * window.devicePixelRatio, img.naturalWidth);
-          test.eq(100 * window.devicePixelRatio, img.naturalHeight);
-        }
+        test.eq(100 * window.devicePixelRatio, img.naturalWidth);
+        test.eq(100 * window.devicePixelRatio, img.naturalHeight);
         test.click(test.getMenu(['I03']));
       }
     , waits: ['ui']
