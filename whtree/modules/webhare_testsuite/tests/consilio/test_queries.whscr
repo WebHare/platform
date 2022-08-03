@@ -48,7 +48,6 @@ MACRO PrepareCustomCatalog()
 MACRO RunTheQueries()
 {
   OBJECT catalog := OpenConsilioCatalog("consilio:testfw_queries");
-  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   //CQMatch is for keyword fields (inequality comparisions make sense here), CQContains will be for text fields
   TestEq(["QC1"], ExecTestQuery(CQMatch("groupid", "=", "QC1")));
@@ -60,11 +59,9 @@ MACRO RunTheQueries()
   TestEq(["QC1"], ExecTestQuery(CQMatch("shortkeyword", "=", "eins")));
 
   TestEq(["QC1"], ExecTestQuery(CQMatch("keywordfield", "=", "keyword number one")));
-  IF(is_opensearch) //only opensearch supports treating space-separated as opaque in keyword fields
-  {
-    TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "Keyword number one")), "keywordfields are case sensitive");
-    TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "keyword")), "Must match exactly");
-  }
+  //opensearch supports treating space-separated as opaque in keyword fields
+  TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "Keyword number one")), "keywordfields are case sensitive");
+  TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "keyword")), "Must match exactly");
 
   //Inequality
   TestEq(["QC1","QC2"], ExecTestQuery(CQMatch("shortkeyword", ">=", "eins")));
@@ -72,13 +69,11 @@ MACRO RunTheQueries()
   TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<", "zwei")));
   TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<=", "zwei")));
 
-  IF(is_opensearch) //only opensearch supports treating space-separated as opaque in keyword fields
-  {
-    TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">=", "keyword number one")));
-    TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
-    TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("keywordfield", "<", "keyword number two")));
-    TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", "<=", "keyword number two")));
-  }
+  //opensearch supports treating space-separated as opaque in keyword fields
+  TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">=", "keyword number one")));
+  TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
+  TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("keywordfield", "<", "keyword number two")));
+  TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", "<=", "keyword number two")));
 }
 
 RunTestframework(
