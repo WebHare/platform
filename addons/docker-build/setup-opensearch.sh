@@ -5,7 +5,7 @@
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
 # wh builddocker && wh testdocker --nocleanup --tag=-external -w local consilio
 
-GETFILE=opensearch-1.3.2-linux-x64.tar.gz
+GETFILE=opensearch-2.1.0-linux-x64.tar.gz
 DLPATH=/tmp/downloads/$GETFILE
 
 if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
