@@ -49,7 +49,10 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color)
 
   // The data-toddimg attribute is used to reload the image after the cache is cleared
   if (imgnode.dataset.toddimg == key)
-    return; //already set.
+    return; //already set or being loaded
+
+  // Update the node to explain which image is coming on. Tests that just want to check this name shouldn't need to wait for the image load itself
+  imgnode.dataset.toddimg = key;
 
   // Check if the image isn't already on the queue
   for (let [, value] of imagecache)
@@ -195,8 +198,6 @@ function applyLoadedResultToImage(cached,img)
     ctx.clearRect(0,0,img.width,img.height);
     ctx.drawImage(cached.result, 0, 0, img.width, img.height);
   }
-
-  img.dataset.toddimg = cached.key;
 }
 
 async function processImage(key, images, data)
