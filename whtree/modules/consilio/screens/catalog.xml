@@ -337,15 +337,10 @@
   <screen name="catalogpreviewitem" gid=".catalogpreviewitem" tid=".title"
           minwidth="80x">
     <body name="body">
-      <heading tid=".standardfields" />
-      <!-- Titles will be set dynamically -->
-      <text name="indexid" title="" selectable="true" />
-      <text name="objectid" title="" selectable="true" />
-      <text name="date_indexed" title="" selectable="true" />
-      <text name="contentprovider" title="" selectable="true" />
       <heading name="otherfields" />
-      <!-- Other fields will be inserted dynamically -->
+      <!-- Fields will be inserted dynamically -->
       <heading name="resultfields" />
+      <!-- Fields will be inserted dynamically -->
     </body>
     <footer>
       <grid>

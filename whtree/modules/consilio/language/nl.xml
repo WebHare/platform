@@ -62,10 +62,9 @@
       <text tid="url">URL</text>
     </textgroup>
     <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
-      <text tid="otherfields">Overige geïndexeerde velden</text>
+      <text tid="otherfields">Geïndexeerde velden</text>
       <text tid="resultfields">Gegenereerde resultaatvelden</text>
       <text tid="showempty">Toon lege velden</text>
-      <text tid="standardfields">Standaardvelden</text>
       <text tid="title">Resultaat bekijken</text>
     </textgroup>
     <textgroup gid="catalogs">   <!-- catalog.catalogs -->
