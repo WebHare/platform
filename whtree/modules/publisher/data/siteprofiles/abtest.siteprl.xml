@@ -2,12 +2,7 @@
              xmlns:p="http://www.webhare.net/xmlns/publisher/components"
              gid="siteprofile.abtest">
 
-  <filetype namespace="http://www.webhare.net/xmlns/publisher/abtest/abtestfile"
-            blobiscontent="false"
-            isacceptableindex="true"
-            ispublishable="true"
-            ispublishedassubdir="true"
-            tid=".filetype">
+  <filetype namespace="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" kind="virtualfile" tid=".filetype">
     <members>
       <string name="abgroup" />
       <integer name="duration_days" />
