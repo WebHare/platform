@@ -361,8 +361,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     IF (RecordExists(^catalogs->selection))
     {
       this->LoadScreen(".thesaurus", [ indexid := ^catalogs->selection.id ])->RunModal();
-      //IF (NOT __ConsilioUpdateConfiguration([ "indexmanager", "thesaurus" ]))
-      //  this->RunMessageBox(".sendingcommandfailed");
     }
   }
 
@@ -544,7 +542,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
              , rowkey := "catalog_" || catalog.id
              , title := catalog.description
              , loglevel := catalog.loglevel
-             , icon := ^catalogs->GetIcon(GetIndexManagerIcon(catalog_indexmanager))
              , tag := catalog.name
              , size := catalogsize
              , status := 0
@@ -596,7 +593,6 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
   MACRO Init()
   {
     this->queuemanager->ReadFromRegistry();
-    this->debuglevel_indexmanager->value := ReadRegistryKey("consilio.indexmanager.loglevel");
     this->enablelinkchecker->value := ReadRegistryKey("consilio.linkchecker.enabled");
   }
 
@@ -608,24 +604,9 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
       RETURN work->Cancel();
 
     this->queuemanager->WriteToRegistry();
-    WriteRegistryKey("consilio.indexmanager.loglevel", this->debuglevel_indexmanager->value);
     WriteRegistryKey("consilio.linkchecker.enabled", this->enablelinkchecker->value);
 
     BOOLEAN finished := work->Finish();
-    IF (finished)
-    {
-      // Signal the IndexManager that the configuration has changed
-      BroadcastEvent("consilio:indexmanager.config",
-          [ loglevel :=     this->debuglevel_indexmanager->value
-          ]);
-
-      // Send new configuration to the QueueManager
-      IF (NOT __ConsilioUpdateConfiguration([ "debuglevel", ToString(this->debuglevel_queuemanager->value)
-                                            , "numworkers", ToString(this->numworkers->value)
-                                            , "maxtasktime", ToString(this->maxtasktime->value)
-                                            ]))
-        this->RunMessageBox(".sendingcommandfailed");
-    }
 
     RETURN finished;
   }
@@ -987,25 +968,15 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
   IF(Length(mgrs)=0)
     RETURN DEFAULT RECORD;
 
-  IF(mgrs[0].type = whconstant_consilio_indexmanager_legacybackend)
+  RECORD tosend := DecodeJSON(query);
+  IF (RecordExists(tosend))
   {
-    OBJECT searcher := OpenSearchObject(user->language, catalog_name);
-
-    searcher->session_tag := "__consilio_preview";
-    RETURN searcher->Search(query ?? "indexid:" || catalogid, 0, maxresults);
+    tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
+    RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
   }
   ELSE
   {
-    RECORD tosend := DecodeJSON(query);
-    IF (RecordExists(tosend))
-    {
-      tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
-      RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
-    }
-    ELSE
-    {
-      RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ], __GetIndexManagerOptions(catalogid));
-    }
+    RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ], __GetIndexManagerOptions(catalogid));
   }
 }
 

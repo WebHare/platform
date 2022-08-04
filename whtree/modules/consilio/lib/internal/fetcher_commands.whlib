@@ -120,11 +120,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
         INSERT source.indexmanager INTO indexmanagers AT END;
     }
 
-    // We're checking all indexes, clear index status on IndexManager
-    IF (data.setstatus AND NOT options.noindexmodify)
-      FOREVERY (INTEGER indexmgrid FROM indexmanagers)
-        ClearIndexManagerStatus(indexmgrid);
-
     // When rebuilding an index, clean out all documents from removed contentsources
     IF (data.indexid != 0 AND options.rebuild)
       RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);

@@ -41,8 +41,8 @@ LogStartup("There is no local OpenSearch yet, need to create one");
 trans->BeginWork();
 builtin_indexmanager := MakeAutonumber(consilio.indexmanagers,"id");
 LogStartup("Creating OpenSearch");
-INSERT INTO consilio.indexmanagers(id, name, type, address)
-     VALUES (builtin_indexmanager, "Builtin OpenSearch", whconstant_consilio_indexmanager_opensearch, "builtin-opensearch");
+INSERT INTO consilio.indexmanagers(id, name, address)
+     VALUES (builtin_indexmanager, "Builtin OpenSearch", "builtin-opensearch");
 
 GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
 trans->CommitWork();

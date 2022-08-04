@@ -63,7 +63,6 @@ MACRO TestCustomContent()
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
   TestEq(0, __GetNumSubJobs());
   Print(catalog->GetStorageInfo() || "\n");
-  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   search_obj := OpenSearchObject("en", "consilio:testfw_customcontent");
   TestEq(0, __GetNumSubJobs());
@@ -194,7 +193,7 @@ MACRO TestCustomContent()
       , objectid := idprefix||"a1"
       , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
-      , summary := is_opensearch ? "a a1" : "" // OpenSearch doesn't support discardsummaries
+      , summary := "a a1" // OpenSearch doesn't support discardsummaries
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
       , mapping_boolean := FALSE
@@ -215,8 +214,7 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
-      , _suggested := is_opensearch ? [ input := ["a","a1"] ] //NOTE this field wasn't returned before the mapping rewrites, but as far as I see it *should* have been as DBContent::GetMapping() returns a suggested field
-                                    : DEFAULT RECORD
+      , _suggested := [ input := ["a","a1"] ]
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
@@ -246,8 +244,7 @@ MACRO TestCustomContent()
       , fieldgroup_boolean := FALSE
       , fieldgroup_datetime := DEFAULT DATETIME
       , myfield1 := ""
-      , _suggested := is_opensearch ? [ input := ["a","a1"] ]
-                                    : DEFAULT RECORD
+      , _suggested := [ input := ["a","a1"] ]
       ], res.results[0]);
 
   search_obj->empty_result_record :=
@@ -295,7 +292,7 @@ MACRO TestCustomContent()
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , nonexisting := is_opensearch ? "doesn't exist" : ""
+      , nonexisting := "doesn't exist"
       ], res.results[0]);
 
   //Find nothing
@@ -567,20 +564,11 @@ MACRO TestCustomContent()
 
   // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which are always
   // applied after searching, so "+(body:* date_adate:*)" is effectively interpreted as "+body:* +date_adate:*"
-  IF (is_opensearch)
-  {
-    res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
-    TestEQ(3, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
-  }
-  ELSE
-  {
-    res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
-    TestEQ(1, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
-  }
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
+  TestEQ(3, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
 
   res := search_obj->Search("+contentsource:"||contentsource->id||" +body:* +date_adate:*", 0, 1000);
   TestEQ(1, res.totalcount);
@@ -588,20 +576,10 @@ MACRO TestCustomContent()
 
   // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which cannot be
   // negated and are always applied after searching, so "-body:*" is effectively interpreted as "+body:*"
-  IF (is_opensearch)
-  {
-    res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
-    TestEQ(2, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
-  }
-  ELSE
-  {
-    res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
-    TestEQ(2, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
-  }
+  res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
+  TestEQ(2, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
 
   res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
@@ -648,51 +626,40 @@ MACRO TestCustomContent()
 
   // OpenSearch searches for the term 'å1"\r\n€', which isn't indexed, Consilio tokenizes the term and will find the 'å1' result
   res := search_obj->SearchQuery(CQMatch("body", "=", "å1\"\r\n€"), 0, 1000);
-  IF (is_opensearch)
-  {
-    TestEQ(0, res.totalcount);
+  TestEq(0, res.totalcount);
 
-    // Consilio doesn't support emoji parsing
-    res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
-    TestEQ(1, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  // Consilio doesn't support emoji parsing
+  res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
+  TestEq(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-    res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "🍻"), 0, 1000);
-    TestEQ(1, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "🍻"), 0, 1000);
+  TestEq(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-    res := search_obj->SearchQuery(CQParseUserQuery("🍻"), 0, 1000);
-    TestEQ(1, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  res := search_obj->SearchQuery(CQParseUserQuery("🍻"), 0, 1000);
+  TestEq(1, res.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-    res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
-    TestEQ(0, res.totalcount);
-  }
-  ELSE
-  {
-    TestEQ(1, res.totalcount);
-    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  }
+  res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
+  TestEq(0, res.totalcount);
 
-  IF (is_opensearch)
-  {
-    // OpenSearch has a limit on the length of a field that is used for summary generating/search result highlighting. This
-    // limit is 1000000 characters by default. The text "JUMBOTEXT" creates a long (>1000000 bytes) body, which should not
-    // result in an error "The length of [body] field of [0] doc of [c_169796706807a7a5e599837bf630d4c1] index has exceeded
-    // [1000000] - maximum allowed to be analyzed for highlighting". The 'index_options := "offsets"' setting of text fields
-    // should prevent this error and return the indexed document.
-    testfw->BeginWork();
-    DELETE FROM webhare_testsuite.consilio_index;
-    INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
-         VALUES(idprefix||"a", idprefix||"a1", "JUMBOTEXT");
-    testfw->CommitWork();
+  // OpenSearch has a limit on the length of a field that is used for summary generating/search result highlighting. This
+  // limit is 1000000 characters by default. The text "JUMBOTEXT" creates a long (>1000000 bytes) body, which should not
+  // result in an error "The length of [body] field of [0] doc of [c_169796706807a7a5e599837bf630d4c1] index has exceeded
+  // [1000000] - maximum allowed to be analyzed for highlighting". The 'index_options := "offsets"' setting of text fields
+  // should prevent this error and return the indexed document.
+  testfw->BeginWork();
+  DELETE FROM webhare_testsuite.consilio_index;
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
+       VALUES(idprefix||"a", idprefix||"a1", "JUMBOTEXT");
+  testfw->CommitWork();
 
-    catalog->ReindexCatalog();
-    contentsource->WaitForIndexingDone();
+  catalog->ReindexCatalog();
+  contentsource->WaitForIndexingDone();
 
-    res := search_obj->SearchQuery(CQMatch("body", "=", "aap"), 0, 1000);
-    TestEq(1, res.totalcount);
-  }
+  res := search_obj->SearchQuery(CQMatch("body", "=", "aap"), 0, 1000);
+  TestEq(1, res.totalcount);
 
   testfw->BeginWork();
   DELETE FROM webhare_testsuite.consilio_index;
@@ -707,7 +674,6 @@ MACRO TestTypes()
   OBJECT catalog := OpenConsilioCatalog("consilio:testfw_customcontent");
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   OBJECT maincontentsource := maincatalog->OpenContentSource("webhare_testsuite:dbindex");
-  BOOLEAN is_opensearch := catalog->ListAttachedIndices()[0].type = "opensearch";
 
   //having indexnames makes log analysis easier
   Print(maincatalog->GetStorageInfo() || ", " || catalog->GetStorageInfo() || "\n");
@@ -787,37 +753,26 @@ MACRO TestTypes()
   TestEq(1, res.totalcount);
   res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64_array", "CONTAINS", 7521));
   TestEq(1, res.totalcount);
-  IF (is_opensearch)
-  {
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<=", 9223372036854775807i64));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">=", 9223372036854775807i64));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<", 9223372036854775807i64));
-    TestEq(0, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">", 9223372036854775806i64));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "=", 90071992547.40991m));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money_array", "CONTAINS", 3.14m));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<=", 90071992547.40991m));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">=", 90071992547.40991m));
-    TestEq(1, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<", 90071992547.40991m));
-    TestEq(0, res.totalcount);
-    res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">", 90071992547.40990m));
-    TestEq(1, res.totalcount);
-  }
-  ELSE
-  {
-    // Consilio doesn't support numeric range queries
-    TestThrowsLike("Invalid match type '<=' for INTEGER match query", PTR CQMatch("mapping_integer", "<=", 1, [ __opensearch := FALSE ]));
-    TestThrowsLike("Invalid match type '>=' for INTEGER64 match query", PTR CQMatch("mapping_integer64", ">=", 1i64, [ __opensearch := FALSE ]));
-    TestThrowsLike("Invalid value type 'MONEY' for match query", PTR CQMatch("mapping_money", "<", 1m, [ __opensearch := FALSE ]));
-    TestThrowsLike("Invalid value type 'FLOAT' for match query", PTR CQMatch("mapping_float", ">", 1f, [ __opensearch := FALSE ]));
-  }
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<=", 9223372036854775807i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">=", 9223372036854775807i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "<", 9223372036854775807i64));
+  TestEq(0, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", ">", 9223372036854775806i64));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money_array", "CONTAINS", 3.14m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">=", 90071992547.40991m));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", "<", 90071992547.40991m));
+  TestEq(0, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_money", ">", 90071992547.40990m));
+  TestEq(1, res.totalcount);
 
   res := RunConsilioSearch(maincatalog->tag, CQMatch("objectid", "=", idprefix || "a1"));
   TestEq(

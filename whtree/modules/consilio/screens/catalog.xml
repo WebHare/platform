@@ -139,7 +139,7 @@
               savestate="selection expanded"
               ongetrows="ongetcatalogs"
               eventmasks="consilio:contentsourceschanged">
-          <column name="tag" type="text" width="1pr" tid="~tag" iconname="icon" tree="true" />
+          <column name="tag" type="text" width="1pr" tid="~tag" tree="true" />
           <column name="title" type="text" width="2pr" tid="~title" />
           <column name="definedby" type="text" width="1pr" />
           <column name="size" type="text" width="10x" align="right" />
@@ -171,13 +171,6 @@
           <!--option rowkey="1" /><!- - Skipped documents -->
           <option rowkey="2" /><!-- General information -->
           <option rowkey="3" /><!-- All debugging information -->
-        </select>
-      </line>
-      <line>
-        <select name="debuglevel_indexmanager" type="radio" rowkeytype="integer">
-          <option rowkey="0" /><!-- Fatal errors -->
-          <option rowkey="1" /><!-- Statistics -->
-          <option rowkey="2" /><!-- Debug -->
         </select>
       </line>
       <line layout="left">

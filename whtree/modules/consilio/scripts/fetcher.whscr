@@ -360,10 +360,6 @@ MACRO ExecuteDecodedCommand(RECORD data)
         {
           fetcherdebuglevel := data.configuration.debuglevel;
         }
-        IF (CellExists(data.configuration, "indexmanager"))
-        {
-          ConfigureIndexManager(data.configuration.indexmanager);
-        }
       }
       ELSE
       {

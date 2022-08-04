@@ -95,7 +95,6 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER "id" NULL := 0
     , STRING "name"
-    , INTEGER "type"
     , STRING "address"
     , BOOLEAN "secure"
     , BOOLEAN "enablestemming"

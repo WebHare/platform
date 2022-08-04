@@ -594,7 +594,7 @@ STATIC OBJECTTYPE ConsilioCatalog
              , catalog_indexmanagers.searchpriority
              , catalog_indexmanagers.readonly
              , indexmanager :=        indexmanagers.id
-             , type := indexmanagers.type = whconstant_consilio_indexmanager_legacybackend ? "legacy-indexmanager" : "opensearch"
+             , type := "opensearch"
              , isbuiltin := indexmanagers.address IN ["builtin","builtin-opensearch"]
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
@@ -613,7 +613,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       RETURN FALSE; //we need at least one writable index
 
     IF(NOT this->suffixed)
-      FOREVERY(RECORD indice FROM SELECT * FROM indices WHERE type = "opensearch") //legacy-indexmanager indices implicitly exist
+      FOREVERY(RECORD indice FROM indices)
         IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
           RETURN FALSE;
 
@@ -885,8 +885,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     IF(suffix = "" OR NOT IsValidConsilioIndexSuffix(suffix))
       THROW NEW Exception(`Invalid suffix name '${suffix}'`);
-    IF (RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type = "legacy-indexmanager"))
-      THROW NEW Exception(`Legacy indexmanagers do not support suffixes`);
 
     this->EnsureIndexSettings([suffix]);
     this->EnsureFieldGroupsApplied([suffix]);
@@ -935,7 +933,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
 
     this->EnsureIndexSettings(updatesuffixes);
-    IF(RecordExists(SELECT FROM this->ListAttachedIndices() WHERE type != "legacy-indexmanager" AND NOT readonly))
+    IF(RecordExists(SELECT FROM this->ListAttachedIndices() WHERE NOT readonly))
       this->EnsureFieldGroupsApplied(updatesuffixes);
     this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
   }

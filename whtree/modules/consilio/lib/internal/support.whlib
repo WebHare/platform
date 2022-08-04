@@ -66,16 +66,6 @@ PUBLIC INTEGER FUNCTION GetConsilioURLHash(STRING url)
   RETURN ToInteger(SubString(EncodeBase16(GetMD5Hash(url)), 0, 7), 0, 16);
 }
 
-PUBLIC STRING FUNCTION GetIndexManagerIcon(INTEGER indexmanager)
-{
-  SWITCH (SELECT AS INTEGER type FROM consilio.indexmanagers WHERE id = indexmanager)
-  {
-    CASE whconstant_consilio_indexmanager_legacybackend { RETURN "consilio:consilio"; }
-    CASE whconstant_consilio_indexmanager_opensearch    { RETURN "consilio:elastic";}
-  }
-  RETURN "tollium:status/unknown";
-}
-
 
 /** @short Clean up whitespace
     @long Replace all occurrences of multiple space, tab, newline and non-breaking space characters with a single space and
@@ -191,7 +181,7 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=whconstant_consilio_indexmanager_opensearch AND address="builtin-opensearch"))
+  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE address="builtin-opensearch"))
     INSERT
         [ name := "consilio:opensearch"
         , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]

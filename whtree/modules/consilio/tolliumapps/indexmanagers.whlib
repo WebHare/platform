@@ -22,8 +22,6 @@ PUBLIC STATIC OBJECTTYPE IndexManagers EXTEND TolliumScreenBase
     RETURN SELECT rowkey := id
                 , name
                 , address := address LIKE "builtin*" ? `<${this->GetTid(".address-builtin")}>` : address
-                , type := type = whconstant_consilio_indexmanager_legacybackend ? this->GetTid(".indexmgr-builtin") : this->GetTid(".indexmgr-elasticsearch")
-                , icon := ^mgrs->embeddedlist->GetIcon(type = whconstant_consilio_indexmanager_legacybackend ? "consilio:consilio" : type = whconstant_consilio_indexmanager_opensearch ? "consilio:elastic" : "")
              FROM consilio.indexmanagers;
   }
   MACRO OnEditMgr(RECORD row)
@@ -58,118 +56,99 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     IF(data.id != 0)
     {
       ^indexmgr->value := SELECT * FROM consilio.indexmanagers WHERE id = data.id;
-      this->builtinaddress := ^address->value IN ["builtin","builtin-opensearch"];
+      this->builtinaddress := ^address->value = "builtin-opensearch";
       IF (this->builtinaddress)
       {
         ^address->enabled := FALSE;
         ^address->value := `<${this->GetTid(".address-builtin")}>`;
-        ^type->enabled := FALSE;
       }
-      IF (^indexmgr->value.type = whconstant_consilio_indexmanager_opensearch)
+
+      // Read Elasticsearch configuration
+      TRY
       {
-        // Read Elasticsearch configuration
-        TRY
-        {
-          this->cursettings := GetElasticsearchSettings(data.id, FALSE, [ timeout := 3000 ]);
-        }
-        CATCH(OBJECT e)
-        {
-          this->RunSimpleScreen("error", this->GetTid(".cannotretrievesettings", e->what));
-        }
-        ^threshold_enabled->value := NOT CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled") OR this->cursettings."cluster.routing.allocation.disk.threshold_enabled" != "false";
-        ^watermark_low->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.low") ? this->cursettings."cluster.routing.allocation.disk.watermark.low" : "";
-        ^watermark_high->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.high") ? this->cursettings."cluster.routing.allocation.disk.watermark.high" : "";
-        ^watermark_flood->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.flood_stage") ? this->cursettings."cluster.routing.allocation.disk.watermark.flood_stage" : "";
+        this->cursettings := GetElasticsearchSettings(data.id, FALSE, [ timeout := 3000 ]);
       }
+      CATCH(OBJECT e)
+      {
+        this->RunSimpleScreen("error", this->GetTid(".cannotretrievesettings", e->what));
+      }
+      ^threshold_enabled->value := NOT CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled") OR this->cursettings."cluster.routing.allocation.disk.threshold_enabled" != "false";
+      ^watermark_low->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.low") ? this->cursettings."cluster.routing.allocation.disk.watermark.low" : "";
+      ^watermark_high->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.high") ? this->cursettings."cluster.routing.allocation.disk.watermark.high" : "";
+      ^watermark_flood->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.flood_stage") ? this->cursettings."cluster.routing.allocation.disk.watermark.flood_stage" : "";
     }
 
-    this->OnTypeChange();
-  }
-  MACRO OnTypeChange()
-  {
-    BOOLEAN is_elasticsearch := ^type->value = whconstant_consilio_indexmanager_opensearch;
-   IF (is_elasticsearch)
-    {
-      ^settings->type := "regular";
-    }
-    ELSE
-    {
-      ^settings->type := "server";
-    }
     //require address if we've already got a builtin version of this one
-    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE type = ^type->value AND id != this->id AND address IN ["builtin","builtin-opensearch"]);
+    ^address->required := RecordExists(SELECT FROM consilio.indexmanagers WHERE id != this->id AND address = "builtin-opensearch");
   }
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
 
-    IF (^type->value = whconstant_consilio_indexmanager_opensearch AND ^threshold_enabled->value)
+    // The watermark values should all be either percentages or absolute byte values
+    RECORD ARRAY watermarks :=
+        [ CELL[ ^watermark_low->value ]
+        , CELL[ ^watermark_high->value ]
+        , CELL[ ^watermark_flood->value ]
+        ];
+    // Count the number of percentages (default value is a percentage)
+    INTEGER num_percent := SELECT AS INTEGER Count(*) FROM watermarks WHERE value = "" OR value LIKE "*%";
+    // The number of percentages should be either 0 or 3
+    IF (num_percent = 0)
     {
-      // The watermark values should all be either percentages or absolute byte values
-      RECORD ARRAY watermarks :=
-          [ CELL[ ^watermark_low->value ]
-          , CELL[ ^watermark_high->value ]
-          , CELL[ ^watermark_flood->value ]
-          ];
-      // Count the number of percentages (default value is a percentage)
-      INTEGER num_percent := SELECT AS INTEGER Count(*) FROM watermarks WHERE value = "" OR value LIKE "*%";
-      // The number of percentages should be either 0 or 3
-      IF (num_percent = 0)
-      {
-        // Check for valid byte values
-        INTEGER64 low_bytes := ParseElasticsearchBytes(^watermark_low->value);
-        IF (low_bytes < 0)
-          work->AddErrorFor(^watermark_low, this->GetTid(".messages.invalidbytevalue", ^watermark_low->errorlabel ?? ^watermark_low->title, ^watermark_low->value));
-        INTEGER64 high_bytes := ParseElasticsearchBytes(^watermark_high->value);
-        IF (high_bytes < 0)
-          work->AddErrorFor(^watermark_high, this->GetTid(".messages.invalidbytevalue", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_high->value));
-        INTEGER64 flood_bytes := ParseElasticsearchBytes(^watermark_flood->value);
-        IF (flood_bytes < 0)
-          work->AddErrorFor(^watermark_flood, this->GetTid(".messages.invalidbytevalue", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_flood->value));
+      // Check for valid byte values
+      INTEGER64 low_bytes := ParseElasticsearchBytes(^watermark_low->value);
+      IF (low_bytes < 0)
+        work->AddErrorFor(^watermark_low, this->GetTid(".messages.invalidbytevalue", ^watermark_low->errorlabel ?? ^watermark_low->title, ^watermark_low->value));
+      INTEGER64 high_bytes := ParseElasticsearchBytes(^watermark_high->value);
+      IF (high_bytes < 0)
+        work->AddErrorFor(^watermark_high, this->GetTid(".messages.invalidbytevalue", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_high->value));
+      INTEGER64 flood_bytes := ParseElasticsearchBytes(^watermark_flood->value);
+      IF (flood_bytes < 0)
+        work->AddErrorFor(^watermark_flood, this->GetTid(".messages.invalidbytevalue", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_flood->value));
 
-        // Check if low >= high >= flood (absolute values count free disk space)
-        IF (NOT work->HasFailed())
-        {
-          IF (high_bytes > low_bytes)
-            work->AddErrorFor(^watermark_high, this->GetTid(".messages.valuetoohigh", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_low->errorlabel ?? ^watermark_low->title));
-          IF (flood_bytes > high_bytes)
-            work->AddErrorFor(^watermark_flood, this->GetTid(".messages.valuetoohigh", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_high->errorlabel ?? ^watermark_high->title));
-        }
-      }
-      ELSE IF (num_percent = 3)
+      // Check if low >= high >= flood (absolute values count free disk space)
+      IF (NOT work->HasFailed())
       {
-        // Check for valid percentages
-        STRING low_value := ^watermark_low->value ?? default_watermark_low;
-        INTEGER low_percent := ToInteger(Left(low_value, Length(low_value) - 1), 0);
-        IF (low_percent <= 0 OR low_percent >= 100)
-          work->AddErrorFor(^watermark_low, this->GetTid(".messages.invalidpercentage", ^watermark_low->errorlabel ?? ^watermark_low->title, ^watermark_low->value));
-        STRING high_value := ^watermark_high->value ?? default_watermark_high;
-        INTEGER high_percent := ToInteger(Left(high_value, Length(high_value) - 1), 0);
-        IF (high_percent <= 0 OR high_percent >= 100)
-          work->AddErrorFor(^watermark_high, this->GetTid(".messages.invalidpercentage", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_high->value));
-        STRING flood_value := ^watermark_flood->value ?? default_watermark_flood;
-        INTEGER flood_percent := ToInteger(Left(flood_value, Length(flood_value) - 1), 0);
-        IF (flood_percent <= 0 OR flood_percent >= 100)
-          work->AddErrorFor(^watermark_flood, this->GetTid(".messages.invalidpercentage", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_flood->value));
-
-        // Check if low <= high <= flood (percentages count used disk space)
-        IF (NOT work->HasFailed())
-        {
-          IF (high_percent < low_percent)
-            work->AddErrorFor(^watermark_high, this->GetTid(".messages.valuetoolow", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_low->errorlabel ?? ^watermark_low->title));
-          IF (flood_percent < high_percent)
-            work->AddErrorFor(^watermark_flood, this->GetTid(".messages.valuetoolow", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_high->errorlabel ?? ^watermark_high->title));
-        }
+        IF (high_bytes > low_bytes)
+          work->AddErrorFor(^watermark_high, this->GetTid(".messages.valuetoohigh", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_low->errorlabel ?? ^watermark_low->title));
+        IF (flood_bytes > high_bytes)
+          work->AddErrorFor(^watermark_flood, this->GetTid(".messages.valuetoohigh", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_high->errorlabel ?? ^watermark_high->title));
       }
-      ELSE
-        work->AddError(this->GetTid(".messages.inconsistentwatermarks"));
     }
+    ELSE IF (num_percent = 3)
+    {
+      // Check for valid percentages
+      STRING low_value := ^watermark_low->value ?? default_watermark_low;
+      INTEGER low_percent := ToInteger(Left(low_value, Length(low_value) - 1), 0);
+      IF (low_percent <= 0 OR low_percent >= 100)
+        work->AddErrorFor(^watermark_low, this->GetTid(".messages.invalidpercentage", ^watermark_low->errorlabel ?? ^watermark_low->title, ^watermark_low->value));
+      STRING high_value := ^watermark_high->value ?? default_watermark_high;
+      INTEGER high_percent := ToInteger(Left(high_value, Length(high_value) - 1), 0);
+      IF (high_percent <= 0 OR high_percent >= 100)
+        work->AddErrorFor(^watermark_high, this->GetTid(".messages.invalidpercentage", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_high->value));
+      STRING flood_value := ^watermark_flood->value ?? default_watermark_flood;
+      INTEGER flood_percent := ToInteger(Left(flood_value, Length(flood_value) - 1), 0);
+      IF (flood_percent <= 0 OR flood_percent >= 100)
+        work->AddErrorFor(^watermark_flood, this->GetTid(".messages.invalidpercentage", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_flood->value));
+
+      // Check if low <= high <= flood (percentages count used disk space)
+      IF (NOT work->HasFailed())
+      {
+        IF (high_percent < low_percent)
+          work->AddErrorFor(^watermark_high, this->GetTid(".messages.valuetoolow", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_low->errorlabel ?? ^watermark_low->title));
+        IF (flood_percent < high_percent)
+          work->AddErrorFor(^watermark_flood, this->GetTid(".messages.valuetoolow", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_high->errorlabel ?? ^watermark_high->title));
+      }
+    }
+    ELSE
+      work->AddError(this->GetTid(".messages.inconsistentwatermarks"));
 
     IF (NOT work->HasFailed())
     {
       RECORD toset := ^indexmgr->value;
       IF(this->builtinaddress)
-        toset.address := ^type->value = whconstant_consilio_indexmanager_opensearch ? "builtin-opensearch" : "builtin";
+        toset.address := "builtin-opensearch";
 
       INTEGER indexmgrid := this->id;
       IF(indexmgrid != 0)
@@ -180,46 +159,43 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
         INSERT CELL[ ...toset, id := indexmgrid ] INTO consilio.indexmanagers;
       }
 
-      IF (^type->value = whconstant_consilio_indexmanager_opensearch)
+      RECORD newsettings;
+      IF (^threshold_enabled->value)
       {
-        RECORD newsettings;
-        IF (^threshold_enabled->value)
-        {
-          IF (CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled")
-              AND this->cursettings."cluster.routing.allocation.disk.threshold_enabled" = "false")
-            INSERT CELL "cluster.routing.allocation.disk.threshold_enabled" := DEFAULT RECORD/*null*/ INTO newsettings;
+        IF (CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled")
+            AND this->cursettings."cluster.routing.allocation.disk.threshold_enabled" = "false")
+          INSERT CELL "cluster.routing.allocation.disk.threshold_enabled" := DEFAULT RECORD/*null*/ INTO newsettings;
 
-          STRING new_low_value := ^watermark_low->value != default_watermark_low ? ^watermark_low->value : "";
-          IF (new_low_value != "")
-            INSERT CELL "cluster.routing.allocation.disk.watermark.low" := new_low_value INTO newsettings;
-          ELSE
-            INSERT CELL "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD/*null*/ INTO newsettings;
-          STRING new_high_value := ^watermark_high->value != default_watermark_high ? ^watermark_high->value : "";
-          IF (new_high_value != "")
-            INSERT CELL "cluster.routing.allocation.disk.watermark.high" := new_high_value INTO newsettings;
-          ELSE
-            INSERT CELL "cluster.routing.allocation.disk.watermark.high" := DEFAULT RECORD/*null*/ INTO newsettings;
-          STRING new_flood_value := ^watermark_flood->value != default_watermark_flood ? ^watermark_flood->value : "";
-          IF (new_flood_value != "")
-            INSERT CELL "cluster.routing.allocation.disk.watermark.flood_stage" := new_flood_value INTO newsettings;
-          ELSE
-            INSERT CELL "cluster.routing.allocation.disk.watermark.flood_stage" := DEFAULT RECORD/*null*/ INTO newsettings;
-        }
+        STRING new_low_value := ^watermark_low->value != default_watermark_low ? ^watermark_low->value : "";
+        IF (new_low_value != "")
+          INSERT CELL "cluster.routing.allocation.disk.watermark.low" := new_low_value INTO newsettings;
         ELSE
+          INSERT CELL "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD/*null*/ INTO newsettings;
+        STRING new_high_value := ^watermark_high->value != default_watermark_high ? ^watermark_high->value : "";
+        IF (new_high_value != "")
+          INSERT CELL "cluster.routing.allocation.disk.watermark.high" := new_high_value INTO newsettings;
+        ELSE
+          INSERT CELL "cluster.routing.allocation.disk.watermark.high" := DEFAULT RECORD/*null*/ INTO newsettings;
+        STRING new_flood_value := ^watermark_flood->value != default_watermark_flood ? ^watermark_flood->value : "";
+        IF (new_flood_value != "")
+          INSERT CELL "cluster.routing.allocation.disk.watermark.flood_stage" := new_flood_value INTO newsettings;
+        ELSE
+          INSERT CELL "cluster.routing.allocation.disk.watermark.flood_stage" := DEFAULT RECORD/*null*/ INTO newsettings;
+      }
+      ELSE
+      {
+        // If the threshold is currently enabled (the default settings are used or the threshold is set)
+        IF (NOT CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled")
+            OR this->cursettings."cluster.routing.allocation.disk.threshold_enabled" != "false")
+          INSERT CELL "cluster.routing.allocation.disk.threshold_enabled" := "false" INTO newsettings;
+      }
+      IF (RecordExists(newsettings))
+      {
+        RECORD result := SetElasticsearchSettings(indexmgrid, newsettings);
+        IF (result.status != SearchOk)
         {
-          // If the threshold is currently enabled (the default settings are used or the threshold is set)
-          IF (NOT CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled")
-              OR this->cursettings."cluster.routing.allocation.disk.threshold_enabled" != "false")
-            INSERT CELL "cluster.routing.allocation.disk.threshold_enabled" := "false" INTO newsettings;
-        }
-        IF (RecordExists(newsettings))
-        {
-          RECORD result := SetElasticsearchSettings(indexmgrid, newsettings);
-          IF (result.status != SearchOk)
-          {
-            STRING error := CellExists(result,"result") AND CellExists(result.result, "error") ? result.result.error.reason : result.status;
-            work->AddError(this->GetTid(".messages.savesettingserror", error));
-          }
+          STRING error := CellExists(result,"result") AND CellExists(result.result, "error") ? result.result.error.reason : result.status;
+          work->AddError(this->GetTid(".messages.savesettingserror", error));
         }
       }
     }

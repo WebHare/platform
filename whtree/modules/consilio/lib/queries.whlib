@@ -14,7 +14,6 @@ LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::consilio/lib/internal/cqmatch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 
@@ -1726,9 +1725,6 @@ STRING FUNCTION FormatQueryRecursive(INTEGER indexid, RECORD query, STRING field
 {
   IF (NOT RecordExists(query))
     RETURN "";
-
-  IF (query._type = "__delayed_cqmatch") //delayed cqmatch until we know the actual index type
-    query := __CQMatch(query.__delayed_cqmatch.field, query.__delayed_cqmatch.matchtype, query.__delayed_cqmatch.value, CELL[...query.__delayed_cqmatch.options, __opensearch := NOT forconsilio ]);
 
   IF (CellExists(query, "aggregation"))
   {

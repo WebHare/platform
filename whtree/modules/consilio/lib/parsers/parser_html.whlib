@@ -14,10 +14,6 @@ BOOLEAN content_links_only;
 RECORD parsed_page;
 // Path from current element [0] to the root element [END]
 STRING ARRAY element_path;
-// Language for each of the elements of element_path
-STRING ARRAY element_lang;
-// Last printed language (used in detecting language changes while not outputting text)
-STRING curlang;
 // Are we parsing the page's text? (Text within <!--wh_consilio_content-->
 // if found, within <body></body> otherwise)
 BOOLEAN parsing_body;
@@ -68,8 +64,6 @@ PUBLIC RECORD FUNCTION ParseHTMLPage(BLOB htmlpage, BOOLEAN contentlinksonly)
   consilio_comments := FALSE;
   content_links_only := contentlinksonly;
   element_path := DEFAULT STRING ARRAY;
-  element_lang := DEFAULT STRING ARRAY;
-  curlang := "";
   parsing_body := FALSE;
   adding_text := FALSE;
   image_links := DEFAULT STRING ARRAY;
@@ -146,23 +140,6 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
   // Add the element to the element path
   INSERT ToUppercase(elementname) INTO element_path AT 0;
 
-  // Add element language
-  STRING lang := SELECT AS STRING ToUppercase(value) FROM attrs WHERE field = "LANG";
-  IF (lang != "")
-  {
-    IF (adding_text AND (Length(element_lang) = 0 OR lang != element_lang[0]))
-    {
-      AddTextToPage("\x1E" || lang || "\x1E");
-      curlang := lang;
-    }
-
-    INSERT lang INTO element_lang AT 0;
-  }
-  ELSE IF (Length(element_lang) > 0)
-    INSERT element_lang[0] INTO element_lang AT 0; // Copy current language
-  ELSE
-    INSERT "" INTO element_lang AT 0;
-
   IF (element_path[0] = "META")
   {
     // We found meta information, check if we need it
@@ -217,8 +194,6 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
         IF (parsed_page.keywords != "")
           parsed_page.keywords := parsed_page.keywords || " ";
         // Check if these are language-specific keywords
-        IF (lang != "")
-          content := "\x1E" || lang || "\x1E" || content || "\x1E\x1E";
         parsed_page.keywords := parsed_page.keywords || content;
       }
     }
@@ -290,12 +265,6 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
     // Start parsing the body text, if page is not using comment
     IF (NOT consilio_comments)
     {
-      // We were not adding text, we have a language and it differs from the last outputted language
-      IF (NOT adding_text AND element_lang[0] != curlang)
-      {
-        AddTextToPage("\x1E" || element_lang[0] || "\x1E");
-        curlang := element_lang[0];
-      }
       parsing_body := TRUE;
       adding_text := TRUE;
     }
@@ -342,15 +311,6 @@ MACRO ElementEnd(STRING name)
     adding_text := parsing_body;
   }
 
-  // Reset language text if needed
-  DELETE FROM element_lang AT 0;
-  // We are adding text, we have a language left and it differs from the last outputted language
-  IF (adding_text AND Length(element_lang) > 0 AND element_lang[0] != curlang)
-  {
-    AddTextToPage("\x1E" || element_lang[0] || "\x1E");
-    curlang := element_lang[0];
-  }
-
   // Remove element from element path
   DELETE FROM element_path AT 0;
 }
@@ -386,13 +346,6 @@ MACRO Comment(STRING text)
       parsed_page.text := "";
       textbuffer := "";
       consilio_comments := TRUE;
-
-      // We were adding text, re-output language tag
-      IF (Length(element_lang) > 0)
-      {
-        AddTextToPage("\x1E" || element_lang[0] || "\x1E");
-        curlang := element_lang[0];
-      }
     }
     parsing_body := TRUE;
     adding_text := TRUE;

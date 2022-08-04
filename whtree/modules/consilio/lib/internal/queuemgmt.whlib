@@ -10,15 +10,6 @@ PUBLIC RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFA
   RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
 }
 
-PUBLIC BOOLEAN FUNCTION __ConsilioUpdateConfiguration(STRING ARRAY args)
-{
-  IF (Length(args) = 0)
-    RETURN FALSE;
-
-  STRING command := "CONFIGURE " || Detokenize(args, " ");
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
-}
-
 PUBLIC BOOLEAN FUNCTION __ConsilioRestartQueueManager()
 {
   STRING command := "SHUTDOWN";
