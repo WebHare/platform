@@ -7,12 +7,10 @@ LOADLIB "wh::datetime.whlib";
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
 LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenContentSource, OpenConsilioCatalog, OpenConsilioCatalogById;
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -344,8 +342,6 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
 }
 
 /** @short Parse a user query
-    @long If searches are saved (the save_searches option for %RunConsilioSearch, or the save_searches property of the
-        SearchObject), this is the query that is saved (not the complete query that is sent to the index manager)
     @param userquery User query string
     @cell(string) options.querymode How to combine the toplevel terms, either 'AND' or 'OR' (defaults to 'AND')
     @cell(record array) options.defaultfields Fields to search for terms without explicit field specification
@@ -379,7 +375,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
 
   RETURN CELL[ _type := "user"
              , userquery
-             , defaultrequire := options.querymode = "AND" ? require_required : require_allowed
+             , options.querymode
              , options.defaultfields
              , thesaurus
              , options.synonyms
@@ -387,7 +383,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
              ];
 }
 
-/** @short Builds an aggregation query. Only works on ElasticSearch catalogs.
+/** @short Builds an aggregation query
     @param field Field to aggregate over
     @param type Aggregation type (`"count"`, `"min"`, `"max"`, `"terms"`, `"top_hits"`, `"cardinality"`)
     @cell options.name Name of the query, to refer to this query (defaults to the used field)

@@ -1,29 +1,21 @@
 <?wh
 
-LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
-LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection;
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
 LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
-LOADLIB "mod::publisher/lib/publisher.whlib";
-
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
@@ -508,9 +500,10 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
             result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
         }
       }
-
-      result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
     }
+
+    IF (RecordExists(result.session))
+      ModuleLog("consilio:queries", EncodeHSON(CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]));
 
     BroadcastEvent("consilio:executedquery", [ isstart := FALSE
                                              , uuid := queryuuid
@@ -1502,76 +1495,6 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (options.excludereadonly ? catalog_indexmanagers.readonly = FALSE : TRUE)
     ORDER BY catalog_indexmanagers.searchpriority DESC;
-}
-
-RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restrict, DATETIME searchdate, INTEGER numresults)
-{
-  IF (NOT RecordExists(sess) OR /*sess.sessid="" OR*/ idx = 0 OR numresults < 0)
-    RETURN sess;
-
-  // Format query and truncate to fit into 1024-byte database limit
-  STRING querystring := __FormatQuery(idx, query, [ field := "", userquery := TRUE ]); //FIXME language for __FormatQuery
-  querystring := LimitUTF8Bytes(querystring, 1024);
-
-  INTEGER site;
-  // Check if the siteid is supplied explicitly through the session record
-  IF (CellExists(sess, "siteid"))
-    site := SELECT AS INTEGER id FROM system.sites WHERE id = sess.siteid;
-  IF (site = 0)
-  {
-    // Try to determine the searched site
-    RECORD ARRAY contentsource := SELECT fsobject
-                                    FROM consilio.contentsources
-                                   WHERE catalogid = idx
-                                         AND contentprovider = "publisher:webhare"
-                                         AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-    IF (Length(contentsource) = 1)
-    {
-      // Only one site added to index, use it
-      site := SELECT AS INTEGER parentsite
-                FROM system.fs_objects
-               WHERE fs_objects.id = VAR contentsource[0].fsobject
-                     AND fs_objects.isfolder = TRUE;
-    }
-    ELSE
-    {
-      // Lookup restriction url (LookupPublisherURL always returns a record, 'site' may be 0)
-      site := LookupPublisherURL(restrict).site;
-    }
-  }
-
-  RETURN RunInSeparatePrimary(PTR StoreQuery(sess, querystring, idx, numresults, site));
-}
-
-RECORD FUNCTION StoreQuery(RECORD sess, STRING querystring, INTEGER idx, INTEGER numresults, INTEGER site)
-{
-  GetPrimary()->BeginWork();
-
-  DATETIME now := GetCurrentDateTime();
-  RECORD savedsess := SELECT * FROM consilio.query_results WHERE COLUMN sess = VAR sess.sessid;
-
-  // Create a new search session if the session doesn't exists yet, if another
-  // query was issued or if the session expired
-  IF (NOT RecordExists(savedsess) OR savedsess.query != querystring OR AddTimeToDate(session_timeout * 60 * 1000, savedsess.when) < now)
-  {
-    // Update session id and insert new session
-    sess.sessid := GenerateUFS128BitId();
-    INSERT INTO consilio.query_results(query, when, catalogid, pages, sess, results, site, tag)
-         VALUES (querystring, now, idx, 0, sess.sessid, numresults, site, sess.tag);
-  }
-  ELSE
-  {
-    // Update existing session
-    UPDATE consilio.query_results
-       SET when := now
-         , pages := pages + 1
-         , results := numresults
-     WHERE COLUMN sess = VAR sess.sessid;
-  }
-
-  GetPrimary()->CommitWork();
-
-  RETURN sess;
 }
 
 // Create a (flattened) list of requested fields

@@ -1,12 +1,10 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
-LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";

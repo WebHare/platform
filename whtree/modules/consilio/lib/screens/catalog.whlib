@@ -1,10 +1,8 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
@@ -13,9 +11,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
-LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -317,11 +313,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       OBJECT dlg := this->LoadScreen(".catalogpreview", ^catalogs->selection);
       dlg->RunModal();
     }
-  }
-
-  MACRO DoQueryReport()
-  {
-    this->RunScreen("report.xml#queries", [ catalogid := ^catalogs->selection.id ]);
   }
 
   MACRO DoMarkCatalogAsComplete()
@@ -1094,7 +1085,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
         }
         CASE TypeID(DATETIME)
         {
-          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || DateTimeToString(field.value) || ")" : "";
+          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || FormatISO8601DateTime(field.value) || ")" : "";
         }
         CASE TypeID(MONEY)
         {

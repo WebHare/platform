@@ -10,7 +10,6 @@ LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/remoting/server.whlib";
 
 RECORD FUNCTION GetCacheableSuggestSettings()

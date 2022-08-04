@@ -72,7 +72,7 @@ MACRO ConsilioTest()
   search_2_obj->summary_length := 0;
   RECORD results;
 
-  results := search_1_obj->Search("body:blabla", 0, 10);
+  results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
       , results :=
@@ -242,7 +242,7 @@ MACRO ConsilioTest()
   Print(`.. consilio:testfw_frontend_1 has indexed file_5\n`);
 
   search_1_obj->empty_result_record := [ extrafield := "" ];
-  results := search_1_obj->Search("extrafield:testextra5", 0, 10);
+  results := search_1_obj->SearchQuery(CQMatch("extrafield", "CONTAINS", "testextra5"), 0, 10);
   TestEq(
       [ totalcount :=       1
       , results :=
@@ -324,7 +324,7 @@ MACRO ConsilioTest()
       ], results);
 
   // Test not indexing internal links
-  results := search_1_obj->Search("body:blabla", 0, 10);
+  results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
       , results :=
@@ -345,7 +345,7 @@ MACRO ConsilioTest()
   Sleep(500); //this is potentially a race unless we can somehow add a marker ?
 
   // The search should still (only) return file 1
-  results := search_1_obj->Search("body:blabla", 0, 10);
+  results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
       , results :=

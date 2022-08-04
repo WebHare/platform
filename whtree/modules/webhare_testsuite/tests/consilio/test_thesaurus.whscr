@@ -5,7 +5,6 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
@@ -42,7 +41,7 @@ MACRO TestThesaurus()
 
   testfw->BeginWork();
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
-      VALUES(idprefix||"a", idprefix||"a1", "a");
+      VALUES(idprefix||"a", idprefix||"a1", "a c");
   testfw->CommitWork();
 
   // Rebuild the index
@@ -50,13 +49,9 @@ MACRO TestThesaurus()
   contentsource->WaitForIndexingDone();
 
   // Search
-  RECORD res := search_obj->Search("+contentsource:"||contentsource->id||" +a", 0, 1000);
+  RECORD res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +b", 0, 1000);
-  TestEq(0, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:a", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:b", 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(0, Length(res.results));
 
 
@@ -67,22 +62,15 @@ MACRO TestThesaurus()
   testfw->CommitWork();
 
   // Search again
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +a", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +b", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:a", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:b", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:\"a\"", 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:\"b\"", 0, 1000);
-  TestEq(0, Length(res.results)); // Phrase queries are treated as exact match queries
-
   res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
   res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"b\"") ]), 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"a c\"") ]), 0, 1000);
+  TestEq(1, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"b c\"") ]), 0, 1000);
   TestEq(1, Length(res.results));
   res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ synonyms := FALSE ]) ]), 0, 1000);
   TestEq(0, Length(res.results));

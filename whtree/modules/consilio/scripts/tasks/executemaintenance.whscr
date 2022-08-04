@@ -69,7 +69,6 @@ DELETE FROM consilio.checked_links WHERE last_referred < limitdate
 // Clean up old searched words
 daystokeep := ReadRegistryKey("consilio.options.keepsearchterms");
 limitdate := AddDaysToDate(0-daystokeep,GetCurrentDateTime());
-DELETE FROM consilio.query_results WHERE when < limitdate;
 
 // Clean up publisher:webhare contentsources without an fsobject. shouldn't ever happen
 DELETE from consilio.contentsources WHERE fsobject = 0 AND contentprovider = "publisher:webhare";

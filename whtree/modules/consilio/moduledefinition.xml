@@ -357,66 +357,6 @@
       </d:index>
     </d:table>
 
-    <!-- Searching -->
-    <d:table name="query_results" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:obsoletecolumn name="indexid" />
-      <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:integer name="pages">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="query" nullable="0" maxlength="1024">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="results">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="sess" unique="1" nullable="0" noupdate="1" maxlength="32">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="site" references="system.sites" ondelete="set default">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="tag" maxlength="64">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:datetime name="when">
-        <d:documentation>
-
-        </d:documentation>
-      </d:datetime>
-    </d:table>
-
-    <d:table name="query_clicks" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="query" references=".query_results" ondelete="cascade" nullable="0" noupdate="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="url" nullable="0" maxlength="1024">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-    </d:table>
-
     <!-- Settings -->
     <d:table name="indexmanagers" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
@@ -504,6 +444,11 @@
         </d:documentation>
       </d:boolean>
     </d:table>
+
+    <!--TODO: https://gitlab.webhare.com/webharebv/codekloppers/-/issues/594
+    <d:obsoletetable name="query_results" primarykey="id" />
+    <d:obsoletetable name="query_clicks" primarykey="id" />
+    -->
   </databaseschema>
 
   <moduleregistry>
@@ -565,6 +510,10 @@
 
     <intercept name="blacklist" target="fetcher_blacklist" interceptfunction="lib/internal/fetcher_blacklisting.whlib#BlacklistIntercept" />
   </hooking>
+
+  <logging>
+    <log name="queries" filename="consilio_queries" />
+  </logging>
 
   <development>
     <debugflag name="changes" description="Log change actions" />

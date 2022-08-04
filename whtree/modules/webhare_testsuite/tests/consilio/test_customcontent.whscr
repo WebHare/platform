@@ -5,18 +5,16 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::float.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 
-OBJECT search_obj;
 OBJECT contentsource;
 
 RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -26,19 +24,21 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , storequery :=     FALSE
       ], options);
 
-  search_obj->empty_result_record :=
-      [ groupid :=        ""
-      , objectid :=       ""
-      , date_indexdate := DEFAULT DATETIME
-      , ...options.extrafields
-      ];
-  search_obj->save_searches := options.storequery;
-
   RECORD query := CQMatch("contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
 
-  RECORD res := search_obj->SearchQuery(query, 0, 1000);
+  RECORD res := RunConsilioSearch("consilio:testfw_customcontent", query,
+      [ first := 0
+      , count := 1000
+      , mapping :=
+          [ groupid :=        ""
+          , objectid :=       ""
+          , date_indexdate := DEFAULT DATETIME
+          , ...options.extrafields
+          ]
+      , save_searches := options.storequery
+      ]);
   RETURN
       SELECT groupid
            , objectid
@@ -55,6 +55,26 @@ MACRO TestCompleteSyncAfterCommand()
   TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
 }
 
+RECORD ARRAY FUNCTION GetLogItems(DATETIME fromtime, DATETIME totime)
+{
+  Sleep(5000); // give log time to be written
+
+  OBJECT stream := OpenWebHareLogStream("consilio_queries", fromtime, totime);
+
+  RECORD ARRAY items;
+  WHILE (TRUE)
+  {
+    RECORD rec := stream->ReadRecord();
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    INSERT CELL[ rec.time, ...DecodeHSON(rec.parts[0]) ] INTO items AT END;
+  }
+  stream->Close();
+
+  RETURN items;
+}
+
 MACRO TestCustomContent()
 {
   TestEq(0, __GetNumSubJobs());
@@ -64,8 +84,6 @@ MACRO TestCustomContent()
   TestEq(0, __GetNumSubJobs());
   Print(catalog->GetStorageInfo() || "\n");
 
-  search_obj := OpenSearchObject("en", "consilio:testfw_customcontent");
-  TestEq(0, __GetNumSubJobs());
   RECORD res;
 
   // Prefix for object/group ids, just to stress the itf
@@ -132,62 +150,48 @@ MACRO TestCustomContent()
   // Rebuild the index
   catalog->ReindexCatalog();
 
+  DATETIME start := GetCurrentDatetime();
+
   TestCompleteSyncAfterCommand();
 
-  // Test stored user queries
-  TestEq(0, Length(SELECT FROM consilio.query_results WHERE catalogid = catalog->id));
+  // Test logged user queries
+  RECORD ARRAY items := GetLogItems(start, GetCurrentDateTime());
+  TestEq(0, Length(SELECT FROM items WHERE catalogid = catalog->id));
+  start := GetCurrentDatetime();
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
-  RECORD ARRAY queries := SELECT * FROM consilio.query_results WHERE catalogid = catalog->id;
+  DATETIME stop := GetCurrentDateTime();
+  items := GetLogItems(start, stop);
+  RECORD ARRAY queries := SELECT * FROM items WHERE catalogid = catalog->id;
   TestEq(1, Length(queries));
-  TestEq("a", queries[0].query);
-  TestEq(2, queries[0].results);
-  TestEq(TRUE, queries[0].sess != "");
+  TestEq([ "a" ], ExtractUserQueries(queries[0].query));
+  TestEq(2, queries[0].result.results);
 
   // Test content source id in custom content source object
-  res := search_obj->Search("+indexed_by:"||contentsource->id, 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("indexed_by", "=", contentsource->id), [ first := 0, count := 1000 ]);
   TestEQ(6, res.totalcount);
 
   // Test date range search
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:["||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", ">=", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{"||DateTimeToString(MakeDate(2010,1,1))||",}", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", ">", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
-
-  // Test date match queries
-  // Date match queries aren't fully supported by Consilio, so they're rewritten as date range filters. As a result, you
-  // cannot just search for a date, so the query must include a non-date query.
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", ">=", MakeDate(2010,1,1)) ]), 0, 1000);
-  TestEQ(2, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
-
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", ">", MakeDate(2010,1,1)) ]), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
-
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("indexed_by", "=", contentsource->id), CQMatch("date_adate", "<=", MakeDate(2010,1,1)) ]), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(FALSE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a2"));
 
 
   // Test result fields
-  search_obj->ResetEmptyResultRecord(); // By default all known fields are returned, in this case "initialfilter" and
-                                        // "date_adate", supplemented with the default fields "groupid" and "objectid"
-                                        // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  // By default all known fields are returned
+  // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -217,8 +221,11 @@ MACRO TestCustomContent()
       , _suggested := [ input := ["a","a1"] ]
       ], res.results[0]);
 
-  search_obj->summary_length := 0; // Don't return "summary"
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)),
+      [ first := 0
+      , count := 1000
+      , summaryfield := "" // Don't return "summary"
+      ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -247,48 +254,48 @@ MACRO TestCustomContent()
       , _suggested := [ input := ["a","a1"] ]
       ], res.results[0]);
 
-  search_obj->empty_result_record :=
-      DEFAULT RECORD; // By default "groupid" and "objectid" are returned
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)),
+      [ first := 0
+      , count := 1000
+      , mapping := CELL[] // By default "groupid" and "objectid" are returned (using empty record, because default record returns all fields)
+      , summaryfield := "" // Don't return "summary"
+      ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
       ], res.results[0]);
 
-  search_obj->empty_result_record :=
-      [ _score := 0f // Generated field "_score"
-      ];
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
-  TestEq(
-      [ groupid := idprefix||"a"
-      , objectid := idprefix||"a1"
-      ], CELL[ ...res.results[0], DELETE _score ]);
-  TestEq(TRUE, res.results[0]._score > 0);
-
-  search_obj->empty_result_record :=
-      [ score := 0f // If "score" is requested and "_score" is not, the "_score" field is returned as "score"
-      ];
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)),
+      [ first := 0
+      , count := 1000
+      , mapping := CELL[] // By default "groupid" and "objectid" are returned
+      , scorefield := "score" // Add the result score in the "score" field
+      , summaryfield := "" // Don't return "summary"
+      ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
       ], CELL[ ...res.results[0], DELETE score ]);
   TestEq(TRUE, res.results[0].score > 0);
 
-  search_obj->empty_result_record :=
-      [ date_adate := DEFAULT DATETIME // Return custom field "date_adate"
-      ];
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)),
+      [ first := 0
+      , count := 1000
+      , mapping := [ date_adate := DEFAULT DATETIME ] // Return custom field "date_adate"
+      , summaryfield := "" // Don't return "summary"
+      ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
       ], res.results[0]);
 
-  search_obj->empty_result_record :=
-      [ nonexisting := "doesn't exist" // Undefined field is filled with default value in Consilio
-      ];
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:{,"||DateTimeToString(MakeDate(2010,1,1))||"]", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)),
+      [ first := 0
+      , count := 1000
+      , mapping := [ nonexisting := "doesn't exist" ] // Undefined field is filled with default value in Consilio
+      , summaryfield := "" // Don't return "summary"
+      ]);
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
@@ -552,31 +559,27 @@ MACRO TestCustomContent()
       ], SearchAll("", [ extrafields := [ date_adate := DEFAULT DATETIME ] ]));
 
   // Test exists queries
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +date_adate:*", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQHas("date_adate"), [ first := 0, count := 1000 ]);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
 
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:*", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQHas("body"), [ first := 0, count := 1000 ]);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
 
-  // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which are always
-  // applied after searching, so "+(body:* date_adate:*)" is effectively interpreted as "+body:* +date_adate:*"
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +(body:* date_adate:*)", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQOr([ CQHas("body"), CQHas("date_adate") ]), [ first := 0, count := 1000 ]);
   TestEQ(3, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
 
-  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:* +date_adate:*", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQHas("body"), CQHas("date_adate") ]), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
 
-  // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which cannot be
-  // negated and are always applied after searching, so "-body:*" is effectively interpreted as "+body:*"
-  res := search_obj->Search("+contentsource:"||contentsource->id||" -body:*", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQNot(CQHas("body")), [ first := 0, count := 1000 ]);
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
@@ -596,52 +599,39 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  res := search_obj->Search("+body:a1", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "CONTAINS", "a1"), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->Search("+body:å1", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "CONTAINS", "å1"), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->Search("+body:\"å1\"", 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "a1"), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "a1"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "å1"), [ first := 0, count := 1000 ]);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "å1"), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-
-  res := search_obj->SearchQuery(CQMatch("body", "=", "a1"), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-
-  res := search_obj->SearchQuery(CQMatch("body", "=", "å1"), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-
-  // OpenSearch searches for the term 'å1"\r\n€', which isn't indexed, Consilio tokenizes the term and will find the 'å1' result
-  res := search_obj->SearchQuery(CQMatch("body", "=", "å1\"\r\n€"), 0, 1000);
+  // OpenSearch searches for the term 'å1"\r\n€', which isn't indexed
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "å1\"\r\n€"), [ first := 0, count := 1000 ]);
   TestEq(0, res.totalcount);
 
-  // Consilio doesn't support emoji parsing
-  res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "🍻"), [ first := 0, count := 1000 ]);
   TestEq(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->SearchQuery(CQMatch("body", "CONTAINS", "🍻"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "CONTAINS", "🍻"), [ first := 0, count := 1000 ]);
   TestEq(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->SearchQuery(CQParseUserQuery("🍻"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQParseUserQuery("🍻"), [ first := 0, count := 1000 ]);
   TestEq(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
-  res := search_obj->SearchQuery(CQMatch("body", "=", "🍺"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "🍺"), [ first := 0, count := 1000 ]);
   TestEq(0, res.totalcount);
 
   // OpenSearch has a limit on the length of a field that is used for summary generating/search result highlighting. This
@@ -658,7 +648,7 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  res := search_obj->SearchQuery(CQMatch("body", "=", "aap"), 0, 1000);
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("body", "=", "aap"), [ first := 0, count := 1000 ]);
   TestEq(1, res.totalcount);
 
   testfw->BeginWork();
@@ -737,7 +727,7 @@ MACRO TestTypes()
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
       , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
-      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]
       , mapping_float_array := FLOAT[ pi, 5f ]
       , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
       , fieldgroup_integer := 1234
@@ -792,7 +782,7 @@ MACRO TestTypes()
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
       , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
-      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]//TODO: 45035996273.70496 gets rounded to 45035996273.70497 by EnforceStructure
+      , mapping_money_array := MONEY[ 3.14, 5m, 90071992547.40990m, 45035996273.70496m ]
       , mapping_float_array := FLOAT[ pi, 5f ]
       , mapping_datetime_array := [ MakeDateTime(2000, 1, 1, 12, 34, 56, 789), DEFAULT DATETIME, now ]
       , fieldgroup_integer := 1234
@@ -809,7 +799,6 @@ MACRO TestTypes()
       , filetype := ""
       , keywords := ""
       , size := 0
-      , testdate := ""
       , title := ""
       , url := ""
       , validuser := ""
