@@ -389,12 +389,12 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
 
 /** @short Builds an aggregation query. Only works on ElasticSearch catalogs.
     @param field Field to aggregate over
-    @param type Aggregation type ('count', 'min', 'max', terms", 'top_hits')
+    @param type Aggregation type (`"count"`, `"min"`, `"max"`, `"terms"`, `"top_hits"`, `"cardinality"`)
     @cell options.name Name of the query, to refer to this query (defaults to the used field)
-    @cell options.size Nr of items to keep after ordering (only for aggregation types 'terms' and 'top_hits')
-    @cell options.orderby Field to order over (only for aggregation types 'terms' and 'top_hits')
-    @cell options.orderdesc Whether to reverse the ordering (only for aggregation types 'terms' and 'top_hits')
-    @cell options.query Query to run the aggregation over (defaults to matching all results)
+    @cell options.size Nr of items to keep after ordering (only for aggregation types `"terms"` and `"top_hits"`)
+    @cell options.orderby Field to order over (only for aggregation types `"terms"` and `"top_hits"`)
+    @cell options.orderdesc Whether to reverse the ordering (only for aggregation types `"terms"` and `"top_hits"`)
+    @cell options.query Query to run the aggregation over (defaults to matching all documents in the index)
     @cell options.aggregations Subaggregations (returned by #CQAggregate)
     @return Consilio aggregation query record
 */
@@ -425,7 +425,7 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
           , field
           , options.aggregations
           ];
-  IF (type IN [ "min", "max", "count" ])
+  IF (type IN [ "min", "max", "count", "cardinality" ])
   {
   }
   ELSE IF (type IN [ "terms", "top_hits" ])
@@ -580,13 +580,16 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         scores, defaults to `""`)
     @cell(record) options.mapping The fields in this record will be returned in the search results and updated with the
         values returned by Consilio (defaults to `DEFAULT RECORD`, which returns all known fields)
+    @cell(record) options.aggregation_mapping For aggregation queries, only the aggregation results will be returned, mapped
+        using the `mapping` option, not the actual matching documents. By supplying a separate aggregation mapping, the
+        aggregation results are returned separately in an `"aggregation"` result field
     @cell(string) options.orderby Field to order over (defaults to `""`, which orders descending by score, can be set to the
         value of the `scorefield` option, doesn't have to be a field in the `mapping` option)
     @cell(boolean) options.orderdesc Whether to reverse the ordering (defaults to `TRUE` when ordering by score or `FALSE`
         when ordering by another field)
     @cell(record array) options.ordering Advanced results ordering, overrides the `orderby` and `orderdesc` options
     @cell(string) options.ordering.orderby Field to order over (required, can be set to the value of the `scorefield` option,
-        doesn't have to be a field in the `mapping` option)
+        doesn't have to be a field in the `mapping` option, but it should be an indexed field)
     @cell(boolean) options.ordering.orderdesc Whether to reverse the ordering (defaults to `TRUE` when ordering by score or
         `FALSE` when ordering by another field)
     @cell(string) options.ordering.ordermode Sort mode to use (one of `"min"`, `"max"`, `"sum"`, `"avg"` or `"median"`,
@@ -599,6 +602,8 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
     @cell(integer) return.totalcount The total number of results (not necessarily the number of returned results, if `count`
         is set to a value >= 0)
     @cell(record array) return.results The actual results
+    @cell(record array) return.aggregation The aggregation results for an aggregation query with a separate aggregation
+        mapping (see the `aggregation_mapping` option)
     @cell(string array) return.eventmasks Event masks to listen to for changes to this query
 */
 PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -615,6 +620,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , summaryfield := "summary"
       , scorefield := ""
       , mapping := DEFAULT RECORD
+      , aggregation_mapping := DEFAULT RECORD
       , orderby := ""
       , orderdesc := FALSE
       , ordering := DEFAULT RECORD ARRAY
@@ -628,7 +634,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   FOREVERY (RECORD ordering FROM options.ordering)
     options.ordering[#ordering] := ValidateOptions(
         [ orderby := ""
-        , orderdesc := ""
+        , orderdesc := FALSE
         , ordermode := ""
         ],
         ordering,
@@ -642,8 +648,8 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
 
   STRING language := options.language ?? GetTidLanguage();
   IF(NOT RecordExists(query)
-      OR (CellExists(query, "query") AND query.query._type = "nothing")
-      OR (NOT CellExists(query, "query") AND query._type = "nothing")) //will not return anything
+      OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
+      OR (NOT CellExists(query, "query") AND NOT CellExists(query, "aggregation") AND query._type = "nothing")) //will not return anything
     RETURN [ totalcount := 0
            , results := RECORD[]
            , eventmasks := STRING[]
@@ -691,6 +697,10 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       query.ordering[scoreordering].orderby := "_score";
     ELSE
       INSERT [ orderby := "_score" ] INTO query.ordering AT END;
+  }
+  IF (CellExists(query, "aggregation"))
+  {
+    search_obj->aggregation_mapping := options.aggregation_mapping;
   }
 
   RECORD results := search_obj->__SearchQuery(query, options.first, options.count, options.scorefield != "");

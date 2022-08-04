@@ -807,7 +807,7 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
     {
       RETURN DEFAULT RECORD;
     }
-    CASE "min", "max"
+    CASE "min", "max", "cardinality"
     {
       result := CellInsert(DEFAULT RECORD, aggregation._type, CELL[ aggregation.field ]);
     }
@@ -905,7 +905,7 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   RECORD result_aggregation := GetCell(result, aggregation_name);
   SWITCH (query_aggregation._type)
   {
-    CASE "min", "max"
+    CASE "min", "max", "cardinality"
     {
       IF (query_aggregation.name LIKE "date_*" OR query_aggregation.name LIKE "*.date_*")
         RETURN CellInsert(DEFAULT RECORD, query_aggregation.name, MakeDateFromText(result_aggregation.value_as_string));
@@ -1068,14 +1068,21 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
     ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
       field.value := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(value, PickFirst(fieldmapping)) FROM field.value;
     ELSE IF (TypeID(field.value) = TypeID(STRING) AND TypeID(fieldmapping) = TypeID(MONEY))
-      field := CELL[ ...field, value := __HS_SetRawMoney(ToInteger64(field.value, 0)) ];
+      field := CELL[ ...field, value := ReadMoneyValue(field.value) ];
     ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY) AND TypeID(fieldmapping) = TypeID(MONEY ARRAY))
-      field := CELL[ ...field, value := SELECT AS MONEY ARRAY __HS_SetRawMoney(ToInteger64(value, 0)) FROM ToRecordArray(field.value, "value") ];
+      field := CELL[ ...field, value := SELECT AS MONEY ARRAY ReadMoneyValue(value) FROM ToRecordArray(field.value, "value") ];
     ELSE IF (NOT valuechanged)
       CONTINUE;
     lineresult := CellInsert(CellDelete(lineresult, field.name), field.name, field.value);
   }
   RETURN lineresult;
+}
+
+MONEY FUNCTION ReadMoneyValue(STRING value)
+{
+  IF (value LIKE "*.0")
+    value := Left(value, Length(value) - 2);
+  RETURN __HS_SetRawMoney(ToInteger64(value, 0));
 }
 
 RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
@@ -1088,6 +1095,7 @@ RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
       decoded := EnforceStructure(
           [ took := 0
           , timed_out := FALSE
+          , aggregations := DEFAULT RECORD
           , hits :=
               [ total := [ value := 0, relation := "" ]
               , max_score := 0f

@@ -14,6 +14,35 @@ STRING ARRAY FUNCTION ExecTestQuery(RECORD inquery)
   RETURN SELECT AS STRING ARRAY groupid FROM searchres.results ORDER BY groupid;
 }
 
+RECORD FUNCTION ExecTestAggregation(RECORD inquery, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  BOOLEAN multipleresults := inquery.aggregation._type IN [ "terms", "top_hits" ];
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", inquery, CELL[ summaryfield := "", debug := TRUE, ...options ]);
+  RECORD result;
+  IF (CellExists(options, "aggregation_mapping"))
+  {
+    result := CELL
+        [ searchres.totalcount
+        , results := (SELECT AS STRING ARRAY groupid FROM searchres.results ORDER BY groupid)
+        ];
+    IF (multipleresults)
+      INSERT CELL aggregation := searchres.aggregation INTO result;
+    ELSE
+      INSERT CELL aggregation := searchres.aggregation[0] INTO result;
+  }
+  ELSE
+  {
+    result := CELL
+        [ searchres.totalcount
+        ];
+    IF (multipleresults)
+      INSERT CELL aggregation := searchres.results INTO result;
+    ELSE
+      INSERT CELL aggregation := searchres.results[0] INTO result;
+  }
+  RETURN result;
+}
+
 MACRO PrepareCustomCatalog()
 {
   TestEq(0, __GetNumSubJobs());
@@ -45,14 +74,12 @@ MACRO PrepareCustomCatalog()
   contentsource->WaitForIndexingDone();
 }
 
-MACRO RunTheQueries()
+MACRO RunTheMatchQueries()
 {
-  OBJECT catalog := OpenConsilioCatalog("consilio:testfw_queries");
-
   //CQMatch is for keyword fields (inequality comparisions make sense here), CQContains will be for text fields
   TestEq(["QC1"], ExecTestQuery(CQMatch("groupid", "=", "QC1")));
-  TestEq(["QC2"], ExecTestQuery(CQMatch("groupid", "=", "QC2")));
-  TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("groupid", "IN", ["QC3","QC2"])));
+  TestEq(["QC2","QC2"], ExecTestQuery(CQMatch("groupid", "=", "QC2")));
+  TestEq(["QC2","QC2","QC3"], ExecTestQuery(CQMatch("groupid", "IN", ["QC3","QC2"])));
 
   //Keywords like equality operators
   TestEq(STRING[], ExecTestQuery(CQMatch("shortkeyword", "=", "zero")));
@@ -64,19 +91,76 @@ MACRO RunTheQueries()
   TestEq(STRING[], ExecTestQuery(CQMatch("keywordfield", "=", "keyword")), "Must match exactly");
 
   //Inequality
-  TestEq(["QC1","QC2"], ExecTestQuery(CQMatch("shortkeyword", ">=", "eins")));
-  TestEq(["QC2"], ExecTestQuery(CQMatch("shortkeyword", ">", "eins")));
+  TestEq(["QC1","QC2","QC2"], ExecTestQuery(CQMatch("shortkeyword", ">=", "eins")));
+  TestEq(["QC2","QC2"], ExecTestQuery(CQMatch("shortkeyword", ">", "eins")));
   TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<", "zwei")));
   TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("shortkeyword", "<=", "zwei")));
 
   //opensearch supports treating space-separated as opaque in keyword fields
-  TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">=", "keyword number one")));
-  TestEq(["QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
+  TestEq(["QC1","QC2","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">=", "keyword number one")));
+  TestEq(["QC2","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
   TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("keywordfield", "<", "keyword number two")));
   TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", "<=", "keyword number two")));
 }
 
+MACRO RunTheAggregationQueries()
+{
+  // Count aggregation (should just be the totalcount)
+  TestThrowsLike("Name option is required for aggregation type 'count'", PTR CQAggregate("groupid", "count"));
+  TestEq([ totalcount := 4, aggregation := [ count := 4 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "count", [ name := "count" ]),
+         [ mapping := [ count := 0 ] ]));
+  TestEq([ totalcount := 3, aggregation := [ count := 3 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "count", [ name := "count", query := CQMatch("shortkeyword", ">=", "eins") ]),
+         [ mapping := [ count := 0 ] ]));
+  TestEq([ totalcount := 2, aggregation := [ count := 2 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "count", [ name := "count", query := CQMatch("shortkeyword", ">", "eins") ]),
+         [ mapping := [ count := 0 ] ]));
+
+  // Min and max values
+  TestEq([ totalcount := 4, aggregation := [ price := 10m ] ],
+         ExecTestAggregation(CQAggregate("price", "min"),
+         [ mapping := [ price := 0m ] ]));
+  TestEq([ totalcount := 4, aggregation := [ price := 30m ] ],
+         ExecTestAggregation(CQAggregate("price", "max"),
+         [ mapping := [ price := 0m ] ]));
+  // Add a query
+  TestEq([ totalcount := 2, aggregation := [ price := 20m ] ],
+         ExecTestAggregation(CQAggregate("price", "min", [ query := CQMatch("shortkeyword", ">", "eins") ]),
+         [ mapping := [ price := 0m ] ]));
+  TestEq([ totalcount := 3, aggregation := [ price := 20.5m ] ],
+         ExecTestAggregation(CQAggregate("price", "max", [ query := CQMatch("shortkeyword", ">=", "eins") ]),
+         [ mapping := [ price := 0m ] ]));
+
+  // Cardinality: number of unique values
+  TestEq([ totalcount := 4, aggregation := [ groupid := 3 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "cardinality"),
+         [ mapping := [ groupid := 0 ] ]));
+  TestEq([ totalcount := 4, aggregation := [ shortkeyword := 4 ] ],
+         ExecTestAggregation(CQAggregate("shortkeyword", "cardinality"),
+         [ mapping := [ shortkeyword := 0 ] ]));
+  // Rename the result field
+  TestEq([ totalcount := 4, aggregation := [ groupid := 4 ] ],
+         ExecTestAggregation(CQAggregate("shortkeyword", "cardinality", [ name := "groupid" ]),
+         [ mapping := [ groupid := 0 ] ]));
+  // Add a query
+  TestEq([ totalcount := 3, aggregation := [ groupid := 2 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "cardinality", [ query := CQMatch("shortkeyword", ">=", "eins") ]),
+         [ mapping := [ groupid := 0 ] ]));
+  TestEq([ totalcount := 3, aggregation := [ groupid := 3 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "cardinality", [ query := CQMatch("shortkeyword", "<=", "zwei") ]),
+         [ mapping := [ groupid := 0 ] ]));
+  // Separate aggregation and search results
+  TestEq([ totalcount := 3, results := ["QC1","QC2","QC2"], aggregation := [ groupid := 2 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "cardinality", [ query := CQMatch("shortkeyword", ">=", "eins") ]),
+         [ aggregation_mapping := [ groupid := 0 ] ]));
+  TestEq([ totalcount := 3, results := ["QC1","QC2","QC3"], aggregation := [ groupid := 3 ] ],
+         ExecTestAggregation(CQAggregate("groupid", "cardinality", [ query := CQMatch("shortkeyword", "<=", "zwei") ]),
+         [ aggregation_mapping := [ groupid := 0 ] ]));
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
-    , PTR RunTheQueries
+    , PTR RunTheMatchQueries
+    , PTR RunTheAggregationQueries
     ]);

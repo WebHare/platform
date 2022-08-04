@@ -310,6 +310,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , restrict_to := ""
       , exclude_urls := STRING[]
       , mapping := indexoptions.defaultmapping
+      , aggregation_mapping := DEFAULT RECORD
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
@@ -370,7 +371,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
     IF (options.first != defaultoptions.first)
       INSERT CELL "from" := options.first INTO searchquery;
-    IF (CellExists(searchquery, "aggs"))
+    IF (CellExists(searchquery, "aggs") AND NOT RecordExists(options.aggregation_mapping))
       INSERT CELL size := 0 INTO searchquery; // Only interested in aggregation result
     ELSE IF (options.count != defaultoptions.count)
       INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
@@ -441,50 +442,71 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     {
       IF (response.result.timed_out)
         result.status := SearchTimeOutError;
-      ELSE IF (CellExists(query, "aggregation"))
+      ELSE
       {
-        result.totalcount := result.totalcount + response.result.hits.total.value;
+        IF (CellExists(query, "aggregation"))
+        {
+          result.totalcount := result.totalcount + response.result.hits.total.value;
+          IF (RecordExists(options.aggregation_mapping))
+            INSERT CELL aggregation := RECORD[] INTO result;
 
-        // If the main aggregation is a 'count' aggregation, there are no aggregation results
-        IF (query.aggregation._type = "count")
-        {
-          RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
-          RECORD singleresult := ParseSingleElasticsearchResult(aggresult, mapping);
-          IF (RecordExists(singleresult))
-            INSERT singleresult INTO result.results AT END;
-        }
-        ELSE
-        {
-          // For now, we only have one top-level aggregation per query
-          RECORD main_aggregation := UnpackRecord(response.result.aggregations);
-          IF (RecordExists(main_aggregation))
+          // If the main aggregation is a 'count' aggregation, there are no aggregation results
+          IF (query.aggregation._type = "count")
           {
-            VARIANT aggresult := ReadElasticsearchAggregationResult(query.aggregation, main_aggregation.name, response.result.aggregations);
-            IF (IsTypeIDArray(TypeID(aggresult)))
+            RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
+            RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
+            IF (RecordExists(singleresult))
             {
-              FOREVERY (RECORD lineresult FROM aggresult)
-              {
-                RECORD singleresult := ParseSingleElasticsearchResult(lineresult, mapping);
-                IF (RecordExists(singleresult))
-                  INSERT singleresult INTO result.results AT END;
-              }
-            }
-            ELSE
-            {
-              RECORD singleresult := ParseSingleElasticsearchResult(aggresult, mapping);
-              IF (RecordExists(singleresult))
+              IF (RecordExists(options.aggregation_mapping))
+                INSERT singleresult INTO result.aggregation AT END;
+              ELSE
                 INSERT singleresult INTO result.results AT END;
             }
           }
+          ELSE
+          {
+            // For now, we only have one top-level aggregation per query
+            RECORD main_aggregation := UnpackRecord(response.result.aggregations);
+            IF (RecordExists(main_aggregation))
+            {
+              VARIANT aggresult := ReadElasticsearchAggregationResult(query.aggregation, main_aggregation.name, response.result.aggregations);
+              IF (IsTypeIDArray(TypeID(aggresult)))
+              {
+                FOREVERY (RECORD lineresult FROM aggresult)
+                {
+                  RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.aggregation_mapping ?? mapping);
+                  IF (RecordExists(singleresult))
+                  {
+                    IF (RecordExists(options.aggregation_mapping))
+                      INSERT singleresult INTO result.aggregation AT END;
+                    ELSE
+                      INSERT singleresult INTO result.results AT END;
+                  }
+                }
+              }
+              ELSE
+              {
+                RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
+                IF (RecordExists(singleresult))
+                {
+                  IF (RecordExists(options.aggregation_mapping))
+                    INSERT singleresult INTO result.aggregation AT END;
+                  ELSE
+                    INSERT singleresult INTO result.results AT END;
+                }
+              }
+            }
+          }
         }
-      }
-      ELSE
-      {
-        result.totalcount := result.totalcount + response.result.hits.total.value;
+        IF (NOT CellExists(query, "aggregation") OR RecordExists(options.aggregation_mapping))
+        {
+          IF (NOT RecordExists(options.aggregation_mapping))
+            result.totalcount := result.totalcount + response.result.hits.total.value;
 
-        // An array with length 0 is returned as VARIANT ARRAY
-        IF (Length(response.result.hits.hits) > 0)
-          result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+          // An array with length 0 is returned as VARIANT ARRAY
+          IF (Length(response.result.hits.hits) > 0)
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+        }
       }
 
       result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));

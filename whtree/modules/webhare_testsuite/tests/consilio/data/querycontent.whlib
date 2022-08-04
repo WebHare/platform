@@ -7,18 +7,28 @@ CONSTANT RECORD ARRAY contentdatabase :=
     , textfield := "text number one"
     , keywordfield := "keyword number one"
     , shortkeyword := "eins"
+    , price := 10m
     ]
   , [ groupid := "QC2"
     , body := "This is the second document in the content database"
     , textfield := "text number two"
     , keywordfield := "keyword number two"
     , shortkeyword := "zwei"
+    , price := 20m
+    ]
+  , [ groupid := "QC2"
+    , body := "This is the second object for the second document in the content database"
+    , textfield := "text number two second"
+    , keywordfield := "keyword number two second"
+    , shortkeyword := "zweite"
+    , price := 20.5m
     ]
   , [ groupid := "QC3"
     , body := "This is the third document in the content database"
     , textfield := "text number three"
     , keywordfield := "keyword number three"
     , shortkeyword := "drei"
+    , price := 30m
     ]
   ];
 
@@ -32,6 +42,7 @@ PUBLIC STATIC OBJECTTYPE QueryContent EXTEND CustomContentBase
           [ name := "textfield",               value := "", type := "text" ]
         , [ name := "keywordfield",            value := "", type := "keyword" ]
         , [ name := "shortkeyword",            value := "", type := "keyword" ]
+        , [ name := "price",                   value := 0m ]
         ];
     RETURN mapping;
   }

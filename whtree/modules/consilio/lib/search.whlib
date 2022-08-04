@@ -53,6 +53,8 @@ RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
 RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
 {
   OBJECT catalog := OpenConsilioCatalogById(indexid);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot find catalog #${indexid}`);
   RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
   defaultmapping := CELL[ ...defaultmapping
                         //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
@@ -340,6 +342,12 @@ STATIC OBJECTTYPE SearchObject
   */
   PUBLIC PROPERTY empty_result_record(pvt_empty_result_record, SetEmptyResultRecord);
 
+  /** @short Skeleton aggregation result record
+      @long Like the `empty_result_record`, but only used for aggregation queries to return the aggregation results separately
+            from the query results
+  */
+  PUBLIC RECORD aggregation_mapping;
+
   /** @short For site searches: Only results with a URL starting with this restrict_url are returned
   */
   PUBLIC STRING restrict_url;
@@ -554,6 +562,7 @@ STATIC OBJECTTYPE SearchObject
         , addscore
         , this->debug
         , throwonfailure := TRUE
+        , this->aggregation_mapping
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
@@ -569,9 +578,7 @@ STATIC OBJECTTYPE SearchObject
       this->session := result.session;
 
     // Return results
-    RETURN [ totalcount := result.totalcount
-           , results := result.results
-           ];
+    RETURN CELL[ ...result, DELETE status, DELETE session ];
   }
 
   PUBLIC MACRO ResetEmptyResultRecord()
