@@ -242,17 +242,61 @@ MACRO TestRenameCleanup()
   TestEQ(RECORD[], FindPGObjectsWithName("*othername*"));
 }
 
+MACRO TestMultiTableCleanup()
+{
+  ClearAllPostgreSQLSchemaCaches();
+  ApplyTempDatabaseSchema(`
+    <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+      <d:table name="catalogs" primarykey="id">
+        <d:integer name="id" autonumberstart="1" />
+      </d:table>
+      <d:table name="query_results" primarykey="id">
+        <d:integer name="id" autonumberstart="1" />
+        <d:obsoletecolumn name="indexid" />
+        <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0" />
+        <d:integer name="pages" />
+        <d:varchar name="query" nullable="0" maxlength="1024" />
+        <d:integer name="results" />
+        <d:varchar name="sess" unique="1" nullable="0" noupdate="1" maxlength="32" />
+        <d:integer name="site" references="system.sites" ondelete="set default" />
+        <d:varchar name="tag" maxlength="64" />
+        <d:datetime name="when" />
+      </d:table>
+      <d:table name="query_clicks" primarykey="id">
+        <d:integer name="id" autonumberstart="1" />
+        <d:integer name="query" references=".query_results" ondelete="cascade" nullable="0" noupdate="1" />
+        <d:varchar name="url" nullable="0" maxlength="1024" />
+      </d:table>
+    </databaseschema>
+`);
+
+  ClearAllPostgreSQLSchemaCaches();
+  ApplyTempDatabaseSchema(`
+    <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+      <d:table name="catalogs" primarykey="id">
+        <d:integer name="id" autonumberstart="1" />
+      </d:table>
+      <d:obsoletetable name="query_results" />
+      <d:obsoletetable name="query_clicks" />
+    </databaseschema>
+`);
+}
+
 MACRO Cleanup()
 {
   ApplyTempDatabaseSchema(`
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:obsoletetable name="basetable" />
+    <d:obsoletetable name="catalogs" />
     <d:obsoletetable name="attrtest" />
     <d:obsoletetable name="byteaconversiontest" />
     <d:obsoletetable name="colcreatetest" />
-    <d:obsoletetable name="indextext1" />
+    <d:obsoletetable name="indextest1" />
     <d:obsoletetable name="mcindextest" />
   </databaseschema>
 `);
+  ClearAllPostgreSQLSchemaCaches();
+  DumpValue(GetPrimary()->GetTableListing("webhare_testsuite_temp"), "boxed");
 }
 
 RunTestframework([ PTR SetupTempSchema
@@ -262,5 +306,6 @@ RunTestframework([ PTR SetupTempSchema
                  , PTR TestColumnAttributes
                  , PTR TestMultiColumnUniqueIndex
                  , PTR TestRenameCleanup
+                 , PTR TestMultiTableCleanup()
                  , PTR Cleanup
                  ]);
