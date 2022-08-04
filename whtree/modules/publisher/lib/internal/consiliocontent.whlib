@@ -264,6 +264,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , [ name := "whfstype", value := 0 ]
         , [ name := "whfspath", value := "" ]
         , [ name := "whfstree", value := INTEGER[] ]
+        , [ name := "whfssite", value := 0 ]
         , [ name := "date_creation", value := DEFAULT DATETIME ]
         , [ name := "date_modification", value := DEFAULT DATETIME ]
         , [ name := "date_publication", value := DEFAULT DATETIME ]
@@ -431,6 +432,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
           , whfstype := fsobj->type
           , whfspath := fsobj->whfspath
           , whfstree := whfstree
+          , whfssite := fsobj->parentsite
           , date_creation := fsobj->creationdate
           , date_modification := fsobj->modificationdate
           , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
