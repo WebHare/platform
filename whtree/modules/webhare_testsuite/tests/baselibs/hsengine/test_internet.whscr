@@ -951,16 +951,28 @@ MACRO TestWebBrowser()
   TestEQ(200, browser->GetHTTPStatusCode());
   TestEQ("2345678901", BlobToString(browser->content));
 
+  // localhost expands to 127.0.0.1 and ::1, both IP addresses are tried for connections
   browser->__checkconnectipport := PTR CheckIPPort("deny", #1, #2, #3);
-  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901" ]);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4"  ]);
   TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6"  ]);
+  TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+
   browser->__checkconnectipport := PTR CheckIPPort("deny-ipv6", #1, #2, #3);
-  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901" ]);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4"  ]);
   TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
+  TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+
   browser->__checkconnectipport := PTR CheckIPPort("deny-ipv4", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4" ]);
+  TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
   TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+
   browser->__checkconnectipport := PTR CheckIPPort("allow", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4"  ]);
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
   TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
   browser->__checkconnectipport := DEFAULT FUNCTION PTR;
