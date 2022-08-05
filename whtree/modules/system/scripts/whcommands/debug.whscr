@@ -29,6 +29,8 @@ Commands:
   joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
   terminate [process] [mask]          Terminate jobs in a process
   listflags                           List available debug flags
+  enable <flag>...                    Enable the specified debug flag
+  disable <flag>...                   Disable the specified debug flag
   getconfig                           Show currently enabled debug features
   setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
   getsecret <name>                    Get a secret
@@ -429,24 +431,49 @@ Executed instrs.:   ${stats.instructions}
       }
       UpdateSystemConfigurationRecord(CELL[testsecrets]);
     }
+    CASE "enable", "disable"
+    {
+      ParseSubArgs(
+            [ [ name := "flags", type := "paramlist" ]
+            ]);
+
+      //Validate first
+      RECORD ARRAY allflags := SELECT * FROM GatherDebugFlags() ORDER BY name;
+      RECORD ARRAY updateflags;
+      FOREVERY(STRING flag FROM args.flags)
+      {
+        RECORD match := SELECT * FROM allflags WHERE allflags.name = VAR flag;
+        IF(NOT RecordExists(match))
+          THROW NEW Exception(`Unknown flag '${flag}'`);
+
+        INSERT match INTO updateflags AT END;
+      }
+
+      //Then proceed to setting
+      IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
+        Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");
+
+      STRING ARRAY tags := GetDebugTagStringParts(__debugconfig);
+      FOREVERY(RECORD flag FROM SELECT DISTINCT * FROM updateflags ORDER BY name)
+      {
+        Print(`${args.command = "enable" ? "Enabling" : "Disabling"} ${flag.name} (${flag.description})\n`);
+        IF(args.command = "enable")
+          tags := tags CONCAT STRING[flag.name];
+        ELSE
+          tags := ArrayDelete(tags, flag.name);
+      }
+
+      RECORD debugconfig := ReadDebugSetting(Detokenize(GetSortedSet(tags),','));
+      UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
+    }
     CASE "setconfig"
     {
       ParseSubArgs(
-            [ [ name := "a", type := "switch" ]
-            , [ name := "r", type := "switch" ]
-            , [ name := "tags", type := "paramlist" ]
+            [ [ name := "tags", type := "paramlist" ]
             ]);
 
-      STRING ARRAY tags := GetDebugTagStringParts(__debugconfig);
-      IF (args.a)
-        tags := tags CONCAT args.tags;
-      ELSE IF (args.r)
-        tags := ArrayDelete(tags, args.tags);
-      ELSE
-        tags := args.tags;
-
       //we'll accept both space and comma seperated
-      RECORD debugconfig := ReadDebugSetting(Detokenize(tags,','));
+      RECORD debugconfig := ReadDebugSetting(Detokenize(args.tags,','));
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
         Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");
 

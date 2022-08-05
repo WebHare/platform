@@ -68,7 +68,7 @@ IF(RecordExists(old_indexmgr)) //For these we keep the old loop
   }
 }
 
-FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin)
+FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuiltin)
 {
   //We garbage collect indexmanagers we fully control ourselves
   RECORD result := GetIndexmanagerIndexList(indexmanager.id);

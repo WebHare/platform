@@ -75,7 +75,6 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
                         , webdesign_prepareforrendering := 0
                         , have_widgetimg := ObjectExists(this->targetsite->OpenByPath("design/img/img.jpg"))
                         , dynamicpageparameters := GetDynamicPageParameters()
-                        , dynamicpageparameters_hson := EncodeHSON(GetDynamicPageParameters())
                           //we'll enable comments if we see the plugin
                         , comments := ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
                         , sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)

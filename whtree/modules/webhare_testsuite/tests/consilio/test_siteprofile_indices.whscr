@@ -33,11 +33,8 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   TestEq(["body", "description", "keywords", "title"], GetSortedSet(maincatalog->__GetSuggestedFields())); //TODO If __GetSuggestedFields goes, consider checking testsitecatalog_mapping
 
   RECORD testindex := maincatalog->ListAttachedIndices()[0];
-  IF(testindex.type = "opensearch")
-  {
-    RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", maincatalog->GetExpectedMapping());
-    TestEq(RECORD[], diff);
-  }
+  RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", maincatalog->GetExpectedMapping());
+  TestEq(RECORD[], diff);
 
   //having indexnames makes log analysis easier
   Print(maincatalog->GetStorageInfo() || "\n");

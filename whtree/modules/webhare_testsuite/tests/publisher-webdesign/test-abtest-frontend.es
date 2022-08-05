@@ -7,10 +7,15 @@ test.registerTests(
   [ async function()
     {
       testinfo = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupABTest');
-      await test.load(testinfo.abtestlink);
+      await test.load(testinfo.abtestlink + "?appending");
 
       test.eq("myabtest", test.getDoc().documentElement.dataset.experimentId);
       test.eq("B", test.getDoc().documentElement.dataset.experimentVariant);
+
+      let dynamicpageparameters = JSON.parse(test.qS("#content").dataset.dynamicpageparameters);
+      test.eq(testinfo.abtestlink, dynamicpageparameters.absolutebaseurl);
+      test.eq("", dynamicpageparameters.subpath);
+      test.eq("?appending", dynamicpageparameters.append);
     }
 
   , 'Submit a form'

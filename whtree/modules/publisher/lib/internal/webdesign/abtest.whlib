@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -19,7 +20,7 @@ RECORD FUNCTION GetABtestInfo(INTEGER fileid)
   IF(NOT HavePrimaryTransaction())
     trans := OpenPrimary();
 
-  RECORD fileinfo := SELECT type, filelink FROM system.fs_objects WHERE id = fileid;
+  RECORD fileinfo := SELECT type, filelink, objecturl FROM system.fs_objects WHERE id = fileid;
   INTEGER abtestfile := fileinfo.type = 20 ? fileinfo.filelink : fileid;
 
   OBJECT settingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
@@ -31,7 +32,7 @@ RECORD FUNCTION GetABtestInfo(INTEGER fileid)
   IF(ObjectExists(trans))
     trans->Close(); //FIXME want to close!
 
-  RETURN [ value := settings
+  RETURN [ value := CELL[...settings, urlpath := UnpackURL(fileinfo.objecturl).urlpath ]
          , ttl := 15 * 60 * 1000
          , eventmasks := eventmasks
          ];
@@ -111,6 +112,7 @@ PUBLIC MACRO RunABTest()
   RECORD variantdata :=  GetAdhocCached([ file := myfileid, num := usevariant.num ], PTR GetMyVariant(myfileid, usevariant));
   IF(RecordExists(variantdata.dynamic))
   {
+    variantdata.dynamic.objurlpath := abinfo.urlpath; //Fixes GetDynamicPageParameters so the A/B tested page can create deeplinks
     DoWHFSExecute(usevariant.target, variantdata.dynamic, [ htmldataset := [ "experiment-id" := abinfo.abgroup
                                                                            , "experiment-variant" := usevariant.aboption
                                                                            ]]);

@@ -103,7 +103,7 @@ MACRO TestSimplePages()
   OBJECT contentdiv := doc->GetElementById("content");
   TestEq(TRUE, ObjectExists(contentdiv));
   TestEq("//" || Tokenize(siteroot->url,"//")[1] || "dynamic.shtml", contentdiv->GetAttribute("data-dynamiclink"));
-  TestEq(DEFAULT RECORD, DecodeHSON(contentdiv->GetAttribute("data-dynamicpageparameters")), "dynamic params should be unset during static publication of a StaticPageBase");
+  TestEq("null", contentdiv->GetAttribute("data-dynamicpageparameters"), "dynamic params should be unset during static publication of a StaticPageBase");
 
   OBJECT ARRAY bolds := contentdiv->GetChildElementsByTagName("b")->GetCurrentElements();
   TestEq(1, Length(bolds));

@@ -152,7 +152,7 @@ BOOLEAN FUNCTION IsOutofdateAnalysis(RECORD currentanalysis, RECORD newanalysis)
 
 PUBLIC BOOLEAN __did_opensearch_close_and_reopen; //tests currently need this to verify that we didn't unnecessarily close an index.
 
-PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING indexname, STRING suffix, STRING ARRAY synonyms, STRING lang)
+PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING indexname, STRING suffix, STRING ARRAY synonyms, STRING lang, RECORD mapping)
 {
   RECORD setanalysis := GetAnalysisForLanguage(lang);
   // Add the synonyms filter
@@ -162,7 +162,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       ] INTO setanalysis.filter;
 
   IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "EnsureOpenSearchIndexConfiguration", CELL[ indexmanager, indexname, suffix, synonyms, lang ]);
+    LogDebug("consilio:changes", "EnsureOpenSearchIndexConfiguration", CELL[ indexmanager, indexname, suffix, synonyms, lang, mapping ]);
 
   STRING fullname := indexname || (suffix != "" ? "-" || suffix : "");
   TRY
@@ -171,7 +171,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
          CELL[ settings := [ number_of_replicas := 0 // we don't configure replication on our own indicessettings
                            , analysis := setanalysis
                            ]
-             , mappings := [ dynamic := FALSE ]
+             , mappings := mapping
              ], "PUT", [ throwonfailure := TRUE ]);
   }
   CATCH(OBJECT<ElasticSearchException> e)
@@ -209,6 +209,8 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
             SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST", [ throwonfailure := FALSE ]);
         }
       }
+
+      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT", [throwonfailure := TRUE]);
     }
     ELSE
     {
@@ -236,41 +238,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
   RECORD mappings := GetCell(response.result, finalindexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
   RETURN mappings;
-}
-
-// For unmanaged Elasticsearch indices only
-PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := FALSE
-      ], options);
-
-  STRING result := SearchCommandUnsupported;
-
-  RECORD indexmanager := GetIndexManagersForIndex(indexid);
-  IF (NOT RecordExists(indexmanager))
-    THROW NEW Exception(`No such catalog #${indexid}`);
-
-  IF (options.suffix != "" AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
-    THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
-  TRY
-  {
-    IF(IsDebugTagEnabled("consilio:changes"))
-      LogDebug("consilio:changes", "EnsureIndexManagerMapping", CELL[ indexid, ...indexmanager, mapping ]);
-    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_mapping", mapping, "PUT", [throwonfailure := TRUE]);
-    result := response.status;
-  }
-  CATCH (OBJECT<ElasticSearchException> e)
-  {
-    IF(RecordExists(e->error) AND e->error.type = "illegal_argument_exception" AND e->error.reason LIKE "mapper [*]")
-      result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
-    ELSE IF (options.throwonfailure)
-      THROW;
-    ELSE
-      result := SearchHTTPError;
-  }
-  RETURN result;
 }
 
 /** @short Search an index
@@ -711,7 +678,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
       IF (indexid != -1 AND options.restrict_to != "")
         INSERT "initialfilter" INTO suggestquery._source AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST", [ throwonfailure := TRUE ]);
       result.status := response.status;
       IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
       {

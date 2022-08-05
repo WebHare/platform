@@ -9,7 +9,7 @@
 
   <div id="content" data-dynamiclink="[dynamiclink]"
                     data-webdesign-prepareforrendering="[webdesign_prepareforrendering]"
-                    data-dynamicpageparameters="[dynamicpageparameters_hson]"
+                    data-dynamicpageparameters="[dynamicpageparameters:jsonvalue]"
                     data-languagecode="[languagecode]"
                     data-languagecountry="[languagecountry]"
                     data-targetobjectpath="[targetobjectpath]"

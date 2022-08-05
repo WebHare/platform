@@ -80,7 +80,7 @@ MACRO TestAPI()
 MACRO TestUpdateIndicesMetadata()
 {
   //Is updateindices setting up all metadata properly
-  TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin), "One OpenSearch must exist");
+  TestEq(1, Length(SELECT FROM ListIndexManagers() WHERE isbuiltin), "One OpenSearch must exist");
 
   testfw->BeginWork();
 
@@ -106,7 +106,7 @@ MACRO TestUpdateIndicesMetadata()
 
 MACRO PrepareIndices()
 {
-  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+  builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE isbuiltin;
 
   //Verify the found opensearch url is correct
   TestEq(TRUE, testfw->browser->GotoWebPage(builtin_opensearch.url || "_cluster/health"));
@@ -125,7 +125,6 @@ MACRO TestInitialAttachment()
 
   TestEqMembers([[ id := index1id
                  , indexmanager := builtin_opensearch.id
-                 , type := "opensearch"
                  , searchpriority := 100
                  , indexname := testindex.indexname
                  , readonly := FALSE

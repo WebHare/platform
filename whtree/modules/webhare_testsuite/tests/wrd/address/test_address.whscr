@@ -192,6 +192,24 @@ OBJECT ASYNC FUNCTION TolliumFieldsEdit()
   SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "pdok" ]);
   testfw->CommitWork();
 
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:anycomponent",
+      [ params := [ "http://www.webhare.net/xmlns/wrd/components:addressfield", EncodeJSON([ verification := TRUE, force_verification := TRUE, wrdschema := "wrdschema:" || testfw->GetWRDSchema()->tag ])]
+      ]));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TT(":Country")->value := "NL";
+  TT(":Street")->value := "Adres komt";
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick(":Ok"), [ messagemask := "*Not enough*" ]);
+  TT(":Zip code")->value := "7521AM";
+  TT(":Number")->value := "296";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Accept correction"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close anycomponent
+
   scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
       [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
       , settings := [ required := TRUE
@@ -395,4 +413,6 @@ Runtestframework([ PTR GenericCodes
                  , PTR TestSiteprofileAddressVerify
                  , PTR TestFallbackAPI
                  , PTR TestCountryCallingCodes
-                 ]);
+                 ], [ testusers := [[ login := "user" ]
+                                   ]
+                    ]);

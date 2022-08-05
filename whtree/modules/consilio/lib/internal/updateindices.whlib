@@ -261,7 +261,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
       }
 
       IF(NOT want.catalog->suffixed)
-        FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices() WHERE type = "opensearch")
+        FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices())
         {
           RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, opensearch.indexname);
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
