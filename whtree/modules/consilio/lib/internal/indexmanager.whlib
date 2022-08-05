@@ -711,7 +711,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
       IF (indexid != -1 AND options.restrict_to != "")
         INSERT "initialfilter" INTO suggestquery._source AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST", [ throwonfailure := TRUE ]);
       result.status := response.status;
       IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
       {
