@@ -1451,7 +1451,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                               GROUP BY index_name;
         FOREVERY(RECORD ind FROM referindices)
         {
-          IF (ind.index_name LIKE "*_pkey") // primary key constraint will prevent delete
+          IF (ind.index_name LIKE "*_pkey" OR ind.index_name LIKE "*_key") // primary key / normal constraint will prevent delete
             CONTINUE;
           STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(ind.index_name)}`;
           context->AddCommand(cmd);
