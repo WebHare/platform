@@ -445,10 +445,8 @@
       </d:boolean>
     </d:table>
 
-    <!--TODO: https://gitlab.webhare.com/webharebv/codekloppers/-/issues/594
     <d:obsoletetable name="query_results" primarykey="id" />
     <d:obsoletetable name="query_clicks" primarykey="id" />
-    -->
   </databaseschema>
 
   <moduleregistry>
