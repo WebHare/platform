@@ -76,24 +76,6 @@ PUBLIC SCHEMA
     > checked_servers
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "query"
-    , DATETIME "when"
-    , INTEGER "catalogid" NULL := 0
-    , INTEGER "pages"
-    , STRING "sess"
-    , INTEGER "results"
-    , INTEGER "site" NULL := 0
-    , STRING "tag"
-    ; KEY id
-    > query_results
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "query" NULL := 0
-    , STRING "url"
-    ; KEY id
-    > query_clicks
-  , TABLE
-    < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "address"
     , BOOLEAN "secure"

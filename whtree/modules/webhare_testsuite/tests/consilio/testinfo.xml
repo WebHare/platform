@@ -1,5 +1,4 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="test_queryparser.whscr" />
   <test script="test_tika.whscr" />
 
   <!-- test ES parsers (and other internal stuff later?) - does not actually require an ES to communicate with, so we can always run this test -->

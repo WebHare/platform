@@ -7,7 +7,6 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::internal/map.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 

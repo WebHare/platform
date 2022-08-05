@@ -1,11 +1,9 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -62,12 +60,8 @@ MACRO TestBoostWords()
   csource->WaitForIndexingDone([ verbose := TRUE ]);
   Print("it's indexed\n");
 
-  OBJECT search_obj := OpenSearchObject("en", "consilio:testfw_boostwords");
-  search_obj->empty_result_record := DEFAULT RECORD;
-  search_obj->summary_length := 0;
-
   // Search for 'blabla', which will return file 2 as first result, as it has 'blabla' in its title
-  RECORD results := search_obj->Search("blabla", 0, 10);
+  RECORD results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("blabla"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
       , results :=
@@ -78,10 +72,11 @@ MACRO TestBoostWords()
               , groupid := ToString(file_1->id)
               ]
             ]
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 
   // Search for 'important', which will only return file 1
-  results := search_obj->Search("important", 0, 10);
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("important"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 1
       , results :=
@@ -89,6 +84,7 @@ MACRO TestBoostWords()
               , groupid := ToString(file_1->id)
               ]
             ]
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 
   testfw->BeginWork();
@@ -99,9 +95,8 @@ MACRO TestBoostWords()
   csource->ReindexContentSource([ rebuild := TRUE ]);
   csource->WaitForIndexingDone([ verbose := TRUE ]); //implies catalog->refresh
 
-  // Search for 'important', which will now return both files, starting with file 2, as it has 'important' in its keywords
-  results := search_obj->Search("important", 0, 10);
-  dumpvalue(results,'tree');
+  // Search for 'important', which will now return both files, starting with file 2, as it has 'important' in its (higher scoring) keywords instead of its title
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("important"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
       , results :=
@@ -112,6 +107,7 @@ MACRO TestBoostWords()
               , groupid := ToString(file_1->id)
               ]
             ]
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 
   testfw->BeginWork();
@@ -123,7 +119,7 @@ MACRO TestBoostWords()
   csource->WaitForIndexingDone([ verbose := TRUE ]);
 
   // Search for 'blabla', which will return file 1 as first result, as it has 'blabla' in its keywords
-  results := search_obj->Search("blabla", 0, 10);
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("blabla"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
       , results :=
@@ -134,10 +130,19 @@ MACRO TestBoostWords()
               , groupid := ToString(file_2->id)
               ]
             ]
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 
-  // Allow terms by default, returns file 2, which has 'schanulleke' but doesn't have 'nothing' (We use schanulleke instead of test as /webhare-tests/ in the printed output normalized 'test')
-  results := search_obj->Search("schanulleke nothing", 0, 10);
+  // AND search is default, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("schanulleke nothing"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
+  TestEq(
+      [ totalcount := 0
+      , results := DEFAULT RECORD ARRAY
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
+      ], results);
+
+  // Use OR search, returns file 2, which has 'schanulleke' but doesn't have 'nothing' (We use schanulleke instead of test as /webhare-tests/ in the printed output normalized 'test')
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("schanulleke nothing", [ querymode := "OR" ]), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 1
       , results :=
@@ -145,21 +150,15 @@ MACRO TestBoostWords()
               , groupid := ToString(file_2->id)
               ]
             ]
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 
-  // Require terms explicitly, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
-  results := search_obj->Search("+schanulleke +nothing", 0, 10);
+  // Use OR search, require terms explicitly, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
+  results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("+schanulleke +nothing", [ querymode := "OR" ]), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 0
       , results := DEFAULT RECORD ARRAY
-      ], results);
-
-  // Require terms by default, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
-  search_obj->and_search := TRUE;
-  results := search_obj->Search("schanulleke nothing", 0, 10);
-  TestEq(
-      [ totalcount := 0
-      , results := DEFAULT RECORD ARRAY
+      , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
 }
 

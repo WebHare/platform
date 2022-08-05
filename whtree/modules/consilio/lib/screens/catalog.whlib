@@ -1,10 +1,8 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
@@ -13,9 +11,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
-LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -317,11 +313,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       OBJECT dlg := this->LoadScreen(".catalogpreview", ^catalogs->selection);
       dlg->RunModal();
     }
-  }
-
-  MACRO DoQueryReport()
-  {
-    this->RunScreen("report.xml#queries", [ catalogid := ^catalogs->selection.id ]);
   }
 
   MACRO DoMarkCatalogAsComplete()
@@ -953,7 +944,7 @@ PUBLIC STATIC OBJECTTYPE EditCatalogIndex EXTEND TolliumScreenBase
 PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogname, STRING tag, STRING objectid)
 {
   INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.catalogs WHERE name = whconstant_consilio_catalog_whfs);
-  RECORD res := GetPreviewResults(parent->contexts->user, catalogid,0,whconstant_consilio_catalog_whfs,1, "+objectid:" || objectid);
+  RECORD res := GetPreviewResults(parent->contexts->user, catalogid, 0, 1, CQMatch("objectid", "=", objectid));
   //FIXME if totalcount > 1, forward to CatalogPreview
   IF(res.totalcount = 0)
     RETURN FALSE;
@@ -962,22 +953,14 @@ PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogna
   RETURN TRUE;
 }
 
-RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER contentsourceid, STRING catalog_name, INTEGER maxresults, STRING query)
+RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER contentsourceid, INTEGER maxresults, RECORD query)
 {
   RECORD ARRAY mgrs := GetIndexManagersForIndex(catalogid);
   IF(Length(mgrs)=0)
     RETURN DEFAULT RECORD;
 
-  RECORD tosend := DecodeJSON(query);
-  IF (RecordExists(tosend))
-  {
-    tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
-    RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
-  }
-  ELSE
-  {
-    RETURN SearchIndexManager(catalogid, CQParseUserQuery(query), [ addscore := TRUE ], __GetIndexManagerOptions(catalogid));
-  }
+  RECORD options := [ addscore := TRUE, count := maxresults ];
+  RETURN SearchIndexManager(catalogid, query ?? CQAll(), options, __GetIndexManagerOptions(catalogid));
 }
 
 PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
@@ -998,7 +981,9 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
       this->^query->value := CellExists(catalog,'query') ? catalog.query : '';
     }
 
-    ^consilio_autosuggest->SetSearchCatalog(this->catalog_name);
+    OBJECT catalogobj := OpenConsilioCatalog(catalog.tag);
+    IF (RecordExists(SELECT FROM catalogobj->GetExpectedMapping() AS mapping WHERE CellExists(mapping, "suggested") ? mapping.suggested : FALSE))
+      ^consilio_autosuggest->SetSearchCatalog(this->catalog_name);
   }
 
   MACRO DoSearch(BOOLEAN showall DEFAULTSTO FALSE)
@@ -1010,7 +995,12 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
     RECORD search;
     TRY
     {
-      search := GetPreviewResults(this->tolliumuser, this->catalog_id, this->contentsourceid, this->catalog_name, numresults, this->^query->value);
+      RECORD query := DecodeJSON(^query->value);
+      IF (RecordExists(query))
+        query := CQOpenSearch(query);
+      ELSE
+        query := CQParseUserQuery(^query->value);
+      search := GetPreviewResults(this->tolliumuser, this->catalog_id, this->contentsourceid, numresults, query);
     }
     CATCH (OBJECT<SearchException> error)
     {
@@ -1095,7 +1085,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
         }
         CASE TypeID(DATETIME)
         {
-          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || DateTimeToString(field.value) || ")" : "";
+          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || FormatISO8601DateTime(field.value) || ")" : "";
         }
         CASE TypeID(MONEY)
         {
@@ -1158,24 +1148,14 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
         fieldlink := PTR this->frame->OpenBrowserWindow(fieldvalue, "WebHareConsilioPreview");
       }
 
-      // If this field has a standard field text, use it, otherwise create and append a new text
-      OBJECT text;
-      IF (fieldname IN ["INDEXID","OBJECTID","DATE_INDEXED","CONTENTPROVIDER"])
-      {
-        text := GetMember(this, "^" || fieldname);
-//        text->visible ;= TRUE;
-      }
-      ELSE
-      {
-        // Create a new text component and add it to the appropriate fields group
-        text := this->CreateTolliumComponent("text");
-        text->selectable := TRUE;
+      // Create a new text component and add it to the appropriate fields group
+      OBJECT text := this->CreateTolliumComponent("text");
+      text->selectable := TRUE;
 
-        IF (fieldname IN resultfieldnames)
-          INSERT [ items := [ text ], layout := "form" ] INTO resultlines AT END;
-        ELSE
-          INSERT [ items := [ text ], layout := "form" ] INTO otherlines AT END;
-      }
+      IF (fieldname IN resultfieldnames)
+        INSERT [ items := [ text ], layout := "form" ] INTO resultlines AT END;
+      ELSE
+        INSERT [ items := [ text ], layout := "form" ] INTO otherlines AT END;
 
       // If maximum field value length is exceeded, truncate url's and word-wrap other fields
       IF (UCLength(fieldvalue) > maxfieldlength)

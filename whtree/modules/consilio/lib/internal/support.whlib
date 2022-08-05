@@ -1,14 +1,15 @@
 ﻿<?wh
+
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::util/langspecific.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 /** @short Consilio debug levels
 */
@@ -118,58 +119,6 @@ PUBLIC STRING FUNCTION NormalizeUrl(STRING url, STRING fromurl)
     RETURN "";
   }
   RETURN result;
-}
-
-INTEGER contextbefore := 6;
-
-// HareScript implementation of Consilio's IndexManager::HighlightWords
-/** @short Highlight words in a token stream
-    @param tokenstream The token stream to highlight
-    @param words All words that should be highlighted
-*/
-PUBLIC STRING FUNCTION HighlightWords(OBJECT tokenstream, STRING ARRAY words, INTEGER maxlength, STRING match_start, STRING match_end)
-{
-  STRING lang := tokenstream->GetLanguage();
-  FOREVERY (STRING word FROM words)
-  {
-    STRING stemmed := StemWord(word, lang);
-    IF (stemmed NOT IN words)
-      INSERT stemmed INTO words AT END;
-  }
-
-  RECORD ARRAY tokens;
-  FOR (RECORD t := tokenstream->GetNextToken(); RecordExists(t) AND Length(tokens) < 10000; t := tokenstream->GetNextToken())
-  {
-    INSERT CELL match := FALSE INTO t;
-    IF (t.type = TokenTypeWord)
-    {
-      t.match := t.normalizedtext IN words OR (t.stemmedtext != "" AND t.stemmedtext IN words);
-      IF (t.match)
-        t.text := match_start || t.text || match_end;
-    }
-
-    INSERT t INTO tokens AT END;
-  }
-
-  INTEGER firstmatch := (SELECT AS INTEGER #tokens + 1 FROM tokens WHERE match) - 1;
-  IF (maxlength > 0 AND firstmatch >= 0)
-  {
-    IF (firstmatch > contextbefore)
-      firstmatch := firstmatch - contextbefore;
-  }
-  ELSE
-    firstmatch := 0;
-
-  INTEGER it;
-  STRING hilite;
-  IF (maxlength > 0 AND firstmatch > 0)
-    hilite := "... ";
-  FOR (it := firstmatch; it < Length(tokens) AND (maxlength = 0 OR Length(hilite) < maxlength); it := it + 1)
-    hilite := hilite || tokens[it].text;
-  IF (maxlength > 0 AND it < Length(tokens))
-    hilite := hilite || " ...";
-
-  RETURN hilite;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()

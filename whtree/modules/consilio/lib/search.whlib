@@ -7,7 +7,6 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib"
     EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchNoAccess
          , SearchConnectError, SearchSendError, SearchHTTPError
@@ -19,8 +18,8 @@ LOADLIB "mod::consilio/lib/internal/support.whlib"
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
-OBJECT query_parser := NEW QueryParser();
-
+// we cannot loadlib api.whlib, it loadlibs us
+FUNCTION PTR CQParseUserQuery := MakeFunctionPtr("mod::consilio/lib/api.whlib#CQParseUserQuery");
 
 PUBLIC OBJECTTYPE SearchException EXTEND Exception
 < STRING code;
@@ -53,6 +52,8 @@ RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
 RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
 {
   OBJECT catalog := OpenConsilioCatalogById(indexid);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot find catalog #${indexid}`);
   RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
   defaultmapping := CELL[ ...defaultmapping
                         //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
@@ -126,180 +127,6 @@ PUBLIC STRING FUNCTION GetErrorMessage(STRING errorcode, STRING lang DEFAULTSTO 
 
 
 
-/** @short Search for a query string in a catalog and return a specific range
-           of matches.
-    @param sess The search session
-    @cell sess.sessid Session id (leave empty to start a new session, or use
-                      the session id as returned by this function)
-    @cell sess.tag An optional tag to group search queries by in the searched
-                   words report
-    @param query The string to search for
-    @param catalog_name Name of the catalog to search
-    @param restrict_to Restrict results to URLs starting with restrict_to
-    @param first The first result to return (counting from 0)
-    @param count The number of results to return (or -1 to return all results)
-    @param summary_length The length of the summary (excerpt) to generate, or 0
-                          if no summary should be generated
-    @param lang The language to used for parsing the query (leave empty to
-                disable language-specific features like stemming)
-    @return A record with the search results
-    @cell return.status Result of the function call
-    @cell return.totalcount The total number of matching documents
-    @cell return.results Array of result records
-    @cell return.results.id Id of the search result (can be used as first parameter)
-    @cell return.results.url The URL of the page
-    @cell return.results.fileid The (WebHare) fileid of the document
-    @cell return.results.title Title of the page
-    @cell return.results.type The (WebHare) type of the page (e.g. HTML, Word, PDF)
-    @cell return.results.modificationdate The date the page was last modified
-    @cell return.results.size The page size
-    @cell return.results.score The result score
-    @cell return.results.summary A summary of the document
-    @cell return.sess The search session (with possibly updated session id)
-    @see SearchForAll, GetErrorMessage */
-PUBLIC RECORD FUNCTION SessionedSearchFor(RECORD sess, STRING query, STRING catalog_name, STRING restrict_to, INTEGER first, INTEGER count, INTEGER summary_length, STRING lang DEFAULTSTO "", /*unused*/STRING password DEFAULTSTO "")
-{
-  RETURN __SessionedSearchFor(sess, query, catalog_name, restrict_to, first, count, summary_length, lang, FALSE);
-}
-
-PUBLIC RECORD FUNCTION __SessionedSearchFor(RECORD sess, STRING query, STRING catalog_name, STRING restrict_to, INTEGER first, INTEGER count, INTEGER summary_length, STRING lang, BOOLEAN allfields)
-{
-  OBJECT searcher;
-  TRY
-  {
-    searcher := OpenSearchObject(lang, catalog_name);
-    searcher->__session := sess;
-    searcher->summary_length := summary_length;
-    searcher->restrict_url := restrict_to;
-
-    IF (NOT allfields)
-    {
-      searcher->empty_result_record := [ id := 0
-                                       , title := ""
-                                       , filetype := ""
-                                       , date_whmodification := DEFAULT DATETIME
-                                       , size := 0
-                                       , score := 0f
-                                       , summary := ""
-                                       , url := "" // Custom content sources can use this field to generate a url
-                                       ];
-    }
-
-    RECORD res := searcher->Search(query, first, count);
-
-    IF (NOT allfields)
-    {
-      // Convert results to the 'SearchFor' format
-      RECORD ARRAY newresults;
-      FOREVERY (RECORD result FROM res.results)
-      {
-        INSERT [ id                := #result + first
-               , url               := result.filetype = "" ? result.url : result.objectid // Use url field for custom content
-                                                                                          // sources (which don't set the
-                                                                                          // filetype field), otherwise the
-                                                                                          // objectid holds the page url
-               , fileid            := ToInteger(result.groupid, 0)
-               , title             := result.title
-               , type              := result.filetype
-               , modificationdate  := result.date_whmodification
-               , size              := result.size
-               , score             := result.score
-               , summary           := result.summary
-               ] INTO newresults AT END;
-      }
-      res.results := newresults;
-    }
-    RETURN [ sess := searcher->__session
-           , status := SearchOk
-           , totalcount := res.totalcount
-           , results := res.results
-           ];
-  }
-  CATCH (OBJECT<SearchException> error)
-  {
-    IF (ObjectExists(searcher))
-      sess := searcher->__session;
-    RETURN [ sess := sess
-           , status := error->errorcode
-           , totalcount := 0
-           , results := DEFAULT RECORD ARRAY
-           ];
-  }
-  CATCH (OBJECT e)
-  {
-    IF (ObjectExists(searcher))
-      sess := searcher->__session;
-    RETURN [ sess := sess
-           , status := SearchError
-           , totalcount := 0
-           , results := DEFAULT RECORD ARRAY
-           ];
-  }
-}
-
-
-
-/** @short Search for a query string in a catalog and return a specific range
-           of matches.
-    @param query The string to search for
-    @param catalog_name Name of the catalog to search
-    @param restrict_to Restrict results to URLs starting with restrict_to
-    @param first The first result to return (counting from 0)
-    @param count The number of results to return (or -1 to return all results)
-    @param summary_length The length of the summary (excerpt) to generate, or 0
-                          if no summary should be generated
-    @param lang The language to used for parsing the query (leave empty to
-                disable language-specific features like stemming)
-    @return A record with the search results
-    @cell return.status Result of the function call
-    @cell return.totalcount The total number of matching documents
-    @cell return.results Array of result records.
-    @cell return.results.id Id of the search result (can be used as first parameter)
-    @cell return.results.url The URL of the page
-    @cell return.results.fileid The (WebHare) fileid of the document
-    @cell return.results.title Title of the page
-    @cell return.results.type The (WebHare) type of the page (e.g. HTML, Word, PDF)
-    @cell return.results.modificationdate The date the page was last modified
-    @cell return.results.size The page size
-    @cell return.results.score The result score
-    @cell return.results.summary A summary of the document
-    @see SearchForAll, GetErrorMessage */
-PUBLIC RECORD FUNCTION SearchFor(STRING query, STRING catalog_name, STRING restrict_to, INTEGER first, INTEGER count, INTEGER summary_length, STRING lang DEFAULTSTO "", /*unused*/STRING password DEFAULTSTO "")
-{
-  RETURN CellDelete(SessionedSearchFor(DEFAULT RECORD, query, catalog_name, restrict_to, first, count, summary_length, lang), "sess");
-}
-
-
-
-
-/** @short Search for a query string in a catalog and return all matches.
-    @param query The string to search for
-    @param catalog_name Name of the catalog to search
-    @param restrict_to Restrict results to URLs starting with restrict_to
-    @param summary_length The length of the summary (excerpt) to generate, or 0
-                          if no summary should be generated
-    @return A record with the search results
-    @cell return.status Result of the function call
-    @cell return.totalcount The total number of matching documents
-    @cell return.results Array of result records.
-    @cell return.results.id Id of the search result (can be used as first parameter)
-    @cell return.results.url The URL of the page
-    @cell return.results.fileid The (WebHare) fileid of the document
-    @cell return.results.title Title of the page
-    @cell return.results.type The (WebHare) type of the page (e.g. HTML, Word, PDF)
-    @cell return.results.modificationdate The date the page was last modified
-    @cell return.results.size The page size
-    @cell return.results.score The result score
-    @cell return.results.summary A summary of the document
-    @see SearchFor, GetErrorMessage */
-PUBLIC RECORD FUNCTION SearchForAll(STRING query, STRING catalog_name, STRING restrict_to, INTEGER summary_length, /*unused*/STRING password DEFAULTSTO "")
-{
-  // Get all results (count = -1) for the given query on the given index
-  RETURN SearchFor(query, catalog_name, restrict_to, 0, -1, summary_length);
-}
-
-
-
 STATIC OBJECTTYPE SearchObject
 < //////////////////////////////////////////////////////////////////////////////
   // Variables
@@ -339,6 +166,12 @@ STATIC OBJECTTYPE SearchObject
             the values returned by Consilio. If the empty result record is a default record, all known fields are returned.
   */
   PUBLIC PROPERTY empty_result_record(pvt_empty_result_record, SetEmptyResultRecord);
+
+  /** @short Skeleton aggregation result record
+      @long Like the `empty_result_record`, but only used for aggregation queries to return the aggregation results separately
+            from the query results
+  */
+  PUBLIC RECORD aggregation_mapping;
 
   /** @short For site searches: Only results with a URL starting with this restrict_url are returned
   */
@@ -459,13 +292,7 @@ STATIC OBJECTTYPE SearchObject
              , results := DEFAULT RECORD ARRAY
              ];
 
-    query_parser->thesaurus := GetIndexThesaurus(this->catalog_id);
-    query_parser->defaultrequire := this->and_search ? require_required : require_allowed;
-    RECORD parsed_query := query_parser->Parse(query, this->language);
-    IF (NOT RecordExists(parsed_query))
-      RETURN [ totalcount := 0
-             , results := DEFAULT RECORD ARRAY
-             ];
+    RECORD parsed_query := CQParseUserQuery(query, [ querymode := this->and_search ? "AND" : "OR" ]);
 
     // If 'summary' is requested, request '_summary' instead
     BOOLEAN want_summary := CellExists(this->empty_result_record, "summary") AND NOT CellExists(this->empty_result_record, "_summary");
@@ -554,6 +381,7 @@ STATIC OBJECTTYPE SearchObject
         , addscore
         , this->debug
         , throwonfailure := TRUE
+        , this->aggregation_mapping
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
@@ -569,9 +397,7 @@ STATIC OBJECTTYPE SearchObject
       this->session := result.session;
 
     // Return results
-    RETURN [ totalcount := result.totalcount
-           , results := result.results
-           ];
+    RETURN CELL[ ...result, DELETE status, DELETE session ];
   }
 
   PUBLIC MACRO ResetEmptyResultRecord()
@@ -806,83 +632,9 @@ PUBLIC OBJECT FUNCTION OpenSuggestObject(STRING catalog, /*unused*/STRING passwo
 
 
 
-PUBLIC RECORD FUNCTION GetQueryResults(STRING catalog, STRING tag, DATETIME fromdate DEFAULTSTO DEFAULT DATETIME)
-{
-  // Retrieve index name
-  INTEGER indexid :=
-      SELECT AS INTEGER id
-        FROM consilio.catalogs
-        WHERE ToUppercase(name) = ToUppercase(catalog);
-
-  IF (indexid <= 0)
-    RETURN [ status := SearchIndexNotFound ];
-
-  RETURN GetIndexQueryResults(indexid, tag, fromdate);
-}
-
-
-
-/** @short Retrieve a list of all catalogs
-    @return A record with the catalog list
-    @cell return.error The result of the search
-    @cell return.cataloglist A list of index names
-    @see GetErrorMessage */
-PUBLIC RECORD FUNCTION GetCatalogList(/*unused*/STRING password DEFAULTSTO "")
-{
-  // Get the list of accessible indices
-  STRING ARRAY names := SELECT AS STRING ARRAY name
-                          FROM consilio.catalogs
-                         ORDER BY ToUppercase(name);
-  RETURN [ status := SearchOk, cataloglist := names ];
-}
-
-
-
-
-PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalog_name, /*unused*/STRING password DEFAULTSTO "")
-{
-  RETURN
-      (SELECT AS INTEGER id + 1
-         FROM consilio.catalogs
-         WHERE ToUppercase(name) = ToUppercase(catalog_name)) - 1;
-}
-
-PUBLIC INTEGER FUNCTION GetContentSourceIdByTag(STRING contentsource_tag)
-{
-  RETURN
-      (SELECT AS INTEGER id + 1
-         FROM consilio.contentsources
-         WHERE ToUppercase(tag) = ToUppercase(contentsource_tag)) - 1;
-}
-
-
-
-
 //Get the status of the IndexManager
 PUBLIC RECORD FUNCTION GetIndexManagerStatus(INTEGER indexmgrid)
 {
   // Get the IndexManager status
   RETURN GetIndexManagerState(indexmgrid);
 }
-
-
-
-RECORD FUNCTION GetIndexQueryResults(INTEGER indexid, STRING tag/*unused*/, DATETIME fromdate)
-{
-  IF (NOT RecordExists(SELECT FROM consilio.catalogs WHERE id = indexid))
-    RETURN [ status := SearchIndexNotFound ];
-
-  RECORD ARRAY results := SELECT when
-                               , query
-                               , COLUMN results
-                               , pages
-                               , site
-                               , COLUMN tag
-                            FROM consilio.query_results
-                           WHERE COLUMN catalogid = VAR indexid
-                                 AND COLUMN tag = VAR tag
-                                 AND when >= fromdate;
-
-  RETURN [ status := SearchOk, results := results ];
-}
-

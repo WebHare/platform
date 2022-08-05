@@ -1,7 +1,9 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
+
 
 STRING ARRAY lorem := [ "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Quisque urna nunc, vehicula et, gravida sit amet, malesuada quis, risus. Nulla condimentum rhoncus est. Integer mollis sem at turpis. Nullam faucibus lorem. Nullam in sapien a odio consequat ultrices. Integer gravida viverra sapien. Morbi accumsan gravida est. Integer mauris. Nunc pretium. Praesent fermentum ante at libero. Quisque gravida metus sollicitudin sapien. Quisque vitae orci. Suspendisse sit amet nisl nec enim lacinia malesuada. Vestibulum sit amet erat et sapien scelerisque rutrum. Donec facilisis."
                       , "Donec luctus vulputate ipsum. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In facilisis nibh sit amet arcu. Suspendisse vel odio. Sed laoreet. Curabitur imperdiet. Aliquam ante tortor, molestie ut, imperdiet non, tincidunt ac, nibh. Nullam eu est. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Aliquam eu justo at eros venenatis vehicula. Proin vestibulum, augue eu hendrerit tristique, neque ligula elementum leo, ut tincidunt velit nunc ut lacus. Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Sed elit erat, malesuada ut, cursus a, faucibus sed, lacus. Suspendisse vel purus a nulla ornare porttitor. Nulla vitae leo. Nam bibendum massa ut augue. Ut purus ligula, mattis sit amet, fermentum rutrum, luctus auctor, lorem. Curabitur elit libero, pretium dictum, porttitor id, lacinia laoreet, odio. Vestibulum vitae urna. Integer sed leo in risus tempus semper."
@@ -53,7 +55,6 @@ PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
   {
     RECORD ARRAY mapping := this->defaultmapping CONCAT
         [ [ name := "date_test", value := DEFAULT DATETIME ]
-        , [ name := "testdate",  value := "", tokenized := FALSE ]
         , [ name := "validuser", value := "", tokenized := FALSE ]
         , [ name := "url",       value := "", tokenized := FALSE ]
         , [ name := "title",     value := "", tokenized := TRUE ]
@@ -87,7 +88,6 @@ PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
     RETURN [ status := "result"
            , document_fields := [ title := "Paragraph " || id
                                 , date_test := testdate
-                                , testdate := DateTimeToString(testdate)
                                 , validuser := allusers[Random(0, Length(allusers) - 1)]
                                 , suggestfields := "body" // for legacy consilio
                                 , url := "file://lorem%20" || id || ".txt"

@@ -1121,24 +1121,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       this->ApplyUserPrefs(TRUE);
   }
 
-  MACRO DoQueriesTree()
-  {
-    IF (^foldertree->selection.parentsite != 0)
-    {
-      OBJECT queriesscreen := this->LoadScreen("consilio:report.queries", [ siteid := ^foldertree->selection.parentsite ]);
-      queriesscreen->RunModal();
-    }
-  }
-
-  MACRO DoQueriesList()
-  {
-    IF (^filelist->selection.parentsite != 0)
-    {
-      OBJECT queriesscreen := this->LoadScreen("consilio:report.queries", [ siteid := ^filelist->selection.parentsite ]);
-      queriesscreen->RunModal();
-    }
-  }
-
   MACRO DoReportSiteSummary()
   {
     this->LoadScreen("sitessummary.xml#sitessummary")->RunModal();

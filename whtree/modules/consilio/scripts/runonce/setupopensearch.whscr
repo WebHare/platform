@@ -9,7 +9,6 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";

@@ -36,38 +36,6 @@
     </footer>
   </screen>
 
-  <screen name="queries" gid=".queries"
-          allowresize="true" savestate="size"
-          width="120x" height="40x">
-    <actions>
-      <action name="optionschanged" tid=".refresh" onexecute="refresh" />
-      <action name="csvexport" icon="tollium:actions/export" onexecute="docsvexport" />
-    </actions>
-
-    <toolbar gid=".toolbar">
-      <button action="csvexport" />
-    </toolbar>
-
-    <body>
-      <heading tid=".optionsbox" />
-      <select name="options" type="checkbox" orientation="horizontal" rowkeytype="string" onchange="refresh">
-        <option rowkey="grouped" />
-      </select>
-      <line>
-        <datetime name="fromdate" type="date" />
-        <button action="optionschanged" />
-      </line>
-      <panel width="1pr" height="1pr">
-        <list name="results">
-          <column name="query" type="text" width="1pr" />
-          <column name="results" type="integer" align="right" width="10x" />
-          <column name="pages" type="integer" align="right" width="10x" />
-          <column name="when" type="datetime" storeutc="true" width="20x" />
-        </list>
-      </panel>
-    </body>
-  </screen>
-
   <fragment name="objectreport" gid=".objectreport">
     <actions>
     </actions>

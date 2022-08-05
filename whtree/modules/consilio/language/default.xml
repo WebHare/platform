@@ -62,10 +62,9 @@
       <text tid="url">URL</text>
     </textgroup>
     <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
-      <text tid="otherfields">Other Indexed Fields</text>
-      <text tid="resultfields">Generated Result Fields</text>
+      <text tid="otherfields">Indexed fields</text>
+      <text tid="resultfields">Generated result fields</text>
       <text tid="showempty">Show empty fields</text>
-      <text tid="standardfields">Standard Fields</text>
       <text tid="title">View result</text>
     </textgroup>
     <textgroup gid="catalogs">   <!-- catalog.catalogs -->

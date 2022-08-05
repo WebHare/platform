@@ -1,22 +1,17 @@
 ﻿<?wh
 /** @private Internal library */
-LOADLIB "wh::adhoccache.whlib";
+
 LOADLIB "wh::internet/mime.whlib";
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/parsers/parser.whlib";
-LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
+
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT ConsilioDebugError, ConsilioDebugSkipped, ConsilioDebugInfo, ConsilioDebugAll;
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+
 
 RECORD defaultemptysearchrecord := [ score   := 0f
                                    , title   := ""

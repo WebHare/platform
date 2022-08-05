@@ -55,19 +55,6 @@ SCHEMA
     > contentsources
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "query"
-    , DATETIME "when"
-    , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
-    , INTEGER "catalogid" NULL := 0
-    , INTEGER "pages"
-    , STRING "sess"
-    , INTEGER "results"
-    , INTEGER "site" NULL := 0
-    , STRING "tag"
-    ; KEY id
-    > query_results
-  , TABLE
-    < INTEGER "id" NULL := 0
     , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
     , INTEGER "catalogid" NULL := 0
     , INTEGER "wordgroup"
@@ -138,7 +125,6 @@ FOREVERY (RECORD indexrec FROM SELECT * FROM consilio.catalogs)
 
 // Set references
 UPDATE consilio.contentsources SET catalogid := indexid;
-UPDATE consilio.query_results SET catalogid := indexid;
 UPDATE consilio.thesaurus SET catalogid := indexid;
 
 trans->CommitWork();
