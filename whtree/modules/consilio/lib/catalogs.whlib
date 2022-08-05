@@ -68,12 +68,10 @@ PUBLIC BOOLEAN FUNCTION IsValidConsilioIndexSuffix(STRING suffix)
     @cell(boolean) return.isbuiltin Whether this is a builtin indexmanager
     @cell(boolean) return.isdefault Whether this is the default builtin indexmanager
     @cell(string) return.name Name of the indexmanager
-    @cell(string) return.type Index type: 'opensearch'
     @cell(string) return.url URL to connect to the server */
 PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 {
   RETURN SELECT id
-              , type := "opensearch"
               , isbuiltin := address = "builtin-opensearch"
               , isdefault := address = "builtin-opensearch"
               , name
@@ -578,7 +576,6 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(integer) return.id ID (for update and delete)
       @cell(string) return.indexname Name of the index on the indexmanager
       @cell(integer) return.indexmanager Id of the indexmanager
-      @cell(string) return.type Type of the indexmanager (opensearch)
       @cell(integer) return.searchpriority The 'priority' with which to use this indexmanager for searching. Higher priorities get used before lower priorities, priorities zero and lower are ignored for searches.
       @cell(boolean) return.readonly If true, the attached index is readonly
       @cell(boolean) return.isbuiltin If true, the indexmanager is builtin
@@ -591,7 +588,6 @@ STATIC OBJECTTYPE ConsilioCatalog
              , catalog_indexmanagers.searchpriority
              , catalog_indexmanagers.readonly
              , indexmanager :=        indexmanagers.id
-             , type := "opensearch"
              , isbuiltin := indexmanagers.address IN ["builtin","builtin-opensearch"]
           FROM consilio.indexmanagers
              , consilio.catalog_indexmanagers
@@ -655,8 +651,6 @@ STATIC OBJECTTYPE ConsilioCatalog
     FOREVERY(RECORD attachedindex FROM this->ListAttachedIndices())
     {
       STRING indexname := attachedindex.indexname;
-      IF(attachedindex.type != "opensearch")
-        indexname := `{${attachedindex.type}}${attachedindex.indexname}`;
       IF(attachedindex.readonly)
         indexname := `${indexname}(r/o)`;
 
@@ -893,7 +887,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     STRING ARRAY synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms();
 
-    FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE type = "opensearch" AND NOT readonly)
+    FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly)
       FOREVERY(STRING suffix FROM suffixes)
         EnsureOpenSearchIndexConfiguration(opensearch.indexmanager, opensearch.indexname, suffix, synonyms, this->catalog.lang);
   }
@@ -1087,7 +1081,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
   {
     RECORD indexmgr := this->ListAttachedIndices();
-    IF(NOT RecordExists(indexmgr) OR indexmgr.type != "opensearch")
+    IF(NOT RecordExists(indexmgr))
       RETURN RECORD[]; //TODO or should we throw ?
 
     RETURN ListOpenSearchIndexSuffixes(indexmgr.indexmanager, indexmgr.indexname);

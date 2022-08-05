@@ -40,8 +40,7 @@ MACRO Prepare()
                  , searchpriority := 100
                  , indexname := testindex1.indexname
                  ]
-                ,[ type := "opensearch"
-                 , searchpriority := 0
+                ,[ searchpriority := 0
                  , indexname := index2name
                  , isbuiltin := TRUE
                  ]

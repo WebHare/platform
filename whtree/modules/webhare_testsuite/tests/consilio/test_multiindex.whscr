@@ -22,7 +22,7 @@ MACRO Prepare()
 {
   FixConsilioIndices([ catalogmask := "webhare_testsuite:testindex" ]);
   OBJECT cat := OpenConsilioCatalog("webhare_testsuite:testindex");
-  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE type = "opensearch" AND isbuiltin;
+  RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE isbuiltin;
 
   testfw->BeginWork();
 
@@ -43,8 +43,7 @@ MACRO Prepare()
                  , searchpriority := 100
                  , indexname := testindex1.indexname
                  ]
-                ,[ type := "opensearch"
-                 , searchpriority := 0
+                ,[ searchpriority := 0
                  , indexname := index2name
                  ]
                 ], cat->ListAttachedIndices(), "*");
