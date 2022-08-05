@@ -951,7 +951,36 @@ MACRO TestWebBrowser()
   TestEQ(200, browser->GetHTTPStatusCode());
   TestEQ("2345678901", BlobToString(browser->content));
 
+  browser->__checkconnectipport := PTR CheckIPPort("deny", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901" ]);
+  TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  browser->__checkconnectipport := PTR CheckIPPort("deny-ipv6", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901" ]);
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  browser->__checkconnectipport := PTR CheckIPPort("deny-ipv4", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  browser->__checkconnectipport := PTR CheckIPPort("allow", #1, #2, #3);
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  browser->__checkconnectipport := DEFAULT FUNCTION PTR;
+
   job->Close();
+}
+
+BOOLEAN FUNCTION CheckIPPort(STRING response, STRING url, STRING ip, INTEGER port)
+{
+  BOOLEAN ipv6 := ip LIKE "*:*";
+  BOOLEAN retval;
+  SWITCH (response)
+  {
+    CASE "deny"         { retval := FALSE; }
+    CASE "deny-ipv6"    { retval := NOT ipv6; }
+    CASE "deny-ipv4"    { retval := ipv6; }
+    CASE "allow"        { retval := TRUE; }
+    DEFAULT             { THROW NEW Exception(`Unknonw response type ${EncodeJSON(response)}`); }
+  }
+  RETURN retval;
 }
 
 MACRO WriteData(OBJECT socket, STRING data)

@@ -163,7 +163,8 @@ WHILE (NOT break_out)
     CASE "socket-servedata"
     {
       OBJECT socket := CreateSocket("TCP");
-      socket->Bind("127.0.0.1", 0);
+      STRING bindip := CellExists(rec.msg, "ip") AND rec.msg.ip= "ipv6" ? "::1" : "127.0.0.1";
+      socket->Bind(bindip, 0);
       socket->Listen();
       link->SendReply([ accepting_port := socket->localport ], rec.msgid);
 

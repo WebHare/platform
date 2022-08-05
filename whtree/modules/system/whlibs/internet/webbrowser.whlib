@@ -239,6 +239,11 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   */
   PUBLIC MACRO PTR ARRAY pvt_traffichooks;   //plugin for cluster.whlib
 
+  /** Check if connect to IP:port is allowed
+      Signature: BOOLEAN FUNCTION hook(STRING url, STRING ip, INTEGER port);
+  */
+  PUBLIC FUNCTION PTR __checkconnectipport;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -504,6 +509,28 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     RETURN inrequest;
   }
 
+  STRING ARRAY FUNCTION GetConnectIPsForHost(STRING host)
+  {
+    STRING ARRAY tryhosts;
+    IF(host="" OR IsValidIPAddress(host))
+      tryhosts := [ host ];
+    ELSE
+    {
+      tryhosts := ResolveHostnameAllIPs(host);
+      IF(Length(tryhosts)=0)
+        RETURN tryhosts;
+
+      // Randomize, but make sure the first host keeps the same protocol (ipv4/ipv6) as given back by getaddrinfo
+      BOOLEAN first_entry_ipv6 := tryhosts[0] LIKE "*:*";
+      tryhosts :=
+          SELECT AS STRING ARRAY hostip
+            FROM ToRecordArray(tryhosts, "HOSTIP")
+        ORDER BY ((hostip LIKE "*:*") != first_entry_ipv6) // FALSE comes first
+              , Random(1, 256);
+    }
+
+    RETURN tryhosts;
+  }
 
   /** GET or POST a page, transparently handling redirects (301, 303, 307)
       @param method HTTP method  to use (eg 'GET', 'POST')
@@ -925,13 +952,39 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         IF(this->debug OR __webbrowser_debugall)
           Print(`Connecting to ${connecttohost}:${connecttoport} (for ${url})\n`);
 
-        BOOLEAN connectresult := isasync
-            ? YIELD AsyncConnectSocket(connid, connecttohost, connecttoport)
-            : ConnectSocket(connid, connecttohost, connecttoport);
+        BOOLEAN connectresult := FALSE;
+        STRING ARRAY connectips := this->GetConnectIPsForHost(connecttohost);
+        IF (IsDefaultValue(connectips))
+          this->pvt_sockerr := -16; // unable to resolve*/
+        ELSE
+        {
+          BOOLEAN anyallowed;
+          STRING ARRAY disallowerrors;
+          FOREVERY (STRING ip FROM connectips)
+          {
+            IF (IsValueSet(this->__checkconnectipport) AND NOT this->__checkconnectipport(url, ip, connecttoport))
+            {
+              INSERT FormatSocketAddress(ip, connecttoport) INTO disallowerrors AT END;
+              CONTINUE;
+            }
+            anyallowed := TRUE;
+            connectresult := isasync
+                ? YIELD AsyncConnectSocket(connid, ip, connecttoport)
+                : ConnectSocket(connid, ip, connecttoport);
+            IF (connectresult)
+              BREAK;
+            this->pvt_sockerr := GetLastSocketError(connid);
+          }
+          IF (NOT anyallowed)
+          {
+            this->MyErrorHandler(`Not allowed to connect to ${Detokenize(disallowerrors, ", ")}`);
+            CloseSocket(connid);
+            RETURN 0;
+          }
+        }
 
         IF (NOT connectresult)
         {
-          this->pvt_sockerr := GetLastSocketError(connid);
           this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
           CloseSocket(connid);
           RETURN 0;
@@ -1107,7 +1160,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
       this->SetDummyLastRequest();
       this->pvt_lastrequest.code := this->pvt_sockerr ?? -1;
-      this->pvt_lastrequest.message := this->pvt_sockerr < 0 ? GetSocketErrorText(this->pvt_sockerr) : "Connection failed";
+      this->pvt_lastrequest.message := this->pvt_sockerr < 0 ? GetSocketErrorText(this->pvt_sockerr) : this->pvt_lasterror; //"Connection failed";
       RETURN FALSE;
     }
 
@@ -1682,7 +1735,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       PRINT("** webbrowser error: " || errmsg || "\n");
     this->pvt_lasterror := errmsg;
     IF(this->pvt_connectingto != "")
-      this->pvt_lasterror := this->pvt_lasterror || " (" || this->pvt_connectingto || ")";
+      this->pvt_lasterror := this->pvt_lasterror || " (connecting to " || this->pvt_connectingto || ")";
     IF(this->OnError != DEFAULT FUNCTION PTR)
       this->OnError(this->pvt_lasterror);
   }
