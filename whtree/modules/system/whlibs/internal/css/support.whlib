@@ -1,9 +1,14 @@
 ﻿<?wh
 
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/css/tokenizer.whlib";
 
+
+/// Maximum number of cached parsed CSS selectors (cache is cleared after reaching this size)
+CONSTANT INTEGER parsed_selector_cache_size := 1024;
 
 PUBLIC RECORD ARRAY FUNCTION SplitPrelude(RECORD ARRAY prelude)
 {
@@ -610,12 +615,7 @@ PUBLIC RECORD ARRAY FUNCTION RewriteURLsInTokens(RECORD ARRAY tokens, FUNCTION P
 }
 
 STATIC OBJECTTYPE CSSSelectorParser
-< /** @cell root Root node
-      @cell scope Scope node
-  */
-  RECORD config;
-
-  /** List of CSS tokens to parse @includecelldef #CSSTokenizer::GetToken.return
+< /** List of CSS tokens to parse @includecelldef #CSSTokenizer::GetToken.return
   */
   RECORD ARRAY tokens;
 
@@ -625,14 +625,13 @@ STATIC OBJECTTYPE CSSSelectorParser
   /// Current token (= this->tokens[this->pos]) @includecelldef #CSSTokenizer::GetToken.return
   RECORD token;
 
-  MACRO NEW(RECORD ARRAY tokens, RECORD config)
+  MACRO NEW(RECORD ARRAY tokens)
   {
     IF(Length(tokens) = 0)
       THROW NEW Exception("Received an empty selector");
     this->tokens := RECORD[ ...tokens, [ type := "eof", value := "", csstext := "" ] ];
     this->pos := 0;
     this->token := this->tokens[0];
-    this->config := config;
   }
 
   /** Advance to the next token
@@ -703,15 +702,16 @@ STATIC OBJECTTYPE CSSSelectorParser
   }
 
   /** Parses a complex selector list
+      @param allowimplicitscope Add implicit ":scope" before selectors starting with '>'
       @return @includecelldef #ParseComplexSelector.return
   */
-  PUBLIC RECORD ARRAY FUNCTION ParseComplexSelectorList()
+  PUBLIC RECORD ARRAY FUNCTION ParseComplexSelectorList(BOOLEAN allowimplicitscope)
   {
     this->TryParseWS();
     RECORD ARRAY selectors;
     WHILE (TRUE)
     {
-      INSERT this->ParseComplexSelector() INTO selectors AT END;
+      INSERT this->ParseComplexSelector(allowimplicitscope) INTO selectors AT END;
 
       this->TryParseWS();
       IF (NOT this->TryParse(","))
@@ -725,6 +725,7 @@ STATIC OBJECTTYPE CSSSelectorParser
   }
 
   /** Parses a complex selector list
+      @param allowimplicitscope Add implicit ":scope" before selectors starting with '>'
       @return Single selector split into compoiund selectors and the combinators
       @cell(record array) return.parts Compound selectors and their combinators
       @cell(record array) return.parts.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
@@ -735,10 +736,28 @@ STATIC OBJECTTYPE CSSSelectorParser
         - "~": any following sibling matches
         - "+": next sibling matches
   */
-  RECORD FUNCTION ParseComplexSelector()
+  RECORD FUNCTION ParseComplexSelector(BOOLEAN allowimplicitscope)
   {
     RECORD ARRAY parts;
     BOOLEAN requireselector := TRUE;
+
+    IF (allowimplicitscope)
+    {
+      STRING combinator := this->ParseCombinator();
+      IF (combinator = ">")
+      {
+        INSERT CELL
+            [ combinator
+            , compoundselector :=
+                  [ tagname := "*"
+                  , subclasses := [ [ type := ":", name := "scope" ] ]
+                  ]
+            ] INTO parts AT END;
+      }
+      ELSE IF (combinator != "" AND combinator != " ")
+        THROW NEW Exception(`Combinator ${EncodeJSON(combinator)} is not allowed at the start of a selector`);
+    }
+
     WHILE (TRUE)
     {
       RECORD compoundselector := this->ParseCompoundSelector(requireselector);
@@ -757,7 +776,11 @@ STATIC OBJECTTYPE CSSSelectorParser
 
       requireselector := combinator != " ";
     }
-    RETURN CELL[ parts ];
+    STRING starts := "always";
+    FOREVERY (RECORD rec FROM parts[0].compoundselector.subclasses)
+      IF (rec.type = ":" AND (rec.name = "root" OR rec.name = "scope"))
+        starts := rec.name;
+    RETURN CELL[ parts, starts ];
   }
 
   /** Parses a combinator
@@ -1022,7 +1045,7 @@ STATIC OBJECTTYPE CSSSelectorParser
 
       IF (token.type = "ident" AND token.value = "of" AND allowselector)
       {
-        OBJECT p := NEW CSSSelectorParser(ArraySlice(functokens, #token + 1), this->config);
+        OBJECT p := NEW CSSSelectorParser(ArraySlice(functokens, #token + 1));
         p->TryParseWS();
         compoundselector := p->ParseCompoundSelector(TRUE);
         p->ExpectEOF();
@@ -1103,7 +1126,7 @@ STATIC OBJECTTYPE CSSSelectorParser
     {
       CASE "not"
       {
-        OBJECT p := NEW CSSSelectorParser(functokens, this->config);
+        OBJECT p := NEW CSSSelectorParser(functokens);
         p->TryParseWS();
         RECORD compoundselector := p->ParseCompoundSelector(TRUE);
         p->ExpectEOF();
@@ -1195,15 +1218,11 @@ STATIC OBJECTTYPE CSSSelectorParser
       }
       CASE "root"
       {
-        RETURN
-            [ node :=   this->config.root
-            ];
+        RETURN DEFAULT RECORD;
       }
       CASE "scope"
       {
-        RETURN
-            [ node :=   this->config.scope
-            ];
+        RETURN DEFAULT RECORD;
       }
       DEFAULT
       {
@@ -1218,9 +1237,12 @@ STATIC OBJECTTYPE CSSSelectorParser
     @param ishtml Whether the node is from a HTML document
     @param fromstart If TRUE, get the index from the start, else from the end
     @param compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
+    @param context Query context
+    @cell(object) context.root Root node
+    @cell(object) context.scope Scope node
     @return 1-based index of this node within its matching siblings list
 */
-INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD compoundselector)
+INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD compoundselector, RECORD context)
 {
   INTEGER idx := 1;
   WHILE (TRUE)
@@ -1229,7 +1251,7 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD
     IF (NOT ObjectExists(node))
       RETURN idx;
 
-    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node, ishtml))
+    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node, ishtml, context))
       idx := idx + 1;
   }
 
@@ -1244,11 +1266,14 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD
     @cell(integer) sc.factor A from An+B expression
     @cell(integer) sc.ofs B from An+B expression
     @cell sc.compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
+    @param context Query context
+    @cell(object) context.root Root node
+    @cell(object) context.scope Scope node
     @return Whether the node matches the index-based functions
 */
-BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD sc)
+BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD sc, RECORD context)
 {
-  INTEGER idx := GetIndex(node, ishtml, fromstart, sc.compoundselector);
+  INTEGER idx := GetIndex(node, ishtml, fromstart, sc.compoundselector, context);
   INTEGER todiv := idx - sc.ofs;
   BOOLEAN ismatch := sc.factor = 0
         ? todiv = 0
@@ -1262,9 +1287,12 @@ BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECOR
     @param selector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
     @param node Node to test
     @param ishtml Whether the node is from a HTML document
+    @param context Query context
+    @cell(object) context.root Root node
+    @cell(object) context.scope Scope node
     @return TRUE if the node matches
 */
-PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLEAN ishtml)
+PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLEAN ishtml, RECORD context)
 {
   // tag name test
   IF (selector.tagname != "*" AND
@@ -1361,17 +1389,17 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
         {
           CASE "not"
           {
-            IF (TestCompoundSelector(sc.compoundselector, node, ishtml))
+            IF (TestCompoundSelector(sc.compoundselector, node, ishtml, context))
               RETURN FALSE;
           }
           CASE "nth-child"
           {
-            IF (NOT TestIndex(node, ishtml, TRUE, sc))
+            IF (NOT TestIndex(node, ishtml, TRUE, sc, context))
               RETURN FALSE;
           }
           CASE "nth-last-child"
           {
-            IF (NOT TestIndex(node, ishtml, FALSE, sc))
+            IF (NOT TestIndex(node, ishtml, FALSE, sc, context))
               RETURN FALSE;
           }
           CASE "nth-of-type"
@@ -1382,7 +1410,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
                 , subclasses :=   RECORD[]
                 ];
 
-            IF (NOT TestIndex(node, ishtml, TRUE, CELL[ ...sc, compoundselector ]))
+            IF (NOT TestIndex(node, ishtml, TRUE, CELL[ ...sc, compoundselector ], context))
               RETURN FALSE;
           }
           CASE "nth-last-of-type"
@@ -1393,7 +1421,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
                 , subclasses :=   RECORD[]
                 ];
 
-            IF (NOT TestIndex(node, ishtml, FALSE, CELL[ ...sc, compoundselector ]))
+            IF (NOT TestIndex(node, ishtml, FALSE, CELL[ ...sc, compoundselector ], context))
               RETURN FALSE;
           }
           DEFAULT
@@ -1410,12 +1438,12 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
         {
           CASE "root"
           {
-            IF (NOT sc.node->IsSameNode(node))
+            IF (NOT context.root->IsSameNode(node))
               RETURN FALSE;
           }
           CASE "scope"
           {
-            IF (NOT sc.node->IsSameNode(node))
+            IF (NOT context.scope->IsSameNode(node))
               RETURN FALSE;
           }
           CASE "empty"
@@ -1436,9 +1464,9 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
           {
             // use nth-first-child and nth-last-child evaluations
             RECORD test := [ factor := 0, ofs := 1, compoundselector := DEFAULT RECORD ];
-            IF (NOT TestIndex(node, ishtml, TRUE, test))
+            IF (NOT TestIndex(node, ishtml, TRUE, test, context))
               RETURN FALSE;
-            IF (NOT TestIndex(node, ishtml, FALSE, test))
+            IF (NOT TestIndex(node, ishtml, FALSE, test, context))
               RETURN FALSE;
           }
           CASE "only-of-type"
@@ -1450,9 +1478,9 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
                 ];
 
             RECORD test := CELL[ factor := 0, ofs := 1, compoundselector ];
-            IF (NOT TestIndex(node, ishtml, TRUE, test))
+            IF (NOT TestIndex(node, ishtml, TRUE, test, context))
               RETURN FALSE;
-            IF (NOT TestIndex(node, ishtml, FALSE, test))
+            IF (NOT TestIndex(node, ishtml, FALSE, test, context))
               RETURN FALSE;
           }
           DEFAULT
@@ -1511,16 +1539,31 @@ RECORD FUNCTION GetNodePathList(OBJECT node)
   RETURN CELL[ path, pathlen := LENGTH(path) ];
 }
 
+/** Selector cache
+    @cell hash Selector hash
+    @cell data Parsed complex selector list @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
+*/
+RECORD ARRAY selector_cache;
+
 /** Parses a selector list
-    @param config Current root and scope node
-    @cell config.root Root node
-    @cell config.scope Scope node
     @param selectors Selectors
+    @param
     @return Parsed complex selector list @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
 */
-RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(RECORD config, STRING selectors)
+PUBLIC RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(STRING selectors, BOOLEAN allowimplicitscope)
 {
-  // ADDME: try to cache these (need to hack in the root and scope nodes afterwards then)
+  STRING hash := (allowimplicitscope?"1":"0") || __HS_INTERNAL_CalculateVariableHash(selectors);
+  RECORD pos := RecordLowerBound(selector_cache, CELL[ hash ], [ "HASH" ]);
+  IF (pos.found)
+    RETURN selector_cache[pos.position].data;
+
+  // Prevent unbounded cache growth
+  IF (LENGTH(selector_cache) = parsed_selector_cache_size)
+  {
+    selector_cache := RECORD[];
+    pos.position := 0;
+  }
+
   OBJECT t := NEW CSSTokenizer(selectors);
 
   // Get all tokens, ignoring comments
@@ -1535,9 +1578,10 @@ RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(RECORD config, STRING selectors)
       INSERT token INTO tokens AT END;
   }
 
-  OBJECT p := NEW CSSSelectorParser(tokens, config);
-  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+  OBJECT p := NEW CSSSelectorParser(tokens);
+  RECORD ARRAY parsed := p->ParseComplexSelectorList(allowimplicitscope);
 
+  INSERT CELL[ hash, data := parsed ] INTO selector_cache AT pos.position;
   RETURN parsed;
 }
 
@@ -1561,29 +1605,34 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   IF (NOT ObjectExists(root))
     RETURN OBJECT[];
 
-  RECORD config :=
+  RECORD context :=
       [ root :=       root
       , scope :=      scope ?? root
       ];
 
-  RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selectors);
+  RECORD ARRAY parsed := ParseCSSRuleForEvaluation(selectors, mode IN [ "qS", "qSA" ]);
 
   /* Concatenate the selector parts into a big selector array
     A single selector ends at combinator "" (match). Keep the indices
     of the first part of the rules.
   */
-  INTEGER ARRAY alwaysactive;
+  INTEGER ARRAY alwaysactive, rootactive, scopeactive;
   RECORD ARRAY selectorparts;
   FOREVERY (RECORD rec FROM parsed)
   {
-    INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
+    IF (rec.starts = "root")
+      INSERT LENGTH(selectorparts) INTO rootactive AT END;
+    ELSE IF (rec.starts = "scope")
+      INSERT LENGTH(selectorparts) INTO scopeactive AT END;
+    ELSE
+      INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
     FOREVERY (RECORD part FROM rec.parts)
     {
       INSERT CELL[ ...part, selector := DEFAULT RECORD ] INTO selectorparts AT END;
     }
   }
 
-  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(context, selectorparts, alwaysactive, rootactive, scopeactive, scopepath, mode);
 }
 
 /** Evaluate CSS selectors
@@ -1618,7 +1667,7 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
   IF (NOT ObjectExists(root))
     RETURN retval;
 
-  RECORD config :=
+  RECORD context :=
       [ root :=       root
       , scope :=      scope ?? root
       ];
@@ -1627,17 +1676,22 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
     A single selector ends at combinator "" (match). Keep the indices
     of the first part of the rules.
   */
-  INTEGER ARRAY alwaysactive;
+  INTEGER ARRAY alwaysactive, rootactive, scopeactive;
   RECORD ARRAY selectorparts;
   FOREVERY (RECORD selector FROM selectors)
   {
     TRY
     {
-      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selector.selector);
+      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(selector.selector, mode IN [ "qS", "qSA" ]);
 
       FOREVERY (RECORD rec FROM parsed)
       {
-        INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
+        IF (rec.starts = "root")
+          INSERT LENGTH(selectorparts) INTO rootactive AT END;
+        ELSE IF (rec.starts = "scope")
+          INSERT LENGTH(selectorparts) INTO scopeactive AT END;
+        ELSE
+          INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
         FOREVERY (RECORD part FROM rec.parts)
           INSERT CELL[ ...part, selector ] INTO selectorparts AT END;
       }
@@ -1648,16 +1702,20 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
     }
   }
 
-  retval.matches := EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+  retval.matches := EvaluateSelectorRecursive(context, selectorparts, alwaysactive, rootactive, scopeactive, scopepath, mode);
   RETURN retval;
 }
 
 /** Iterate depth-first through the DOM, keeping lists of which compound selector parts of selectors are active
     When an active rule part matches, schedule checks for the next part at the relevant nodes. Return the
     nodes that match the last rule part of a selector - when they also match the query mode
-    @param rootnode Node to start
+    @param context Query context
+    @cell(object) context.root Root node
+    @cell(object) context.scope Scope node
     @param selectorparts Selector parts @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return.parts
-    @param startrules Positions of the first part of all selectors
+    @param startrules Positions of the first part of selectors that are always active
+    @param rootrules Positions of the first part of selectors whose first selector contains :root
+    @param scoperules Positions of the first part of selectors whose first selector contains :scope
     @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
     @param mode Selection mode
       - 'qS': querySelector mode, return the first match (within the scope subtree, if passed)
@@ -1666,16 +1724,33 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
       - 'closest': closest mode, return the closest node that matches
     @return List of matching nodes
 */
-RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
+RECORD ARRAY FUNCTION EvaluateSelectorRecursive(RECORD context, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, INTEGER ARRAY rootrules, INTEGER ARRAY scoperules, RECORD scopepath, STRING mode)
 {
   RECORD ARRAY retval;
 
-  // No need to run when where are no startrules, and this way we can keep the invariant that levelactive is never empty
-  IF (IsDefaultValue(startrules))
-    RETURN retval;
 
   // Current depth in nodes, :root is depth 0
   INTEGER depth := 0;
+  OBJECT startnode := context.root;
+
+  // No need to run when where are no active rules, and the invariant that levelactive is never empty
+  IF (IsDefaultValue(startrules) AND IsDefaultValue(rootrules))
+  {
+    IF (IsDefaultValue(scoperules))
+      RETURN retval;
+
+    // When there are only scope-relative selectors, we can start processing at the scope node
+    IF (IsValueSet(scopepath.pathlen))
+    {
+      startnode := context.scope;
+      scopepath.pathlen := 1;
+      scopepath.path := [ startnode ];
+    }
+  }
+
+  // Reworking the algorithm to only run scoperules at the :scope node is too much work for now, so just add them to the startrules
+  // they are removed when processing the :scope node, so thay are only tested in the scope path anyway.
+  startrules := startrules CONCAT scoperules;
 
   // When mode is 'closest' or 'match', don't allow recursing outside of scope path
   INTEGER maxdepth;
@@ -1694,7 +1769,7 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
     min_return_depth := mode = "closest" ? 0 : scopepath.pathlen - 1;
   }
 
-  BOOLEAN ishtml := MemberExists(rootnode->ownerdocument, "__IS_HTML_DOCUMENT");
+  BOOLEAN ishtml := MemberExists(startnode->ownerdocument, "__IS_HTML_DOCUMENT");
 
   /* Evaluation stack
      Contains a record for every node in the path to the current node
@@ -1706,9 +1781,9 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
   */
   RECORD ARRAY stack :=
       [ CELL
-        [ node :=           rootnode
+        [ node :=           startnode
         , alwaysactive :=   startrules
-        , levelactive :=    startrules
+        , levelactive :=    startrules CONCAT rootrules
         , nodeactive :=     INTEGER[]
         ]
       ];
@@ -1731,6 +1806,8 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
 
     // Is the current node in the path to the current :scope element?
     BOOLEAN inscopepath := depth < scopepath.pathlen AND testnode->IsSameNode(scopepath.path[depth]);
+    IF (inscopepath ? depth = scopepath.pathlen - 1 : depth = 0)
+      childalwaysactive := ArrayDelete(childalwaysactive, scoperules);
 
 /* debugging code
     PRINT("Process "|| Debug_GetNodePath(testnode) || `, depth ${depth}, inscopepath: ${inscopepath?1:0}, maxdepth ${maxdepth}\n`);
@@ -1761,7 +1838,7 @@ RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         CONTINUE;
 
       // Test the rule part
-      BOOLEAN test := TestCompoundSelector(rec.compoundselector, testnode, ishtml);
+      BOOLEAN test := TestCompoundSelector(rec.compoundselector, testnode, ishtml, context);
       IF (NOT test)
         CONTINUE;
 
