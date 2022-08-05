@@ -878,29 +878,19 @@ STATIC OBJECTTYPE ConsilioCatalog
       THROW NEW Exception(`Invalid suffix name '${suffix}'`);
 
     this->EnsureIndexSettings([suffix]);
-    this->EnsureFieldGroupsApplied([suffix]);
     IF(suffix NOT IN this->ensuredsuffixes)
       INSERT suffix INTO this->ensuredsuffixes AT END;
   }
 
   MACRO EnsureIndexSettings(STRING ARRAY suffixes)
   {
+    RECORD ARRAY newmapping := this->GetExpectedMapping();
+    RECORD finalupdate := PrepareMappingUpdate(newmapping);
     STRING ARRAY synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms();
 
     FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly)
       FOREVERY(STRING suffix FROM suffixes)
-        EnsureOpenSearchIndexConfiguration(opensearch.indexmanager, opensearch.indexname, suffix, synonyms, this->catalog.lang);
-  }
-
-  MACRO EnsureFieldGroupsApplied(STRING ARRAY suffixes)
-  {
-    RECORD ARRAY newmapping := this->GetExpectedMapping();
-
-    FOREVERY(STRING suffix FROM suffixes)
-    {
-      RECORD finalupdate := PrepareMappingUpdate(newmapping);
-      EnsureIndexManagerMapping(this->id, finalupdate, CELL[ suffix, throwonfailure := TRUE ]);
-    }
+        EnsureOpenSearchIndexConfiguration(opensearch.indexmanager, opensearch.indexname, suffix, synonyms, this->catalog.lang, finalupdate);
   }
 
   /** @short Make sure configuration is applied and, if unsuffixed, the root index exists
@@ -924,8 +914,6 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
 
     this->EnsureIndexSettings(updatesuffixes);
-    IF(RecordExists(SELECT FROM this->ListAttachedIndices() WHERE NOT readonly))
-      this->EnsureFieldGroupsApplied(updatesuffixes);
     this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
   }
 
