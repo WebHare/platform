@@ -71,6 +71,7 @@ if ! ( apt-get changelog openssl | grep -q CVE-2021-3449 ) ; then
 fi
 
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
+# 2022-08-05: Added 'jq' to parse webhare.version
 
 PACKAGES="ccache
     certbot
@@ -86,6 +87,7 @@ PACKAGES="ccache
     libgif-dev
     git
     inotify-tools
+    jq
     openjdk-8-jre-headless
     fonts-liberation
     less
