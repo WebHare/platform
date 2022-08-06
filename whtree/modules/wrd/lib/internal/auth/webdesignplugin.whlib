@@ -892,6 +892,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                 , [ account :=  entityid
                                   , login := options.auditloginname ?? loginname
                                   , message := options.auditmessage
+                                  , wrdschema := this->wrdschema->Tag
                                   ]);
 
       IF (trylogin.success)

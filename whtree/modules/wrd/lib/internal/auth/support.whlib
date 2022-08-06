@@ -248,16 +248,17 @@ PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFA
       [ account :=    0
       , login :=      ""
       , message :=    DEFAULT RECORD
+      , wrdschema := ""
       , isimpersonation := FALSE
       ], options,
       [ required := [ "account" ]
       ]);
 
-  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message));
+  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message, options.wrdschema));
 }
 
 // Writes an audit log event to the database in separated transactions
-MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_entityid, STRING affecteduser_login, BOOLEAN isimpersonation, RECORD message)
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_entityid, STRING affecteduser_login, BOOLEAN isimpersonation, RECORD message, STRING wrdschema)
 {
   type := ToLowercase(type);
   IF(type NOT LIKE "?*:?*")
@@ -265,11 +266,14 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
 
   // The log determines its own datetime, make sure the database logdate is just before or at that date
   DATETIME creationdate := GetCurrentDatetime();
-  RECORD logged := LogAuditEventBy("wrd:auth", CELL
-      [ affecteduser_login
-      , affecteduser_entityid
-      , type
-      ], message);
+  RECORD auditcontext := CELL[ affecteduser_login
+                             , affecteduser_entityid
+                             , type
+                             ];
+  IF(wrdschema != "")
+    INSERT CELL wrdschema := wrdschema INTO auditcontext;
+
+  RECORD logged := LogAuditEventBy("wrd:auth", auditcontext, message);
 
   RECORD toinsert := CELL
       [ creationdate
