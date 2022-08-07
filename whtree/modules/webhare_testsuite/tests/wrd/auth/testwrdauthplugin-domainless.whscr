@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
@@ -119,7 +120,7 @@ MACRO CreateMyTestSchema()
   testfw->CommitWork();
 
   //ADDME some sort of automatic backing off/delays/even captcha? to prevent excessive login attempts ?
-
+  DATETIME starttest := GetCurrentDatetime();
   result := DoReq( [ action := "login", username := "testaccount@test.invali", pwd := "wrongpassword", browsertriplet := "mac-chrome-01" ]);
   TestEq(FALSE, result.success);
   TestEq("UNKNOWNLOGIN", result.code);
@@ -134,6 +135,10 @@ MACRO CreateMyTestSchema()
       , byentity := 0
       , bylogin := "testaccount@test.invali"
       ]);
+
+  OBJECT stream := OpenWebHareLogStream("audit", starttest, GetCurrentDatetime());
+  RECORD rec := stream->ReadRecord();
+  TestEq("wrd:testschema", DecodeHSON(rec.parts[2]).wrdschema);
 
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
