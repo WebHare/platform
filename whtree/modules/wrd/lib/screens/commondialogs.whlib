@@ -661,6 +661,9 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION IsAddressEqual(RECORD lhs, RECORD rhs)
   {
+    IF(RecordExists(rhs) != RecordExists(lhs))
+      RETURN FALSE;
+
     FOREVERY(RECORD lhscell FROM UnpackRecord(lhs))
     {
       IF(lhscell.name = "COUNTRY_FULL")
@@ -668,7 +671,7 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
       IF(NOT CellExists(rhs, lhscell.name) OR lhscell.value != GetCell(rhs, lhscell.name))
         RETURN FALSE;
     }
-    //no need to inspect RHS if all cells in LHS match (considering that they _should_ have the same record structure anyway)
+    //no need to inspect RHS if all cells in LHS match (considering that they _should_ have the same record structure anyway IF their countries match)
     RETURN TRUE;
   }
 
