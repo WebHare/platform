@@ -120,38 +120,6 @@ deprecation_sleep()
   echo ""
 }
 
-vercomp () {
-  # https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
-  if [[ $1 == $2 ]]
-  then
-      return 0
-  fi
-  local IFS=.
-  local i ver1=($1) ver2=($2)
-  # fill empty fields in ver1 with zeros
-  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
-  do
-      ver1[i]=0
-  done
-  for ((i=0; i<${#ver1[@]}; i++))
-  do
-      if [[ -z ${ver2[i]} ]]
-      then
-          # fill empty fields in ver2 with zeros
-          ver2[i]=0
-      fi
-      if ((10#${ver1[i]} > 10#${ver2[i]}))
-      then
-          return 1
-      fi
-      if ((10#${ver1[i]} < 10#${ver2[i]}))
-      then
-          return 2
-      fi
-  done
-  return 0
-}
-
 whcompile()
 {
   loadenvsettings
@@ -554,6 +522,14 @@ case $INSTR in
 
     getwhparameters
     setup_webhare_envsettings
+    PREVIOUSVERSION=""
+    if [ -f "$WEBHARE_DATAROOT/webhare.version" ]; then
+      PREVIOUSVERSION="$(jq -r .version < "$WEBHARE_DATAROOT/webhare.version" 2>/dev/null)"
+    fi
+    if [ -n "$PREVIOUSVERSION" ] && ! verify_webhare_version "$PREVIOUSVERSION" "$WEBHARE_VERSION" ; then
+      echo "Aborting - if you want to ignore this version check failure, delete $WEBHARE_DATAROOT/webhare.version at your own risk!"
+      exit 1
+    fi
 
     # Show version and restore information
     echo -n "WebHare version: $WEBHARE_VERSION"
@@ -882,27 +858,6 @@ HERE
 
   "isrunning")
     is_webhare_running && exit 0 || exit 1
-    ;;
-
-  "freshdbconsole")
-    check_webhare_not_running
-    setup_for_console
-
-    eval `$WEBHARE_DIR/bin/webhare printparameters`
-
-    ALLOWFRESHFILE="$WEBHARE_DATAROOT/etc/allow-fresh-db"
-    if [ ! -f "$ALLOWFRESHFILE" ]; then
-      die "freshdbconsole WIPES YOUR DATABASE on startup. To prove this is what you wish, please create a file named '$ALLOWFRESHFILE'"
-    fi
-
-    rm -rf -- "$WEBHARE_DATAROOT"/postgresql
-    rm -rf -- "$WEBHARE_DATAROOT"/log "$WEBHARE_DATAROOT"/system.cache "$WEBHARE_DATAROOT"/publisher.pb "$WEBHARE_DATAROOT"/publisher.pd "$WEBHARE_DATAROOT"/system.last-shrinkwrap-var
-    rm -rf -- "$WEBHARE_DATAROOT"/index "$WEBHARE_DATAROOT"/opensearch
-    if [ -x "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" ]; then
-      "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" &
-    fi
-    exec $WEBHARE_DIR/bin/wh console "$@"
-    exit 255
     ;;
 
   "installsocketbinder")

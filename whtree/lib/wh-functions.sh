@@ -416,3 +416,76 @@ autocomplete_print_compreply()
     fi
   done
 }
+
+vercomp () {
+  # Based on https://stackoverflow.com/questions/4023830/how-compare-two-strings-in-dot-separated-version-format-in-bash
+  # Extend with the WebHare approach to -xyz tags (5.0.2-xyz <= 5.0.2, no opinion about 5.0.2-xyz vs 5.0.2-dev)
+  if [[ $1 == $2 ]]
+  then
+      return 0
+  fi
+  local IFS=.
+  local i ver1=($1) ver2=($2)
+  # fill empty fields in ver1 with zeros
+  for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+  do
+      ver1[i]=0
+  done
+  #echo VERCOMP APRTS 1: ${ver1[*]}
+  #echo VERCOMP APRTS 2: ${ver2[*]}
+  for ((i=0; i<${#ver1[@]}; i++))
+  do
+      if [[ -z ${ver2[i]} ]]
+      then
+          # fill empty fields in ver2 with zeros
+          ver2[i]=0
+      fi
+      if ((10#${ver1[i]} > 10#${ver2[i]}))
+      then
+          return 1 #ver1 (LHS) is NEWER than ver2
+      fi
+      if ((10#${ver1[i]} < 10#${ver2[i]}))
+      then
+          return 2
+      fi
+  done
+
+  local lastver1=${ver1[${#ver1[@]} - 1]}
+  local lastver2=${ver2[${#ver2[@]} - 1]}
+
+  if [[ $lastver2 =~ - ]] && ! [[ $lastver1 =~ - ]] ; then #Comparing 1.2.3 to 1.2.3-xyz
+    return 1 #ver1 (without a -xxx) is thus newer than ver2
+  fi
+  if [[ $lastver1 =~ - ]] && ! [[ $lastver2 =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
+    return 2 #ver1 is older
+  fi
+
+  return 0
+}
+
+verify_webhare_version()
+{
+  PREVVER="$1"
+  CURVER="$2"
+
+  [ "$PREVVER" == "$CURVER" ] && return 0
+
+  vercomp "$PREVVER" "$CURVER"
+  if [ "$?" == "1" ]; then # PREVVER > CURVER
+    echo "Previous WebHare version '$PREVVER' is newer than this WebHare version '$CURVER' - downgrading is never safe"
+    return 1
+  fi
+
+  vercomp "$CURVER" 5.0.0-dev
+  if [ "$?" != "2" ]; then # CURVER >= 5.0.0-dev (we should know which version we are, but this is useful for test coverage)
+    # 4.35 was unskippable for 5.0.0
+    vercomp "4.35.0" "$PREVVER"
+    if [ "$?" == "1" ]; then # 4.35.0 > PREVVER
+      echo "Previous WebHare version '$PREVVER' is older than 4.35.0 - you cannot skip 4.35.xx between 4.34 and 5.0!"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
