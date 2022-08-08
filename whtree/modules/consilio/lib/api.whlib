@@ -3,6 +3,7 @@
 */
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
 LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenContentSource, OpenConsilioCatalog, OpenConsilioCatalogById;
@@ -10,11 +11,14 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+
+PUBLIC CONSTANT INTEGER require_allowed, require_required, require_prohibited;
 
 /*
 
@@ -359,11 +363,17 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
       , defaultfields := DEFAULT RECORD ARRAY
       , thesaurusid := 0
       , synonyms := TRUE
+      , defaultrequire := 0
       ],
       options,
       [ enums := [ querymode := [ "AND", "OR" ] ]
-      , discard := [ "defaultrequire" ] //FIXME: If this parameter is removed from all calls to CQParseUserQuery, it can be removed here
+      , optional := [ "defaultrequire" ]
       ]);
+
+  //TODO: This code checks if 'defaultrequire' is still used, can be removed if it's removed from all modules, along with the
+  //      option itself and the 'require_*' variables
+  IF (GetDTAPStage() = "development" AND GetEnvironmentVariable("WEBHARE_CI") = "" AND CellExists(options, "defaultrequire"))
+    THROW NEW Exception("The 'defaultrequire' option is deprecated, use 'querymode' instead");
 
   RECORD ARRAY thesaurus;
   IF (options.thesaurusid != 0)
