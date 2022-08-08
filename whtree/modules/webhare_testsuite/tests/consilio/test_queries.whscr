@@ -67,6 +67,9 @@ MACRO PrepareCustomCatalog()
 
   TestEqMembers([[ name := "textfield", type := "text" ]], (SELECT * FROM mapping WHERE name = "textfield"),"*");
   TestEqMembers([[ name := "keywordfield", type := "keyword" ]], (SELECT * FROM mapping WHERE name = "keywordfield"),"*");
+  TestEqMembers([[ name := "myrec", type := "record"
+                 , properties := [[ name := "reckeyword", type := "keyword" ]]
+                ]], (SELECT * FROM mapping WHERE name = "myrec"),"*");
   testfw->CommitWork();
 
   TestEq([[ groupid := "QC1" ], [ groupid := "QC2" ], [ groupid := "QC3" ]],
@@ -101,6 +104,11 @@ MACRO RunTheMatchQueries()
   TestEq(["QC2","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", ">", "keyword number one")));
   TestEq(["QC1","QC3"], ExecTestQuery(CQMatch("keywordfield", "<", "keyword number two")));
   TestEq(["QC1","QC2","QC3"], ExecTestQuery(CQMatch("keywordfield", "<=", "keyword number two")));
+
+  TestEqMembers([ results := [[ groupid := "QC1"
+                              , myrec := [ reckeyword := ["rk1","rk2" ] ]
+                             ]]
+                ], RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC1")), "*");
 }
 
 MACRO RunTheAggregationQueries()
