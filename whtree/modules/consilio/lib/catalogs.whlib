@@ -1112,14 +1112,14 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell options.definedby Use to describe who added this custom content source was added
       @rreutn Newly created content source
   */
-  PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION AddFolderToCatalog(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     options :=  ValidateOptions(
         CELL[ ...default_contentsource_options
-            , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+            , definedby :=            "AddFolderToCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
             ], options);
 
     FOREVERY (RECORD contentsource FROM

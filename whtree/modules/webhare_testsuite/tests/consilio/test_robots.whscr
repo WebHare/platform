@@ -18,7 +18,7 @@ MACRO TestHTMLIndexing()
   Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT siteroot := GetTestsuiteTempFolder();
-  OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id, [ enabled := FALSE ]); //disable it so we can manually control the frontend (and can avoid WaitIndexDone etc) without risking conflicting/duplicate index actions
+  OBJECT newsource := catalog->AddFolderToCatalog(siteroot->id, [ enabled := FALSE ]); //disable it so we can manually control the frontend (and can avoid WaitIndexDone etc) without risking conflicting/duplicate index actions
   OBJECT testfile := siteroot->CreateFile([ name := "robottest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", publish := TRUE]);
 
   testfw->CommitWork();

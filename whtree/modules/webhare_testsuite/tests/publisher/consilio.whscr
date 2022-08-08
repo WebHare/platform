@@ -21,8 +21,8 @@ MACRO ConsilioTest()
 
   OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [fieldgroups := [ "webhare_testsuite:extrafield" ] ]);
   OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2");
-  OBJECT contentsource_1 := catalog_1->AddPublisherContentSource(siteroot->id);
-  OBJECT contentsource_2 := catalog_2->AddPublisherContentSource(subfolder->id);
+  OBJECT contentsource_1 := catalog_1->AddFolderToCatalog(siteroot->id);
+  OBJECT contentsource_2 := catalog_2->AddFolderToCatalog(subfolder->id);
   testfw->CommitWork();
 
   Print(catalog_1->GetStorageInfo() || ", " || catalog_2->GetStorageInfo() || "\n");
