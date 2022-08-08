@@ -161,9 +161,6 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       , synonyms
       ] INTO setanalysis.filter;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "EnsureOpenSearchIndexConfiguration", CELL[ indexmanager, indexname, suffix, synonyms, lang, mapping ]);
-
   STRING fullname := indexname || (suffix != "" ? "-" || suffix : "");
   TRY
   {
@@ -876,12 +873,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
              FROM objects;
 
   INTEGER indexid := catalog->id;
-  IF(IsDebugTagEnabled("consilio:changes"))
-  {
-    LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options := CELL[ ...options, bulk := GetObjectTypeName(options.bulk) ] ]);
-    FOREVERY(RECORD obj FROM objects)
-      LogDebug("consilio:changes", "AddIndexManagerObjects #" || #obj, obj);
-  }
 
   STRING result;
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
@@ -988,9 +979,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
     }
   }
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "AddIndexManagerObjects done", CELL[ result ]);
-
   RETURN result ?? SearchOk;
 }
 
@@ -1010,9 +998,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
 
   IF (groupid = "")
     RETURN SearchInvalidArgument;
-
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerGroup", CELL[ indexid, contentsourceid, groupid, options ]);
 
   STRING result;
   IF (groupid != "")
@@ -1047,9 +1032,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
   }
   ELSE
     result := SearchInvalidArgument;
-
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerGroup done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1087,9 +1069,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   options := ValidateOptions(defaultoptions, options);
 
   STRING result;
-
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerObjects", CELL[ indexid, contentsourceid, objectids, options ]);
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
   FOREVERY (RECORD indexmanager FROM indexmanagers)
@@ -1153,9 +1132,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   }
   result := result ?? SearchOk;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerObjects done", CELL[ result ]);
-
   RETURN result;
 }
 
@@ -1182,9 +1158,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
   options := ValidateOptions(
       [ refresh := FALSE
       ], options);
-
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerOutdated", EncodeJSON(CELL[ indexid, contentsourceid, groupid, objectid, deletebefore, options ]));
 
   RECORD result := [ status := SearchInvalidArgument
                    , deleted := 0
@@ -1244,9 +1217,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
     }
   }
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerOutdated done", EncodeJSON(CELL[ result ]));
-
   RETURN result;
 }
 
@@ -1288,9 +1258,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
                    , deleted := 0
                    ];
   RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                  EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
 
   /* TODO this approach really just returns the *last* deletion status, and may (re)delete multiple indices if already marked
      as deletion. This looping should probably happen in the catalog api */
@@ -1333,9 +1300,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     }
   }
 
- IF(IsDebugTagEnabled("consilio:changes"))
-   LogDebug("consilio:changes", "DeleteIndexManagerContentSource done", result);
-
  IF (result.status = SearchOk)
     BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
 
@@ -1363,10 +1327,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
 
   RECORD indexmanager := GetIndexManagers(indexmgrid);
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                   EncodeJSON(CELL[ indexmgrid, indexid, indexname, options ]));
-
   IF (RecordExists(indexmanager))
   {
     RECORD indexinfo := SELECT * FROM consilio.catalogs WHERE id = indexid;
@@ -1385,9 +1345,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
       // Deleting an index doesn't return the number of deleted documents...
     }
   }
-
- IF(IsDebugTagEnabled("consilio:changes"))
-   LogDebug("consilio:changes", "DeleteIndexManagerIndex done", result);
 
   RETURN result;
 }
