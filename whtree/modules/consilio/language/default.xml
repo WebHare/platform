@@ -208,6 +208,9 @@
         <text tid="invalidobject">The object '<param p="1"/>:<param p="2"/>' is not a valid custom content object</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="site">   <!-- contentproviders.site -->
+      <text tid="providertitle">WebHare website</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->

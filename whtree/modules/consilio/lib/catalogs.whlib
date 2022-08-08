@@ -106,7 +106,7 @@ STATIC OBJECTTYPE ContentSource
   /// @type(boolean) True if this source is enabled (automatically indexing)
   PUBLIC PROPERTY enabled(GetEnabled, -);
 
-  /// @type(string) Contentprovidertype (generally publisher:webhare or consilio:custom)
+  /// @type(string) Contentprovidertype (generally consilio:site or consilio:custom)
   PUBLIC PROPERTY __contentprovider(this->contentsource.contentprovider, -); //hiding this API because 'consilio:custom' might stop being a thing in the future
 
   /// @type(integer) Base object for this content source
@@ -209,8 +209,8 @@ STATIC OBJECTTYPE ContentSource
     IF(CellExists(settings,'tag'))
     {
       STRING curprovider := SELECT AS STRING contentprovider FROM consilio.contentsources WHERE id = this->id;
-      IF(curprovider = "publisher:webhare" AND settings.tag != "")
-        THROW NEW Exception(`A publisher:webhare contentsource may not have a tag`);
+      IF(curprovider = whconstant_consilio_contentprovider_site AND settings.tag != "")
+        THROW NEW Exception(`A site contentsource may not have a tag`);
       IF(curprovider = "consilio:custom" AND settings.tag = "")
         THROW NEW Exception(`A consilio:custom contentsource must have a tag`);
 
@@ -858,7 +858,7 @@ STATIC OBJECTTYPE ConsilioCatalog
              , fsobject
              , isorphan := orphansince != DEFAULT DATETIME
              , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
-                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
+                            OR (contentprovider = VAR whconstant_consilio_contentprovider_site  //contentsource whose target folder is deleted
                                 AND fsobject = 0
                                 AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
                                )
@@ -1126,7 +1126,7 @@ STATIC OBJECTTYPE ConsilioCatalog
         SELECT id, fsobject
           FROM consilio.contentsources
          WHERE catalogid = this->catalog.id
-               AND contentprovider = "publisher:webhare"
+               AND contentprovider = VAR whconstant_consilio_contentprovider_site
                AND tag NOT LIKE "$consilio$deleted$*")
     {
       IF ((contentsource.fsobject = targetfolder) OR IsFolderAncestorOf(contentsource.fsobject, targetfolder)) // targetfolder is already covered by searchroot
@@ -1141,7 +1141,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
 
     RETURN this->CreateContentSource(CELL[ ...options
-                                          , contentprovider := "publisher:webhare"
+                                          , contentprovider := whconstant_consilio_contentprovider_site
                                           , fsobject := targetfolder
                                           ]);
   }

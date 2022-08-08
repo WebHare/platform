@@ -28,8 +28,8 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjectsForFolder(INTEGER folderid)
 /** @short Reindex one or more WHFS changes
     @param to_reindex List of objects to reindex
     @cell(integer) to_reindex.id WHFS object id
-    @cell(boolea) to_reindex.isfolder Set this flag to indicate the object is a folder
-    @cell(boolea) to_reindex.isdelete Set this flag to indicate the object is deleted or recycled
+    @cell(boolean) to_reindex.isfolder Set this flag to indicate the object is a folder
+    @cell(boolean) to_reindex.isdelete Set this flag to indicate the object is deleted or recycled
     @cell(boolean) options.refresh Refresh the indices after updating (defaults to TRUE)
 */
 PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -43,9 +43,9 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
     IF(NOT ObjectExists(catalog))
       THROW NEW Exception(`Publisher index '${whconstant_consilio_catalog_whfs}' not available`);
 
-    publisher_fsobjects_source := OpenContentSource("publisher:fsobjects");
+    publisher_fsobjects_source := OpenContentSource("consilio:whfsobjects");
     IF(NOT ObjectExists(publisher_fsobjects_source))
-      THROW NEW Exception(`Content source 'publisher:fsobjects' not available`);
+      THROW NEW Exception(`Content source 'consilio:whfsobjects' not available`);
   }
 
   INTEGER ARRAY to_update, to_delete;

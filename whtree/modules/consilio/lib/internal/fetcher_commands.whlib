@@ -1145,7 +1145,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 
     FOREVERY (RECORD rec FROM candidates)
     {
-      IF (rec.contentprovider != "publisher:webhare")
+      IF (rec.contentprovider != whconstant_consilio_contentprovider_site)
         CONTINUE;
 
       IF (rec.id IN mustinclude)
@@ -1160,7 +1160,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
     }
 
     // No content source was specified, so we're adding a WebHare fs_object for which only publisher content sources are needed
-    result.sources := SELECT * FROM result.sources WHERE contentprovider = "publisher:webhare";
+    result.sources := SELECT * FROM result.sources WHERE contentprovider = VAR whconstant_consilio_contentprovider_site;
   }
 
   // Do we have any content sources for adding the group?

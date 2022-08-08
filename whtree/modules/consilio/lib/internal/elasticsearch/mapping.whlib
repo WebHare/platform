@@ -8,6 +8,7 @@ LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 RECORD FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
@@ -154,13 +155,13 @@ RECORD ARRAY FUNCTION GetContentSourcesMapping(RECORD ARRAY contentsources, STRI
   RECORD ARRAY properties := ParseContentSourceMapping(RECORD[], basefields); //TODO Seems dupe with the ParseContentSourceMapping call below but the _body hack probably needs some fixing before combining both
 
   RECORD ARRAY fields; //gather all fields together so we can do one pass of _suggested generation
-  /*TODO We need to optimize publisher:webhare contentsources, a catalog can have hundreds of them but they'll all have the same field definition
+  /*TODO We need to optimize consilio:site contentsources, a catalog can have hundreds of them but they'll all have the same field definition
          for now we'll just look at the first. ideally we'd get rid of intermediate consilio:custom and contentsources would either declare XML
          (and then we know we only need to check one) or they'd indicate that their mapping is truly dynamic (and there shouldn't be hundreds of those */
   BOOLEAN seenpublisherwebhare;
   FOREVERY (RECORD contentsource FROM SELECT * FROM contentsources) //skip contentproviders we know to not have subfields
   {
-    IF(contentsource.contentprovider = "publisher:webhare")
+    IF(contentsource.contentprovider = whconstant_consilio_contentprovider_site)
       IF(seenpublisherwebhare)
         CONTINUE;
       ELSE

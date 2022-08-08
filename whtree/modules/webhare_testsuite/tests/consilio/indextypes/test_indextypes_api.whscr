@@ -61,7 +61,7 @@ MACRO TestIndexTypeAPIs()
   testfw->CommitWork();
 
   OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
-  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->__OpenProvider();
+  OBJECT provider := catalog->OpenContentSource("consilio:whfsobjects")->__OpenProvider();
 
   RECORD ARRAY objs := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[], [ rebuild := TRUE ]);
 

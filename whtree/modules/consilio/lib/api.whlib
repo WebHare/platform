@@ -14,6 +14,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -496,7 +497,7 @@ RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
   RETURN SELECT catalogid, fsobject
            FROM consilio.contentsources
           WHERE fsobject IN candidateids
-                AND contentprovider = "publisher:webhare"
+                AND contentprovider = VAR whconstant_consilio_contentprovider_site
                 AND orphansince = DEFAULT DATETIME
                 AND tag NOT LIKE "$consilio$deleted$*"
        ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match

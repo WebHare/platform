@@ -182,7 +182,10 @@ PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff
 PUBLIC CONSTANT INTEGER whconstant_consilio_osportoffset := 6;
 
 //name of the publisher whfs catalog
-PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "publisher:whfs";
+PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "consilio:whfs";
+
+//name for site (frontend) content sources
+PUBLIC CONSTANT STRING whconstant_consilio_contentprovider_site := "consilio:site";
 
 //our 2 index types
 PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_managed := 0;

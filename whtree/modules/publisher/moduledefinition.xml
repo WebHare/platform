@@ -969,10 +969,6 @@
   <!-- NOTE: for performance and chicken/egg reasons, publisher registry is initialized by system -->
 
   <consilio>
-    <contentprovider name="webhare" tid="contentproviders.webhare.providertitle" icon="tollium:folders/site" contentproviderobject="lib/internal/contentprovider.whlib#WebHareContentProvider" />
-    <catalog tag="whfs" priority="-5">
-      <customsource tag="fsobjects" contentobject="mod::publisher/lib/internal/consiliocontent.whlib#WHFSObjectContentSource"  />
-    </catalog>
   </consilio>
 
   <publisher>

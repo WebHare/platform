@@ -98,4 +98,4 @@ And this to replace the siteprofile code:
   </sitesettings>
 ```
 
-Setting an explicit sitename= would not be needed if the siteprofile only applied to a single site
+  Setting an explicit sitename= would not be needed if the siteprofile only applied to a single site

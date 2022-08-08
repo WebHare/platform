@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 RECORD ARRAY FUNCTION GetRequiredCatalogs()
@@ -115,7 +116,7 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
   {
     INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
                            FROM currentsources
-                          WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare")
+                          WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : VAR whconstant_consilio_contentprovider_site)
                                 AND fsobject = source.fsobject
                                 AND ToUppercase(tag) = ToUppercase(source.tag)) - 1;
 

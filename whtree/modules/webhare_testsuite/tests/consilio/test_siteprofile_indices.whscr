@@ -76,7 +76,7 @@ ASYNC MACRO TestCatalogApp()
   TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testsitecatalog";
 
   AWAIT ExpectScreenChange(+1,  PTR TTClick("addcontentsource"));
-  TestEq("WebHare folder", TT("contentsourcetype")->value);
+  TestEq("WebHare website", TT("contentsourcetype")->value);
   TT("folder")->value := toindexfolder1->id;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 

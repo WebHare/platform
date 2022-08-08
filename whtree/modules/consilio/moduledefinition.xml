@@ -10,7 +10,9 @@
   </meta>
 
   <servicemanager>
-    <runonce tag="migrate_indices_v2" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
+    <!-- migrate_indices_v3: v5.02 database upgrade to prepare for opensearch managers -->
+    <runonce tag="migrate_indices_v3" script="scripts/runonce/migrate_indices.whscr" when="afterschemacreation" />
+    <!-- setupopensearch: launches the initial builtin opensearch if not yet present -->
     <runonce tag="setupopensearch" script="scripts/runonce/setupopensearch.whscr" when="poststart" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
     <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
@@ -211,7 +213,7 @@
       </d:integer>
       <d:integer name="fsobject" references="system.fs_objects" ondelete="set default">
         <d:documentation>
-          Associated WHFS object. For publisher:webhare content sources, the publisher folder where indexing starts
+          Associated WHFS object. For consilio:site content sources, the publisher folder where indexing starts
         </d:documentation>
       </d:integer>
       <d:varchar name="tag" maxlength="64">
@@ -483,8 +485,14 @@
 
   <consilio>
     <contentprovider
+      name="site" tid="contentproviders.site.providertitle" icon="tollium:folders/site" contentproviderobject="mod::publisher/lib/internal/contentprovider.whlib#WebHareContentProvider" />
+    <contentprovider
       name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database" contentproviderobject="lib/contentproviders/customcontent.whlib#CustomContentProvider"
     />
+
+    <catalog tag="whfs" priority="-5">
+      <customsource tag="whfsobjects" contentobject="mod::publisher/lib/internal/consiliocontent.whlib#WHFSObjectContentSource"  />
+    </catalog>
 
     <fieldgroup tag="pxl_data">
       <keyword name="ds_*" />
@@ -501,6 +509,7 @@
       <text name="consilio" />
       <addfieldgroup ref="webhare_testsuite:circular_test_reference_group" />
     </fieldgroup>
+
   </consilio>
 
   <hooking>
