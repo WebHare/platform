@@ -1014,7 +1014,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     objects := SELECT objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
     {
-      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ suffix := options.suffix, refresh := options.synchronous ]);
     }
   }
 
@@ -1040,7 +1040,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
     {
       STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
-      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ throwonfailure := TRUE, options.suffix, refresh ]);
+      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ options.suffix, refresh ]);
     }
   }
 

@@ -134,7 +134,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
   IF (NOT RecordExists(indexmanager))
    THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
 
-  RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]);
+  RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET");
   result.status := response.status;
   IF (response.status = SearchOk)
     result.stats := GetCell(response.result.indices, indexmanager.indexname).total;
@@ -169,7 +169,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
                            , analysis := setanalysis
                            ]
              , mappings := mapping
-             ], "PUT", [ throwonfailure := TRUE ]);
+             ], "PUT");
   }
   CATCH(OBJECT<ElasticSearchException> e)
   {
@@ -178,7 +178,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       //Then just update the configuration
 
       // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
-      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]).result;
+      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET").result;
       currentsettings := GetCell(currentsettings, fullname).settings;
 
       RECORD applysettings;
@@ -191,23 +191,33 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
         IF (close_index)
         {
           __did_opensearch_close_and_reopen := TRUE;
-          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
+          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST");
         }
 
         // Update the settings
         TRY
         {
-          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT", [ throwonfailure := TRUE ]);
+          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT");
         }
         FINALLY
         {
           // Open the index again if needed. Even if /_settings throws
           IF (close_index)
-            SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST", [ throwonfailure := FALSE ]);
+          {
+            TRY
+            {
+              SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST");
+            }
+            CATCH(OBJECT f)
+            {
+              LogHarescriptException(f);
+              //And ignore it. not much we can do about a throw here
+            }
+          }
         }
       }
 
-      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT", [throwonfailure := TRUE]);
+      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT");
     }
     ELSE
     {
@@ -220,7 +230,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
 {
   options := ValidateOptions(
       [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := TRUE
       ], options);
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
@@ -230,7 +239,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
     THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
-  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);
+  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET");
 
   RECORD mappings := GetCell(response.result, finalindexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
@@ -270,7 +279,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
-      , throwonfailure := TRUE
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
@@ -389,7 +397,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     IF(options.debug)
       Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure , enforce := "_search_get" ]);
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get" ]);
     IF(options.debug)
       DumpValue(response, "tree");
 
@@ -675,7 +683,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
       IF (indexid != -1 AND options.restrict_to != "")
         INSERT "initialfilter" INTO suggestquery._source AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST", [ throwonfailure := TRUE ]);
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
       result.status := response.status;
       IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
       {
@@ -816,14 +824,12 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
 
   /** Execute the collected bulk operations
       @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
-      @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
       @return Result code
   */
   PUBLIC STRING FUNCTION Execute(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
         [ refresh :=            FALSE
-        , throwonfailure :=     FALSE
         ], options,
         [ notypecheck := [ "refresh" ]
         ]);
@@ -831,7 +837,7 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
     STRING retval := SearchOk;
     FOREVERY (RECORD rec FROM this->_requests)
     {
-      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST", CELL[ options.throwonfailure ]);
+      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST");
       IF (response.status != SearchOk)
         retval := response.status;
     }
@@ -861,7 +867,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       [ discardsummaries := FALSE // Set to TRUE to not store the document body for summary generation, Consilio only
       , refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := FALSE
       , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
@@ -898,7 +903,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
           options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
         ELSE
         {
-          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST");
           IF (response.status != SearchOk)
           {
             result := result ?? response.status;
@@ -1054,7 +1059,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
     @param objectids The objects to delete
     @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
     @cell(string) options.suffix Sub-index suffix, for unmanaged indices, Elasticsearch only
-    @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
     @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
     @return If the deletion was successful for all affected indexmanagers
 */
@@ -1063,7 +1067,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   RECORD defaultoptions :=
       [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := FALSE
       , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
@@ -1088,7 +1091,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
           options.bulk->AddOperation(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
         ELSE
         {
-          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST");
           IF (response.status != SearchOk)
             result := result ?? response.status;
         }
@@ -1106,7 +1109,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
         options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests);
       ELSE
       {
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST");
         IF (response.status != SearchOk)
           result := result ?? response.status;
       }
@@ -1270,7 +1273,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
     {
       // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), DEFAULT RECORD, [ expectstatus := [200,404] ]);
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }

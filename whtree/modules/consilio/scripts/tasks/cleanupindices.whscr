@@ -97,7 +97,7 @@ FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuil
       IF(debug)
         Print(msg || "\n");
 
-      SendToElasticsearch(indexmanager.id, toremove.indexname || (suffix != "" ? "-" || suffix : "*"), "", DEFAULT RECORD, "DELETE", [ throwonfailure := TRUE ]);
+      SendToElasticsearch(indexmanager.id, toremove.indexname || (suffix != "" ? "-" || suffix : "*"), "", DEFAULT RECORD, "DELETE");
     }
   }
 }
