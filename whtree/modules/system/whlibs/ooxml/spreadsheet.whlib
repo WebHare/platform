@@ -1019,8 +1019,15 @@ PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
   INTEGER ARRAY colstyles;
   INTEGER rowstream;
   BLOB ARRAY rowblobs;
+  INTEGER compressionlevel;
 
   PUBLIC PROPERTY excelsheet(sheet, -);
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ compressionlevel := 6 ], options);
+    this->compressionlevel := options.compressionlevel;
+  }
 
   MACRO ResetDoc()
   {
@@ -1186,7 +1193,7 @@ PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
 
     BLOB output := this->xls->SaveExcelDoc();
 
-    OBJECT resa := OpenExistingArchive(output);
+    OBJECT resa := OpenExistingArchive(output, CELL[ this->compressionlevel ]);
     BLOB resa_sheet := resa->GetFile("xl/worksheets/sheet1.xml");
     STRING s := BlobToString(resa_sheet);
     INTEGER datapos := SearchSubString(s, `<sheetData/>`);
@@ -1449,6 +1456,7 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
                               , exporttitle := ""
                               , filename := ""
                               , timezone := ""
+                              , compressionlevel := 6
                               ], options, [ required := ["rows" ]]);
 
   IF(Length(options.columns) = 0 AND Length(options.rows) > 0)
@@ -1488,7 +1496,7 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
 {
   options := __ValidateXLSXFileOptions(options);
 
-  OBJECT csvout := NEW XLSXColumnFileWriter;
+  OBJECT csvout := NEW XLSXColumnFileWriter(CELL[ options.compressionlevel ]);
   csvout->columns := options.columns;
   csvout->timezone := options.timezone;
   IF(Length(options.rows) > 0)
