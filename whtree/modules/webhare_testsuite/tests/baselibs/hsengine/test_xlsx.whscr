@@ -422,6 +422,37 @@ MACRO TestXLSX_Regressions()
                 ],quickexport,'*');
 }
 
+MACRO TestXLSX_Compression()
+{
+  STRING one_k := RepeatText("a", 1024);
+  RECORD ARRAY rows := RepeatElement([ a := one_k, b := one_k, c := one_k, d := one_k ], 1024);
+
+  RECORD file := GenerateXLSXFile(CELL
+      [ rows
+      , columns :=
+          [ [ name := "a", type := "text", title := "a" ]
+          , [ name := "b", type := "text", title := "b" ]
+          , [ name := "c", type := "text", title := "c" ]
+          , [ name := "d", type := "text", title := "d" ]
+          ]
+      ]);
+
+  TestEQ(TRUE, LENGTH64(file.data) < 1024 * 1024, "4 MB of highly repetitive source data should be compressed" );
+
+  RECORD better_compressed_file := GenerateXLSXFile(CELL
+      [ rows
+      , columns :=
+          [ [ name := "a", type := "text", title := "a" ]
+          , [ name := "b", type := "text", title := "b" ]
+          , [ name := "c", type := "text", title := "c" ]
+          , [ name := "d", type := "text", title := "d" ]
+          ]
+      , compressionlevel := 9
+      ]);
+
+  TestEQ(TRUE, LENGTH64(better_compressed_file.data) < LENGTH64(file.data), "Higher compressionlevel than the default should compress better" );
+}
+
 Print("\n === Running TestXLSX\n");
 TestXLSX_columnfiles();
 TestXLSX_testfile();
@@ -431,3 +462,4 @@ TestXLSX_CorruptData();
 TestXLS_XLSXImport();
 TestXLS_CrohoImport();
 TestXLSX_Regressions();
+TestXLSX_Compression();
