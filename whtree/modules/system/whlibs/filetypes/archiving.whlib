@@ -313,8 +313,8 @@ OBJECTTYPE Archive
 
 
   /** Unpacked data for archives that don't support random access
-      @cell fullpath
-      @cell data
+      @cell fullpath Full path
+      @cell data Data
   */
   RECORD ARRAY pvt_cachedfiles;
 
@@ -372,12 +372,15 @@ OBJECTTYPE Archive
   // Constructor
   //
 
-  /** @param compressionlevel Compression level, 1-9. -1 to decompress */
+  /** @param data Data to decompress
+      @param contenttype Content type of the data (optional when data is set)
+      @param compressionlevel Compression level, 1-9.
+  */
   MACRO NEW(BLOB data, STRING contenttype, INTEGER compressionlevel)
   {
     this->compressionlevel := compressionlevel;
 
-    BOOLEAN isnew := compressionlevel > 0;
+    BOOLEAN isnew := IsDefaultValue(data);
     IF(contenttype="")
       contenttype := ScanBlob(data, "").mimetype;
 
@@ -466,7 +469,9 @@ OBJECTTYPE Archive
   // Public interface
   //
 
-  /** Can we write archives of this type? */
+  /** Can we write archives of this type?
+      @return TRUE if this archive can be written to
+  */
   PUBLIC BOOLEAN FUNCTION CanWriteArchive()
   {
     RETURN this->pvt_contenttype IN [ "application/zip", "application/x-gzip" ];
@@ -735,7 +740,9 @@ INTEGER FUNCTION __CreateArchive(BOOLEAN targz, INTEGER compressionlevel)
   RETURN id;
 }
 
-/** @private deprecated */
+/** @private deprecated
+    @return New archive id
+*/
 PUBLIC INTEGER FUNCTION CreateArchive() __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
 {
   RETURN __CreateArchive(TRUE, 9);
@@ -744,6 +751,7 @@ PUBLIC INTEGER FUNCTION CreateArchive() __ATTRIBUTES__(DEPRECATED "Switch to Cre
 /** @short Create a new archive file object
     @long This function creates an empty new archive file object
     @param type Type of archive. Possible options: 'zip', 'tar.gz'/'targz'/'tgz'.
+    @cell options.compressionlevel Compression level for new files, 1-9. Defaults to 6.
     @return Archive object
     @see  Archive
     @example
@@ -787,7 +795,12 @@ PUBLIC OBJECT FUNCTION CreateNewArchive(STRING type, RECORD options DEFAULTSTO D
   RETURN NEW Archive(DEFAULT BLOB, type, options.compressionlevel);
 }
 
-/** @private deprecated */
+/** @private deprecated
+    @param archiveid Archive ID
+    @param filepath Path of the file
+    @param filedata File data
+    @param lastmod Modification date
+*/
 PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata, DATETIME lastmod) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
 {
   WHILE (filepath LIKE "/*")
@@ -816,7 +829,11 @@ PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata,
     archive.archive->AddFile(filepath, filedata, lastmod);
 }
 
-/** @private deprecated */
+/** @private deprecated
+    @param archiveid Archive ID
+    @param folderpath Path of the folder
+    @param lastmod Modification date
+*/
 PUBLIC MACRO AddFolderToArchive(INTEGER archiveid, STRING folderpath, DATETIME lastmod DEFAULTSTO DEFAULT DATETIME) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
 {
   WHILE (folderpath LIKE "/*")
@@ -856,7 +873,10 @@ MACRO SetArchiveComment(INTEGER archiveid, STRING comment)
     archive.archive->SetComment(comment);
 }
 
-/** @private deprecated */
+/** @private deprecated
+    @param archiveid Archive id
+    @return Archive blob
+*/
 PUBLIC BLOB FUNCTION MakeBlobFromArchive(INTEGER archiveid) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
 {
   RECORD pos := RecordLowerBound(archives, [ id := archiveid ], [ "ID" ]);
@@ -896,6 +916,9 @@ PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data)
   RECORD ARRAY results;
   OBJECT arch;
 
+  IF (IsDefaultValue(data))
+    THROW NEW Exception(`Cannot unpack an empty file`);
+
   TRY
   {
     arch := NEW Archive(data, "", -1);
@@ -919,18 +942,40 @@ PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data)
 
 /** Create an archive object
     @param archive Archive data
+    @cell(integer) options.compressionlevel Compressionlevel for new files, 1-9. defaults to 6
     @return(object #Archive) Archive object
 */
-PUBLIC OBJECT FUNCTION OpenExistingArchive(BLOB archive)
+PUBLIC OBJECT FUNCTION OpenExistingArchive(BLOB archive, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN NEW Archive(archive, "", -1);
+  options := ValidateOptions( [ compressionlevel := 6 ], options);
+
+  IF (IsDefaultValue(archive))
+    THROW NEW Exception(`Cannot unpack an empty file`);
+
+  RETURN NEW Archive(archive, "", options.compressionlevel);
 }
 
-PUBLIC OBJECT FUNCTION __OpenExistingZipArchive(BLOB archive) //need an entrypoint that skips ScanBlob
+/** Create an archive object for a ZIP file
+    @param archive Archive data
+    @cell(integer) options.compressionlevel Compressionlevel for new files, 1-9. defaults to 6
+    @return(object #Archive) Archive object
+*/
+PUBLIC OBJECT FUNCTION __OpenExistingZipArchive(BLOB archive, RECORD options DEFAULTSTO DEFAULT RECORD) //need an entrypoint that skips ScanBlob
 {
-  RETURN NEW Archive(archive, "application/zip", -1);
+  options := ValidateOptions( [ compressionlevel := 6 ], options);
+
+  IF (IsDefaultValue(archive))
+    THROW NEW Exception(`Cannot unpack an empty file`);
+
+  RETURN NEW Archive(archive, "application/zip", options.compressionlevel);
 }
 
+/** Removes all entries from a list of files that contain MacOS forks
+    @param infiles List of filesd
+    @cell(string) infiles.name File name
+    @cell(string) infiles.path File path
+    @return Filtered list of files
+*/
 PUBLIC RECORD ARRAY FUNCTION FilterMacOSForksFromArchive(RECORD ARRAY infiles)
 {
   // Strip all resource forks if a file matches. If the stored file is f1/f2/f3.txt, its fork is __macosx/f1/f2/._f3.txt
