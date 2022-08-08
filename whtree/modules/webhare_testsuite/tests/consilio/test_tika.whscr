@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/parsers/tika.whlib";
@@ -41,6 +42,20 @@ MACRO TestTika()
   // Should be read from the cache
   docrec := ParseTikaPage(resource, TRUE);
   TestEq("modified title", docrec.title);
+
+  // Backdate the file to check lastuse being updated
+  data.data.title := "modified title #2";
+  data.creationdate := AddDaysToDate(-1, data.creationdate);
+  data.lastuse := data.creationdate;
+  StoreDiskFile(path, EncodeHSONBLob(data), [ overwrite := TRUE ]);
+
+  // Should be read from the cache
+  DATETIME lastuse_must_exceed := GetCurrentDatetime();
+  docrec := ParseTikaPage(resource, TRUE);
+  TestEq("modified title #2", docrec.title);
+
+  data := DecodeHSONBlob(GetDiskResource(path));
+  TestEq(TRUE, data.lastuse >= lastuse_must_exceed, "verified lastusedate updated");
 }
 
 RunTestframework([ PTR TestTika
