@@ -1172,7 +1172,6 @@ STATIC OBJECTTYPE DummyMailHandlerTransaction EXTEND MailHandlerTransaction
     }
 
     INSERT path INTO this->recipients AT END;
-    LogDebug('x',this->recipients);
 
     RETURN
        [ status :=    "250"
@@ -1191,7 +1190,6 @@ STATIC OBJECTTYPE DummyMailHandlerTransaction EXTEND MailHandlerTransaction
               , data :=         data
               ]
         ]);
-    LogDebug('x',this->recipients);
 
     IF(simulatoroptions.bouncehandling = "SES") //FIXME is it safe to assume disablebouncehandling == SES ? (or perhaps we'll just convert others to similar mechanisms too)
       FOREVERY(RECORD path FROM this->recipients)
