@@ -48,7 +48,7 @@ MACRO PrepareCustomCatalog()
   TestEq(0, __GetNumSubJobs());
 
   testfw->BeginWork();
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_queries");
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_queries", [ priority := 9 ]);
   Print(catalog->GetStorageInfo() || "\n");
   testfw->CommitWork();
 
