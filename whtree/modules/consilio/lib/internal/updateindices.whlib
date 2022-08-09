@@ -167,6 +167,34 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
     catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
 }
 
+BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
+{
+  IF(NOT catalog->managed)
+    RETURN FALSE;
+
+  RECORD ARRAY indices := catalog->ListAttachedIndices();
+  IF(Length(indices) != 1 OR NOT indices[0].isbuiltin)
+    RETURN FALSE;
+
+  Print(`Reattaching blank index for catalog '${catalog->tag}'\n`);
+
+  GetPrimary()->BeginWork();
+  catalog->DetachIndex(indices[0].id);
+  catalog->AttachIndex(indices[0].indexmanager);
+  GetPrimary()->CommitWork();
+
+  TRY
+  {
+    catalog->ApplyConfiguration();
+  }
+  CATCH(OBJECT e)
+  {
+    PrintTo(2, `Failed to reconfigure recreated indices for catalog '${catalog->tag}': ${e->what}\n`);
+  }
+
+  RETURN TRUE;
+}
+
 MACRO UpdateModuleCatalogs(RECORD options)
 {
   OBJECT trans := GetPrimary();
@@ -240,25 +268,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
         PrintTo(2, `Failed to reconfigure catalog '${want.tag}': ${e->what}\n`);
 
         IF(options.zapbroken)
-        {
-          IF(Length(indices) = 1 AND indices[0].isbuiltin)
-          {
-            Print(`Reattaching blank index\n`);
-            trans->BeginWork();
-            want.catalog->DetachIndex(indices[0].id);
-            want.catalog->AttachIndex(indices[0].indexmanager);
-            trans->CommitWork();
-
-            TRY
-            {
-              want.catalog->ApplyConfiguration();
-            }
-            CATCH(OBJECT e2)
-            {
-              PrintTo(2, `Failed to reconfigure recreated indices for catalog  '${want.tag}': ${e2->what}\n`);
-            }
-          }
-        }
+          AttemptZap(want.catalog);
       }
 
       IF(NOT want.catalog->suffixed)
@@ -266,7 +276,11 @@ MACRO UpdateModuleCatalogs(RECORD options)
         {
           RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, opensearch.indexname);
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
-          FOREVERY(RECORD issue FROM CompareMappings(res,exp,""))
+          RECORD ARRAY issues := CompareMappings(res,exp,"");
+          IF(options.zapanymismatch AND AttemptZap(want.catalog))
+            BREAK;
+
+          FOREVERY(RECORD issue FROM issues)
           {
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
             Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
@@ -282,6 +296,7 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       [ reportmissing := FALSE
       , catalogmask := "*"
       , zapbroken := FALSE
+      , zapanymismatch := FALSE
       ], options);
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
