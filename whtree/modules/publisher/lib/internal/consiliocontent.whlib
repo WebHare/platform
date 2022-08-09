@@ -254,9 +254,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , [ name := "whfspath", value := "" ]
         , [ name := "whfstree", value := INTEGER[] ]
         , [ name := "whfssite", value := 0 ]
-        , [ name := "date_creation", value := DEFAULT DATETIME ]
-        , [ name := "date_modification", value := DEFAULT DATETIME ]
-        , [ name := "date_publication", value := DEFAULT DATETIME ]
+        , [ name := "creationdate", value := DEFAULT DATETIME ]
+        , [ name := "modificationdate", value := DEFAULT DATETIME ]
         ];
 
     RETURN mapping CONCAT Cleanup(GetIndexFields().mapping);
@@ -366,9 +365,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
           , whfspath := fsobj->whfspath
           , whfstree := whfstree
           , whfssite := fsobj->parentsite
-          , date_creation := fsobj->creationdate
-          , date_modification := fsobj->modificationdate
-          , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
+          , creationdate := fsobj->creationdate
+          , modificationdate := fsobj->modificationdate
           ];
 
       TRY

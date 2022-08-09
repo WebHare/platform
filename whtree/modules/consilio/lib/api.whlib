@@ -21,36 +21,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC CONSTANT INTEGER require_allowed, require_required, require_prohibited;
 
-/*
-
-PUBLISHER SEARCH FIELDS
-
-
-
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
-        [ [ name := "name", value := "" ]
-        , [ name := "title", value := "" ]
-        , [ name := "description", value := "" ]
-        , [ name := "keywords", value := "" ]
-        , [ name := "url", value := "", tokenized := FALSE ]
-        , [ name := "whfsid", value := 0 ]
-        , [ name := "whfsparent", value := 0 ]
-        , [ name := "whfsobject", value := "", tokenized := FALSE ]
-
-  whfsobject = file | folder
-
-        , [ name := "whfstype", value := 0 ]
-        , [ name := "whfspath", value := "" ]
-        , [ name := "whfstree", value := "" ]
-        , [ name := "date_creation", value := DEFAULT DATETIME ]
-        , [ name := "date_modification", value := DEFAULT DATETIME ]
-        ];
-
-
-
-*/
-
-
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
         type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means

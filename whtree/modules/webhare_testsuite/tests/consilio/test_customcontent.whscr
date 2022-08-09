@@ -795,8 +795,8 @@ MACRO TestTypes()
       , fieldgroup_datetime := MakeDate(2038, 1, 19)
       , myfield1 := ""
 
-      , date_modified := DEFAULT DATETIME
-      , date_whmodification := DEFAULT DATETIME
+      , lastmodified := DEFAULT DATETIME
+      , modificationdate := DEFAULT DATETIME
       , date_test := DEFAULT DATETIME
       , description := ""
       , filetype := ""
