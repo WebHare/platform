@@ -8,11 +8,21 @@ Consilio catalogs are owned by a module and specified in their moduledefinition.
   </consilio>
 ```
 
-By default a catalog is considered 'managed'. A managed catalog has one or more
-content sources which provide the data to store in the index.
+By default a catalog is considered 'managed'.
 
-## Publisher content sources
-Individual sites can add themselves as a Publisher content source using
+## Managed catalogs
+A managed catalog has one or more content sources which provide the data to store
+in the index. A content source provides 0 or more groups, and each group
+consists of 1 or more objects.
+
+The following fields are added to the mapping of every managed catalog:
+- `groupid`: Unique ID for the group. Must be unique across all content sources in a catalog
+- `objectid`: Unique ID for the object. Must be unique across all content sources in a catalog
+- `objecturl`: URL for the object or its parent folder. Used for URL restrict/exclusion searches
+- `body`: The free-form body of this object (tokenized according to catalog's language settings)
+
+## Site content sources
+Individual sites can add themselves as a (publisher) site content source using
 `sitesettings` in their siteprofiles
 
 ```xml
@@ -20,6 +30,11 @@ Individual sites can add themselves as a Publisher content source using
     <addtocatalog catalog="testsitecatalog" />
   </sitesettings>
 ```
+
+Site content sources use the WHFS object id as their `groupid` and the object's
+final URL (`fs_objects.link`) as their `objectid`. Their `objecturl` is always
+set to the URL of their parent folder (as that is the only guaranteed common ancestor
+if an object is split into multiple pages)
 
 ## ongetsources
 

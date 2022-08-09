@@ -366,14 +366,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     }
     IF (options.restrict_to != defaultoptions.restrict_to)
     {
-      RECORD restrict_filter := [ prefix := [ initialfilter := options.restrict_to ] ];
+      RECORD restrict_filter := [ prefix := [ objecturl := options.restrict_to ] ];
       searchquery.query := AddElasticsearchQueryFilters(searchquery.query, [ restrict_filter ], FALSE);
     }
     IF (Length(options.exclude_urls) > 0)
     {
       RECORD ARRAY exclude_filters;
       FOREVERY (STRING url FROM options.exclude_urls)
-        INSERT [ prefix := [ initialfilter := url ] ] INTO exclude_filters AT END;
+        INSERT [ prefix := [ objecturl := url ] ] INTO exclude_filters AT END;
       searchquery.query := AddElasticsearchQueryFilters(searchquery.query, exclude_filters, TRUE);
     }
 
@@ -686,7 +686,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
             ] INTO suggestquery;
       }
       IF (indexid != -1 AND options.restrict_to != "")
-        INSERT "initialfilter" INTO suggestquery._source AT END;
+        INSERT "objecturl" INTO suggestquery._source AT END;
 
       RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
       result.status := response.status;
@@ -703,7 +703,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
           {
             IF (indexid != -1
                 AND options.restrict_to != ""
-                AND suggest._source.initialfilter NOT LIKE options.restrict_to || "*")
+                AND suggest._source.objecturl NOT LIKE options.restrict_to || "*")
               CONTINUE;
             IF (options.and_search AND options.doccount = "search" AND Length(otherwords) > 0 AND suggest._id NOT IN otherdocs)
               CONTINUE;

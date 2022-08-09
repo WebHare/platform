@@ -96,9 +96,6 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     IF (this->rootfolder NOT IN parentids)
       THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not responsible for file with id '" || groupid || "'");
 
-    // Get the initialfilter value (the file's parent's url)
-    STRING initialfilter := parentrec.objecturl;
-
     // Get the file's type info
     RECORD typeinfo := SELECT * FROM this->cachedtypes WHERE id = file.type;
     IF (NOT RecordExists(typeinfo))
@@ -151,7 +148,7 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
             , subpagebaseurl := RecordExists(typeinfo) ? __GetSubpageBaseUrl(typeinfo, CELL[ ...file, isindex := fileid = parentrec.indexdoc ]) : ""
             , file.link
             //, pagelistprovider := RecordExists(typeinfo) ? typeinfo.pagelistprovider : DEFAULT OBJECT
-            , initialfilter
+            , parentrec.objecturl //only guaranteed common ancestor if an object is split
             , parentids
             , objects := DEFAULT STRING ARRAY
             , havesetsubfiles := FALSE
@@ -388,11 +385,11 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
       // Make a document record
       this->DebugLog(ConsilioDebugAll, "Received " || Length(page.parsed_page.text) || " bytes of body text");
-      fields := [ initialfilter := cachedfile.initialfilter
-                , whfspath := Detokenize((SELECT AS STRING ARRAY ToString(id) FROM ToRecordArray(cachedfile.parentids, "id")), "/")
-                , size := ToString(Length(page.fetched_page.content))
-                , title := (RecordExists(subfileinfo) ? subfileinfo.title : cachedfile.file.title) ?? page.parsed_page.title
-                ];
+      fields := CELL[ cachedfile.objecturl
+                    , whfspath := Detokenize((SELECT AS STRING ARRAY ToString(id) FROM ToRecordArray(cachedfile.parentids, "id")), "/")
+                    , size := ToString(Length(page.fetched_page.content))
+                    , title := (RecordExists(subfileinfo) ? subfileinfo.title : cachedfile.file.title) ?? page.parsed_page.title
+                    ];
 
       IF (page.parsed_page.keywords != "")
         INSERT CELL keywords := page.parsed_page.keywords INTO fields;
