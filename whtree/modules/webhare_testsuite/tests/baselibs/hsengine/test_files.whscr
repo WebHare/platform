@@ -643,6 +643,14 @@ MACRO ArchiveEncodingTest()
   }
 
   {
+    BLOB ziparchiveblob := OpenTestFile("encoded.zip");
+    OBJECT archive := OpenExistingArchive(ziparchiveblob);
+    archive->AddFile("newfile", StringToBlob(RepeatText("abcd", 1024*1024)), GetCurrentDateTime());
+    BLOB newarchive := archive->MakeBlob();
+    TestEQ(TRUE, LENGTH64(newarchive) < LENGTH(ziparchiveblob) + 100000, "Compression should be enabled when adding files to existing archives");
+  }
+
+  {
     OBJECT newarchive := CreateNewArchive("zip");
     newarchive->AddFile("t\u20ACst", StringToBlob("File nummer 1"), MakeDate(2002,1,1));
 
