@@ -167,8 +167,19 @@ MACRO RunTheAggregationQueries()
          [ aggregation_mapping := [ groupid := 0 ] ]));
 }
 
+MACRO RunExplainQuery()
+{
+  // Just testing if the '_explanation' is only present if the 'explain' option is set
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC1"));
+  TestEq(FALSE, CellExists(searchres.results[0], "_explanation"));
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC1"), [ explain := TRUE ]);
+  TestEq(TRUE, CellExists(searchres.results[0], "_explanation"));
+  TestEq(TRUE, RecordExists(searchres.results[0]._explanation));
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
     , PTR RunTheMatchQueries
     , PTR RunTheAggregationQueries
+    , PTR RunExplainQuery
     ]);

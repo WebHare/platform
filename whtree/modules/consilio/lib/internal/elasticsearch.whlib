@@ -194,6 +194,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               , timeout := elastic_timeout * 1000
                               , enforce := ""
                               , expectstatus := [ 200 ]
+                              , explain := FALSE
                               ], options,
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
@@ -269,7 +270,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   IF (ToLowercase(indexmanager.browser->contenttype) LIKE "application/json*")
   {
     IF (options.enforce != "")
-      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce);
+      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce, CELL[ options.explain ]);
     ELSE
       decoded := DecodeJSONBlob(indexmanager.browser->content);
   }
@@ -1012,6 +1013,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
         lineresult := CellInsert(lineresult, "_score", hit._score);
       ELSE IF (fld = "_summary" AND CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
         lineresult := CellInsert(lineresult, fld, hit.highlight.body[0]);
+      ELSE IF (fld = "_explanation")
+        lineresult := CellInsert(lineresult, "_explanation", hit._explanation);
       ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
         lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
       ELSE
@@ -1124,13 +1127,21 @@ MONEY FUNCTION ReadMoneyValue(STRING value)
   RETURN __HS_SetRawMoney(ToInteger64(value, 0));
 }
 
-RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
+RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type, RECORD options)
 {
   RECORD decoded := DecodeJSONBlob(content, DEFAULT RECORD, [ alltostring := TRUE ]);
   SWITCH (type)
   {
     CASE "_search_get"
     {
+      RECORD hit :=
+          [ _index := ""
+          , _id := ""
+          , _score := 0f
+          , _source := DEFAULT RECORD
+          ];
+      IF (options.explain)
+        INSERT CELL _explanation := DEFAULT RECORD INTO hit;
       decoded := EnforceStructure(
           [ took := 0
           , timed_out := FALSE
@@ -1138,13 +1149,7 @@ RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
           , hits :=
               [ total := [ value := 0, relation := "" ]
               , max_score := 0f
-              , hits :=
-                  [ [ _index := ""
-                    , _id := ""
-                    , _score := 0f
-                    , _source := DEFAULT RECORD
-                    ]
-                  ]
+              , hits := [ hit ]
               ]
           ], decoded);
     }
