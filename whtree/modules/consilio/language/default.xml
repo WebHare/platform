@@ -104,7 +104,6 @@
       <text tid="contentcheckinterval">Check interval</text>
       <text tid="contentsourcetype">Content Source Type</text>
       <text tid="disablesource-description">Disable this content source</text>
-      <text tid="discardsummaries-description">Don't generate excerpts</text>
       <text tid="folder">Folder to index</text>
       <text tid="generalsettings">Advanced Settings</text>
       <text tid="lastcontentscheck">Last automatic update of dynamic pages</text>

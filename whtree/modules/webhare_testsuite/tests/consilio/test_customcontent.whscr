@@ -101,7 +101,6 @@ MACRO TestCustomContent()
   contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
-      , discardsummaries := TRUE
       ]);
   TestEq(0, __GetNumSubJobs());
 
@@ -113,7 +112,6 @@ MACRO TestCustomContent()
   TestThrowsLike(`*contentsource with tag '${"webhare_testsuite:beta_customsource"}' already exists*`, PTR catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
-      , discardsummaries := TRUE
       ]));
 
   testfw->CommitWork();
@@ -200,7 +198,7 @@ MACRO TestCustomContent()
       , objectid := idprefix||"a1"
       , objecturl := "obj://" || idprefix||"a" || "/" || idprefix||"a1" //
       , date_adate := MakeDate(2010, 1, 1)
-      , summary := "a a1" // OpenSearch doesn't support discardsummaries
+      , summary := "a a1"
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
       , mapping_boolean := FALSE

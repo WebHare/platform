@@ -198,11 +198,7 @@
           HSON encoded. required because not setting it wil lcurrently crash a lot of code
         </d:documentation>
       </d:varchar>
-      <d:boolean name="discardsummaries">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="discardsummaries" />
       <d:obsoletecolumn name="indexid" />
       <d:integer name="catalogid" references=".catalogs" ondelete="cascade" nullable="0">
         <d:documentation>

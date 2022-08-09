@@ -25,7 +25,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
-                                                     , discardsummaries := FALSE
                                                      , enabled := TRUE
                                                      ];
 
@@ -1084,7 +1083,6 @@ STATIC OBJECTTYPE ConsilioCatalog
     csourcesettings := CELL[ id := srcid
                            , catalogid := this->catalog.id
                            , csourcesettings.maxgroupobjects
-                           , csourcesettings.discardsummaries
                            , csourcesettings.definedby
                            , ...csourcesettings
                            , data := EncodeHSON(CellExists(csourcesettings,'data') ? csourcesettings.data : DEFAULT RECORD)
@@ -1108,7 +1106,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   /** Add a publisher content source
       @param targetfolder Folder to index
       @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
-      @cell options.discardsummaries Whether to discard summaries
       @cell options.definedby Use to describe who added this custom content source was added
       @rreutn Newly created content source
   */
@@ -1150,7 +1147,6 @@ STATIC OBJECTTYPE ConsilioCatalog
       @param tag Tag of the new content source
       @param contentsourceobject Library and name of object that handles indexing (lib#name)
       @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
-      @cell options.discardsummaries Whether to discard summaries
       @cell options.definedby Use to describe who added this custom content source was added
       @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
       @cell options.folder Associated folder
