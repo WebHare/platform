@@ -99,7 +99,7 @@ PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN _contentlinksonly_ignore
     TRY
     {
       CreateDiskDirectoryRecursive(GetDirectoryFromPath(cachefilepath), TRUE);
-      StoreDiskFile(cachefilepath, EncodeHSONBlob(cachefiledata));
+      StoreDiskFile(cachefilepath, EncodeHSONBlob(cachefiledata), [ overwrite := TRUE ]);
     }
     CATCH (OBJECT e)
       LogHarescriptException(e);
