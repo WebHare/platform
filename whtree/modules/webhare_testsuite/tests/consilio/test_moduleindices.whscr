@@ -690,6 +690,18 @@ MACRO TestESDeletion()
   //FIXME we should not leave the system in an inconsistent state (deleting and index that should exist due to module  definition ruels)  test with a scratch api?
 }
 
+MACRO TestObsoleteCatalog()
+{
+  testfw->BeginWork();
+  IF(NOT ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")))
+    CreateConsilioCatalog("webhare_testsuite:obsoletecatalog");
+  testfw->CommitWork();
+
+  TestEq(TRUE, ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")));
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:obsoletecatalog" ]);
+  TestEq(FALSE, ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")));
+}
+
 RunTestframework(
     [ PTR TestAPI
     , PTR TestUpdateIndicesMetadata
@@ -700,4 +712,5 @@ RunTestframework(
     , PTR TestESBulkInsertion
     , PTR TestESLangFeatures
     , PTR TestESDeletion
+    , PTR TestObsoleteCatalog
     ]);

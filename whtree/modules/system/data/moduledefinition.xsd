@@ -2058,6 +2058,7 @@
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element name="contentprovider" type="ContentProvider" />
         <xs:element name="catalog" type="Catalog" />
+        <xs:element name="obsoletecatalog" type="ObsoleteCatalog" />
         <xs:element name="index" type="Index" />
         <xs:element name="fieldgroup" type="FieldGroup" />
         <xs:element name="addtowhfsindex">
@@ -2120,7 +2121,11 @@
       </xs:element>
     </xs:sequence>
 
-    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="tag" type="Name" use="required">
+      <xs:annotation>
+        <xs:documentation>Catalog tag (or name). Automatically prefixed with the module name, used with RunConsiliosearch and OpenConsilioCatalog</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:attribute name="managed" type="xs:boolean" default="true">
       <xs:annotation>
@@ -2171,6 +2176,14 @@
 
     <xs:attribute name="tag" type="Name" use="required" />
     <xs:attribute name="priority" type="xs:integer" />
+  </xs:complexType>
+
+  <xs:complexType name="ObsoleteCatalog">
+    <xs:attribute name="tag" use="required"> <!-- no syntax requirements to allowed deletion of 'name-with-dash' -->
+      <xs:annotation>
+        <xs:documentation>Name or tag of catalog to delete. Automatically prefixed with the module name</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="FieldGroup">
