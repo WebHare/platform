@@ -94,6 +94,9 @@
     <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="linksto" />
     <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="internallink" />
     <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="externallink" tokenized="false" />
+    <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="indexversions" />
+    <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="indextypes" />
+
     <searchfilter name="linksto" tid="publishersearch.linksto" filterobject="lib/internal/publishersearch.whlib#linkstofilter" />
   </publisher>
 

@@ -242,8 +242,6 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         [ [ name := "name", value := "" ]
         , [ name := "title", value := "" ]
         , [ name := "description", value := "" ]
-        , [ name := "indextypes", value := STRING[], type := "keyword" ]
-        , [ name := "indexversions", value := STRING[], type := "keyword" ]
         , [ name := "keywords", value := "" ]
         , [ name := "body", value := "" ]
         , [ name := "url", value := "", tokenized := FALSE ]
@@ -379,16 +377,22 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             , fsobj->parent
             ], options.rebuild);
 
+        RECORD firstdocfields := CELL[ ...basefields
+                                     , ...GetParsedIndexFields(fsobj, 0)
+                                     ];
+        firstdocfields.mod_consilio := CELL[ ...firstdocfields.mod_consilio
+                                           , searchres.indexversions
+                                           , searchres.indextypes
+                                           ];
+
         INSERT
             [ id := "fsobj_" || fsobj->id
             , requiredindexdate := fsobj->modificationdate
             , data := CELL
                 [ status := "result"
                 , document_body := Length(searchres.subfiles) > 0 AND RecordExists(searchres.subfiles[0]) ? BlobToString(searchres.subfiles[0].data) : ""
-                , document_fields := CELL[...basefields, ...GetParsedIndexFields(fsobj, 0) ]
+                , document_fields := firstdocfields
                 , indexdate := fsobj->modificationdate
-                , indexversions := searchres.indexversions
-                , indextypes := searchres.indextypes
                 ]
             ] INTO objects AT END;
 
@@ -404,8 +408,6 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                   , document_body := RecordExists(subfile) ? BlobToString(subfile.data) : ""
                   , document_fields := CELL[...basefields, ...GetParsedIndexFields(fsobj, #subfile) ]
                   , indexdate := fsobj->modificationdate
-                  , indexversions := STRING[]
-                  , indextypes := STRING[]
                   ]
               ] INTO objects AT END;
         }

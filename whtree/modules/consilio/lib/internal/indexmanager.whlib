@@ -888,12 +888,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       ];
   options := ValidateOptions(defaultoptions, options);
 
-
-  objects := SELECT *
-                , indextypes :=             CellExists(objects, "INDEXTYPES") ? objects.indextypes : STRING[]
-                , indexversions :=          CellExists(objects, "INDEXVERSIONS") ? objects.indexversions : STRING[]
-             FROM objects;
-
   INTEGER indexid := catalog->id;
 
   OBJECT temporarybulk;
@@ -934,8 +928,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
         INSERT CELL groupid := groupid
                   , objectid := obj.objectid
                   , _contentsource := contentsource.id
-                  , indextypes := obj.indextypes
-                  , indexversions := obj.indexversions
           INTO document;
 
         IF (Length(suggestfields) > 0)

@@ -16,6 +16,10 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
 {
   SWITCH (fieldname)
   {
+    CASE "indexversions", "indextypes"
+    {
+      RETURN STRING[]; //will be filled by consiliohandler
+    }
     CASE "linksto"
     {
       STRING ARRAY links :=

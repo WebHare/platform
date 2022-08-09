@@ -693,7 +693,7 @@ PUBLIC OBJECTTYPE WidgetTypeFilter EXTEND BaseSearchFilter
     IF (RecordExists(value.selectquery))
     {
       STRING indextype := EncodeBase16(GetSHA1Hash(`widget:${value.selectquery.widgettype}`));
-      RETURN CQMatch("indextypes", "=", indextype);
+      RETURN CQMatch("mod_consilio.indextypes", "=", indextype);
     }
     RETURN DEFAULT RECORD;
   }
