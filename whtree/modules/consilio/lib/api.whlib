@@ -64,9 +64,7 @@ PUBLISHER SEARCH FIELDS
 */
 PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(
-      [ datetimesupport := FALSE
-      ], options);
+  options := ValidateOptions(CELL[], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for match query");
@@ -155,7 +153,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
 */
 PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ datetimesupport := FALSE ], options);
+  options := ValidateOptions(CELL[], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for range query");
@@ -176,31 +174,8 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
   }
   ELSE IF (TypeID(lowerterm) = TypeID(DATETIME))
   {
-    IF (NOT options.datetimesupport)
-    {
-      // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
-      // But not if already prefixed with date_ ... as OpenSearch simply wants the raw names (and doesn't inset date_) but Consilio still wants to add date_ itself...
-      IF (field LIKE "*.*@*")
-      {
-        IF(field NOT LIKE "*.date_*@*")
-        {
-          INTEGER dot := SearchSubstring(field, ".") + 1;
-          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
-        }
-      }
-      ELSE
-      {
-        IF(field NOT LIKE "date_*")
-          field := `date_${field}`;
-      }
-      lowersearchterm := FormatISO8601DateTime(lowerterm);
-      uppersearchterm := FormatISO8601DateTime(upperterm);
-    }
-    ELSE
-    {
-      lowersearchterm := lowerterm;
-      uppersearchterm := upperterm;
-    }
+    lowersearchterm := lowerterm;
+    uppersearchterm := upperterm;
   }
   ELSE
     THROW NEW Exception(`Invalid term type '${GetTypeName(TypeID(lowerterm))}' for range query`);
