@@ -1270,7 +1270,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
     OBJECT finalsource := this->contentsource;
 
     IF(NOT ObjectExists(finalsource))
-      finalsource := this->catalog->AddPublisherContentSource(^folder->value, [ definedby := this->contexts->user->login ]);
+      finalsource := this->catalog->AddFolderToCatalog(^folder->value, [ definedby := this->contexts->user->login ]);
 
     //TODO - api ?
     UPDATE consilio.contentsources

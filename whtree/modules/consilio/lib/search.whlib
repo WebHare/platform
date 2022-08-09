@@ -380,7 +380,6 @@ STATIC OBJECTTYPE SearchObject
         , this->session
         , addscore
         , this->debug
-        , throwonfailure := TRUE
         , this->aggregation_mapping
         ];
     IF (this->have_empty_result_record)

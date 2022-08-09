@@ -134,7 +134,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
   IF (NOT RecordExists(indexmanager))
    THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
 
-  RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]);
+  RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET");
   result.status := response.status;
   IF (response.status = SearchOk)
     result.stats := GetCell(response.result.indices, indexmanager.indexname).total;
@@ -161,9 +161,6 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       , synonyms
       ] INTO setanalysis.filter;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "EnsureOpenSearchIndexConfiguration", CELL[ indexmanager, indexname, suffix, synonyms, lang, mapping ]);
-
   STRING fullname := indexname || (suffix != "" ? "-" || suffix : "");
   TRY
   {
@@ -172,7 +169,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
                            , analysis := setanalysis
                            ]
              , mappings := mapping
-             ], "PUT", [ throwonfailure := TRUE ]);
+             ], "PUT");
   }
   CATCH(OBJECT<ElasticSearchException> e)
   {
@@ -181,7 +178,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       //Then just update the configuration
 
       // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
-      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]).result;
+      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET").result;
       currentsettings := GetCell(currentsettings, fullname).settings;
 
       RECORD applysettings;
@@ -194,23 +191,33 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
         IF (close_index)
         {
           __did_opensearch_close_and_reopen := TRUE;
-          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST", [ throwonfailure := TRUE ]);
+          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST");
         }
 
         // Update the settings
         TRY
         {
-          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT", [ throwonfailure := TRUE ]);
+          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT");
         }
         FINALLY
         {
           // Open the index again if needed. Even if /_settings throws
           IF (close_index)
-            SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST", [ throwonfailure := FALSE ]);
+          {
+            TRY
+            {
+              SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST");
+            }
+            CATCH(OBJECT f)
+            {
+              LogHarescriptException(f);
+              //And ignore it. not much we can do about a throw here
+            }
+          }
         }
       }
 
-      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT", [throwonfailure := TRUE]);
+      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT");
     }
     ELSE
     {
@@ -223,7 +230,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
 {
   options := ValidateOptions(
       [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := TRUE
       ], options);
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
@@ -233,7 +239,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
     THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
-  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);
+  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET");
 
   RECORD mappings := GetCell(response.result, finalindexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
@@ -273,7 +279,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
-      , throwonfailure := TRUE
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
@@ -392,7 +397,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     IF(options.debug)
       Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure , enforce := "_search_get" ]);
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get" ]);
     IF(options.debug)
       DumpValue(response, "tree");
 
@@ -678,7 +683,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
       IF (indexid != -1 AND options.restrict_to != "")
         INSERT "initialfilter" INTO suggestquery._source AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST", [ throwonfailure := TRUE ]);
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
       result.status := response.status;
       IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
       {
@@ -819,24 +824,34 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
 
   /** Execute the collected bulk operations
       @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
-      @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
       @return Result code
   */
   PUBLIC STRING FUNCTION Execute(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
         [ refresh :=            FALSE
-        , throwonfailure :=     FALSE
         ], options,
         [ notypecheck := [ "refresh" ]
         ]);
 
     STRING retval := SearchOk;
+    RECORD ARRAY errors;
     FOREVERY (RECORD rec FROM this->_requests)
     {
-      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST", CELL[ options.throwonfailure ]);
-      IF (response.status != SearchOk)
-        retval := response.status;
+      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST");
+      IF(response.result.errors)
+      {
+        RECORD ARRAY itemresponses := SELECT *, operation := CellExists(items,"index") ? items."index" : items."delete"
+                                          FROM response.result.items;
+        errors := errors CONCAT SELECT * FROM itemresponses WHERE CellExists(operation, "error");
+      }
+    }
+
+    IF(Length(errors) > 0)
+    {
+      //FIXME we get an _id back, but we don't calculate them here so how to figure out which object it actually referred to for a proper error?
+      //FIXME what if more than one object failed? we should throw more informing errors
+      THROW NEW ElasticSearchException(`Failed on document '${errors[0].operation._id}': ${errors[0].operation.error.reason} (${errors[0].operation.error.type})`, DEFAULT OBJECT);
     }
     RETURN retval;
   }
@@ -864,7 +879,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       [ discardsummaries := FALSE // Set to TRUE to not store the document body for summary generation, Consilio only
       , refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := FALSE
       , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
@@ -876,17 +890,15 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
              FROM objects;
 
   INTEGER indexid := catalog->id;
-  IF(IsDebugTagEnabled("consilio:changes"))
-  {
-    LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options := CELL[ ...options, bulk := GetObjectTypeName(options.bulk) ] ]);
-    FOREVERY(RECORD obj FROM objects)
-      LogDebug("consilio:changes", "AddIndexManagerObjects #" || #obj, obj);
-  }
 
-  STRING result;
+  OBJECT temporarybulk;
+  IF(NOT ObjectExists(options.bulk))  //we should always use a bulk submitter to centralize error handling code
+    temporarybulk := GetIndexManagerBulkKeeper();
+
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
   IF (IsDefaultValue(indexmanagers))
-    result := SearchIndexNotFound;
+    THROW NEW Exception(`No indexmanagers found for index #${indexid}`);
+
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     RECORD response;
@@ -903,17 +915,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
           INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
         }
 
-        IF (ObjectExists(options.bulk))
-          options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
-        ELSE
-        {
-          response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
-          IF (response.status != SearchOk)
-          {
-            result := result ?? response.status;
-            BREAK;
-          }
-        }
+        (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
       }
     }
     ELSE
@@ -964,34 +966,14 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
         INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
       }
 
-      IF (ObjectExists(options.bulk))
-      {
-        options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
-        result := SearchOk;
-      }
-      ELSE
-      {
-        response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST");
-        IF (response.status != SearchOk)
-          result := result ?? response.status;
-      }
-    }
-
-    IF (result = "")
-    {
-      IF(response.result.errors)
-      {
-        RECORD faileditem := SELECT * FROM response.result.items WHERE CellExists(items."index", "error");
-        //FIXME we get an _id back, but we don't calculate them here so how to figure out which object it actually referred to for a proper error?
-        THROW NEW Exception(`Failed on document '${faileditem."index"._id}': ${faileditem."index".error.reason} (${faileditem."index".error.type})`);
-      }
+      (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
     }
   }
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "AddIndexManagerObjects done", CELL[ result ]);
+  IF(ObjectExists(temporarybulk))
+    RETURN temporarybulk->Execute(CELL[ options.refresh ]) ?? SearchOk;
 
-  RETURN result ?? SearchOk;
+  RETURN SearchOk;
 }
 
 /** @short Delete a group from an index
@@ -1011,13 +993,10 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
   IF (groupid = "")
     RETURN SearchInvalidArgument;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerGroup", CELL[ indexid, contentsourceid, groupid, options ]);
-
   STRING result;
   IF (groupid != "")
   {
-    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
     FOREVERY (RECORD indexmanager FROM indexmanagers)
     {
       // No support for groupids in unmanaged indices
@@ -1048,9 +1027,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
   ELSE
     result := SearchInvalidArgument;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerGroup done", CELL[ result ]);
-
   RETURN result;
 }
 
@@ -1072,7 +1048,6 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
     @param objectids The objects to delete
     @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
     @cell(string) options.suffix Sub-index suffix, for unmanaged indices, Elasticsearch only
-    @cell(boolean) options.throwonfailure Throw on failure, Elasticsearch only
     @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
     @return If the deletion was successful for all affected indexmanagers
 */
@@ -1081,39 +1056,30 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   RECORD defaultoptions :=
       [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      , throwonfailure := FALSE
       , bulk := DEFAULT OBJECT
       ];
   options := ValidateOptions(defaultoptions, options);
 
   STRING result;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerObjects", CELL[ indexid, contentsourceid, objectids, options ]);
+  OBJECT temporarybulk;
+  IF(NOT ObjectExists(options.bulk))  //we should always use a bulk submitter to centralize error handling code
+    temporarybulk := GetIndexManagerBulkKeeper();
 
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // For unmanaged indices, delete by document id
     IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
     {
       IF (indexid = 0 OR contentsourceid != 0)
-        result := SearchCommandUnsupported;
-      ELSE
-      {
-        RECORD ARRAY bulkrequests :=
-            SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
-              FROM ToRecordArray(objectids, "objectid");
+        THROW NEW Exception(`DeleteIndexManagerObjects with indexid = 0 OR contentsourceid != 0 not supported for unmanaged indices`);
 
-        IF (ObjectExists(options.bulk))
-          options.bulk->AddOperation(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
-        ELSE
-        {
-          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
-          IF (response.status != SearchOk)
-            result := result ?? response.status;
-        }
-      }
+      RECORD ARRAY bulkrequests :=
+          SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
+            FROM ToRecordArray(objectids, "objectid");
+
+      (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
       CONTINUE;
     }
 
@@ -1123,14 +1089,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
           SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, "") ]
             FROM ToRecordArray(objectids, "objectid");
 
-      IF (ObjectExists(options.bulk))
-        options.bulk->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests);
-      ELSE
-      {
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
-        IF (response.status != SearchOk)
-          result := result ?? response.status;
-      }
+      (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests);
     }
     ELSE
     {
@@ -1151,12 +1110,11 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
         result := response.status;
     }
   }
-  result := result ?? SearchOk;
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerObjects done", CELL[ result ]);
+  IF(ObjectExists(temporarybulk))
+    RETURN result ?? temporarybulk->Execute(CELL[ options.refresh ]) ?? SearchOk;
 
-  RETURN result;
+  RETURN result ?? SearchOk;
 }
 
 /** @short Delete outdated objects
@@ -1183,16 +1141,13 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
       [ refresh := FALSE
       ], options);
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerOutdated", EncodeJSON(CELL[ indexid, contentsourceid, groupid, objectid, deletebefore, options ]));
-
   RECORD result := [ status := SearchInvalidArgument
                    , deleted := 0
                    , active := DEFAULT STRING ARRAY
                    ];
   IF (indexid != 0 AND deletebefore != DEFAULT DATETIME)
   {
-    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
     result.status := IsValueSet(indexmanagers) ? SearchOk : SearchIndexNotFound;
     FOREVERY (RECORD indexmanager FROM indexmanagers)
     {
@@ -1244,9 +1199,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
     }
   }
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerOutdated done", EncodeJSON(CELL[ result ]));
-
   RETURN result;
 }
 
@@ -1257,7 +1209,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
 */
 PUBLIC STRING FUNCTION RefreshAttachedIndices(INTEGER catalogid)
 {
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(catalogid);
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(catalogid, [ excludereadonly := TRUE ]);
   STRING result := SearchOk;
 
   FOREVERY (RECORD indexmanager FROM indexmanagers)
@@ -1287,10 +1239,8 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   RECORD result := [ status := SearchUnavailable
                    , deleted := 0
                    ];
-  RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                  EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
+  RECORD ARRAY indexmanagers := indexid != 0 ? GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ])
+                                             : GetIndexManagers(indexmgrid, [ excludereadonly := TRUE ]);
 
   /* TODO this approach really just returns the *last* deletion status, and may (re)delete multiple indices if already marked
      as deletion. This looping should probably happen in the catalog api */
@@ -1303,7 +1253,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
     {
       // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), DEFAULT RECORD, [ expectstatus := [200,404] ]);
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }
@@ -1333,9 +1283,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     }
   }
 
- IF(IsDebugTagEnabled("consilio:changes"))
-   LogDebug("consilio:changes", "DeleteIndexManagerContentSource done", result);
-
  IF (result.status = SearchOk)
     BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
 
@@ -1363,10 +1310,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
 
   RECORD indexmanager := GetIndexManagers(indexmgrid);
 
-  IF(IsDebugTagEnabled("consilio:changes"))
-    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
-                                   EncodeJSON(CELL[ indexmgrid, indexid, indexname, options ]));
-
   IF (RecordExists(indexmanager))
   {
     RECORD indexinfo := SELECT * FROM consilio.catalogs WHERE id = indexid;
@@ -1385,9 +1328,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
       // Deleting an index doesn't return the number of deleted documents...
     }
   }
-
- IF(IsDebugTagEnabled("consilio:changes"))
-   LogDebug("consilio:changes", "DeleteIndexManagerIndex done", result);
 
   RETURN result;
 }

@@ -73,11 +73,24 @@ MACRO TestWHFSContentHandler()
   testsiteid := testroot->parentsite;
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT publishersearchtesttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
+
   file_1 := testroot->CreateFile([name:="testfile1.txt", title := "blafile & co", data := StringToBlob("blabla"), publish := TRUE]);
   file_3 := testroot->CreateFile([name:="testfile2.shtml", title := "blafile", data := StringToBlob("<?wh LOADLIB 'currentsite::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
   file_2 := testroot->CreateFile([name:="testfile3.whlib", title := "blafile", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla3'); }") ]);
   file_4 := testroot->CreateFile([name:="testfile4.txt", title := "blafile", data := StringToBlob("blabla4"), publish := TRUE]);
   file_5 := testroot->CreateFile([name:="testfile5.rtd", title := "blafile", type := richdoctype->id, publish := TRUE]);
+  file_7 := testroot->CreateFile([name:="testfile7.txt", title := "blafile7", type := publishersearchtesttype->id , data := StringToBlob("blabla7") , publish := TRUE ]);
+  publishersearchtesttype->SetInstanceData(file_7->id,
+      [ testfield := file_7->id
+      , testarray := [ [ arrayfield := file_7->id || "_bla"
+                       , otherfield := MakeDate(2016, 12, 31)
+                       ]
+                     , [ arrayfield := file_7->id || "_test"
+                       , otherfield := MakeDate(2017, 1, 1)
+                       ]
+                     ]
+      ]);
 
   OBJECT myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
@@ -119,6 +132,20 @@ MACRO TestWHFSContentHandler()
   OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
   RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
 
+  //Verify the field structure
+  RECORD ARRAY resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || file_7->id, RECORD[], [ rebuild := TRUE ]).objects;
+  TestEqMembers([[ data := [ document_fields := [ "contenttypefield@webhare_testsuite" := file_7->id
+                                                , "arrayfield.arrayfield@webhare_testsuite" := file_7->id  || "_bla"
+                                                ]
+                           ]
+                 ]
+                ,[ data := [ document_fields := [ "contenttypefield@webhare_testsuite" := file_7->id
+                                                , "arrayfield.arrayfield@webhare_testsuite" := file_7->id  || "_test"
+                                                ]
+                           ]
+                 ]
+                ], resultobjects, '*');
+
   //Test that the expected folders are indeed their in their expected order
   TestEq(expected_addtowhfsindex, SELECT AS INTEGER ARRAY folder FROM startingpoints WHERE folder IN expected_addtowhfsindex);
   TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
@@ -142,7 +169,7 @@ MACRO TestWHFSContentHandler()
   // No duplicates
   TestEQ(LENGTH(GetSortedSet(groupids)), LENGTH(groupids));
 
-  RECORD ARRAY resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testroot->id, RECORD[], [ rebuild := TRUE ]).objects;
+  resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testroot->id, RECORD[], [ rebuild := TRUE ]).objects;
   TestEq(TRUE, RecordExists(SELECT FROM resultobjects WHERE id = "fsobj_" || testroot->id));
 
   Print("waiting for our preparation to be indexed...\n");
@@ -166,7 +193,7 @@ MACRO PublisherSearchTest()
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_3->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_4->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
-  TestEq(7, result.totalcount);
+  TestEq(9, result.totalcount,"also 2 results from file_7");
   TestEQ(TRUE, Length(result.eventmasks) > 0); //FIXME actually test/use this eventmask, or if nothing else, at least verify it..
 
   // Check for some returned fields
@@ -254,7 +281,7 @@ MACRO PublisherSearchTest()
 
   // Search for all objects directly within the site root (shouldn't return the site root itself)
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", testroot->id));
-  TestEq(6, result.totalcount);
+  TestEq(8, result.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
@@ -309,7 +336,7 @@ MACRO PublisherSearchTest()
 
   // Search for all objects directly within the site root (should no longer return the moved and deleted files)
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", testroot->id));
-  TestEq(4, result.totalcount);
+  TestEq(6, result.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
@@ -419,36 +446,11 @@ MACRO PublisherSearchTest()
 
   CommitAndWaitForPublisherIndex();
 
-  // Find 'file_5' objects by id, the array fields should not be present
+  // Find 'file_5' objects by id, the array fields should not be present (because we only index the fields if the filetype matches)
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_5->id));
   TestEq(1, result.totalcount);
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_5->id || "_bla"));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_5->id || "_test"));
-
-  testfw->BeginWork();
-
-  publishersearchtesttype->SetInstanceData(file_5->id, DEFAULT RECORD ARRAY);
-
-  // Create a file with the test filetype and initialize its array member
-  file_7 := testroot->CreateFile(
-      [ name:="testfile7.txt"
-      , title := "blafile7"
-      , type := publishersearchtesttype->id
-      , data := StringToBlob("blabla7")
-      , publish := TRUE
-      ]);
-  publishersearchtesttype->SetInstanceData(file_7->id,
-      [ testfield := file_7->id
-      , testarray := [ [ arrayfield := file_7->id || "_bla"
-                       , otherfield := MakeDate(2016, 12, 31)
-                       ]
-                     , [ arrayfield := file_7->id || "_test"
-                       , otherfield := MakeDate(2017, 1, 1)
-                       ]
-                     ]
-      ]);
-
-  CommitAndWaitForPublisherIndex();
 
   // Find 'file_7' objects by id and check custom module fields
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));

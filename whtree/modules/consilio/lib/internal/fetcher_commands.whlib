@@ -604,13 +604,13 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
           IF (LENGTH(existing_objects) != 0)
           {
             // Remove them!
-            STRING deleteres := DeleteIndexManagerObjects(source.indexid, source.id, (SELECT AS STRING ARRAY id FROM existing_objects), CELL[ options.refresh, throwonfailure := TRUE ]);
+            STRING deleteres := DeleteIndexManagerObjects(source.indexid, source.id, (SELECT AS STRING ARRAY id FROM existing_objects), CELL[ options.refresh ]);
             IF (deleteres != SearchOk)
               THROW NEW Exception(deleteres);
           }
         }
 
-        bulk->Execute(CELL[ throwonfailure := TRUE, options.refresh ]);
+        bulk->Execute(CELL[ options.refresh ]);
       }
 
       provider->OnGroupDone(data.commanddate, data.groupid);

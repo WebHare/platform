@@ -173,8 +173,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
 
 PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname, STRING command, RECORD request, STRING method, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ throwonfailure := FALSE
-                             , timeout := elastic_timeout * 1000
+  options := ValidateOptions([ timeout := elastic_timeout * 1000
                              ], options);
 
   STRING url := (indexname != "" ? "/" || EncodeURL(indexname) : "") || command;
@@ -186,15 +185,15 @@ PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname,
     body := [ bulkrequests := request._bulkrequests ];
   }
 
-  RETURN SendRawJSONToElasticsearch(indexmgrid, method, url, body, CELL[ ndjson, options.throwonfailure, options.timeout ]);
+  RETURN SendRawJSONToElasticsearch(indexmgrid, method, url, body, CELL[ ndjson, options.timeout ]);
 }
 
 PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ ndjson := FALSE
-                              , throwonfailure := TRUE //if you use the RAW api, you're a new caller and should be expecting THROWs instead of adding new error paths
                               , timeout := elastic_timeout * 1000
                               , enforce := ""
+                              , expectstatus := [ 200 ]
                               ], options,
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
@@ -220,9 +219,8 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     {
       IF (running_in_fetcher AND print_defer_connection)
         Print("Defer:connection\n");
-      IF(options.throwonfailure)
-        THROW NEW ElasticsearchException("Connection failed", DEFAULT OBJECT);
-      RETURN [ status := SearchConnectError ];
+
+      THROW NEW ElasticsearchException("Connection failed", DEFAULT OBJECT);
     }
 
     STRING url := indexmanager.address || (suburl LIKE "/*" ? "" : "/") || suburl;
@@ -246,7 +244,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     BOOLEAN success := indexmanager.browser->SendRawRequest(method, url, headers, body);
 
     statuscode := indexmanager.browser->GetHTTPStatusCode();
-    IF (NOT success)
+    IF (statuscode NOT IN options.expectstatus)
     {
       IF (indexmanager.browser->GetSocketError() = -9) // timeout
       {
@@ -257,12 +255,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       }
       ELSE
       {
-        // Got an unexpected code, but we'll let it slide
-        OBJECT exc := NEW ElasticsearchException("Unexpected response code " || statuscode, indexmanager.browser);
-        IF(options.throwonfailure)
-          THROW exc;
-        FetcherDebug(ConsilioDebugInfo, exc->what);
-        BREAK;
+        THROW NEW ElasticsearchException("Unexpected response code " || statuscode, indexmanager.browser);
       }
     }
     ELSE
@@ -450,7 +443,7 @@ PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 PUBLIC BOOLEAN FUNCTION IsOpenSearchIndexPresent(INTEGER indexmgrid, STRING indexname)
 {
   //Getting just the index isn't enough. It will already stop 404-ing before you can write..
-  RECORD stats := SendToElasticsearch(indexmgrid, indexname, "/_stats", DEFAULT RECORD, "GET");
+  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", indexname || "/_stats", DEFAULT RECORD, [ expectstatus := [200,404] ]);
   RETURN stats.code = 200 AND stats.result._shards.successful >= 1;
 }
 
@@ -1161,7 +1154,7 @@ RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
 
 PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndexSuffixes(INTEGER indexmanager, STRING forindexname)
 {
-  RECORD response := SendToElasticsearch(indexmanager, "", "/_cat/indices/?format=json&bytes=b", DEFAULT RECORD, "GET", [throwonfailure := TRUE]);
+  RECORD response := SendToElasticsearch(indexmanager, "", "/_cat/indices/?format=json&bytes=b", DEFAULT RECORD, "GET");
   RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
 
   // Unmanaged indices may have a suffix: <indexname>-<suffix>
@@ -1185,7 +1178,7 @@ PUBLIC RECORD FUNCTION GetOpenSearchCurrentMapping(INTEGER indexmanagermapping, 
       [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       ], options);
 
-  RECORD response := SendToElasticsearch(indexmanagermapping, indexname, "/_mapping", DEFAULT RECORD, "GET", CELL[throwonfailure:=TRUE]);
+  RECORD response := SendToElasticsearch(indexmanagermapping, indexname, "/_mapping", DEFAULT RECORD, "GET");
 
   RECORD mappings := GetCell(response.result, indexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);

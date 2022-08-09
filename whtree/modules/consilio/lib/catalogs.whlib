@@ -1014,7 +1014,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     objects := SELECT objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
     {
-      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ suffix := options.suffix, refresh := options.synchronous ]);
     }
   }
 
@@ -1040,7 +1040,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
     {
       STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
-      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ throwonfailure := TRUE, options.suffix, refresh ]);
+      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ options.suffix, refresh ]);
     }
   }
 
@@ -1112,14 +1112,14 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell options.definedby Use to describe who added this custom content source was added
       @rreutn Newly created content source
   */
-  PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION AddFolderToCatalog(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT this->managed)
       THROW NEW Exception(`Unmanaged catalogs do not support content sources`);
 
     options :=  ValidateOptions(
         CELL[ ...default_contentsource_options
-            , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+            , definedby :=            "AddFolderToCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
             ], options);
 
     FOREVERY (RECORD contentsource FROM

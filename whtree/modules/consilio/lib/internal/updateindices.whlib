@@ -149,7 +149,7 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
     TRY
     {
       IF(source.contentobject = "")
-        catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+        catalog->AddFolderToCatalog(source.fsobject, CELL[ source.definedby ]);
       ELSE
         catalog->AddCustomContentSource(source.tag, source.contentobject, CELL[ source.definedby ]);
     }

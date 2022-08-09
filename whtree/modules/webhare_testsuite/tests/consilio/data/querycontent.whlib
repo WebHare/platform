@@ -8,6 +8,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
     , keywordfield := "keyword number one"
     , shortkeyword := "eins"
     , price := 10m
+    , myrec := [ reckeyword := ["rk1","rk2" ] ]
     ]
   , [ groupid := "QC2"
     , body := "This is the second document in the content database"
@@ -43,6 +44,12 @@ PUBLIC STATIC OBJECTTYPE QueryContent EXTEND CustomContentBase
         , [ name := "keywordfield",            value := "", type := "keyword" ]
         , [ name := "shortkeyword",            value := "", type := "keyword" ]
         , [ name := "price",                   value := 0m ]
+        // TODO why isn't this syntax accepted or even required for  records?
+        //, [ name := "myrec",                   value := "", type := "record"
+        //  , properties := [[ name := "reckeyword", value := "", type := "keyword" ]
+        //                  ]
+        //  ]
+        , [ name := "myrec.reckeyword",        value := STRING[], type := "keyword" ]
         ];
     RETURN mapping;
   }

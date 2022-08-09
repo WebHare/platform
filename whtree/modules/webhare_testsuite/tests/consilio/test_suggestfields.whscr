@@ -159,7 +159,7 @@ MACRO TestSuggestFieldsLegacy()
 
   OBJECT siteroot := GetTestsuiteTempFolder();
 
-  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
+  OBJECT csource := catalog->AddFolderToCatalog(siteroot->id);
 
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "slafile", data := StringToBlob("slasla"), publish := TRUE]);
 

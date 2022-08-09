@@ -78,22 +78,28 @@ PUBLIC OBJECT FUNCTION OpenContentSourceProvider(STRING catalogtag, RECORD conte
 
 PUBLIC RECORD ARRAY FUNCTION GetContentSourceFieldMapping(STRING catalogtag, RECORD contentsource)
 {
-  OBJECT prov;
+  OBJECT prov := OpenContentSourceProvider(catalogtag, contentsource);
   RECORD ARRAY fields;
   TRY
   {
-    prov := OpenContentSourceProvider(catalogtag, contentsource);
-    fields := prov->GetMapping();
-  }
-  CATCH(OBJECT e) //TODO get these internal errors to bubble up somewhere in the catalog or wh check
-  {
-    LogHarescriptException(e);
-    RETURN RECORD[];
+    FOREVERY(RECORD field FROM prov->GetMapping())
+    {
+      field := ValidateOptions([ name := ""
+                               , value := ""
+                               , type := ""
+                               , tokenized := FALSE
+                               , suggested := FALSE
+                               ], field, [ title := `fields[${#field}]`
+                                         , notypecheck := ["value"]
+                                         , optional := ["tokenized","suggested"] //some spots explicitly check with cellexists..
+                                         , required := ["name"]
+                                         ]);
+      INSERT field INTO fields AT END;
+    }
   }
   FINALLY
   {
-    IF(ObjectExists(prov))
-      prov->Close();
+    prov->Close();
   }
 
   RECORD ARRAY mappedfields;

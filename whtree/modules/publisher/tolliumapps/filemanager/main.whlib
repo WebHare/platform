@@ -832,32 +832,15 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   RECORD FUNCTION GetCacheableSiteHighlights()
   {
-    INTEGER ARRAY consilio_folders := SELECT AS INTEGER ARRAY fsobject FROM consilio.contentsources WHERE contentprovider = "publisher:webhare" AND tag NOT LIKE "$consilio$deleted$*";
-    INTEGER ARRAY indexed_sites;
-    FOREVERY (RECORD site FROM SELECT id FROM system.sites)
-    {
-      INTEGER id := site.id;
-      WHILE (id > 0)
-      {
-        IF (id IN consilio_folders)
-        {
-          INSERT site.id INTO indexed_sites AT END;
-          BREAK;
-        }
-        id := SELECT AS INTEGER parent FROM system.fs_objects WHERE COLUMN id = VAR id;
-      }
-    }
     INTEGER ARRAY published_sites := SELECT AS INTEGER ARRAY id FROM system.sites WHERE outputweb != 0;
 
     RETURN
         [ ttl :=  5 * 60 * 1000
-        , eventmasks := [ "consilio:contentsourceschanged"
-                        , "system:whfs.sitemeta.*"
+        , eventmasks := [ "system:whfs.sitemeta.*"
                         ]
         , value :=
-              [ indexed_sites :=    indexed_sites
-              , published_sites :=  published_sites
-              ]
+              CELL[ published_sites
+                  ]
         ];
   }
 
@@ -895,7 +878,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
     RECORD highlights := GetAdhocCached([ type := "sitehighlights" ], PTR this->GetCacheableSiteHighlights);
 
-    INTEGER ARRAY indexed_sites := highlights.indexed_sites;//SELECT AS INTEGER ARRAY sites.id FROM system.sites WHERE sites.root IN consilio_folders;
     INTEGER ARRAY published_sites := highlights.published_sites;//SELECT AS INTEGER ARRAY id FROM system.sites WHERE outputweb != 0;
 
     BOOLEAN issysop := this->frame->flags.issysop;
@@ -904,7 +886,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                   , canedit :=              canedit
                   , ispublished :=          parentsite IN published_sites AND GetOncePublishedFromPublished(published)
                   , ispublish :=            parentsite IN published_sites AND IsPublish(published)
-                  , isindexed :=            parentsite IN indexed_sites
                   , isindexdoc :=           id = sel_indexdoc
                   , isversioned :=          this->IsVersionedObject(items) OR isversionarchive
                   , canpublish :=           isactive AND ((isfolder AND parentsite IN published_sites) OR IsPublish(published))

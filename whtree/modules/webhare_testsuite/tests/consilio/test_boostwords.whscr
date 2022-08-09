@@ -26,7 +26,7 @@ MACRO TestBoostWords()
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_boostwords", [ fieldgroups := ["webhare_testsuite:pagelistfields" ]]);
   Print(catalog->GetStorageInfo() || "\n");
 
-  OBJECT csource := catalog->AddPublisherContentSource(siteroot->id);
+  OBJECT csource := catalog->AddFolderToCatalog(siteroot->id);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
