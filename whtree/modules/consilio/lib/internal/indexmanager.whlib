@@ -279,11 +279,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
+      , explain := FALSE
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
   IF(options.addscore)
     options.mapping := CELL[...options.mapping, _score := 0f ];
+  IF(options.explain)
+    options.mapping := CELL[...options.mapping, _explanation := DEFAULT RECORD ];
 
   IF (options.summary != 0 AND NOT CellExists(options.mapping, "_SUMMARY"))
     INSERT CELL _summary := "" INTO options.mapping;
@@ -330,6 +333,8 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                               ];
 
     RECORD searchquery := CreateElasticsearchQuery(query);
+    IF (options.explain)
+      INSERT CELL explain := TRUE INTO searchquery;
 
     INSERT CELL _source := requested_fields INTO searchquery;
 
@@ -397,7 +402,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     IF(options.debug)
       Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get" ]);
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain ]);
     IF(options.debug)
       DumpValue(response, "tree");
 

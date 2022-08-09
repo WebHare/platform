@@ -194,6 +194,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               , timeout := elastic_timeout * 1000
                               , enforce := ""
                               , expectstatus := [ 200 ]
+                              , explain := FALSE
                               ], options,
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
@@ -269,7 +270,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   IF (ToLowercase(indexmanager.browser->contenttype) LIKE "application/json*")
   {
     IF (options.enforce != "")
-      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce);
+      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce, CELL[ options.explain ]);
     ELSE
       decoded := DecodeJSONBlob(indexmanager.browser->content);
   }
@@ -479,98 +480,66 @@ STRING ARRAY FUNCTION ExtractUserQueriesRecursive(RECORD query)
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
 PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
 {
-  IF (CellExists(input, "aggregation"))
-  {
-    RECORD result :=
-        [ aggs := CreateElasticsearchAggregationRecursive(input.aggregation)
-        ];
-    // The 'count' aggregation isn't sent to Elasticsearch as an actual aggregation
-    IF (NOT RecordExists(result.aggs))
-      DELETE CELL aggs FROM result;
-
-    IF (CellExists(input, "query"))
-      INSERT CELL query := CreateElasticsearchQueryRecursive(input.query) INTO result;
-
-    RETURN result;
-  }
-
   RECORD result :=
       [ query := DEFAULT RECORD
+      , aggs := DEFAULT RECORD
+      , sort := DEFAULT VARIANT ARRAY
       ];
+
+  IF (CellExists(input, "aggregation"))
+  {
+    result.aggs := CreateElasticsearchAggregationRecursive(input.aggregation);
+    DELETE CELL aggregation FROM input;
+  }
+
+  IF (CellExists(input, "ordering"))
+  {
+    result.sort := CreateElastisearchSort(input.ordering);
+    DELETE CELL ordering FROM input;
+  }
 
   RECORD query := input;
   IF (CellExists(query, "query"))
     query := query.query;
 
-  IF (CellExists(input, "ordering"))
+  IF (RecordExists(UnpackRecord(query))) // query may be an empty record at this point
   {
-    IF (RecordExists(input.ordering))
+    result.query := CreateElasticsearchQueryRecursive(query);
+
+    IF (CellExists(input, "filters"))
     {
-      // The 'sort' field is an array of strings and objects
-      VARIANT ARRAY sort;
-      FOREVERY (RECORD orderfield FROM input.ordering)
+      RECORD ARRAY filters;
+      FOREVERY (RECORD filter FROM input.filters)
       {
-        IF (CellExists(orderfield, "orderdesc"))
+        BOOLEAN isdatefilter := filter.field LIKE "date_*" OR filter.field LIKE "*.date_*";
+        RECORD range := DEFAULT RECORD;
+        IF (NOT IsDefaultValue(filter.lowerterm))
         {
-          IF (CellExists(orderfield, "ordermode"))
-          {
-            // When both orderdesc and ordermode are given, insert an object with an object property
-            // { "myfield": { "order": "asc", "mode": "min" } }
-            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ "order" := orderfield.orderdesc ? "desc" : "asc", "mode" := orderfield.ordermode ]) INTO sort AT END;
-          }
+          IF (filter.includelower)
+            INSERT CELL gte := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
           ELSE
-          {
-            // When only orderdesc is given, insert on object with a string property
-            // { "myfield": "asc" }
-            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, orderfield.orderdesc ? "desc" : "asc") INTO sort AT END;
-          }
+            INSERT CELL gt := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
         }
-        ELSE IF (CellExists(orderfield, "ordermode"))
+        IF (NOT IsDefaultValue(filter.upperterm))
         {
-          // When only ordermode is given, insert an object with an object property
-          // { "myfield": { "mode": "min" } }
-          INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ mode := orderfield.ordermode ]) INTO sort AT END;
+          IF (filter.includeupper)
+            INSERT CELL lte := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
+          ELSE
+            INSERT CELL lt := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
         }
-        ELSE
-        {
-          // When only the field is given, insert the field name
-          // "myfield"
-          INSERT orderfield.orderby INTO sort AT END;
-        }
+        INSERT [ range := CellInsert(DEFAULT RECORD, filter.field, range) ] INTO filters AT END;
       }
-      result := CELL[ ...result, sort ];
+      IF (Length(filters) > 0)
+        result.query := AddElasticsearchQueryFilters(result.query, filters, FALSE);
     }
-    DELETE CELL ordering FROM input;
   }
 
-  result.query := CreateElasticsearchQueryRecursive(query);
-
-  IF (CellExists(input, "filters"))
-  {
-    RECORD ARRAY filters;
-    FOREVERY (RECORD filter FROM input.filters)
-    {
-      BOOLEAN isdatefilter := filter.field LIKE "date_*" OR filter.field LIKE "*.date_*";
-      RECORD range := DEFAULT RECORD;
-      IF (NOT IsDefaultValue(filter.lowerterm))
-      {
-        IF (filter.includelower)
-          INSERT CELL gte := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
-        ELSE
-          INSERT CELL gt := isdatefilter ? FormatISO8601DateTime(filter.lowerterm, "day", "milliseconds") : filter.lowerterm INTO range;
-      }
-      IF (NOT IsDefaultValue(filter.upperterm))
-      {
-        IF (filter.includeupper)
-          INSERT CELL lte := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
-        ELSE
-          INSERT CELL lt := isdatefilter ? FormatISO8601DateTime(filter.upperterm, "day", "milliseconds") : filter.upperterm INTO range;
-      }
-      INSERT [ range := CellInsert(DEFAULT RECORD, filter.field, range) ] INTO filters AT END;
-    }
-    IF (Length(filters) > 0)
-      result.query := AddElasticsearchQueryFilters(result.query, filters, FALSE);
-  }
+  IF (NOT RecordExists(result.query))
+    DELETE CELL query FROM result;
+  IF (NOT RecordExists(result.aggs))
+    DELETE CELL aggs FROM result;
+  IF (Length(result.sort) = 0)
+    DELETE CELL sort FROM result;
   RETURN result;
 }
 
@@ -834,6 +803,46 @@ STRING FUNCTION FormatBoost(FLOAT boost)
   RETURN "^" || formatted;
 }
 
+VARIANT ARRAY FUNCTION CreateElastisearchSort(RECORD ARRAY ordering)
+{
+  VARIANT ARRAY sort;
+  IF (RecordExists(ordering))
+  {
+    // The 'sort' field is an array of strings and objects
+    FOREVERY (RECORD orderfield FROM ordering)
+    {
+      IF (CellExists(orderfield, "orderdesc"))
+      {
+        IF (CellExists(orderfield, "ordermode"))
+        {
+          // When both orderdesc and ordermode are given, insert an object with an object property
+          // { "myfield": { "order": "asc", "mode": "min" } }
+          INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ "order" := orderfield.orderdesc ? "desc" : "asc", "mode" := orderfield.ordermode ]) INTO sort AT END;
+        }
+        ELSE
+        {
+          // When only orderdesc is given, insert on object with a string property
+          // { "myfield": "asc" }
+          INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, orderfield.orderdesc ? "desc" : "asc") INTO sort AT END;
+        }
+      }
+      ELSE IF (CellExists(orderfield, "ordermode"))
+      {
+        // When only ordermode is given, insert an object with an object property
+        // { "myfield": { "mode": "min" } }
+        INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ mode := orderfield.ordermode ]) INTO sort AT END;
+      }
+      ELSE
+      {
+        // When only the field is given, insert the field name
+        // "myfield"
+        INSERT orderfield.orderby INTO sort AT END;
+      }
+    }
+  }
+  RETURN sort;
+}
+
 RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
 {
   IF (NOT CellExists(aggregation, "_type"))
@@ -1012,6 +1021,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
         lineresult := CellInsert(lineresult, "_score", hit._score);
       ELSE IF (fld = "_summary" AND CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
         lineresult := CellInsert(lineresult, fld, hit.highlight.body[0]);
+      ELSE IF (fld = "_explanation")
+        lineresult := CellInsert(lineresult, "_explanation", hit._explanation);
       ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
         lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
       ELSE
@@ -1124,13 +1135,21 @@ MONEY FUNCTION ReadMoneyValue(STRING value)
   RETURN __HS_SetRawMoney(ToInteger64(value, 0));
 }
 
-RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
+RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type, RECORD options)
 {
   RECORD decoded := DecodeJSONBlob(content, DEFAULT RECORD, [ alltostring := TRUE ]);
   SWITCH (type)
   {
     CASE "_search_get"
     {
+      RECORD hit :=
+          [ _index := ""
+          , _id := ""
+          , _score := 0f
+          , _source := DEFAULT RECORD
+          ];
+      IF (options.explain)
+        INSERT CELL _explanation := DEFAULT RECORD INTO hit;
       decoded := EnforceStructure(
           [ took := 0
           , timed_out := FALSE
@@ -1138,13 +1157,7 @@ RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type)
           , hits :=
               [ total := [ value := 0, relation := "" ]
               , max_score := 0f
-              , hits :=
-                  [ [ _index := ""
-                    , _id := ""
-                    , _score := 0f
-                    , _source := DEFAULT RECORD
-                    ]
-                  ]
+              , hits := [ hit ]
               ]
           ], decoded);
     }

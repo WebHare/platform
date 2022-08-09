@@ -152,6 +152,7 @@ STATIC OBJECTTYPE SearchObject
   //
 
   PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN explain;
 
   /** @short The language used for searching
   */
@@ -380,6 +381,7 @@ STATIC OBJECTTYPE SearchObject
         , this->session
         , addscore
         , this->debug
+        , this->explain
         , this->aggregation_mapping
         ];
     IF (this->have_empty_result_record)
