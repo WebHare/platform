@@ -22,7 +22,7 @@ MACRO TestThesaurus()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
+  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus", [ priority := 9 ]);
 
   //having indexnames makes log analysis easier
   Print(testcatalog->GetStorageInfo() || "\n");

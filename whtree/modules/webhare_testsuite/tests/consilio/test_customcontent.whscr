@@ -81,7 +81,9 @@ MACRO TestCustomContent()
   TestEq(0, __GetNumSubJobs());
 
   testfw->BeginWork();
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]
+                                                                           , priority := 9
+                                                                           ]);
   TestEq(0, __GetNumSubJobs());
   Print(catalog->GetStorageInfo() || "\n");
 

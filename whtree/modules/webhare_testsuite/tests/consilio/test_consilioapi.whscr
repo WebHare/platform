@@ -20,8 +20,8 @@ MACRO TestConsilioAPI()
   TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id));
   TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id));
 
-  OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1");
-  OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2");
+  OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1", [ priority := 9 ]);
+  OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2", [ priority := 9 ]);
   TestEq(TRUE, testcatalog1->managed);
   TestEq(TRUE, SELECT AS BOOLEAN managed FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
 

@@ -17,7 +17,9 @@ MACRO RunCleanupTest()
   // Prepare the content to index
   testfw->BeginWork();
 
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_cleanup");
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_cleanup", [ priority := 9 ]);
+  Print(catalog->GetStorageInfo() || "\n");
+
   OBJECT search_obj := OpenSearchObject("en", "consilio:testfw_cleanup");
   search_obj->empty_result_record :=
       [ groupid :=        ""

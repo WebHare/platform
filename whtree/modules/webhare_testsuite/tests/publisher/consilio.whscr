@@ -19,8 +19,8 @@ MACRO ConsilioTest()
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT subfolder := siteroot->CreateFolder([ name := "subfolder" ]);
 
-  OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [fieldgroups := [ "webhare_testsuite:extrafield" ] ]);
-  OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2");
+  OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [ fieldgroups := [ "webhare_testsuite:extrafield" ], priority := 9 ]);
+  OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2", [ priority := 9 ]);
   OBJECT contentsource_1 := catalog_1->AddFolderToCatalog(siteroot->id);
   OBJECT contentsource_2 := catalog_2->AddFolderToCatalog(subfolder->id);
   testfw->CommitWork();

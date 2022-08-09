@@ -26,6 +26,7 @@ MACRO Prepare()
   cat := CreateConsilioCatalog("consilio:testfw_testindex_suffixed", [ fieldgroups := [ "webhare_testsuite:nosuchfieldyet" ]
                                                                      , managed := FALSE
                                                                      , suffixed := TRUE
+                                                                     , priority := 9
                                                                      ]);
 
   INTEGER index1id := cat->AttachIndex(0);
