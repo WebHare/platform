@@ -242,8 +242,7 @@ STRING FUNCTION GetTypeFromFieldDef(RECORD field)
       THROW NEW Exception(`Unsupported field type '${field.type}'`);
     RETURN field.type;
   }
-  IF (field.name LIKE "date_*" OR field.name LIKE "*.date_*")
-    RETURN "datetime";
+
   IF (CellExists(field, "tokenized") AND field.tokenized)
     RETURN "text"; // analyzer will be added by ParseContentSourceMapping, so it will be applied to defaultmappingfields as well
 

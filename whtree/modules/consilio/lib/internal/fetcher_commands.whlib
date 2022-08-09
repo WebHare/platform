@@ -1069,16 +1069,15 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
     IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
 
     results := results CONCAT result.results;
   }
 
   RETURN
-      SELECT DISTINCT contentsourceid := contentsource
-           , COLUMN indexid
+      SELECT DISTINCT contentsourceid := _contentsource
         FROM results
        WHERE _contentsource != 0;
 }
@@ -1288,21 +1287,16 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ contentsource := 0 ] ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ] ]);
     IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ contentsource := 0 ] ]);
+      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ _contentsource := 0 ] ]);
 
     results := results CONCAT result.results;
   }
 
-  INTEGER ARRAY contentsources :=
-      SELECT AS INTEGER ARRAY DISTINCT contentsource
-        FROM results;
-
+  INTEGER ARRAY contentsources := SELECT AS INTEGER ARRAY DISTINCT _contentsource FROM results WHERE _contentsource != 0;
   FOREVERY (INTEGER contentsource FROM contentsources)
-  {
     DeleteIndexManagerContentSource(0, indexid, contentsource);
-  }
 }
 
 

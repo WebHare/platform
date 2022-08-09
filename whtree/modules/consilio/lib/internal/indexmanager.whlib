@@ -1160,13 +1160,13 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
       IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
         result.status := SearchCommandUnsupported;
 
-      // delete all documents having 'date_indexed' before 'deletebefore'
+      // delete all documents having '_indexed' before 'deletebefore'
       RECORD query :=
           [ query :=
               [ bool :=
                   [ must := DEFAULT RECORD ARRAY
                   , filter :=
-                      [ [ range := [ date_indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
+                      [ [ range := [ _indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
                       ]
                   ]
               ]
