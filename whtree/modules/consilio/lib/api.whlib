@@ -21,6 +21,14 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC CONSTANT INTEGER require_allowed, require_required, require_prohibited;
 
+MACRO ValidateFieldName(STRING field)
+{
+  IF (field = "")
+    THROW NEW Exception("Field name is required");
+  IF (field LIKE "*@*") //block @ fields, or at least until transition is complete
+    THROW NEW Exception(`Field name '${field}' is illegal, use mod_<modname>.<field>...`);
+}
+
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
         type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means
@@ -37,8 +45,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
 {
   options := ValidateOptions(CELL[], options);
 
-  IF (field = "")
-    THROW NEW Exception("Query field is required for match query");
+  ValidateFieldName(field);
 
   SWITCH (TypeID(value))
   {
@@ -126,8 +133,7 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
 {
   options := ValidateOptions(CELL[], options);
 
-  IF (field = "")
-    THROW NEW Exception("Query field is required for range query");
+  ValidateFieldName(field);
 
   IF (TypeID(lowerterm) != TypeID(upperterm))
     THROW NEW Exception(`Range query lower term type '${GetTypeName(TypeID(lowerterm))}' not equal to upper term type '${GetTypeName(TypeID(upperterm))}'`);
@@ -177,8 +183,7 @@ PUBLIC RECORD FUNCTION CQNothing()
 */
 PUBLIC RECORD FUNCTION CQHas(STRING field)
 {
-  IF (field = "")
-    THROW NEW Exception("Query field is required for has query");
+  ValidateFieldName(field);
 
   RETURN [ _type := "exists"
          , field := field
@@ -362,8 +367,8 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
       ], options);
 
   // Make sure either field or name is given
-  IF (field = "" AND type != "count")
-    THROW NEW Exception("Field is required for aggregation");
+  IF (type != "count")
+    ValidateFieldName(field);
   ELSE IF (type = "count" AND options.name = "")
     THROW NEW Exception("Name option is required for aggregation type 'count'");
 
@@ -627,8 +632,11 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     IF(options.validatemapping)
     {
       FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
+      {
+        ValidateFieldName(cellrec.name);
         IF(cellrec.name LIKE "_*")
           THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+      }
     }
 
     search_obj->empty_result_record := options.mapping;
