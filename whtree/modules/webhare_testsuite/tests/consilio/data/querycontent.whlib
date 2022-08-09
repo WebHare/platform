@@ -44,12 +44,10 @@ PUBLIC STATIC OBJECTTYPE QueryContent EXTEND CustomContentBase
         , [ name := "keywordfield",            value := "", type := "keyword" ]
         , [ name := "shortkeyword",            value := "", type := "keyword" ]
         , [ name := "price",                   value := 0m ]
-        // TODO why isn't this syntax accepted or even required for  records?
-        //, [ name := "myrec",                   value := "", type := "record"
-        //  , properties := [[ name := "reckeyword", value := "", type := "keyword" ]
-        //                  ]
-        //  ]
-        , [ name := "myrec.reckeyword",        value := STRING[], type := "keyword" ]
+        , [ name := "myrec",                   value := "", type := "record"
+          , properties := [[ name := "reckeyword", value := STRING[], type := "keyword" ]
+                          ]
+          ]
         ];
     RETURN mapping;
   }

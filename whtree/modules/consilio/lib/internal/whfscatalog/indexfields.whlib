@@ -1,0 +1,209 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/types.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+RECORD FUNCTION ParseIndexField(RECORD indexfield, RECORD ARRAY alltypemembers, RECORD typestructure, RECORD parentfield, INTEGER parentid)
+{
+  RECORD ARRAY properties;
+  VARIANT fieldstructure;
+
+  RECORD memberrec;
+  IF(indexfield.membername != "")
+  {
+    memberrec := SELECT *
+                   FROM alltypemembers
+                  WHERE ToUppercase(name) = ToUppercase(indexfield.membername)
+                        AND alltypemembers.parent = parentid;
+
+    IF(NOT RecordExists(memberrec))
+      THROW NEW Exception(`No such member '${indexfield.membername}'`);
+  }
+
+  IF(CellExists(indexfield,'arraymembers') AND Length(indexfield.arraymembers) > 0)
+  {
+    fieldstructure := DEFAULT RECORD;
+    FOREVERY(RECORD submember FROM indexfield.arraymembers)
+    {
+      RECORD subfield := ParseIndexField( submember
+                                        , alltypemembers
+                                        , RecordExists(memberrec) AND CellExists(typestructure, memberrec.name) ? GetCell(typestructure, memberrec.name) : DEFAULT RECORD
+                                        , indexfield
+                                        , RecordExists(memberrec) ? memberrec.id : -1 //-1 will never match
+                                        );
+      INSERT subfield INTO properties AT END;
+      fieldstructure := CellInsert(fieldstructure, subfield.name, subfield.value);
+    }
+  }
+  ELSE IF(indexfield.membername = "") //calculated
+  {
+    FUNCTION PTR getfield := RecordExists(parentfield)
+        ? MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
+        : MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
+
+    //FIXME just have the field declare its type instead of having to manually query it!
+    fieldstructure := RecordExists(parentfield)
+        ? getfield(indexfield.fieldname, parentfield.fieldname, 0, 0)
+        : getfield(indexfield.fieldname, 0);
+  }
+  ELSE IF(memberrec.type = whfs_membertype_array)
+  {
+    fieldstructure := DEFAULT RECORD;
+  }
+  ELSE
+  {
+    /* TODO is this needed ?
+    IF(indexfield.tokenized) //convert to array
+      fieldstructure := GetTypeDefaultArray(TYPEID(GetCell(typestructure, memberrec.name)));
+    ELSE*/
+    fieldstructure := GetCell(typestructure, memberrec.name);
+  }
+
+  RETURN CELL[ name := indexfield.fieldname
+             , value := fieldstructure
+             , indexfield.tokenized
+             , indexfield.suggested
+             , properties
+             , _indexfield := CELL[ ...indexfield ]
+             ];
+
+}
+
+RECORD FUNCTION GetIndexFields_Uncached()
+{
+  RECORD ARRAY indexfields;
+  FOREVERY (RECORD module FROM GetWebHareModules())
+  {
+    indexfields := indexfields CONCAT
+        SELECT *
+             , module := module.name
+          FROM module.indexfields;
+  }
+
+  RECORD ARRAY groupedpermodule := SELECT module
+                                        , fields := (SELECT * FROM GroupedValues(indexfields) ORDER BY namespace, fieldname)  //order by namespace to increase indextype hit chance
+                                     FROM indexfields
+                                 GROUP BY module;
+
+  /* Indexfields is a flat list of (fieldname,namespace,module,...) records although array subfields are still stored in 'arraymembers'
+     But it's not grouped by module yet! */
+
+  OBJECT indextype; //keeping outside loop as simple cache between members
+  RECORD ARRAY mapping;
+  STRING ARRAY types;
+
+  FOREVERY(RECORD permodule FROM groupedpermodule)
+  {
+    RECORD ARRAY moduleproperties;
+    RECORD modulestructure;
+
+    FOREVERY(RECORD field FROM permodule.fields)
+    {
+      IF(CellExists(modulestructure, field.fieldname)) //<indexfield> allows multiple definitions for thet same field and it's up to you to make them not conflict (FIXME might want to reconsider that in a new format..)
+        CONTINUE;
+
+      RECORD ARRAY members;
+      RECORD structure;
+
+      IF(field.namespace != "") //getting this from instancedata
+      {
+        IF(NOT ObjectExists(indextype) OR indextype->namespace != field.namespace)
+          indextype := OpenWHFSType(field.namespace);
+        IF(NOT ObjectExists(indextype))
+          CONTINUE; //no such field, ignore
+
+        members := indextype->members;
+        structure := indextype->structure;
+        IF(field.namespace NOT IN types)
+          INSERT field.namespace INTO types AT END;
+      }
+
+      RECORD prop := ParseIndexField(field, members, structure, DEFAULT RECORD, 0);
+      INSERT prop INTO moduleproperties AT END;
+      modulestructure := CellInsert(modulestructure, field.fieldname, prop.value);
+    }
+
+    IF(Length(moduleproperties) > 0)
+      INSERT CELL[ name := "mod_" || permodule.module
+                 , properties := moduleproperties
+                 , value := modulestructure
+                 ] INTO mapping AT END;
+  }
+
+  RETURN [ value := CELL[ mapping, types ]
+         , eventmasks := [ "consilio:indexfields" // broadcast after soft reset (indexfields may have changed)
+                         , "system:whfs.types" // broadcast after siteprofile recompile (contenttypes may have changed)
+                         ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetIndexFields()
+{
+  RETURN GetAdhocCached([ data := "indexfields" ], PTR GetIndexFields_Uncached);
+}
+
+
+VARIANT FUNCTION ParseContentTypeField(RECORD indexfield, RECORD instancedata, INTEGER objid, INTEGER arrayid, RECORD parentfield)
+{
+  IF(indexfield.fieldfunc != "")
+  {
+    FUNCTION PTR getfield := RecordExists(parentfield)
+        ? MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
+        : MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
+    VARIANT fieldvalue := RecordExists(parentfield)
+        ? getfield(indexfield.fieldname, parentfield.fieldname, objid, arrayid)
+        : getfield(indexfield.fieldname, objid);
+    RETURN fieldvalue;
+  }
+
+  IF(CellExists(instancedata, indexfield.membername))
+  {
+    VARIANT data := GetCell(instancedata, indexfield.membername);
+
+    IF(CellExists(indexfield, 'arraymembers') AND Length(indexfield.arraymembers) > 0 AND Length(data)>0)
+    {
+      IF(arrayid >= Length(data))
+        THROW NEW Exception("Illegal index #" || arrayid || " for member '" || indexfield.membername || "'");
+
+      RECORD arrayrecord;
+      FOREVERY(RECORD field FROM indexfield.arraymembers)
+      {
+        VARIANT celldata := ParseContentTypeField(field, data[arrayid], objid, arrayid, indexfield);
+        arrayrecord := CellInsert(arrayrecord, field.fieldname, celldata);
+      }
+      RETURN arrayrecord;
+    }
+    RETURN data;
+  }
+
+  THROW NEW Exception(`Member '${indexfield.membername}' not present`);
+}
+
+PUBLIC RECORD FUNCTION GetParsedIndexFields(OBJECT fsobj, INTEGER subpage_seqnr)
+{
+  RECORD indexfields := GetIndexFields();
+  RECORD ARRAY cachedata;
+  FOREVERY(STRING type FROM indexfields.types)
+    INSERT CELL[ namespace := type, data := fsobj->GetInstanceData(type) ] INTO cachedata AT END;
+
+  RECORD resultfields;
+  FOREVERY (RECORD module FROM indexfields.mapping)
+  {
+    RECORD modulefields;
+    FOREVERY(RECORD field FROM module.properties)
+    {
+      RECORD mydata := SELECT AS RECORD data FROM cachedata WHERE cachedata.namespace = field._indexfield.namespace;
+      VARIANT data := ParseContentTypeField(field._indexfield, mydata, fsobj->id, subpage_seqnr, DEFAULT RECORD);
+      modulefields := CellInsert(modulefields, field.name, data);
+    }
+    resultfields := CellInsert(resultfields, module.name, modulefields);
+  }
+
+  RETURN resultfields;
+}
+

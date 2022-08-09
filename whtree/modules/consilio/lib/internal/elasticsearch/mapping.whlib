@@ -227,7 +227,7 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
           , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
           , field.name
           , settings := DEFAULT RECORD
-          , properties := RECORD[]
+          , properties := CellExists(field,"properties") ? ParseContentSourceMapping(RECORD[], field.properties) : RECORD[]
           , field.definedby
           , suggested := CellExists(field,"suggested") ? field.suggested : FALSE
           ] INTO properties AT END;
@@ -258,6 +258,7 @@ STRING FUNCTION GetTypeFromFieldDef(RECORD field)
     CASE TypeID(FLOAT),     TypeID(FLOAT ARRAY)     { RETURN "float"; }
     CASE TypeID(BOOLEAN),   TypeID(BOOLEAN ARRAY)   { RETURN "boolean"; }
     CASE TypeID(DATETIME),  TypeID(DATETIME ARRAY)  { RETURN "datetime"; }
+    CASE TypeId(RECORD)                             { RETURN "record"; }
   }
   THROW NEW Exception(`Cannot determine type for field ${field.name}`);
 }

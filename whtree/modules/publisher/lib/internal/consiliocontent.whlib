@@ -23,6 +23,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+LOADLIB "mod::consilio/lib/internal/whfscatalog/indexfields.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -31,9 +32,9 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/types.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-
 
 PUBLIC RECORD FUNCTION HookRunner(STRING name, RECORD data)
 {
@@ -223,24 +224,12 @@ PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
   RETURN retval;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetIndexFields()
+RECORD ARRAY FUNCTION Cleanup(RECORD ARRAY inmapping)
 {
-  RETURN GetAdhocCached([ data := "indexfields" ], PTR GetIndexFields_Uncached);
-}
-
-RECORD FUNCTION GetIndexFields_Uncached()
-{
-  RECORD ARRAY indexfields;
-  FOREVERY (RECORD module FROM GetWebHareModules())
-    indexfields := indexfields CONCAT
-        SELECT *
-             , module := module.name
-          FROM module.indexfields;
-  RETURN [ value := indexfields
-         , eventmasks := [ "consilio:indexfields" // broadcast after soft reset (indexfields may have changed)
-                         , "system:whfs.types" // broadcast after siteprofile recompile (contenttypes may have changed)
-                         ]
-         ];
+  RETURN SELECT *
+              , DELETE _indexfield
+              , properties := Cleanup(properties)
+           FROM inmapping;
 }
 
 PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
@@ -270,63 +259,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , [ name := "date_publication", value := DEFAULT DATETIME ]
         ];
 
-    RECORD ARRAY indexfieldgroups :=
-        SELECT namespace
-             , fields := GroupedValues(indexfields)
-          FROM GetIndexFields() AS indexfields
-      GROUP BY namespace;
-
-    FOREVERY (RECORD grp FROM indexfieldgroups)
-    {
-      OBJECT indextype;
-      RECORD ARRAY members;
-      RECORD indexdata;
-
-      IF (grp.namespace != "")
-      {
-        indextype := OpenWHFSType(grp.namespace);
-        IF (NOT ObjectExists(indextype))
-          CONTINUE;
-
-        indexdata := indextype->defaultinstance;
-        members := indextype->members;
-      }
-
-      FOREVERY (RECORD indexfield FROM grp.fields)
-      {
-        TRY
-        {
-          RECORD defaultvalue := grp.namespace = ""
-              ? this->ParseLibraryField(DEFAULT RECORD, 0, indexfield, 0, DEFAULT RECORD)
-              : this->ParseContentTypeField(DEFAULT RECORD, 0, indexfield, 0, indextype, members, indexdata);
-
-          IF (Length(indexfield.arraymembers) > 0)
-          {
-            FOREVERY (RECORD subfield FROM indexfield.arraymembers)
-              INSERT [ name := indexfield.fieldname || "." || subfield.fieldname || "@" || indexfield.module
-                     , value := GetCell(defaultvalue, indexfield.fieldname || "." || subfield.fieldname || "@" || indexfield.module)
-                     , tokenized := subfield.tokenized
-                     , suggested := subfield.suggested
-                     ] INTO mapping AT END;
-          }
-          ELSE
-          {
-            INSERT [ name := indexfield.fieldname || "@" || indexfield.module
-                   , value := GetCell(defaultvalue, indexfield.fieldname || "@" || indexfield.module)
-                   , tokenized := indexfield.tokenized
-                   , suggested := indexfield.suggested
-                   ] INTO mapping AT END;
-          }
-        }
-        CATCH(OBJECT e)
-        {
-          LogHarescriptException(e);
-          CONTINUE; //TODO better logging or somehow make more visible something can't be indexed
-        }
-      }
-    }
-
-    RETURN mapping;
+    RETURN mapping CONCAT Cleanup(GetIndexFields().mapping);
   }
 
   UPDATE PUBLIC MACRO PrepareForIndexing()
@@ -454,7 +387,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             , data := CELL
                 [ status := "result"
                 , document_body := Length(searchres.subfiles) > 0 AND RecordExists(searchres.subfiles[0]) ? BlobToString(searchres.subfiles[0].data) : ""
-                , document_fields := this->AddParsedIndexFields(fsobj, basefields, 0)
+                , document_fields := CELL[...basefields, ...GetParsedIndexFields(fsobj, 0) ]
                 , indexdate := fsobj->modificationdate
                 , indexversions := searchres.indexversions
                 , indextypes := searchres.indextypes
@@ -471,7 +404,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
               , data := CELL
                   [ status := "result"
                   , document_body := RecordExists(subfile) ? BlobToString(subfile.data) : ""
-                  , document_fields := this->AddParsedIndexFields(fsobj, basefields, #subfile)
+                  , document_fields := CELL[...basefields, ...GetParsedIndexFields(fsobj, #subfile) ]
                   , indexdate := fsobj->modificationdate
                   , indexversions := STRING[]
                   , indextypes := STRING[]
@@ -514,229 +447,6 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     RETURN [ status := "result"
            , objects := objects
            ];
-  }
-
-  RECORD FUNCTION AddParsedIndexFields(OBJECT fsobj, RECORD fields, INTEGER arrayid)
-  {
-    RECORD ARRAY indexfieldgroups :=
-        SELECT namespace
-             , fields :=    GroupedValues(indexfields)
-          FROM GetIndexFields() AS indexfields
-      GROUP BY namespace;
-
-    FOREVERY (RECORD grp FROM indexfieldgroups)
-    {
-      IF (grp.namespace = "")
-      {
-        FOREVERY (RECORD indexfield FROM grp.fields)
-        {
-          IF (indexfield.fieldfunc = "")
-            THROW NEW Exception("Indexfield not properly configured");
-
-          fields := this->ParseLibraryField(fields, fsobj->id, indexfield, arrayid, DEFAULT RECORD);
-        }
-      }
-      ELSE
-      {
-        OBJECT indextype := OpenWHFSType(grp.namespace);
-        IF (NOT ObjectExists(indextype))
-          THROW NEW Exception(`Content type ${EncodeJSON(grp.namespace)} to index not found`);
-
-        RECORD indexdata := fsobj->id = 0 ? indextype->defaultinstance : indextype->GetInstanceData(fsobj->id);
-        RECORD ARRAY members := indextype->members;
-
-        FOREVERY (RECORD indexfield FROM grp.fields)
-        {
-          IF (indexfield.membername = "")
-            THROW NEW Exception("Indexfield not properly configured");
-
-          fields := this->ParseContentTypeField(fields, fsobj->id, indexfield, arrayid, indextype, members, indexdata);
-        }
-      }
-    }
-
-    DELETE CELL _arrayname, _arraylength FROM fields;
-    RETURN fields;
-  }
-
-  RECORD FUNCTION ParseContentTypeField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, OBJECT indextype, RECORD ARRAY members, RECORD indexdata)
-  {
-    // Find the requested member
-    RECORD memberrec :=
-          SELECT *
-            FROM members
-           WHERE ToUppercase(name) = ToUppercase(indexfield.membername);
-
-    IF (NOT RecordExists(memberrec))
-      THROW NEW Exception("Member '" || indexfield.membername || "' not found in content type '" || indexfield.namespace || "' to index");
-
-    // Get the requested member value
-    VARIANT membervalue := GetCell(indexdata, memberrec.name);
-
-    RETURN this->ParseMemberValue(fields, objid, indexfield, indextype, members, memberrec, membervalue, arrayid, TRUE);
-  }
-
-  RECORD FUNCTION ParseMemberValue(RECORD fields, INTEGER objid, RECORD indexfield, OBJECT indextype, RECORD ARRAY allmembers, RECORD memberrec, VARIANT membervalue, INTEGER arrayid, BOOLEAN recurse)
-  {
-    IF (memberrec.type = 12) // Array
-    {
-      IF (NOT recurse)
-        THROW NEW Exception(`Multilevel arrays are not supported (parsing ${indexfield.namespace}#${memberrec.name})`);
-      IF (RecordExists(membervalue)
-          AND CellExists(fields, "whfstype")
-          AND fields.whfstype != indextype->id
-          AND indexfield.namespace != "http://www.webhare.net/xmlns/publisher/searchinfo")
-        RETURN fields; // Arrays are only supported for the actual file/folder type, ignore other array members
-      IF (Length(membervalue) > 1
-          AND CellExists(fields, "_arrayname")
-          AND fields._arrayname != indexfield.membername
-          AND indexfield.namespace != "http://www.webhare.net/xmlns/publisher/searchinfo")
-        THROW NEW Exception(`"Another array member is already defined (parsing ${indexfield.namespace}#${memberrec.name}, '${fields._arrayname}' != '${indexfield.membername}')`);
-
-      // One-level arrays are indexed as multiple objects within the fsobj group
-      INTEGER memberparent := memberrec.id;
-      FOREVERY (RECORD arrayfield FROM indexfield.arraymembers)
-      {
-        STRING fieldname := (indexfield.fieldname != "" ? indexfield.fieldname || "." : "") || arrayfield.fieldname || (indexfield.module != "" ? "@" || indexfield.module : "");
-        IF (arrayfield.membername != "")
-        {
-          // Find the requested array member
-          memberrec :=
-                SELECT *
-                  FROM allmembers
-                 WHERE parent = memberparent
-                       AND ToUppercase(name) = ToUppercase(arrayfield.membername);
-          IF (NOT RecordExists(memberrec))
-          {
-            THROW NEW Exception("Member '" || indexfield.membername || "." || arrayfield.membername || "' not found in content type '" || indexfield.namespace || "' to index");
-          }
-
-          IF (NOT RecordExists(membervalue))
-          {
-            IF (TypeID(memberrec.emptyval) IN [ TypeID(RECORD), TypeID(RECORD ARRAY), TypeID(BLOB), TypeID(BLOB ARRAY) ])
-              fields := this->InsertFieldValue(fields, objid, fieldname, "");
-            ELSE
-              fields := this->InsertFieldValue(fields, objid, fieldname, memberrec.emptyval);
-          }
-          ELSE IF (arrayid >= Length(membervalue))
-          {
-            THROW NEW Exception("Illegal index #" || arrayid || " for member '" || indexfield.membername || "'");
-          }
-          ELSE
-          {
-            RECORD parsed := this->ParseMemberValue(DEFAULT RECORD, objid, CellUpdate(indexfield, "fieldname", fieldname), indextype, allmembers, memberrec, GetCell(membervalue[arrayid], arrayfield.membername), arrayid, FALSE);
-            // If the array field has a default value, the DEFAULT RECORD is returned
-            IF (RecordExists(parsed))
-            {
-              VARIANT value := UnpackRecord(parsed)[0].value;
-              fields := this->InsertFieldValue(fields, objid, fieldname, value);
-            }
-          }
-        }
-        ELSE
-        {
-          arrayfield := MakeUpdatedRecord(indexfield, arrayfield);
-          RECORD parsed := this->ParseLibraryField(DEFAULT RECORD, objid, arrayfield, arrayid, indexfield);
-          // If the array field has a default value, the DEFAULT RECORD is returned
-          IF (RecordExists(parsed))
-          {
-            VARIANT value := UnpackRecord(parsed)[0].value;
-            fields := this->InsertFieldValue(fields, objid, fieldname, value);
-          }
-        }
-      }
-      IF (Length(membervalue) > 1 AND NOT CellExists(fields, "_arrayname"))
-      {
-        INSERT CELL _arrayname := indexfield.membername INTO fields;
-        INSERT CELL _arraylength := Length(membervalue) INTO fields;
-      }
-      RETURN fields;
-    }
-
-    VARIANT fieldvalue;
-    IF (TypeID(memberrec.emptyval) IN [ TypeID(RECORD), TypeID(RECORD ARRAY), TypeID(BLOB), TypeID(BLOB ARRAY) ])
-      fieldvalue := "";
-    ELSE
-      fieldvalue := memberrec.emptyval;
-
-    IF (NOT IsDefaultValue(membervalue))
-    {
-      // See mod::system/lib/internal/fsctypes.whlib for list of type ids
-      SWITCH (memberrec.type)
-      {
-        CASE 1 // Single choice (string)
-           , 2 // String
-           , 3 // Multiple choice (string array)
-           , 4 // Datetime
-           , 7 // Integer
-           , 8 // Float
-           , 9 // Money
-           , 11 // WHFSREF (integer)
-           , 13 // WHFSREFARRAY (integer array)
-           , 14 // STRINGARRAY (string array)
-           , 19 // URL (string)
-        {
-          fieldvalue := membervalue;
-        }
-        CASE 5 // Memo (blob)
-           , 10 // Blob
-        {
-          IF (RecordExists(membervalue))
-          {
-            TRY
-            {
-              RECORD parsed_page := ParsePage(membervalue.data, membervalue.mimetype);
-
-              IF (RecordExists(parsed_page) AND parsed_page.success)
-                fieldvalue := parsed_page.text;
-            }
-            CATCH (OBJECT e)
-            {
-              THROW NEW Exception(`Error while parsing page using parser '${e->what}'`);
-            }
-          }
-        }
-        CASE 15 // RICHDCOCUMENT (record)
-        {
-          fieldvalue := ParseHTMLPage(membervalue.htmltext, TRUE).text;
-        }
-        DEFAULT
-        {
-          THROW NEW Exception("Member '" || indexfield.membername || "' in content type '" || indexfield.namespace || "' has unsupported type");
-        }
-      }
-    }
-
-    STRING fieldname := indexfield.fieldname || (indexfield.module != "" ? "@" || indexfield.module : "");
-    RETURN this->InsertFieldValue(fields, objid, fieldname, fieldvalue);
-  }
-
-  RECORD FUNCTION ParseLibraryField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid, RECORD parentfield)
-  {
-    FUNCTION PTR getfield := RecordExists(parentfield)
-        ? MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(STRING), TypeID(INTEGER), TypeID(INTEGER) ])
-        : MakeFunctionPtr(indexfield.fieldfunc, -1, [ TypeID(STRING), TypeID(INTEGER) ]);
-    VARIANT fieldvalue := RecordExists(parentfield)
-        ? getfield(indexfield.fieldname, parentfield.fieldname, objid, arrayid)
-        : getfield(indexfield.fieldname, objid);
-    INTEGER expectedtype := indexfield.fieldname LIKE "date_*" ? TypeID(DATETIME) : TypeID(STRING);
-    IF (TypeID(fieldvalue) != expectedtype)
-      THROW NEW Exception("Invalid field type returned for field '" || ((RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname) || "' by function '" || indexfield.fieldfunc || "' (expected " || GetTypeName(expectedtype) || ", got " || GetTypeName(TypeID(fieldvalue)) || ")");
-    STRING fieldname := (RecordExists(parentfield) ? parentfield.fieldname || "." : "") || indexfield.fieldname || "@" || indexfield.module;
-    RETURN this->InsertFieldValue(fields, objid, fieldname, fieldvalue);
-  }
-
-  RECORD FUNCTION InsertFieldValue(RECORD fields, INTEGER objid, STRING fieldname, VARIANT value)
-  {
-    IF (NOT IsDefaultValue(value) OR objid = 0)
-    {
-      IF (NOT CellExists(fields, fieldname))
-        fields := CellInsert(fields, fieldname, value);
-      ELSE
-        fields := CellUpdate(fields, fieldname, value);
-    }
-
-    RETURN fields;
   }
 >;
 
@@ -819,7 +529,7 @@ PUBLIC OBJECTTYPE HasDraftFilter EXTEND BaseSearchFilter
     IF (Length(value.valuequery) = 0) // valuequery is either STRING[] OR [ "1" ]
       RETURN DEFAULT RECORD;
 
-    RETURN CQMatch("hasdraft@publisher", "IN", value.valuequery);
+    RETURN CQMatch("mod_publisher.hasdraft", "IN", value.valuequery);
   }
 >;
 
@@ -864,7 +574,7 @@ PUBLIC STATIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
   UPDATE PUBLIC RECORD FUNCTION GetQuery(RECORD value)
   {
     IF (RecordExists(value.selectquery))
-      RETURN CQMatch("formfields@publisher", "=", value.selectquery.component);
+      RETURN CQMatch("mod_publisher.formfields", "=", value.selectquery.component);
     RETURN DEFAULT RECORD;
   }
 >;
@@ -917,9 +627,9 @@ PUBLIC OBJECTTYPE StoreResultsFilter EXTEND BaseSearchFilter
     IF (intvalue = -1)
     {
       IF (value.matchtype = "equal")
-        RETURN CQMatch("storeresults@publisher", "=", "-1");
+        RETURN CQMatch("mod_publisher.storeresults", "=", "-1");
       ELSE IF (value.matchtype = "notequal")
-        RETURN CQNot(CQMatch("storeresults@publisher", "=", "-1"));
+        RETURN CQNot(CQMatch("mod_publisher.storeresults", "=", "-1"));
     }
     ELSE IF (intvalue >= 0)
     {
@@ -930,47 +640,47 @@ PUBLIC OBJECTTYPE StoreResultsFilter EXTEND BaseSearchFilter
       {
         CASE "equal"
         {
-          query := CQMatch("storeresults@publisher", "=", matchvalue);
+          query := CQMatch("mod_publisher.storeresults", "=", matchvalue);
           IF (intvalue = defaultvalue)
-            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+            query := CQOr([ query, CQMatch("mod_publisher.storeresults", "=", "-1") ]);
         }
         CASE "notequal"
         {
-          query := CQNot(CQMatch("storeresults@publisher", "=", matchvalue));
+          query := CQNot(CQMatch("mod_publisher.storeresults", "=", matchvalue));
           IF (intvalue = defaultvalue)
-            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+            query := CQAnd([ query, CQNot(CQMatch("mod_publisher.storeresults", "=", "-1")) ]);
         }
         CASE "less"
         {
-          query := CQMatch("storeresults@publisher", "<", matchvalue);
+          query := CQMatch("mod_publisher.storeresults", "<", matchvalue);
           IF (defaultvalue < intvalue) // Forms with default value match
-            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+            query := CQOr([ query, CQMatch("mod_publisher.storeresults", "=", "-1") ]);
           ELSE // Forms with default value don't match
-            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+            query := CQAnd([ query, CQNot(CQMatch("mod_publisher.storeresults", "=", "-1")) ]);
         }
         CASE "lessorequal"
         {
-          query := CQMatch("storeresults@publisher", "<=", matchvalue);
+          query := CQMatch("mod_publisher.storeresults", "<=", matchvalue);
           IF (defaultvalue <= intvalue) // Forms with default value match
-            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+            query := CQOr([ query, CQMatch("mod_publisher.storeresults", "=", "-1") ]);
           ELSE // Forms with default value don't match
-            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+            query := CQAnd([ query, CQNot(CQMatch("mod_publisher.storeresults", "=", "-1")) ]);
         }
         CASE "greater"
         {
-          query := CQMatch("storeresults@publisher", ">", matchvalue);
+          query := CQMatch("mod_publisher.storeresults", ">", matchvalue);
           IF (defaultvalue > intvalue) // Forms with default value match
-            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+            query := CQOr([ query, CQMatch("mod_publisher.storeresults", "=", "-1") ]);
           ELSE // Forms with default value don't match
-            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+            query := CQAnd([ query, CQNot(CQMatch("mod_publisher.storeresults", "=", "-1")) ]);
         }
         CASE "greaterorequal"
         {
-          query := CQMatch("storeresults@publisher", ">=", matchvalue);
+          query := CQMatch("mod_publisher.storeresults", ">=", matchvalue);
           IF (defaultvalue >= intvalue) // Forms with default value match
-            query := CQOr([ query, CQMatch("storeresults@publisher", "=", "-1") ]);
+            query := CQOr([ query, CQMatch("mod_publisher.storeresults", "=", "-1") ]);
           ELSE // Forms with default value don't match
-            query := CQAnd([ query, CQNot(CQMatch("storeresults@publisher", "=", "-1")) ]);
+            query := CQAnd([ query, CQNot(CQMatch("mod_publisher.storeresults", "=", "-1")) ]);
         }
       }
       RETURN query;

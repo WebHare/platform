@@ -1,0 +1,19 @@
+<?wh
+PUBLIC CONSTANT INTEGER whfs_membertype_string         :=  2;
+PUBLIC CONSTANT INTEGER whfs_membertype_datetime       :=  4;
+PUBLIC CONSTANT INTEGER whfs_membertype_file           :=  5;
+PUBLIC CONSTANT INTEGER whfs_membertype_boolean        :=  6;
+PUBLIC CONSTANT INTEGER whfs_membertype_integer        :=  7;
+PUBLIC CONSTANT INTEGER whfs_membertype_float          :=  8;
+PUBLIC CONSTANT INTEGER whfs_membertype_money          :=  9;
+PUBLIC CONSTANT INTEGER whfs_membertype_whfsref        := 11;
+PUBLIC CONSTANT INTEGER whfs_membertype_array          := 12;
+PUBLIC CONSTANT INTEGER whfs_membertype_whfsrefarray   := 13;
+PUBLIC CONSTANT INTEGER whfs_membertype_stringarray    := 14;
+PUBLIC CONSTANT INTEGER whfs_membertype_richdcocument  := 15;
+PUBLIC CONSTANT INTEGER whfs_membertype_intextlink     := 16;
+PUBLIC CONSTANT INTEGER whfs_membertype_instance       := 18;
+PUBLIC CONSTANT INTEGER whfs_membertype_url            := 19;
+PUBLIC CONSTANT INTEGER whfs_membertype_formdefinition := 20;
+PUBLIC CONSTANT INTEGER whfs_membertype_record         := 21;
+PUBLIC CONSTANT INTEGER whfs_membertype_formcondition  := 22;

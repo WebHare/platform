@@ -76,54 +76,57 @@ PUBLIC OBJECT FUNCTION OpenContentSourceProvider(STRING catalogtag, RECORD conte
   RETURN cpobj;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetContentSourceFieldMapping(STRING catalogtag, RECORD contentsource)
+RECORD ARRAY FUNCTION ParseFieldMapping(RECORD ARRAY mapping, STRING definedby)
 {
-  OBJECT prov := OpenContentSourceProvider(catalogtag, contentsource);
   RECORD ARRAY fields;
-  TRY
+  FOREVERY(RECORD field FROM mapping)
   {
-    FOREVERY(RECORD field FROM prov->GetMapping())
-    {
-      field := ValidateOptions([ name := ""
-                               , value := ""
-                               , type := ""
-                               , tokenized := FALSE
-                               , suggested := FALSE
-                               ], field, [ title := `fields[${#field}]`
-                                         , notypecheck := ["value"]
-                                         , optional := ["tokenized","suggested"] //some spots explicitly check with cellexists..
-                                         , required := ["name"]
-                                         ]);
-      INSERT field INTO fields AT END;
-    }
-  }
-  FINALLY
-  {
-    prov->Close();
-  }
+    field := ValidateOptions([ name := ""
+                             , value := ""
+                             , type := ""
+                             , tokenized := FALSE
+                             , suggested := FALSE
+                             , properties := RECORD[]
+                             ], field, [ title := `fields[${#field}]`
+                                       , notypecheck := ["value"]
+                                       , optional := ["tokenized"]
+                                       , required := ["name"]
+                                       ]);
 
-  RECORD ARRAY mappedfields;
-  FOREVERY (RECORD field FROM fields)
-  {
-    STRING field_type := CellExists(field, "type") ? field.type: "";
-    IF (field_type != "" AND field_type NOT IN supported_field_types)
+    IF(field.name LIKE "*.*")
+      THROW NEW Exception(`Incorrect attempt to setup a twolevel arrayfield (field '${field.name}'), place submembers into 'properties'`);
+
+    IF (field.type != "" AND field.type NOT IN supported_field_types)
       THROW NEW Exception(`Unsupported field type '${field.type}'`);
+
+    field.properties := ParseFieldMapping(field.properties, definedby);
+
     VARIANT defaultvalue;
     IF(CellExists(field, "value"))
       defaultvalue := field.value;
     ELSE
       defaultvalue := "";
-    BOOLEAN field_tokenized := CellExists(field, "tokenized") ? field.tokenized : CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING);
-    BOOLEAN field_suggested := CellExists(field, "suggested") ? field.suggested : FALSE;
 
-    INSERT CELL[ field.name
-               , type := field_type
-               , defaultvalue
-               , tokenized := field_tokenized
-               , suggested := field_suggested
-               , contentsource.definedby
-               ] INTO mappedfields AT END;
+    IF(NOT CellExists(field,'tokenized'))
+      INSERT CELL tokenized := CellExists(field, "value") AND TypeID(field.value) = TypeID(STRING) INTO field;
+
+    INSERT CELL defaultvalue := defaultvalue INTO field;
+    INSERT CELL definedby := definedby INTO field;
+    DELETE CELL value FROM field;
+    INSERT field INTO fields AT END;
   }
-  RETURN mappedfields;
+  RETURN fields;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContentSourceFieldMapping(STRING catalogtag, RECORD contentsource)
+{
+  OBJECT prov := OpenContentSourceProvider(catalogtag, contentsource);
+  RECORD ARRAY fields;
+  TRY
+    fields := ParseFieldMapping(prov->GetMapping(), contentsource.definedby);
+  FINALLY
+    prov->Close();
+
+  RETURN fields;
 }
 

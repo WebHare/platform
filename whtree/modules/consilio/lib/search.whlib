@@ -32,17 +32,15 @@ PUBLIC OBJECTTYPE SearchException EXTEND Exception
   }
 >;
 
-RECORD FUNCTION FlattenMapping(RECORD ARRAY inprops)
+RECORD FUNCTION GenerateDefaultMapping(RECORD ARRAY inprops)
 {
   //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
 
   RECORD defaultmapping;
   FOREVERY(RECORD row FROM inprops)
   {
-    IF(row.type="record")
-      defaultmapping := CELL[ ...defaultmapping
-                            , ...FlattenMapping(SELECT *, name := row.name ||'.' || name FROM row.properties)
-                            ];
+    IF(row.type = "record")
+      defaultmapping := CellInsert(defaultmapping, row.name, GenerateDefaultMapping(row.properties));
     ELSE
       defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
   }
@@ -54,9 +52,10 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
   OBJECT catalog := OpenConsilioCatalogById(indexid);
   IF (NOT ObjectExists(catalog))
     THROW NEW Exception(`Cannot find catalog #${indexid}`);
-  RECORD defaultmapping := FlattenMapping(catalog->GetExpectedMapping());
+
+  RECORD defaultmapping := GenerateDefaultMapping(catalog->GetExpectedMapping());
   defaultmapping := CELL[ ...defaultmapping
-                        //for some reason? these weren't part of the defaultvalue although they're always in the mapiing... probably too many sources of fields
+                        //for some reason? these weren't part of the defaultvalue although they're always in the mapping... probably too many sources of fields
                         , DELETE indexid
                         , DELETE date_indexdate
                         , DELETE date_indexed
