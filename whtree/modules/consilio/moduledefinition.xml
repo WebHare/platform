@@ -523,7 +523,6 @@
   </logging>
 
   <development>
-    <debugflag name="changes" description="Log change actions" />
     <debugflag name="searches" description="Log searches" />
     <debugflag name="traffic" description="RPClog indexmanager traffic" />
     <debugflag name="whfscatalog" description="Log timings/actions around the WHFS catalog" />
