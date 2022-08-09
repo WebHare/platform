@@ -56,11 +56,9 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
   RECORD defaultmapping := GenerateDefaultMapping(catalog->GetExpectedMapping());
   defaultmapping := CELL[ ...defaultmapping
                         //for some reason? these weren't part of the defaultvalue although they're always in the mapping... probably too many sources of fields
-                        , DELETE indexid
-                        , DELETE date_indexdate
-                        , DELETE date_indexed
-                        , DELETE contentprovider
-                        , DELETE contentsource
+                        , DELETE _indexdate
+                        , DELETE _indexed
+                        , DELETE _contentsource
                         , DELETE body
                         ];
 

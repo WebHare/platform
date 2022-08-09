@@ -202,10 +202,8 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
 
   FOREVERY (RECORD field FROM fields)
   {
-    IF (field.name LIKE "_*")
+    IF (field.name = "_body") //overwrite body settings. FIXME  can't we handle that explicitly?
     {
-      // Overwrite standard field settings, like "body"
-      // FIXME This makes application of settings ordering dependent... but nothing actually enforces contentsource ordering. If this is only used to set _body (or other well known fields) to suggested, can't we handle that explicitly?
       STRING fieldname := Substring(field.name, 1);
       INTEGER idx := (SELECT AS INTEGER #properties + 1 FROM properties WHERE name = fieldname) - 1;
       IF (idx >= 0)

@@ -24,7 +24,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , storequery :=     FALSE
       ], options);
 
-  RECORD query := CQMatch("contentsource", "=", contentsource->id);
+  RECORD query := CQMatch("_contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
 
@@ -34,15 +34,16 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , mapping :=
           [ groupid :=        ""
           , objectid :=       ""
-          , date_indexdate := DEFAULT DATETIME
+          , _indexdate := DEFAULT DATETIME
           , ...options.extrafields
           ]
+      , validatemapping := FALSE
       , save_searches := options.storequery
       ]);
   RETURN
       SELECT groupid
            , objectid
-           , indexdate :=     date_indexdate
+           , indexdate :=     _indexdate
            , ...MakeReplacedRecord(options.extrafields, results)
         FROM res.results
     ORDER BY groupid, objectid;
@@ -584,7 +585,7 @@ MACRO TestCustomContent()
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
 
-  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));

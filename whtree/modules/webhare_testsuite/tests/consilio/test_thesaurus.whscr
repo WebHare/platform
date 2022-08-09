@@ -49,9 +49,9 @@ MACRO TestThesaurus()
   contentsource->WaitForIndexingDone();
 
   // Search
-  RECORD res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
+  RECORD res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(0, Length(res.results));
 
 
@@ -62,17 +62,17 @@ MACRO TestThesaurus()
   testfw->CommitWork();
 
   // Search again
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"b\"") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"b\"") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"a c\"") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"a c\"") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("\"b c\"") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"b c\"") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ synonyms := FALSE ]) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b", [ synonyms := FALSE ]) ]), 0, 1000);
   TestEq(0, Length(res.results));
 
   // Update the thesaurus words
@@ -80,9 +80,9 @@ MACRO TestThesaurus()
   testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "c" ] ] ]);
   testfw->CommitWork();
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(0, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("c") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("c") ]), 0, 1000);
   TestEq(1, Length(res.results));
 
   //Ensure toplevel CQParseUserQuery doesn't crash

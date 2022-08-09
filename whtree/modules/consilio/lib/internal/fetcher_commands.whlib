@@ -419,8 +419,8 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
       /* Current objects (not needed for deactivation, but we'll provided them to ListObjects3/ListObjects2)
          @cell id Object id
-         @cell date_indexdate Indexdate for this object
-         @cell date_indexed Commanddate of command that added this object
+         @cell _indexdate Indexdate for this object
+         @cell _indexed Commanddate of command that added this object
       */
       RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields, CELL[ options.refresh ]);
 
@@ -1080,7 +1080,7 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
       SELECT DISTINCT contentsourceid := contentsource
            , COLUMN indexid
         FROM results
-       WHERE contentsource != 0;
+       WHERE _contentsource != 0;
 }
 
 
@@ -1184,7 +1184,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 */
 RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 {
-  RECORD query := CQMatch("contentsource", "=", ToString(contentsourceid));
+  RECORD query := CQMatch("_contentsource", "=", ToString(contentsourceid));
 
   INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
@@ -1223,14 +1223,14 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
       ]);
 
   RECORD mapping :=
-      [ date_indexdate := DEFAULT DATETIME
-      , date_indexed := DEFAULT DATETIME
+      [ _indexdate := DEFAULT DATETIME
+      , _indexed := DEFAULT DATETIME
       ];
   FOREVERY (STRING field FROM extrafields)
     mapping := CellInsert(mapping, field, "");
 
   RECORD ARRAY queries;
-  INSERT CQMatch("contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
+  INSERT CQMatch("_contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
   INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
 
   // Get all available groups (might take some time if the source has millions of objects)
@@ -1251,8 +1251,8 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 
     results := results CONCAT
         SELECT id :=            objectid
-             , indexdate :=     Min(date_indexdate)
-             , commanddate :=   Min(date_indexed)
+             , indexdate :=     Min(_indexdate)
+             , commanddate :=   Min(_indexed)
           FROM result.results
       GROUP BY objectid;
   }
@@ -1282,7 +1282,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcontentsourceids)
 {
   // Only a CQNot doesn't work
-  RECORD query := CQAnd([ CQAll(), CQNot(CQMatch("contentsource", "IN", validcontentsourceids)) ]);
+  RECORD query := CQAnd([ CQAll(), CQNot(CQMatch("_contentsource", "IN", validcontentsourceids)) ]);
 
   RECORD ARRAY results;
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
@@ -1371,9 +1371,8 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     }
 
     // Remove reserved fields from the document fields
-    FOREVERY (STRING field FROM [ "indexid", "groupid", "objectid"
-                                , "contentsource", "contentprovider"
-                                , "date_indexed", "date_indexdate"
+    FOREVERY (STRING field FROM [ "groupid", "objectid"
+                                , "_contentsource", "_indexed", "_indexdate"
                                 , "suggestfields", "suggestprefix"
                                 , "body", "indextypes", "indexversions" ])
       IF (CellExists(document_fields, field))
@@ -1383,9 +1382,8 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     IF (RecordExists(document_fields) OR body != "")
     {
       RECORD document :=
-          [ date_indexed := commanddate
-          , date_indexdate := object_indexdate
-          , contentprovider := contentsource.contentprovider
+          [ _indexed := commanddate
+          , _indexdate := object_indexdate
           ];
 
       // Add special field "body"

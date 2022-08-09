@@ -196,9 +196,8 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @param objectid Id of the object to fetch
       @return Result of the call
       @cell return.document_body The document's body text (this "body" field is used for summary generation)
-      @cell return.document_fields List of fields and values to index (prefix DATETIME fields with "date_".
-                                   Field names "indexid", "groupid", "objectid", "date_indexed", "date_lastmodicification", "contentprovider",
-                                   "contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
+      @cell return.document_fields List of fields and values to index
+                                   Field names "groupid", "objectid", "_indexed", "_contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
                                    field names for which suggest terms are stored.
       @cell return.objects New objects found within the group
       @cell return.objects.id Id of the object

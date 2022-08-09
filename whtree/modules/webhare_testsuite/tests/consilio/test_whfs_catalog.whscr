@@ -116,6 +116,13 @@ MACRO TestWHFSCatalog()
 
 MACRO TestWHFSContentHandler()
 {
+  //Clean leftovers from any aborted catalog test run
+  STRING ARRAY leftovers := SELECT AS STRING ARRAY objectid
+                              FROM RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([ CQMatch("whfstree", "CONTAINS", OpenTestsuiteSite()->id ) ])).results
+                             WHERE whfspath LIKE "*/tmp/*";
+  IF(Length(leftovers) > 0)
+    OpenConsilioCatalog(whconstant_consilio_catalog_whfs)->DeleteObjects(leftovers);
+
   // Create and fill the test site
   testfw->BeginWork();
 

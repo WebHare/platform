@@ -580,6 +580,7 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         returned
     @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
         are not returned
+    @cell(boolean) options.validatemapping Validate the specified mapping. Defaults to TRUE
     @return The search result
     @cell(integer) return.totalcount The total number of results (not necessarily the number of returned results, if `count`
         is set to a value >= 0)
@@ -611,6 +612,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , debug := FALSE
       , explain := FALSE
       , refresh := FALSE
+      , validatemapping := TRUE
       ], options, [ optional := [ "orderdesc" ] ]);
 
   indextag := ValidateIndexTag(indextag);
@@ -649,11 +651,15 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   search_obj->summary_length := options.summary_length;
   search_obj->debug := options.debug;
   search_obj->explain := options.explain;
+
   IF (RecordExists(options.mapping))
   {
-    FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
-      IF(cellrec.name LIKE "_*")
-        THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+    IF(options.validatemapping)
+    {
+      FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
+        IF(cellrec.name LIKE "_*")
+          THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+    }
 
     search_obj->empty_result_record := options.mapping;
   }
