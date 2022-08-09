@@ -108,7 +108,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   /** @short Get an empty result record
       @long Searching a catalog returns record containing all field defined by the content sources within the catalog. The
             default content provider returns a number of standard fields, useful for searching HTML pages (used by the
-            publisher:webhare content provider). The fields returned here have to be supplied by the
+            consilio:site content provider). The fields returned here have to be supplied by the
             content provider (via the FetchObject function), except for the standard consilio fields 'score' and 'summary'.
             The fields 'objectid' and 'groupid' are always returned and do not have to be specified.
   */
@@ -196,9 +196,8 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @param objectid Id of the object to fetch
       @return Result of the call
       @cell return.document_body The document's body text (this "body" field is used for summary generation)
-      @cell return.document_fields List of fields and values to index (prefix DATETIME fields with "date_".
-                                   Field names "indexid", "groupid", "objectid", "date_indexed", "date_lastmodicification", "contentprovider",
-                                   "contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
+      @cell return.document_fields List of fields and values to index
+                                   Field names "groupid", "objectid", "_indexed", "_contentsource", "body" and "summary" are not allowed). Use the "suggestfields" field to provide a list of space-separated
                                    field names for which suggest terms are stored.
       @cell return.objects New objects found within the group
       @cell return.objects.id Id of the object

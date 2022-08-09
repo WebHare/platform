@@ -366,14 +366,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     }
     IF (options.restrict_to != defaultoptions.restrict_to)
     {
-      RECORD restrict_filter := [ prefix := [ initialfilter := options.restrict_to ] ];
+      RECORD restrict_filter := [ prefix := [ objecturl := options.restrict_to ] ];
       searchquery.query := AddElasticsearchQueryFilters(searchquery.query, [ restrict_filter ], FALSE);
     }
     IF (Length(options.exclude_urls) > 0)
     {
       RECORD ARRAY exclude_filters;
       FOREVERY (STRING url FROM options.exclude_urls)
-        INSERT [ prefix := [ initialfilter := url ] ] INTO exclude_filters AT END;
+        INSERT [ prefix := [ objecturl := url ] ] INTO exclude_filters AT END;
       searchquery.query := AddElasticsearchQueryFilters(searchquery.query, exclude_filters, TRUE);
     }
 
@@ -686,7 +686,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
             ] INTO suggestquery;
       }
       IF (indexid != -1 AND options.restrict_to != "")
-        INSERT "initialfilter" INTO suggestquery._source AT END;
+        INSERT "objecturl" INTO suggestquery._source AT END;
 
       RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
       result.status := response.status;
@@ -703,7 +703,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
           {
             IF (indexid != -1
                 AND options.restrict_to != ""
-                AND suggest._source.initialfilter NOT LIKE options.restrict_to || "*")
+                AND suggest._source.objecturl NOT LIKE options.restrict_to || "*")
               CONTINUE;
             IF (options.and_search AND options.doccount = "search" AND Length(otherwords) > 0 AND suggest._id NOT IN otherdocs)
               CONTINUE;
@@ -888,12 +888,6 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       ];
   options := ValidateOptions(defaultoptions, options);
 
-
-  objects := SELECT *
-                , indextypes :=             CellExists(objects, "INDEXTYPES") ? objects.indextypes : STRING[]
-                , indexversions :=          CellExists(objects, "INDEXVERSIONS") ? objects.indexversions : STRING[]
-             FROM objects;
-
   INTEGER indexid := catalog->id;
 
   OBJECT temporarybulk;
@@ -933,9 +927,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
         RECORD document := obj.documentfields;
         INSERT CELL groupid := groupid
                   , objectid := obj.objectid
-                  , contentsource := contentsource.id
-                  , indextypes := obj.indextypes
-                  , indexversions := obj.indexversions
+                  , _contentsource := contentsource.id
           INTO document;
 
         IF (Length(suggestfields) > 0)
@@ -1022,7 +1014,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
               ]
           ];
       IF (contentsourceid != 0)
-        INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+        INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
       RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
       result := response.status;
@@ -1108,7 +1100,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
               ]
           ];
       IF (contentsourceid != 0)
-        INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+        INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
       RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", AddRefreshToURLPart(`/_delete_by_query`, options.refresh), query, "POST");
       IF (response.status != SearchOk)
@@ -1160,19 +1152,19 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
       IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
         result.status := SearchCommandUnsupported;
 
-      // delete all documents having 'date_indexed' before 'deletebefore'
+      // delete all documents having '_indexed' before 'deletebefore'
       RECORD query :=
           [ query :=
               [ bool :=
                   [ must := DEFAULT RECORD ARRAY
                   , filter :=
-                      [ [ range := [ date_indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
+                      [ [ range := [ _indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
                       ]
                   ]
               ]
           ];
       IF (contentsourceid != 0)
-        INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+        INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
       IF (groupid != "")
         INSERT [ match := [ groupid := groupid ] ] INTO query.query.bool.must AT END;
       IF (objectid != "")
@@ -1275,7 +1267,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
           [ query :=
               [ bool :=
                   [ must :=
-                        [ [ match := [ contentsource := contentsourceid ] ]
+                        [ [ match := [ _contentsource := contentsourceid ] ]
                         ]
                   ]
               ]

@@ -19,8 +19,8 @@ MACRO ConsilioTest()
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT subfolder := siteroot->CreateFolder([ name := "subfolder" ]);
 
-  OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [fieldgroups := [ "webhare_testsuite:extrafield" ] ]);
-  OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2");
+  OBJECT catalog_1 := CreateConsilioCatalog("consilio:testfw_frontend_1", [ fieldgroups := [ "webhare_testsuite:extrafield" ], priority := 9 ]);
+  OBJECT catalog_2 := CreateConsilioCatalog("consilio:testfw_frontend_2", [ priority := 9 ]);
   OBJECT contentsource_1 := catalog_1->AddFolderToCatalog(siteroot->id);
   OBJECT contentsource_2 := catalog_2->AddFolderToCatalog(subfolder->id);
   testfw->CommitWork();
@@ -213,8 +213,8 @@ MACRO ConsilioTest()
       ], results);
 
   // Test exclude url's.
-  // Note we MUST use date_whmodification as that's the field we told we'd use in the mapping
-  RECORD query := CQAnd([ CQMatch("body", "CONTAINS", "check"), CQMatch("date_whmodification", "<=", AddDaysToDate(1, GetCurrentDateTime())) ]);
+  // Note we MUST use modificationdate as that's the field we told we'd use in the mapping
+  RECORD query := CQAnd([ CQMatch("body", "CONTAINS", "check"), CQMatch("modificationdate", "<=", AddDaysToDate(1, GetCurrentDateTime())) ]);
   results := search_1_obj->SearchQuery(query, 0, 10);
   TestEq(2, results.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM results.results WHERE objectid = file_1->objecturl));

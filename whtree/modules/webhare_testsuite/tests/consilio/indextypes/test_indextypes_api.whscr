@@ -3,6 +3,7 @@
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/whfscatalog.whlib";
 
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
 LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
@@ -28,13 +29,11 @@ RECORD testdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</
                                  ]
                    ];
 
-OBJECT indexpromise;
 OBJECT testrtd, testrtd_noinstances;
 
 MACRO TestIndexTypeAPIs()
 {
   testfw->BeginWork();
-  indexpromise := GetWHFSCommitHandler()->WaitForChangesIndexed();
 
   OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
@@ -61,13 +60,13 @@ MACRO TestIndexTypeAPIs()
   testfw->CommitWork();
 
   OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
-  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->__OpenProvider();
+  OBJECT provider := catalog->OpenContentSource("consilio:whfsobjects")->__OpenProvider();
 
   RECORD ARRAY objs := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[], [ rebuild := TRUE ]);
 
   TestEq(1, Length(objs));
-  TestEq(2, Length(objs[0].data.indextypes));
-  TestEq(2, Length(objs[0].data.indexversions));
+  TestEq(2, Length(objs[0].data.document_fields.mod_consilio.indextypes));
+  TestEq(2, Length(objs[0].data.document_fields.mod_consilio.indexversions));
 
   RECORD fetched := objs[0].data;
   TestEqLike("*Eerste kop*Tweede kop*", fetched.document_body);
@@ -75,21 +74,19 @@ MACRO TestIndexTypeAPIs()
 
   RECORD ARRAY objs2 := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd_noinstances->id, RECORD[], [ rebuild := TRUE ]);
   TestEq(1, Length(objs2));
-  TestEq(1, Length(objs2[0].data.indextypes));
-  TestEq(1, Length(objs2[0].data.indexversions));
-  TestEq(TRUE, objs2[0].data.indextypes[0] IN fetched.indextypes, "The filetype hash has to be in both files");
-  TestEq(TRUE, objs2[0].data.indexversions[0] IN fetched.indexversions, "The filetype version hash has to be in both files");
+  TestEq(1, Length(objs2[0].data.document_fields.mod_consilio.indextypes));
+  TestEq(1, Length(objs2[0].data.document_fields.mod_consilio.indexversions));
+  TestEq(TRUE, objs2[0].data.document_fields.mod_consilio.indextypes[0] IN fetched.document_fields.mod_consilio.indextypes, "The filetype hash has to be in both files");
+  TestEq(TRUE, objs2[0].data.document_fields.mod_consilio.indexversions[0] IN fetched.document_fields.mod_consilio.indexversions, "The filetype version hash has to be in both files");
 }
 
 MACRO TestPublisherIndex()
 {
-  Print("waiting for all changes to be indexed...\n");
-  WaitForPromise(indexpromise);
-  Print("it's indexed!\n\n");
+  ReindexWHFSChanges([[ id := testrtd->id, isfolder := FALSE, isdelete := FALSE ]]);
 
-  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ indextypes := STRING[], indexversions := STRING[] ]]);
-  TestEq(2, Length(result.results[0].indextypes));
-  TestEq(2, Length(result.results[0].indexversions));
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ mod_consilio := [ indextypes := STRING[], indexversions := STRING[] ]]]);
+  TestEq(2, Length(result.results[0].mod_consilio.indextypes));
+  TestEq(2, Length(result.results[0].mod_consilio.indexversions));
   TestEq(1, Length(result.results));
   TestEqLike("*Eerste kop*Tweede kop*", result.results[0].summary);
 }

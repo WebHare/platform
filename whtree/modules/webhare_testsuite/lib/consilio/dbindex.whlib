@@ -20,7 +20,6 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
   {
     RECORD ARRAY mapping := this->defaultmapping CONCAT
         [ [ name := "_body",                   tokenized := TRUE, suggested := TRUE ]
-        , [ name := "initialfilter",           value := "", tokenized := FALSE ]
         , [ name := "date_adate",              value := DEFAULT DATETIME ]
         , [ name := "datafrom",                value := "", tokenized := FALSE ]
         , [ name := "indexed_by",              value := "", tokenized := FALSE ]
@@ -158,7 +157,7 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
         [ document_body :=       rec.text
         , document_fields := CELL
               [ date_adate :=    rec.adate
-              , initialfilter := "obj://" || rec.groupid || "/" || rec.objectid
+              , objecturl :=     "obj://" || rec.groupid || "/" || rec.objectid
               , indexed_by :=    ToString(this->contentsourceid)
               , datafrom :=      datafrom
               , ...extradata

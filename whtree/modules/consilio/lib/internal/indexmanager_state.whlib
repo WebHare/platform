@@ -24,13 +24,11 @@ PUBLIC CONSTANT INTEGER session_timeout := 15;
 
 /// Some default field mapping for OpenSearch content sources
 PUBLIC CONSTANT RECORD ARRAY defaultmappingfields :=
-    [ [ name := "indexid",         defaultvalue := "", type := "keyword" ]
-    , [ name := "groupid",         defaultvalue := "", type := "keyword" ]
+    [ [ name := "groupid",         defaultvalue := "", type := "keyword" ]
     , [ name := "objectid",        defaultvalue := "", type := "keyword" ]
-    , [ name := "initialfilter",   defaultvalue := "", type := "keyword" ]
-    , [ name := "date_indexdate",  defaultvalue := DEFAULT DATETIME ]
-    , [ name := "date_indexed",    defaultvalue := DEFAULT DATETIME ]
-    , [ name := "contentprovider", defaultvalue := "", type := "keyword" ]
-    , [ name := "contentsource",   defaultvalue := "", type := "keyword" ]
     , [ name := "body",            defaultvalue := "", tokenized := TRUE ]
+    , [ name := "objecturl",       defaultvalue := "", type := "keyword" ]
+    , [ name := "_indexdate",      defaultvalue := DEFAULT DATETIME ]
+    , [ name := "_indexed",        defaultvalue := DEFAULT DATETIME ]
+    , [ name := "_contentsource",  defaultvalue := "", type := "keyword" ]
     ];

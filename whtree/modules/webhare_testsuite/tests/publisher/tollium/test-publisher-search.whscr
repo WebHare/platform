@@ -35,9 +35,10 @@ MACRO PrepIt()
   testfw->CommitWork();
   WaitForPromise(indexpromise);
 
-  //Make sure publisher:fsobjects is actually uptodate before we start testing (hopefully helps fix the CI race)
-  OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs)->OpenContentSource("publisher:fsobjects");
-  fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
+  //Make sure the WHFS catalog is actually up-to-date before we start testing (TODO need to test if, given MakeChangesIndexedPromise, a Refresh wouldn't suffice)
+  OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  FOREVERY(RECORD csource FROM catalog->ListContentSources())
+    catalog->OpenContentSourceById(csource.id)->WaitForIndexingDone([ verbose := TRUE ]);
 }
 
 ASYNC MACRO Search()

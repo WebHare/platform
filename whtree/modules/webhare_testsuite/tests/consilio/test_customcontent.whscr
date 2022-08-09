@@ -24,7 +24,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , storequery :=     FALSE
       ], options);
 
-  RECORD query := CQMatch("contentsource", "=", contentsource->id);
+  RECORD query := CQMatch("_contentsource", "=", contentsource->id);
   IF (searchquery != "")
     query := CQAnd([ query, CQParseUserQuery(searchquery) ]);
 
@@ -34,15 +34,16 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , mapping :=
           [ groupid :=        ""
           , objectid :=       ""
-          , date_indexdate := DEFAULT DATETIME
+          , _indexdate := DEFAULT DATETIME
           , ...options.extrafields
           ]
+      , validatemapping := FALSE
       , save_searches := options.storequery
       ]);
   RETURN
       SELECT groupid
            , objectid
-           , indexdate :=     date_indexdate
+           , indexdate :=     _indexdate
            , ...MakeReplacedRecord(options.extrafields, results)
         FROM res.results
     ORDER BY groupid, objectid;
@@ -80,7 +81,9 @@ MACRO TestCustomContent()
   TestEq(0, __GetNumSubJobs());
 
   testfw->BeginWork();
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]]);
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_customcontent", [ fieldgroups := [ "webhare_testsuite:pagelistfields" ]
+                                                                           , priority := 9
+                                                                           ]);
   TestEq(0, __GetNumSubJobs());
   Print(catalog->GetStorageInfo() || "\n");
 
@@ -195,7 +198,7 @@ MACRO TestCustomContent()
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
+      , objecturl := "obj://" || idprefix||"a" || "/" || idprefix||"a1" //
       , date_adate := MakeDate(2010, 1, 1)
       , summary := "a a1" // OpenSearch doesn't support discardsummaries
       , indexed_by := ToString(contentsource->id)
@@ -229,7 +232,7 @@ MACRO TestCustomContent()
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
+      , objecturl := "obj://" || idprefix||"a" || "/" || idprefix||"a1" //
       , date_adate := MakeDate(2010, 1, 1)
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
@@ -584,7 +587,7 @@ MACRO TestCustomContent()
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
 
-  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQHas("date_adate") ]));
+  res := RunConsilioSearch("consilio:testfw_customcontent", CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
@@ -713,7 +716,7 @@ MACRO TestTypes()
   TestEq(
       [ groupid := idprefix || "a"
       , objectid := idprefix || "a1"
-      , initialfilter := "obj://" || idprefix || "a" || "/" || idprefix || "a1"
+      , objecturl := "obj://" || idprefix || "a" || "/" || idprefix || "a1" //
       , date_adate := DEFAULT DATETIME
       , summary := ""
       , indexed_by := ToString(contentsource->id)
@@ -768,7 +771,7 @@ MACRO TestTypes()
   TestEq(
       [ groupid := idprefix || "a"
       , objectid := idprefix || "a1"
-      , initialfilter := "obj://" || idprefix || "a" || "/" || idprefix || "a1"
+      , objecturl := "obj://" || idprefix || "a" || "/" || idprefix || "a1" //
       , date_adate := DEFAULT DATETIME
       , summary := ""
       , indexed_by := ToString(maincontentsource->id)
@@ -792,8 +795,8 @@ MACRO TestTypes()
       , fieldgroup_datetime := MakeDate(2038, 1, 19)
       , myfield1 := ""
 
-      , date_modified := DEFAULT DATETIME
-      , date_whmodification := DEFAULT DATETIME
+      , lastmodified := DEFAULT DATETIME
+      , modificationdate := DEFAULT DATETIME
       , date_test := DEFAULT DATETIME
       , description := ""
       , filetype := ""

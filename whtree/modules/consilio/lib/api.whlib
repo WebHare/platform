@@ -14,41 +14,12 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 PUBLIC CONSTANT INTEGER require_allowed, require_required, require_prohibited;
-
-/*
-
-PUBLISHER SEARCH FIELDS
-
-
-
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
-        [ [ name := "name", value := "" ]
-        , [ name := "title", value := "" ]
-        , [ name := "description", value := "" ]
-        , [ name := "keywords", value := "" ]
-        , [ name := "url", value := "", tokenized := FALSE ]
-        , [ name := "whfsid", value := 0 ]
-        , [ name := "whfsparent", value := 0 ]
-        , [ name := "whfsobject", value := "", tokenized := FALSE ]
-
-  whfsobject = file | folder
-
-        , [ name := "whfstype", value := 0 ]
-        , [ name := "whfspath", value := "" ]
-        , [ name := "whfstree", value := "" ]
-        , [ name := "date_creation", value := DEFAULT DATETIME ]
-        , [ name := "date_modification", value := DEFAULT DATETIME ]
-        ];
-
-
-
-*/
-
 
 /** @short Create a match query
     @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
@@ -64,9 +35,7 @@ PUBLISHER SEARCH FIELDS
 */
 PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(
-      [ datetimesupport := FALSE
-      ], options);
+  options := ValidateOptions(CELL[], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for match query");
@@ -155,7 +124,7 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
 */
 PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ datetimesupport := FALSE ], options);
+  options := ValidateOptions(CELL[], options);
 
   IF (field = "")
     THROW NEW Exception("Query field is required for range query");
@@ -176,31 +145,8 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
   }
   ELSE IF (TypeID(lowerterm) = TypeID(DATETIME))
   {
-    IF (NOT options.datetimesupport)
-    {
-      // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
-      // But not if already prefixed with date_ ... as OpenSearch simply wants the raw names (and doesn't inset date_) but Consilio still wants to add date_ itself...
-      IF (field LIKE "*.*@*")
-      {
-        IF(field NOT LIKE "*.date_*@*")
-        {
-          INTEGER dot := SearchSubstring(field, ".") + 1;
-          field := `${Left(field, dot)}date_${Substring(field, dot)}`;
-        }
-      }
-      ELSE
-      {
-        IF(field NOT LIKE "date_*")
-          field := `date_${field}`;
-      }
-      lowersearchterm := FormatISO8601DateTime(lowerterm);
-      uppersearchterm := FormatISO8601DateTime(upperterm);
-    }
-    ELSE
-    {
-      lowersearchterm := lowerterm;
-      uppersearchterm := upperterm;
-    }
+    lowersearchterm := lowerterm;
+    uppersearchterm := upperterm;
   }
   ELSE
     THROW NEW Exception(`Invalid term type '${GetTypeName(TypeID(lowerterm))}' for range query`);
@@ -521,7 +467,7 @@ RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
   RETURN SELECT catalogid, fsobject
            FROM consilio.contentsources
           WHERE fsobject IN candidateids
-                AND contentprovider = "publisher:webhare"
+                AND contentprovider = VAR whconstant_consilio_contentprovider_site
                 AND orphansince = DEFAULT DATETIME
                 AND tag NOT LIKE "$consilio$deleted$*"
        ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match
@@ -604,6 +550,7 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         returned
     @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
         are not returned
+    @cell(boolean) options.validatemapping Validate the specified mapping. Defaults to TRUE
     @return The search result
     @cell(integer) return.totalcount The total number of results (not necessarily the number of returned results, if `count`
         is set to a value >= 0)
@@ -635,6 +582,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , debug := FALSE
       , explain := FALSE
       , refresh := FALSE
+      , validatemapping := TRUE
       ], options, [ optional := [ "orderdesc" ] ]);
 
   indextag := ValidateIndexTag(indextag);
@@ -673,11 +621,15 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   search_obj->summary_length := options.summary_length;
   search_obj->debug := options.debug;
   search_obj->explain := options.explain;
+
   IF (RecordExists(options.mapping))
   {
-    FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
-      IF(cellrec.name LIKE "_*")
-        THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+    IF(options.validatemapping)
+    {
+      FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
+        IF(cellrec.name LIKE "_*")
+          THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+    }
 
     search_obj->empty_result_record := options.mapping;
   }

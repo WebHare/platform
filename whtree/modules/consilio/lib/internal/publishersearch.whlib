@@ -16,6 +16,10 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
 {
   SWITCH (fieldname)
   {
+    CASE "indexversions", "indextypes"
+    {
+      RETURN STRING[]; //will be filled by consiliohandler
+    }
     CASE "linksto"
     {
       STRING ARRAY links :=
@@ -73,7 +77,7 @@ PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
       IF (Length(matchlinks) > 0)
       {
         matchqueries := matchqueries CONCAT
-            SELECT AS RECORD ARRAY CQMatch("linksto@consilio", "IN", GroupedValues(link))
+            SELECT AS RECORD ARRAY CQMatch("mod_consilio.linksto", "IN", GroupedValues(link))
               FROM ToRecordArray(matchlinks, "link") AS links
              GROUP BY #links / 1000; // Consilio max boolean query clause count is 1024, which is the default for Elasticsearch as well
       }
@@ -86,11 +90,11 @@ PUBLIC OBJECTTYPE LinksToFilter EXTEND BaseSearchFilter
         // If the file is the index document of the folder, look for the folder as well
         IF (RecordExists(SELECT FROM system.fs_objects WHERE id = matchfile.folder AND indexdoc = matchfile.file))
           INSERT ToString(matchfile.folder) INTO links AT 0;
-        INSERT CQMatch("internallink@consilio", "IN", links) INTO matchqueries AT END;
+        INSERT CQMatch("mod_consilio.internallink", "IN", links) INTO matchqueries AT END;
       }
 
       // Find external links to the url
-      INSERT CQMatch("externallink@consilio", "=", value.textquery) INTO matchqueries AT END;
+      INSERT CQMatch("mod_consilio.externallink", "=", value.textquery) INTO matchqueries AT END;
 
       IF (Length(matchqueries) > 0)
         RETURN CQOr(matchqueries);

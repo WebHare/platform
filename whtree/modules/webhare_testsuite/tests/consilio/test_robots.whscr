@@ -14,7 +14,7 @@ MACRO TestHTMLIndexing()
 
   // First page has robots "index, follow" -> both pages should be indexed
   testfw->BeginWork();
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots");
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots", [ priority := 9 ]);
   Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT siteroot := GetTestsuiteTempFolder();

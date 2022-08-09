@@ -484,7 +484,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       RECORD ARRAY catalogsources := SELECT *
                                           , rowkey := "source_" || id
                                           , icon := catalog.id < 0 ? ^catalogs->GetIcon("consilio:consilio") : iconname != "" ? ^catalogs->GetIcon(iconname) : 0
-                                          , tag := (contentprovider = "publisher:webhare" ? (SELECT AS STRING whfspath FROM fsobjects WHERE fsobjects.id = sources.fsobject) : tag) ?? title
+                                          , tag := (contentprovider = VAR whconstant_consilio_contentprovider_site ? (SELECT AS STRING whfspath FROM fsobjects WHERE fsobjects.id = sources.fsobject) : tag) ?? title
                                           , title
                                           , size := ""
                                           , statushint := GetStatusHint(status)
@@ -1220,7 +1220,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
     data := ValidateOptions([ catalog := 0, contentsource := 0 ], data, [ required := ["catalog"]]);
     this->catalog := OpenConsilioCatalogById(data.catalog);
 
-    STRING cptype := "publisher:webhare";
+    STRING cptype := whconstant_consilio_contentprovider_site;
     IF(data.contentsource != 0)
     {
       this->contentsource := this->catalog->OpenContentSourceById(data.contentsource);
@@ -1237,7 +1237,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
       THROW NEW Exception(`Unable to describe contentproviders of type '${cptype}'`);
 
     ^contentsourcetype->value := GetTid(contentprovider.title);
-    ^folder->visible := cptype = "publisher:webhare";
+    ^folder->visible := cptype = whconstant_consilio_contentprovider_site;
     ^folder->enabled := ^folder->visible;
     ^contentcheckinterval->placeholder := ToString(default_contentcheckinterval);
     ^maxgroupobjects->placeholder := ToString(default_maxgroupobjects);

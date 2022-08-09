@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 //ADDME: Maintenance-taak om out-of-date links, servers en pagina's uit de database halen
 //ADDME: Shouldn't this script also remove checked_pages which are no longer in the index?
@@ -19,7 +20,7 @@ OBJECT trans := OpenPrimary( [ clientname := "consilio execute maintenance" ]);
 // Clean up contentsources pointing to deleted folders
 RECORD ARRAY brokensources := SELECT toremove := GroupedValues(contentsources.id), contentsources.catalogid
                                 FROM consilio.contentsources, system.fs_objects
-                               WHERE contentsources.contentprovider = "publisher:webhare"
+                               WHERE contentsources.contentprovider = VAR whconstant_consilio_contentprovider_site
                                      AND contentsources.fsobject = fs_objects.id
                                      AND IsRecycleOrHistoryWHFSPath(whfspath)
                              GROUP BY catalogid;
@@ -70,8 +71,8 @@ DELETE FROM consilio.checked_links WHERE last_referred < limitdate
 daystokeep := ReadRegistryKey("consilio.options.keepsearchterms");
 limitdate := AddDaysToDate(0-daystokeep,GetCurrentDateTime());
 
-// Clean up publisher:webhare contentsources without an fsobject. shouldn't ever happen
-DELETE from consilio.contentsources WHERE fsobject = 0 AND contentprovider = "publisher:webhare";
+// Clean up consilio:site contentsources without an fsobject. shouldn't ever happen due to databse cascades
+DELETE from consilio.contentsources WHERE fsobject = 0 AND contentprovider = VAR whconstant_consilio_contentprovider_site;
 
 trans->CommitWork();
 

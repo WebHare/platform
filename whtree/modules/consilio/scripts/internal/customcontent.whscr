@@ -133,7 +133,7 @@ RECORD FUNCTION ListGroups(DATETIME commanddate)
   IF (result.status = "result")
   {
     // Remove unwanted cells from the result record
-    result := CleanRecord(result, [ "STATUS", "GROUPS" ]);
+    result := PickCells(result, [ "STATUS", "GROUPS" ]);
     IF (NOT CellExists(result, "groups"))
       INSERT CELL groups := DEFAULT RECORD ARRAY INTO result;
   }
@@ -171,7 +171,7 @@ RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY 
   IF (result.status = "result")
   {
     // Remove unwanted cells from the result record
-    result := CleanRecord(result, [ "STATUS", "OBJECTS" ]);
+    result := PickCells(result, [ "STATUS", "OBJECTS" ]);
     IF (NOT CellExists(result, "objects"))
       INSERT CELL objects := DEFAULT RECORD ARRAY INTO result;
     ELSE
@@ -183,7 +183,7 @@ RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY 
                                           ? objects.requiredindexdate
                                           : DEFAULT DATETIME
                , data :=              CellExists(objects, "DATA") AND RecordExists(data)
-                                          ? CleanRecord(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE", "INDEXTYPES", "INDEXVERSIONS" ])
+                                          ? PickCells(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ])
                                           : DEFAULT RECORD
             FROM result.objects;
     }
@@ -222,7 +222,7 @@ RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objecti
   IF (result.status = "result")
   {
     // Remove unwanted cells from the result record
-    result := CleanRecord(result, [ "STATUS", "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ]);
+    result := PickCells(result, [ "STATUS", "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ]);
   }
   ELSE IF (result.status = "error")
   {
@@ -230,13 +230,4 @@ RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objecti
   }
 
   RETURN result;
-}
-
-RECORD FUNCTION CleanRecord(RECORD tocheck, STRING ARRAY allowed_fields)
-{
-  allowed_fields := SELECT AS STRING ARRAY ToUppercase(field) FROM ToRecordArray(allowed_fields, "field");
-  STRING ARRAY remove_fields := SELECT AS STRING ARRAY name FROM UnpackRecord(tocheck) WHERE ToUppercase(name) NOT IN allowed_fields;
-  FOREVERY (STRING field FROM remove_fields)
-    tocheck := CellDelete(tocheck, field);
-  RETURN tocheck;
 }

@@ -13,6 +13,7 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 // Command line settings
 RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
@@ -115,7 +116,7 @@ to_recheck := SELECT contentsources.id
                    , consilio.catalogs
                WHERE contentsources.catalogid = catalogs.id
                      AND contentsources.status >= 0
-                     AND contentprovider = "publisher:webhare"
+                     AND contentprovider = VAR whconstant_consilio_contentprovider_site
                      AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
 IF (Length(to_recheck) = 0 AND settings.debug)

@@ -68,7 +68,7 @@ MACRO PrepareCustomCatalog()
   TestEqMembers([[ name := "textfield", type := "text" ]], (SELECT * FROM mapping WHERE name = "textfield"),"*");
   TestEqMembers([[ name := "keywordfield", type := "keyword" ]], (SELECT * FROM mapping WHERE name = "keywordfield"),"*");
   TestEqMembers([[ name := "myrec", type := "record"
-                 , properties := [[ name := "reckeyword", type := "keyword" ]]
+                 , properties := [[ name := "reckeyword", type := "keyword", defaultvalue := STRING[] ]]
                 ]], (SELECT * FROM mapping WHERE name = "myrec"),"*");
   testfw->CommitWork();
 

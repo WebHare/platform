@@ -20,8 +20,8 @@ MACRO TestConsilioAPI()
   TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id));
   TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id));
 
-  OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1");
-  OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2");
+  OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1", [ priority := 9 ]);
+  OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2", [ priority := 9 ]);
   TestEq(TRUE, testcatalog1->managed);
   TestEq(TRUE, SELECT AS BOOLEAN managed FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
 
@@ -34,8 +34,8 @@ MACRO TestConsilioAPI()
 
   //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
   //FIXME we're ignoring _score and _summary but those shouldn't exist in the database at all
-  STRING ARRAY expectedfields := [ "date_modified" , "date_whmodification" , "description" , "filetype" , "keywords" , "size" , "title" , "whfspath" ];
-  TestEq(expectedfields, SELECT AS STRING ARRAY name FROM testcatalog1->GetExpectedMapping () WHERE name IN expectedfields ORDER BY name);
+  STRING ARRAY expectedfields := [ "description", "filetype", "keywords", "lastmodified", "modificationdate", "size" , "title", "whfspath" ];
+  TestEq(expectedfields, SELECT AS STRING ARRAY name FROM testcatalog1->GetExpectedMapping() WHERE name IN expectedfields ORDER BY name);
 
   TestEq(FALSE, newsource->enabled);
   TestEq(FALSE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));

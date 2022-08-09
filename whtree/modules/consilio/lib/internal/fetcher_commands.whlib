@@ -419,8 +419,8 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
       /* Current objects (not needed for deactivation, but we'll provided them to ListObjects3/ListObjects2)
          @cell id Object id
-         @cell date_indexdate Indexdate for this object
-         @cell date_indexed Commanddate of command that added this object
+         @cell _indexdate Indexdate for this object
+         @cell _indexed Commanddate of command that added this object
       */
       RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields, CELL[ options.refresh ]);
 
@@ -576,8 +576,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                                              , documentfields := fields
                                                              , suggestfields
                                                              , suggestprefixes
-                                                             , indextypes :=             CellExists(toadd, "INDEXTYPES") ? toadd.indextypes : STRING[]
-                                                             , indexversions :=          CellExists(toadd, "INDEXVERSIONS") ? toadd.indexversions : STRING[]
                                                           FROM toadd), CELL
                                                        [ discardsummaries := provider->discardsummaries
                                                        , refresh := options.refresh
@@ -1069,18 +1067,17 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
     IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE, indexmanager := indexmanager.id ]);
+      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
 
     results := results CONCAT result.results;
   }
 
   RETURN
-      SELECT DISTINCT contentsourceid := contentsource
-           , COLUMN indexid
+      SELECT DISTINCT contentsourceid := _contentsource
         FROM results
-       WHERE contentsource != 0;
+       WHERE _contentsource != 0;
 }
 
 
@@ -1145,7 +1142,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 
     FOREVERY (RECORD rec FROM candidates)
     {
-      IF (rec.contentprovider != "publisher:webhare")
+      IF (rec.contentprovider != whconstant_consilio_contentprovider_site)
         CONTINUE;
 
       IF (rec.id IN mustinclude)
@@ -1160,7 +1157,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
     }
 
     // No content source was specified, so we're adding a WebHare fs_object for which only publisher content sources are needed
-    result.sources := SELECT * FROM result.sources WHERE contentprovider = "publisher:webhare";
+    result.sources := SELECT * FROM result.sources WHERE contentprovider = VAR whconstant_consilio_contentprovider_site;
   }
 
   // Do we have any content sources for adding the group?
@@ -1184,7 +1181,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 */
 RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 {
-  RECORD query := CQMatch("contentsource", "=", ToString(contentsourceid));
+  RECORD query := CQMatch("_contentsource", "=", ToString(contentsourceid));
 
   INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
 
@@ -1223,14 +1220,14 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
       ]);
 
   RECORD mapping :=
-      [ date_indexdate := DEFAULT DATETIME
-      , date_indexed := DEFAULT DATETIME
+      [ _indexdate := DEFAULT DATETIME
+      , _indexed := DEFAULT DATETIME
       ];
   FOREVERY (STRING field FROM extrafields)
     mapping := CellInsert(mapping, field, "");
 
   RECORD ARRAY queries;
-  INSERT CQMatch("contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
+  INSERT CQMatch("_contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
   INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
 
   // Get all available groups (might take some time if the source has millions of objects)
@@ -1251,8 +1248,8 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 
     results := results CONCAT
         SELECT id :=            objectid
-             , indexdate :=     Min(date_indexdate)
-             , commanddate :=   Min(date_indexed)
+             , indexdate :=     Min(_indexdate)
+             , commanddate :=   Min(_indexed)
           FROM result.results
       GROUP BY objectid;
   }
@@ -1282,27 +1279,22 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcontentsourceids)
 {
   // Only a CQNot doesn't work
-  RECORD query := CQAnd([ CQAll(), CQNot(CQMatch("contentsource", "IN", validcontentsourceids)) ]);
+  RECORD query := CQAnd([ CQAll(), CQNot(CQMatch("_contentsource", "IN", validcontentsourceids)) ]);
 
   RECORD ARRAY results;
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ contentsource := 0 ] ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ] ]);
     IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ contentsource := 0 ] ]);
+      result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ _contentsource := 0 ] ]);
 
     results := results CONCAT result.results;
   }
 
-  INTEGER ARRAY contentsources :=
-      SELECT AS INTEGER ARRAY DISTINCT contentsource
-        FROM results;
-
+  INTEGER ARRAY contentsources := SELECT AS INTEGER ARRAY DISTINCT _contentsource FROM results WHERE _contentsource != 0;
   FOREVERY (INTEGER contentsource FROM contentsources)
-  {
     DeleteIndexManagerContentSource(0, indexid, contentsource);
-  }
 }
 
 
@@ -1371,11 +1363,10 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     }
 
     // Remove reserved fields from the document fields
-    FOREVERY (STRING field FROM [ "indexid", "groupid", "objectid"
-                                , "contentsource", "contentprovider"
-                                , "date_indexed", "date_indexdate"
+    FOREVERY (STRING field FROM [ "groupid", "objectid"
+                                , "_contentsource", "_indexed", "_indexdate"
                                 , "suggestfields", "suggestprefix"
-                                , "body", "indextypes", "indexversions" ])
+                                , "body" ])
       IF (CellExists(document_fields, field))
         document_fields := CellDelete(document_fields, field);
 
@@ -1383,9 +1374,8 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     IF (RecordExists(document_fields) OR body != "")
     {
       RECORD document :=
-          [ date_indexed := commanddate
-          , date_indexdate := object_indexdate
-          , contentprovider := contentsource.contentprovider
+          [ _indexed := commanddate
+          , _indexdate := object_indexdate
           ];
 
       // Add special field "body"
@@ -1419,8 +1409,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
           , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
           , objects := CellExists(objectrec, "objects") ? objectrec.objects : DEFAULT RECORD ARRAY
-          , indextypes := CellExists(objectrec, "indextypes") ? objectrec.indextypes : STRING[]
-          , indexversions := CellExists(objectrec, "indexversions") ? objectrec.indexversions : STRING[]
           ];
     }
     ELSE

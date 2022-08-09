@@ -511,7 +511,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
       RECORD ARRAY filters;
       FOREVERY (RECORD filter FROM input.filters)
       {
-        BOOLEAN isdatefilter := filter.field LIKE "date_*" OR filter.field LIKE "*.date_*";
+        BOOLEAN isdatefilter := TYPEID(filter.lowerterm) = TYPEID(DATETIME);
         RECORD range := DEFAULT RECORD;
         IF (NOT IsDefaultValue(filter.lowerterm))
         {
