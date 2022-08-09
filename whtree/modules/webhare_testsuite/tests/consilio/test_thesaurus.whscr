@@ -29,7 +29,6 @@ MACRO TestThesaurus()
 
   OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ maxgroupobjects :=      1000
-      , discardsummaries :=     TRUE
       ]);
 
   testfw->CommitWork();

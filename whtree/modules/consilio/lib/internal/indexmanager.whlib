@@ -881,8 +881,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
                                               RECORD options)
 {
   RECORD defaultoptions :=
-      [ discardsummaries := FALSE // Set to TRUE to not store the document body for summary generation, Consilio only
-      , refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
+      [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , bulk := DEFAULT OBJECT
       ];

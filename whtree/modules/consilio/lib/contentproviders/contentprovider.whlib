@@ -59,11 +59,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   PUBLIC INTEGER pvt_maxgroupobjects;
   PUBLIC PROPERTY maxgroupobjects(GetMaxGroupObjects, SetMaxGroupObjects);
 
-  /** @short Don't cache page body text
-      @long If this flag is set, the body text of pages will not be cached and result excerpts will not be generated.
-  */
-  PUBLIC BOOLEAN discardsummaries;
-
   PUBLIC BOOLEAN contentlinksonly;
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +75,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @cell contentsource.id Content source id
       @cell contentsource.indexid Index id this content source belongs to
       @cell contentsource.maxgroupobjects Maximum number of objects per group for this content source
-      @cell contentsource.discardsummaries Don't cache page body text for this content source
       @throw If the content provider was not successfully initialized
   */
   PUBLIC MACRO Init(RECORD contentsource)
@@ -88,7 +82,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
     this->pvt_contentsourceid := contentsource.id;
     this->pvt_indexid := CellExists(contentsource, "catalogid") ? contentsource.catalogid : 0;
     this->pvt_maxgroupobjects := CellExists(contentsource, "maxgroupobjects") ? contentsource.maxgroupobjects : 0;
-    this->discardsummaries := CellExists(contentsource, "discardsummaries") ? contentsource.discardsummaries : FALSE;
     this->contentlinksonly := CellExists(contentsource, "contentlinksonly") ? contentsource.contentlinksonly : FALSE;
   }
 

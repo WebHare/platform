@@ -34,7 +34,6 @@ PUBLIC SCHEMA
     < INTEGER "id" NULL := 0
     , STRING "contentprovider"
     , STRING "data"
-    , BOOLEAN "discardsummaries"
     , INTEGER "catalogid" NULL := 0
     , INTEGER "maxgroupobjects"
     , STRING "tag"

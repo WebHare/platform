@@ -360,7 +360,6 @@
       <textedit name="contentcheckinterval" valuetype="integer" emptyvalue="0" maxlength="5" suffixtid="~units.minutes"/>
       <textedit name="maxgroupobjects" valuetype="integer" emptyvalue="0" maxlength="7" />
       <lines layout="left">
-        <checkbox name="discardsummaries" title="" labeltid=".discardsummaries-description" />
         <checkbox name="disablesource" title="" labeltid=".disablesource-description" />
       </lines>
     </body>

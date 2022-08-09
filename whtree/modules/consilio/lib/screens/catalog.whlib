@@ -1250,7 +1250,6 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
       ^id->value := ToString(this->contentsource->id);
       ^tag->value := dbsettings.tag;
       ^maxgroupobjects->value := dbsettings.maxgroupobjects;
-      ^discardsummaries->value := dbsettings.discardsummaries;
       ^disablesource->value := dbsettings.status < 0;
 
       this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-edit");
@@ -1275,7 +1274,6 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
     //TODO - api ?
     UPDATE consilio.contentsources
            SET maxgroupobjects := ^maxgroupobjects->value
-             , discardsummaries := ^discardsummaries->value
              , status := ^disablesource->value ? contentsourcestatus_disabled : status = contentsourcestatus_disabled ? contentsourcestatus_idle : status //flip status to -1 to disable, 0 to re-enable and otherwise leave alone
              , fsobject := ^folder->value
          WHERE id = finalsource->id;

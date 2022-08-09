@@ -104,7 +104,6 @@
       <text tid="contentcheckinterval">Interval voor nalopen</text>
       <text tid="contentsourcetype">Type contentbron</text>
       <text tid="disablesource-description">Schakel deze contentbron uit</text>
-      <text tid="discardsummaries-description">Genereer geen samenvattingen</text>
       <text tid="folder">Te indexeren map</text>
       <text tid="generalsettings">Geavanceerde instellingen</text>
       <text tid="lastcontentscheck">Laatste automatische update van dynamische pagina's</text>

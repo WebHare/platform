@@ -58,7 +58,6 @@ MACRO PrepareCustomCatalog()
   OBJECT contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", Resolve("data/querycontent.whlib#QueryContent"),
       [ title :=            "BETA_CUSTOMSOURCE"
       , maxgroupobjects :=  1000
-      , discardsummaries := TRUE
       ]);
 
 
