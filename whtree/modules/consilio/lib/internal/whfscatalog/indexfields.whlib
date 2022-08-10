@@ -12,6 +12,7 @@ RECORD FUNCTION ParseIndexField(RECORD indexfield, RECORD ARRAY alltypemembers, 
 {
   RECORD ARRAY properties;
   VARIANT fieldstructure;
+  RECORD inputrowstructure;
 
   RECORD memberrec;
   IF(indexfield.membername != "")
@@ -27,12 +28,14 @@ RECORD FUNCTION ParseIndexField(RECORD indexfield, RECORD ARRAY alltypemembers, 
 
   IF(CellExists(indexfield,'arraymembers') AND Length(indexfield.arraymembers) > 0)
   {
+    inputrowstructure := RecordExists(memberrec) AND CellExists(typestructure, memberrec.name) ? GetCell(typestructure, memberrec.name) : DEFAULT RECORD;
     fieldstructure := DEFAULT RECORD;
+
     FOREVERY(RECORD submember FROM indexfield.arraymembers)
     {
       RECORD subfield := ParseIndexField( submember
                                         , alltypemembers
-                                        , RecordExists(memberrec) AND CellExists(typestructure, memberrec.name) ? GetCell(typestructure, memberrec.name) : DEFAULT RECORD
+                                        , inputrowstructure
                                         , indexfield
                                         , RecordExists(memberrec) ? memberrec.id : -1 //-1 will never match
                                         );
@@ -71,6 +74,7 @@ RECORD FUNCTION ParseIndexField(RECORD indexfield, RECORD ARRAY alltypemembers, 
              , properties
              , _indexfield := CELL[ ...indexfield
                                   , membertype := RecordExists(memberrec) ? memberrec.type : -1
+                                  , inputrowstructure
                                   ]
              ];
 
@@ -166,16 +170,16 @@ VARIANT FUNCTION ParseContentTypeField(RECORD indexfield, RECORD instancedata, I
   IF(CellExists(instancedata, indexfield.membername))
   {
     VARIANT data := GetCell(instancedata, indexfield.membername);
-
-    IF(CellExists(indexfield, 'arraymembers') AND Length(indexfield.arraymembers) > 0 AND Length(data)>0)
+    IF(cellexists(indexfield,'membertype') AND indexfield.membertype = whfs_membertype_array)
     {
-      IF(arrayid >= Length(data))
+      IF(arrayid > 0 AND arrayid >= Length(data))
         THROW NEW Exception("Illegal index #" || arrayid || " for member '" || indexfield.membername || "'");
 
       RECORD arrayrecord;
+      RECORD inrow := Length(data) > 0 ? data[arrayid] : indexfield.inputrowstructure;
       FOREVERY(RECORD field FROM indexfield.arraymembers)
       {
-        VARIANT celldata := ParseContentTypeField(field, data[arrayid], objid, arrayid, indexfield);
+        VARIANT celldata := ParseContentTypeField(field, inrow, objid, arrayid, indexfield);
         arrayrecord := CellInsert(arrayrecord, field.fieldname, celldata);
       }
       RETURN arrayrecord;
@@ -199,13 +203,31 @@ PUBLIC RECORD FUNCTION GetParsedIndexFields(OBJECT fsobj, INTEGER subpage_seqnr)
     RECORD modulefields;
     FOREVERY(RECORD field FROM module.properties)
     {
-      //ignore array fields if the type mismatches...  this seemed to be the old behavior ('Arrays are only supported for the actual file/folder type' exception which was then swallowed)
-      IF(field._indexfield.membertype = whfs_membertype_array AND fsobj->typens != field._indexfield.namespace)
-        CONTINUE;
-
       RECORD mydata := SELECT AS RECORD data FROM cachedata WHERE cachedata.namespace = field._indexfield.namespace;
-      VARIANT data := ParseContentTypeField(field._indexfield, mydata, fsobj->id, subpage_seqnr, DEFAULT RECORD);
-      modulefields := CellInsert(modulefields, field.name, data);
+
+      //ignore array fields if the type mismatches...  this seemed to be the old behavior ('Arrays are only supported for the actual file/folder type' exception which was then swallowed)
+      IF(field._indexfield.membertype = whfs_membertype_array)
+      {
+        IF(fsobj->typens != field._indexfield.namespace
+            AND CellExists(mydata, field._indexfield.membername)
+            AND Length(GetCell(mydata, field._indexfield.membername))>0)
+        {
+          CONTINUE;
+        }
+
+        VARIANT data;
+        TRY
+          data := ParseContentTypeField(field._indexfield, mydata, fsobj->id, subpage_seqnr, DEFAULT RECORD);
+        CATCH
+          CONTINUE; //4.35 basically absorbed all exceptions coming out of the arrayfield code which is what kept other modules who interfered somewhat 'in check' - a followup to arrayfields should please not do that ...
+
+        modulefields := CellInsert(modulefields, field.name, data);
+      }
+      ELSE
+      {
+        VARIANT data := ParseContentTypeField(field._indexfield, mydata, fsobj->id, subpage_seqnr, DEFAULT RECORD);
+        modulefields := CellInsert(modulefields, field.name, data);
+      }
     }
     resultfields := CellInsert(resultfields, module.name, modulefields);
   }

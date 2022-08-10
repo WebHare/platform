@@ -58,6 +58,20 @@ MACRO TestIndexFields()
 
   OBJECT publishersearchtesttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
   OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([name:="testfile7.txt", title := "blafile7", type := publishersearchtesttype->id , data := StringToBlob("blabla7") , publish := TRUE ]);
+
+  publishersearchtesttype->SetInstanceData(testfile->id,
+      [ testfield := testfile->id
+      ]);
+
+  //If the array is empty but the type matches we should still synthesize one element - this was the existing behaviour for arrayfields
+  TestEqMembers([ mod_webhare_testsuite := [ contenttypefield := testfile->id
+                                           , arrayfield := [ arrayfield := ""
+                                                           , date_otherfield := DEFAULT DATETIME
+                                                           , libraryfield := "array_" || testfile->id  || "_0"
+                                                           ]
+                                           ]
+                ], GetParsedIndexFields(testfile, 0), '*', "Without a set array, we should still see *one* result");
+
   publishersearchtesttype->SetInstanceData(testfile->id,
       [ testfield := testfile->id
       , testarray := [ [ arrayfield := testfile->id || "_bla"
@@ -70,12 +84,18 @@ MACRO TestIndexFields()
       ]);
 
   TestEqMembers([ mod_webhare_testsuite := [ contenttypefield := testfile->id
-                                           , arrayfield := [ arrayfield := testfile->id  || "_bla" ]
+                                           , arrayfield := [ arrayfield := testfile->id  || "_bla"
+                                                           , date_otherfield := MakeDate(2016, 12, 31)
+                                                           , libraryfield := "array_" || testfile->id  || "_0"
+                                                           ]
                                            ]
                 ], GetParsedIndexFields(testfile, 0), '*');
 
   TestEqMembers([ mod_webhare_testsuite := [ contenttypefield := testfile->id
-                                           , arrayfield := [ arrayfield := testfile->id  || "_test" ]
+                                           , arrayfield := [ arrayfield := testfile->id  || "_test"
+                                                           , date_otherfield := MakeDate(2017,1,1)
+                                                           , libraryfield := "array_" || testfile->id  || "_1"
+                                                           ]
                                            ]
                 ], GetParsedIndexFields(testfile, 1), '*');
 
@@ -85,6 +105,20 @@ MACRO TestIndexFields()
          , keywordfield := ""
          , textfield := ""
          ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite, "Type mismatch, so no arrayfield anymore");
+
+  //B..B..But if the array is empty we STILL synthesize a record
+  publishersearchtesttype->SetInstanceData(testfile->id,
+      [ testarray := RECORD[]
+      ]);
+  TestEq([ contenttypefield := testfile->id
+         , libraryfield := ToString(testfile->id)
+         , keywordfield := ""
+         , textfield := ""
+         , arrayfield := [ arrayfield := ""
+                         , date_otherfield := DEFAULT DATETIME
+                         , libraryfield := "array_" || testfile->id  || "_0"
+                         ]
+         ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite);
 
   testfw->RollbackWork(); //only exists to test our APIs
 
