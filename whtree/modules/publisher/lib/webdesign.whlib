@@ -188,7 +188,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING maxcontentwidth;
   ///The page canonical URL (eg, it's unique reference in a search engine). This is automatically set to file->url by static pages
   PUBLIC STRING canonicalurl;
-  ///Additinal consilio fields to index with frontend content
+  ///Additional consilio fields to index with frontend content
   PUBLIC RECORD consiliofields;
   ///File seo settings.
   PUBLIC PROPERTY seosettings(_seosettings, -);
