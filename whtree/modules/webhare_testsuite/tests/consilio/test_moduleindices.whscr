@@ -597,15 +597,18 @@ MACRO TestESBulkInsertion()
   //Check adding arrays
   catalog->AddObjects(
       [ [ objectid := "test2"
-        , documentfields := [ 'group_record_field.ds_text' := 45
+        , documentfields := [ group_record_field := [ ds_text := 45, db_conspiracy := TRUE ]
                             , group_int_field := 1045
                             ]
         ]
-      ],[ suffix := "sub1" ]);
+      ],[ suffix := "sub1", synchronous := TRUE ]);
 
   //Test some query field validation
   TestThrowsLike("No such*objectid*", PTR RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
   TestThrowsLike("*ds_text*not indexed*wildcard*", PTR RunConsilioSearch(catalog->tag, CQMatch("group_record_field.ds_text", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
+
+  res := RunConsilioSearch(catalog->tag, CQMatch("group_int_field", '=', 1045));
+  TestEq([ ds_text := "45", db_conspiracy := TRUE, group_record_text_field := "", when := default datetime, "where" := "" ], res.results[0].group_record_field, "Should not leak through ds_* fields");
   // Throw some objects into a suffix. We want the index to sort it out
   RECORD ARRAY docs;
   //2*28*24 * 3 = 4032 events

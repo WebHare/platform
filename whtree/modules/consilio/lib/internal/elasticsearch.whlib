@@ -1055,90 +1055,56 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
 
 PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING ARRAY requested_fields, RECORD mapping)
 {
+  RECORD sourcemapping := CELL[...mapping, DELETE _score, DELETE _summary, DELETE _explanation, DELETE _suggested ];
   RECORD ARRAY results;
   FOREVERY (RECORD hit FROM hits)
   {
-    RECORD lineresult;
-    FOREVERY (STRING fld FROM requested_fields)
+    RECORD sourcehit := hit._source;
+    RECORD internalfields;
+
+    IF(CellExists(mapping, '_score'))
+      INSERT CELL _score := hit._score INTO internalfields;
+
+    IF(CellExists(mapping, '_summary'))
     {
-      IF (fld = "indexid")
-        lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
-      ELSE IF (fld = "_score")
-        lineresult := CellInsert(lineresult, "_score", hit._score);
-      ELSE IF (fld = "_summary" AND CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
-        lineresult := CellInsert(lineresult, fld, hit.highlight.body[0]);
-      ELSE IF (fld = "_explanation")
-        lineresult := CellInsert(lineresult, "_explanation", hit._explanation);
-      ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
-        lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
+      IF(CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
+        INSERT CELL _summary := hit.highlight.body[0] INTO internalfields;
+      ELSE IF(CellExists(hit._source,"_summary"))
+        INSERT CELL _summary := hit._source._summary INTO internalfields;
       ELSE
-        lineresult := ReadResultField(lineresult, hit._source, fld);
+        INSERT CELL _summary := "" INTO internalfields;
     }
 
-    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, mapping);
-    IF (RecordExists(singleresult))
-      INSERT singleresult INTO results AT END;
+    IF(CellExists(mapping, '_explanation'))
+      INSERT CELL _explanation := hit._explanation INTO internalfields;
+
+    //We're not properly recording the mapping for _suggested and it might go away in the future anyway.. so just copy or mock it
+    IF(CellExists(mapping, '_suggested'))
+      IF(CellExists(sourcehit,'_suggested'))
+        INSERT CELL _suggested := sourcehit._suggested INTO internalfields;
+      ELSE
+        INSERT CELL _suggested := DEFAULT RECORD INTO internalfields;
+
+    IF (CellExists(hit, "highlight"))
+      FOREVERY(RECORD mappedfield FROM UnpackRecord(sourcemapping))
+      {
+        //TODO does this work properly with subfields? or do we need to look for flattened versions
+        IF(CellExists(hit.highlight, mappedfield.name))
+        {
+          sourcehit := CellDelete(sourcehit, mappedfield.name);
+          sourcehit := CellInsert(sourcehit, mappedfield.name, GetCell(hit.highlight, mappedfield.name)[0]);
+        }
+      }
+
+    RECORD singleresult := ParseSingleElasticsearchResult(sourcehit, sourcemapping);
+    INSERT CELL[...singleresult, ...internalfields] INTO results AT END;
   }
   RETURN results;
 }
 
-RECORD FUNCTION GetIndexIdUncached(STRING indexid)
-{
-  INTEGER value :=
-      SELECT AS INTEGER catalogid
-        FROM consilio.catalog_indexmanagers
-       WHERE indexname != ""
-             AND (indexname = indexid OR indexid LIKE indexname || "-*");
-  RETURN CELL
-      [ value
-      , eventmasks := [ "consilio:indiceschanged" ]
-      ];
-}
-
-RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
-{
-  // Check if a record subfield was requested
-  STRING subfld;
-  IF (NOT CellExists(hit, fld) AND fld LIKE "*.*") //FIXME this is a hack to support the pre-dec-2020 record situation. should we be studying 'mapping' to figure out the real format ?
-  {
-    subfld := Substring(fld, SearchSubstring(fld, ".") + 1);
-    fld := Left(fld, SearchSubstring(fld, "."));
-  }
-  IF (CellExists(hit, fld))
-  {
-    IF (subfld != "")
-    {
-      // Get the current record (array)
-      VARIANT value := CellExists(lineresult, fld) ? GetCell(lineresult, fld) : GetTypeDefaultValue(TypeID(GetCell(hit, fld)));
-      IF (TypeID(value) = TypeID(RECORD ARRAY))
-      {
-        // Process each record within the array separately
-        FOREVERY (RECORD subhit FROM GetCell(hit, fld))
-        {
-          // Add a default record if necessary
-          IF (Length(value) <= #subhit)
-            INSERT DEFAULT RECORD INTO value AT END;
-          // Read the subfield result
-          value[#subhit] := ReadResultField(value[#subhit], subhit, subfld);
-        }
-      }
-      ELSE
-      {
-        // Read the subfield result
-        value := ReadResultField(value, GetCell(hit, fld), subfld);
-      }
-      // Replace or add the new value
-      lineresult := CellExists(lineresult, fld) ? CellUpdate(lineresult, fld, value) : CellInsert(lineresult, fld, value);
-    }
-    ELSE
-      lineresult := CellInsert(lineresult, fld, GetCell(hit, fld));
-  }
-  RETURN lineresult;
-}
-
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
-  RETURN EnforceStructure(mapping, FixupElasticsearchResultFields(lineresult, mapping));
+  RETURN FixupElasticsearchResultFields(lineresult, mapping);
 }
 
 // Elasticsearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
@@ -1146,32 +1112,63 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
 // This function also converts INTEGER64s back to MONEYs where necessary
 RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping)
 {
+  RECORD outputline := CELL[];
+  STRING ARRAY seenfields;
+  RECORD ARRAY unpackedmapping := UnpackRecord(mapping);
+
   FOREVERY (RECORD field FROM UnpackRecord(lineresult))
   {
-    IF (NOT CellExists(mapping, field.name))
-      CONTINUE;
-    VARIANT fieldmapping := GetCell(mapping, field.name);
-    BOOLEAN valuechanged;
-    IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(field.value)))
+    VARIANT fieldmapping;
+    IF (CellExists(mapping, field.name))
     {
-      VARIANT value := GetTypeDefaultArray(TypeID(field.value));
-      INSERT field.value INTO value AT END;
-      field := CELL[ ...field, value ];
-      valuechanged := TRUE;
+      fieldmapping := GetCell(mapping, field.name);
+      INSERT field.name INTO seenfields AT END;
     }
-    IF (TypeID(field.value) = TypeID(RECORD))
-      field.value := FixupElasticsearchResultFields(field.value, fieldmapping);
-    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
-      field.value := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(value, PickFirst(fieldmapping)) FROM field.value;
-    ELSE IF (TypeID(field.value) = TypeID(STRING) AND TypeID(fieldmapping) = TypeID(MONEY))
-      field := CELL[ ...field, value := ReadMoneyValue(field.value) ];
-    ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY) AND TypeID(fieldmapping) = TypeID(MONEY ARRAY))
-      field := CELL[ ...field, value := SELECT AS MONEY ARRAY ReadMoneyValue(value) FROM ToRecordArray(field.value, "value") ];
-    ELSE IF (NOT valuechanged)
-      CONTINUE;
-    lineresult := CellInsert(CellDelete(lineresult, field.name), field.name, field.value);
+    ELSE //Find a matching wildcard (eg ds_* to match ds_text)
+    {
+      RECORD mywildcard := SELECT * FROM unpackedmapping WHERE field.name LIKE COLUMN name;
+      IF(NOT RecordExists(mywildcard))
+        CONTINUE;
+
+      fieldmapping := mywildcard.value;
+    }
+
+    VARIANT outputfield := field.value;
+
+    //If we expect an array in outputfield but didn't get any, upgrade outputfield to an array
+    IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(outputfield)))
+    {
+      VARIANT value := GetTypeDefaultArray(TypeID(outputfield));
+      INSERT field.value INTO value AT END;
+      outputfield := value;
+    }
+
+    IF (TypeID(fieldmapping) = TypeID(RECORD))
+    {
+      outputfield := FixupElasticsearchResultFields(outputfield, fieldmapping);
+    }
+    ELSE IF (TypeID(fieldmapping) = TypeID(RECORD ARRAY))
+    {
+      outputfield := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(row, PickFirst(fieldmapping)) FROM outputfield AS row;
+    }
+    ELSE
+    {
+      //Non-record fields can often be safely enforced. But we store moneys multiplied by 10^5 so enforce can't fix those for us
+      IF (TypeID(outputfield) = TypeID(STRING) AND TypeID(fieldmapping) = TypeID(MONEY))
+        outputfield := ReadMoneyValue(outputfield);
+      ELSE IF (TypeID(outputfield) = TypeID(STRING ARRAY) AND TypeID(fieldmapping) = TypeID(MONEY ARRAY))
+        outputfield := SELECT AS MONEY ARRAY ReadMoneyValue(value) FROM ToRecordArray(outputfield, "value");
+      ELSE
+        outputfield := EnforceStructure(fieldmapping, outputfield);
+    }
+    outputline := CellInsert(outputline, field.name, outputfield);
   }
-  RETURN lineresult;
+
+  FOREVERY(RECORD field FROM unpackedmapping)
+    IF(SearchSubstring(field.name,'*') = -1 AND field.name NOT IN seenfields)
+      outputline := CellInsert(outputline, field.name, field.value); //insert fallback value to complete the output mapping
+
+  RETURN outputline;
 }
 
 MONEY FUNCTION ReadMoneyValue(STRING value)
