@@ -79,6 +79,13 @@ MACRO TestIndexFields()
                                            ]
                 ], GetParsedIndexFields(testfile, 1), '*');
 
+  testfile->UpdateMetadata([typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"]);
+  TestEq([ contenttypefield := testfile->id
+         , libraryfield := ToString(testfile->id)
+         , keywordfield := ""
+         , textfield := ""
+         ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite, "Type mismatch, so no arrayfield anymore");
+
   testfw->RollbackWork(); //only exists to test our APIs
 
 }
@@ -509,8 +516,7 @@ MACRO PublisherSearchTest()
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_5->id));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results.mod_webhare_testsuite.contenttypefield = file_5->id));
-  // FIXME unsure why _bla shouldn't appear - we follow the subfiles, so the first should still have been there?
-  //TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results.mod_webhare_testsuite.arrayfield.arrayfield = file_5->id || "_bla"));
+  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results.mod_webhare_testsuite.arrayfield.arrayfield = file_5->id || "_bla"));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results.mod_webhare_testsuite.arrayfield.arrayfield = file_5->id || "_test"));
 
   // Find 'file_7' objects by id and check custom module fields

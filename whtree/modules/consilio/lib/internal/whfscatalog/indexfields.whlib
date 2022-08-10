@@ -69,7 +69,9 @@ RECORD FUNCTION ParseIndexField(RECORD indexfield, RECORD ARRAY alltypemembers, 
              , indexfield.tokenized
              , indexfield.suggested
              , properties
-             , _indexfield := CELL[ ...indexfield ]
+             , _indexfield := CELL[ ...indexfield
+                                  , membertype := RecordExists(memberrec) ? memberrec.type : -1
+                                  ]
              ];
 
 }
@@ -197,6 +199,10 @@ PUBLIC RECORD FUNCTION GetParsedIndexFields(OBJECT fsobj, INTEGER subpage_seqnr)
     RECORD modulefields;
     FOREVERY(RECORD field FROM module.properties)
     {
+      //ignore array fields if the type mismatches...  this seemed to be the old behavior ('Arrays are only supported for the actual file/folder type' exception which was then swallowed)
+      IF(field._indexfield.membertype = whfs_membertype_array AND fsobj->typens != field._indexfield.namespace)
+        CONTINUE;
+
       RECORD mydata := SELECT AS RECORD data FROM cachedata WHERE cachedata.namespace = field._indexfield.namespace;
       VARIANT data := ParseContentTypeField(field._indexfield, mydata, fsobj->id, subpage_seqnr, DEFAULT RECORD);
       modulefields := CellInsert(modulefields, field.name, data);
