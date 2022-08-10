@@ -300,16 +300,21 @@
 
     <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="textfield" tokenized="true"/>
     <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="keywordfield" />
+    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="test_whfsrefarray" />
     <indexfield name="contenttypefield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testfield" />
     <indexfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#gettestfield" />
     <indexfield name="arrayfield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
       <arrayfield member="arrayfield" />
       <arrayfield name="date_otherfield" member="otherfield" />
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
+      <arrayfield member="deeper_whfsrefarray" />
     </indexfield>
     <indexfield name="purearray" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
     </indexfield>
+
+    <!-- test overwrites -->
+    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest2" member="keywordfield" />
 
     <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" xmlschema="tests/publisher/forms/data/testformcomponents.xsd"/>
 

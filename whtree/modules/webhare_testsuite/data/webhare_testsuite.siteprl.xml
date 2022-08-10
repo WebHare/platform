@@ -243,11 +243,17 @@
       <array name="testarray">
         <string name="arrayfield" />
         <datetime name="otherfield" />
+        <whfsrefarray name="deeper_whfsrefarray" />
       </array>
       <string name="textfield" />
       <string name="keywordfield" />
+      <whfsrefarray name="test_whfsrefarray" />
     </members>
   </filetype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest2">
+    <string name="keywordfield" />
+  </contenttype>
 
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc">
     <css path="test/rte-structure.css" />

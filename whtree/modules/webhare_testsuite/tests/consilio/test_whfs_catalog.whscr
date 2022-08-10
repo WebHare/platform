@@ -57,10 +57,13 @@ MACRO TestIndexFields()
   testfw->BeginWork(); //temporary
 
   OBJECT publishersearchtesttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
+  INTEGER rootid := GetTestsuiteTempFolder()->id;
   OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([name:="testfile7.txt", title := "blafile7", type := publishersearchtesttype->id , data := StringToBlob("blabla7") , publish := TRUE ]);
 
   publishersearchtesttype->SetInstanceData(testfile->id,
       [ testfield := testfile->id
+      , test_whfsrefarray := INTEGER[ testfile->id ]
+      , keywordfield := "K1"
       ]);
 
   //If the array is empty but the type matches we should still synthesize one element - this was the existing behaviour for arrayfields
@@ -68,9 +71,12 @@ MACRO TestIndexFields()
                                            , arrayfield := [ arrayfield := ""
                                                            , date_otherfield := DEFAULT DATETIME
                                                            , libraryfield := "array_" || testfile->id  || "_0"
+                                                           , deeper_whfsrefarray := INTEGER[]
                                                            ]
                                            , purearray :=  [ libraryfield := "array_" || testfile->id  || "_0"
                                                            ]
+                                           , test_whfsrefarray := INTEGER[ testfile->id ]
+                                           , keywordfield := "K1"
                                            ]
                 ], GetParsedIndexFields(testfile, 0), '*', "Without a set array, we should still see *one* result");
   TestEqMembers([ mod_webhare_testsuite := [ contenttypefield := testfile->id
@@ -86,6 +92,7 @@ MACRO TestIndexFields()
                        ]
                      , [ arrayfield := testfile->id || "_test"
                        , otherfield := MakeDate(2017, 1, 1)
+                       , deeper_whfsrefarray := [rootid]
                        ]
                      ]
       ]);
@@ -94,6 +101,7 @@ MACRO TestIndexFields()
                                            , arrayfield := [ arrayfield := testfile->id  || "_bla"
                                                            , date_otherfield := MakeDate(2016, 12, 31)
                                                            , libraryfield := "array_" || testfile->id  || "_0"
+                                                           , deeper_whfsrefarray := INTEGER[]
                                                            ]
                                            ]
                 ], GetParsedIndexFields(testfile, 0), '*');
@@ -102,6 +110,7 @@ MACRO TestIndexFields()
                                            , arrayfield := [ arrayfield := testfile->id  || "_test"
                                                            , date_otherfield := MakeDate(2017,1,1)
                                                            , libraryfield := "array_" || testfile->id  || "_1"
+                                                           , deeper_whfsrefarray := [rootid]
                                                            ]
                                            ]
                 ], GetParsedIndexFields(testfile, 1), '*');
@@ -109,8 +118,9 @@ MACRO TestIndexFields()
   testfile->UpdateMetadata([typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"]);
   TestEq([ contenttypefield := testfile->id
          , libraryfield := ToString(testfile->id)
-         , keywordfield := ""
+         , keywordfield := "K1"
          , textfield := ""
+         , test_whfsrefarray := INTEGER[ testfile->id ]
          ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite, "Type mismatch, so no arrayfield anymore");
 
   //B..B..But if the array is empty we STILL synthesize a record
@@ -119,14 +129,19 @@ MACRO TestIndexFields()
       ]);
   TestEq([ contenttypefield := testfile->id
          , libraryfield := ToString(testfile->id)
-         , keywordfield := ""
+         , keywordfield := "K1"
          , textfield := ""
          , arrayfield := [ arrayfield := ""
                          , date_otherfield := DEFAULT DATETIME
                          , libraryfield := "array_" || testfile->id  || "_0"
+                         , deeper_whfsrefarray := INTEGER[]
                          ]
          , purearray := [ libraryfield := "array_" || testfile->id  || "_0" ]
+         , test_whfsrefarray := INTEGER[ testfile->id ]
          ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite);
+
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest2", [ keywordfield := "K2" ]);
+  TestEqMembers([ keywordfield := "K2" ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite, "*");
 
   testfw->RollbackWork(); //only exists to test our APIs
 
@@ -155,6 +170,7 @@ MACRO TestWHFSCatalog()
                  , properties := [[ name := "arrayfield", type := "keyword" ]
                                  ,[ name := "date_otherfield", type := "datetime" ] //NOTE implicit adding of date_
                                  ,[ name := "libraryfield", type := "keyword" ]
+                                 ,[ name := "deeper_whfsrefarray", type := "integer", defaultvalue := INTEGER[] ]
                                  ]
                 ]], (SELECT * FROM mod_webhare_testsuite.properties WHERE name = "arrayfield"), "*");
   TestEqMembers([[ name := "textfield", type := "text"
