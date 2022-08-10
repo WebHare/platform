@@ -25,9 +25,6 @@ MACRO __SYSTEM_SETSYSTEMCONFIG(RECORD data) __ATTRIBUTES__(EXTERNAL);
 // Constants
 //
 
-// Timeout after 15 mins
-INTEGER timeout_minutes := 15;
-
 // -----------------------------------------------------------------------------
 //
 // Variables
@@ -48,6 +45,7 @@ STRING chromeurl;
 BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
+INTEGER testtimeout := 15 * 60 * 1000;
 
 BOOLEAN interrupted;
 RECORD interruptdefer := CreateDeferredPromise();
@@ -396,7 +394,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
 
   INTEGER outputstream := delay_output ? CreateStream() : 0;
 
-  DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
+  DATETIME timeout := AddTimeToDate(testtimeout, GetCurrentDateTime());
   BOOLEAN is_timeout;
 
   WHILE (TRUE)
@@ -482,7 +480,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   IF (timeout <= GetCurrentDateTime())
   {
     PRINT(delayed_output);
-    Print("Script timed out after " || timeout_minutes || " minutes\n");
+    Print("Script timed out after " || testtimeout || " ms\n");
     RETURN FALSE;
   }
 
@@ -555,11 +553,10 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   STRING alloutput;
   STRING currtype := "";
 
-  //DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
   BOOLEAN is_timeout;
 
   OBJECT itr := MakeJobAsyncIterator(job, CELL[ outputhandle := joboutput, autoclose := FALSE ]);
-  OBJECT timeout := CreateSleepPromise(timeout_minutes * 60 * 1000)->Then(PTR ReturnTimeout);
+  OBJECT timeout := CreateSleepPromise(testtimeout)->Then(PTR ReturnTimeout);
 
   FOR (RECORD evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]); NOT evt.done; evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]))
   {
@@ -607,7 +604,7 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   IF (is_timeout)
   {
     PRINT(delayed_output);
-    Print("Script timed out after " || timeout_minutes || " minutes\n");
+    Print("Script timed out after " || testtimeout || " ms\n");
     RETURN xfail;
   }
 
@@ -655,6 +652,7 @@ MACRO PrintSyntax()
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
   Print("  --param=x=y      Set a test parameters\n");
   Print("  --chromeurl=...  URL on which chrome debugger is listening, for frontend tests\n");
+  Print("  --timeout=...    Set timeout in msecs. Defaults to 15 minutes\n");
   Print("  --keepsessions   Do not close Chrome sessions\n");
   Print("  all              Run the group 'all' in all known tests\n");
   Print("  testname         Run the test with this name (may be a comma separated list)\n");
@@ -703,6 +701,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
+                                    , [name := "timeout", type := "stringopt" ]
                                     , [name := "skip", type := "stringlist"]
                                     , [name := "breakonerror", type := "switch"]
                                     , [name := "tag", type := "stringopt"]
@@ -735,6 +734,12 @@ chromeurl := parsedargs.chromeurl;
 keepsessions := parsedargs.keepsessions;
 profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
+IF(parsedargs.timeout != "")
+{
+  testtimeout := ToInteger(parsedargs.timeout, -1);
+  IF(testtimeout <= 0)
+    SyntaxError("Invalid timeout");
+}
 
 STRING ARRAY requiretags, excludetags;
 FOREVERY(STRING tag FROM Tokenize(parsedargs.tag,','))
