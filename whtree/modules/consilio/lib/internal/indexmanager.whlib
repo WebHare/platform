@@ -332,7 +332,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                               , catalog
                               ];
 
-    RECORD searchquery := CreateElasticsearchQuery(query);
+    RECORD searchquery := CreateElasticsearchQuery(query, indexoptions);
     IF (options.explain)
       INSERT CELL explain := TRUE INTO searchquery;
 
@@ -537,7 +537,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
     STRING ARRAY requested_fields := GetRequestedFields(mapping);
 
-    RECORD searchquery := CreateElasticsearchQuery(query);
+    RECORD searchquery := CreateElasticsearchQuery(query, DEFAULT RECORD);
 
     INSERT CELL _source := requested_fields INTO searchquery;
 
