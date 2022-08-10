@@ -599,6 +599,9 @@ MACRO TestESBulkInsertion()
       [ [ objectid := "test2"
         , documentfields := [ group_record_field := [ ds_text := 45, db_conspiracy := TRUE ]
                             , group_int_field := 1045
+                            , documents := [ [ title := "XY en Z", slug := "slug1" ]
+                                           , [ title := "XY en B", slug := "slug2" ]
+                                           ]
                             ]
         ]
       ],[ suffix := "sub1", synchronous := TRUE ]);
@@ -609,6 +612,12 @@ MACRO TestESBulkInsertion()
 
   res := RunConsilioSearch(catalog->tag, CQMatch("group_int_field", '=', 1045));
   TestEq([ ds_text := "45", db_conspiracy := TRUE, group_record_text_field := "", when := default datetime, "where" := "" ], res.results[0].group_record_field, "Should not leak through ds_* fields");
+
+  res := RunConsilioSearch(catalog->tag, CQMatch("group_int_field", '=', 1045), [ mapping := [ documents := RECORD[[ title := "", slug := "" ] ]]]);
+  TestEq([ [ title := "XY en Z", slug := "slug1" ]
+         , [ title := "XY en B", slug := "slug2" ]
+         ], res.results[0].documents, "Properly retrieve objects stored as an array");
+
   // Throw some objects into a suffix. We want the index to sort it out
   RECORD ARRAY docs;
   //2*28*24 * 3 = 4032 events
