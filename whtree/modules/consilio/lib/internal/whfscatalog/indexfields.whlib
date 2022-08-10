@@ -170,7 +170,7 @@ VARIANT FUNCTION ParseContentTypeField(RECORD indexfield, RECORD instancedata, I
   IF(CellExists(instancedata, indexfield.membername))
   {
     VARIANT data := GetCell(instancedata, indexfield.membername);
-    IF(cellexists(indexfield,'membertype') AND indexfield.membertype = whfs_membertype_array)
+    IF(CellExists(indexfield,'membertype') AND indexfield.membertype = whfs_membertype_array)
     {
       IF(arrayid > 0 AND arrayid >= Length(data) AND RecordExists(SELECT FROM indexfield.arraymembers WHERE fieldfunc = ""))
         THROW NEW Exception("Illegal index #" || arrayid || " for member '" || indexfield.membername || "'");
