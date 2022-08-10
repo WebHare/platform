@@ -478,7 +478,7 @@ STRING ARRAY FUNCTION ExtractUserQueriesRecursive(RECORD query)
 }
 
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
-PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
+PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD indexoptions)
 {
   RECORD result :=
       [ query := DEFAULT RECORD
@@ -504,7 +504,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input)
 
   IF (RecordExists(UnpackRecord(query))) // query may be an empty record at this point
   {
-    result.query := CreateElasticsearchQueryRecursive(query);
+    result.query := CreateElasticsearchQueryRecursive(query, indexoptions);
 
     IF (CellExists(input, "filters"))
     {
@@ -574,8 +574,29 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
   RETURN query;
 }
 
+RECORD FUNCTION LookupFieldInMapping(RECORD ARRAY expectedmapping, STRING fieldname)
+{
+  RECORD field;
+  FOREVERY(STRING tok FROM Tokenize(fieldname,'.'))
+  {
+    field := SELECT * FROM expectedmapping WHERE name = tok;
+    IF(NOT RecordExists(field))
+    {
+      field := SELECT * FROM expectedmapping WHERE tok LIKE name;
+      IF(RecordExists(field))
+        THROW NEW Exception(`Field '${fieldname}' is not indexed because it's only matched by wildcards '${field.name}'`);
+    }
+
+    IF(NOT RecordExists(field))
+      THROW NEW Exception(`No such field '${fieldname}'`);
+
+    expectedmapping := field.properties;
+  }
+  RETURN field;
+}
+
 //ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
-RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
+RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexoptions)
 {
   IF (NOT CellExists(query, "_type"))
     THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
@@ -595,19 +616,19 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     {
       RECORD booleanquery;
       RECORD ARRAY queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
             FROM query.subqueries
            WHERE required;
       IF (Length(queries) > 0)
         INSERT CELL must := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
             FROM query.subqueries
            WHERE prohibited;
       IF (Length(queries) > 0)
         INSERT CELL must_not := queries INTO booleanquery;
       queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query)
+          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
             FROM query.subqueries
            WHERE NOT required AND NOT prohibited;
       IF (Length(queries) > 0)
@@ -618,6 +639,11 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "term"
     {
+      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
+      {
+        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+      }
+
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
@@ -634,6 +660,11 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "match"
     {
+      IF(RecordExists(indexoptions))
+      {
+        RECORD ARRAY fields := SELECT AS RECORD ARRAY LookupFieldInMapping(indexoptions.expectedmapping, field) FROM ToRecordArray(query.fields,'field');
+      }
+
       IF (Length(query.fields) = 1)
         result :=
             [ match := CellInsert(DEFAULT RECORD, query.fields[0], query.text) ];
@@ -655,6 +686,11 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "literal"
     {
+      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
+      {
+        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+      }
+
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
@@ -713,6 +749,11 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "date", "range"
     {
+      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
+      {
+        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+      }
+
       // Convert MONEYs
       VARIANT term := "", lowerterm := "", upperterm := "";
       IF (query.matchtype IN [ "<", "<=", ">=", ">" ])
@@ -752,6 +793,11 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query)
     }
     CASE "exists"
     {
+      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
+      {
+        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+      }
+
       RETURN [ exists := [ field := query.field ] ];
     }
     CASE "user"

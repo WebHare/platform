@@ -78,6 +78,8 @@ MACRO PrepareCustomCatalog()
 
 MACRO RunTheMatchQueries()
 {
+  TestThrowsLike("No such*nosuchfield*", PTR RunConsilioSearch("consilio:testfw_queries", CQMatch("nosuchfield", "=", "test2")));
+
   //CQMatch is for keyword fields (inequality comparisions make sense here), CQContains will be for text fields
   TestEq(["QC1"], ExecTestQuery(CQMatch("groupid", "=", "QC1")));
   TestEq(["QC2","QC2"], ExecTestQuery(CQMatch("groupid", "=", "QC2")));

@@ -580,7 +580,7 @@ MACRO TestESBulkInsertion()
   catalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:testindexfields"  ] ]);
   testfw->CommitWork();
 
-  //WAS: Ensure dynamic templates work. NOW: ensure the field coes not get added
+  //WAS: Ensure dynamic templates work. NOW: ensure the field does not get added
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields := [ 'group_record_field.ds_text' := 44 ]
@@ -592,6 +592,18 @@ MACRO TestESBulkInsertion()
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
+  //Check adding arrays
+  catalog->AddObjects(
+      [ [ objectid := "test2"
+        , documentfields := [ 'group_record_field.ds_text' := 45
+                            , group_int_field := 1045
+                            ]
+        ]
+      ],[ suffix := "sub1" ]);
+
+  //Test some query field validation
+  TestThrowsLike("No such*objectid*", PTR RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
+  TestThrowsLike("*ds_text*not indexed*wildcard*", PTR RunConsilioSearch(catalog->tag, CQMatch("group_record_field.ds_text", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
   // Throw some objects into a suffix. We want the index to sort it out
   RECORD ARRAY docs;
   //2*28*24 * 3 = 4032 events
@@ -690,6 +702,18 @@ MACRO TestESDeletion()
   //FIXME we should not leave the system in an inconsistent state (deleting and index that should exist due to module  definition ruels)  test with a scratch api?
 }
 
+MACRO TestObsoleteCatalog()
+{
+  testfw->BeginWork();
+  IF(NOT ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")))
+    CreateConsilioCatalog("webhare_testsuite:obsoletecatalog");
+  testfw->CommitWork();
+
+  TestEq(TRUE, ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")));
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:obsoletecatalog" ]);
+  TestEq(FALSE, ObjectExists(OpenConsilioCatalog("webhare_testsuite:obsoletecatalog")));
+}
+
 RunTestframework(
     [ PTR TestAPI
     , PTR TestUpdateIndicesMetadata
@@ -700,4 +724,5 @@ RunTestframework(
     , PTR TestESBulkInsertion
     , PTR TestESLangFeatures
     , PTR TestESDeletion
+    , PTR TestObsoleteCatalog
     ]);

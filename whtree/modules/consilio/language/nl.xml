@@ -138,7 +138,8 @@
       <text tid="definedby">Gedefinieerd door</text>
       <text tid="fieldmapping">Veldkoppelingen</text>
       <text tid="name">Naam</text>
-      <text tid="type">Type</text>
+      <text tid="type">Index type</text>
+      <text tid="valuetype">HareScript type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>

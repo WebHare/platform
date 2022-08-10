@@ -5,8 +5,10 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -19,6 +21,28 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+MACRO ObsoleteCatalogs(RECORD options)
+{
+  STRING ARRAY obsoletecatalogs;
+  FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "obsoletecatalog"))
+  {
+    STRING catalogname := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
+    INSERT ToUppercase(catalogname) INTO obsoletecatalogs AT END;
+  }
+
+  RECORD ARRAY tocleanup := SELECT id, name
+                              FROM consilio.catalogs
+                              WHERE ToUppercase(name) LIKE ToUppercase(options.catalogmask)
+                                    AND ToUppercase(name) IN obsoletecatalogs;
+;
+  IF(Length(tocleanup) > 0)
+  {
+    GetPrimary()->BeginWork();
+    DELETE FROM consilio.catalogs WHERE id IN (SELECT AS INTEGER ARRAY id FROM tocleanup);
+    GetConsilioFinishHandler()->ScheduleCleanup();
+    GetPrimary()->CommitWork();
+  }
+}
 
 RECORD ARRAY FUNCTION GetRequiredCatalogs()
 {
@@ -167,11 +191,37 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
     catalog->OpenContentSourceById(makeorphansource.id)->__MarkAsOrphan();
 }
 
+BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
+{
+  IF(NOT catalog->managed)
+    RETURN FALSE;
+
+  RECORD ARRAY indices := catalog->ListAttachedIndices();
+  IF(Length(indices) != 1 OR NOT indices[0].isbuiltin)
+    RETURN FALSE;
+
+  Print(`Reattaching blank index for catalog '${catalog->tag}'\n`);
+
+  GetPrimary()->BeginWork();
+  catalog->DetachIndex(indices[0].id);
+  catalog->AttachIndex(indices[0].indexmanager);
+  GetPrimary()->CommitWork();
+
+  TRY
+  {
+    catalog->ApplyConfiguration();
+  }
+  CATCH(OBJECT e)
+  {
+    PrintTo(2, `Failed to reconfigure recreated indices for catalog '${catalog->tag}': ${e->what}\n`);
+  }
+
+  RETURN TRUE;
+}
+
 MACRO UpdateModuleCatalogs(RECORD options)
 {
   OBJECT trans := GetPrimary();
-  IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
-    RETURN; //consilio is not initialized yet!
 
   RECORD ARRAY wantcatalogs := SELECT *
                                     , catalog := DEFAULT OBJECT
@@ -240,25 +290,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
         PrintTo(2, `Failed to reconfigure catalog '${want.tag}': ${e->what}\n`);
 
         IF(options.zapbroken)
-        {
-          IF(Length(indices) = 1 AND indices[0].isbuiltin)
-          {
-            Print(`Reattaching blank index\n`);
-            trans->BeginWork();
-            want.catalog->DetachIndex(indices[0].id);
-            want.catalog->AttachIndex(indices[0].indexmanager);
-            trans->CommitWork();
-
-            TRY
-            {
-              want.catalog->ApplyConfiguration();
-            }
-            CATCH(OBJECT e2)
-            {
-              PrintTo(2, `Failed to reconfigure recreated indices for catalog  '${want.tag}': ${e2->what}\n`);
-            }
-          }
-        }
+          AttemptZap(want.catalog);
       }
 
       IF(NOT want.catalog->suffixed)
@@ -266,7 +298,11 @@ MACRO UpdateModuleCatalogs(RECORD options)
         {
           RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, opensearch.indexname);
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
-          FOREVERY(RECORD issue FROM CompareMappings(res,exp,""))
+          RECORD ARRAY issues := CompareMappings(res,exp,"");
+          IF(options.zapanymismatch AND AttemptZap(want.catalog))
+            BREAK;
+
+          FOREVERY(RECORD issue FROM issues)
           {
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
             Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
@@ -282,11 +318,16 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       [ reportmissing := FALSE
       , catalogmask := "*"
       , zapbroken := FALSE
+      , zapanymismatch := FALSE
       ], options);
+
+  IF (NOT GetPrimary()->ColumnExists("consilio", "indexmanagers", "id"))
+    RETURN; //consilio is not initialized yet!
 
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
   TRY
   {
+    ObsoleteCatalogs(options);
     UpdateModuleCatalogs(options);
   }
   FINALLY

@@ -969,6 +969,7 @@
   <!-- NOTE: for performance and chicken/egg reasons, publisher registry is initialized by system -->
 
   <consilio>
+    <obsoletecatalog tag="whfs" />
   </consilio>
 
   <publisher>

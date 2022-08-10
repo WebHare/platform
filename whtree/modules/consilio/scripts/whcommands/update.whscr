@@ -10,7 +10,8 @@ LOADLIB "mod::system/lib/database.whlib";
 
 MACRO Main()
 {
-  RECORD ARRAY options := [ [ name := "zapbroken", type := "switch" ] //undocumented for now as i think we should more carefully compare settings before randomly ApplyingConfiguration
+  RECORD ARRAY options := [ [ name := "zapbroken", type := "switch" ]
+                          , [ name := "zapanymismatch", type := "switch" ]
                           , [ name := "catalogmask", type := "param" ]
                           ];
 
@@ -18,12 +19,15 @@ MACRO Main()
   IF(NOT RecordExists(cmdargs))
   {
     Print("Syntax: wh consilio:updatecatalogs [options] [mask]\n");
+    Print("  --zapbroken:          Zap any index to which we can't reapply configuration\n");
+    Print("  --zapanymismatch:     Zap any index with field mismatches, even if it looks usable\n");
     Print("  catalogmask:          Wildcard mask of catalogs to update\n");
     TerminateScriptWithError("");
   }
 
   FixConsilioIndices(CELL[ catalogmask := cmdargs.catalogmask ?? "*"
                          , cmdargs.zapbroken
+                         , cmdargs.zapanymismatch
                          ]);
 }
 

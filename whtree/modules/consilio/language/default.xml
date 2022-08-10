@@ -138,7 +138,8 @@
       <text tid="definedby">Defined by</text>
       <text tid="fieldmapping">Field mapping</text>
       <text tid="name">Name</text>
-      <text tid="type">Type</text>
+      <text tid="type">Index type</text>
+      <text tid="valuetype">HareScript type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
       <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>
