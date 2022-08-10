@@ -16,7 +16,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 /*
 fetcher examples
 
-wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag SOURCECODEINDEX --groupid mod::system/data/moduledefinition.xsd
+wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag consilio:whfsobjects --groupid fsobj_59880
 
 wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag "#61" --groupid mod::system/data/moduledefinition.xsd
 

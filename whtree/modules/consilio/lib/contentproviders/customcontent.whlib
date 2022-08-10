@@ -248,11 +248,9 @@ PUBLIC OBJECT FUNCTION MakeCustomContentObject(RECORD data)
 /** Content provider for custom content (database contents)
     @private For Consilio internal use only
 */
-PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
+PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
 < OBJECT job;
   INTEGER job_handle;
-  INTEGER job_outputstream;
-  STRING job_linebuffer; // Store incomplete read lines
   STRING identifier;
   RECORD initdata;
   RECORD emptysearchrecord;
@@ -391,8 +389,6 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     this->job := job;
     this->job->ipclink->autothrow := TRUE;
 
-    this->job_outputstream := job->CaptureOutput();
-
     RECORD res := job->ipclink->SendMessage(this->initdata);
     IF (res.status != "ok")
     {
@@ -446,7 +442,7 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
       INTEGER joblink := this->job->ipclink->handle;
 
       // Wait for job output
-      INTEGER ARRAY waithandles := [ INTEGER(this->job_outputstream) ];
+      INTEGER ARRAY waithandles;
       // Wait for job link signal only if is was not signalled before
       IF (NOT signalled)
         INSERT joblink INTO waithandles AT 0;
@@ -483,30 +479,6 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
         this->CloseJob();
         THROW NEW Exception("Timeout while waiting for job response");
       }
-
-      // Process normal job output as debug output
-      //this->DebugLog(ConsilioDebugAll, "Process job output");
-      STRING output := ReadLineFrom(this->job_outputstream, -4096, FALSE);
-      //this->DebugLog(ConsilioDebugAll, "Got output: '" || EncodeJava(output) || "'");
-      IF (this->job_linebuffer != "")
-      {
-        // We have a buffered incomplete line, prepend the received output with it
-        output := this->job_linebuffer || output;
-        this->job_linebuffer := "";
-      }
-      IF (output = "")
-      {
-        BREAK;
-      }
-      IF (Right(output, 1) NOT IN [ "\n", "\r" ])
-      {
-        // Did not receive a complete line, buffer the received output until a line end was read
-        this->job_linebuffer := output;
-        CONTINUE;
-      }
-
-      // Use the received line as debug output
-      this->DebugLog(ConsilioDebugInfo, "Got job output: " || output);
     }
 
     // Check if the job is still running
@@ -533,9 +505,6 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
       }
       this->job->Close();
     }
-    IF (this->job_outputstream != 0)
-      ClosePipe(this->job_outputstream);
-    this->job_outputstream := 0;
     this->job := DEFAULT OBJECT;
   }
 >;
