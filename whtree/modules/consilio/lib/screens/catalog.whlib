@@ -1476,12 +1476,23 @@ PUBLIC STATIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
   }
 >;
 
+RECORD ARRAY FUNCTION GetMappingAsTree(RECORD ARRAY mapping)
+{
+  RETURN SELECT name
+              , type
+              , definedby
+              , subnodes := GetMappingAsTree(properties)
+              , expanded := TRUE
+              , valuetype := Substitute(GetTypeName(TypeID(defaultvalue)), " ARRAY", "[]")
+           FROM mapping;
+}
+
 PUBLIC STATIC OBJECTTYPE FieldMapping EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
     RECORD ARRAY mapping := OpenConsilioCatalogById(data.catalog)->GetExpectedMapping();
-    ^fieldmapping->rows := SELECT name, type, definedby FROM mapping;
+    ^fieldmapping->rows := GetMappingAsTree(mapping);
   }
 
 >;
