@@ -884,6 +884,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , bulk := DEFAULT OBJECT
+      , debug := FALSE
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -911,6 +912,9 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
           INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
           // optional_source
           INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
+
+          IF(options.debug)
+            Print(`Prepared to add: ${EncodeJSON(bulkrequests[END-1])}\n`);
         }
 
         (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
@@ -960,6 +964,9 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
         INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid) ] ] INTO bulkrequests AT END;
         // optional_source
         INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
+
+        IF(options.debug)
+          Print(`Prepared to add: ${EncodeJSON(bulkrequests[END-1])}\n`);
       }
 
       (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);

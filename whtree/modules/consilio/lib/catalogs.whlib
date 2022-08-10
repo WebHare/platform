@@ -1002,6 +1002,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
                                 , synchronous := FALSE
+                                , debug := FALSE
                                 ], options);
     //are these still relevant? only used by legacy consilio
     // @cell objects.suggestfields
@@ -1013,7 +1014,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     objects := SELECT objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
     {
-      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, [ suffix := options.suffix, refresh := options.synchronous ]);
+      AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, CELL[ options.suffix, refresh := options.synchronous, options.debug ]);
     }
   }
 
