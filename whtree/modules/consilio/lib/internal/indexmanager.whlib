@@ -378,7 +378,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     }
 
     RECORD finalquery := [ method := "GET"
-                         , path := "/" || indexmanager.indexname || (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged ? "*" : "") || "/_search"
+                         , path := "/" || indexmanager.indexname || indexmanager.suffix || "/_search"
                          , body := searchquery
                          ];
 
@@ -1210,7 +1210,7 @@ PUBLIC STRING FUNCTION RefreshAttachedIndices(INTEGER catalogid)
 
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_refresh", DEFAULT RECORD, "GET");
+    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || indexmanager.suffix, "/_refresh", DEFAULT RECORD, "GET");
     IF (response.status != SearchOk)
       result := response.status;
   }
@@ -1249,7 +1249,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
     {
       // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), DEFAULT RECORD, [ expectstatus := [200,404] ]);
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), DEFAULT RECORD, [ expectstatus := [200,404] ]);
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }
@@ -1312,7 +1312,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER index
     IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
     {
       // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendToElasticsearch(indexmanager.id, indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
+      RECORD response := SendToElasticsearch(indexmanager.id, indexname || (options.suffix != "" ? "-" || options.suffix : indexmanager.suffix), "", DEFAULT RECORD, "DELETE");
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }
@@ -1354,6 +1354,7 @@ RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAUL
            , indextype := catalogs.type
            , indexid := catalogs.id
            , primary := catalog_indexmanagers.searchpriority > 0 //we should obsolete this but probably the entire GetIndexManagers API
+           , catalogs.suffix
         FROM consilio.indexmanagers
            , consilio.catalog_indexmanagers
            , consilio.catalogs
@@ -1389,6 +1390,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
            , catalogs.lang
            , indextype := catalogs.type
            , primary := catalog_indexmanagers.searchpriority > 0 //we should obsolete this but probably the entire GetIndexManagers API
+           , catalogs.suffix
         FROM consilio.catalogs
            , consilio.catalog_indexmanagers
            , consilio.indexmanagers

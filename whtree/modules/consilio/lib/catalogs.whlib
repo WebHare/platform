@@ -1051,7 +1051,9 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
     IF(suffix != "" AND NOT this->suffixed)
-      THROW NEW Exception(`Cannot DeleteSuffix on a non-suffixed catalog`);
+      THROW NEW Exception(`Cannot DeleteSuffix on a non-suffixed catalog unless specifying an empty suffix`);
+    IF(suffix = "" AND this->suffixed)
+      THROW NEW Exception(`A suffixed catalog requires you to specify a suffix`);
 
     //FIXME multiindex support.
     RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ suffix ]);

@@ -296,7 +296,9 @@ MACRO TestESCreationAPIs()
   catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);  //calling twice should be okay, it's "Ensure" not "Create"
 
   // Delete it again from the index manager
-  catalog->DeleteSuffix("");
+  TestThrowsLike("*suffix*", PTR catalog->DeleteSuffix(""));
+  catalog->DeleteSuffix("suffix");
+  catalog->DeleteSuffix("suffix2");
   TestEq(RECORD[], catalog->ListSuffixes());
 
   // Create two subindices
