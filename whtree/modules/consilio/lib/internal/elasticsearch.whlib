@@ -695,12 +695,6 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
         term := __HS_GetRawMoney(term);
-
-      IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
-      {
-        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
-      }
-
       // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
       result :=
           [ bool :=

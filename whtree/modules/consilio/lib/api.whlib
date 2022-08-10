@@ -25,7 +25,7 @@ MACRO ValidateFieldName(STRING field)
 {
   IF (field = "")
     THROW NEW Exception("Field name is required");
-  IF (field LIKE "*@*") //block @ fields, or at least until transition is complete
+  IF (field LIKE "?*@*") //block @ fields, or at least until transition is complete
     THROW NEW Exception(`Field name '${field}' is illegal, use mod_<modname>.<field>...`);
 }
 
