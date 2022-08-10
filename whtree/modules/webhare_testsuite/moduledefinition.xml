@@ -357,6 +357,10 @@
       <ipaddress name="ip_field" />
       <latlng name="latlng_field" />
       <addfieldgroup ref="testgroup" />
+      <record name="documents"> <!-- some modules will store record *arrays* into a field like this -->
+        <text name="title" />
+        <keyword name="slug" />
+      </record>
     </fieldgroup>
 
     <fieldgroup tag="conflicttest_blue">

@@ -296,7 +296,9 @@ MACRO TestESCreationAPIs()
   catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);  //calling twice should be okay, it's "Ensure" not "Create"
 
   // Delete it again from the index manager
-  catalog->DeleteSuffix("");
+  TestThrowsLike("*suffix*", PTR catalog->DeleteSuffix(""));
+  catalog->DeleteSuffix("suffix");
+  catalog->DeleteSuffix("suffix2");
   TestEq(RECORD[], catalog->ListSuffixes());
 
   // Create two subindices
@@ -595,15 +597,27 @@ MACRO TestESBulkInsertion()
   //Check adding arrays
   catalog->AddObjects(
       [ [ objectid := "test2"
-        , documentfields := [ 'group_record_field.ds_text' := 45
+        , documentfields := [ group_record_field := [ ds_text := 45, db_conspiracy := TRUE ]
                             , group_int_field := 1045
+                            , documents := [ [ title := "XY en Z", slug := "slug1" ]
+                                           , [ title := "XY en B", slug := "slug2" ]
+                                           ]
                             ]
         ]
-      ],[ suffix := "sub1" ]);
+      ],[ suffix := "sub1", synchronous := TRUE ]);
 
   //Test some query field validation
   TestThrowsLike("No such*objectid*", PTR RunConsilioSearch(catalog->tag, CQMatch("objectid", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
   TestThrowsLike("*ds_text*not indexed*wildcard*", PTR RunConsilioSearch(catalog->tag, CQMatch("group_record_field.ds_text", "=", "test2")), "an unmanaged doesn't record objectid unless explicitly created as field");
+
+  res := RunConsilioSearch(catalog->tag, CQMatch("group_int_field", '=', 1045));
+  TestEq([ ds_text := "45", db_conspiracy := TRUE, group_record_text_field := "", when := default datetime, "where" := "" ], res.results[0].group_record_field, "Should not leak through ds_* fields");
+
+  res := RunConsilioSearch(catalog->tag, CQMatch("group_int_field", '=', 1045), [ mapping := [ documents := RECORD[[ title := "", slug := "" ] ]]]);
+  TestEq([ [ title := "XY en Z", slug := "slug1" ]
+         , [ title := "XY en B", slug := "slug2" ]
+         ], res.results[0].documents, "Properly retrieve objects stored as an array");
+
   // Throw some objects into a suffix. We want the index to sort it out
   RECORD ARRAY docs;
   //2*28*24 * 3 = 4032 events
