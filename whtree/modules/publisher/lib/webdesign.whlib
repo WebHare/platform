@@ -188,6 +188,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING maxcontentwidth;
   ///The page canonical URL (eg, it's unique reference in a search engine). This is automatically set to file->url by static pages
   PUBLIC STRING canonicalurl;
+  ///Additional consilio fields to index with frontend content
+  PUBLIC RECORD consiliofields;
   ///File seo settings.
   PUBLIC PROPERTY seosettings(_seosettings, -);
   ///HTML classes
@@ -1185,6 +1187,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       designroot := data.designcdnroot;
 
     this->pvt_dependencyresolverv2->PrintBodyFinale(this, designroot, this->assetcachebuster, this->lazyloadcss);
+
+    IF(RecordExists(this->consiliofields))
+    {
+      //NOTE: we do not consider this format 'stable', format may change or maybe we try to store it outside the HTML itself
+      Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
+    }
 
     IF (IsRequest())
     {

@@ -33,6 +33,26 @@ MACRO TestParserHtml()
       </body>
     </html>`),TRUE);
   TestEq("aap noot mies", parsed.text);
+
+  // consilio fields (legacy and new)
+  parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
+    <html>
+      <head>
+        <meta name="consilio-firstfield" content="first" />
+        <meta name="consilio-firstfield" content="keepme" />
+        <meta name="consilio-pagekeywords" content="overwriteme" />
+      </head>
+      <body>
+        <ul>
+          <li>aap</li><li>noot</li><li>mies</li>
+        </ul>
+        <script type="application/x-hson" id="wh-consiliofields">hson:{"pagekeywords":sa["by-name testfile6.rtd","<\\/script>","by-id 60039"]}</script>
+      </body>
+    </html>`),TRUE);
+  TestEq("aap noot mies", parsed.text);
+  TestEq([[ name := "firstfield", value := "keepme" ]
+         ,[ name := "pagekeywords", value := ["by-name testfile6.rtd","</script>","by-id 60039"]]
+         ], parsed.extrafields);
 }
 
 RunTestframework([ PTR TestParserHtml

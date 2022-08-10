@@ -450,6 +450,7 @@
 
     <fieldgroup tag="extrafield">
       <text name="extrafield" />
+      <keyword name="pagekeywords" />
     </fieldgroup>
 
     <addtowhfsindex privatefolder="addtowhfsindex/aftersites" priority="aftersites" />

@@ -36,6 +36,17 @@ final URL (`fs_objects.link`) as their `objectid`. Their `objecturl` is always
 set to the URL of their parent folder (as that is the only guaranteed common ancestor
 if an object is split into multiple pages)
 
+To index extra fields along with your content, assign these to the webdesign `consiliofields property`, eg:
+
+```harescript
+  this->consiliofields := CELL[ ...this->consiliofields
+                              , thumbnail := GetCachedImageLink(…)
+                              , tags := [ "tag1", "tag2" ]
+                              ];
+```
+
+Make sure that any fields used here are defined in your catalog's field mapping.
+
 ## ongetsources
 
 For more complex scenarios you can define a function that will return the content

@@ -22,7 +22,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 //stuff shared between site:: and mod:: based designs
-PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
+PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
 <
   MACRO NEW()
   {
@@ -43,6 +43,13 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
     IF(this->targetobject->typens = "http://www.webhare.net/xmlns/publisher/formwebtool")
     {
       INSERT CELL rpcformtarget := OpenWebtoolForm(this->targetobject->id)->GetFormTarget() INTO this->htmldata;
+    }
+
+    IF(this->targetobject->name = "testfile6.rtd")
+    {
+      this->consiliofields := CELL[ ...this->consiliofields
+                                  , pagekeywords := [ "by-name " || this->targetobject->name, "</script>", "by-id " || this->targetobject->id ]
+                                  ];
     }
   }
 

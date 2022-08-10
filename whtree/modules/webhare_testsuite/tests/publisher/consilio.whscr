@@ -241,6 +241,9 @@ MACRO ConsilioTest()
     Sleep(50);
   Print(`.. consilio:testfw_frontend_1 has indexed file_5\n`);
 
+  //Test consiliofields
+  TestEq(ToString(file_6->id), RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("pagekeywords", "=", "by-name testfile6.rtd")).results[0].groupid);
+
   search_1_obj->empty_result_record := [ extrafield := "" ];
   results := search_1_obj->SearchQuery(CQMatch("extrafield", "CONTAINS", "testextra5"), 0, 10);
   TestEq(
