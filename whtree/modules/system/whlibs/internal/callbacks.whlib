@@ -462,7 +462,7 @@ MACRO DoBroadcastEvent(STRING event, RECORD msg, BOOLEAN islocal)
     THROW NEW Exception("Attempting to broadcast event '" || event || "' while handling an event of that type");
 
   IF(IsDebugTagEnabled("evt"))
-    LogDebug(islocal ? "system:broadcastlocalevent" : "system:broadcastevent", event, msg);
+    LogDebug(islocal ? "system:broadcastlocalevent" : "system:broadcastevent", event, msg, GetStackTrace());
 
   INSERT CELL __recordexists := RecordExists(msg)
             , __sourcegroup := __HS_GetCurrentGroupID()
