@@ -257,7 +257,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
     @cell(boolean) useroptions.highlightfields Highlight matched search terms in these fields
     @cell(string) useroptions.lang The language used for searching (used for various language-specific features)
     @cell(string) useroptions.restrict_to Restrict results to URLs starting with restrict_to
-    @cell(record) useroptions.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
+    @cell(record) useroptions.mapping The search result field mapping to use
     @return Search results
     @cell(string) return.status Return status (eg SearchOk)
     @cell(integer) return.totalcount Number of returned results
