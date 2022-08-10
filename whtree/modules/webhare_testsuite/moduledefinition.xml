@@ -307,6 +307,9 @@
       <arrayfield name="date_otherfield" member="otherfield" />
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
     </indexfield>
+    <indexfield name="purearray" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
+      <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
+    </indexfield>
 
     <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" xmlschema="tests/publisher/forms/data/testformcomponents.xsd"/>
 

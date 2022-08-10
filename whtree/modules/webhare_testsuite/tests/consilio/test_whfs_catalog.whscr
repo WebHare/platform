@@ -69,8 +69,15 @@ MACRO TestIndexFields()
                                                            , date_otherfield := DEFAULT DATETIME
                                                            , libraryfield := "array_" || testfile->id  || "_0"
                                                            ]
+                                           , purearray :=  [ libraryfield := "array_" || testfile->id  || "_0"
+                                                           ]
                                            ]
                 ], GetParsedIndexFields(testfile, 0), '*', "Without a set array, we should still see *one* result");
+  TestEqMembers([ mod_webhare_testsuite := [ contenttypefield := testfile->id
+                                           , purearray :=  [ libraryfield := "array_" || testfile->id  || "_1"
+                                                           ]
+                                           ]
+                ], GetParsedIndexFields(testfile, 1), '*', "And arrays that only contain funtions, have no problems generating nonexisting arrays ");
 
   publishersearchtesttype->SetInstanceData(testfile->id,
       [ testfield := testfile->id
@@ -118,6 +125,7 @@ MACRO TestIndexFields()
                          , date_otherfield := DEFAULT DATETIME
                          , libraryfield := "array_" || testfile->id  || "_0"
                          ]
+         , purearray := [ libraryfield := "array_" || testfile->id  || "_0" ]
          ], GetParsedIndexFields(testfile, 0).mod_webhare_testsuite);
 
   testfw->RollbackWork(); //only exists to test our APIs
