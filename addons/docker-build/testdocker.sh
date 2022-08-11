@@ -556,9 +556,13 @@ if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartd
   FATALERROR=1
 fi
 
-echo "$(date) container1 poststartdone, look for errors"
-if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-  testfail "Error logs not clean!"
+if version_gte "$version" 5.00; then
+  echo "$(date) container1 poststartdone, look for errors"
+  if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+    testfail "Error logs not clean!"
+  fi
+else
+  echo "$(date) container1 poststartdone"
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
@@ -568,9 +572,13 @@ if [ -n "$TESTFW_TWOHARES" ]; then
     FATALERROR=1
   fi
 
-  echo "$(date) container2 poststartdone, look for errors"
-  if ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-    testfail "Error logs not clean!"
+  if version_gte "$version" 5.00; then
+    echo "$(date) container2 poststartdone, look for errors"
+    if version_gte "$version" 5.00 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+      testfail "Error logs not clean!"
+    fi
+  else
+    echo "$(date) container2 poststartdone"
   fi
 fi
 
