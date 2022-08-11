@@ -911,22 +911,19 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
     RECORD response;
     IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
     {
-      FOREVERY (RECORD objgroup FROM SELECT objs := GroupedValues(objects) FROM objects)
+      RECORD ARRAY bulkrequests;
+      FOREVERY (RECORD obj FROM objects)
       {
-        RECORD ARRAY bulkrequests;
-        FOREVERY (RECORD obj FROM objgroup.objs)
-        {
-          // action_and_meta_data
-          INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
-          // optional_source
-          INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
+        // action_and_meta_data
+        INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
+        // optional_source
+        INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
 
-          IF(options.debug)
-            Print(`Prepared to add: ${EncodeJSON(bulkrequests[END-1])}\n`);
-        }
-
-        (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
+        IF(options.debug)
+          Print(`Prepared to add: ${EncodeJSON(bulkrequests[END-1])}\n`);
       }
+
+      (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
     }
     ELSE
     {
