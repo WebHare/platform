@@ -1141,6 +1141,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
   PUBLIC MACRO __DoCreateAttributes(RECORD ARRAY attributes)
   {
+    // Convert domaintag to the correct id
+    INTEGER ARRAY newids := MakeAutonumbers(wrd.attrs, "id", LENGTH(attributes));
+
     FOREVERY (RECORD attr FROM attributes)
     {
       attr := ValidateOptions(
@@ -1222,8 +1225,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF (RecordExists(SELECT FROM wrd.attrs WHERE type = this->typerec.id AND parent = parentattrid AND Touppercase(attrs.tag) = ToUppercase(mytag)))
         THROW NEW Exception(`An attribute with tag '${attr.tag}' already exists in type '${this->tag}'`);
 
-      // Convert domaintag to the correct id
-      INTEGER newid := MakeAutonumber(wrd.attrs,"id");
+      INTEGER newid := newids[#attr];
 
       INSERT INTO wrd.attrs(id, domain, attributetype, type, title, description, tag, parent)
             VALUES(newid, attr.domain, attributetypeid, this->id, attr.title, attr.description, mytag, parentattrid);
