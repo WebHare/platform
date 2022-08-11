@@ -959,8 +959,16 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
   IF(Length(mgrs)=0)
     RETURN DEFAULT RECORD;
 
-  RECORD options := [ addscore := TRUE, count := maxresults ];
-  RETURN SearchIndexManager(catalogid, query ?? CQAll(), options, __GetIndexManagerOptions(catalogid));
+  RECORD idxoptions := __GetIndexManagerOptions(catalogid);
+  RECORD options := [ addscore := TRUE
+                    , count := maxresults
+                    , mapping := CELL[ ...idxoptions.defaultmapping
+                                     , _indexdate := DEFAULT DATETIME
+                                     , _indexed := DEFAULT DATETIME
+                                     , _contentsource := 0
+                                     ]
+                    ];
+  RETURN SearchIndexManager(catalogid, query ?? CQAll(), options, idxoptions);
 }
 
 PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
@@ -1111,15 +1119,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
       STRING fieldhint;
       FUNCTION PTR fieldlink;
 
-      IF (fieldname = "INDEXID")
-      {
-        IF (fieldvalue = "-1")
-        {
-          this->^indexid->visible := FALSE;
-          CONTINUE;
-        }
-      }
-      ELSE IF (fieldname = "SUMMARY")
+      IF (fieldname = "SUMMARY")
       {
         IF (fieldvalue = "")
           CONTINUE;

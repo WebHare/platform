@@ -99,6 +99,8 @@ MACRO TestAnonymize()
   AnonymizeWRDSchema(schemaobj);
   TestEq(FALSE, schemaobj->^wrd_person->GetEntityField(sysopid,"WRD_FIRSTNAME") = "Sysop");
   TestEq(FALSE, schemaobj->^wrd_person->GetEntityField(sysopid,"wrd_contact_email") = "sysop@beta.webhare.net");
+  TestEq(TRUE, CellExists(schemaobj->^wrd_person->GetEntityField(sysopid,"TEST_ADDRESS"),'zip'));
+  TestEq(FALSE, CellExists(schemaobj->^wrd_person->GetEntityField(sysopid,"TEST_ADDRESS"),'zipcode'));
   testfw->RollbackWork();
 }
 

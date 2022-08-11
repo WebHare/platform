@@ -307,9 +307,9 @@ RECORD FUNCTION GenerateRandomNameFields(INTEGER entityid, INTEGER seed, RECORD 
       , nr_detail :=  ToString(1 + From64(((finalnr + 12739) * 23813) % 499))
       , country :=    "nl"
       , city :=       cityname
-      , zipcode :=    1000 + From64(((finalnr + 19237) * 22709) % 8999)
-                        || ByteToString(65 + From64(((finalnr + 619) * 4079) % 26))
-                        || ByteToString(65 + From64(((finalnr + 1709) * 9103) % 26))
+      , zip :=        1000 + From64(((finalnr + 19237) * 22709) % 8999)
+                      || ByteToString(65 + From64(((finalnr + 619) * 4079) % 26))
+                      || ByteToString(65 + From64(((finalnr + 1709) * 9103) % 26))
       ];
 
   STRING email := LENGTH(base_email) = 2 ? base_email[0] || "+" || entityid || "-" || seed || "@" || base_email[1] : "";
