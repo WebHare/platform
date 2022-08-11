@@ -156,16 +156,6 @@ PUBLIC RECORD ARRAY FUNCTION GetContentSourcesByTag(STRING contentsourcetag)
           WHERE ToUppercase(tag) = ToUppercase(contentsourcetag);
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetIndexThesaurus(INTEGER indexid)
-{
-  RETURN
-      SELECT word
-           , wordgroup
-        FROM consilio.thesaurus
-       WHERE COLUMN catalogid = VAR indexid;
-
-}
-
 PUBLIC STRING FUNCTION GenerateConsilioIndexName()
 {
   RETURN "c_" || ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));

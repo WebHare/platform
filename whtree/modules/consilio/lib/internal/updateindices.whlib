@@ -248,6 +248,10 @@ MACRO UpdateModuleCatalogs(RECORD options)
       CONTINUE;
     }
 
+    //Setup contentsources first so UpdateCatalog can immediately apply the proper mapping
+    IF(want.managed)
+      UpdateManagedCatalog(catalog, want, options);
+
     TRY
     {
       //UpdateCatalog will not do unneeded changes but *will* reverify and update the mapping based on fieldgroups and contentsources.
@@ -259,9 +263,6 @@ MACRO UpdateModuleCatalogs(RECORD options)
       PrintTo(2, `Failed to update catalog '${want.tag}': ${e->what}\n`);
       CONTINUE;
     }
-
-    IF(want.managed)
-      UpdateManagedCatalog(catalog, want, options);
   }
   trans->CommitWork();
 
