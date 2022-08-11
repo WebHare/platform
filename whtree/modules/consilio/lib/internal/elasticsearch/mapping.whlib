@@ -427,7 +427,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
       }
       ELSE IF (row.type = "text")
       {
-        STRING expectindexoptions := CellExists(row, "settings") AND CellExists(row.settings, "index_options") ? row.settings.index_options : "";
+        STRING expectindexoptions := CellExists(row, "settings") AND CellExists(row.settings, "index_options") ? row.settings.index_options : "offsets";
         STRING currentindexoptions := CellExists(match.value, "index_options") ? match.value.index_options : "";
         IF (expectindexoptions != currentindexoptions)
           INSERT CELL [ field, row.definedby, issue := "parammismatch", message := `Expected param 'index_options' with value '${expectindexoptions}' but got '${currentindexoptions}'`] INTO mismatches AT END;
