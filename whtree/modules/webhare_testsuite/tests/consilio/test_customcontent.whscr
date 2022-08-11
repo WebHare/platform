@@ -10,7 +10,7 @@ LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/editorsupport.whlib";
+LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
@@ -477,7 +477,7 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   RECORD ARRAY relevanterrors;
-  relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
+  relevanterrors := SELECT * FROM GetNoticeErrors([fromend := TRUE]) WHERE channel='ERROR' AND when >= starttest;
   relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
   TestEq("Exception: THROWN", relevanterrors[0].data.errors[0].message);
@@ -497,7 +497,7 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  relevanterrors := SELECT * FROM GetLastNoticeErrors() WHERE channel='ERROR' AND when >= starttest;
+  relevanterrors := SELECT * FROM GetNoticeErrors([fromend := TRUE]) WHERE channel='ERROR' AND when >= starttest;
   relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].data.errors[0].message);

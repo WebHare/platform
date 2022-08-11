@@ -417,7 +417,7 @@ OBJECTTYPE __AsyncLogReader
 
   MACRO NEW(RECORD data)
   {
-    RECORD rec := CreateJob("wh::internal/logreaderjob.whlib");
+    RECORD rec := CreateJob("mod::system/lib/internal/logging/logreaderjob.whlib");
     IF (NOT ObjectExists(rec.job))
       THROW NEW Exception(AnyToString(rec, "tree"));
     this->job := rec.job;

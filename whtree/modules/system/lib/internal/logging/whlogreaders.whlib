@@ -1,0 +1,200 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "relative::noticelog.whlib";
+
+OBJECTTYPE LogReaderBase
+<
+  STRING fullline;
+
+  MACRO NEW()
+  {
+
+  }
+
+  PUBLIC MACRO AddData(STRING inline)
+  {
+    this->fullline := this->fullline || inline;
+  }
+
+  //Raw RPC line reader
+  PUBLIC RECORD FUNCTION ReadLine()
+  {
+    INTEGER lfpos := SearchSubstring(this->fullline, '\n');
+    IF(lfpos = -1)
+      RETURN DEFAULT RECORD;
+
+    STRING line := Left(this->fullline, lfpos);
+    this->fullline := Substring(this->fullline, lfpos+1);
+
+    IF(Right(line,1)="\r")
+      line := Left(line, Length(line)-1);
+
+    RETURN this->ProcessLine(line);
+  }
+
+  RECORD FUNCTION ProcessLine(STRING line)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECTTYPE RPCLogReader EXTEND LogReaderBase
+< UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF ((Length(linetoks) != 6 OR Left(linetoks[3],1) NOT IN [ "<", ">"])
+        AND (Length(linetoks) != 7 OR Left(linetoks[4],1) NOT IN [ "<", ">"]))
+      RETURN DEFAULT RECORD;
+
+    // Add missing session id
+    IF (Left(linetoks[3],1) IN ["<",">"])
+      INSERT "" INTO linetoks AT 2;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+
+    RECORD retval := [ raw           := line
+                     , when          := MakeDateFromText(whentext)
+                     , source        := source
+                     , srhid         := linetoks[1] != "-" ? linetoks[1] : ""
+                     , externalsource:= linetoks[2] != "-" ? linetoks[2] : ""
+                     , sourcetracker := linetoks[3]
+                     , incoming      := Left(linetoks[4],1) = "<"
+                     , transport     := Substring(linetoks[4],1)
+                     , transactionid := linetoks[5]
+                     , rawdata       := DecodeHSON(linetoks[6])
+                     ];
+    RETURN retval;
+  }
+>;
+
+PUBLIC OBJECTTYPE DebugLogReader EXTEND LogReaderBase
+<
+  VARIANT FUNCTION DecodeHSONParam(STRING param)
+  {
+    TRY
+    {
+      IF (param = "-")
+        RETURN "(omitted)";
+      IF (param NOT LIKE "hson:*")
+        RETURN param;
+      RETURN DecodeHSON(param);
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN "HSON decode error: " || e->what;
+    }
+  }
+
+
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF (Length(linetoks) < 4)
+      RETURN DEFAULT RECORD;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+    BOOLEAN hasmessage := linetoks[3] NOT LIKE "hson:*";
+    RECORD retval := [ raw :=             line
+                     , when :=            MakeDateFromText(whentext)
+                     , source :=          source
+                     , srhid :=           linetoks[1]
+                     , externalsource :=  linetoks[2]
+                     , message :=         hasmessage ? DecodeJava(linetoks[3]) : ""
+                     , params :=          SELECT AS VARIANT ARRAY this->DecodeHSONParam(part) FROM ToRecordArray(ArraySlice(linetoks, hasmessage ? 4 : 3), "PART")
+                     ];
+    RETURN retval;
+  }
+>;
+
+PUBLIC OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
+<
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    RECORD parsedline := ParseNoticeLogLine(line);
+    IF(NOT RecordExists(parsedline))
+      RETURN DEFAULT RECORD;
+
+    //translate. we should probably align the record structure of both readers
+    RETURN CELL[ raw :=             parsedline
+               , parsedline.when
+               , parsedline.source
+               , code :=            parsedline.channel
+               , parsedline.srhid
+               , parsedline.externalsource
+               , type :=            parsedline.message
+               , message :=         parsedline.data
+               ];
+  }
+>;
+
+PUBLIC OBJECTTYPE AuditLogReader EXTEND LogReaderBase
+<
+  VARIANT FUNCTION DecodeHSONParam(STRING param)
+  {
+    TRY
+    {
+      IF (param = "-")
+        RETURN "(omitted)";
+      IF (param NOT LIKE "hson:*")
+        RETURN param;
+      RETURN DecodeHSON(param);
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN "HSON decode error: " || e->what;
+    }
+  }
+
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF (Length(linetoks) < 4)
+      RETURN DEFAULT RECORD;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+    RECORD retval;
+    IF (LENGTH(linetoks) = 4)
+    {
+      retval :=
+          [ v :=              2
+          , raw :=            line
+          , when :=           MakeDateFromText(whentext)
+          , source :=         source
+          , srhid :=          linetoks[1]
+          , login :=          ""
+          , auth :=           ""
+          , auditcontext :=   this->DecodeHSONParam(linetoks[2])
+          , message :=        this->DecodeHSONParam(linetoks[3])
+          ];
+    }
+    ELSE
+    {
+      retval :=
+          [ v :=              1
+          , raw :=            line
+          , when :=           MakeDateFromText(whentext)
+          , source :=         source
+          , srhid :=          linetoks[1]
+          , login :=          linetoks[2]
+          , auth :=           linetoks[3]
+          , auditcontext :=   DEFAULT RECORD
+          , message :=        this->DecodeHSONParam(linetoks[4])
+          ];
+    }
+    RETURN retval;
+  }
+>;

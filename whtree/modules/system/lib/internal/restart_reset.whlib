@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
-LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/dbase/bootstrap.whlib";

@@ -1,0 +1,30 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+/* wh run mod::system/scripts/debug/checknoerrors.whscr
+*/
+
+RECORD ARRAY errors := GetNoticeErrors([count := 999  ]);
+
+IF(Length(errors) > 0)
+{
+  SetConsoleExitCode(1);
+  FOREVERY(RECORD err FROM errors)
+  {
+    //buildlogs filter out empty lines somewhere... so prefixing every error also makes it easier to see where the next one starts
+    Print(`*** There are errors in the notice log. ${#err+1}/${Length(errors)}\n`);
+    IF(err.message = "harescript-error")
+    {
+      FOREVERY(RECORD error FROM err.data.errors)
+        Print(`${error.filename}:${error.line}:${error.col}: ${error.message}\n`);
+      Print(FormatHarescriptStackTrace(err.data.trace));
+    }
+    ELSE
+    {
+      dumpvalue(err,'tree');
+    }
+    Print("\n");
+  }
+}
