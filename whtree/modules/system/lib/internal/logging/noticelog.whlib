@@ -1,0 +1,266 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+// Merge two urls together, and fix the '/'s at the merge point. No further checks
+STRING FUNCTION MergeURL(STRING url, STRING append)
+{
+  IF (url NOT LIKE "*/")
+    url := url || "/";
+  IF (append LIKE "/*")
+    append := SubString(append, 1);
+  RETURN url || append;
+}
+
+PUBLIC RECORD FUNCTION ParseNoticeLogLine(STRING line)
+{
+  STRING ARRAY linetoks := Tokenize(line,"\t");
+  IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+    RETURN DEFAULT RECORD;
+  IF (Length(linetoks) < 5)
+    RETURN DEFAULT RECORD;
+
+  STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+  STRING source := Substring(linetoks[0], Length(whentext)+3);
+  STRING encodeddata_raw := Length(linetoks) > 5 ? linetoks[5] : "";
+
+  RETURN
+      [ when :=            MakeDateFromText(whentext)
+      , source :=          source
+      , channel :=         linetoks[1]
+      , srhid :=           linetoks[2]
+      , externalsource :=  DecodeJava(linetoks[3])
+      , message :=         DecodeJava(linetoks[4])
+      , encodeddata_raw := encodeddata_raw
+      , data :=            encodeddata_raw IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
+      ];
+}
+
+/** Get a list of errors from today's error log
+    @cell(integer) options.count Number of errors to get
+    @return List of notice errors
+    @cell(datetime) return.when Error date
+    @cell(string) return.source Error source
+    @cell(string) return.channel Error channel
+    @cell(string) return.srhid VM group ID
+    @cell(string) return.externalsource External source
+    @cell(string) return.message Message
+    @cell(string) return.encodeddata_raw Encoded error data
+    @cell return.data Decoded error data
+*/
+PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  __SYSTEM_FLUSHREMOTELOG("system:notice");
+
+  INTEGER count := CellExists(options, "COUNT") ? options.count : 16;
+  STRING logfile := MergeURL(__SYSTEM_WHCOREPARAMETERS().logroot, "notice." || FormatDateTime("%Y%m%d", GetCurrentDateTime()) || ".log");
+
+  BLOB logdata := GetDiskResource(logfile, [ allowmissing := TRUE ]);
+  INTEGER64 len := LENGTH64(logdata);
+
+  INTEGER64 ofs := len;
+  RECORD ARRAY allerrors;
+  INTEGER errorcount;
+
+  STRING firstlinepart;
+
+  WHILE (LENGTH(allerrors) < count AND ofs > 0)
+  {
+    INTEGER64 lastofs := ofs;
+    ofs := ofs - 65536;
+    IF (ofs < 0)
+      ofs := 0;
+    STRING data := BlobToString(MakeSlicedBlob(logdata, ofs, lastofs - ofs)) || firstlinepart;
+
+    STRING ARRAY lines := Tokenize(data, "\n");
+    IF (ofs > 0)
+    {
+      firstlinepart := lines[0];
+      DELETE FROM lines AT 0;
+    }
+    ELSE
+      firstlinepart := "";
+
+    RECORD ARRAY parterrors;
+
+    FOREVERY (STRING line FROM lines)
+    {
+      RECORD linedata := ParseNoticeLogLine(line);
+      IF (RecordExists(linedata) AND linedata.message IN [ "harescript-error", "javascript-error" ])
+        INSERT linedata INTO parterrors AT END;
+    }
+
+    allerrors := parterrors CONCAT allerrors;
+  }
+
+  IF (LENGTH(allerrors) > count)
+    allerrors := ArraySlice(allerrors, LENGTH(allerrors) - count);
+
+  RETURN allerrors;
+}
+
+PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
+{
+  STRING errormsg := javascriptmsg.error;
+  STRING browser := TypeID(javascriptmsg.browser) = TypeID(STRING)
+      ? javascriptmsg.browser
+      : javascriptmsg.browser.name;
+  STRING testscript := CellExists(javascriptmsg, "TESTSCRIPT") ? javascriptmsg.testscript : "";
+
+  // decode browser triplet
+  IF (browser LIKE "*-*-*")
+    browser := Tokenize(browser, "-")[1];
+
+  STRING msg;
+  OBJECT test;
+  IF (browser = "chrome" OR browser = "nodejs")
+    test := NEW Regex("^ *at (.*) \\((.*):(\\d*):(\\d*)\\)");
+  ELSE IF (browser = "firefox")
+    test := NEW Regex("^ *(.*)@(.*):(\\d*):(\\d*)\n");
+  ELSE IF (browser = "safari")
+    test := NEW Regex("^ *(.*)@(.*):(\\d*):(\\d*)\n");
+  ELSE IF (browser = "ie")
+    test := NEW Regex("^ *at (.*) \\((.*):(\\d*):(\\d*)\\)");
+  ELSE
+    RETURN DEFAULT RECORD;
+
+  test->global := TRUE;
+
+  STRING error := Tokenize(errormsg, "\n")[0];
+  INTEGER cnt;
+  BOOLEAN isfirst := TRUE;
+  RECORD ARRAY trace, errors;
+  WHILE (TRUE)
+  {
+    RECORD ARRAY match := test->Exec(errormsg);
+    IF (NOT RecordExists(match))
+      BREAK;
+
+    IF (isfirst)
+    {
+      error := TrimWhitespace(Left(errormsg, SearchSubString(errormsg, match[0].value)));
+      msg := msg || match[0].value || "\n";
+    }
+
+    isfirst := FALSE;
+
+    // Ignore mootools & test framework & test functions
+    IF (match[2].value LIKE "*/jstests/jstests.js*"
+        OR match[2].value LIKE "*/jstests/rte/jstests-rte.js*"
+        OR match[2].value LIKE "*/mootools/core/core.js*"
+        OR match[2].value LIKE "*/mootools/core/core-debug.js*"
+        OR match[2].value LIKE "*/jstests/testsuite.js*"
+        OR match[2].value LIKE "*/dompack/testframework/*")
+    {
+      // Chrome:
+      IF (match[1].value IN
+          [ "wrapper.extend.$owner", "Class.startNextStepNow", "Class.executeTestStep"
+          , "null.<anonymous>", "testDeepEq", "window.testEq", "window.testEqHTML", "window.testEqHTMLEx"
+          , "window.testEqSelHTMLEx2", "window.testEqSelHTMLEx"
+          ])
+        CONTINUE;
+
+      // Safari:
+      IF (match[1].value IN
+          [ "wrapper.extend.$owner", "Class.startNextStepNow", "executeStepTestFunction"
+          , "null.<anonymous>", "testDeepEq", "testEq", "testEqHTML", "testEqHTMLEx"
+          , "testEqSelHTMLEx2", "testEqSelHTMLEx"
+          ])
+        CONTINUE;
+
+      // Firefox:
+      IF (match[1].value IN
+          [ "TestFramework<.startNextStepNow", "TestFramework<.executeTestStep", "TestFramework<.startNextStepNow"
+          , "TestFramework<.doWaitForTollium/<"
+          ,  "wrap/wrapper<", ".pass/<"
+          ])
+        CONTINUE;
+    }
+
+    IF (match[2].value LIKE "*/.system/jstests/!/*.js")
+      match[2].value := testscript;
+
+    WHILE (LENGTH(match) <= 4)
+      INSERT [ value := 1 ] INTO match AT END;
+
+    msg := msg || "At " || match[2].value || " (" || match[3].value || "," || (match[4].value ?? "1") || "): "||match[1].value||"\n";
+    cnt := cnt + 1;
+
+    STRING filename := match[2].value;
+    filename := Substitute(filename, "~", "node_module");
+
+    IF (filename LIKE "file://*")
+      filename := Substring(filename, 7);
+
+    IF (error != "")
+    {
+      INSERT
+          [ filename :=   filename
+          , line :=       ToInteger(match[3].value, 1)
+          , col :=        ToInteger(match[4].value, 1)
+          , message :=    error
+          ] INTO errors AT END;
+      error := "";
+    }
+    ELSE
+    {
+      INSERT
+          [ filename :=   filename
+          , line :=       ToInteger(match[3].value, 1)
+          , col :=        ToInteger(match[4].value, 1)
+          , func :=       match[1].value
+          ] INTO trace AT END;
+    }
+  }
+
+  IF (CellExists(javascriptmsg, "TRACE"))
+  {
+    trace :=
+        SELECT TEMPORARY normalized_filename := Substitute(filename, "file://", "")
+             , filename :=    normalized_filename LIKE "*/.system/jstests/!/*.?s"
+                                ? testscript
+                                : normalized_filename
+             , line :=        CellExists(trace, "LINE") ? line : 0
+             , col :=         CellExists(trace, "COL") ? col : 0
+             , func :=        CellExists(trace, "FUNC") ? func : ""
+          FROM javascriptmsg.trace;
+
+    IF (LENGTH(trace) > 0)
+    {
+      IF (LENGTH(errors) != 0)
+        errors[0] := MakeReplacedRecord(errors[0], trace[0]);
+      ELSE
+      {
+        IF (error LIKE "Error: Error *")
+          error := SubString(error, 7);
+        errors := [ CELL[ ...trace[0], message := error ] ];
+      }
+      trace := ArraySlice(trace, 1);
+    }
+  }
+
+  // Test for compilation errors
+  OBJECT babeltest := NEW Regex("(SyntaxError): ([^:]*): (.*) \\((\\d*):(\\d*)\\)");
+  RECORD ARRAY babelmatch := babeltest->Exec(errormsg);
+  IF (LENGTH(babelmatch) != 0)
+  {
+    errors :=
+        [ [ message :=    babelmatch[1].value || ": " || babelmatch[3].value
+          , filename :=   babelmatch[2].value
+          , line :=       ToInteger(babelmatch[4].value, 1)
+          , col :=        ToInteger(babelmatch[5].value, 1)
+          ]
+        ];
+    trace := DEFAULT RECORD ARRAY;
+  }
+
+  RETURN
+      [ msg :=        msg
+      , errors :=     errors
+      , trace :=      trace
+      , warnings :=   DEFAULT RECORD ARRAY
+      ];
+}

@@ -3,15 +3,12 @@
 /** This library contains the code for manipulating modules on the server.
 */
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::adhoccache.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
@@ -20,7 +17,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";

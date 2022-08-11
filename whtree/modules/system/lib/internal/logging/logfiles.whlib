@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
