@@ -76,7 +76,7 @@ MACRO TestNoticeLog()
   {
     LogHareScriptException(e, [ info := [ context := "webhare_testsuite:testeditorsupport" ]]);
   }
-  RECORD ARRAY errors := GetLastNoticeErrors();
+  RECORD ARRAY errors := GetNoticeErrors([fromend := TRUE]);
   errors := SELECT * FROM errors WHERE channel='ERROR' AND when >= starttest;
   errors := SELECT * FROM errors WHERE CellExists(data,'info') AND data.info.context='webhare_testsuite:testeditorsupport';
 

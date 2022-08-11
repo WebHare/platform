@@ -39,6 +39,20 @@ PUBLIC RECORD FUNCTION ParseNoticeLogLine(STRING line)
       ];
 }
 
+RECORD ARRAY FUNCTION AddErrors(STRING ARRAY lines)
+{
+  RECORD ARRAY parterrors;
+
+  FOREVERY (STRING line FROM lines)
+  {
+    RECORD linedata := ParseNoticeLogLine(line);
+    IF (RecordExists(linedata) AND linedata.message IN [ "harescript-error", "javascript-error" ])
+      INSERT linedata INTO parterrors AT END;
+  }
+
+  RETURN parterrors;
+}
+
 /** Get a list of errors from today's error log
     @cell(integer) options.count Number of errors to get
     @return List of notice errors
@@ -51,53 +65,64 @@ PUBLIC RECORD FUNCTION ParseNoticeLogLine(STRING line)
     @cell(string) return.encodeddata_raw Encoded error data
     @cell return.data Decoded error data
 */
-PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD ARRAY FUNCTION GetNoticeErrors(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ count := 16
+                             , fromend := FALSE
+                             ], options);
+
   __SYSTEM_FLUSHREMOTELOG("system:notice");
 
   INTEGER count := CellExists(options, "COUNT") ? options.count : 16;
   STRING logfile := MergeURL(__SYSTEM_WHCOREPARAMETERS().logroot, "notice." || FormatDateTime("%Y%m%d", GetCurrentDateTime()) || ".log");
 
   BLOB logdata := GetDiskResource(logfile, [ allowmissing := TRUE ]);
-  INTEGER64 len := LENGTH64(logdata);
-
-  INTEGER64 ofs := len;
   RECORD ARRAY allerrors;
   INTEGER errorcount;
 
   STRING firstlinepart;
 
-  WHILE (LENGTH(allerrors) < count AND ofs > 0)
+  IF(options.fromend)
   {
-    INTEGER64 lastofs := ofs;
-    ofs := ofs - 65536;
-    IF (ofs < 0)
-      ofs := 0;
-    STRING data := BlobToString(MakeSlicedBlob(logdata, ofs, lastofs - ofs)) || firstlinepart;
-
-    STRING ARRAY lines := Tokenize(data, "\n");
-    IF (ofs > 0)
+    INTEGER64 len := LENGTH64(logdata);
+    INTEGER64 ofs := len;
+    WHILE (LENGTH(allerrors) < count AND ofs > 0)
     {
-      firstlinepart := lines[0];
-      DELETE FROM lines AT 0;
-    }
-    ELSE
-      firstlinepart := "";
+      INTEGER64 lastofs := ofs;
+      ofs := ofs - 65536;
+      IF (ofs < 0)
+        ofs := 0;
+      STRING data := BlobToString(MakeSlicedBlob(logdata, ofs, lastofs - ofs)) || firstlinepart;
 
-    RECORD ARRAY parterrors;
+      STRING ARRAY lines := Tokenize(data, "\n");
+      IF (ofs > 0)
+      {
+        firstlinepart := lines[0];
+        DELETE FROM lines AT 0;
+      }
+      ELSE
+        firstlinepart := "";
 
-    FOREVERY (STRING line FROM lines)
-    {
-      RECORD linedata := ParseNoticeLogLine(line);
-      IF (RecordExists(linedata) AND linedata.message IN [ "harescript-error", "javascript-error" ])
-        INSERT linedata INTO parterrors AT END;
+      allerrors := allerrors CONCAT AddErrors(lines);
     }
 
-    allerrors := parterrors CONCAT allerrors;
+    IF (LENGTH(allerrors) > count)
+      allerrors := ArraySlice(allerrors, LENGTH(allerrors) - count);
+  }
+  ELSE
+  {
+    INTEGER file := OpenBlobAsFile(logdata);
+    WHILE(Length(allerrors) < options.count)
+    {
+      STRING line := ReadLineFrom(file, 65536, TRUE);
+      IF(line = "" AND IsAtendOfStream(file))
+        BREAK;
+
+      allerrors := allerrors CONCAT AddErrors([line]);
+    }
+    CloseDiskFile(file);
   }
 
-  IF (LENGTH(allerrors) > count)
-    allerrors := ArraySlice(allerrors, LENGTH(allerrors) - count);
 
   RETURN allerrors;
 }
