@@ -409,7 +409,7 @@
       <addfieldgroup ref="consilio:circular_test_reference_group" />
     </fieldgroup>
 
-    <catalog tag="duplicate_fieldnames" managed="false" fieldgroups="fields_1 fields_2" />
+    <obsoletecatalog tag="duplicate_fieldnames" /> <!-- added and removed during 5.02 development -->
     <fieldgroup tag="fields_1">
       <text name="textfield" />
     </fieldgroup>
