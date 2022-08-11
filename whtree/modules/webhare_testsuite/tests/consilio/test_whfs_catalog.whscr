@@ -4,8 +4,10 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/internal/whfscatalog/indexfields.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -151,10 +153,10 @@ MACRO TestWHFSCatalog()
 {
   FixConsilioIndices([ catalogmask := whconstant_consilio_catalog_whfs ]);
 
-  OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
-  Print(fsobjectssource->GetStorageInfo() || "\n");
+  OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  Print(catalog->GetStorageInfo() || "\n");
 
-  RECORD ARRAY fields := fsobjectssource->GetExpectedMapping();
+  RECORD ARRAY fields := catalog->GetExpectedMapping();
   TestEqMembers(RECORD[], (SELECT * FROM fields WHERE name LIKE "*.*"),"*");
   TestEqMembers([[ name := "whfstree", type := "integer"
                 ]], (SELECT * FROM fields WHERE name = "whfstree"), "*");
@@ -177,6 +179,13 @@ MACRO TestWHFSCatalog()
                 ]], (SELECT * FROM mod_webhare_testsuite.properties WHERE name = "textfield"), "*");
   TestEqMembers([[ name := "keywordfield", type := "keyword"
                 ]], (SELECT * FROM mod_webhare_testsuite.properties WHERE name = "keywordfield"), "*");
+
+  RECORD testindex := catalog->ListAttachedIndices()[0];
+  RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
+  TestEq(RECORD[], SELECT * FROM diff WHERE field LIKE "mod_webhare_testsuite.*" AND issue != "superfluous", "Actual mismatches on testfields (we don't check everything outside CI, as normal use may cause issues)");
+
+  IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+    TestEq(RECORD[], diff, "Mismatches (with WEBHARE_CI we validate *all* fields");
 }
 
 MACRO TestWHFSContentHandler()
