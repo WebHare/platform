@@ -323,12 +323,10 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
 
   //TODO: This code checks if 'defaultrequire' is still used, can be removed if it's removed from all modules, along with the
   //      option itself and the 'require_*' variables
-  IF (GetDTAPStage() = "development" AND GetEnvironmentVariable("WEBHARE_CI") = "" AND CellExists(options, "defaultrequire"))
+  IF (CellExists(options, "defaultrequire") AND GetDTAPStage() = "development" AND GetEnvironmentVariable("WEBHARE_CI") = "")
     THROW NEW Exception("The 'defaultrequire' option is deprecated, use 'querymode' instead");
-
-  RECORD ARRAY thesaurus;
-  IF (options.thesaurusid != 0)
-    thesaurus := GetIndexThesaurus(options.thesaurusid);
+  IF (options.thesaurusid != 0 AND GetDTAPStage() = "development")
+    THROW NEW Exception("The 'thesaurusid' option is deprecated, use synonyms instead");
 
   userquery := TrimWhitespace(userquery);
   IF(userquery = "") //FIXME validate for other weird stuff that should require us to just discard this
@@ -338,7 +336,6 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
              , userquery
              , options.querymode
              , options.defaultfields
-             , thesaurus
              , options.synonyms
              , boost := 1f
              ];
