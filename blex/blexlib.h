@@ -510,7 +510,7 @@ template <class charT> bool CharCaseLess(charT lhs, charT rhs);
     @param lhs character that is expected to be 'equal'
     @param rhs character that is expected to be 'equal'
     @return true if lhs = rhs */
-template <class charT> bool CharCaseLess(charT lhs, charT rhs);
+template <class charT> bool CharCaseEqual(charT lhs, charT rhs);
 
 /** Range pattern matching */
 template <class Iterator>

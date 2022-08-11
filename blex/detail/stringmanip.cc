@@ -316,6 +316,12 @@ template <class charT> inline bool CharCaseLess(charT lhs, charT rhs)
         return int(lhs)<int(rhs);
 }
 
+template <class charT> inline bool CharCaseEqual(charT lhs, charT rhs)
+{
+        if (lhs>='a' && lhs<='z') lhs&=~(charT)0x20;
+        if (rhs>='a' && rhs<='z') rhs&=~(charT)0x20;
+        return lhs == rhs;
+}
 
 template <class Itr> int StrCaseCompare(Itr lhs_begin, Itr lhs_end,
                                         Itr rhs_begin, Itr rhs_end)
