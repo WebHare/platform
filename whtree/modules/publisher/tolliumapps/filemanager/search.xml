@@ -20,7 +20,7 @@
     <contents>
       <inlineblock name="comp" title="" width="1pr" layout="left">
         <line>
-          <select name="filtertype" type="pulldown" title="" onchange="onselecttype" />
+          <select name="filtertype" type="pulldown" title="" onchange="onselecttype" rowkeytype="string" />
 
           <text name="matchlabel" title="" visible="false" />
           <select name="matchtype" type="pulldown" title="" visible="false" onchange="onselectmatchtype" />
