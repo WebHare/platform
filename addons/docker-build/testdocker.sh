@@ -555,7 +555,11 @@ if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartd
   testfail "Wait for poststartdone container1 failed"
   FATALERROR=1
 fi
-echo "$(date) container1 poststartdone"
+
+echo "$(date) container1 poststartdone, look for errors"
+if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+  testfail "Error logs not clean!"
+fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   echo "$(date) Wait for poststartdone container2"
@@ -563,7 +567,11 @@ if [ -n "$TESTFW_TWOHARES" ]; then
     testfail "Wait for poststartdone container2 failed"
     FATALERROR=1
   fi
-  echo "$(date) container2 poststartdone"
+
+  echo "$(date) container2 poststartdone, look for errors"
+  if ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+    testfail "Error logs not clean!"
+  fi
 fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then

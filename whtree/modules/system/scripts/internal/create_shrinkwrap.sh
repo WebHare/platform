@@ -14,7 +14,7 @@ set -e
 cd `dirname $0`
 # We are in whtree/modules/system/scripts/internal, we need to find whtree, so 4 up!
 cd ../../../..
-WHTREE="`pwd`"
+WHTREE="$(pwd)"
 
 if [ ! -f "$WHTREE/bin/runscript" ]; then
   echo "$WHTREE/bin/runscript does not exist - build failed or wrong directory"
@@ -66,7 +66,7 @@ fi
 # FIXME We're downloading 'm anyway, have shrinkwrap pack the geolite databases too
 echo "Launching WebHare"
 export WEBHARE_NOUPDATEGEOIP=1
-$WHTREE/bin/wh console &
+"$WHTREE/bin/wh" console &
 while true ; do
   PID="$(cat $WEBHARE_DATAROOT/.webhare.pid 2>/dev/null || true)"
   if [ -n "$PID" ]; then
@@ -89,13 +89,13 @@ if which timeout >/dev/null ; then
   TIMEOUT="timeout 60000"
 fi
 
-if ! $WHTREE/bin/wh waitfor --timeout 60000 poststartdone ; then
+if ! "$WHTREE/bin/wh" waitfor --timeout 60000 poststartdone ; then
   echo "poststartdone not completing"
   EXITCODE=1
 fi
 
 echo "Starting shrinkwrap"
-if ! $TIMEOUT $WHTREE/bin/wh run mod::system/scripts/internal/shrinkwrap.whscr $WHTREE/modules/system/data/shrinkwrap-var.tgz ; then
+if ! $TIMEOUT "$WHTREE/bin/wh" run mod::system/scripts/internal/shrinkwrap.whscr $WHTREE/modules/system/data/shrinkwrap-var.tgz ; then
   echo "shrinkwrap.whscr failed!"
   EXITCODE=1
 fi
@@ -109,13 +109,17 @@ for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
 done
 
 # consistency check
-if ! $TIMEOUT $WHTREE/bin/wh checkwebhare ; then
+if ! $TIMEOUT "$WHTREE/bin/wh" checkwebhare ; then
   echo "self-consistency check failed"
   EXITCODE=1
 fi
 
 if ! [ -c /dev/null ] ; then
   echo "/dev/null is not a character device. something overwrote it"
+  EXITCODE=1
+fi
+
+if ! "$WHTREE/bin/wh" run mod::system/scripts/debug/checknoerrors.whscr ; then
   EXITCODE=1
 fi
 
