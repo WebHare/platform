@@ -1,0 +1,199 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/sync/sync.whlib";
+
+// command: webshop:syncshop
+// short: Overwrite (part of) a local WRD schema with data from a peer server
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "user", type := "stringopt" ]
+    , [ name := "peer", type := "stringopt" ]
+    , [ name := "local", type := "switch" ]
+    , [ name := "synctype", type := "stringopt", required := TRUE ]
+    , [ name := "includetype", type := "stringlist" ]
+    , [ name := "excludetype", type := "stringlist" ]
+    , [ name := "forcetype", type := "stringlist" ]
+    , [ name := "remoteschema", type := "stringopt" ]
+    , [ name := "wrdschema", type := "param", required := TRUE ]
+    ]);
+
+IF (NOT RecordExists(args))
+{
+  TerminateScriptWithError(`Syntax: wh wrd:syncschema (--peer <peeraddress> --user <username> | --local) --synctype <synctype> shopschema
+Options:
+--local                Synchronize from a shop on the same server
+--user                 WebHare username
+--peer                 Server URL of peer server (should be listed in 'Connect' dialog in the 'Modules and Configuration' application)
+--synctype             Synchronization type:
+                       - 'nonpersonalonly'
+                       - 'all'
+                       - 'selection'
+--includetype          List of types to include in the sync (comma-separated, masks allowed)
+--excludetype          List of types to exclude in the sync (comma-separated, masks allowd)
+--forcetype <wrdtype>  Overwrite all entities of the specified type (if they are incorrectly not overwritten). (comma-separated)
+--remoteschema <name>  Override the name of the remote schema (defaults to the name of the local schema)`);
+}
+
+IF (args.synctype NOT IN [ "all", "nonpersonalonly" ])
+  TerminateScriptWithError(`Select between --synctype 'all' or 'nonpersonalonly'`);
+
+IF (args.local = (args.peer != ""))
+  TerminateScriptWithError(`You must set either '--local' or '--peer'`);
+
+IF (args.peer != "" AND args.user = "")
+{
+  args.user := GetEnvironmentVariable("WEBHARE_CLI_USER");
+  IF (args.user = "")
+    TerminateScriptWithError(`When '--peer' is used, set '--user' or environment variable 'WEBHARE_CLI_USER'`);
+}
+
+STRING ARRAY FUNCTION ParseTypeLists(STRING ARRAY lists)
+{
+  STRING ARRAY result;
+  FOREVERY (STRING item FROM lists)
+    IF (IsValueSet(item))
+      result := result CONCAT Tokenize(item, ",");
+  RETURN result;
+}
+
+
+STRING FUNCTION NormalizePeerURL(STRING peer)
+{
+  IF (peer NOT LIKE "*://*") // no protocol
+    peer := "https://" || peer;
+  IF (peer NOT LIKE "*/")
+    peer := peer || "/";
+  RETURN peer;
+}
+
+OpenPrimary();
+
+OBJECT remotepeer;
+
+args.forcetype := ParseTypeLists(args.forcetype);
+args.includetype := ParseTypeLists(args.includetype);
+args.excludetype := ParseTypeLists(args.excludetype);
+
+IF (args.synctype != "selection" AND IsValueSet(args.includetype))
+  THROW NEW Exception(`Using --includetype is not allowed for synctype ${args.synctype}`);
+
+//TODO centralize CLI peer handling in WebHare
+IF(NOT args.local)
+{
+  OBJECT userapi := GetPrimaryWebhareUserApi();
+  OBJECT user := userapi->GetTolliumUserByLogin(args.user);
+  IF (NOT ObjectExists(user))
+    TerminateScriptWithError(`Could not find user '${args.user}'`);
+
+  RECORD ARRAY peers :=
+      SELECT *
+        FROM GetUserPeerList(user)
+       WHERE ToUppercase(NormalizePeerURL(serverurl)) = ToUppercase(NormalizePeerURL(args.peer));
+
+  IF (NOT RecordExists(peers))
+  {
+    STRING ARRAY allpeers := SELECT AS STRING ARRAY serverurl FROM GetUserPeerList(user);
+    TerminateScriptWithError(`Could not find peer '${args.peer}', peers: '${Detokenize(allpeers, "', '")}'`);
+  }
+  IF (LENGTH(peers) != 1)
+    TerminateScriptWithError(`Multiple matching peers: '${Detokenize((SELECT AS STRING ARRAY serverurl FROM peers), "', '")}'`);
+
+  RECORD peer := peers;
+
+  PRINT(`Connecting to peer '${peer.serverurl}'\n`);
+
+  RECORD connectinfo := OpenUserWebHarePeer(user, peer.serverurl, [ scopes := [ "wrd:read" ], validuntil := AddTimeToDate(2*60*60*1000, GetCurrentDateTime()) ]);
+  IF (connectinfo.status != "ok")
+    TerminateScriptWithError(`Not connected to peer '${peer.serverurl}', please connect in the 'Modules and Configuration' application (${connectinfo.status})`);
+
+  remotepeer := connectinfo.peer;
+}
+
+RECORD ARRAY matches := SELECT * FROM ListWRDSchemas() WHERE ToUppercase(tag) LIKE TOUppercase(args.wrdschema);
+IF(Length(matches) = 0)
+  TerminateScriptWithError(`No such WRD schema '${args.wrdschema}'`);
+
+INTEGER laststatuslen;
+MACRO PrintStatusLine(STRING line)
+{
+  INTEGER diff := laststatuslen - LENGTH(line);
+  laststatuslen := LENGTH(line);
+  PRINT(`${line}${diff > 0 ? RepeatText(" ", diff) : ""}\r`);
+}
+
+RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD options)
+{
+  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, options);
+  RECORD rec;
+  TRY
+  {
+    WHILE (TRUE)
+    {
+      rec := itr->Next();
+      IF (rec.done)
+        BREAK;
+
+      PrintStatusLine(`${Right("  " || FormatMoney(rec.value.progress, 2, ".", "", TRUE), 5)}: ${rec.value.status}`);
+    }
+
+    PrintStatusLine(`sync done`);
+  }
+  FINALLY
+    PRINT("\n");
+
+  RETURN rec.value;
+}
+
+FOREVERY(RECORD syncschema FROM matches)
+{
+  OBJECT wrdschema := OpenWRDSchema(syncschema.tag);
+
+  STRING ARRAY includetypes := args.includetype;
+  IF (args.synctype != "selection")
+  {
+    RECORD ARRAY alltypes := wrdschema->ListTypes();
+
+    // For each type, get the types referencing it (recursively)
+    FOREVERY (RECORD type FROM alltypes)
+    {
+      STRING ARRAY referencedby :=
+          SELECT AS STRING ARRAY tag
+          FROM ToRecordArray(GetTypeReferences(wrdschema, STRING[ type.tag ]), "tag")
+          WHERE tag != type.tag;
+      INSERT CELL referencedby := referencedby INTO alltypes[#type];
+    }
+
+    // A type contains personal data if the 'haspersonaldata' flag is set, or if another type that has the 'haspersonaldata'
+    // flag set is referenced by this type
+    alltypes :=
+        SELECT *
+              , haspersonaldata := haspersonaldata OR RecordExists(SELECT FROM VAR alltypes AS othertypes WHERE othertypes.haspersonaldata AND alltypes.tag IN othertypes.referencedby)
+          FROM alltypes;
+
+    includetypes :=
+          SELECT AS STRING ARRAY tag
+            FROM alltypes
+          WHERE (args.synctype = "all" ? TRUE : NOT haspersonaldata);
+  }
+
+  IF (wrdschema->protected)
+    TerminateScriptWithError(`WRD schema '${wrdschema->tag}' is protected`);
+
+  RunSync(wrdschema, remotepeer, args.remoteschema ?? wrdschema->tag, CELL
+        [ forcetypes := args.forcetype
+        , includetypes
+        , excludetype :=    args.excludetype
+        ]);
+
+}
