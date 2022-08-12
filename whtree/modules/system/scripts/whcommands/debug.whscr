@@ -460,7 +460,7 @@ Executed instrs.:   ${stats.instructions}
         IF(args.command = "enable")
           tags := tags CONCAT STRING[flag.name];
         ELSE
-          tags := ArrayDelete(tags, flag.name);
+          tags := ArrayDelete(tags, STRING[flag.name]);
       }
 
       RECORD debugconfig := ReadDebugSetting(Detokenize(GetSortedSet(tags),','));
