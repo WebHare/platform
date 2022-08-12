@@ -19,6 +19,7 @@ else
 fi
 
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
+ALLOWSTARTUPERRORS=""
 TESTSUITEDIR=${MODULESDIR}/webhare_testsuite
 DOCKERARGS=
 TERSE=--terse
@@ -36,6 +37,7 @@ NOPULL=0
 LOCALDEPS=
 NOCHECKMODULE=
 FIXEDCONTAINERNAME=
+TESTINGMODULENAME=""
 
 while true; do
  if [ "$1" == "--cpuset-cpus" ]; then
@@ -306,7 +308,7 @@ if [ -n "$ISMODULETEST" ]; then
     echo Cannot find $TESTINGMODULEDIR/moduledefinition.xml
     exit 1
   fi
-  TESTINGMODULENAME=`basename $TESTINGMODULE`
+  TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
   fi
@@ -440,7 +442,10 @@ create_container()
   echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
 
   # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
-  echo "WEBHARE_CI=1" >> ${TEMPBUILDROOT}/env-file
+  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
+  if [ -n "$TESTINGMODULENAME" ]; then
+    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
+  fi
 
   # Allow whdata to be mounted on ephemeral (overlayfs) storage
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
@@ -550,6 +555,10 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
+if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
+  ALLOWSTARTUPERRORS=1
+fi
+
 echo "$(date) Wait for poststartdone container1"
 if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
   testfail "Wait for poststartdone container1 failed"
@@ -559,7 +568,11 @@ fi
 if version_gte "$version" 5.00; then
   echo "$(date) container1 poststartdone, look for errors"
   if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-    testfail "Error logs not clean!"
+    if [ -z "$ALLOWSTARTUPERRORS" ]; then
+      testfail "Error logs not clean!"
+    else
+      echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+    fi
   fi
 else
   echo "$(date) container1 poststartdone"
@@ -575,7 +588,11 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   if version_gte "$version" 5.00; then
     echo "$(date) container2 poststartdone, look for errors"
     if version_gte "$version" 5.00 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-      testfail "Error logs not clean!"
+      if [ -z "$ALLOWSTARTUPERRORS" ]; then
+        testfail "Error logs not clean!"
+      else
+        echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+      fi
     fi
   else
     echo "$(date) container2 poststartdone"
