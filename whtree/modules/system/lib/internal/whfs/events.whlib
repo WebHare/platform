@@ -64,7 +64,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   }
 
 
-  MACRO AddEvent(INTEGER site, INTEGER folderid, INTEGER fileid, STRING event)
+  MACRO AddEvent(INTEGER site, INTEGER folderid, INTEGER fileid, STRING filemetatype, STRING event)
   {
     IF(IsDebugTagEnabled("que"))
       LogDebug("system:whfscommithandler", event, CELL[ site, folderid, fileid, trace := GetStackTrace() ]);
@@ -85,7 +85,15 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     {
       RECORD fpos := RecordLowerBound(rec.files, [ file := fileid ], [ "FILE" ]);
       IF (NOT fpos.found)
-        INSERT [ file := fileid, isfolder := (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = fileid), events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
+      {
+        BOOLEAN isfolder;
+        IF (IsValueSet(filemetatype))
+          isfolder := filemetatype = "folder";
+        ELSE
+          isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = fileid;
+
+        INSERT CELL[ file := fileid, isfolder, events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
+      }
       ELSE
         IF (event NOT IN rec.files[fpos.position].events)
           INSERT event INTO this->items[itempos].files[fpos.position].events AT END;
@@ -330,61 +338,64 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   PUBLIC MACRO FilePublicationFinished(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
   {
-    this->AddEvent(parentsite, folderid, fileid, "pub");
+    this->AddEvent(parentsite, folderid, fileid, "file", "pub");
   }
 
   PUBLIC MACRO FolderRepublish(INTEGER parentsite, INTEGER objectid)
   {
-    this->AddEvent(parentsite, objectid, objectid, "fullrep");
+    this->AddEvent(parentsite, objectid, objectid, "folder", "fullrep");
   }
 
   PUBLIC MACRO FileRepublish(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
   {
-    this->AddEvent(parentsite, folderid, fileid, "rep");
+    this->AddEvent(parentsite, folderid, fileid, "file", "rep");
   }
 
   PUBLIC MACRO ObjectCreate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "create");
+    this->AddEvent(parentsite, folderid, objectid, "", "create");
   }
 
   PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "update");
+    this->AddEvent(parentsite, folderid, objectid, "", "update");
   }
 
   PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "rename");
-    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "rename");
+    this->AddAnalyzerTask(folderid, isfolder);
   }
 
   PUBLIC MACRO ObjectMove(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "move");
-    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "move");
+    this->AddAnalyzerTask(folderid, isfolder);
   }
 
   PUBLIC MACRO ObjectMoved(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "moved");
+    this->AddEvent(parentsite, folderid, objectid, "", "moved");
   }
 
   PUBLIC MACRO ObjectDelete(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "del");
-    this->AddAnalyzerTask(folderid, SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = objectid);
+    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "del");
+    this->AddAnalyzerTask(folderid, isfolder);
   }
 
   PUBLIC MACRO Unpublished(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "unp");
+    this->AddEvent(parentsite, folderid, objectid, "", "unp");
     this->AddAnalyzerTask(folderid, FALSE);
   }
 
   PUBLIC MACRO ObjectReordered(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "order");
+    this->AddEvent(parentsite, folderid, objectid, "", "order");
   }
 
   PUBLIC MACRO FolderIndexDocUpdated(INTEGER folderid)
