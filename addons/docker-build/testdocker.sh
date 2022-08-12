@@ -36,6 +36,7 @@ NOPULL=0
 LOCALDEPS=
 NOCHECKMODULE=
 FIXEDCONTAINERNAME=
+TESTINGMODULENAME=""
 
 while true; do
  if [ "$1" == "--cpuset-cpus" ]; then
@@ -306,7 +307,7 @@ if [ -n "$ISMODULETEST" ]; then
     echo Cannot find $TESTINGMODULEDIR/moduledefinition.xml
     exit 1
   fi
-  TESTINGMODULENAME=`basename $TESTINGMODULE`
+  TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
   fi
@@ -440,7 +441,10 @@ create_container()
   echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
 
   # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
-  echo "WEBHARE_CI=1" >> ${TEMPBUILDROOT}/env-file
+  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
+  if [ -n "$TESTINGMODULENAME" ]; then
+    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
+  fi
 
   # Allow whdata to be mounted on ephemeral (overlayfs) storage
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file

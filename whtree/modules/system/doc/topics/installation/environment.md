@@ -137,6 +137,12 @@ Please make sure you protect it !
 ### TESTFW_TWOHARES
 If set, two separate WebHares are running. This enables some additional tests
 
+### WEBHARE_CI
+The `WEBHARE_CI` variable is set by testdocker/testmodule to indicate that the current installation is started by CI
+
+### WEBHARE_CI_MODULE
+The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by CI. (added in 5.02)
+
 # Tips and tricks
 
 ## Build-time variables
