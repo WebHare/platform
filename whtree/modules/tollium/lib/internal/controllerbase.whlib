@@ -43,6 +43,7 @@ INTEGER objectprofileId;
 INTEGER no_forward_progress_longloop := 10000; // trigger forward progress detection when the loop wait timeout is more than this many seconds
 INTEGER no_forward_progress_wait := 2000; // wait 2 seconds for forward progress
 INTEGER gc_waitperiod := 60000; // collect garbage every 1 minute after a wait has been started
+BOOLEAN debug_logcontroller := IsDebugTagEnabled("tollium:logcontroller");
 
    /** Check internal callbacks
       @param handle Optional signalled handle (use -1 to ignore)

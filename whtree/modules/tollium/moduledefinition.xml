@@ -99,6 +99,9 @@
                  rootnodes="language"
                  schemalocation="data/screens.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/tollium/icons" rootnodes="icon" schemalocation="data/icons.xsd" />
+
+    <debugflag name="logcontroller" description="Log tollium/todd controller" />
+    <debugflag name="logtransport" description="Log tollium/todd controller" />
   </development>
 
   <hooking>

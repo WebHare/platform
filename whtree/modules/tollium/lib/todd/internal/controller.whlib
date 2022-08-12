@@ -19,6 +19,7 @@ INTEGER todd_srhtimeout := 10 * 60;  // Must have client contact every 10 minute
 RECORD webcontroller_dirty := [ fully := FALSE
                               , grab_activation := FALSE //NOT implied by fully!
                               ];
+BOOLEAN debug_logcontroller := IsDebugTagEnabled("tollium:logcontroller");
 
 // ---------------------------------------------------------------------------
 //
@@ -430,7 +431,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
     this->instructions := DEFAULT RECORD ARRAY;
 
     IF(debug_logcontroller)
-      LogDebug("tollium:controller", "ToddTransmitDirtyComponents", LENGTH(this->commendpoint->queuedmessages));
+      LogDebug("tollium:controller", "ToddTransmitDirtyComponents", this->commendpoint->GetNumQueuedMessages());
   }
 
 

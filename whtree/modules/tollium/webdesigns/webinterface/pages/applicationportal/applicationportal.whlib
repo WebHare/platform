@@ -905,7 +905,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       THROW NEW Exception("Application starter failed");
     }
 
-    IF(debug_logtransport)
+    IF(IsDebugTagEnabled("tollium:logtransport"))
       LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
 
     RECORD finalmsg := rec.msg;

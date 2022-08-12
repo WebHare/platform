@@ -7,10 +7,11 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
-LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 // Wait max 4.5 minutes on a message (should _just_ be enough to avoid a 5 min TCP/NAT timeout)
 INTEGER maxmessagewait := 270 * 1000;
+BOOLEAN debug_logtransport := IsDebugTagEnabled("tollium:logtransport");
+
 
 /** Send & wait for tollium messages
     @param request

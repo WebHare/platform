@@ -15,8 +15,6 @@ PUBLIC RECORD __screenbuildinfo;
 PUBLIC STRING ns_xmlschema := "http://www.w3.org/2001/XMLSchema";
 
 PUBLIC INTEGER ttl_components := 5 * 60 * 1000;
-PUBLIC BOOLEAN debug_logcontroller := FALSE;
-PUBLIC BOOLEAN debug_logtransport := FALSE;
 
 PUBLIC CONSTANT RECORD tolliumdefaultborderspacer := [ top := FALSE, right := FALSE, bottom := FALSE, left := FALSE, usedefault := TRUE ];
 
