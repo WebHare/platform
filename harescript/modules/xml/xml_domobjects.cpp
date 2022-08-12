@@ -4,6 +4,7 @@
 //---------------------------------------------------------------------------
 #include <harescript/vm/hsvm_dllinterface.h>
 #include "xml_provider.h"
+#include "xml_cssengine.h"
 #include <stdarg.h>
 #include <libxml/catalog.h>
 #include <libxml/schemasInternals.h>
@@ -2434,6 +2435,64 @@ void ExecuteXpathQuery(HSVM *hsvm, HSVM_VariableId id_set) //OBJECT doc STRING q
         xmlResetError(&xpathctxt->lastError); //make sure any allocations are freed - FIXME shouldn't this be on the two other return paths? or isn't it really needed?
 }
 
+void EvaluateCSSSelectors(HSVM *vm, HSVM_VariableId id_set)
+{
+        std::string str_mode = HSVM_StringGetSTD(vm, HSVM_Arg(3));
+
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_RecordArray);
+
+        xmlNodePtr scopenode = nullptr;
+        XMLNodeContext::Ref rootref(vm, HSVM_Arg(1));
+
+        if (HSVM_ObjectExists(vm, HSVM_Arg(2)))
+        {
+                XMLNodeContext::Ref scoperef(vm, HSVM_Arg(2));
+                if(!scoperef->node)
+                    return;
+
+                if (rootref->realdoc != scoperef->realdoc)
+                {
+                        HSVM_ThrowException(vm, "Root and scope node are not from the same document");
+                        return;
+                }
+                scopenode = scoperef->node;
+        }
+
+        std::vector< CSS::ComplexSelectorPart > selectors;
+        if (!ParseComplexSelectorParts(vm, HSVM_Arg(0), &selectors))
+            return;
+
+        auto mode = CSS::ParseEvaluateMode(vm, str_mode);
+        if (!mode.first)
+            return;
+
+        CSS::EngineContext context;
+        context.root = rootref->node;
+        context.scope = scopenode ? scopenode : context.root;
+        context.ishtml = rootref->realdoc->from_html;
+
+        std::vector< CSS::EvaluateResult > results;
+        CSS::EvaluateSelectors(context, selectors, scopenode, mode.second, &results);
+
+        HSVM_ColumnId col_node = HSVM_GetColumnId(vm, "NODE");
+        HSVM_ColumnId col_selectors = HSVM_GetColumnId(vm, "SELECTORS");
+
+        for (auto &res: results)
+        {
+                HSVM_VariableId elt = HSVM_ArrayAppend(vm, id_set);
+                HSVM_VariableId var_node = HSVM_RecordCreate(vm, elt, col_node);
+
+                if (!XML_CreateObject(vm, (ObjectType)res.node->type, var_node, rootref->realdoc))
+                    return;
+                XMLNodeContext::AutoCreateRef newnode(vm, var_node);
+                newnode->node = res.node;
+
+                HSVM_VariableId var_selectors = HSVM_RecordCreate(vm, elt, col_selectors);
+                HSVM_SetDefault(vm, var_selectors, HSVM_VAR_RecordArray);
+                for (auto var: res.selectordata)
+                    HSVM_CopyFrom(vm, HSVM_ArrayAppend(vm, var_selectors), var);
+        }
+}
 
 } // End of namespace Xml
 } // End of namespace HareScript
@@ -2533,6 +2592,9 @@ int RegisterDomObjectFunctions(HSVM_RegData *regdata)
         HSVM_RegisterMacro   (regdata, "XMLELEMENT#SETATTRIBUTENS:WH_XML::OSSS", HareScript::Xml::XMLElement_SetAttributeNS);
 
         HSVM_RegisterFunction(regdata, "__EXECUTEXPATHQUERY:WH_XML:R:OSOORA", HareScript::Xml::ExecuteXpathQuery);
+
+        HSVM_RegisterFunction(regdata, "__EVALUATECSSSELECTORS:WH_XML:RA:RAOOS", HareScript::Xml::EvaluateCSSSelectors);
+
 
         HareScript::Xml::XMLNodeContext::Register(regdata);
 

@@ -10,6 +10,9 @@ LOADLIB "wh::internal/css/tokenizer.whlib";
 /// Maximum number of cached parsed CSS selectors (cache is cleared after reaching this size)
 CONSTANT INTEGER parsed_selector_cache_size := 1024;
 
+RECORD ARRAY FUNCTION __EvaluateCSSSelectors(RECORD ARRAY parts, OBJECT root, OBJECT scope, STRING mode) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+
+
 PUBLIC RECORD ARRAY FUNCTION SplitPrelude(RECORD ARRAY prelude)
 {
   RECORD ARRAY selectors;
@@ -1612,6 +1615,9 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   IF (NOT ObjectExists(root))
     RETURN OBJECT[];
 
+  IF (IsDebugTagEnabled("newcssengine"))
+    RETURN SELECT AS OBJECT ARRAY node FROM __EvaluateCSSSelectors(selectorparts, root, scope, mode);
+
   RECORD context :=
       [ root :=       root
       , scope :=      scope ?? root
@@ -1668,6 +1674,12 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
 
   IF (NOT ObjectExists(root))
     RETURN retval;
+
+  IF (IsDebugTagEnabled("newcssengine"))
+  {
+    retval.matches := __EvaluateCSSSelectors(selectorparts, root, scope, mode);
+    RETURN retval;
+  }
 
   RECORD context :=
       [ root :=       root
