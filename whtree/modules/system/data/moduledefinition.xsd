@@ -392,6 +392,7 @@
           - perfectcompile: No compilation warnings
           - nomissingtids: All language texts must exist in the default language file
           - nowarnings: No warnings at all (implies the above options)
+          - nostartuperrors: Don't allow any startup errors
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

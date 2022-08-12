@@ -7,6 +7,7 @@
 
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -20,7 +21,19 @@ FOREVERY (OBJECT pack FROM moduledef->documentelement->GetElements("meta > packa
 {
   STRING error := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(pack));
   IF (error != "")
-    Print(`MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`);
+  {
+    Print(`EXPLAIN_MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`);
+    Print(`MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`); //TODO: Once 5.02 is minimum supported version, testdocker.sh can switch to EXPLAIN_ - it's nicer to always use prefixed vars
+  }
+}
+
+OBJECT validationode := moduledef->documentelement->QuerySelector("meta > validation");
+IF(ObjectExists(validationode))
+{
+  FOREVERY(STRING opt FROM ParseXSList(validationode->GetAttribute("options")))
+  {
+    Print(`EXPLAIN_OPTION_${Touppercase(opt)}=1\n`);
+  }
 }
 
 FOREVERY (OBJECT dependency FROM moduledef->documentelement->GetElements("meta > packaging > dependency")
