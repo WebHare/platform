@@ -43,7 +43,7 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
     IF(NOT ObjectExists(catalog))
       THROW NEW Exception(`Publisher index '${whconstant_consilio_catalog_whfs}' not available`);
 
-    publisher_fsobjects_source := OpenContentSource("consilio:whfsobjects");
+    publisher_fsobjects_source := catalog->OpenContentSource("consilio:whfsobjects");
     IF(NOT ObjectExists(publisher_fsobjects_source))
       THROW NEW Exception(`Content source 'consilio:whfsobjects' not available`);
   }

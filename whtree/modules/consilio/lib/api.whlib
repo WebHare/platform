@@ -6,7 +6,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
-LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenContentSource, OpenConsilioCatalog, OpenConsilioCatalogById;
+LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenConsilioCatalog, OpenConsilioCatalogById;
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
