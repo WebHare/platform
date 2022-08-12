@@ -1,5 +1,6 @@
 <?wh
-/** @short Setup WHFS
+/** Setup WHFS and basic database keys. This script runs in 'afterregistryupdate'
+    and blocks WebHare startup so keep it as compact as possible
 */
 
 LOADLIB "wh::crypto.whlib";
@@ -9,6 +10,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -16,6 +18,8 @@ LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
 
 MACRO InitializeFileTypes()
 {
@@ -221,6 +225,17 @@ IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
   isfreshwebhare := TRUE;
   // Initializing the Repository...
   CreateSiteFromFolder(whconstant_whfsid_repository);
+}
+
+OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
+IF(NOT ObjectExists(usermgmtschema))
+{
+  /* We need to initialize system:usermgmt early on new installations, or GetPrimaryWebhareUserAPI() may break during
+    poststart due to no accounttype yet (we used to delay accounttype setting until poststart, racing other poststart scripts) */
+  CreateWRDSchema("system:usermgmt", [ initialize := TRUE
+                                     , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
+                                     , usermgmt := TRUE
+                                     ]);
 }
 
 // Ensure submodule folders exist

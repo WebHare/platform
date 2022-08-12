@@ -99,6 +99,7 @@ PUBLIC OBJECT FUNCTION OpenWRDSchemaById(INTEGER schemaid)
     @cell(string) metadata.title Title
     @cell(string) metadata.description Description
     @cell(boolean) metadata.initialize Set up the schema using the wrdschema defined in its moduledefinition
+    @cell(string) metadata.schemaresource Override the schemaresource to use for initialization
     @cell(boolean) metadata.usermgmt Whether this schema is used for user management
     @cell(string) metadata.creationsource Location where this schema was originally created
     @return(object %WRDSchema2017) The created WRD schema
