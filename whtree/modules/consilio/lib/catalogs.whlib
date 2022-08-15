@@ -1292,20 +1292,6 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
     RETURN DEFAULT OBJECT;
 }
 
-/** @short Open content source by tag
-    @param tag Content source tag
-    @return(object #ContentSource) The content source object
-*/
-PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
-{
-  INTEGER catalogid :=
-      SELECT AS INTEGER contentsources.catalogid
-        FROM consilio.contentsources
-       WHERE ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
-  OBJECT catalog := OpenConsilioCatalogById(catalogid);
-  RETURN ObjectExists(catalog) ? catalog->OpenContentSource(tag) : DEFAULT OBJECT;
-}
-
 /** @short Open content source by id
     @param id Content source id
     @return(object #ContentSource) The content source object

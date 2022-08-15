@@ -545,16 +545,21 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD indexoption
 
 PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY filters, BOOLEAN not_filter)
 {
-  IF (NOT RecordExists(query))
-    query := [ bool := DEFAULT RECORD ];
-  ELSE IF (NOT CellExists(query, "bool"))
+  IF (RecordExists(query) AND NOT CellExists(query, "bool"))
     query := [ bool := [ must := [ RECORD(query) ] ] ];
 
   IF (not_filter)
   {
-    IF (NOT CellExists(query.bool, "must_not"))
-      INSERT CELL must_not := DEFAULT RECORD ARRAY INTO query.bool;
-    query.bool.must_not := query.bool.must_not CONCAT filters;
+    IF (RecordExists(query))
+    {
+      IF(NOT CellExists(query.bool, "must_not"))
+        INSERT CELL must_not := DEFAULT RECORD ARRAY INTO query.bool;
+      query.bool.must_not := query.bool.must_not CONCAT filters;
+    }
+    ELSE
+    {
+      query := [ bool := [ must_not := filters ]];
+    }
   }
   ELSE
   {
@@ -564,11 +569,17 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
        but the 'should' is there to support OR queries
 
        this broke restrict_url queries. so explicitly wrap the existing should in a must - don't add a filter on the same level */
-
-    query := [ bool := [ must := [ RECORD(query) ]
-                       , filter := filters
-                       ]
-             ];
+    IF(RecordExists(query))
+    {
+      query := [ bool := [ must := [ RECORD(query) ]
+                         , filter := filters
+                         ]
+               ];
+    }
+    ELSE
+    {
+      query := [ bool := [ filter := filters ]];
+    }
   }
 
   RETURN query;

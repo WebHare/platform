@@ -279,7 +279,7 @@ MACRO TestBasicValidate()
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
   TestEq([[ line := 10, message := "Cannot find authscript \'mod::webhare_testsuite/missing-authscript\'" ]
-         ,[ line := 19, message := "No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\' (looking for \'PDFMailFlowTask\')" ]
+         ,[ line := 19, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
          ,[ line := 22, message := 'Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource' ]
          ,[ line := 25, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
          ], (SELECT line, message FROM res.errors));
@@ -520,8 +520,8 @@ MACRO TestValidateModuleDef()
   </module>`);
 
   RECORD res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
-  TestEq([[ line := 5, message := `No such library 'mod::webhare_testsuite/lib/nosuch.whlib' (looking for 'SearchProviderBase')` ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+  TestEq([[ line := 5, message := `Cannot find \'SearchProviderBase\': No such library \'mod::webhare_testsuite/lib/nosuch.whlib\'` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message);
 
   BLOB moduledef_wrdschemainvalid := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -796,7 +796,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   </xs:attribute>
 </xs:schema>`);
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := componentxsd ]);
-  TestEq([[line := 13, message := `No such library 'mod::webhare_testsuite/lib/doesnt.whlib' (looking for 'xist')`]], SELECT line,message FROM res.errors);
+  TestEq([[line := 13, message := `Cannot find \'xist\': No such library \'mod::webhare_testsuite/lib/doesnt.whlib\'` ]], SELECT line,message FROM res.errors);
 
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
   TestEq(RECORD[], res.errors);

@@ -64,9 +64,6 @@ PUBLIC STATIC OBJECTTYPE ToddMessageLinkEndpoint
   /// Called after 5 minutes without contact
   PUBLIC FUNCTION PTR ontimeout;
 
-  /// List of messages not ack'ed yet
-  PUBLIC PROPERTY queuedmessages(pvt_queuedmessages, -);
-
   /// Id of this link
   PUBLIC PROPERTY linkid(pvt_linkid, -);
 
@@ -224,6 +221,12 @@ PUBLIC STATIC OBJECTTYPE ToddMessageLinkEndpoint
   //
   // Public API
   //
+
+  // Get the number of unacked mesasges, for stats/debug
+  PUBLIC INTEGER FUNCTION GetNumQueuedMessages()
+  {
+    RETURN Length(this->pvt_queuedmessages);
+  }
 
   /** Queues a message
   */

@@ -158,15 +158,18 @@ MACRO TestSuggestFieldsLegacy()
   // Create and fill the test site
   testfw->BeginWork();
 
-  OBJECT siteroot := GetTestsuiteTempFolder();
+  OBJECT testfolder := GetTestsuiteTempFolder();
 
-  OBJECT csource := catalog->AddFolderToCatalog(siteroot->id);
+  OBJECT csource := catalog->AddFolderToCatalog(testfolder->id);
 
-  OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "slafile", data := StringToBlob("slasla"), publish := TRUE]);
+  OBJECT folder1 := testfolder->CreateFolder([name := "folder1"]);
+  OBJECT folder2 := testfolder->CreateFolder([name := "folder2"]);
+  OBJECT file_1 := folder1->CreateFile([name:="testfile1.txt", title := "slafile", data := StringToBlob("slasla"), publish := TRUE]);
+  OBJECT file_2 := folder2->CreateFile([name:="testfile2.txt", title := "slappefile", data := StringToBlob("blubber"), publish := TRUE]);
 
   testfw->CommitWork();
 
-  testfw->WaitForPublishCompletion(siteroot->id);
+  testfw->WaitForPublishCompletion(testfolder->id);
   csource->ReindexContentSource([ rebuild := TRUE ]);
   csource->WaitForIndexingDone([ verbose := TRUE ]);
 
@@ -174,15 +177,32 @@ MACRO TestSuggestFieldsLegacy()
 
   // Return all terms starting with "sla"
   RECORD ARRAY suggestions := suggest_obj->GetSuggestions("sla", 0);
-  TestEq(2, Length(suggestions));
-  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "slasla");
-  TestEq(1, SELECT AS INTEGER COLUMN count FROM suggestions WHERE text = "slafile");
+  TestEq(["slafile","slappefile","slasla"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
 
   //Test new api
   suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla");
-  TestEq(2, Length(suggestions));
-  TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "slasla");
-  TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "slafile");
+  TestEq(["slafile","slappefile","slasla"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := testfolder->objecturl ]);
+  TestEq(["slafile","slappefile","slasla"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := folder1->objecturl ]);
+  TestEq(["slafile","slasla"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := folder2->objecturl ]);
+  TestEq(["slappefile"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := folder2->objecturl ]);
+  TestEq(["slappefile"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := folder2->objecturl, exclude_urls := [ "https://www.example.net/" ]]);
+  TestEq(["slappefile"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ exclude_urls := STRING[ folder2->objecturl ] ]);
+  TestEq(["slafile","slasla"], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
+
+  suggestions := GetConsilioSuggestions("consilio:testfw_suggestfields", "sla", [ restrict_url := folder2->objecturl, exclude_urls := STRING[ folder2->objecturl ]]);
+  TestEq(STRING[], SELECT AS STRING ARRAY text FROM suggestions ORDER BY text);
 }
 
 RunTestframework(

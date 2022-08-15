@@ -6,7 +6,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
-LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenContentSource, OpenConsilioCatalog, OpenConsilioCatalogById;
+LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenConsilioCatalog, OpenConsilioCatalogById;
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
@@ -706,16 +706,26 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     @param indextag Index to search (module:tag)
     @param searchtext The text to get suggestions for
     @cell options.count maximum number of suggestions to return (0 for all matches, defaults to 10)
+    @cell(string) options.restrict_url For site searches: Only results with a URL starting with this restrict_url are
+        returned
+    @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
+        are not returned
     @return List of suggestions
     @cell(string) return.text The suggestion text
-    @cell(integer) return.num The number of documents which match the suggestion
 */
 PUBLIC RECORD ARRAY FUNCTION GetConsilioSuggestions(STRING indextag, STRING searchtext, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ count := 10 ], options);
+  options := ValidateOptions([ count := 10
+                             , restrict_url := ""
+                             , exclude_urls := STRING[]
+                             , debug := FALSE
+                             ], options);
   indextag := ValidateIndexTag(indextag);
 
   OBJECT suggest_obj := OpenSuggestObject(indextag);
+  suggest_obj->restrict_url := options.restrict_url;
+  suggest_obj->exclude_urls := options.exclude_urls;
+  suggest_obj->debug := options.debug;
 
   // Return all terms starting with "bla"
   RETURN SELECT num := suggestions.count //rename, 'count' is an annoying column to select, it clashes with the global AND count(*)

@@ -8,7 +8,13 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
+STRING FUNCTION GetRescueInterfaceURL()
+{
+  INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
+  RETURN `http://127.0.0.1:${rescueport}/`;
+}
 
 PUBLIC STATIC OBJECTTYPE AdHocServer
 <
@@ -36,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
 
     this->id := GenerateUFS128BitId(); // Random id
     this->port := CreateGlobalIPCPort("system:adhocserver." || this->id);
-    this->interfaceurl := this->options.interfaceurl ?? GetPrimaryWebHareInterfaceURL();
+    this->interfaceurl := this->options.interfaceurl ?? GetRescueInterfaceURL();
 
     // Register and store read callback for the port
     IF (this->options.logdebug)

@@ -628,7 +628,9 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
       , doccount := "search"
       , prefix := ""
       , restrict_to := ""
+      , exclude_urls := STRING[]
       , and_search := FALSE
+      , debug := FALSE
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -685,10 +687,15 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
                 ]
             ] INTO suggestquery;
       }
-      IF (indexid != -1 AND options.restrict_to != "")
+      IF (indexid != -1 AND (options.restrict_to != "" OR Length(options.exclude_urls) != 0))
         INSERT "objecturl" INTO suggestquery._source AT END;
 
+      IF(options.debug)
+        Print(`OpenSearch query:\nGET /${indexmanager.indexname}\n${EncodeJSON(suggestquery)}\n`);
       RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
+      IF(options.debug)
+        DumpValue(response, "tree");
+
       result.status := response.status;
       IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
       {
@@ -705,6 +712,19 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
                 AND options.restrict_to != ""
                 AND suggest._source.objecturl NOT LIKE options.restrict_to || "*")
               CONTINUE;
+            IF (indexid != -1
+                AND Length(options.exclude_urls) > 0)
+            {
+              BOOLEAN exclude;
+              FOREVERY(STRING excludeurl FROM options.exclude_urls)
+                IF(suggest._source.objecturl LIKE excludeurl || "*")
+                {
+                  exclude := TRUE;
+                  BREAK;
+                }
+              IF(exclude)
+                CONTINUE;
+            }
             IF (options.and_search AND options.doccount = "search" AND Length(otherwords) > 0 AND suggest._id NOT IN otherdocs)
               CONTINUE;
             FOREVERY (STRING text FROM suggest._source._suggested.input)
