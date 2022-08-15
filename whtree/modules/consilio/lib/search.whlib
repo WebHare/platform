@@ -518,6 +518,8 @@ OBJECTTYPE SuggestObject
 
   STRING catalog_name;
 
+  PUBLIC BOOLEAN debug;
+
 
   //////////////////////////////////////////////////////////////////////////////
   // Properties
@@ -536,6 +538,8 @@ OBJECTTYPE SuggestObject
             document_count value. However, document counts will only be returned if document_count was already set.
   */
   PUBLIC STRING restrict_url;
+
+  PUBLIC STRING ARRAY exclude_urls;
 
   /** @short Set to TRUE to require all terms in the query to be present in the results
   */
@@ -600,7 +604,9 @@ OBJECTTYPE SuggestObject
         , doccount := this->doccount
         , prefix := this->prefix
         , restrict_to := this->restrict_url
+        , exclude_urls := this->exclude_urls
         , and_search := this->and_search
+        , debug := this->debug
         ]);
     IF (callresult.status != SearchOk)
       THROW NEW SearchException(callresult.status, "Search weblet error: " || callresult.status);
