@@ -372,7 +372,7 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
   }
 
   // Activate new paths first - all apps now know about the new module
-  ReloadWebhareConfig2("AUTH MODULES");
+  ReloadWebhareConfig2("MODULES");
   /* Reset caches, so nothing using the old paths still stores it. Can't get rid
      of this until the source watcher knows to invalidate mod:: resources when
      the entire module is moved */
@@ -404,7 +404,7 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
 PUBLIC RECORD FUNCTION ActivateInstalledModule(STRING modulename, STRING installpath)
 {
   //Reload module config (ADDME: Run installscript BEFORE __SYSTEM_RESTART!)  FIXME: Ensure reload was completed or manually find the InstallScript
-  ReloadWebhareConfig2("AUTH MODULES");
+  ReloadWebhareConfig2("MODULES");
   RETURN __ActivateInstalledModule(modulename, installpath);
 }
 
