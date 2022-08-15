@@ -266,13 +266,22 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     IF(this->lastlib != libname)
     {
       this->lastlib := libname;
-      IF(libname != "")
+      this->lastlibdescr := DescribeCompiledLibrary(libname);
+      IF(NOT RecordExists(this->lastlibdescr))
       {
-        this->lastlibdescr := DescribeCompiledLibrary(libname);
-      }
-      ELSE
-      {
-        this->lastlibdescr := DEFAULT RECORD;
+        BOOLEAN exists := RecordExists(RetrieveWebHareResource(libname, [ allowmissing := TRUE ]));
+        IF(exists)
+        {
+          RECORD fileinfo := GetHarescriptLibraryInfo(libname);
+          IF(Length(fileinfo.errors) > 0)
+            this->lastlibdescr := CELL[ error := `At ${fileinfo.errors[0].filename}:${fileinfo.errors[0].line}:${fileinfo.errors[0].col}: ${fileinfo.errors[0].message}` ];
+          ELSE
+            this->lastlibdescr := CELL[ error := `Cannot compile '${libname}'` ];
+        }
+        ELSE
+        {
+          this->lastlibdescr := CELL[ error := `No such library '${libname}'` ];
+        }
       }
     }
     RETURN this->lastlibdescr;
@@ -303,9 +312,9 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   {
     STRING ARRAY objtoks := Tokenize(objtype,'#');
     RECORD lib := this->GetLibDescription(objtoks[0]);
-    IF(NOT RecordExists(lib))
+    IF(CellExists(lib,'error'))
     {
-      this->AddErrorForLine(linenum, `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')`);
+      this->AddErrorForLine(linenum, `Cannot find '${objtoks[1]}': ${lib.error}`);
       RETURN DEFAULT RECORD;
     }
 
@@ -387,9 +396,9 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       RETURN DEFAULT RECORD;
     }
     RECORD lib := this->GetLibDescription(functoks[0]);
-    IF(NOT RecordExists(lib))
+    IF(CellExists(lib,'error'))
     {
-      this->AddError(node, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
+      this->AddError(node, `Cannot find '${functoks[1]}': ${lib.error}`);
       RETURN DEFAULT RECORD;
     }
 
@@ -417,9 +426,9 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       RETURN DEFAULT RECORD;
     }
     RECORD lib := this->GetLibDescription(functoks[0]);
-    IF(NOT RecordExists(lib))
+    IF(CellExists(lib,'error'))
     {
-      this->AddErrorForScope(tolliumscope, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
+      this->AddErrorForScope(tolliumscope, `${lib.error} (looking for '${functoks[1]}')`);
       RETURN DEFAULT RECORD;
     }
 
