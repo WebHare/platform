@@ -281,9 +281,7 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
 
     this->initdata := contentsource.data;
     INSERT CELL contentsourceid := this->contentsourceid INTO this->initdata;
-    STRING library := CellExists(this->initdata, "library") ? this->initdata.library : "";
-    STRING contentobjectname := library != "" AND CellExists(this->initdata, "contentobject") ? this->initdata.contentobject : "";
-    this->identifier := contentobjectname != "" ? library || ":" || contentobjectname : "";
+    this->identifier := this->initdata.library || "#" || this->initdata.contentobject;
 
     this->initdata := CELL[ ...this->initdata
                           , contentsourcetag := contentsource.tag
