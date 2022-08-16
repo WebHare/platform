@@ -3,8 +3,11 @@
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-PUBLIC RECORD ARRAY FUNCTION GetTestSiteCatalogSources()
+PUBLIC RECORD ARRAY FUNCTION GetTestSiteCatalogSources(STRING tag)
 {
+  IF(tag != "webhare_testsuite:testsitecatalog")
+    ABORT(`Invalid tag '${tag}'`);
+
   OBJECT testsuitesite := OpenTestsuiteSite();
   IF(NOT ObjectExists(testsuitesite))
     RETURN RECORD[];

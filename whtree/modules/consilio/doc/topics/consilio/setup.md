@@ -51,7 +51,8 @@ Make sure that any fields used here are defined in your catalog's field mapping.
 
 For more complex scenarios you can define a function that will return the content
 sources for your catalog and pass it as an `ongetsources=` option to your catalog.
-This function should return a record array with an `fsobject` member listing the folder to index.
+This function receives the catalog tag and should return a record array with an
+`fsobject` member listing the folder to index.
 
 Example:
 ```xml
@@ -62,7 +63,7 @@ Example:
 ```
 
 ```harescript
-PUBLIC RECORD ARRAY FUNCTION GetCatalogSources()
+PUBLIC RECORD ARRAY FUNCTION GetCatalogSources(STRING catalogtag)
 {
   RETURN SELECT fsobject := id
            FROM system.fs_objects

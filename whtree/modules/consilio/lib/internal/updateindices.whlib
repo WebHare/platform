@@ -67,7 +67,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                                                   , fsobject := 0
                                                   , contentobject := ""
                                                   , tag := ""
-                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), INTEGER[])());
+                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
 
     FOREVERY(OBJECT customsource FROM catalognode.node->ListElements(catalognode.node->namespaceuri, "customsource"))
     {
