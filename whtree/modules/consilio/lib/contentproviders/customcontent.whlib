@@ -14,23 +14,29 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 RECORD defaultemptysearchrecord;
 RECORD ARRAY defaultmapping;
 
+RECORD __customcontentbase_initdata;
+
 /** @short A custom content provider base object
     @long Extend this object to provide a custom content provider indexing object.
     @topic consilio/api
 */
-PUBLIC OBJECTTYPE CustomContentBase
+PUBLIC STATIC OBJECTTYPE CustomContentBase
 <
-  INTEGER contentsourceid;
+  RECORD __initdata;
 
   PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchRecord, -);
   PROPERTY defaultmapping(GetDefaultMapping, -);
 
+  PUBLIC PROPERTY contentsourceid(this->__initdata.contentsourceid, -);
+  PUBLIC PROPERTY contentsourcetag(this->__initdata.contentsourcetag, -);
+  PUBLIC PROPERTY catalogtag(this->__initdata.catalogtag, -);
+
   /** Constructs a new CustomContentBase object
       @param data Initialization data
   */
-  MACRO NEW(RECORD data)
+  MACRO NEW()
   {
-    this->contentsourceid := data.contentsourceid;
+    this->__initdata := __customcontentbase_initdata;
   }
 
   /** @short Get a title for this index
@@ -222,21 +228,26 @@ PUBLIC OBJECTTYPE CustomContentBase
 */
 PUBLIC OBJECT FUNCTION MakeCustomContentObject(RECORD data)
 {
-  STRING library := CellExists(data, "library") ? data.library : "";
-  STRING contentobjectname := library != "" AND CellExists(data, "contentobject") ? data.contentobject : "";
   OBJECT contentobject;
-  STRING describe := `object ${library}#${contentobjectname} for index '${data.contentsourcetag}'`; //don't need to list catalog as long as contentsource tags are global
+  STRING describe := `object ${data.contentobject} for index '${data.contentsourcetag}'`; //don't need to list catalog as long as contentsource tags are global
+
+  RECORD save_initdata := __customcontentbase_initdata;
   TRY
   {
-    contentobject := MakeObject(library, contentobjectname, [ contentsourceid := data.contentsourceid
-                                                            , contentsourcetag := data.contentsourcetag
-                                                            , catalogtag := data.catalogtag
-                                                            ]);
+    __customcontentbase_initdata := CELL[ data.contentsourceid
+                                        , data.contentsourcetag
+                                        , data.catalogtag
+                                        ];
+    contentobject := MakeObject(data.contentobject);
   }
   CATCH (OBJECT e)
   {
     LogHarescriptException(e, [ info := [ context := "consilio:makecustomcontentobject" ] ]);
     THROW NEW Exception(`Could not initialize content ${describe}: ${e->what}`);
+  }
+  FINALLY
+  {
+    __customcontentbase_initdata := save_initdata;
   }
 
   IF (NOT contentobject EXTENDSFROM CustomContentBase)
@@ -277,6 +288,8 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     this->initdata := CELL[ ...this->initdata
                           , contentsourcetag := contentsource.tag
                           , contentsource.catalogtag
+                          , contentobject := this->initdata.library || "#" || this->initdata.contentobject
+                          , DELETE library
                           ];
 
     // Initialize the defaultemptysearchrecord

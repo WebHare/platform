@@ -68,6 +68,7 @@ PUBLIC OBJECT FUNCTION OpenContentSourceProvider(STRING catalogtag, RECORD conte
   INSERT CELL contentlinksonly := ReadRegistryKey("consilio.linkchecker.contentlinksonly") INTO source;
 
   source := CELL[ ...source
+                , contentobject := CellExists(csdata,'contentobject') ? csdata.library || "#" || csdata.contentobject : ""
                 , contentsourceid := contentsource.id
                 , contentsourcetag := contentsource.tag
                 , catalogtag := catalogtag
