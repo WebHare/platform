@@ -1,10 +1,11 @@
 <?wh
 //bootstrap the first index manager
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
@@ -23,7 +24,7 @@ MACRO LogStartup(STRING text)
 OBJECT trans := OpenPrimary();
 
 INTEGER builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-elasticsearch";
-IF(builtin_indexmanager != 0) //old name, we need to update it
+IF(builtin_indexmanager != 0) //old name, we need to update it. can go away past 5.02
 {
   trans->BeginWork();
   UPDATE consilio.indexmanagers SET address := "builtin-opensearch" WHERE address = "builtin-elasticsearch";
@@ -48,7 +49,7 @@ trans->CommitWork();
 
 LogStartup("Waiting for OpenSearch to come online");
 
-STRING status := WaitForPromise(WaitForIndexManager(builtin_indexmanager));
+STRING status := WaitForPromise(WaitForElasticsearch(builtin_indexmanager, MAX_DATETIME));
 IF (status != SearchOk)
 {
   LogStartup(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}`);

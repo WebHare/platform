@@ -24,18 +24,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 // Public API
 //
 
-PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
-{
-  waituntil := waituntil ?? MAX_DATETIME;
-  RECORD indexmanager := SELECT FROM consilio.indexmanagers WHERE id = indexmgrid;
-
-  IF (RecordExists(indexmanager))
-    RETURN WaitForElasticsearch(indexmgrid, waituntil);
-
-  RETURN CreateRejectedPromise(NEW Exception(SearchIndexNotFound));
-}
-
-
 PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 {
   RECORD result :=
@@ -1308,49 +1296,6 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
 
  IF (result.status = SearchOk)
     BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
-
-  RETURN result;
-}
-
-/** Deletes all documents in an index from a specific contentsource
-    @param indexmgrid Id of the indexmanager to use
-    @param indexid Id of the index
-    @param indexname Name of the index at the indexmanager
-    @cell options.suffix Sub-index suffix, for unmanaged indices, OpenSearch only
-    @return Execution result
-    @cell return.status Status
-    @cell return.deleted Number of deleted documents
-*/
-PUBLIC RECORD FUNCTION DeleteIndexManagerIndex(INTEGER indexmgrid, INTEGER indexid, STRING indexname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
-      ], options);
-
-  RECORD result := [ status := SearchUnavailable
-                   , deleted := 0
-                   ];
-
-  RECORD indexmanager := GetIndexManagers(indexmgrid);
-
-  IF (RecordExists(indexmanager))
-  {
-    RECORD indexinfo := SELECT * FROM consilio.catalogs WHERE id = indexid;
-    IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
-    {
-      // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendToElasticsearch(indexmanager.id, indexname || (options.suffix != "" ? "-" || options.suffix : indexmanager.suffix), "", DEFAULT RECORD, "DELETE");
-      result.status := response.status;
-      // Deleting an index doesn't return the number of deleted documents...
-    }
-    ELSE
-    {
-      // No content source specified, delete entire index
-      RECORD response := SendToElasticsearch(indexmanager.id, indexname, "", DEFAULT RECORD, "DELETE");
-      result.status := response.status;
-      // Deleting an index doesn't return the number of deleted documents...
-    }
-  }
 
   RETURN result;
 }
