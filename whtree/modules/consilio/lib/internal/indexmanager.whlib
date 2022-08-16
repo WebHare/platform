@@ -24,18 +24,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 // Public API
 //
 
-PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
-{
-  waituntil := waituntil ?? MAX_DATETIME;
-  RECORD indexmanager := SELECT FROM consilio.indexmanagers WHERE id = indexmgrid;
-
-  IF (RecordExists(indexmanager))
-    RETURN WaitForElasticsearch(indexmgrid, waituntil);
-
-  RETURN CreateRejectedPromise(NEW Exception(SearchIndexNotFound));
-}
-
-
 PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
 {
   RECORD result :=

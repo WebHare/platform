@@ -37,6 +37,7 @@ STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
       }
       CATCH(OBJECT e)
       {
+        LogHarescriptException(e);
         LogError("consilio:applyconfiguration", `ApplyConfiguration failed for '${rec.id}': ${e->what}`, [ catalogid := rec.id, catalog := rec.tag, error := e->what ]);
       }
     }
