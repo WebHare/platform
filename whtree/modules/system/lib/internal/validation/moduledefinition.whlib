@@ -108,6 +108,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 
     FOREVERY(OBJECT rulenode FROM this->xml->GetElements("webrule"))
     {
+      IF(NOT IsNodeApplicableToThisWebHare(rulenode))
+        CONTINUE;
+
       //We don't currently have an easier way to parse rules..
       RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), this->respath || ":" || rulenode->linenum);
       RECORD parsed := ParseWebRuleData(this->modulename, baserule, rulenode, this->respath, [ forvalidation := TRUE ]);
