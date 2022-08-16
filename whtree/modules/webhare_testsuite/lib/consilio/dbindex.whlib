@@ -10,11 +10,16 @@ LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 BOOLEAN showdebuglog;// := TRUE;
 
-PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
+PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
 < // ---------------------------------------------------------------------------
   //
   // CustomContentBase API
   //
+  MACRO NEW()
+  {
+    IF(this->contentsourcetag NOT LIKE "webhare_testsuite:*")
+      ABORT(`Unexpected tag '${this->contentsourcetag}'`);
+  }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {

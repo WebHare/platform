@@ -8,6 +8,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/internal/whfscatalog/indexfields.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -260,9 +261,7 @@ MACRO TestWHFSContentHandler()
   Print(catalog->GetStorageInfo() || "\n");
 
   OBJECT provider := catalog->OpenContentSource("consilio:whfsobjects")->__OpenProvider();
-  // The proxy object CustomContentProvider we get is pretty useless for deeper testing
-  RECORD initdata := provider->__GetCCPInitData();
-  OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
+  OBJECT realprovider := MakeCustomContentObject(provider->__GetCCPInitData());
   RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
 
   //Verify the field structure
