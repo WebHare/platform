@@ -1,4 +1,6 @@
 <?wh
+// syntax: <filename>
+// short: Import WRD schema from file
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
@@ -8,9 +10,6 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
-
-// command: wrd:import <schema> <path>
-// short: Import WRD schema from file
 
 MACRO PrintRef(STRING source, INTEGER dest)
 {

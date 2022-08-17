@@ -1,5 +1,5 @@
 <?wh
-// command: users [subcommand]
+// syntax: <subcommand>
 // short: Manage users
 
 LOADLIB "wh::crypto.whlib";

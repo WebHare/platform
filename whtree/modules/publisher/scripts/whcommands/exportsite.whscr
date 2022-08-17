@@ -1,6 +1,5 @@
 <?wh
-
-// command: publisher:exportsite
+// syntax: <site...>
 // short: export site(s) to disk (for transfer or backup)
 
 LOADLIB "wh::files.whlib";

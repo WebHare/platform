@@ -14,7 +14,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
-// command: manageversioning [command]
+// syntax: [command]
 // short: Manage versioning in publisher sites
 
 MACRO ShowSyntax(STRING error DEFAULTSTO "")

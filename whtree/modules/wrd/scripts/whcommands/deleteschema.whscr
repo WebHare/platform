@@ -1,5 +1,5 @@
 <?wh
-// command: wrd:deleteschema <schema>
+// syntax: <schemaname>
 // short: Deletes the requested schema
 
 LOADLIB "wh::os.whlib";

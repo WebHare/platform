@@ -1,4 +1,6 @@
 <?wh
+// syntax: [schema...]
+// short: Check a WRD schema for internal consistency
 
 LOADLIB "wh::os.whlib";
 
@@ -7,9 +9,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/validateschema.whlib";
-
-// command: wrd:validate [schema...]
-// short: Check a WRD schema for internal consistency
 
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),

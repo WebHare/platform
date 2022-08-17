@@ -1,5 +1,4 @@
 <?wh
-// command: dumpwebservers
 // short: Dump the webserver configuration
 
 LOADLIB "wh::os.whlib";

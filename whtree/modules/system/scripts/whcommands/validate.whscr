@@ -1,13 +1,13 @@
 ﻿<?wh
 // This scripts validate the screen file passed as command-line parameter
+// syntax: <path>
+// short: Validate XML files
+
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
-
-// command: validate <path>
-// short: Validate XML files
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),
   [ [ name := "tids", type := "switch" ]

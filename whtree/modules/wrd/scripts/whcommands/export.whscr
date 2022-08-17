@@ -1,4 +1,6 @@
 <?wh
+// syntax: <schema> <path>
+// short: Export WRD schema to file
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
@@ -8,9 +10,6 @@ LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
-
-// command: wrd:export <schema> <path>
-// short: Export WRD schema to file
 
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),

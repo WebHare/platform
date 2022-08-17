@@ -10,7 +10,7 @@ LOADLIB "mod::wrd/lib/objectapi.whlib";
 LOADLIB "mod::wrd/lib/internal/csvexport.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
 
-// command: wrd:flatexport [--xml] <schema>
+// syntax: [--xml] <schema>
 // short: Export WRD schema to XML/CSV files
 
 INTEGER errors := 0;

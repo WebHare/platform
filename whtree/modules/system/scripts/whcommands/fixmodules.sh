@@ -1,7 +1,7 @@
 #!/bin/bash
 source $WEBHARE_DIR/lib/wh-functions.sh
 
-# command: fixmodules [ --onlymodules ] [modules]
+# syntax: [ --onlymodules ] [modules]
 # short: Install any missing npm components for modules
 
 containsElement()

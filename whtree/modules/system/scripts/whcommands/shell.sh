@@ -1,4 +1,3 @@
-# command: shell
 # short: Launch a shell (similar to what Docker would do)
 
 if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then

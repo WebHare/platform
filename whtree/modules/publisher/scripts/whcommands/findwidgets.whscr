@@ -1,5 +1,4 @@
 <?wh
-// command: publisher:findwidgets
 // short: Find and optionally republish widget types and users
 
 LOADLIB "wh::os.whlib";

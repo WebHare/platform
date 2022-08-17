@@ -1,4 +1,7 @@
 <?wh
+// syntax: <wrd_guid> ...
+// short: Lookup wrd_guids in all WRD schemas
+
 
 LOADLIB "wh::os.whlib";
 
@@ -6,9 +9,6 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-
-// command: wrd:locate <wrd_guid> ...
-// short: Lookup wrd_guids in all WRD schemas
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),
         [ [ name := "wrdguid", type := "paramlist" ]
