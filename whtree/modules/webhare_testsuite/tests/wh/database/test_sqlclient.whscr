@@ -1,9 +1,5 @@
 <?wh
 
-// command: sql
-// short: SQL Client
-
-
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
