@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::consilio/lib/catalogs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+// helper for wh consilio:watchindexrpc
+
+OBJECT trans := OpenPrimary();
+
+STRING findtag := GetConsoleArguments()[0];
+RECORD ARRAY candidates := SELECT * FROM ListConsilioCatalogs() WHERE ToUppercase(tag) LIKE ToUppercase(findtag);
+IF(Length(candidates) = 0)
+  TerminateScriptWithError(`No such catalog '${findtag}'`);
+
+STRING ARRAY indexnames;
+FOREVERY(RECORD candidate FROM candidates)
+{
+  OBJECT catalog := OpenConsilioCatalog(candidate.tag);
+  RECORD ARRAY indices := catalog->ListAttachedIndices();
+  IF(Length(indices) = 0)
+    TerminateScriptWithError(`Catalog '${catalog->tag}' is not attached to any index`);
+
+  //TODO fuller URLs than just the index name in case you're working with multiple managers
+  //TODO escape regex ? will names get weird?
+  indexnames := indexnames CONCAT SELECT AS STRING ARRAY indexname FROM indices;
+}
+
+Print(Detokenize(indexnames,'|')||'\n');
