@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# command: wh webhare_testsuite:twoharetests
 # short: Run the TWOHARE testset
 
 die()

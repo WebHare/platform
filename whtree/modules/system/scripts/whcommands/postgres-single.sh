@@ -1,4 +1,3 @@
-# command: postgres-single
 # short: Starts up postgres in single user mode (for error recovery)
 
 PSROOT="${WEBHARE_DATAROOT}/postgresql"

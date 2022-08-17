@@ -1,5 +1,4 @@
 #!/bin/bash
-# command: backuplocal
 # short: Create a backup of the database
 
 source "$WEBHARE_DIR/lib/wh-functions.sh"

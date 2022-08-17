@@ -1,5 +1,4 @@
 <?wh
-// command: tasks [subcommand]
 // short: Manage tasks
 
 LOADLIB "wh::datetime.whlib";

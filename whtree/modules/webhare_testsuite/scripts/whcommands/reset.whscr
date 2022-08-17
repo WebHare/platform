@@ -1,5 +1,4 @@
 <?wh
-// command: webhare_testsuite:reset
 // short: Cleanup finished tests and regenerate the testsuite
 
 /* We're moving to 1 auto-installed testsite and run as much tests here as

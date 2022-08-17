@@ -1,5 +1,4 @@
 ﻿<?wh
-// command: softreset
 // short: Send a soft-reset
 
 LOADLIB "wh::datetime.whlib";

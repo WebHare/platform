@@ -1,4 +1,6 @@
 <?wh
+// syntax: <file>
+// short: apply configuration from file
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
@@ -14,8 +16,6 @@ LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
 
-// command: apply <file>
-// short: apply configuration from file
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "filename", type := "param", required := TRUE ]

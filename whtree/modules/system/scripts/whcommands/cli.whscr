@@ -1,5 +1,5 @@
 ﻿<?wh
-// command: cli [command]
+// syntax: [command]
 // short: Performs miscellaneous configuration/recovery actions
 
 LOADLIB "wh::os.whlib";

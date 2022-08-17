@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# command: wh webhare_testsuite:backup-restore-test
 # short: Run the backup-restore-test
 
 die()

@@ -1,12 +1,12 @@
 <?wh
+// syntax: [schema]
+// short: Show data usage of WRD schema(s)
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
-
-// command: wrd:showusage [schema]
-// short: Show data usage of WRD schema(s)
 
 RECORD ARRAY options :=
   [ [ name := "schemaname", type := "param" ]

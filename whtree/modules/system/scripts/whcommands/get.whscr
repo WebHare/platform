@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
 
-// command: get <param>
+// syntax: <param>
 // short: Gets various configuration parameters
 
 MACRO SyntaxFail()

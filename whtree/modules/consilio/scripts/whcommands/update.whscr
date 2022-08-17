@@ -1,5 +1,5 @@
 <?wh
-// command: consilio:update
+// syntax: [mask]
 // short: manually update catalogs and mappings
 
 LOADLIB "wh::os.whlib";

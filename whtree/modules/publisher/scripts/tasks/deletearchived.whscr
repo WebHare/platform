@@ -1,6 +1,4 @@
 <?wh
-
-// command: deletearchived
 // short: Delete archived output folders
 
 LOADLIB "wh::datetime.whlib";

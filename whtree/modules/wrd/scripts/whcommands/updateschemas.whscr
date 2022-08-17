@@ -1,11 +1,11 @@
 <?wh
+// syntax: [schema...]
+// short: Update specified WRD schemas from their metata definitions
 
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
-// command: wrd:updateschemas [schema...]
-// short: Update specified WRD schemas from their metata definitions
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "force", type := "switch" ]

@@ -1,13 +1,12 @@
 <?wh
+// syntax: <sourceschema> <targetschema>
+// short: Clone a WRD schema
 
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
-
-// command: wrd:clone <source> <target>
-// short: Clone a WRD schema
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),
     [ [ name := "dryrun", type := "switch" ]

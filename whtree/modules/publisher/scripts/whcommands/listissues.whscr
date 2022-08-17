@@ -1,5 +1,4 @@
 <?wh
-// command: listissues [subcommand]
 // short: List Publisher publication issues
 
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";

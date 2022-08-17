@@ -1,4 +1,3 @@
-# command: watchlog
 # short: Monitor error & service manager logs
 
 source $WEBHARE_DIR/lib/wh-functions.sh

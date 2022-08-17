@@ -10,8 +10,8 @@ Some pointers when writing CLI tools:
 ## Script skeleton
 ```harescript
 <?wh
-// command: cli-tool [subcommand]
-// short: Does a CLI thing
+// syntax: [arguments] - remove this line if your tool doesn't expect arguments
+// short: Does a CLI thing - remove if your tool shouldn't be document in 'wh help'
 
 LOADLIB "wh::os.whlib";
 

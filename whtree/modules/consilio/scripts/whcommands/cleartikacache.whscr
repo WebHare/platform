@@ -1,5 +1,4 @@
 <?wh
-// command: cleartikacache
 // short: Clear the disk Tika cache
 
 LOADLIB "mod::consilio/lib/parsers/tika.whlib";

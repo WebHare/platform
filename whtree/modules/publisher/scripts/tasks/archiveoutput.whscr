@@ -1,6 +1,4 @@
 <?wh
-
-// command: archiveoutput
 // short: Archive unreferenced output folders
 
 LOADLIB "wh::datetime.whlib";

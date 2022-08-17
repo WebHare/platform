@@ -1,4 +1,4 @@
-# command: catlog [-f] <logfile>
+# syntax: [-f] <logfile>
 # short: List today's logfiles
 
 source $WEBHARE_DIR/lib/wh-functions.sh
