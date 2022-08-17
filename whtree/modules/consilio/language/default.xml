@@ -82,6 +82,7 @@
       <text tid="deleteitem">Delete</text>
       <text tid="edititem">Edit</text>
       <text tid="error">Error</text>
+      <text tid="lang">Language</text>
       <text tid="manageindexmanagers">Manage index managers</text>
       <text tid="markcatalogascomplete">Mark catalog as up-to-date</text>
       <text tid="name">Name</text>
