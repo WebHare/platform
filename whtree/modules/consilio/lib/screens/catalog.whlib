@@ -37,6 +37,7 @@ STRING ARRAY resultfieldnames := [ "ID", "_SCORE", "_SUMMARY" ];
 CONSTANT RECORD baserow := [ catalog := FALSE
                            , standardcatalog := FALSE
                            , isupdateorrebuild := FALSE
+                           , lang := ""
                            ];
 
 STRING FUNCTION GetStatusIcon(INTEGER status)
@@ -534,6 +535,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
              , title := catalog.description
              , loglevel := catalog.loglevel
              , tag := catalog.name
+             , catalog.lang
              , size := catalogsize
              , status := 0
              , previewable := catalog.id > 0 AND NOT inactive

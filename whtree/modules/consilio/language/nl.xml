@@ -82,6 +82,7 @@
       <text tid="deleteitem">Verwijderen</text>
       <text tid="edititem">Bewerken</text>
       <text tid="error">Foutmelding</text>
+      <text tid="lang">Taalcode</text>
       <text tid="manageindexmanagers">Beheer index managers</text>
       <text tid="markcatalogascomplete">Markeer catalogus als bijgewerkt</text>
       <text tid="name">Naam</text>

@@ -38,7 +38,8 @@ PUBLIC INTEGER FUNCTION StoreRTDInWHFS(INTEGER schemaid, RECORD rtd, OBJECT impo
                                               , type := rtdtype->id
                                               , id := newfileid
                                               ]);
-  rtdtype->__ImportInstanceData(rtdfile->id, [ data := rtd ], importmapper, FALSE);
+  //when syncing allow writing into orphan members.. that may be needed if module versions differ and is harmless (We're expected to overwrite everything anyway)
+  rtdtype->__ImportInstanceData(rtdfile->id, [ data := rtd ], importmapper, TRUE);
   RETURN rtdfile->id;
 }
 

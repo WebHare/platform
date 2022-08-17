@@ -96,7 +96,8 @@ PUBLIC RECORD FUNCTION RPC_UploadModule(STRING modulename, BLOB moduledata)
   {
     RETURN
         [ success :=  FALSE
-        , code :=     "CANNOTREPLACE"
+        , uploaded := FALSE
+        , code :=     "ERRORS"
         , errors :=   [ "Module '" || modulename || "' is not an installed module, and cannot be replaced" ]
         , warnings := DEFAULT STRING ARRAY
         ];
@@ -130,6 +131,7 @@ PUBLIC RECORD FUNCTION RPC_UploadModule(STRING modulename, BLOB moduledata)
                             : "ERRORS"
       , errors :=       result.errors
       , warnings :=     result.warnings
+      , uploaded :=     TRUE
       ];
 }
 
