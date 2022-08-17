@@ -818,7 +818,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
       RETURN
           [ simple_query_string :=
               [ query := query.userquery
-              , fields := (SELECT AS STRING ARRAY field || FormatBoost(boost) FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" FROM fields WHERE stemmed_field)
+              , fields := (SELECT AS STRING ARRAY field || (CellExists(fields, "boost") ? FormatBoost(boost) : "") FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" FROM fields WHERE stemmed_field)
               , default_operator := query.querymode
               , analyzer := query.synonyms ? "consilio_search" : "consilio_analyzer"
               ]
