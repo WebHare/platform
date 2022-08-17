@@ -40,18 +40,17 @@ MACRO SubCommand(STRING ARRAY params)
 
 MACRO Main()
 {
-  RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
-                          , [ name := "params", type := "paramlist" ]
-                          ];
+  RECORD ARRAY syntax := [ [ name := "command", type := "param", required := TRUE ]
+                         , [ name := "params", type := "paramlist" ]
+                         ];
 
-  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+  RECORD args := ParseArguments(GetConsoleArguments(), syntax);
 
-
-  SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+  SWITCH(RecordExists(args) ? args.command : "help")
   {
     CASE "subcommand"
     {
-      SubCommand(cmdargs.params);
+      SubCommand(args.params);
     }
     DEFAULT
     {
