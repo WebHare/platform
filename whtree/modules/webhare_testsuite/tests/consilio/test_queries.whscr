@@ -110,6 +110,9 @@ MACRO RunTheMatchQueries()
                               , myrec := [ reckeyword := ["rk1","rk2" ] ]
                              ]]
                 ], RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC1")), "*");
+
+  // Regression: defaultfields without boost
+  TestEq(["QC1"], ExecTestQuery(CQParseUserQuery("one", [ defaultfields := [ [ field := "textfield" ] ] ])));
 }
 
 MACRO RunTheAggregationQueries()
