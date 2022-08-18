@@ -86,7 +86,7 @@ an insecure WebHare backend interface
 Set the IP address binding for the loopback connections port (usually 13683). If not set it defaults to localhost. This port
 is used for internal connections between WebHare processes and allows access to the whmanager (eg. IPC, events, mutexes)
 
-### WEBHARE_ELASTICSEARCH_BINDHOST
+### WEBHARE_OPENSEARCH_BINDHOST
 Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it defaults to 127.0.0.1
 
 ## Debugging/selftests

@@ -17,8 +17,8 @@ fi
 
 ADDOPTIONS=""
 
-if [ -z "$WEBHARE_ELASTICSEARCH_BINDHOST" ]; then
-  WEBHARE_ELASTICSEARCH_BINDHOST=127.0.0.1
+if [ -z "$WEBHARE_OPENSEARCH_BINDHOST" ]; then
+  WEBHARE_OPENSEARCH_BINDHOST=127.0.0.1
 fi
 
 mkdir -p "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo"
@@ -85,6 +85,6 @@ exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
                                 -Epath.logs="$OPENSEARCHROOT/logs" \
                                 -Epath.repo="$OPENSEARCHROOT/repo" \
                                 -Ehttp.port=$OPENSEARCHPORT \
-                                -Ehttp.host=$WEBHARE_ELASTICSEARCH_BINDHOST \
+                                -Ehttp.host=$WEBHARE_OPENSEARCH_BINDHOST \
                                 -Ediscovery.type=single-node \
                                 $ADDOPTIONS
