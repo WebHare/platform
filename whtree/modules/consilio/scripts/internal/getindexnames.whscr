@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 OBJECT trans := OpenPrimary();
 
-STRING findtag := GetConsoleArguments()[0];
+STRING findtag := PickFirst(GetConsoleArguments());
 RECORD ARRAY candidates := SELECT * FROM ListConsilioCatalogs() WHERE ToUppercase(tag) LIKE ToUppercase(findtag);
 IF(Length(candidates) = 0)
   TerminateScriptWithError(`No such catalog '${findtag}'`);
