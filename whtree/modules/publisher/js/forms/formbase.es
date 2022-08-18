@@ -711,17 +711,22 @@ export default class FormBase
       //Record initial states
       if (option.propWhFormSavedEnabled === undefined)
         option.propWhFormSavedEnabled = !option.disabled;
+      if (option.propWhFormSavedHidden === undefined)
+        option.propWhFormSavedHidden = option.hidden;
 
       let option_enabled = visible && option.propWhFormSavedEnabled;
+      let option_hidden = !visible || option.propWhFormSavedHidden;
 
-      if(option_enabled !== option.propWhNodeCurrentEnabled)
+      if(option_enabled !== option.propWhNodeCurrentEnabled || option_hidden != option.propWhNodeCurrentHidden)
       {
         option.propWhNodeCurrentEnabled = option_enabled;
+        option.propWhNodeCurrentHidden = option_hidden;
         option.disabled = !option_enabled;
+        option.hidden = option_hidden;
 
         // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
         let selectnode = option.closest("select");
-        if (option.disabled && option.selected && option.dataset.whPlaceholder === undefined)
+        if (option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined)
         {
           if(selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
             selectnode.selectedIndex = 0;
