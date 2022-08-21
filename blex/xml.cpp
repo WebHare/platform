@@ -205,7 +205,9 @@ std::string Node::GetNodeName() const
                     return std::string("#comment");
                 case XML_DOCUMENT_NODE:
                 case XML_HTML_DOCUMENT_NODE:
+#if LIBXML_VERSION < 21000
                 case XML_DOCB_DOCUMENT_NODE:
+#endif
                     return std::string("#document");
                 case XML_DOCUMENT_FRAG_NODE:
                     return std::string("#document-fragment");
@@ -672,6 +674,8 @@ InitXMLParse::InitXMLParse()
         xmlSetExternalEntityLoader(MyExternalEntityLoader);
 
         // unbelievable...
+        // not sure about the context for the above 'unbelievable' but I presume a lot of the mess here (and XML calls still
+        // updating error callbacks) is coming from the  fact that libxml2 stores its configuration in a per-thread object.
         xmlSetGenericErrorFunc(NULL, MyGenericErrorFunc);
         xmlThrDefSetGenericErrorFunc(NULL, MyGenericErrorFunc); //for new threads
 
