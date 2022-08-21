@@ -5,6 +5,7 @@
 #include "xml_provider.h"
 #include <stdarg.h>
 #include <libxml/catalog.h>
+#include <libxml/SAX.h>
 #include <harescript/vm/hsvm_dllinterface_blex.h>
 
 //ADDME: Merge our common code with blex/xml
@@ -359,6 +360,12 @@ bool XMLContextReadData::ParseHTMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_Va
             enc = XML_CHAR_ENCODING_UTF8;
 
         LibXMLBugWorkAround(buffer, &len);
+
+#if LIBXML_VERSION >= 21000
+        // Ensure the SAX callbacks are setup to work around libxml 2.10 in not-legacy-mode (its default) not setting them in threads
+        // Reported as https://gitlab.gnome.org/GNOME/libxml2/-/issues/399
+        htmlDefaultSAXHandlerInit();
+#endif
 
         // Open and parse blob
         xmlSetStructuredErrorFunc(&errorcatcher, HareScript::Xml::HandleXMLError);
