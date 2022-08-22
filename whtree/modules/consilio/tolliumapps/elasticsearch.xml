@@ -18,7 +18,7 @@
           <list name="indices" selectmode="multiple">
             <column name="name" iconname="health" type="text" width="1pr" tid="~name" />
             <column name="docs" type="integer" width="12x" align="right" />
-            <column name="size" type="text" width="16x" align="right" />
+            <column name="size" type="integer64" width="16x" align="right" />
           </list>
         </cell>
         <cell>
