@@ -74,7 +74,7 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
               , isbuiltin := address = "builtin-opensearch"
               , isdefault := address = "builtin-opensearch"
               , name
-              , url := address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
+              , url := address = "builtin-opensearch" ? GetBuiltinOpensearchAddress() : address
            FROM consilio.indexmanagers;
 }
 
