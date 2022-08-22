@@ -110,7 +110,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
   IF (NOT RecordExists(indexmanager))
    THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
 
-  RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET");
+  RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", indexmanager.indexname || "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD);
   result.status := response.status;
   IF (response.status = SearchOk)
     result.stats := GetCell(response.result.indices, indexmanager.indexname).total;
@@ -140,12 +140,12 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
   STRING fullname := indexname || (suffix != "" ? "-" || suffix : "");
   TRY
   {
-    SendToElasticsearch(indexmanager, fullname, "",
+    SendRawJSONToElasticsearch(indexmanager, "PUT", fullname,
          CELL[ settings := [ number_of_replicas := 0 // we don't configure replication on our own indicessettings
                            , analysis := setanalysis
                            ]
              , mappings := mapping
-             ], "PUT");
+             ]);
   }
   CATCH(OBJECT<ElasticSearchException> e)
   {
@@ -154,7 +154,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
       //Then just update the configuration
 
       // Analysis settings cannot be updated on opened indices, so the index has to be closed first and reopened after update
-      RECORD currentsettings := SendToElasticsearch(indexmanager, fullname, "/_settings", DEFAULT RECORD, "GET").result;
+      RECORD currentsettings := SendRawJSONToElasticsearch(indexmanager, "GET", fullname || "/_settings", DEFAULT RECORD).result;
       currentsettings := GetCell(currentsettings, fullname).settings;
 
       RECORD applysettings;
@@ -167,13 +167,13 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
         IF (close_index)
         {
           __did_opensearch_close_and_reopen := TRUE;
-          SendToElasticsearch(indexmanager, fullname, "/_close", DEFAULT RECORD, "POST");
+          SendRawJSONToElasticsearch(indexmanager, "POST", fullname || "/_close", DEFAULT RECORD);
         }
 
         // Update the settings
         TRY
         {
-          SendToElasticsearch(indexmanager, fullname, "/_settings", applysettings, "PUT");
+          SendRawJSONToElasticsearch(indexmanager, "PUT", fullname || "/_settings", applysettings);
         }
         FINALLY
         {
@@ -182,7 +182,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
           {
             TRY
             {
-              SendToElasticsearch(indexmanager, fullname, "/_open", DEFAULT RECORD, "POST");
+              SendRawJSONToElasticsearch(indexmanager, "POST", fullname || "/_open", DEFAULT RECORD);
             }
             CATCH(OBJECT f)
             {
@@ -193,7 +193,7 @@ PUBLIC MACRO EnsureOpenSearchIndexConfiguration(INTEGER indexmanager, STRING ind
         }
       }
 
-      SendToElasticsearch(indexmanager, fullname, "/_mapping", mapping, "PUT");
+      SendRawJSONToElasticsearch(indexmanager, "PUT", fullname || "/_mapping", mapping);
     }
     ELSE
     {
@@ -215,7 +215,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
     THROW NEW Exception(`Managed Consilio catalog #${indexid} does not support suffixes`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
-  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET");
+  RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", finalindexname || "/_mapping", DEFAULT RECORD);
 
   RECORD mappings := GetCell(response.result, finalindexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
@@ -539,11 +539,11 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       RECORD response;
       // If we have a scroll id, request the next batch of results
       IF (scrollid != "")
-        response := SendToElasticsearch(indexmanager.id, "", "/_search/scroll", [ scroll := "10s", scroll_id := scrollid ], "GET");
+        response := SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_search/scroll", [ scroll := "10s", scroll_id := scrollid ]);
       ELSE
       {
         STRING suffix := indexid > 0 AND indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged ? (options.suffix != "" ? "-" || options.suffix : "") : "";
-        response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname || suffix : "_all", "/_search" || (scrolling ? "?scroll=10s" : ""), searchquery, "GET");
+        response := SendRawJSONToElasticsearch(indexmanager.id, "GET", (indexid != 0 ? indexmanager.indexname || suffix : "_all") || "/_search" || (scrolling ? "?scroll=10s" : ""), searchquery);
       }
 
       result.status := response.status;
@@ -586,7 +586,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
 
     // Clear the last scrolling context, if necessary
     IF (scrollid != "")
-      SendToElasticsearch(indexmanager.id, "", "/_search/scroll", [ scroll_id := [ scrollid ] ], "DELETE");
+      SendRawJSONToElasticsearch(indexmanager.id, "DELETE", "/_search/scroll", [ scroll_id := [ scrollid ] ]);
   }
 
   IF(IsDebugTagEnabled("consilio:searches"))
@@ -668,7 +668,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
 
       IF(options.debug)
         Print(`OpenSearch query:\nGET /${indexmanager.indexname}\n${EncodeJSON(suggestquery)}\n`);
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", suggestquery);
       IF(options.debug)
         DumpValue(response, "tree");
 
@@ -763,7 +763,7 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
     RETURN size;
 
   STRING suffix := indexmanager.indextype = 1 ? "*" : "";
-  RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD, "GET");
+  RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD);
   IF (response.status = SearchOk)
   {
     // 0     1         2
@@ -777,21 +777,6 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
   }
 
   RETURN size;
-}
-
-STRING FUNCTION AddRefreshToURLPart(STRING urlpart, VARIANT refresh)
-{
-  IF (IsDefaultValue(refresh))
-    refresh := "false";
-  ELSE IF (TypeID(refresh) = TypeID(BOOLEAN))
-    refresh := "true";
-  ELSE IF (TypeID(refresh) != TypeID(STRING) OR refresh NOT IN [ "force", "wait_for" ])
-    THROW NEW Exception(`Unexpected refresh option value ${EncodeJSON(refresh)}`);
-  ELSE
-    refresh := refresh IN [ "false", "wait_for" ] ? refresh : "true";
-  IF (refresh != "false")
-    RETURN `${urlpart}${SearchSubString(urlpart, "?") = -1 ? "?" : "&"}refresh=${refresh}`;
-  RETURN urlpart;
 }
 
 STATIC OBJECTTYPE IndexManagerBulkKeeper
@@ -839,7 +824,8 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
     RECORD ARRAY errors;
     FOREVERY (RECORD rec FROM this->_requests)
     {
-      RECORD response := SendToElasticsearch(rec.indexmanagerid, rec.finalindexname, AddRefreshToURLPart("/_bulk", options.refresh), [ _bulkrequests := rec.requests ], "POST");
+      STRING url := rec.finalindexname || "/_bulk" || (options.refresh ? "?refresh=true" : "");
+      RECORD response := SendRawJSONToElasticsearch(rec.indexmanagerid, "POST", url, [ bulkrequests := rec.requests ], [ ndjson := TRUE ]);
       IF(response.result.errors)
       {
         RECORD ARRAY itemresponses := SELECT *, operation := CellExists(items,"index") ? items."index" : items."delete"
@@ -1015,7 +1001,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
       IF (contentsourceid != 0)
         INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", (indexid != 0 ? indexmanager.indexname : "_all") || `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query);
       result := response.status;
     }
     result := result ?? SearchOk;
@@ -1101,7 +1087,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
       IF (contentsourceid != 0)
         INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", AddRefreshToURLPart(`/_delete_by_query`, options.refresh), query, "POST");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", (indexid != 0 ? indexmanager.indexname : "_all") || `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query);
       IF (response.status != SearchOk)
         result := response.status;
     }
@@ -1173,9 +1159,9 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
          when running wh consilio:manualindex publisher:whfs - suspecting the delete is trying to delete older versions
 
          maybe we can set conflicts=proceed but I'm not sure if that will then fail to delete or delete the most recent version*/
-      SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_refresh", DEFAULT RECORD, "GET");
+      SendRawJSONToElasticsearch(indexmanager.id, "GET", indexmanager.indexname || "/_refresh", DEFAULT RECORD);
 
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query);
       result.status := result.status ?? response.status;
       IF (result.status = SearchOk)
       {
@@ -1184,7 +1170,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
         // Find documents that aren't deleted
         DELETE CELL filter FROM query.query.bool;
         INSERT CELL _source := [ "objectid" ] INTO query;
-        response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", query, "POST");
+        response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", query);
         IF (response.status = SearchOk AND Length(response.result.hits.hits) > 0)
         {
           result.active :=
@@ -1210,7 +1196,7 @@ PUBLIC STRING FUNCTION RefreshAttachedIndices(INTEGER catalogid)
 
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || indexmanager.suffix, "/_refresh", DEFAULT RECORD, "GET");
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", (indexmanager.indexname || indexmanager.suffix) || "/_refresh", DEFAULT RECORD);
     IF (response.status != SearchOk)
       result := response.status;
   }
@@ -1256,7 +1242,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     ELSE IF (contentsourceid = 0)
     {
       // No content source specified, delete entire index
-      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", DEFAULT RECORD, "DELETE");
+      RECORD response := SendRawJSONToElasticSearch(indexmanager.id, "DELETE", indexmanager.indexname, DEFAULT RECORD);
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }
@@ -1272,7 +1258,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
               ]
           ];
       // Delete all objects within the content source
-      RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", "/_delete_by_query", query, "POST");
+      RECORD response := SendRawJSONToElasticSearch(indexmanager.id, "POST", (indexid != 0 ? indexmanager.indexname : "_all") || "/_delete_by_query", query);
       result.status := response.status;
       IF (result.status = SearchOk)
         result.deleted := response.result.deleted;

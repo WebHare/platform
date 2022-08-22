@@ -49,7 +49,7 @@ FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuil
       IF(debug)
         Print(msg || "\n");
 
-      SendToElasticsearch(indexmanager.id, toremove.indexname || (suffix != "" ? "-" || suffix : "*"), "", DEFAULT RECORD, "DELETE");
+      SendRawJSONToElasticSearch(indexmanager.id,  "DELETE", toremove.indexname || (suffix != "" ? "-" || suffix : "*"), DEFAULT RECORD);
     }
   }
 }
