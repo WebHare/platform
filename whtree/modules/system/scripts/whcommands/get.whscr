@@ -38,7 +38,7 @@ SWITCH(args.parameter)
   }
   CASE "opensearchurl"
   {
-    Print(GetBuiltinOpensearchAddress()||"\n");
+    Print(GetElasticsearchAddress()||"\n");
   }
   DEFAULT
   {
