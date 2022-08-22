@@ -63,11 +63,22 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
     IF(ongetsources != "")
-      catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
-                                                  , fsobject := 0
-                                                  , contentobject := ""
-                                                  , tag := ""
-                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
+    {
+      TRY
+      {
+        catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
+                                                    , fsobject := 0
+                                                    , contentobject := ""
+                                                    , tag := ""
+                                                   ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        Print(`ongetsources failed for catalog '${catalog.tag}': ${e->what}\n`);
+        CONTINUE; //don't update the catalog then..
+      }
+    }
 
     FOREVERY(OBJECT customsource FROM catalognode.node->ListElements(catalognode.node->namespaceuri, "customsource"))
     {
