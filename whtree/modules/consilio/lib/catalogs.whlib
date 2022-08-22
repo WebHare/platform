@@ -74,7 +74,7 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
               , isbuiltin := address = "builtin-opensearch"
               , isdefault := address = "builtin-opensearch"
               , name
-              , url := address = "builtin-opensearch" ? `http://localhost:${GetWebHareConfiguration().baseport + 6}/` : address
+              , url := address = "builtin-opensearch" ? GetBuiltinOpensearchAddress() : address
            FROM consilio.indexmanagers;
 }
 
@@ -892,6 +892,14 @@ STATIC OBJECTTYPE ConsilioCatalog
         EnsureOpenSearchIndexConfiguration(opensearch.indexmanager, opensearch.indexname, suffix, synonyms, this->catalog.lang, finalupdate);
   }
 
+  PUBLIC STRING ARRAY FUNCTION __ListSuffixes()
+  {
+    STRING ARRAY updatesuffixes := SELECT AS STRING ARRAY suffix FROM this->ListSuffixes();
+    IF(NOT this->suffixed AND "" NOT IN updatesuffixes)
+      INSERT "" INTO updatesuffixes AT END; //on an empty unsuffixed catalog, even unmanaged, create and configure the root index
+    RETURN updatesuffixes;
+  }
+
   /** @short Make sure configuration is applied and, if unsuffixed, the root index exists
       @cell(string array) options.suffixes Update the configuration of the specified suffixes only, and ensure they exist
   */
@@ -900,17 +908,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     //TODO? allow us to explicitly specify suffixes to ensure/reconfigure
     options := ValidateOptions(CELL[ suffixes := STRING[] ], options, [ optional := ["suffixes" ]]);
 
-    STRING ARRAY updatesuffixes;
-    IF(CellExists(options, 'suffixes'))
-    {
-      updatesuffixes := options.suffixes;
-    }
-    ELSE
-    {
-      updatesuffixes := SELECT AS STRING ARRAY suffix FROM this->ListSuffixes();
-      IF(NOT this->suffixed AND "" NOT IN updatesuffixes)
-        INSERT "" INTO updatesuffixes AT END; //on an empty unsuffixed catalog, even unmanaged, create and configure the root index
-    }
+    STRING ARRAY updatesuffixes := CellExists(options, 'suffixes') ? options.suffixes : this->__ListSuffixes();
 
     this->EnsureIndexSettings(updatesuffixes);
     this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
@@ -1312,7 +1310,7 @@ PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
     @param options Options
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
-    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE
+    @cell(boolean) options.managed Create a managed catalog where consilio manages attached indices and content. Defaults to TRUE
     @cell(boolean) options.suffixed Create a suffixed catalog
     @return(object #Catalog) Catalog object
 */
