@@ -47,9 +47,8 @@ test.registerTests(
 
       // 1 and 3 are now checked, so only 2 should be disabled
       let disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.false(disabled_options.includes("1"));
-      test.true(disabled_options.includes("2"));
-      test.false(disabled_options.includes("3"));
+      test.eq(['2'], disabled_options);
+      test.eq(disabled_options, test.qSA("#coretest-condition_options option[hidden]").map(_ => _.value));
 
       if (replacedcomponents)
       {
@@ -65,9 +64,8 @@ test.registerTests(
       // enable 2
       test.click('#coretest-checkboxes-2');
       disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.false(disabled_options.includes("1"));
-      test.false(disabled_options.includes("2"));
-      test.false(disabled_options.includes("3"));
+      test.eq([], disabled_options);
+      test.eq(disabled_options, test.qSA("#coretest-condition_options option[hidden]").map(_ => _.value));
 
       if (replacedcomponents)
       {
@@ -84,9 +82,8 @@ test.registerTests(
       test.click('#coretest-checkboxes-2');
       test.click('#coretest-checkboxes-3');
       disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.false(disabled_options.includes("1"));
-      test.true(disabled_options.includes("2"));
-      test.true(disabled_options.includes("3"));
+      test.eq(['2','3'], disabled_options);
+      test.eq(disabled_options, test.qSA("#coretest-condition_options option[hidden]").map(_ => _.value));
 
       if (replacedcomponents)
       {
