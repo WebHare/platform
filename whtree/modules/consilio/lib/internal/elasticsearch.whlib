@@ -130,7 +130,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
     IF (NOT ObjectExists(indexmanager.browser))
     {
       indexmanager.browser := NEW WebBrowser();
-      indexmanager.browser->timeout := elastic_timeout * 1000;
+      indexmanager.browser->timeout := opensearch_read_timeout;
     }
 
     UpdateRequestDebugSetting(indexmanager.browser);
@@ -138,7 +138,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
     {
       FetcherDebug(ConsilioDebugInfo, "Connecting to Elasticsearch");
       // Wait for the cluster to reach 'yellow' status
-      IF (NOT indexmanager.browser->SendRawRequest("GET", `${indexmanager.address}/_cluster/health?wait_for_status=yellow&timeout=${elastic_timeout}ms`, [ [ field := "Content-Type", value := "application/json" ] ], DEFAULT BLOB))
+      IF (NOT indexmanager.browser->SendRawRequest("GET", `${indexmanager.address}/_cluster/health?wait_for_status=yellow&timeout=${opensearch_read_timeout}ms`, [ [ field := "Content-Type", value := "application/json" ] ], DEFAULT BLOB))
       {
         INTEGER statuscode := indexmanager.browser->GetHTTPStatusCode();
         IF (statuscode = 401)
@@ -170,11 +170,10 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
   reject(NEW Exception(SearchTimeOutError));
 }
 
-
 PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ ndjson := FALSE
-                              , timeout := elastic_timeout * 1000
+                              , timeout := ToUppercase(method) IN ["HEAD","GET"] ? opensearch_read_timeout : opensearch_write_timeout
                               , enforce := ""
                               , expectstatus := [ 200 ]
                               , explain := FALSE
@@ -191,7 +190,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
   }
 
-  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
+  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(opensearch_firstconnect_timeout, GetCurrentDateTime())));
 
   INTEGER statuscode;
   RECORD indexmanager;
@@ -335,7 +334,7 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
 
 PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ timeout := elastic_timeout * 1000 ], options);
+  options := ValidateOptions([ timeout := opensearch_read_timeout ], options);
   STRING command := "/_cluster/settings?flat_settings=true";
   IF (include_defaults)
     command := command || "&include_defaults=true";

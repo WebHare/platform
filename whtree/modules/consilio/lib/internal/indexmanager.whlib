@@ -256,6 +256,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , addscore := FALSE
       , debug := FALSE
       , explain := FALSE
+      , timeout := opensearch_read_timeout
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
@@ -378,7 +379,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     IF(options.debug)
       Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain ]);
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain, options.timeout ]);
     IF(options.debug)
       DumpValue(response, "tree");
 
@@ -668,7 +669,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
 
       IF(options.debug)
         Print(`OpenSearch query:\nGET /${indexmanager.indexname}\n${EncodeJSON(suggestquery)}\n`);
-      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", suggestquery);
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", indexmanager.indexname || "/_search", suggestquery);
       IF(options.debug)
         DumpValue(response, "tree");
 
@@ -1216,6 +1217,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
 {
   options := ValidateOptions(
       [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , timeout := opensearch_write_timeout
       ], options);
 
   RECORD result := [ status := SearchUnavailable
@@ -1235,7 +1237,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     IF (RecordExists(indexinfo) AND indexinfo.type = whconstant_consilio_catalogtype_unmanaged)
     {
       // Delete the specific subindex if suffix is set, otherwise delete all subindices
-      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), DEFAULT RECORD, [ expectstatus := [200,404] ]);
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "DELETE", indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), DEFAULT RECORD, CELL[ expectstatus := [200,404], options.timeout ]);
       result.status := response.status;
       // Deleting an index doesn't return the number of deleted documents...
     }

@@ -11,16 +11,14 @@ PUBLIC BOOLEAN running_in_fetcher;
 /// Are we allowed to print Defer: Connection?
 PUBLIC BOOLEAN print_defer_connection := TRUE;
 
-/// Number of times to try to connect to the Consilio index manager
-PUBLIC CONSTANT INTEGER consilio_maxtries := 3;
-/// Timeout for Consilio index manager connections, in seconds
-PUBLIC CONSTANT INTEGER consilio_timeout := 30;
+/// Timeout for OpenSearch read connections, in milliseconds (5 seconds)
+PUBLIC CONSTANT INTEGER opensearch_read_timeout := 5000;
 
-/// Timeout for Elasticsearch connections, in seconds
-PUBLIC CONSTANT INTEGER elastic_timeout := 30;
+/// Timeout for OpenSearch write connections, in milliseconds (5 minutes)
+PUBLIC CONSTANT INTEGER opensearch_write_timeout := 300000;
 
-/// Timeout for search sessions, in minutes
-PUBLIC CONSTANT INTEGER session_timeout := 15;
+/// Timeout for OpenSearch to come online the first time (60 seconds)
+PUBLIC CONSTANT INTEGER opensearch_firstconnect_timeout := 60000;
 
 /// Some default field mapping for OpenSearch content sources
 PUBLIC CONSTANT RECORD ARRAY defaultmappingfields :=
