@@ -74,8 +74,20 @@ getwhparameters()
     echo "This command needs an installed (make install) WebHare, but $WEBHARE_DIR/bin/webhare appears unavailable"
     exit 1
   fi
-  eval `$WEBHARE_DIR/bin/webhare printparameters`
+  eval $("$WEBHARE_DIR/bin/webhare" printparameters)
   export WEBHARE_DATABASEPATH="$WEBHARE_DATAROOT/postgresql"
+
+  if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
+    WEBHARE_ISRESTORED="$(cat "$WEBHARE_DATAROOT/webhare.restoremode")"
+    [ -n "$WEBHARE_ISRESTORED" ] || WEBHARE_ISRESTORED="1" #'1' marks us as restored without further info
+    export WEBHARE_ISRESTORED
+  fi
+
+  if [ -f "$WEBHARE_DATAROOT/webhare.readonlymode" ]; then
+    WEBHARE_DBASE_READONLY="$(cat "$WEBHARE_DATAROOT/webhare.readonlymode")"
+    [ -n "$WEBHARE_DBASE_READONLY" ] || WEBHARE_DBASE_READONLY="1" #'1' marks us as restored without further info
+    export WEBHARE_DBASE_READONLY
+  fi
 }
 
 getmoduledir_nofail()
