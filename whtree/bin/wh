@@ -55,7 +55,9 @@ fi
 # If we haven't found WEBHARE_DATAROOT that way, discover it
 if [ -z "$WEBHARE_DATAROOT" ] ; then
   WEBHARE_DATAROOT="$WEBHARE_DIR/whdata"
-  __WEBHARE_DATAROOT_AUTOSET=1
+  echo "WEBHARE_DATAROOT is not set and inferring WEBHARE_DATAROOT has been deprecated" 2>&1
+  echo "Make sure WEBHARE_DATAROOT is set and exported or use 'runkit' to manage your WebHare intallation(s)" 2>&1
+  sleep .5
 fi
 
 if [ -f $WEBHARE_DATAROOT/dbase/translog.whdb ]; then
