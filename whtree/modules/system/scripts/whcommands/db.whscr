@@ -125,12 +125,9 @@ SWITCH (args.command)
 
     IF (args.newvalue != "")
     {
-      STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
-      IF (envsettings LIKE `* WEBHARE_DBASE_READONLY=*` AND envsettings NOT LIKE `* WEBHARE_DBASE_READONLY=""\n*`)
-        TerminateScriptWithError("The database readonly settings are set globally by 'wh console' and cannot be changed.");
-
-      IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
-        Print("Warning: The WEBHARE_DBASE_READONLY environment variable is currently set, the configuration change will only have effect on processes that don't have it set.\n");
+      STRING readonlyfile := MergePath(GetWebhareConfiguration().varroot, "webhare.readonlymode");
+      IF(RecordExists(GetDiskFileProperties(readonlyfile)))
+        TerminateScriptWithError(`The database is forced readonly because '${readonlyfile}' exists - delete that file first`);
 
       SWITCH (args.newvalue)
       {

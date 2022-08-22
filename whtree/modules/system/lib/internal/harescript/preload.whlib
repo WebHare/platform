@@ -127,7 +127,7 @@ PUBLIC RECORD FUNCTION GetDatabaseRuntimeConfig()
                       ]
       ], __SYSTEM_GETSYSTEMCONFIG());
 
-  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
+  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "") //this is normally set through wh-function.sh
     config.database.readonly := TRUE;
 
   RETURN config.database;
