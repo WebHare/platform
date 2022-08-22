@@ -401,6 +401,8 @@
 
     <catalog tag="module_reference" managed="false" fieldgroups="consilio:test_reference_group" />
 
+    <catalog tag="emptycatalog" managed="false" />
+
     <fieldgroup tag="test_reference_group">
       <text name="testsuite" />
     </fieldgroup>

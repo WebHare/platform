@@ -305,11 +305,8 @@ STRING FUNCTION GetOpensearchTypeForConsilioType(STRING intype)
 */
 PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
 {
-  RECORD properties;
+  RECORD properties := CELL[];
   BOOLEAN strict := TRUE; //initial true until we find a wildcard
-
-  IF(Length(input_properties) = 0)
-    RETURN DEFAULT RECORD;
 
   FOREVERY(RECORD prop FROM input_properties)
   {

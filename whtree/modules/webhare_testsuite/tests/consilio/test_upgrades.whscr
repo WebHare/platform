@@ -4,10 +4,30 @@ LOADLIB "wh::crypto.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestNofieldUnmanagedCatalog()
+{
+  //clear out and recreate the testcatalog metadata
+  testfw->BeginWork();
+  DELETE FROM consilio.catalogs WHERE name LIKE "webhare_testsuite:emptycatalog";
+  testfw->CommitWork();
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:emptycatalog" ]);
+
+  //Ensure a catalog with empty definitions doesn't crash on mapping updates
+  testfw->BeginWork();
+  OpenConsilioCatalog("webhare_testsuite:emptycatalog")->AttachIndex(0);
+  testfw->CommitWork();
+
+  FixConsilioIndices([ catalogmask := "webhare_testsuite:emptycatalog" ]);
+  RECORD ARRAY indices := OpenConsilioCatalog("webhare_testsuite:emptycatalog")->ListAttachedIndices();
+  RECORD mapping := SendRawJSONToElasticsearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}/_mapping`, DEFAULT RECORD).result;
+  TestEq("strict", GetCell(mapping,indices[0].indexname).mappings.dynamic);
+}
 
 MACRO TestOldIndexSyntax()
 {
@@ -96,6 +116,7 @@ MACRO TestOpeningExternalIndex()
 }
 
 RunTestframework(
-    [ PTR TestOldIndexSyntax
+    [ PTR TestNofieldUnmanagedCatalog
+    , PTR TestOldIndexSyntax
     , PTR TestOpeningExternalIndex
     ]);
