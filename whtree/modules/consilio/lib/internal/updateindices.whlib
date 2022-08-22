@@ -63,11 +63,22 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
     IF(ongetsources != "")
-      catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
-                                                  , fsobject := 0
-                                                  , contentobject := ""
-                                                  , tag := ""
-                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
+    {
+      TRY
+      {
+        catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
+                                                    , fsobject := 0
+                                                    , contentobject := ""
+                                                    , tag := ""
+                                                   ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        Print(`ongetsources failed for catalog '${catalog.tag}': ${e->what}\n`);
+        CONTINUE; //don't update the catalog then..
+      }
+    }
 
     FOREVERY(OBJECT customsource FROM catalognode.node->ListElements(catalognode.node->namespaceuri, "customsource"))
     {
@@ -268,7 +279,10 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    IF(want.managed AND ObjectExists(want.catalog) AND want.catalog->managed)
+    IF(NOT ObjectExists(want.catalog))
+     CONTINUE;
+
+    IF(want.managed AND want.catalog->managed) //If we are supposed to manage the catalog, we'll restore indices if needed
     {
       RECORD ARRAY indices := want.catalog->ListAttachedIndices();
       IF(Length(indices) = 0)
@@ -279,25 +293,28 @@ MACRO UpdateModuleCatalogs(RECORD options)
         want.catalog->ReindexCatalog();
         trans->CommitWork();
       }
+    }
 
-      TRY
-      {
-        // zapbroken can autodestroy 'fix' anything broken, but shouldn't we be first comparing whether the index needs changes before blindly applying mappings everywhere ? (and then get rid of this double-try?)
-        want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
-      }
-      CATCH(OBJECT e)
-      {
-        LogHarescriptException(e);
-        PrintTo(2, `Failed to reconfigure catalog '${want.tag}': ${e->what}\n`);
+    TRY
+    {
+      // zapbroken can autodestroy 'fix' anything broken, but shouldn't we be first comparing whether the index needs changes before blindly applying mappings everywhere ? (and then get rid of this double-try?)
+      want.catalog->ApplyConfiguration(); //ensure any config is fresh/uptodate
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      PrintTo(2, `Failed to reconfigure catalog '${want.tag}': ${e->what}\n`);
 
-        IF(options.zapbroken)
-          AttemptZap(want.catalog);
-      }
+      IF(options.zapbroken)
+        AttemptZap(want.catalog);
+    }
 
-      IF(NOT want.catalog->suffixed)
-        FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices())
+    IF(want.managed AND want.catalog->managed)
+      FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices())
+        FOREVERY(STRING suffix FROM want.catalog->__ListSuffixes())
         {
-          RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, opensearch.indexname);
+          STRING fullname := opensearch.indexname || (suffix != "" ? "-" || suffix : "");
+          RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, fullname);
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
           RECORD ARRAY issues := CompareMappings(res,exp,"");
           IF(options.zapanymismatch AND AttemptZap(want.catalog))
@@ -306,10 +323,9 @@ MACRO UpdateModuleCatalogs(RECORD options)
           FOREVERY(RECORD issue FROM issues)
           {
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
-            Print(`Catalog ${want.catalog->tag} index ${opensearch.indexname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
+            Print(`Catalog ${want.catalog->tag} index ${fullname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
           }
-        }
-    }
+      }
   }
 }
 

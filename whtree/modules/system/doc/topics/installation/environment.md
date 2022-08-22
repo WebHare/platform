@@ -35,6 +35,9 @@ Path to a shell script to execute near the end of the post-start script.
 If set, this WebHare is configured a 'restored' installation which may not run tasks with external effects. It can be set
 to a short explanation about the restore (eg a date).
 
+If `WEBHARE_DATAROOT/webhare.restoremode` exists, WebHare will read the contents of this file and place it into the
+`WEBHARE_ISRESTORED` environment variable. You can verify this behavior by runnning `wh dirs` and checking the output.
+
 ### WEBHARE_CLI_USER
 The user currently accessing the server. You should ensure this is set to the user executing commands for proper auditing.
 
