@@ -10,8 +10,6 @@ WebHare installation directory. `$WEBHARE_DIR/bin/wh` must be the `wh` command. 
 ### WEBHARE_DATAROOT
 WebHare data root. If set, all datadirs are looked up relative to this path. In docker, this is usually `/opt/whdata`
 
-`$WEBHARE_DATAROOT/.webhare-envsettings.sh`
-
 If not set, WEBHARE_DATAROOT is set to '$WEBHARE_DIR/whdata'. If whdata is a symlink, `wh` will set WEBHARE_DATAROOT to
 the expanded symlink. This allows you to specify a 'default' WebHare installation for a checked out soure tree.
 

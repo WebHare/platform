@@ -24,6 +24,8 @@ while [[ $1 =~ ^-.* ]]; do
   fi
 done
 
+[ -f /opt/wh/whtree/etc/is-webhare-in-docker ] && export WEBHARE_IN_DOCKER=1
+
 # If used as command in 'docker run', initialize the environment
 if [ "$$" = "1" -a -n "$WEBHARE_IN_DOCKER" ]; then
   SETUPENV=1
@@ -45,11 +47,6 @@ if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   if [ -f "$WEBHARE_DIR/../base_makefile" ]; then
     export WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
   fi
-fi
-
-# If you haven't set WEBHARE_DATAROOT... read .webhare-envsettings if possible. wh console should set it.
-if [ -z "$WEBHARE_DATAROOT" ] && [ -f "$WEBHARE_DIR/.webhare-envsettings.sh" ]; then
-  source $WEBHARE_DIR/.webhare-envsettings.sh
 fi
 
 # If we haven't found WEBHARE_DATAROOT that way, discover it
@@ -103,6 +100,7 @@ export WEBHARE_DIR
 export WEBHARE_BASEPORT
 export WEBHARE_DATAROOT
 export WHBUILD_DOWNLOADCACHE
+export WEBHARE_TEMP
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
 # Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8
@@ -122,15 +120,9 @@ deprecation_sleep()
   echo ""
 }
 
-whcompile()
-{
-  loadenvsettings
-  $WEBHARE_DIR/bin/whcompile "$@"
-}
-
 exec_whcompile()
 {
-  loadenvsettings
+  getwhparameters
   exec $WEBHARE_DIR/bin/whcompile "$@"
 }
 
@@ -274,48 +266,18 @@ setup_buildsystem()
 
 setup_webhare_envsettings()
 {
-  if [ -f $WEBHARE_DIR/modules/system/whres/buildinfo ]; then
-    export WEBHARE_VERSION=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$version" )
-    export WEBHARE_DISPLAYBUILDINFO=$(
-      source $WEBHARE_DIR/modules/system/whres/buildinfo
-      echo -n "branch $branch, commit ${committag:0:10}"
-    )
-  else
-    getbaseversioninfo
-    if [ -z "$WEBHARE_VERSION" ]; then
-      die Cannot determine WebHare version
-    fi
-    export WEBHARE_VERSION="${WEBHARE_VERSION}-dev"
-    export WEBHARE_DISPLAYBUILDINFO=$(
-      cd $WEBHARE_DIR
-      GIT_HEAD_SHA1=$(git rev-parse HEAD)
-      GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-      GIT_ORIGIN_URL=$(git config --get remote.origin.url)
-      echo "developer's build: branch $GIT_ORIGIN_URL:$GIT_BRANCH, commit ${GIT_HEAD_SHA1:0:10}"
-    )
+  export WEBHARE_VERSION=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$version" )
+  WEBHARE_DISPLAYBUILDINFO="$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "branch $branch, commit ${committag:0:10}")"
+
+  ORIGIN=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$origin" )
+  if [ -n "$ORIGIN" ]; then
+    WEBHARE_DISPLAYBUILDINFO="$WEBHARE_DISPLAYBUILDINFO, source build, origin $ORIGIN"
   fi
+  export WEBHARE_DISPLAYBUILDINFO
 
-  > $WEBHARE_DATAROOT/.webhare-envsettings.sh
-
-  cat << HERE > $WEBHARE_DATAROOT/.webhare-envsettings.sh
-export PGUSER="root"
-export WEBHARE_DIR="$WEBHARE_DIR"
-export WEBHARE_DATAROOT="$WEBHARE_DATAROOT"
-export WEBHARE_BASEPORT="$WEBHARE_BASEPORT"
-export WEBHARE_DISPLAYBUILDINFO="$WEBHARE_DISPLAYBUILDINFO"
-export WEBHARE_ISRESTORED="$WEBHARE_ISRESTORED"
-export WEBHARE_TEMP="$WEBHARE_TEMP"
-export WEBHARE_DBASENAME="$WEBHARE_DBASENAME"
-export WEBHARE_VERSION="$WEBHARE_VERSION"
-HERE
-
-  # Are we the 'primary' installation for a WEBHARE_DIR ?
-  if [ -z "$WEBHARE_NOINSTALLATIONINFO" -a -z "$WEBHARE_IN_DOCKER" ]; then
-    cp $WEBHARE_DATAROOT/.webhare-envsettings.sh $WEBHARE_DIR/.webhare-envsettings.sh
-  fi
-
-  # Load the current settings
-  source $WEBHARE_DATAROOT/.webhare-envsettings.sh
+  # Export all WEBHARE_ vars to .webhare-envsettings.sh for scripts that need to restablish the whole `wh console` environment
+  # But don't export WEBHARE_DEBUG= ... as WebHare will cross-process communicate that anyway
+  set | grep -E '^WEBHARE_' | grep -v '^WEBHARE_DEBUG=' | sed -e 's/^/export /' > $WEBHARE_DATAROOT/.webhare-envsettings.sh
 }
 
 list_commands()
@@ -363,7 +325,7 @@ getscripttorun()
   eval $VARNAME=\$1
 }
 
-setup_for_console()
+setup_for_console() #setup_for_console is invoked when we're starting a major subprocess (console or exec)
 {
   mkdir -p "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
@@ -378,15 +340,23 @@ setup_for_console()
       rm -rf -- "$WEBHARE_DATAROOT"/ephemeral/system.uc2 > /dev/null 2>&1 &
     fi
   fi
+
+  # When running from source, rebuild buildinfo
+  if [ -z "$WEBHARE_IN_DOCKER" ]; then
+    getbaseversioninfo
+    if [ -z "$WEBHARE_VERSION" ]; then
+      die Cannot determine WebHare version
+    fi
+
+    cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
+committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
+version="${WEBHARE_VERSION}-dev"
+branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
+origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
+HERE
+    mv $WEBHARE_DIR/modules/system/whres/buildinfo.tmp $WEBHARE_DIR/modules/system/whres/buildinfo
+  fi
 }
-
-if [ -n "$SETUPENV" ]; then
-  check_webhare_not_running
-  setup_for_console
-
-  getwhparameters
-  setup_webhare_envsettings
-fi
 
 INSTR="${1:-help}"
 shift
@@ -507,8 +477,6 @@ case $INSTR in
       TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/default/index.html"
     fi
 
-    setup_webhare_envsettings # Reset to defaults
-
     if [ -n "$TOSHOWFILE" ]; then
       [ "$WHBUILD_PLATFORM" == "darwin" ] && open "$TOSHOWFILE"
       [ "$WHBUILD_PLATFORM" == "linux" ] && xdg-open "$TOSHOWFILE"
@@ -518,11 +486,10 @@ case $INSTR in
     ;;
 
   "reset-coverage")
-    runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
+    exec_runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
     ;;
 
   "calculate-coverage")
-    loadenvsettings
     exec_runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
     ;;
 
@@ -625,7 +592,9 @@ case $INSTR in
     if [ ! -z "$WEBHARE_CHECKEDOUT_TO" ]; then
       echo "git checkout:  $WEBHARE_CHECKEDOUT_TO"
     fi
+    setup_for_console
     getwhparameters
+    setup_webhare_envsettings
     echo "Installation:  $WEBHARE_DIR"
     echo "Log files:     $LOGFILEPATH"
     echo "Rescue port:   http://127.0.0.1:$(($WEBHARE_BASEPORT + 9))/" # whwebserverconfig_rescueportoffset

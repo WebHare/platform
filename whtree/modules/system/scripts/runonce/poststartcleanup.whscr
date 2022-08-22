@@ -26,3 +26,13 @@ DeleteDiskFile(GetWebhareConfiguration().varroot || ".dbserver.pid");
 
 // 5.0.2 - Remove legacy indexmanager data files
 DeleteDiskFile(GetWebhareConfiguration().varroot || "index");
+
+// 5.1 (for next postartcleanup-tag 'bump') - Cleanup stray pid files, other obsolete experiments
+DeleteDiskFile(GetWebhareConfiguration().varroot || "webhare.pid");
+DeleteDiskDirectoryRecursive(GetWebhareConfiguration().varroot || "dev");
+DeleteDiskFile(GetWebhareConfiguration().installationroot || ".webhare-envsettings.sh");
+//speculative cleanup - though those dirs may not be empty everywhere yet.. so only clean if already empty
+DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "log");
+DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "output");
+DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "var");
+DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "tmp");

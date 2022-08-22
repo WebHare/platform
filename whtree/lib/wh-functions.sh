@@ -45,36 +45,34 @@ loadshellconfig()
   if [ -n "$LOADEDSHELLCONFIG" ]; then
     return;
   fi
-  FILENAME="`mktemp /tmp/wh.XXXXXXXXXXXXX`"
-  if ! runscript mod::system/scripts/whcommands/shellconfig.whscr > $FILENAME ; then
-    exit 1
-  fi
-  source $FILENAME
-  rm -- $FILENAME
-  LOADEDSHELLCONFIG=1
-}
 
-loadenvsettings()
-{
   getwhparameters
-  if [ -f $WEBHARE_DATAROOT/.webhare-envsettings.sh ]; then
-    . $WEBHARE_DATAROOT/.webhare-envsettings.sh
-  fi
+
+  SHELLCONFIG="$(runscript mod::system/scripts/whcommands/shellconfig.whscr)"
+  [ "$?" == "0" ] || die "shellconfig.whscr failed"
+
+  eval "$SHELLCONFIG"
+  LOADEDSHELLCONFIG=1
 }
 
 runscript()
 {
-  loadenvsettings
+  getwhparameters
   $WEBHARE_DIR/bin/runscript "$@"
 }
 
 getwhparameters()
 {
+  if [ "$GOTWHPARAMETERS" = "1" ]; then
+    return
+  fi
+
   if [ ! -x "$WEBHARE_DIR/bin/webhare" ]; then
     echo "This command needs an installed (make install) WebHare, but $WEBHARE_DIR/bin/webhare appears unavailable"
     exit 1
   fi
   eval $("$WEBHARE_DIR/bin/webhare" printparameters)
+  export WEBHARE_COMPILECACHE
   export WEBHARE_DATABASEPATH="$WEBHARE_DATAROOT/postgresql"
 
   if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
@@ -88,6 +86,8 @@ getwhparameters()
     [ -n "$WEBHARE_DBASE_READONLY" ] || WEBHARE_DBASE_READONLY="1" #'1' marks us as restored without further info
     export WEBHARE_DBASE_READONLY
   fi
+
+  GOTWHPARAMETERS=1
 }
 
 getmoduledir_nofail()
@@ -173,7 +173,7 @@ setup_node()
 
 getlog()
 {
-  local XLOGFILE LOGFILEPATH
+  local XLOGFILE
   getwhparameters
   if [ -z "$LOGFILEPATH" ]; then
     echo "Unable to determine logging path"
@@ -191,7 +191,7 @@ getlog()
 
 exec_runscript()
 {
-  loadenvsettings
+  getwhparameters
   exec $WEBHARE_DIR/bin/runscript "$@"
   exit 255
 }

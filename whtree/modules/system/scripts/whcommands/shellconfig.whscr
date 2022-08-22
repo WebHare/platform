@@ -16,8 +16,6 @@ STRING prefix := args."noexport" ? "" : "export ";
 
 RECORD config := GetWebHareConfiguration();
 
-PRINT("# Use: source <(wh shellconfig)\n");
-
 FOREVERY (RECORD rec FROM UnpackRecord(config))
 {
   VARIANT val := rec.value;

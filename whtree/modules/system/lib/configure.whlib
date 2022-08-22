@@ -40,8 +40,6 @@ PUBLIC OBJECTTYPE CustomCheckBase
   }
 >;
 
-RECORD buildinfo;
-
 /** @short Get WebHare version and branding information
     @return A record describing the version
     @cell(string) return.version Semantic version (eg 4.26.3)
@@ -54,41 +52,13 @@ RECORD buildinfo;
 */
 PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
 {
-  IF(NOT RecordExists(buildinfo))
-  {
-    buildinfo := CELL[];
-    TRY
-    {
-      BLOB buildinfofile := GetHarescriptResource("whres::buildinfo");
-      IF(Length(buildinfofile) > 0)
-      {
-        FOREVERY(STRING line FROM Tokenize(BlobToString(buildinfofile),'\n'))
-        {
-          STRING param := Left(line,SearchSubstring(line,'='));
-          IF(param="")
-            CONTINUE;
-
-          STRING value := TrimWhitespace(Substring(line, Length(param)+1));
-          IF(value LIKE '"*"') //unescape quotes
-            value := DecodeJava(Substring(value,1,Length(value)-2));
-          buildinfo := CellInsert(buildinfo, param, value);
-        }
-      }
-    }
-    CATCH(OBJECT e)
-    {
-      //ignore buildinfo open failure
-    }
-  }
-
   RECORD versioninfo := CELL[ ...__SYSTEM_WEBHAREVERSION()
                             , builddate := ""
                             , buildtime := ""
                             , branch := ""
                             , committag := ""
-                            , ...buildinfo
+                            , ...GetWebhareBuildInfo()
                             , docker := GetEnvironmentVariable("WEBHARE_IN_DOCKER") != ""
-                            , version := GetEnvironmentVariable("WEBHARE_VERSION")
                             ];
 
   RETURN versioninfo;
