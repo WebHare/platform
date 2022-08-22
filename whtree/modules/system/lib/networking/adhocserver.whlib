@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
 
     this->id := GenerateUFS128BitId(); // Random id
     this->port := CreateGlobalIPCPort("system:adhocserver." || this->id);
-    this->interfaceurl := this->options.interfaceurl ?? GetRescueInterfaceURL();
+    this->interfaceurl := this->options.interfaceurl ?? GetPrimaryWebHareInterfaceURL();
 
     // Register and store read callback for the port
     IF (this->options.logdebug)

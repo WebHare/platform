@@ -89,7 +89,7 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 
 PUBLIC STRING FUNCTION GetElasticsearchAddress()
 {
-  RETURN `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}`;
+  RETURN `http://${GetEnvironmentVariable("WEBHARE_OPENSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}`;
 }
 
 PUBLIC ASYNC FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
