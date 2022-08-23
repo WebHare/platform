@@ -2911,6 +2911,10 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       RETURN FALSE;
     }
 
+    // Still un-acked messages pending in queue? Defer sending until the ack has arrived.
+    IF (this->pvt_sentinitialmessage AND this->commendpoint->HasMessagesInQueue())
+      RETURN FALSE;
+
     IF(debug_logcontroller)
       LogDebug("tollium:controller", "Transmitting dirty components (with "|| Length(this->instructions) || " already queued jsons)");
     this->TransmitDirtyComponents();

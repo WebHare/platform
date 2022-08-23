@@ -151,4 +151,13 @@ export default class WebSocketTransport extends TransportBase
 
     this.signalled = [];
   }
+
+  // Called when a new message has arrived at an endpoint
+  gotNewMessage(endpoint)
+  {
+    // Immediately send an ack
+    if(!this.signalled.includes(endpoint))
+      this.signalled.push(endpoint);
+    this.handleSignalledEndpoints();
+  }
 }

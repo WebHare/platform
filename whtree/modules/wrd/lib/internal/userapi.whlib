@@ -194,16 +194,29 @@ STATIC OBJECTTYPE WHUserApi
     RETURN this->GetUser(entityid);
   }
 
+  /** Get the role object for a role
+      @param entityid Entity ID of the role
+      @return(object #WRDAuthRole) Role object
+  */
   PUBLIC OBJECT FUNCTION GetRole(INTEGER entityid)
   {
     RETURN NEW WRDAuthRole(this, this->wrd_role->GetEntity(entityid));
   }
 
+  /** Get the unit object for a unit
+      @param entityid Entity ID of the unit
+      @return(object #WRDAuthUnit) Unit object
+  */
   PUBLIC OBJECT FUNCTION GetUnit(INTEGER entityid)
   {
     RETURN NEW WRDAuthUnit(this, this->wrd_unit->GetEntity(entityid));
   }
 
+  /** Find a child unit within a parent unit
+      @param parent Parent unit id, 0 for root units
+      @param unitname Name of the unit (case insensitive)
+      @return Unit id, 0 if not found
+  */
   PUBLIC INTEGER FUNCTION LookupUnitByName(INTEGER parent, STRING unitname)
   {
     RECORD ARRAY result := this->wrd_unit->RunQuery ( [ outputcolumns := [ id := "WRD_ID" ]
@@ -214,6 +227,9 @@ STATIC OBJECTTYPE WHUserApi
     RETURN Length(result) = 1 ? result[0].id : 0;
   }
 
+  /** Set the current authorized user
+      @param entityid WRD id of the new authorized user
+  */
   PUBLIC MACRO SetAuthorizedUser(INTEGER entityid)
   {
     RECORD authrec := GetAuthenticationRecord();
@@ -235,12 +251,11 @@ STATIC OBJECTTYPE WHUserApi
   /** Looks up a user based on the login name
       @param loginname Login name
       @return Lookup result, DEFAULT RECORD if not found
-      @cell(integer) return.authobjectid WRD entity id of the user
+      @cell(integer) return.authobjectid Authobject entity id of the user
       @cell(integer) return.entityid WRD entity id of the user
-      @cell return.guid GUID of the user
-      @cell return.password Hashed password of the user
-      @cell return.authenticationsettings Authentication settings of the user
-      @cell return.authobjectid Authobject id of the user
+      @cell(string) return.guid GUID of the user
+      @cell(string) return.password Hashed password of the user
+      @cell(record) return.authenticationsettings Authentication settings of the user
   */
   PUBLIC RECORD FUNCTION LookupUserByLogin(STRING loginname)
   {

@@ -569,6 +569,8 @@ STATIC OBJECTTYPE TestFramework
 
   /** Declare a user for further use in tests. Call before running any tests
       @param username User's name
+      @param grantrights List of rights to grant
+      @param grantroles List of declared roles to grant
   */
   MACRO DeclareTestUser(STRING username, STRING ARRAY grantrights, STRING ARRAY grantroles)
   {
@@ -585,7 +587,10 @@ STATIC OBJECTTYPE TestFramework
            ] INTO this->credentials AT END;
   }
 
-  /** Declare a user for further use in tests. Call before running any tests */
+  /** Declare a role for further use in tests. Call before running any tests
+      @param rolename Name of the role
+      @param grantrights List of rights to grant
+*/
   MACRO DeclareTestRole(STRING rolename, STRING ARRAY grantrights)
   {
     IF(this->tests_started)
@@ -599,7 +604,10 @@ STATIC OBJECTTYPE TestFramework
            ] INTO this->roles AT END;
   }
 
-  /** Get a test role's id */
+  /** Get a test role's id
+      @param name Name of the declared role
+      @return Authobject id of the role
+  */
   PUBLIC INTEGER FUNCTION GetRoleAuthobjectId(STRING name)
   {
     IF(NOT this->tests_started)
@@ -611,7 +619,10 @@ STATIC OBJECTTYPE TestFramework
 
     RETURN roleinfo.authobjectid;
   }
-  /** Get a test role's authobject */
+  /** Get a test role's authobject
+      @param name Name of the declared role
+      @return Authobject id of the role
+  */
   PUBLIC OBJECT FUNCTION GetRoleObject(STRING name)
   {
     IF(NOT this->tests_started)
@@ -1421,13 +1432,12 @@ STATIC OBJECTTYPE TestFramework
 
   /** Returns all emails that match a receiver mask
       @param recipient Receiver mask, must end with @beta.webhare.net
-      @param options
       @cell(boolean) options.peekonly If TRUE, don't remove emails from queue
       @cell(integer) options.timeout Timeout in milliseconds, max 60000
       @cell(integer) options.count Number of mails expected within the timeout. Defaults to 1
       @cell(boolean) options.returnallmail Return all mail, not up to 'count'.
       @cell(datetime) options.scanaheaduntil If set, also look at future tasks until this date
-      @return
+      @return List of extracted emails
       @cell return.messageid Message ID (useful for %SendBounceToSNSEndpoint)
       @cell return.mimeheaders MIME headers
       @cell return.toppart Toppart

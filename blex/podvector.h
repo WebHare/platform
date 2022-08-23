@@ -227,7 +227,16 @@ template < typename Pod, unsigned StaticBufferSize >
                 this->allocedsize = StaticBufferSize;
         }
 
+        SemiStaticPodVector(SemiStaticPodVector const &src)
+        : PodVector< Pod >()
+        {
+                this->buffer = this->staticbuffer = staticstorage;
+                this->allocedsize = StaticBufferSize;
+                this->assign(src.begin(), src.end());
+        }
+
         explicit SemiStaticPodVector(Blex::PodVector< Pod > const &src)
+        : PodVector< Pod >()
         {
                 this->buffer = this->staticbuffer = staticstorage;
                 this->allocedsize = StaticBufferSize;
@@ -239,6 +248,18 @@ template < typename Pod, unsigned StaticBufferSize >
                 this->buffer = this->staticbuffer = staticstorage;
                 this->allocedsize = StaticBufferSize;
                 this->assign(range_start, range_limit);
+        }
+
+        SemiStaticPodVector &operator=(SemiStaticPodVector const &src)
+        {
+                this->assign(src.begin(), src.end());
+                return *this;
+        }
+
+        SemiStaticPodVector &operator=(PodVector< Pod > const &src)
+        {
+                this->assign(src.begin(), src.end());
+                return *this;
         }
 
         private:

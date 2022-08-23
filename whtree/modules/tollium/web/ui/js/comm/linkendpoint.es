@@ -74,10 +74,9 @@ export default class LinkEndpoint
     for (; i < this.queuedmessages.length; ++i)
       if (this.queuedmessages[i].seqnr > wiremsg.ack)
         break;
-
-    // Dispatch all messages we haven't received yet
     this.queuedmessages.splice(0, i);
 
+    // Dispatch all messages we haven't received yet
     for (i = 0; i < wiremsg.messages.length; ++i)
     {
       //console.log('dispatch message', this.options.linkid, wiremsg.messages[i].seqnr, this.lastreceivedseqnr + 1);
