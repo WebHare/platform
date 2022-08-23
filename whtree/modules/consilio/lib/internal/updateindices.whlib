@@ -314,7 +314,18 @@ MACRO UpdateModuleCatalogs(RECORD options)
         FOREVERY(STRING suffix FROM want.catalog->__ListSuffixes())
         {
           STRING fullname := opensearch.indexname || (suffix != "" ? "-" || suffix : "");
-          RECORD res := GetOpenSearchCurrentMapping(opensearch.indexmanager, fullname);
+
+          RECORD res;
+          TRY
+          {
+            res := GetOpenSearchCurrentMapping(opensearch.indexmanager, fullname);
+          }
+          CATCH(OBJECT e)
+          {
+            Print(`Catalog ${want.catalog->tag} index ${fullname}: GetOpenSearchCurrentMapping failed: ${e->what}\n`);
+            CONTINUE;
+          }
+
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
           RECORD ARRAY issues := CompareMappings(res,exp,"");
           IF(options.zapanymismatch AND AttemptZap(want.catalog))
@@ -325,8 +336,8 @@ MACRO UpdateModuleCatalogs(RECORD options)
             //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
             Print(`Catalog ${want.catalog->tag} index ${fullname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
           }
+        }
       }
-  }
 }
 
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
