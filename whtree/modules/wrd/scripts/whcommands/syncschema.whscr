@@ -13,7 +13,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/sync.whlib";
 
-// command: webshop:syncshop
 // short: Overwrite (part of) a local WRD schema with data from a peer server
 
 RECORD args := ParseArguments(GetConsoleArguments(),
