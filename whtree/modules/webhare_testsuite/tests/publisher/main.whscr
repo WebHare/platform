@@ -44,7 +44,7 @@ MACRO LookupTest()
   RECORD lookupresult;
 
   RECORD lookuptest  := testfw->CreateWebserverPort([ outputserver := TRUE, virtualhosts := ["test-lookup.example.net"], aliases := ["test-alias.example.net","*plein.example.net"]]);
-
+  RECORD lookuptest2 := testfw->CreateWebserverPort(CELL[]);
   testfw->BeginWork();
 
   testfw->SetupTestWebsite(DEFAULT BLOB);
@@ -230,6 +230,15 @@ MACRO LookupTest()
   lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/testoutput/webhare_testsuite.testsite/testpages/formtest/"));
   TestEq(webharetestsuitesite->id, lookupresult.site);
   TestEq(webharetestsuitesite->outputweb, lookupresult.webserver);
+
+  //Now test with website hosted under an alternative backend url
+  testfw->GettestSite()->SetPrimaryOutput(lookuptest2.webservers[0].id,"/testoutput/mytestsite");
+  root := testfw->GetTestSite()->rootobject;
+  TestEq(lookuptest2.webservers[0].url || "testoutput/mytestsite/", root->url);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile3->id, lookupresult.file);
 
   testfw->GetTestSite()->rootobject->RecycleSelf();
   testfw->CommitWork();
