@@ -13,8 +13,10 @@ LOADLIB "mod::system/lib/internal/debugger/commonactions.whlib";
 LOADLIB "mod::system/lib/internal/debugger/profilingsupport.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
+LOADLIB "mod::tollium/lib/applications.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+CONSTANT STRING portname := "system:profiles";
 
 PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
@@ -88,9 +90,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->RefreshProfileList();
       this->profileslist->value := LENGTH(this->pvt_profiles);
     }
-    ELSE IF (Detokenize(data.params, " ") != "live")
+    ELSE
     {
-      STRING session := Detokenize(data.params, " ") ?? "default";
+      STRING session := Detokenize(data.params, " ") ?? "live";
+      IF(session = "live" AND TestExclusiveLocked([ systemprofiles := portname ])) //live is not available so go for default (Perhaps we should show a profile session selector instead? or 'live' shouldn't require locking)
+        session := "default";
+
       IF (session LIKE "/*")
       {
         this->ReloadSessions([ custom := session ]);
@@ -99,14 +104,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       ELSE
       {
         this->ReloadSessions();
-        ^session->value := `session:${session}`;
+        ^session->value := session = "live" ? "live" : `session:${session}`;
       }
     }
-    ELSE
-    {
-      this->ReloadSessions();
-      ^session->value := "live";
-    }
+
+    ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exlucisve lock in ReloadSessions
   }
 
   // ---------------------------------------------------------------------------
@@ -136,8 +138,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     IF (^session->value = "live")
     {
-      STRING portname := "system:profiles";
-
       IF (NOT this->GetExclusiveAccess([ systemprofiles := portname ], [ onbeforesteal := PTR this->GotUnload ]))
         RETURN;
 
@@ -300,7 +300,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       INSERT defaultsession INTO sessions AT pos.position;
 
     ^session->options :=
-        [ ...(options.custom != ""
+        [ [ rowkey :=     "live"
+          , path :=       "live"
+          , title :=      this->GetTid(".live")
+          ]
+        , [ rowkey :=     "(divider2)"
+          , isdivider :=  TRUE
+          ]
+        , ...(options.custom != ""
                 ? [ [ rowkey :=     "custom"
                     , path :=       options.custom
                     , name :=       "(custom)"
@@ -312,13 +319,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                   ]
                 : RECORD[])
         , ...sessions
-        , [ rowkey :=     "(divider2)"
-          , isdivider :=  TRUE
-          ]
-        , [ rowkey :=     "live"
-          , path :=       "live"
-          , title :=      this->GetTid(".live")
-          ]
         ];
   }
 
