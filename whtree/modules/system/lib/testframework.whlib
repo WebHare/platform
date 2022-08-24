@@ -345,82 +345,6 @@ PUBLIC STATIC OBJECTTYPE AsyncEventWaiter
   }
 >;
 
-/*
-OBJECTTYPE AsyncWaiter
-<
-  OBJECT eventmgr;
-  INTEGER eventcallback;
-  INTEGER timedcallback;
-  PUBLIC RECORD prom;
-  FUNCTION PTR waitfunction;
-  FUNCTION PTR eventdatatest;
-
-  /* We wait for the event to occur.
-     If eventtest is specified it is invoked with the event data and must return true on one of the events
-     If waitfunction is specified, it must return TRUE or we ignore the event.  * /
-  MACRO NEW(STRING eventname, FUNCTION PTR waitfunction, FUNCTION PTR eventdatatest)
-  {
-    this->prom := CreateDeferredPromise();
-    this->eventmgr := NEW EventManager;
-    this->eventmgr->RegisterInterest(eventname);
-    this->eventcallback := RegisterMultiEventCallback(eventname, PTR this->GotEvent);
-    this->timedcallback := RegisterTimedCallback(AddTimeToDate(180 * 1000,GetCurrentDatetime()), PTR this->GotTimeout);
-    this->waitfunction := waitfunction;
-    this->eventdatatest := eventdatatest;
-  }
-  MACRO GotEvent(STRING name, RECORD ARRAY event)
-  {
-    TRY
-    {
-      IF(this->eventdatatest != DEFAULT FUNCTION PTR)
-      {
-        BOOLEAN anymatch;
-        FOREVERY(RECORD evt FROM event)
-          IF(this->eventdatatest(evt))
-          {
-            anymatch:=TRUE;
-            BREAK;
-          }
-        IF(NOT anymatch)
-          RETURN;
-      }
-
-      IF(this->waitfunction = DEFAULT FUNCTION PTR OR this->waitfunction())
-      {
-        this->prom.resolve(TRUE);
-        this->Close();
-      }
-      RETURN;
-    }
-    CATCH(OBJECT e)
-    {
-      this->prom.reject(e);
-      this->Close();
-    }
-  }
-  MACRO GotTimeout()
-  {
-    this->timedcallback := 0;
-    this->prom.resolve(FALSE);
-    this->Close();
-  }
-  MACRO Close()
-  {
-    IF(this->eventcallback != 0)
-    {
-      UnregisterCallback(this->eventcallback);
-      this->eventcallback := 0;
-    }
-    IF(this->timedcallback != 0)
-    {
-      UnregisterCallback(this->timedcallback);
-      this->timedcallback := 0;
-    }
-  }
->;
-*/
-
-
 MACRO DispatchCallbacks()
 {
   WHILE (TRUE)
@@ -2166,6 +2090,7 @@ STRING FUNCTION GenerateName(MACRO PTR test)
     @cell(boolean) options.usedatabase
     @cell(string array) options.addinterfacealiases
     @cell(boolean) options.mailwhitelists
+    @cell(boolean) options.disablecreatecleanup Skip cleanup and recreation that normally happens at the start of the tests - sometimes useful for faster retesting
 */
 PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -2186,6 +2111,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , canceltasks := STRING[] //ignored and deprecated - tests always cancel all tasks.
                               , debugflags := STRING[]
                               , keepratelimits := FALSE
+                              , disablecreatecleanup := FALSE
                               ], options);
 
   IF (GetEnvironmentVariable("TESTFW_FORCECOLOR") != "")
@@ -2230,6 +2156,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
 
   testfw->profile := options.profile;
   testfw->debug := options.debug;
+  testfw->disablecreatecleanup := options.disablecreatecleanup;
 
   FOREVERY(FUNCTION PTR test FROM tests)
   {
