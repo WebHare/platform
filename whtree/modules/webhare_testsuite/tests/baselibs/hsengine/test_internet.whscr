@@ -756,7 +756,7 @@ MACRO TestEmailAddresses()
 {
   OpenTest("TestInternet: Email addresses");
   FOREVERY(RECORD test FROM testdata.internet.testemail)
-    TestEq(test.valid, IsValidEmailAddress(test.email));
+    TestEq(test.valid, IsValidEmailAddress(test.email), test.email);
 
   TestEq(1,Length(TokenizeEmailAddresses('"Example, M." <marge@example.nl>')));
   TestEq('"Example, M." <marge@example.nl>',TokenizeEmailAddresses('"Example, M." <marge@example.nl>')[0]);

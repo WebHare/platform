@@ -181,7 +181,7 @@ BOOLEAN FUNCTION CheckDomain(STRING domain)
     domain := LEFT(domain, LENGTH(domain) - 1);
 
   STRING ARRAY subdomains := Tokenize(domain, ".");
-  IF (LENGTH(subdomains) < 2)
+  IF (LENGTH(subdomains) < 2 OR Length(subdomains[END-1]) < 2)
     RETURN FALSE;
 
   FOREVERY (STRING subdomain FROM subdomains)
