@@ -441,7 +441,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
   IF(options.clientwebserver = -1)
     webserver := LookupWebserver(GetHostedSites(), up.host, up.port);
   ELSE
-    webserver := SELECT id, baseurl, isinterface := type=1 FROM EnumerateAllWebservers(FALSE) WHERE id = options.clientwebserver;
+    webserver := SELECT id, baseurl, isinterface := type = whconstant_webservertype_interface FROM EnumerateAllWebservers(FALSE) WHERE id = options.clientwebserver;
 
   IF(NOT RecordExists(webserver)) //probably not even hosted here
   {
@@ -511,21 +511,27 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
   }
 
   RECORD best_match;
-  INTEGER findwebserver := webserver.id;
-  IF(webserver.isinterface) //all interface websites are actually aliases for the webserver hosting the webhare backend
-    findwebserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend;
-
   STRING lookup := DecodeURL("/" || up.urlpath);
-  IF(debugurllookup) Print("lookup [" || lookup || "] on webserver #" || webserver.id || "\n");
-
-  IF(findwebserver != 0)
+  INTEGER ARRAY findwebservers;
+  IF(webserver.isinterface) //all interface webservers share the same output
   {
-    best_match := SELECT id, webroot
-                    FROM system.sites
-                   WHERE outputweb = VAR findwebserver
-                         AND ToUppercase(lookup) LIKE ToUppercase(outputfolder || "*")
-                   ORDER BY Length(outputfolder) DESC LIMIT 1;
+    findwebservers := SELECT AS INTEGER ARRAY id FROM system.webservers WHERE type = whconstant_webservertype_interface;
+    IF(debugurllookup)
+      Print(`lookup '${lookup}' on all interface webservers\n`);
   }
+  ELSE
+  {
+    findwebservers := INTEGER[webserver.id];
+    IF(debugurllookup)
+      Print(`lookup '${lookup}' on webserver #${webserver.id}\n`);
+  }
+
+
+  best_match := SELECT id, webroot
+                  FROM system.sites
+                 WHERE outputweb IN findwebservers
+                       AND ToUppercase(lookup) LIKE ToUppercase(outputfolder || "*")
+                 ORDER BY Length(outputfolder) DESC LIMIT 1;
 
   url := up.urlpath;
 

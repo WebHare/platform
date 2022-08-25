@@ -94,7 +94,7 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
                            , error := DEFAULT RECORD
                            ];
 
-    RETURN this->EncodeJSONReponse(responsedata, requesttoken, "");
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, "", 200);
   }
 
   UPDATE PUBLIC RECORD FUNCTION EncodeTooManyRequestsException(OBJECT e, RECORD requesttoken)
@@ -118,14 +118,18 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
                     ];
 
     error.message := e->what;
+    INTEGER httpstatus := 500;
     IF(e EXTENDSFROM RPCInvalidArgsException)
+    {
+      httpstatus := 400;
       error.data := DEFAULT RECORD; // Hide trace, this is a normal error
+    }
 
     RECORD responsedata := [ id := requesttoken.id
                            , error := error
                            ];
 
-    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message);
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message, httpstatus);
   }
 
   UPDATE PUBLIC RECORD FUNCTION EncodeErrors(RECORD ARRAY errors, RECORD requesttoken)
@@ -140,14 +144,14 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
         [ error :=    error
         ];
 
-    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message);
+    RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message, 500);
   }
 
-  RECORD FUNCTION EncodeJSONReponse(RECORD responsedata, RECORD requesttoken, STRING error)
+  RECORD FUNCTION EncodeJSONReponse(RECORD responsedata, RECORD requesttoken, STRING error, INTEGER errorstatus)
   {
     RECORD ARRAY headers := [ [ field := "Content-Type", value := "application/json" ] ];
     IF(error!="")
-      INSERT [ field := "Status", value := "500 Encountered errors, see logs" ] INTO headers AT END;
+      INSERT [ field := "Status", value := ToString(errorstatus) ] INTO headers AT END;
 
     RETURN
         [ headers :=    headers

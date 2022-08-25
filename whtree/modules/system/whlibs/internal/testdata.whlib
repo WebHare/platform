@@ -3,6 +3,8 @@ PUBLIC CONSTANT RECORD testdata :=
   [ internet :=
     [ testemail :=
       [ [ valid := TRUE,  email := "arnold@example.nl" ]
+      , [ valid := FALSE, email := "arnold@example.n" ] //might be RFC valid but there are no single character TLDs and this is very likely a 'too-fast-enter'
+      , [ valid := FALSE, email := "arnold@example.n." ]
       , [ valid := FALSE, email := "arnold@example.nl@example.com" ]
       , [ valid := FALSE, email := "@example.com" ]
       , [ valid := FALSE, email := "arnold@example" ]

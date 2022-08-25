@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
-var isValidEmailAddress = require("@mod-system/js/util/emailvalidation");
+import { isValidEmailAddress } from 'dompack/types/email';
 
 
 export let minwidth = 10;
