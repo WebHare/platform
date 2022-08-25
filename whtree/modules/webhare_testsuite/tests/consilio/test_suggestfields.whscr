@@ -142,7 +142,7 @@ MACRO TestSuggestFields()
 MACRO TestSuggestAPI()
 {
   //Note: backend is an internal API and allowed to change as long as we fix our JS wrappers
-
+  STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
   STRING suggesttoken := GetConsilioRPCToken("consilio:testfw_suggestfields");
   RECORD result;
 
@@ -151,6 +151,14 @@ MACRO TestSuggestAPI()
   suggesttoken := GetConsilioRPCToken("consilio:testfw_suggestfields", [ autosuggest := TRUE ]);
   result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo");
   TestEqMembers([[ text  := "aap boom" ]], result.suggestions, "*");
+  result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "noo");
+  TestEqMembers([[ text  := "noot" ]], result.suggestions, "*");
+
+  suggesttoken := GetConsilioRPCToken("consilio:testfw_suggestfields", [ autosuggest := TRUE, restrict_url := "obj://" || idprefix || "b/" ]);
+  result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo");
+  TestEqMembers([[ text  := "aap boom" ]], result.suggestions, "*");
+  result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "noo");
+  TestEqMembers(VARIANT[], result.suggestions, "*");
 }
 
 MACRO TestSuggestFieldsLegacy()
