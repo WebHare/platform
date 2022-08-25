@@ -867,6 +867,8 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     IF (NOT options.__withdeleted)
       sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
+    IF (NOT options.__withdata)
+      sources := SELECT *, DELETE __data FROM sources;
 
     RETURN sources;
   }

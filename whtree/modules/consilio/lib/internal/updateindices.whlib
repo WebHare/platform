@@ -146,7 +146,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
 
 MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 {
-  RECORD ARRAY currentsources := catalog->ListContentSources();
+  RECORD ARRAY currentsources := catalog->ListContentSources([__withdata := TRUE]);
   FOREVERY(RECORD source FROM want.contentsources)
   {
     INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
@@ -165,8 +165,23 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
       }
 
       OBJECT contentsource := catalog->OpenContentSourceById(currentsources[matchpos].id);
-      IF(currentsources[matchpos].definedby != source.definedby
-         OR currentsources[matchpos].contentobject != source.contentobject)
+      BOOLEAN mismatch;
+      IF(currentsources[matchpos].definedby != source.definedby OR currentsources[matchpos].contentobject != source.contentobject)
+        mismatch := TRUE;
+
+      IF(expect_library != "")
+      {
+        IF(currentsources[matchpos].__data = "")
+          mismatch := TRUE;
+        ELSE
+        {
+          RECORD cursettings := EnforceStructure(CELL[library := "", contentobject := ""], DecodeHSON(currentsources[matchpos].__data));
+          IF(cursettings.library != expect_library OR cursettings.contentobject != expect_contentobject)
+            mismatch := TRUE;
+        }
+      }
+
+      IF(mismatch)
       {
         contentsource->UpdateContentSource(CELL
             [ source.definedby
