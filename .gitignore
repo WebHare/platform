@@ -1,7 +1,6 @@
 # Prefix with / to avoid matches in subdirectories
 *.args
 .checkoutstate
-.wh.connectinfo
 .wh.dev.connectinfo
 .vscode
 *.swp
@@ -15,16 +14,11 @@ coverage.tar.gz
 /whtree/etc/webhare*xml
 !/whtree/etc/webhare-docker-config.xml
 !/whtree/etc/webhare-default-config.xml
-/whtree/.webhare-envsettings.sh
 /whtree/include
-/whtree/geoip
-/whtree/lib/.debug
 /whtree/lib/*.dylib
 /whtree/lib/*.so
 /whtree/lib/*.so.*
-/whtree/lib/node
 /whtree/lib/sqlplus
-/whtree/lib/openssl
 /whtree/lib/*.la
 /whtree/log
 /whtree/modules/*/history
@@ -39,6 +33,4 @@ coverage.tar.gz
 /whtree/output
 /whtree/tmp
 /whtree/var
-/whtree/backups
 /whtree/whdata
-

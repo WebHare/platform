@@ -143,12 +143,9 @@ rm /etc/java-8-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache /opt/wh/whtree/currentinstall/babelcache
-ln -s /opt/whdata/dbase /opt/wh/whtree/dbase
-ln -s /opt/whdata/log /opt/wh/whtree/log
-ln -s /opt/whdata/output /opt/wh/whtree/output
-ln -s /opt/whdata/tmp /opt/wh/whtree/tmp
-ln -s /opt/whdata /opt/wh/whtree/var
-ln -s /opt/wh/whtree /opt/webhare
+
+# Marker file to detect that we're in Docker
+true > /opt/wh/whtree/etc/is-webhare-in-docker
 
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then

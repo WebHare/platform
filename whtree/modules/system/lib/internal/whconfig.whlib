@@ -20,6 +20,39 @@ STRING cacheddtapstage;
 //restoration state. 0 if unknown, 1 if not-restore, 2 if restore
 INTEGER restorestate;
 
+RECORD buildinfo;
+
+PUBLIC RECORD FUNCTION GetWebhareBuildInfo()
+{
+  IF(NOT RecordExists(buildinfo))
+  {
+    buildinfo := CELL[];
+    TRY
+    {
+      BLOB buildinfofile := GetHarescriptResource("whres::buildinfo");
+      IF(Length(buildinfofile) > 0)
+      {
+        FOREVERY(STRING line FROM Tokenize(BlobToString(buildinfofile),'\n'))
+        {
+          STRING param := Left(line,SearchSubstring(line,'='));
+          IF(param="")
+            CONTINUE;
+
+          STRING value := TrimWhitespace(Substring(line, Length(param)+1));
+          IF(value LIKE '"*"') //unescape quotes
+            value := DecodeJava(Substring(value,1,Length(value)-2));
+          buildinfo := CellInsert(buildinfo, param, value);
+        }
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      //ignore buildinfo open failure
+    }
+  }
+  RETURN buildinfo;
+}
+
 /** @short Get the server DTAP type
     @topic modules/config
     @public
@@ -99,7 +132,7 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
   RETURN [ versionnum := __SYSTEM_WEBHAREVERSION().versionnum
-         , version := GetEnvironmentVariable("WEBHARE_VERSION")
+         , version := GetWebhareBuildInfo().version
          , dtapstage := GetDtapStage()
          , installationtype := IsRestoredWebHare()  ? "restore" : "production"
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
