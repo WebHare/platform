@@ -457,11 +457,21 @@ STRING FUNCTION ValidateIndexTag(STRING indextag)
   RETURN indextag;
 }
 
-/** @short Get a token to access a consilio search engine's autosuggest API */
-PUBLIC STRING FUNCTION GetConsilioRPCToken(STRING indextag, RECORD options DEFAULTSTO DEFAULT RECORD)
+/** @short Get a token to access a consilio search engine's autosuggest API
+    @param catalogtag Catalog tag
+    @cell(boolean) options.autosuggest Allow this token to be used for the autosuggest APIs
+    @cell(string) options.restrict_url Restrict suggest matches to this URL
+*/
+PUBLIC STRING FUNCTION GetConsilioRPCToken(STRING catalogtag, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ autosuggest := FALSE ], options);
-  RETURN EncryptForThisServer("consilio:suggest", CELL [ c := GetCurrentDatetime(), t := indextag, ag := options.autosuggest ]);
+  options := ValidateOptions(CELL[ autosuggest := FALSE
+                                 , restrict_url := ""
+                                 ], options);
+
+  RECORD tok := CELL [ c := GetCurrentDatetime(), t := catalogtag, ag := options.autosuggest ];
+  IF(options.restrict_url != "")
+    INSERT CELL r := options.restrict_url INTO tok;
+  RETURN EncryptForThisServer("consilio:suggest", tok);
 }
 
 RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
