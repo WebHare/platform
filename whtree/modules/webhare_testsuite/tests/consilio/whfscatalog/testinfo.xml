@@ -1,3 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_indextypes_api.whscr" />
+  <test script="test_whfs_catalog.whscr" />
+  <test script="testformfile-consilio.whscr" tags="form"/>
 </group>

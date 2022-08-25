@@ -19,7 +19,6 @@
   <test script="test_thesaurus.whscr" />
   <test script="test_boostwords.whscr" />
   <test script="test_parsers.whscr" />
-  <test script="test_whfs_catalog.whscr" />
   <test script="test_linkcheck.whscr"/>
   <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" />
@@ -29,6 +28,7 @@
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />
 
-  <test name="indextypes" path="indextypes/" />
+  <test name="sitecontent" path="sitecontent/" />
+  <test name="whfscatalog" path="whfscatalog/" />
 
 </group>

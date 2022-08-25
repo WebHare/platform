@@ -4,14 +4,13 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/whfscatalog.whlib";
+LOADLIB "mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib";
 
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
-LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 

@@ -1070,23 +1070,23 @@
     <searchcontentprovider name="webtoolform" objectname="lib/internal/forms/searchprovider.whlib#WebtoolFormProvider" version="1.0.0" />
 
     <!-- Publisher search fields for documents with draft support (richdocuments and form files) -->
-    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="hasdraft"/>
-    <searchfilter name="hasdraft" tid="filemanager.search.filtertypes.hasdraft" filterobject="lib/internal/consiliocontent.whlib#hasdraftfilter">
+    <indexfield fieldfunc="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#getitemfield" name="hasdraft"/>
+    <searchfilter name="hasdraft" tid="filemanager.search.filtertypes.hasdraft" filterobject="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#hasdraftfilter">
       <accesscheck>
         <requireright right="system:supervisor"/>
       </accesscheck>
     </searchfilter>
 
     <!-- Publisher search fields for form files -->
-    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="formfields"/>
-    <searchfilter name="formfields" tid="filemanager.search.filtertypes.formfields" filterobject="lib/internal/consiliocontent.whlib#formfieldsfilter">
+    <indexfield fieldfunc="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#getitemfield" name="formfields"/>
+    <searchfilter name="formfields" tid="filemanager.search.filtertypes.formfields" filterobject="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#formfieldsfilter">
       <accesscheck>
         <requireright right="system:supervisor"/>
       </accesscheck>
     </searchfilter>
 
-    <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="storeresults"/>
-    <searchfilter name="storeresults" tid="filemanager.search.filtertypes.storeresults" filterobject="lib/internal/consiliocontent.whlib#storeresultsfilter">
+    <indexfield fieldfunc="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#getitemfield" name="storeresults"/>
+    <searchfilter name="storeresults" tid="filemanager.search.filtertypes.storeresults" filterobject="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#storeresultsfilter">
       <accesscheck>
         <requireright right="system:supervisor"/>
       </accesscheck>
