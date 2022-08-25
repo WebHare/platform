@@ -9,10 +9,14 @@ PUBLIC RECORD FUNCTION RPC_AutoSuggest(STRING token, STRING words, RECORD option
   IF(NOT tok.ag)
     THROW NEW Exception(`Autosuggest is not enabled for this token`);
 
+  RECORD searchoptions := [ doccount := "", count := 10 ];
+  IF(CellExists(tok,'r'))
+    INSERT CELL restricturl := tok.r INTO searchoptions;
+
   //At some point these RPCs wont be public anymore and can be merged into us
   //For now we just take the arguments used elsewhere
-  //TODO rate control and caching!
+  //TODO rate control and caching! it's in RPC_Search now but should move here...
   OpenPrimary();
-  RECORD result := RPC_Suggest([ type := "catalog", catalog := tok.t ], words, [ doccount := "", count := 10 ]);
+  RECORD result := RPC_Suggest([ type := "catalog", catalog := tok.t ], words, searchoptions);
   RETURN CELL [ suggestions := SELECT text := value FROM result."values" ];
 }
