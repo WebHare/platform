@@ -704,7 +704,7 @@ export default class FormBase
       }
     }
 
-    for(let option of dompack.qSA(this.node, ".wh-form__fieldgroup select > option"))
+    for(let option of dompack.qSA(this.node, ".wh-form__fieldgroup select option"))
     {
       let visible = this._matchesCondition(option.dataset.whFormVisibleIf);
 
