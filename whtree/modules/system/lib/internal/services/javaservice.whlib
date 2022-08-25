@@ -8,7 +8,11 @@ LOADLIB "wh::os.whlib";
 PUBLIC RECORD FUNCTION RunJavaServiceApp(STRING ARRAY jar_and_args)
 {
   STRING app;
-  FOREVERY(STRING javapath FROM ["/usr/local/opt/openjdk/bin/java", "/usr/local/bin/java", "/usr/bin/java"])
+  FOREVERY(STRING javapath FROM [ "/opt/homebrew/opt/openjdk/bin/java" //Homebrew macOS on arm
+                                , "/usr/local/opt/openjdk/bin/java" //Homebrew macOs on x86
+                                , "/usr/local/bin/java"
+                                , "/usr/bin/java"
+                                ])
     IF(RecordExists(GetDiskFileProperties(javapath)))
     {
       app := javapath;
