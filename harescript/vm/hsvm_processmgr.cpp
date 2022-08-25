@@ -342,8 +342,6 @@ bool JobManager::DoRun(VMGroup *group)
                 group->Run(true, true);
                 HSVM_FlushOutputBuffer(*group->mainvm);
                 //HSVM_StopProfileTimer(*group->mainvm);
-                if (group->mainvm->is_unwinding)
-                    group->mainvm->AbortForUncaughtException();
                 if (group->TestMustAbort())
                 {
                         group->mainvm->HandleAbortFlagErrors();

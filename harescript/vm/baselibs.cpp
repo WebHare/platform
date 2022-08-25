@@ -2494,9 +2494,8 @@ void StringParser_SkipN(VarId id_set, VirtualMachine *vm)
 
 void ThrowException(VirtualMachine *vm)
 {
-        HSVM_CopyFrom(*vm, vm->throwvar, HSVM_Arg(0));
-        vm->is_unwinding = true;
-        vm->skip_first_traceitem = HSVM_BooleanGet(*vm, HSVM_Arg(1));
+        bool skip_first_traceitem = HSVM_BooleanGet(*vm, HSVM_Arg(1));
+        vm->ThrowException(HSVM_Arg(0), skip_first_traceitem);
 }
 
 void GetResetExceptionVariable(VarId id_set, VirtualMachine *vm)

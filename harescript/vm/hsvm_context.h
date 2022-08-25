@@ -205,6 +205,7 @@ struct VMGroupDebuggerAsyncData
         , reset_breakpoints(false)
         , min_stack(0)
         , max_stack(-1)
+        , break_on_exception(false)
         {}
 
         bool inform_start_stop;
@@ -213,17 +214,19 @@ struct VMGroupDebuggerAsyncData
 
         unsigned min_stack;
         unsigned max_stack;
+        bool break_on_exception;
 
         std::vector< VMBreakPoint > breakpoints;
 };
 
 struct VMGroupDebuggerData
 {
-        VMGroupDebuggerData() : min_stack(0), max_stack(-1) { }
+        VMGroupDebuggerData() : min_stack(0), max_stack(-1), break_on_exception(false) { }
         // List of breakpoints (uint8_t* to instructions) - second is pair (first: required callstacksize, -1 for ignore, second: manual breakpoint)
         std::unordered_multimap< uint8_t const *, std::pair< signed, bool > > breakpoints;
         unsigned min_stack;
         unsigned max_stack;
+        bool break_on_exception;
 
         inline bool IsDebugging() { return !breakpoints.empty() || min_stack != 0 || max_stack != (unsigned)-1; }
 };
@@ -1032,6 +1035,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         */
         bool AddCallToNextDeinitFunction();
 
+        void ThrowException(VarId exception, bool skip_first_traceitem);
         void AbortForUncaughtException();
 
         int32_t GetScriptParameter_FileId();

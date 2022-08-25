@@ -733,6 +733,7 @@ void Debugger::OnScriptBreakpointHit(VMGroup &vmgroup, bool manualbreakpoint)
                   vmgroup.dbg.breakpoints.clear();
                   vmgroup.dbg.min_stack = 0;
                   vmgroup.dbg.max_stack = -1;
+                  vmgroup.dbg.break_on_exception = false;
 
                   return;
         }
@@ -741,6 +742,35 @@ void Debugger::OnScriptBreakpointHit(VMGroup &vmgroup, bool manualbreakpoint)
 
         it->second.want_pause = true;
         it->second.pause_reasons |= manualbreakpoint ? JobData::ManualBreakpoint : JobData::Breakpoint;
+
+        *vmgroup.abortflag = HSVM_ABORT_YIELD;
+        vmgroup.dbg_async.inform_next_suspend = true;
+}
+
+void Debugger::OnScriptExceptionThrown(VMGroup &vmgroup)
+{
+        JobManager::LockedJobData::WriteRef jobmgrlock(vmgroup.jobmanager->jobdata);
+        LockedData::WriteRef lock(data);
+
+        std::map< std::string, JobData >::iterator it = lock->state.jobs.find(vmgroup.jmdata.groupid);
+        if (it == lock->state.jobs.end())
+            return;
+
+        if (!it->second.is_connected)
+        {
+                  DBG_PRINT("DBG: disconnected script hit break on exception, ignoring");
+
+                  vmgroup.dbg.breakpoints.clear();
+                  vmgroup.dbg.min_stack = 0;
+                  vmgroup.dbg.max_stack = -1;
+                  vmgroup.dbg.break_on_exception = false;
+                  return;
+        }
+
+        DBG_PRINT("DBG: script hit break on exception, pausing");
+
+        it->second.want_pause = true;
+        it->second.pause_reasons |= JobData::Exception;
 
         *vmgroup.abortflag = HSVM_ABORT_YIELD;
         vmgroup.dbg_async.inform_next_suspend = true;
@@ -1776,9 +1806,11 @@ void Debugger::RPC_SetBreakpoints()
                 HSVM_ColumnId col_breakpoints = HSVM_GetColumnId(vm, "BREAKPOINTS");
                 HSVM_ColumnId col_minstacksize = HSVM_GetColumnId(vm, "MINSTACKSIZE");
                 HSVM_ColumnId col_maxstacksize = HSVM_GetColumnId(vm, "MAXSTACKSIZE");
+                HSVM_ColumnId col_breakonexception = HSVM_GetColumnId(vm, "BREAKONEXCEPTION");
 
                 it->second.vmgroup->dbg_async.min_stack = stackm.GetInteger(stackm.RecordCellTypedGetByName(msgvar, col_minstacksize, VariableTypes::Integer, true));
                 it->second.vmgroup->dbg_async.max_stack = stackm.GetInteger(stackm.RecordCellTypedGetByName(msgvar, col_maxstacksize, VariableTypes::Integer, true));
+                it->second.vmgroup->dbg_async.break_on_exception = stackm.GetBoolean(stackm.RecordCellTypedGetByName(msgvar, col_breakonexception, VariableTypes::Boolean, true));
 
                 VarId var_breakpoints = stackm.RecordCellTypedGetByName(msgvar, col_breakpoints, VariableTypes::RecordArray, true);
                 unsigned len = stackm.ArraySize(var_breakpoints);
@@ -1832,6 +1864,7 @@ void Debugger::ApplyBreakpoints(VMGroup &vmgroup)
         vmgroup.dbg.breakpoints.clear();
         vmgroup.dbg.min_stack = vmgroup.dbg_async.min_stack;
         vmgroup.dbg.max_stack = vmgroup.dbg_async.max_stack;
+        vmgroup.dbg.break_on_exception = vmgroup.dbg_async.break_on_exception;
 
         DBG_PRINT("ApplyBreakpoints, stack: " << vmgroup.dbg.min_stack << " - " << vmgroup.dbg.max_stack << ", " << vmgroup.dbg_async.breakpoints.size() << " breakpoints");
 

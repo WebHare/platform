@@ -248,6 +248,9 @@
                 <column name="filename" type="text" tid=".breakpoint-filename" />
                 <column name="line" type="integer" width="7x" />
               </list>
+              <panel layout="left" spacers="left">
+                <checkbox name="breakonexception" title="" labeltid=".breakonexception" onchange="GotBreakOnExceptionChange" />
+              </panel>
             </part>
           </split>
         </part>
