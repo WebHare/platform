@@ -14,6 +14,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib"
 LOADLIB "mod::consilio/lib/internal/support.whlib"
     EXPORT DateTimeToString, StringToDateTime;
 
+LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -632,6 +633,14 @@ OBJECTTYPE SuggestObject
 */
 PUBLIC OBJECT FUNCTION OpenSuggestObject(STRING catalog, /*unused*/STRING password DEFAULTSTO "")
 {
+  IF(Length(catalog) > 40) //likely an encrypted catalog ref. support it in this API to ease upgrade of 'old' users - at least allow them to properly encode their catalog names..
+  {
+    RECORD tok := DecryptForThisServer("consilio:suggest", catalog, [ fallback := CELL[ t := catalog, ag := TRUE ]]);
+    IF(NOT tok.ag)
+      THROW NEW Exception(`Autosuggest is not enabled for this token`);
+    catalog := tok.t;
+  }
+
   RETURN NEW SuggestObject([ type := "catalog", catalog := catalog ]);
 }
 
