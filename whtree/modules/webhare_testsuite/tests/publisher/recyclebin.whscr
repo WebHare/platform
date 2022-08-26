@@ -290,7 +290,6 @@ MACRO RestoreStuff()
 
   test1 := OpenWHFSObject(test1id);
   TestEq(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id));
-
   RestoreWHFSObjects([INTEGER(test1->id)]);
   test1 := OpenWHFSObject(test1id);
 
@@ -313,6 +312,16 @@ MACRO RestoreStuff()
   TestEq(Tostring(test1->id), test1->name);
 
   TestEq(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = test1id)); //history should still be there
+
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+
+  fullrightfolder->CreateFile( [ name := "test1" ]); //block test1's restore
+  test1 := OpenWHFSObject(test1id);
+  TestEqMembers([ restored := [[ id := test1->id, restoredto := fullrightfolder->whfspath, renamedto := "test1-2" ]]
+                ], RestoreWHFSObjects([INTEGER(test1->id)]), '*');
+  TestEq(fullrightfolder->whfspath || "test1-2", OpenWHFSObject(test1id)->whfspath);
 
   testfw->RollbackWork();
 

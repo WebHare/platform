@@ -509,6 +509,7 @@
         <textgroup gid="errors">   <!-- filemanager.main.app.errors -->
           <text tid="restoreditems">Restored <param p="1"/> items</text>
           <text tid="restoreditemto">Restored item to <param p="1"/></text>
+          <text tid="restoredrenameditemto">Restored item to <param p="1"/>. It has been renamed to '<param p="2"/>'.</text>
           <text tid="restoringtodeletedfolder">Cannot restore the selection as its original location has also been deleted.</text>
         </textgroup>
         <textgroup gid="menus">   <!-- filemanager.main.app.menus -->

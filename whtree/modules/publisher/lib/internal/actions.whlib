@@ -659,14 +659,13 @@ PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
 >;
 
 
-//ADDME bulk version which can work with one ensureordering
 PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
 {
   RECORD retval := [ restoringtodeletedfolder := INTEGER[]
                    , restored := RECORD[]
                    ];
   RECORD ARRAY objs := SELECT fs_history.currentparent
-                            , ids := GroupedVAlues(fs_objects.id)
+                            , torestore := GroupedValues(CELL[fs_objects.id, fs_history.currentname])
                          FROM system.fs_objects
                             , system.fs_history
                         WHERE fs_objects.id = fs_history.fs_object
@@ -681,14 +680,15 @@ PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
     OBJECT dest := OpenWHFSObject(objgroup.currentparent);
     IF(IsRecycleOrHistoryWHFSPath(dest->whfspath))
     {
-      retval.restoringtodeletedfolder := retval.restoringtodeletedfolder CONCAT objgroup.ids;
+      retval.restoringtodeletedfolder := retval.restoringtodeletedfolder CONCAT SELECT AS INTEGER ARRAY id FROM objgroup.torestore;
       CONTINUE;
     }
 
-    FOREVERY(INTEGER objid FROM objgroup.ids)
+    FOREVERY(RECORD obj FROM objgroup.torestore)
     {
-      OpenWHFSObject(objid)->MoveTo(dest, "");
-      INSERT CELL[ id := objid, restoredto := dest->whfspath ] INTO retval.restored AT END;
+      STRING newname := dest->GenerateUniqueName(obj.currentname, [ safename := FALSE ]);
+      OpenWHFSObject(obj.id)->MoveTo(dest, newname);
+      INSERT CELL[ id := obj.id, restoredto := dest->whfspath, renamedto := newname != obj.currentname ? newname :"" ] INTO retval.restored AT END;
     }
   }
 
