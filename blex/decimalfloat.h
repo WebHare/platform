@@ -107,6 +107,9 @@ F64 BLEXLIB_PUBLIC MoneyToFloat(int64_t moneyval);
 /** Get a power of 10 (exact if possible) */
 F64 BLEXLIB_PUBLIC FloatPow10(int exponent);
 
+/** Return the sign of a float, also works with fast-math */
+bool BLEXLIB_PUBLIC FloatSign(F64);
+
 } //end namespace Blex
 
 #endif /* sentry */
