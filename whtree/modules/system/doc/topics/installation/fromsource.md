@@ -149,3 +149,32 @@ When using Homebrew, you may need to 'link' the version of postgresql you want t
 rm -rf ~/projects/whbuild
 wh mic
 ```
+
+## Testing changes to C++ code
+
+### Quickly running newly built code
+To test changes to C++ code, you can run newly built code without going through a make install:
+
+```
+wh make NOTEST=1 && wh execbuilt runscript testfile.whscr
+```
+
+Or, to build and run the debug version:
+```
+WHBUILD_DEBUG=1 wh make NOTEST=1 && WHBUILD_DEBUG=1 wh execbuilt runscript testfile.whscr
+```
+
+You can start the runscript process in the system debugger (lldb or gdb) using
+```
+wh execbuilt --dbg runscript
+```
+
+### Dumping HareScript compiler AST nodes
+Use the following command to dump the internal AST nodes of the compiler after each stage. Support
+for dumping AST nodes is only included in debyug mode.
+
+```
+WHBUILD_DEBUG=1 wh execbuilt whcompile -f -d /tmp/debugout/ test.whscr
+```
+
+This command will output a list of .txt and .dot (GraphViz) files.
