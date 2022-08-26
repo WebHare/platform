@@ -801,9 +801,19 @@ MACRO NumberFormatTest()
   format := NEW NumberFormat("en", options)->format;
   TestEq("123,456,789", format(integervalue));
   TestEq("12,345.679", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
+  TestEq("0", format(-0f));
+  TestEq("0", format(-2f * 0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("123.456.789", format(integervalue));
   TestEq("12.345,679", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
+  TestEq("0", format(-0f));
+  TestEq("0", format(-2f * 0f));
 
   // If currency style is requested, a currency must be specified
   STRING error;
@@ -823,9 +833,13 @@ MACRO NumberFormatTest()
   format := NEW NumberFormat("en", options)->format;
   TestEq("€123,456,789.00", format(integervalue));
   TestEq("€12,345.68", format(moneyvalue));
+  TestEq("€0.00", format(0));
+  TestEq("€0.00", format(0m));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("€\u00A0123.456.789,00", format(integervalue));
   TestEq("€\u00A012.345,68", format(moneyvalue));
+  TestEq("€\u00A00,00", format(0));
+  TestEq("€\u00A00,00", format(0m));
 
   // Currency formatting: show currency symbol followed by non-braking space, no grouping, max 3 fraction digits for Bahraini Dinar
   options := [ style := "currency", usegrouping := FALSE, currency := "BHD" ];
@@ -843,40 +857,62 @@ MACRO NumberFormatTest()
   options := [ style := "percent" ];
   format := NEW NumberFormat("en", options)->format;
   TestEq("25%", format(percentvalue));
+  TestEq("0%", format(0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("25%", format(percentvalue));
+  TestEq("0%", format(0f));
 
   // No grouping
   options := [ usegrouping := FALSE ];
   format := NEW NumberFormat("en", options)->format;
   TestEq("123456789", format(integervalue));
   TestEq("12345.679", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("123456789", format(integervalue));
   TestEq("12345,679", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
 
   // Minimum number of integer and fraction digits
   options := [ minimumintegerdigits := 6, minimumfractiondigits := 6 ];
   format := NEW NumberFormat("en", options)->format;
   TestEq("123,456,789.000000", format(integervalue));
   TestEq("012,345.678900", format(moneyvalue));
+  TestEq("000,000.000000", format(0));
+  TestEq("000,000.000000", format(0m));
+  TestEq("000,000.000000", format(0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("123.456.789,000000", format(integervalue));
   TestEq("012.345,678900", format(moneyvalue));
+  TestEq("000.000,000000", format(0));
+  TestEq("000.000,000000", format(0m));
+  TestEq("000.000,000000", format(0f));
 
   // Maximum fraction digits
   options := [ maximumfractiondigits := 1 ];
   format := NEW NumberFormat("en", options)->format;
   TestEq("12,345.7", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("12.345,7", format(moneyvalue));
+  TestEq("0", format(0));
+  TestEq("0", format(0m));
+  TestEq("0", format(0f));
 
   // Percentage with minimum 2 fraction digits
   options := [ style := "percent", minimumfractiondigits := 2 ];
   format := NEW NumberFormat("en", options)->format;
   TestEq("24.68%", format(percentvalue));
+  TestEq("0.00%", format(0f));
   format := NEW NumberFormat("nl", options)->format;
   TestEq("24,68%", format(percentvalue));
+  TestEq("0,00%", format(0f));
 
   CloseTest("TestLocalization: NumberFormatTest");
 }

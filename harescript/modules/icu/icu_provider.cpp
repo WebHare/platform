@@ -1,6 +1,7 @@
 //---------------------------------------------------------------------------
 #include <harescript/vm/allincludes.h>
 
+#include <blex/decimalfloat.h>
 #include <blex/path.h>
 
 #include <unicode/coll.h>
@@ -635,26 +636,30 @@ void FormatNumber(HSVM *hsvm, HSVM_VariableId id_set)
                 case HSVM_VAR_Integer:
                 {
                     int value = HSVM_IntegerGet(hsvm, HSVM_Arg(7));
-                    nf->format(value, str, status);
+                    nf->format(value, str);
                 } break;
 
                 case HSVM_VAR_Integer64:
                 {
                     int64_t value = HSVM_Integer64Get(hsvm, HSVM_Arg(7));
-                    nf->format(value, str, status);
+                    nf->format(value, str);
                 } break;
 
                 case HSVM_VAR_Money:
                 {
                     //ADDME: Is there a way to format a MONEY variable without lossy conversion to double?
                     long long int value = HSVM_MoneyGet(hsvm, HSVM_Arg(7));
-                    nf->format((double)value / 100000, str, status);
+                    nf->format((double)value / 100000, str);
                 } break;
 
                 case HSVM_VAR_Float:
                 {
                     double value = HSVM_FloatGet(hsvm, HSVM_Arg(7));
-                    nf->format(value, str, status);
+                    // We don't want to print -0, so use a different path for 0 to defeat fast-math optimizations
+                    if (value == 0.0)
+                        nf->format(0.0, str);
+                    else
+                        nf->format(value, str);
                 } break;
 
                 //ADDME: Throw some sort of unsupported type exception?
