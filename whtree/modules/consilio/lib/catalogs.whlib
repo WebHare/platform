@@ -559,6 +559,9 @@ STATIC OBJECTTYPE ConsilioCatalog
   /// @type(boolean) Is this catalogs suffixed?
   PUBLIC PROPERTY suffixed(GetSuffixed,-);
 
+  /// @type(string) The suffix mask used (eg "-*")
+  PUBLIC PROPERTY suffixmask(this->catalog.suffix, -);
+
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 

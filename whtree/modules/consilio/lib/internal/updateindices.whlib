@@ -219,19 +219,10 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 
 BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
 {
-  IF(NOT catalog->managed)
-    RETURN FALSE;
-
-  RECORD ARRAY indices := catalog->ListAttachedIndices();
-  IF(Length(indices) != 1 OR NOT indices[0].isbuiltin)
-    RETURN FALSE;
-
-  Print(`Reattaching blank index for catalog '${catalog->tag}'\n`);
-
-  GetPrimary()->BeginWork();
-  catalog->DetachIndex(indices[0].id);
-  catalog->AttachIndex(indices[0].indexmanager);
-  GetPrimary()->CommitWork();
+  Print(`Deleting attached indices for catalog '${catalog->tag}'\n`);
+  FOREVERY(RECORD indexrec FROM catalog->ListAttachedIndices())
+    IF(NOT indexrec.readonly)
+      SendRawJSONToElasticSearch(indexrec.indexmanager, "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
 
   TRY
   {
