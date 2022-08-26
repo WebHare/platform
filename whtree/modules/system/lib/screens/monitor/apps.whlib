@@ -211,7 +211,7 @@ PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginWork();
+    OBJECT work := this->BeginFeedback();
     IF(work->HasFailed())
       RETURN work->Finish();
 
