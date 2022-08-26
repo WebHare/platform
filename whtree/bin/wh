@@ -398,14 +398,20 @@ case $INSTR in
     getwhparameters
     setup_buildsystem
 
+    DBGARGS=();
+    if [ "$1" == "--dbg" ]; then
+      shift
+      [ "$WHBUILD_PLATFORM" == "darwin" ] && DBGARGS+=("lldb" "--")
+      [ "$WHBUILD_PLATFORM" == "linux" ] && DBGARGS+=("gdb" "--args")
+    fi
+
     PROCESS="$1"
     shift
 
     if [ ! -x "$PROCESS" -a -x "$WEBHARE_BUILDDIR/bin/$PROCESS" ]; then #resolve to bin path ?
       PROCESS="$WEBHARE_BUILDDIR/bin/$PROCESS"
     fi
-
-    exec $PROCESS "--moduledir" "$WEBHARE_BUILDDIR/lib" "$@"
+    exec "${DBGARGS[@]}" $PROCESS "--moduledir" "$WEBHARE_BUILDDIR/lib" "$@"
     exit 255
     ;;
 
