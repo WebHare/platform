@@ -1669,7 +1669,7 @@ function cleanupBogusBreaks(node, preservelocators, undoitem)
   for (let breaknode of breaks)
   {
     let brlocator = Locator.newPointingTo(breaknode);
-    let downres = brlocator.clone().scanBackward(node, { whitespace: true, blocks: true });
+    let downres = brlocator.clone().scanBackward(node, { whitespace: true });
     if ((downres.type == 'br' && !downres.bogussegmentbreak) || (downres.type == "outerblock") || (downres.type == "innerblock") || (downres.type == "node" && downres.data.classList.contains("wh-rtd-embeddedobject--inline")))
       continue;
 
