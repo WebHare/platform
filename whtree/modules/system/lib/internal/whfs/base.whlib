@@ -51,9 +51,6 @@ MACRO RefreshWHFSCache()
 }
 
 
-PUBLIC BOOLEAN debugmapping := FALSE;
-//PUBLIC INTEGER __force_global_versionsetting := -1; //used for debugging/testing - force versionsetting for all new whfs objects
-
 PUBLIC STRING ARRAY historytriggerfields :=
   ["DATA","NAME","PARENT","FILELINK","TITLE","DESCRIPTION","KEYWORDS","TYPE","EXTERNALLINK"];
 

@@ -31,8 +31,6 @@ INTEGER FUNCTION GetNumInstances(INTEGER objid)
   RETURN Length(SELECT FROM system.fs_instances WHERE fs_instances.fs_object = objid);
 }
 
-//debugmapping := TRUE;
-
 /////////////////////////////////////////////////
 // Test data
 RECORD foldermeta := [ title := "Folder title"
@@ -609,10 +607,10 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
   setversion.arraytest[0].intextcell.internallink := testfile2->id;
   setversion._whfsarray := [INTEGER(destfolder->id), INTEGER(testfile2->id)];
 
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
     Print("testfile2->id = " || testfile2->id || "\n");
   setversion.arraytest[2]._whfscell := destfolder->id;
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
     Print("destfolder->id = " || destfolder->id || "\n");
 
   IF(expectmeta)
