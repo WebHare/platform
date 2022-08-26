@@ -16,7 +16,8 @@ RECORD req := DescribePreviewRequest();
 OpenPrimary();
 SetTIDLanguage(req.languagecode);
 
-RECORD contentinfo := OpenWHFSObject(req.contentobject)->GetWrapped();
+OBJECT contentobject := OpenWHFSObject(req.contentobject);
+RECORD contentinfo := contentobject->GetWrapped();
 STRING warning_namespace;
 IF(GetDtapStage() = "development")
 {
@@ -32,5 +33,5 @@ IF(GetDtapStage() = "development")
 LoadWittyLibrary("mod::publisher/lib/internal/builtinpages/unknown.witty","HTML-NI")->Run(
   CELL[ type := contentinfo.mimetype
       , warning_namespace
-      , url := GetRequestURL()
+      , url := contentobject->link
       ]);
