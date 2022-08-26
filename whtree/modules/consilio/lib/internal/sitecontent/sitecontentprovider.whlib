@@ -16,7 +16,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // Content provider for WebHare documents
-PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
+PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 < INTEGER rootfolder;
   OBJECT boostwords_type;
 
@@ -300,10 +300,8 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := ConsilioContentProvider::GetMapping();
-    UPDATE mapping SET suggested := TRUE WHERE name = "title";
-    RETURN
-        [ ...mapping
+   RETURN
+        [ [ name := "title",               value := "",               tokenized := TRUE, suggested := TRUE ]
         , [ name := "filetype",            value := "",               tokenized := FALSE ]
         , [ name := "lastmodified",        value := DEFAULT DATETIME, tokenized := FALSE ]
         , [ name := "modificationdate",    value := DEFAULT DATETIME, tokenized := FALSE ]

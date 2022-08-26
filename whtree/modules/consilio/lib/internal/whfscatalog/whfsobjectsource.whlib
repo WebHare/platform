@@ -235,7 +235,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
+    RECORD ARRAY mapping :=
         [ [ name := "name", value := "" ]
         , [ name := "title", value := "" ]
         , [ name := "description", value := "" ]

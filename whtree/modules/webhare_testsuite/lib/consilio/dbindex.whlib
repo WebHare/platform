@@ -23,7 +23,7 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
+    RECORD ARRAY mapping :=
         [ [ name := "_body",                   tokenized := TRUE, suggested := TRUE ]
         , [ name := "date_adate",              value := DEFAULT DATETIME ]
         , [ name := "datafrom",                value := "", tokenized := FALSE ]

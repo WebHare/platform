@@ -53,7 +53,7 @@ PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
+    RECORD ARRAY mapping :=
         [ [ name := "date_test", value := DEFAULT DATETIME ]
         , [ name := "validuser", value := "", tokenized := FALSE ]
         , [ name := "url",       value := "", tokenized := FALSE ]
