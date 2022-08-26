@@ -66,7 +66,7 @@ class ScreenProxy
     if (!curitem && autoclickhamburger)
     {
       // test clicking the hamburger menu
-      const hamburger_img = this.win.node.ownerDocument.querySelector(`t-toolbar .t-toolbar-buttongroup__right t-button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
+      const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right t-button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
       if (hamburger_img)
       {
         test.click(hamburger_img.closest(`t-button`));
