@@ -159,6 +159,7 @@
                       ongetrows="getstacktracerows"
                       selectcontextmenu="stacktracecontext"
                       emptytid=".nostacktraceavailable"
+                      sortable="false"
                       >
                   <column name="functionname" type="text" tree="true" width="3pr" />
                   <column name="library" type="text" width="2pr" />

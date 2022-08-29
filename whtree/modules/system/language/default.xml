@@ -126,6 +126,7 @@
       <text tid="clearallcaches">Clear All Caches</text>
       <text tid="clearlist">Clear list</text>
       <text tid="command">Command</text>
+      <text tid="creationdate">Creationdate</text>
       <text tid="ct_children">Children</text>
       <text tid="ct_parents">Parents</text>
       <text tid="ct_trace">Stack trace</text>

@@ -94,6 +94,7 @@ OutputObject::OutputObject(HSVM *_vm, const char *_type)
 : type(_type)
 , vm(0)
 , wait_ignores_readbuffer(false)
+, creationdate(Blex::DateTime::Invalid())
 {
         id = Register(_vm);
 }
@@ -110,6 +111,8 @@ int OutputObject::Register(HSVM *_vm)
                 VirtualMachine *ownervm = GetVirtualMachine(vm);
                 id = ownervm->outobjects.Set(this);
                 stacktrace = ownervm->GetStackTraceForOutputObject();
+                if (stacktrace.get())
+                    creationdate = Blex::DateTime::Now();
         }
 
         return id;

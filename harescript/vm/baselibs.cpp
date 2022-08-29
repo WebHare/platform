@@ -2997,6 +2997,8 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                 }
                 else
                     stackm.InitVariable(var_stacktrace, VariableTypes::RecordArray);
+                VarId var_creationdate = stackm.RecordCellCreate(elt, vm->cn_cache.col_creationdate);
+                stackm.SetDateTime(var_creationdate, itr->creationdate);
         }
 
         for (auto &itr: vm->idmapstorages)
@@ -3008,6 +3010,7 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                         stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), name);
                         stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), id);
                         stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+                        stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_creationdate), VariableTypes::DateTime);
                 });
         }
 }

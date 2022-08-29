@@ -494,7 +494,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->nameslist->selection :=
           SELECT *
             FROM this->nameslist->rows
-           WHERE name = this->lastselectedname.name AND depth = 0
+           WHERE name = this->lastselectedname.name
+                 AND (CellExists(rows, "DEPTH") ? depth = 0 : TRUE)
            LIMIT 1;
     }
   }
