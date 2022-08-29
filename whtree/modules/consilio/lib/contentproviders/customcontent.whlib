@@ -11,9 +11,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
-RECORD defaultemptysearchrecord;
-RECORD ARRAY defaultmapping;
-
 RECORD __customcontentbase_initdata;
 
 /** @short A custom content provider base object
@@ -23,9 +20,6 @@ RECORD __customcontentbase_initdata;
 PUBLIC STATIC OBJECTTYPE CustomContentBase
 <
   RECORD __initdata;
-
-  PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchRecord, -);
-  PROPERTY defaultmapping(GetDefaultMapping, -);
 
   PUBLIC PROPERTY contentsourceid(this->__initdata.contentsourceid, -);
   PUBLIC PROPERTY contentsourcetag(this->__initdata.contentsourcetag, -);
@@ -179,18 +173,6 @@ PUBLIC STATIC OBJECTTYPE CustomContentBase
     THROW NEW Exception("FetchObject not implemented");
   }
 
-  // Don't override this one
-  RECORD FUNCTION GetDefaultEmptySearchRecord()
-  {
-    RETURN defaultemptysearchrecord;
-  }
-
-  // Don't override this one
-  RECORD ARRAY FUNCTION GetDefaultMapping()
-  {
-    RETURN defaultmapping;
-  }
-
   /** Helper function to implement the FetchObject function if ListObjects(2/3) already gives back the data for
       all existing objects (needed to ensure CheckConsilioObject which call FetchObject directly still
       functions)
@@ -289,9 +271,6 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
                           , contentobject := this->initdata.library || "#" || this->initdata.contentobject
                           , DELETE library
                           ];
-
-    // Initialize the defaultemptysearchrecord
-    defaultemptysearchrecord := this->defaultemptysearchrecord;
   }
 
   PUBLIC RECORD FUNCTION __GetCCPInitData()
@@ -332,7 +311,7 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
     this->EnsureSearchMetaInfo();
-    RETURN Length(this->mapping) > 0 ? this->mapping : this->GetDefaultMapping(this->emptysearchrecord);
+    RETURN this->mapping;
   }
 
   UPDATE PUBLIC STRING ARRAY FUNCTION GetObjectListFields()

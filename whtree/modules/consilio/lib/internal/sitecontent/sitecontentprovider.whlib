@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "wh::datetime.whlib";
 
@@ -16,7 +16,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // Content provider for WebHare documents
-PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
+PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 < INTEGER rootfolder;
   OBJECT boostwords_type;
 
@@ -300,10 +300,8 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := ConsilioContentProvider::GetMapping();
-    UPDATE mapping SET suggested := TRUE WHERE name = "title";
-    RETURN
-        [ ...mapping
+   RETURN
+        [ [ name := "title",               value := "",               tokenized := TRUE, suggested := TRUE ]
         , [ name := "filetype",            value := "",               tokenized := FALSE ]
         , [ name := "lastmodified",        value := DEFAULT DATETIME, tokenized := FALSE ]
         , [ name := "modificationdate",    value := DEFAULT DATETIME, tokenized := FALSE ]
@@ -472,47 +470,5 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
            , links := page.parsed_page.links //TODO probably obsolete? the linkchecker should be using RTD links directly says Kris
            , indexdate := object_indexdate
            ];
-  }
->;
-
-PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
-<
-  PUBLIC PROPERTY settings(this->mysettings->value, SetSettings);
-
-  MACRO Init(RECORD data)
-  {
-  }
-
-  PUBLIC MACRO Validate(OBJECT work)
-  {
-    // Try to initialize a WebHare content provider with the current settings
-    OBJECT cp := NEW WebHareContentProvider();
-    RECORD cs := [ id := 0
-                 , fsobject := this->folder->value
-                 , data := DEFAULT RECORD
-                 ];
-    TRY
-    {
-      cp->Init(cs);
-    }
-    CATCH (OBJECT e)
-    {
-      LogHarescriptException(e);
-      work->AddError(GetTid("publisher:contentproviders.webhare.messages.invalidfolder"));
-    }
-  }
-
-  MACRO SetSettings(RECORD settings)
-  {
-    // Insert lastcontentscheck if it does not exist yet
-    IF (CellExists(settings, "lastcontentscheck"))
-    {
-      DATETIME lastcontentscheck := StringToDateTime(settings.lastcontentscheck);
-      this->lastcontentscheck->value := lastcontentscheck != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(lastcontentscheck, "minutes", TRUE, FALSE) : GetTid("publisher:contentproviders.webhare.never");
-    }
-    ELSE
-      this->lastcontentscheck->visible := FALSE;
-
-    this->mysettings->value := settings;
   }
 >;

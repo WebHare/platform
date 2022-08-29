@@ -22,7 +22,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser.whlib";
-LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 LOADLIB "mod::consilio/lib/internal/whfscatalog/indexfields.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -30,9 +29,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/types.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
@@ -238,7 +235,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
+    RECORD ARRAY mapping :=
         [ [ name := "name", value := "" ]
         , [ name := "title", value := "" ]
         , [ name := "description", value := "" ]

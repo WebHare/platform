@@ -37,7 +37,7 @@ PUBLIC STATIC OBJECTTYPE QueryContent EXTEND CustomContentBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD ARRAY mapping := this->defaultmapping CONCAT
+    RECORD ARRAY mapping :=
         [ /*[ name := "_body",                   tokenized := TRUE, suggested := TRUE ]  TODO should we do this? do we need it for tests?
         , */
           [ name := "textfield",               value := "", type := "text" ]

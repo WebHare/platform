@@ -146,7 +146,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
 
 MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 {
-  RECORD ARRAY currentsources := catalog->ListContentSources();
+  RECORD ARRAY currentsources := catalog->ListContentSources([__withdata := TRUE]);
   FOREVERY(RECORD source FROM want.contentsources)
   {
     INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
@@ -165,8 +165,23 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
       }
 
       OBJECT contentsource := catalog->OpenContentSourceById(currentsources[matchpos].id);
-      IF(currentsources[matchpos].definedby != source.definedby
-         OR currentsources[matchpos].contentobject != source.contentobject)
+      BOOLEAN mismatch;
+      IF(currentsources[matchpos].definedby != source.definedby OR currentsources[matchpos].contentobject != source.contentobject)
+        mismatch := TRUE;
+
+      IF(expect_library != "")
+      {
+        IF(currentsources[matchpos].__data = "")
+          mismatch := TRUE;
+        ELSE
+        {
+          RECORD cursettings := EnforceStructure(CELL[library := "", contentobject := ""], DecodeHSON(currentsources[matchpos].__data));
+          IF(cursettings.library != expect_library OR cursettings.contentobject != expect_contentobject)
+            mismatch := TRUE;
+        }
+      }
+
+      IF(mismatch)
       {
         contentsource->UpdateContentSource(CELL
             [ source.definedby
@@ -204,19 +219,10 @@ MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 
 BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
 {
-  IF(NOT catalog->managed)
-    RETURN FALSE;
-
-  RECORD ARRAY indices := catalog->ListAttachedIndices();
-  IF(Length(indices) != 1 OR NOT indices[0].isbuiltin)
-    RETURN FALSE;
-
-  Print(`Reattaching blank index for catalog '${catalog->tag}'\n`);
-
-  GetPrimary()->BeginWork();
-  catalog->DetachIndex(indices[0].id);
-  catalog->AttachIndex(indices[0].indexmanager);
-  GetPrimary()->CommitWork();
+  Print(`Deleting attached indices for catalog '${catalog->tag}'\n`);
+  FOREVERY(RECORD indexrec FROM catalog->ListAttachedIndices())
+    IF(NOT indexrec.readonly)
+      SendRawJSONToElasticSearch(indexrec.indexmanager, "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
 
   TRY
   {

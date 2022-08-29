@@ -483,14 +483,17 @@
   </moduleregistry>
 
   <consilio>
-    <contentprovider
-      name="site" tid="contentproviders.site.providertitle" icon="tollium:folders/site" contentproviderobject="mod::publisher/lib/internal/contentprovider.whlib#WebHareContentProvider" />
-    <contentprovider
-      name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database" contentproviderobject="lib/contentproviders/customcontent.whlib#CustomContentProvider"
-    />
+    <contentprovider name="site"
+                     contentproviderobject="lib/internal/sitecontent/sitecontentprovider.whlib#WebHareContentProvider"
+                     icon="tollium:folders/site"
+                     tid="contentproviders.site.providertitle" />
+    <contentprovider name="custom"
+                     contentproviderobject="lib/contentproviders/customcontent.whlib#CustomContentProvider"
+                     icon="tollium:database/database"
+                     tid="contentproviders.custom.providertitle" />
 
     <catalog tag="whfs" priority="-5">
-      <customsource tag="whfsobjects" contentobject="mod::publisher/lib/internal/consiliocontent.whlib#WHFSObjectContentSource"  />
+      <customsource tag="whfsobjects" contentobject="lib/internal/whfscatalog/whfsobjectsource.whlib#WHFSObjectContentSource"  />
     </catalog>
 
     <fieldgroup tag="pxl_data">

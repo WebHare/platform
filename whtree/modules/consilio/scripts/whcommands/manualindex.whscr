@@ -1,4 +1,6 @@
 <?wh
+// syntax: <catalogmask> [contentsourcemask]
+// short: directly index (part of a) catalog
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
@@ -6,35 +8,14 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
-RECORD args := ParseArguments(GetConsoleArguments(),
-                              [ [ name := "debug", type := "switch" ]
-                              , [ name := "limit", type := "stringopt" ]
-                              , [ name := "catalogtag", type := "param", required := TRUE ]
-                              , [ name := "contentsourcetag", type := "param", required := FALSE ]
-                              ]);
-
-IF(NOT RecordExists(args))
-{
-  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] <catalogtag> [contentsourcetag]\n");
-  SetConsoleExitCode(1);
-  RETURN;
-}
-
-INTEGER setlimit := ToInteger(args."limit",0);
+RECORD args;
 INTEGER numdone;
+INTEGER setlimit;
 
-DATETIME start := GetCurrentDateTime();
-OpenPrimary();
-
-OBJECT catalog := OpenConsilioCatalog(args.catalogtag);
-IF(NOT ObjectExists(catalog))
-  THROW NEW Exception(`No such catalog '${args.catalogtag}'`);
-
-STRING contentsourcemask := args.contentsourcetag ?? "*";
-FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask))
+MACRO ProcessContentSource(OBJECT catalog, RECORD csource)
 {
   OBJECT contentsource := catalog->OpenContentSourceById(csource.id);
-  Print(`Processing content source '${contentsource->tag ?? contentsource->GetWHFSPath()}'\n`);
+  Print(`Processing catalog '${catalog->tag}' content source '${contentsource->tag ?? contentsource->GetWHFSPath()}'\n`);
 
   DATETIME commanddate := GetCurrentDatetime();
 
@@ -51,7 +32,7 @@ FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE T
 
   FOREVERY(RECORD grouptocheck FROM groups)
   {
-    Print(csource.tag || ": " || #grouptocheck || "/" || Length(groups) || (args.debug ? "\n" : "\r"));
+    Print((csource.tag ?? "#" || csource.id) || ": " || #grouptocheck || "/" || Length(groups) || (args.debug ? "\n" : "\r"));
 
     res := CheckGroup([ groupid := grouptocheck.id, contentsourceid := contentsource->id, indexid := catalog->id, commanddate := commanddate],
           [ rebuild := TRUE
@@ -62,7 +43,16 @@ FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE T
           ]);
 
     IF(Length(res.errors)>0)
-      ABORT(res.errors);
+    {
+      Print(`Errors indexing '${grouptocheck.id}'\n`);
+      FOREVERY(RECORD err FROM res.errors)
+        Print(`- ${NormalizeWhitespace(err.message)}\n`);
+      Print("\n");
+
+      SetConsoleExitCode(1);
+      IF(args.breakonerror)
+        TerminateScriptWithError("Failed to index " || grouptocheck.id);
+    }
 
     numdone := numdone + 1;
     IF(setlimit != 0 AND numdone >= setlimit)
@@ -79,4 +69,36 @@ FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE T
                         ]);
     Print("\n");
   }
+}
+
+ args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "debug", type := "switch" ]
+                              , [ name := "limit", type := "stringopt" ]
+                              , [ name := "breakonerror", type := "switch" ]
+                              , [ name := "catalogmask", type := "param", required := TRUE ]
+                              , [ name := "contentsourcemask", type := "param", required := FALSE ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] [--breakonerror] <catalogmask> [contentsourcemask]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+STRING contentsourcemask := args.contentsourcemask ?? "*";
+setlimit := ToInteger(args."limit",0);
+
+DATETIME start := GetCurrentDateTime();
+OpenPrimary();
+
+RECORD ARRAY matchcatalogs := SELECT * FROM ListConsilioCatalogs() WHERE ToUppercase(tag) LIKE ToUppercase(args.catalogmask);
+IF(Length(matchcatalogs) = 0)
+  THROW NEW Exception(`No such catalog '${args.catalogmask}'`);
+
+FOREVERY(RECORD catalogrec FROM matchcatalogs)
+{
+  OBJECT catalog := OpenConsilioCatalogById(catalogrec.id);
+  FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask) OR "#" || id = contentsourcemask)
+    ProcessContentSource(catalog, csource);
 }

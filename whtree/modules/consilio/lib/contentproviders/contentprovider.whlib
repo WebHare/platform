@@ -12,11 +12,16 @@ LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 
+RECORD ARRAY FUNCTION GetMappingFromSearchRecord(RECORD mapping DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN
+      SELECT name := ToLowercase(name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name)
+           , value
+           , tokenized := CellExists(mapping, "tokenized") ? tokenized : TRUE
+           , suggested := CellExists(mapping, "suggested") ? suggested : FALSE
+        FROM UnpackRecord(mapping) AS mapping;
+}
 
-RECORD defaultemptysearchrecord := [ score   := 0f
-                                   , title   := ""
-                                   , summary := ""
-                                   ];
 
 /** @short Exception that must be thrown when an exception must not be logged in the errorlist
 */
@@ -35,14 +40,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
 
   /// Number of tasks completed, so we can restart the provider every X tasks
   PUBLIC INTEGER donetasks;
-
-  /** @short Default empty search record
-  */
-  PUBLIC PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchObject, -);
-
-  /** @short Default field mapping
-  */
-  PUBLIC PROPERTY defaultmapping(GetDefaultMapping, -);
 
   /** @short The content source id
   */
@@ -107,12 +104,12 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   */
   PUBLIC RECORD FUNCTION GetEmptySearchRecord()
   {
-    RETURN this->defaultemptysearchrecord;
+    RETURN DEFAULT RECORD;
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RETURN this->GetDefaultMapping(this->GetEmptySearchRecord());
+    RETURN GetMappingFromSearchRecord(this->GetEmptySearchRecord());
   }
 
   /** @short Get the list of fields that must be provided in objects to the ListObjects3/ListObjects2 function
@@ -527,21 +524,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   //
   // Internal functions
   //
-
-  RECORD FUNCTION GetDefaultEmptySearchObject()
-  {
-    RETURN defaultemptysearchrecord;
-  }
-
-  RECORD ARRAY FUNCTION GetDefaultMapping(RECORD mapping DEFAULTSTO DEFAULT RECORD)
-  {
-    RETURN
-        SELECT name := ToLowercase(name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name)
-             , value
-             , tokenized := CellExists(mapping, "tokenized") ? tokenized : TRUE
-             , suggested := CellExists(mapping, "suggested") ? suggested : FALSE
-          FROM UnpackRecord(mapping ?? defaultemptysearchrecord) AS mapping;
-  }
 
   INTEGER FUNCTION GetMaxGroupObjects()
   {
