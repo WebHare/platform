@@ -270,7 +270,7 @@ PUBLIC OBJECTTYPE WHFSBulkSender
 
     IF (RecordExists(fileinfo))
     {
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print("MapWHFSRef: whfspath = " || fileinfo.whfspath || ", base = " || this->archive_export_basewhfspath || "\n");
 
       //Is this file OUTSIDE the part of the site that is being archived?
@@ -291,10 +291,10 @@ PUBLIC OBJECTTYPE WHFSBulkSender
     }
     ELSE
     {
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print("MapWHFSRef: objid not found\n");
     }
-    IF(debugmapping)
+    IF(IsDebugTagEnabled("whfsplan"))
       Print("MapWHFSRef: object #" || objid || " mapped to [" || map || "]\n");
     RETURN map;
   }

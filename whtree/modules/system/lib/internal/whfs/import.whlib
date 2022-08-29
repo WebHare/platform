@@ -31,7 +31,7 @@ STRING FUNCTION GetNextPathEntry(STRING curpath, STRING analyzepath)
 
 RECORD ARRAY FUNCTION GenerateSourceObjs(STRING curpath, RECORD ARRAY allgroups)
 {
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     print("GSO:"||curpath||"\n");
   }
@@ -106,7 +106,7 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
   myremapper->ignore_missing_members := TRUE;
 
   //Sanitize all path names
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     print("archive\n");
     Printrecordarrayto(0,archive,'boxed');
@@ -131,7 +131,7 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
 
   //ADDME: Guard against case-mixing (and declaring the same path twice that way) and otherwise confusing archives
   import_entries := SELECT *, searchpath := basepath || name FROM import_entries;
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     print("import_entries\n");
     Printrecordarrayto(0,import_entries,'boxed');
@@ -144,13 +144,13 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
                                   FROM import_entries
                               GROUP BY basepath
                               ORDER BY basepath;
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     PRINT("importgroups\n");
     Printrecordarrayto(0,import_groups,'tree');
   }
   RECORD ARRAY sourceobjs := GenerateSourceObjs("", import_groups);
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     print("sourceobjs\n");
     Printrecordarrayto(0,sourceobjs,'tree');
@@ -158,7 +158,7 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
 
   myremapper->overwrite_files := overwrite;
   myremapper->GenerateCopyPlan(0, sourceobjs, folderid);
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     print("plan\n");
     PrintRecordArrayTo(0, myremapper->plan,'boxed');
@@ -167,7 +167,7 @@ PUBLIC RECORD FUNCTION __whpub_ImportArchive(RECORD ARRAY archive, INTEGER folde
   IF (plancallback != DEFAULT FUNCTION PTR)
   {
     plancallback(myremapper);
-    IF(debugmapping)
+    IF(IsDebugTagEnabled("whfsplan"))
     {
       print("plan after revisement\n");
       PrintRecordArrayTo(0, myremapper->plan,'boxed');

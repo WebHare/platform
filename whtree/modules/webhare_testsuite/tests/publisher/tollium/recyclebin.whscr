@@ -31,7 +31,7 @@ MACRO PrepIt()
 
   OBJECT recycleher := testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher"]);
   recycleherid := recycleher->id;
-  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher3"])->RecycleSelf();
+  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher3.txt"])->RecycleSelf();
 
   //put a file in a folder for #1400
   OBJECT recycledfolder := testfw->GetTestSite()->rootobject->CreateFolder([name := "recycledfolder"]);
@@ -91,14 +91,14 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
 
   //By default, we expect our own recent deletions
   rows := TT("filelist")->rows;
-  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3.txt"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
 
   //Try to browse ALL deletions. we should see ours and sysop's
   TT("filelist")->folderfilter->contents->searchuseron->value := FALSE;
   TT("filelist")->filter->TolliumClick();
 
   rows := TT("filelist")->rows;
-  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3","recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3.txt","recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
 
   topscreen->frame->focused := TT("filelist");
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleme";
@@ -128,7 +128,7 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   TT("filelist")->filter->TolliumClick();
   rows := TT("filelist")->rows;
 
-  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+  TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3.txt"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
 
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleher";
   topscreen->frame->focused := TT("filelist");
@@ -137,12 +137,26 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher")));
 
   rows := TT("filelist")->rows;
-  TestEq(["recycledfolder","recycledsubfile","recycleher3"], (SELECT AS STRING ARRAY name FROM rows ORDER BY name), "List did not update to reflect undeleted item");
+  TestEq(["recycledfolder","recycledsubfile","recycleher3.txt"], (SELECT AS STRING ARRAY name FROM rows ORDER BY name), "List did not update to reflect undeleted item");
 
-  //What if we restore the recycledsubfile? it should fail as it target folder is gone
+  //What if we restore the recycledsubfile? it should fail as its target folder is gone
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycledsubfile";
 
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("restore"), [ messagemask := "*original location*deleted*" ]);
+
+  //What if we restore recycleher3 but put something in its place first?
+  testfw->BeginWork();
+  testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher3.txt"]);
+  testfw->CommitWork();
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleher3.txt";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("restore"), [ messagemask := "Restored*renamed*recycleher3-2.txt*" ]);
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher3.txt")));
+  TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher3-2.txt")));
+
+  rows := TT("filelist")->rows;
+  TestEq(["recycledfolder","recycledsubfile"], (SELECT AS STRING ARRAY name FROM rows ORDER BY name), "List did not update to reflect undeleted item");
+
 /*
 
 

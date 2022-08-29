@@ -921,7 +921,7 @@ OBJECTTYPE WHFSObject
 
     IF(destfolder->id != this->pvt_parent)
     {
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " requires a bulk operation\n");
       OBJECT copyer := destfolder->MakeBulkReceiver();
       copyer->SetSourceBase(this->id, newname);
@@ -934,13 +934,13 @@ OBJECTTYPE WHFSObject
     }
     ELSE IF(newname!="")
     {
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " is actually a rename\n");
       this->UpdateMetadata([name:=newname]);
     }
     ELSE
     {
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print("WHFS: move of " || this->id || " to " || destfolder->id || " as " || newname || " is actually a no-op\n");
     }
 
@@ -2614,7 +2614,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     // First generate ids for all objects that will be newly created
     this->GeneratePlanIds();
 
-    IF(debugmapping)
+    IF(IsDebugTagEnabled("whfsplan"))
     {
       PRINT("***PLANNED_ENTRIES***\n");
       printrecordarrayto(0,this->planned_entries,'boxed');
@@ -2716,7 +2716,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
       }
       ELSE
       {
-        IF(debugmapping)
+        IF(IsDebugTagEnabled("whfsplan"))
           Print("** did not find metadata for folder " || source.destpath || "\n");
 
         retval := [ indexdoc := ""
@@ -2749,7 +2749,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
       }
       ELSE
       {
-        IF(debugmapping)
+        IF(IsDebugTagEnabled("whfsplan"))
           Print("** did not find metadata for file " || source.destpath || "\n");
       }
 
@@ -2830,7 +2830,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
           IF(whfsref LIKE '/*') //old webhare did generate initial slashes
             whfsref := SubString(whfsref, 1);
 
-          IF(debugmapping)
+          IF(IsDebugTagEnabled("whfsplan"))
             Print("UnmapWHFSRef: Lookup " || whfsref || " in planned_entries\n");
           objid := SELECT AS INTEGER COLUMN destid FROM this->planned_entries WHERE ToUppercase(whfsref)=ToUppercase(destpath);
         }
@@ -2854,7 +2854,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     {
 
     }
-    IF(debugmapping)
+    IF(IsDebugTagEnabled("whfsplan"))
       Print("UnmapWHFSRef: Mapped [" || whfsref || "] to " || objid || "\n");
     RETURN objid;
   }
@@ -3024,7 +3024,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
               STRING typehash := GetMD5Hash(EncodeHson(type)); //avoid reregistering types we've seen before, registerwhfstype is slow
               IF(typehash NOT IN seentypes)
               {
-                IF(debugmapping)
+                IF(IsDebugTagEnabled("whfsplan"))
                 {
                   Print("registering type\n");
                   Printrecordto(0,type,'tree');
@@ -3037,7 +3037,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
         }
       }
 
-    IF(debugmapping)
+    IF(IsDebugTagEnabled("whfsplan"))
     {
       Print("targz metadata:\n");
       Printrecordarrayto(0,perfoldermetadata,'tree');
@@ -3208,7 +3208,7 @@ PUBLIC STATIC OBJECTTYPE WHFSResourceNameMapper EXTEND InstanceMapperBase
     IF (pos.found)
     {
       STRING path := this->mapcache[pos.position].path;
-      IF(debugmapping)
+      IF(IsDebugTagEnabled("whfsplan"))
         Print(`MapWHFSRef: mapped ${objid} -> ${path} (from cache)\n`);
 
       RETURN path;
@@ -3223,7 +3223,7 @@ PUBLIC STATIC OBJECTTYPE WHFSResourceNameMapper EXTEND InstanceMapperBase
 
     INSERT CELL[ id := objid, path ] INTO this->mapcache AT pos.position;
 
-    IF (debugmapping)
+    IF (IsDebugTagEnabled("whfsplan"))
       Print(`MapWHFSRef: mapped ${objid} -> ${path}\n`);
 
     RETURN path;
@@ -3244,7 +3244,7 @@ PUBLIC STATIC OBJECTTYPE WHFSResourceNameMapper EXTEND InstanceMapperBase
     IF (pos.found)
     {
       id := this->unmapcache[pos.position].id;
-      IF (debugmapping)
+      IF (IsDebugTagEnabled("whfsplan"))
         Print(`UnmapWHFSRef: Unmapped [${path}] to ${id} (from cache)\n`);
 
       RETURN id;
@@ -3269,7 +3269,7 @@ PUBLIC STATIC OBJECTTYPE WHFSResourceNameMapper EXTEND InstanceMapperBase
       RECORD mrpos := LowerBound(this->pvt_missing_references, path);
       IF (NOT mrpos.found)
         INSERT path INTO this->pvt_missing_references AT mrpos.position;
-      IF (debugmapping)
+      IF (IsDebugTagEnabled("whfsplan"))
         Print(`UnmapWHFSRef: Could not unmap [${path}]\n`);
 
       id := 0;

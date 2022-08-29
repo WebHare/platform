@@ -1507,7 +1507,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     ELSE IF(Length(result.restored) > 1)
       work->AddWarning(this->GetTid(".errors.restoreditems", ToString(Length(result.restored))));
     ELSE IF(Length(result.restored) = 1)
-      work->AddWarning(this->GetTid(".errors.restoreditemto", result.restored[0].restoredto));
+    {
+      IF(result.restored[0].renamedto != "")
+        work->AddWarning(this->GetTid(".errors.restoredrenameditemto", result.restored[0].restoredto, result.restored[0].renamedto));
+      ELSE
+        work->AddWarning(this->GetTid(".errors.restoreditemto", result.restored[0].restoredto));
+    }
 
     work->Finish();
   }

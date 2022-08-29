@@ -570,7 +570,7 @@ STATIC OBJECTTYPE WHFSType
       FOREVERY(RECORD testcell FROM UnpackRecord(newdata))
         IF(ToUppercase(testcell.name) NOT IN allowedcells AND testcell.name NOT IN [ "WHFSTYPE", "WHFSSETTINGID", "WHFSFILEID" ])
         {
-          IF(debugmapping)
+          IF(IsDebugTagEnabled("whfsplan"))
           {
             Print("Trying to set a value for the non-existing cell '" || testcell.name || "' in content type '" || this->namespace || "'\n");
             Print("new data\n");
@@ -1831,7 +1831,7 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
   }
 
   RECORD applyres := ApplyCTMembers(typeinfo.members, whfstypeid, TRUE);
-  IF(debugmapping)
+  IF(IsDebugTagEnabled("whfsplan"))
   {
     Print("applyres\n");
     printrecordto(0, applyres, 'tree');

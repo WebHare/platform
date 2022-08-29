@@ -21,7 +21,7 @@ PUBLIC RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttype
       STRING grouptypens := ct.groupmemberships[0].grouptype;
       pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
       IF (NOT pos.found)
-        THROW NEW Exception("Internal contenttypes consistency errors - could not find referenced group " || grouptypens);
+        RETURN DEFAULT RECORD;
       RETURN csp.grouptypes[pos.position];
     }
   }
