@@ -358,8 +358,10 @@ int64_t DecimalFloat::ToS64() const
 
 F64 DecimalFloat::ToFloat() const
 {
+        // Negative zero is not supported because llvm and gcc differ in their handling (-2.0*0.0 = +0.0 in llvm, -0.0 in gcc)
+        // Also, GCC optimizes (negate ? -0.0 : 0.0) to -0.0.
         if (digits == 0)
-            return negate ? -0.0 : 0.0;
+            return 0.0;
 
         // Fast path: if digits < 1<<53 it is exactly representable, as are powers of 10 from -22 to 22
         if (digits < (1ll << 53) && exponent >= -22 && exponent <= 22)
@@ -738,6 +740,14 @@ F64 FloatPow10(int exponent)
         if (exponent < 0)
             return 1 / powersof10[-exponent];
         return powersof10[exponent];
+}
+
+bool BLEXLIB_PUBLIC FloatSign(F64 f)
+{
+        // std::signbit doesn't work for -0 in fast-math mode
+        unsigned char buf[sizeof(f)];
+        Blex::putf64msb(buf, f);
+        return buf[0] >= 128;
 }
 
 } //end namespace Blex
