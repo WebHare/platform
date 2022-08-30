@@ -32,7 +32,13 @@ FOREVERY(RECORD source FROM brokensources)
   IF(cat->managed)
   {
     FOREVERY(INTEGER toremove FROM source.toremove)
-      cat->OpenContentSourceById(toremove)->DeleteSelf();
+    {
+      OBJECT sourceobj := cat->OpenContentSourceById(toremove);
+      // If it doesn't exist, it's already deleted (DeleteSelf renames to `"$consilio$deleted$" || id`, which prevents it
+      // from being returned by OpenContentSourceById)
+      IF (ObjectExists(sourceobj))
+        sourceobj->DeleteSelf();
+    }
   }
   ELSE //shouldn't happen to an unmanaged catalog..
   {
