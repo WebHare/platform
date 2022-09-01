@@ -49,7 +49,7 @@ trans->CommitWork();
 
 LogStartup("Waiting for OpenSearch to come online");
 
-STRING status := WaitForPromise(WaitForElasticsearch(builtin_indexmanager, MAX_DATETIME));
+STRING status := WaitForElasticsearch(builtin_indexmanager, MAX_DATETIME);
 IF (status != SearchOk)
 {
   LogStartup(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}`);
