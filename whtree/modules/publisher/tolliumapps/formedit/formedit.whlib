@@ -626,7 +626,18 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO DoMoveToTop()
   {
     OBJECT node := ^questions->selection.node;
-    node->parentnode->InsertBefore(node, this->curform->GetPage(0)->node);
+
+    IF (node->namespaceURI = xmlns_forms AND node->localName = "page")
+    {
+      // Insert the page before the current first one
+      // (this won't be the first element child because the handler must always be the first element)
+      node->parentnode->InsertBefore(node, this->curform->GetPage(0)->node);
+    }
+    ELSE // assume it's a question
+    {
+      node->parentnode->InsertBefore(node, node->parentNode->firstelementchild);
+    }
+
     this->MarkFormAsDirty();
     this->ReloadList();
   }
