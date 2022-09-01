@@ -67,10 +67,36 @@ FOREVERY (RECORD cat FROM catalogs)
 
   // Check the catalog's content sources
   RECORD ARRAY sources := catalog->ListContentSources([ __withdeleted := TRUE ]);
+
+  IF(Length(SELECT FROM sources WHERE NOT isdeleted) = 0)
+  {
+    trans->BeginWork();
+
+    //Detach all indices if there is no more content anyway
+    RECORD ARRAY indices := catalog->ListAttachedIndices();
+    FOREVERY(RECORD indexrec FROM indices)
+      catalog->DetachIndex(indexrec.id);
+
+    //Zap all contentsources - no need to slowly delete if we can just drop the index
+    IF(Length(sources) > 0)
+      DELETE FROM consilio.contentsources WHERE contentsources.catalogid = catalog->id;
+
+    trans->CommitWork();
+
+    //Now actually delete them. if we were to crash after the comit before completing, the next cleanupindices will pick it up
+    FOREVERY(RECORD indexrec FROM indices)
+      SendRawJSONToElasticSearch(indexrec.indexmanager,  "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
+
+    CONTINUE;
+  }
+
   FOREVERY (RECORD src FROM sources)
   {
     IF (debug)
-      Print(`  Checking content source '${src.tag}' (${src.id})${src.isdeleted ? " deleted" : src.isorphan ? " orphaned" : ""}\n`);
+    {
+      STRING reference := src.tag != "" ? `${src.tag} (#${src.id})` : `#${src.id}`;
+      Print(`  Checking content source ${reference}${src.isdeleted ? " deleted" : src.isorphan ? " orphaned" : ""}\n`);
+    }
     IF (src.isdeleted)
     {
       // This content source is marked for deletion, delete it from the index manager, then from the database
