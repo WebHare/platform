@@ -436,7 +436,7 @@ MACRO TimeZoneTests()
   TestBothConversions(AddTimeToDate(1, MakeDateTime(2040, 1, 1, 0, 0, 0)), AddTimeToDate(1, MakeDateTime(2039, 12, 31, 23, 0, 0)), "CET");
 
   TestBothConversions(MakeDateTime(1960, 04, 24, 20, 00, 00), MakeDateTime(1960, 04, 24, 19, 00, 00), "CET");
-  TestBothConversions(MakeDateTime(1910, 04, 24, 20, 00, 00), MakeDateTime(1910, 04, 24, 19, 40, 28), "EUROPE/AMSTERDAM");
+  //TestBothConversions(MakeDateTime(1910, 04, 24, 20, 00, 00), MakeDateTime(1910, 04, 24, 19, 40, 28), "EUROPE/AMSTERDAM"); //pre-1970 data is no longer present in the TZ database
 
   TestEq(FALSE, IsLocalTimeDST(MakeDateTime(2002, 10, 27, 03, 00, 00), "CET"));
   TestEq(TRUE,  IsLocalTimeDST(MakeDateTime(2003, 03, 30, 03, 00, 00), "CET"));
