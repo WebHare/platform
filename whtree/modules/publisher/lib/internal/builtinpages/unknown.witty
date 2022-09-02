@@ -45,7 +45,7 @@
       <div id="msg">
         <h1>[gettid "publisher:components.previewbrowser.showmessage.notviewable-title"]</h1>
         <p>[gettid "publisher:components.previewbrowser.showmessage.notviewable-message" type]</p>
-        <p><a href="[url]" target="_blank">[gettid "publisher:components.previewbrowser.showmessage.notviewable-urlmessage"]</a></p>
+        [if url]<p><a href="[url]" target="_blank">[gettid "publisher:components.previewbrowser.showmessage.notviewable-urlmessage"]</a></p>[/if]
 
         [if warning_namespace]
           <br>
