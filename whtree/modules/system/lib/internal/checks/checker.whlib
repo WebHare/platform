@@ -334,10 +334,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := ":Backend WebHare URL '" || backendurl || "' is not a remotely reachable interface"  ] INTO messages AT END;
   }
 
-  //Manual tasks
-  IF(RecordExists(SELECT FROM system_internal.tasks WHERE tag NOT LIKE "*.*"))
-    INSERT [ msg := ":Manually configured scheduled tasks will be removed. Define them through moduledefinitions" ] INTO messages AT END;
-
   //Stuck proxy servers
   RECORD ARRAY brokenproxies := SELECT url FROM system_internal.proxies WHERE status != "ok" ORDER BY url;
   FOREVERY(RECORD brokenproxy FROM brokenproxies)

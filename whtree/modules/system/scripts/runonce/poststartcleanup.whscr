@@ -11,13 +11,14 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 OpenPrimary();
 
 // 5.0.0 - drop manually configured tasks
-RECORD ARRAY legacytasks := SELECT * FROM system_internal.tasks WHERE tag="";
+// 5.1 update to also delete tasks not conforming to the `module.task` pattern
+RECORD ARRAY legacytasks := SELECT * FROM system_internal.tasks WHERE tag NOT LIKE "*.*";
 IF(Length(legacytasks) > 0)
 {
   GetPrimary()->BeginWork();
   Print("Deleting the following legacy tasks:\n");
   DumpValue(legacytasks, [ name := "", format := "boxed" ]);
-  DELETE FROM system_internal.tasks WHERE tag="";
+  DELETE FROM system_internal.tasks WHERE tag NOT LIKE "*.*";
   GetPrimary()->CommitWork();
 }
 
