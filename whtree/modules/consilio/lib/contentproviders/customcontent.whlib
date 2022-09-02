@@ -59,7 +59,7 @@ PUBLIC STATIC OBJECTTYPE CustomContentBase
   */
   PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RETURN DEFAULT RECORD ARRAY;
+    RETURN GetMappingFromSearchRecord(this->GetEmptySearchRecord());
   }
 
   /** @short List of fields to provide in ListObjects3/ListObjects2 for current_objects

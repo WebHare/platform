@@ -12,7 +12,7 @@ LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 
-RECORD ARRAY FUNCTION GetMappingFromSearchRecord(RECORD mapping DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD ARRAY FUNCTION GetMappingFromSearchRecord(RECORD mapping DEFAULTSTO DEFAULT RECORD)
 {
   RETURN
       SELECT name := ToLowercase(name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name)
