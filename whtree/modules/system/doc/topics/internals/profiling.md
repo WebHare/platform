@@ -11,7 +11,7 @@ WebHare has several methods to collect function profiling information.
   can be set with the `session=[sessionname]` debug setting. The profiles can be show with the profiling application `?app=system:profiles([sessionname])`,
   specify the session to be shown between parentheses
 
-- Dynamically enabled by calling `wh debug setconfig apr,session=[sessionname].`. Only takes effect when the WEBHARE_DEBUG environment variable is not set.
+- Dynamically enabled by calling `wh debug setconfig apr,session=[sessionname]`.
 
 - In docker tests, by using `wh testdocker --profile`. The cpu profile will be stored as functionprofile.tar.gz in the artefacts. The profiling application can
   show this by setting the path to that file as parameter (eg ?app=system:profiles(/tmp/whtest/test.dHvuObPS8/functionprofile.tar.gz).

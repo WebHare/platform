@@ -101,5 +101,5 @@ PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
 */
 PUBLIC BOOLEAN FUNCTION IsProfilingEnabled()
 {
-  RETURN IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov");
+  RETURN IsDebugTagEnabled("apr") OR IsDebugTagEnabled("cov");
 }
