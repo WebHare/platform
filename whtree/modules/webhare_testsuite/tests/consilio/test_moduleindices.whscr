@@ -11,6 +11,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -654,6 +655,17 @@ MACRO TestESBulkInsertion()
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQParseUserQuery('"My lovely doc for 2018-02-28T23:00:00Z hit #2"'));
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);
+
+  // Test stats
+  RECORD ARRAY testcatalogs := SELECT * FROM ListConsilioCatalogs() WHERE tag LIKE "webhare_testsuite:*" ORDER BY tag;
+  testcatalogs := EnrichCatalogsWithStats(testcatalogs, GatherIndexManagersSizes());
+  TestEqMembers([[ docs := -1, tag := "webhare_testsuite:emptycatalog" ] //we never had anything attach here
+                ,[ docs := 0, tag := "webhare_testsuite:module_reference" ]  //this one was connected in an earlier test
+                ,[ docs := 0, tag := "webhare_testsuite:testindex" ] //all were deleted
+                ,[ docs := 4032+2, tag := "webhare_testsuite:testindex_suffixed" ]
+                ,[ tag := "webhare_testsuite:testsitecatalog" ]
+                ,[ tag := "webhare_testsuite:toolslog" ]
+                ], testcatalogs, "*");
 }
 
 MACRO TestESLangFeatures()

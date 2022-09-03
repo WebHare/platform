@@ -138,7 +138,7 @@
           <column name="title" type="text" width="2pr" tid="~title" />
           <column name="lang" type="text" width="8x" />
           <column name="definedby" type="text" width="1pr" />
-          <column name="size" type="text" width="10x" align="right" />
+          <column name="size" type="integer" width="10x" align="right" emptyvalue="-1" />
           <column name="status" hintname="statushint" type="icon" />
           <column name="error" hintname="errorhint" type="icon" />
           <style name="inactive" textcolor="#666666" />

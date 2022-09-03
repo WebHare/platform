@@ -15,6 +15,7 @@ LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 
@@ -126,18 +127,9 @@ PUBLIC RECORD FUNCTION GetConsilioStatus()
 {
   OpenPrimary();
 
-  RECORD status := [ catalogsizes := DEFAULT RECORD
-                   , connectionfailed := FALSE
+  RECORD status := [ indexsizes := GatherIndexManagersSizes()
                    , lasterrors := RECORD[]
                    ];
-
-  FOREVERY (RECORD catalog FROM SELECT id, name FROM consilio.catalogs)
-    status.catalogsizes := CellInsert(status.catalogsizes, catalog.name, GetIndexManagerSize(catalog.id));
-  IF (NOT RecordExists(status.catalogsizes))
-  {
-    status.connectionfailed := TRUE;
-    RETURN status;
-  }
 
   RECORD r := __ConsilioGetErrors();
   IF(RecordExists(r))
@@ -468,17 +460,18 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
             , contentsource :=    FALSE
             , hascontents :=      FALSE
             , contentsourceid :=  0
-            , priority :=         0
             , definedby :=        ""
             ] INTO rows AT END;
       }
     }
 
-    RECORD ARRAY accessible_indices :=
-        SELECT *
-          FROM consilio.catalogs
-         WHERE this->tolliumuser->HasRightOn("consilio:read", id)
-         ORDER BY ToUppercase(name), id;
+    BOOLEAN access_all := this->tolliumuser->HasRightOn("consilio:read", 0);
+    RECORD ARRAY accessible_indices := SELECT *
+                                         FROM ListConsilioCatalogs()
+                                        WHERE access_all OR this->tolliumuser->HasRightOn("consilio:read", id)
+                                     ORDER BY ToUppercase(tag), id;
+
+    accessible_indices := EnrichCatalogsWithStats(accessible_indices, RecordExists(this->laststatus) ? this->laststatus.indexsizes : RECORD[]);
 
     FOREVERY (RECORD catalog FROM accessible_indices)
     {
@@ -487,7 +480,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , icon := catalog.id < 0 ? ^catalogs->GetIcon("consilio:consilio") : iconname != "" ? ^catalogs->GetIcon(iconname) : 0
                                           , tag := (contentprovider = VAR whconstant_consilio_contentprovider_site ? (SELECT AS STRING whfspath FROM fsobjects WHERE fsobjects.id = sources.fsobject) : tag) ?? title
                                           , title
-                                          , size := ""
+                                          , size := -1
                                           , statushint := GetStatusHint(status)
                                           , expanded := FALSE
                                           , catalog := FALSE
@@ -515,28 +508,17 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
            , errorhint := errorrec.hint
            , haserrors := errorrec.haserrors;
 
-      //BOOLEAN inactive := catalog.status < 0;
-      BOOLEAN inactive := catalog.type = whconstant_consilio_catalogtype_managed AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
-      STRING catalogsize := "";
-      INTEGER catalog_indexmanager :=
-          SELECT AS INTEGER indexmanager
-            FROM consilio.catalog_indexmanagers
-           WHERE COLUMN catalogid = VAR catalog.id
-        ORDER BY searchpriority DESC;
+      BOOLEAN inactive := catalog.managed AND Length(SELECT FROM catalogsources WHERE NOT srcinactive)=0;
 
-      IF (catalog_indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
-        catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
-
-      INSERT
+       INSERT
          CELL[...baserow
              , id := catalog.id
              , catalogid := catalog.id
              , rowkey := "catalog_" || catalog.id
              , title := catalog.description
-             , loglevel := catalog.loglevel
-             , tag := catalog.name
+             , catalog.tag
              , catalog.lang
-             , size := catalogsize
+             , size := catalog.docs
              , status := 0
              , previewable := catalog.id > 0 AND NOT inactive
              , editable := catalog.id > 0 AND NOT inactive AND this->tolliumuser->HasRightOn("consilio:metadata", catalog.id)
@@ -544,14 +526,13 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
              , inactive := inactive
              , readonly := catalog.id < 0
              , style := catalog.id < 0 ? "readonly" : inactive ? "inactive" : ""
-             , priority := catalog.priority
              , statushint := ""
              , error := 0
              , errorhint := ""
              , haserrors := FALSE
              , expanded := NOT inactive //FIXME: Not working?
              , catalog := TRUE
-             , standardcatalog := catalog.type = 0
+             , standardcatalog := catalog.managed
              , parent := 0
              , contentsource := FALSE
              , hascontents := Length(catalogsources) > 0

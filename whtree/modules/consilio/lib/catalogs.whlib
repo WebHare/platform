@@ -1247,9 +1247,13 @@ STATIC OBJECTTYPE ConsilioCatalog
 /** @short List all Consilio catalogs
     @param options Options
     @return List of catalogs
-    @cell return.id Catalog id
-    @cell return.tag Catalog tag
+    @cell(integer) return.id Catalog id
+    @cell(string) return.tag Catalog tag
+    @cell(string) return.description Description
+    @cell(string) return.definedby Where this catalog was defined/created
+    @cell(string) return.lang Catalog language
     @cell(boolean) return.managed True if this is managed catalog (supports contentsources)
+    @cell(string) return.suffixmask Wildcard mask for related suffixes, if any
 */
 PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1258,6 +1262,10 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
       SELECT id
            , tag := name
            , managed := type = whconstant_consilio_catalogtype_managed
+           , suffixmask := suffix
+           , description
+           , lang
+           , definedby
         FROM consilio.catalogs;
 
   RETURN catalogs;

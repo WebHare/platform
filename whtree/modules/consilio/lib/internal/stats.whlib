@@ -1,0 +1,49 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION GatherIndexManagersSizes()
+{
+  RECORD ARRAY indexsizes;
+
+  FOREVERY(RECORD indexmgr FROM ListIndexManagers())
+  {
+    TRY
+    {
+      RECORD ARRAY sizes := ListOpenSearchIndices(indexmgr.id);
+      indexsizes := indexsizes CONCAT (SELECT *, indexmanager := indexmgr.id FROM sizes);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      //ignoring it
+    }
+  }
+
+  RETURN indexsizes;
+}
+
+PUBLIC RECORD ARRAY FUNCTION EnrichCatalogsWithStats(RECORD ARRAY catalogs, RECORD ARRAY indexsizes)
+{
+  //TODO optimize by gathering all attachedindices in one go
+  FOREVERY(RECORD catalog FROM catalogs)
+  {
+    RECORD ARRAY indices := OpenConsilioCatalogById(catalog.id)->ListAttachedIndices();
+    indices := SELECT *, docs := (SELECT AS INTEGER SUM(indexsizes.docs)
+                                    FROM indexsizes
+                                   WHERE indexsizes.indexmanager = indices.indexmanager
+                                         AND indexsizes.indexname LIKE indices.indexname || catalog.suffixmask)
+                 FROM indices;
+
+    //with multiple attachments, take lowest or highest?
+    INSERT CELL docs := Length(indices) > 0 ? SELECT AS INTEGER MAX(docs) FROM indices : -1 INTO catalog;
+
+    catalogs[#catalog] := catalog;
+  }
+
+  RETURN catalogs;
+}
