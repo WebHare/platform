@@ -37,7 +37,7 @@ MACRO DoKeyTests(STRING basename, STRING nodebasename)
          ], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
 
   WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 46, [initialcreate := TRUE]);
-  __DeleteRegistryNode(basename || ".__webhare_testsuite_base_node__");
+  DeleteRegistryNode(basename || ".__webhare_testsuite_base_node__");
   TestEq(RECORD[], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
 }
 

@@ -395,7 +395,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     GetPrimary()->PushWork();
     TRY
     {
-      __DeleteRegistryNode(this->pvt_registryrootname || "." || regkey);
+      DeleteRegistryNode(this->pvt_registryrootname || "." || regkey);
     }
     FINALLY
     {
