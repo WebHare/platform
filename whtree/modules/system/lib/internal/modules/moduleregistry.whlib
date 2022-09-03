@@ -12,12 +12,10 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 RECORD ARRAY FUNCTION RecurseRegKey(OBJECT parentnode, STRING nodesofar)
 {
   RECORD ARRAY keys;
-  FOREVERY(OBJECT node FROM parentnode->childnodes->GetCurrentElements())
+  FOREVERY(OBJECT node FROM parentnode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "*"))
   {
     STRING keyname := nodesofar || node->GetAttribute("name");
 
-    IF(node->namespaceuri!="http://www.webhare.net/xmlns/system/moduledefinition")
-      CONTINUE;
     IF(node->localname = "node")
     {
       keys := keys CONCAT RecurseRegKey(node, keyname || ".");
@@ -25,7 +23,13 @@ RECORD ARRAY FUNCTION RecurseRegKey(OBJECT parentnode, STRING nodesofar)
     }
     IF(node->localname = "obsoletekey")
     {
-      INSERT [ name := keyname, isobsolete := TRUE ] INTO keys AT END;
+      INSERT [ name := keyname, isobsolete := TRUE, isnode := FALSE ] INTO keys AT END;
+      CONTINUE;
+    }
+    IF(node->localname = "obsoletenode")
+    {
+      INSERT [ name := keyname, isobsolete := TRUE, isnode := TRUE ] INTO keys AT END;
+      CONTINUE;
     }
 
     VARIANT val;
@@ -57,11 +61,11 @@ RECORD ARRAY FUNCTION GetModuleRegKeys(STRING modname)
   OBJECT xmldoc := GetModuleDefinitionXML(modname);
   RECORD ARRAY keys;
 
-  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "moduleregistry")->GetCurrentElements())
+  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "moduleregistry"))
   {
     keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
   }
-  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "registry")->GetCurrentElements())
+  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "registry"))
   {
     RECORD rk := RecurseRegKey(keystore, Touppercase(modname));
 
@@ -94,7 +98,10 @@ PUBLIC RECORD FUNCTION InitModuleRegistryKeys(STRING ARRAY modules)
     //FIXME create a bulk initialize api!
     FOREVERY(RECORD keyrec FROM allregkeys)
       IF(keyrec.isobsolete)
-        DeleteRegistryKey(keyrec.name);
+        IF(keyrec.isnode)
+          DeleteRegistryNode(keyrec.name);
+        ELSE
+          DeleteRegistryKey(keyrec.name);
       ELSE
         WriteRegistryKey(keyrec.name, keyrec.value, [ initialcreate := TRUE ]);
   }

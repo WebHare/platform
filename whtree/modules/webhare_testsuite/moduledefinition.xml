@@ -244,6 +244,10 @@
       <record name="twitter_testclient" />
       <record name="twitter_testauth" />
     </node>
+    <node name="registrytests">
+      <obsoletekey name="removekey" />
+      <obsoletenode name="removenode" />
+    </node>
   </moduleregistry>
 
   <publisher>
