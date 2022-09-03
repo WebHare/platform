@@ -324,8 +324,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
     IF(ftype->HasAttribute("needstemplate"))
       ctype.filetype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
-    IF(ftype->HasAttribute("needsprofile"))
-      this->AddWarning(ftype, "The needsprofile= attribute is obsolete and can be removed");
     ctype.filetype.requirescontent := ParseXSBoolean(ftype->GetAttribute("requirescontent"));
     IF(ftype->HasAttribute("isacceptableindex"))
       ctype.filetype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
