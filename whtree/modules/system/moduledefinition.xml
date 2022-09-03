@@ -1892,11 +1892,9 @@ The full base URL on which this site will be published, calculated by combining 
   <registry>
     <node name="publisher">
       <node name="publication">
-        <obsoletekey name="numworkers" />
         <integer name="maxpublishtime" description="Maximum publication time (seconds)" initialval="600" />
         <integer name="loglevel" description="Queuemanager logging level" />
         <string name="defaultcontentlisting" description="Default content listing file" initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />
-        <obsoletekey name="templatehspermissions" />
         <boolean name="scanoutputatstartup" description="Scan all output at startup" initialval="true" />
         <string name="stripextensions" description="Extensions to strip from published-as-subfolder documents" initialval=".rtd .docx .doc" />
       </node>
@@ -1907,14 +1905,9 @@ The full base URL on which this site will be published, calculated by combining 
         <string name="extensions" initialval="shtml" />
       </node>
       <node name="bundledassets">
-        <obsoletekey name="expireafterdays" />
         <boolean name="suspendautocompile" description="Suspend auto-compilation of production assets" />
-        <obsoletekey name="devbrowsertargets" />
       </node>
       <node name="filemgr">
-        <obsoletekey name="showwhfsprivate" />
-        <obsoletekey name="showwebharebackend" />
-        <obsoletekey name="showblitoverlays"/>
         <boolean name="defaultautotitles" description="Default autotitle setting" initialval="false" />
         <boolean name="objectpropssidetabs" description="Enable experimental objectprops sidetabs" initialval="false" />
       </node>
@@ -1947,8 +1940,6 @@ The full base URL on which this site will be published, calculated by combining 
           <integer name="errorlogdays" description="Nr of days of error logs to keep" initialval="30" />
           <integer name="pxllogdays" description="Nr of days of pxl access logs to keep" initialval="90" />
           <integer name="usagelogdays" description="Nr of days of usage stats to keep" initialval="90" />
-          <obsoletekey name="explicitaliases" />
-          <obsoletekey name="logstacktraces" />
           <integer name="scripttimeout" description="Script timeout" initialval="900" />
           <obsoletenode name="basefolder"/>
           <obsoletenode name="monitoring" />
@@ -1964,9 +1955,7 @@ The full base URL on which this site will be published, calculated by combining 
           </node>
           <obsoletekey name="debugurls" />
         </node>
-        <node name="nginx">
-          <obsoletekey name="isfrontend" />
-        </node>
+        <obsoletenode name="nginx" />
         <node name="security">
           <string name="cachesecret" description="Secret key used to sign image cache URLs" />
           <string name="cookiesecret" description="Secret key used to encrypt/sign cookies" />
@@ -1976,7 +1965,6 @@ The full base URL on which this site will be published, calculated by combining 
           <string name="ciphersuite" description="Override OpenSSL ciphersuite list for webserver listening ports" />
           <string name="fullaccessips" description="List of IP addresses that bypass access rule login requirements, comma-separated" />
           <node name="keys" />
-          <obsoletekey name="authscript_dbase" />
           <obsoletenode name="custom" />
         </node>
         <node name="webdav">
@@ -2004,22 +1992,6 @@ The full base URL on which this site will be published, calculated by combining 
           <string name="defaultmailroute" description="SMTP URL for the defailt mail route "/>
           <integer name="mailretention" description="How long to keep sent mails (in days), needed to associate bounces" initialval="7" />
           <integer name="maxsize" description="Maximum message size in bytes" initialval="10000000" />
-
-          <obsoletekey name="mailrulefilter" />
-          <obsoletekey name="resendinterval" />
-          <obsoletekey name="connecttimeout" />
-          <obsoletekey name="transactiontimeout" />
-          <obsoletekey name="smtptimeout" />
-          <obsoletekey name="hostname" />
-          <obsoletekey name="port" />
-          <obsoletekey name="lastconnected" />
-          <obsoletekey name="errormessage" />
-          <obsoletekey name="lasterror" />
-          <obsoletekey name="outgoingredirect" />
-          <obsoletekey name="outgoingmailaddress" />
-          <obsoletekey name="outgoingaddressrewrite" />
-          <obsoletekey name="authusername" />
-          <obsoletekey name="authpassword" />
         </node>
         <node name="adhoccache">
           <integer name="maxentries" description="Maximum number of entries in the adhoc cache" initialval="1024" />
@@ -2041,17 +2013,11 @@ The full base URL on which this site will be published, calculated by combining 
         <string name="installationid" description="Installation ID of your server" initialval=""/>
       </node>
       <node name="licensing">
-        <obsoletekey name="serviceurl" />
         <string name="licensekey" description="Licensekey, base64-encoded" />
       </node>
       <node name="userrights"> <!-- system.userrights -->
-        <obsoletekey name="showwhmodules"/>
-        <obsoletekey name="requirepassword"/>
         <integer name="retention" description="Retention period for deleted users, roles etc in system:usermgmt, in days" initialval="90" />
         <string name="newuserdefaults_language" description="Default settings for new users - language" initialval="en" />
-        <obsoletekey name="newuserdefaults_timemilitary" />
-        <obsoletekey name="newuserdefaults_shortdateformat" />
-        <obsoletekey name="newuserdefaults_longdateformat" />
         <string name="newuserdefaults_timezone" description="Default settings for new users - time zone" initialval="Europe/Amsterdam" />
         <string name="newuserdefaults_decimalsep" description="Default settings for new users - decimal separator" initialval="," />
         <string name="newuserdefaults_thousandsep" description="Default settings for new users - thousand separator" initialval="." />
@@ -2061,7 +2027,6 @@ The full base URL on which this site will be published, calculated by combining 
         <integer name="maxprocesses" description="Maximum # of parallel processes started by executetasks" initialval="4" />
         <integer name="defaulttimeout" description="Default task timeout (in minutes)" initialval="60" />
         <integer name="finishedretention" description="How long to keep completed tasks (in days)" initialval="3" />
-        <obsoletekey name="convertscandata_batchsize" />
       </node>
       <node name="precalc"> <!-- system.precalc -->
         <integer name="maxjobs" description="Maximum # of parallel jobs started by precalc" initialval="10" />
@@ -2080,29 +2045,13 @@ The full base URL on which this site will be published, calculated by combining 
         </node>
         <node name="layout">
           <string name="title" initialval="WebHare&#174; Platform" />
-          <obsoletekey name="dashboardbgpos" />
           <string name="infotitle" />
           <string name="infotext" />
-          <obsoletekey name="headergoodies"  />
         </node>
-        <obsoletekey name="sharepoint" />
-        <obsoletekey name="menu" />
         <node name="integration">
-          <obsoletekey name="webhareurl" />
-          <obsoletekey name="toddfallbackurl" />
-          <obsoletekey name="disablewebui4" />
-          <obsoletekey name="rolebasedredirect" />
-          <obsoletekey name="reportemailaddress" />
-          <obsoletekey name="enablechromeframe" />
-          <obsoletekey name="lastboostrap"/>
-          <obsoletekey name="lastbootstrap" />
-          <obsoletekey name="backendrevision" />
-          <obsoletekey name="universalanalyticscode" />
           <string name="gotomanualsurl" description="Link to jump to manuals" initialval="https://manuals.webhare.com/go/" />
-          <obsoletekey name="defaultuserschema" />
         </node>
         <node name="security">
-          <obsoletekey name="needsysop" />
           <node name="override">
             <datetime name="validuntil" description="Time until which this override key is valid" />
             <string name="token" description="The override token to use" />
@@ -2114,18 +2063,12 @@ The full base URL on which this site will be published, calculated by combining 
           <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />
         </node>
         <node name="development">
-          <obsoletekey name="designfiles" />
           <boolean name="manualdebugmgr" description="Don't run the debugmanager from the apprunner (when TRUE)" initialval="false" />
           <integer name="zombietimeout" description="Zombie timeout in msecs" initialval="60000" />
-          <obsoletekey name="indexsourcecode" />
           <string name="npmlinkroots" description="Directories that contain npm linked modules" initialval="" />
           <string name="watchdirs" description="Extra directories to watch source changes" initialval="" />
-          <obsoletekey name="whconnectroots" />
         </node>
-        <node name="tuning">
-          <obsoletekey name="allowjscaching" />
-          <obsoletekey name="allowimagecaching" />
-        </node>
+        <obsoletenode name="tuning" />
       </node>
       <node name="compliance">
         <node name="gdprscan">

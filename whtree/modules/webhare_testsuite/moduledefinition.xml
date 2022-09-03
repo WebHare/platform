@@ -235,12 +235,9 @@
       <string name="secondhareinterface" />
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
-      <obsoletekey name="tempfailretryat" />
       <boolean name="taskthrownow" />
     </node>
     <node name="apis">
-      <obsoletekey name="google_oauth_clientid" />
-      <obsoletekey name="google_oauth_clientsecret" />
       <record name="twitter_testclient" />
       <record name="twitter_testauth" />
     </node>
