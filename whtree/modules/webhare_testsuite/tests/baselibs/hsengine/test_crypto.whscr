@@ -180,6 +180,7 @@ O1t8+FbRGplZNW0qXQIDAQAB
   STRING testdata_md5digest := GetHashForString(testdata, "MD5");
   STRING testdata_sha1digest_1 := GetSHA1Hash(testdata);
   STRING testdata_sha1digest_2 := GetHashForString(testdata, "SHA-1");
+  STRING testdata_sha224digest := GetHashForString(testdata, "SHA-224");
   STRING testdata_sha256digest := GetHashForString(testdata, "SHA-256");
   STRING testdata_sha384digest := GetHashForString(testdata, "SHA-384");
   STRING testdata_sha512digest := GetHashForString(testdata, "SHA-512");
@@ -187,6 +188,7 @@ O1t8+FbRGplZNW0qXQIDAQAB
   STRING signature_md5 := Create_RSA_Hash(testdata_md5digest, "MD5", privatekey, "");
   STRING signature_sha1_1 := Create_RSA_SHA1(testdata_sha1digest_1, privatekey, "");
   STRING signature_sha1_2 := Create_RSA_Hash(testdata_sha1digest_2, "SHA-1", privatekey, "");
+  STRING signature_sha224 := Create_RSA_Hash(testdata_sha224digest, "SHA-224", privatekey, "");
   STRING signature_sha256 := Create_RSA_Hash(testdata_sha256digest, "SHA-256", privatekey, "");
   STRING signature_sha384 := Create_RSA_Hash(testdata_sha384digest, "SHA-384", privatekey, "");
   STRING signature_sha512 := Create_RSA_Hash(testdata_sha512digest, "SHA-512", privatekey, "");
@@ -256,6 +258,11 @@ O1t8+FbRGplZNW0qXQIDAQAB
   TestEq(TRUE, Verify_RSA_Hash(testdata_sha256digest, "SHA-256", signature_sha256, publickey));
   TestEq(TRUE, Verify_RSA_Hash(testdata_sha384digest, "SHA-384", signature_sha384, publickey));
   TestEq(TRUE, Verify_RSA_Hash(testdata_sha512digest, "SHA-512", signature_sha512, publickey));
+
+  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha224, "SHA-224"));
+  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha256, "SHA-256"));
+  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha384, "SHA-384"));
+  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha512, "SHA-512"));
 
   STRING encryptedbeagle := EncryptAndSignData("Beagle", "SHA-1,BLOWFISH+ECB,8", "secret");
   TestEq(64, length(encryptedbeagle));

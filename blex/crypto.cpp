@@ -617,6 +617,7 @@ const EVP_MD *GetEVPHashAlgorithm(HashAlgorithm::Type type)
 {
         switch (type)
         {
+        case HashAlgorithm::SHA224:     return EVP_sha224();
         case HashAlgorithm::SHA256:     return EVP_sha256();
         case HashAlgorithm::SHA384:     return EVP_sha384();
         case HashAlgorithm::SHA512:     return EVP_sha512();
