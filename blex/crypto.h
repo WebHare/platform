@@ -99,60 +99,6 @@ std::string BLEXLIB_PUBLIC GenerateUFS128BitId();
 
 std::string BLEXLIB_PUBLIC GetLastSSLErrors();
 
-class BLEXLIB_PUBLIC  RSAKey
-{
-    public:
-        RSAKey();
-        virtual ~RSAKey();
-
-        /** Read a PEM encoded key
-            @return True on success */
-        virtual bool ReadKey(unsigned keylen, const void *keybytes, std::string const &passphrase) = 0;
-
-    protected:
-        void *key;
-};
-
-/** Hold a RSA public key */
-class BLEXLIB_PUBLIC RSAPublicKey : public RSAKey
-{
-     public:
-        /** Read a PEM encoded key
-            @return True on success */
-        bool ReadKey(unsigned keylen, const void *keybytes, std::string const &passphrase);
-
-        /** Verify a SHA1 signature with the key
-            @return True on success, false if signature fails or no key loaded yet */
-        bool VerifySHA1Hash(unsigned hashlen, const void *hashdata, unsigned signaturelen, const void *signaturedata);
-
-        /** Verify a hash signature with the key
-            @return True on success, false if signature fails or no key loaded yet */
-        bool VerifyHash(HashAlgorithm::Type hashtype, unsigned hashlen, const void *hashdata, unsigned signaturelen, const void *signaturedata);
-};
-
-/** Hold a RSA private key */
-class BLEXLIB_PUBLIC RSAPrivateKey : public RSAKey
-{
-    public:
-        /** Read a PEM encoded key
-            @return True on success */
-        bool ReadKey(unsigned keylen, const void *keybytes, std::string const &passphrase);
-
-        /** Create a SHA1 signature with a key
-            @param hashlen Length of hash
-            @param hashdata Hash data
-            @param signature Pointer to vector in which the signature will be placed
-            @return True on success, false if signature fails or no key loaded yet */
-        bool CreateSHA1Hash(unsigned hashlen, const void *hashdata, std::vector< uint8_t > *signature);
-
-        /** Create a signature of a hash with a key
-            @param hashlen Length of hash
-            @param hashdata Hash data
-            @param signature Pointer to vector in which the signature will be placed
-            @return True on success, false if signature fails or no key loaded yet */
-        bool CreateHash(HashAlgorithm::Type hashtype, unsigned hashlen, const void *hashdata, std::vector< uint8_t > *signature);
-};
-
 typedef std::vector<std::pair<std::string, std::string> > SubjectNameParts;
 
 /** Hold a key */

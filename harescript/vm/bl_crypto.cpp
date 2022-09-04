@@ -120,102 +120,6 @@ void HS_FinalizeHasher(HSVM *vm, HSVM_VariableId id_set)
         context->crypto.hashers.erase(hasher);
 }
 
-void  HS_GetMD5Hash(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair strpair;
-        HSVM_StringGet(vm, HSVM_Arg(0), &strpair.begin, &strpair.end);
-
-        uint8_t hash[Blex::MD5HashLen];
-        Blex::GetMD5Hash(strpair.begin, strpair.size(), hash);
-
-        HSVM_StringSet(vm, id_set, reinterpret_cast<char const*>(hash), reinterpret_cast<char const*>(hash)+Blex::MD5HashLen);
-}
-
-void HS_GetSHA1Hash(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair strpair;
-        HSVM_StringGet(vm, HSVM_Arg(0), &strpair.begin, &strpair.end);
-
-        uint8_t hash[Blex::SHA1HashLen];
-        Blex::GetSHA1Hash(strpair.begin, strpair.size(), hash);
-
-        HSVM_StringSet(vm, id_set, reinterpret_cast<char const*>(hash), reinterpret_cast<char const*>(hash)+Blex::SHA1HashLen);
-}
-
-void HS_VerifyRSASignature(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair hashpair, sigpair, keyfilepair;
-        Blex::HashAlgorithm::Type hashtype;
-
-        HSVM_StringGet(vm, HSVM_Arg(0), &hashpair.begin, &hashpair.end);
-        hashtype = GetHashAlgorithmFromString(vm, HSVM_StringGetSTD(vm, HSVM_Arg(1)));
-        HSVM_StringGet(vm, HSVM_Arg(2), &sigpair.begin, &sigpair.end);
-        HSVM_StringGet(vm, HSVM_Arg(3), &keyfilepair.begin, &keyfilepair.end);
-
-        if (hashtype == Blex::HashAlgorithm::Unknown)
-            return;
-
-        Blex::RSAPublicKey key;
-        if (!key.ReadKey(keyfilepair.size(), keyfilepair.begin, ""))
-        {
-                HSVM_ThrowException(vm, "Invalid RSA private key or wrong password.");
-                return;
-        }
-
-        // Check the length of the hash
-        if (!Blex::CheckHashLength(hashtype, hashpair.size()))
-        {
-                HSVM_ThrowException(vm, "Invalid hash size");
-                return;
-        }
-
-        HSVM_BooleanSet(vm, id_set, key.VerifyHash(hashtype, hashpair.size(), hashpair.begin, sigpair.size(), sigpair.begin));
-}
-
-void HS_CreateRSASignature(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair hashpair, keyfilepair;
-        std::string passphrase;
-        Blex::HashAlgorithm::Type hashtype;
-
-        HSVM_StringGet(vm, HSVM_Arg(0), &hashpair.begin, &hashpair.end);
-        hashtype = GetHashAlgorithmFromString(vm, HSVM_StringGetSTD(vm, HSVM_Arg(1)));
-        HSVM_StringGet(vm, HSVM_Arg(2), &keyfilepair.begin, &keyfilepair.end);
-        passphrase = HSVM_StringGetSTD(vm, HSVM_Arg(3));
-
-        if (hashtype == Blex::HashAlgorithm::Unknown)
-            return;
-
-        Blex::RSAPrivateKey key;
-        if (!key.ReadKey(keyfilepair.size(), keyfilepair.begin, passphrase))
-        {
-                HSVM_ThrowException(vm, "Invalid RSA private key or wrong password.");
-                return;
-        }
-
-        // Check the length of the SHA1 hash, must be 160 bits
-        if (!Blex::CheckHashLength(hashtype, hashpair.size()))
-        {
-                HSVM_ThrowException(vm, "Invalid hash size");
-                return;
-        }
-
-        std::vector< uint8_t > signature;
-        if (!key.CreateHash(hashtype, hashpair.size(), hashpair.begin, &signature))
-        {
-                HSVM_ThrowException(vm, "Error creating hash signature");
-                return;
-        }
-
-        if (signature.empty())
-            HSVM_StringSet(vm, id_set, 0, 0);
-        else
-        {
-                const char *start = reinterpret_cast< char * >(&signature[0]);
-                HSVM_StringSet(vm, id_set, start, start + signature.size());
-        }
-}
-
 void HS_GetCertificateData(HSVM *vm, HSVM_VariableId id_set)
 {
         Blex::StringPair certificatepair;
@@ -679,8 +583,6 @@ void InitCrypto(struct HSVM_RegData *regdata)
 {
         HSVM_RegisterFunction(regdata, "CREATEHASHER::I:S",HS_CreateHasher);
         HSVM_RegisterFunction(regdata, "FINALIZEHASHER::S:I",HS_FinalizeHasher);
-        HSVM_RegisterFunction(regdata, "VERIFY_RSA_HASH::B:SSSS",HS_VerifyRSASignature);
-        HSVM_RegisterFunction(regdata, "CREATE_RSA_HASH::S:SSSS",HS_CreateRSASignature);
         HSVM_RegisterFunction(regdata, "GETCERTIFICATEDATA::R:S",HS_GetCertificateData);
         HSVM_RegisterFunction(regdata, "ENCRYPT_XOR::S:SS",HS_EncryptXor);
         HSVM_RegisterFunction(regdata, "GENERATEUFS128BITID::S:",HS_GenerateUFS128BitId);

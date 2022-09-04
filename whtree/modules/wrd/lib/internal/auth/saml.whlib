@@ -587,7 +587,7 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   */
   PUBLIC RECORD FUNCTION EncodeAndSignDocument(RECORD doc, RECORD endpoint, STRING relaystate, BOOLEAN isrequest)
   {
-    STRING hashmethod := this->entity->GetField("HASHMETHOD") ?? "SHA-1";
+    STRING hashmethod := this->entity->GetField("HASHMETHOD") ?? "SHA256";
 
     // Assume that we have a RSA private key
     STRING signaturealgorithmtype := "rsa";

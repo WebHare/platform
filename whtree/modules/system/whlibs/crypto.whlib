@@ -150,43 +150,6 @@ PUBLIC STRING FUNCTION GetSHA1Hash(STRING text)
   RETURN GetHashForString(text, "SHA-1");
 }
 
-
-/** @short Verify a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied.
-    @param hash Hash to verify
-    @param sig Signature for the data
-    @param keyfile PEM encoded public keyfile with which the data should have been signed
-    @return True if the signature was succesfully verified*/
-PUBLIC BOOLEAN FUNCTION Verify_RSA_SHA1(STRING hash, STRING sig, STRING keyfile)
-{
-  RETURN Verify_RSA_Hash(hash, "SHA-1", sig, keyfile);
-}
-
-/** @short Create a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied, or when the key is encrypted and the wrong passphrase is supplied.
-    @param hash Hash to sign
-    @param keyfile PEM encoded private keyfile with which the data will be signed
-    @param passphrase Passphrase for the key (may be left empty)
-    @return Signature */
-PUBLIC STRING FUNCTION Create_RSA_SHA1(STRING hash, STRING keyfile, STRING passphrase)
-{
-  RETURN Create_RSA_Hash(hash, "SHA-1", keyfile, passphrase);
-}
-
-/** @short Verify a RSA signature on hashed data. Throws when an invalid hash or key is supplied.
-    @param hashalgorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
-    @param hash Hash to verify
-    @param sig Signature for the data
-    @param keyfile PEM encoded public keyfile with which the data should have been signed
-    @return True if the signature was succesfully verified*/
-PUBLIC BOOLEAN FUNCTION Verify_RSA_Hash(STRING hash, STRING hashalgorithm, STRING sig, STRING keyfile) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
-/** @short Create a RSA signature on SHA1 hashed data. Throws when an invalid hash or key is supplied, or when the key is encrypted and the wrong passphrase is supplied.
-    @param hashalgorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
-    @param hash Hash to sign
-    @param keyfile PEM encoded private keyfile with which the data will be signed
-    @param passphrase Passphrase for the key (may be left empty)
-    @return Signature */
-PUBLIC STRING FUNCTION Create_RSA_Hash(STRING hash, STRING hashalgorithm, STRING keyfile, STRING passphrase) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
 /** @short Returns components of a certificate
     @param certificate PEM encoded certificate
     @return Certificate components

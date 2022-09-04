@@ -185,13 +185,10 @@ O1t8+FbRGplZNW0qXQIDAQAB
   STRING testdata_sha384digest := GetHashForString(testdata, "SHA-384");
   STRING testdata_sha512digest := GetHashForString(testdata, "SHA-512");
 
-  STRING signature_md5 := Create_RSA_Hash(testdata_md5digest, "MD5", privatekey, "");
-  STRING signature_sha1_1 := Create_RSA_SHA1(testdata_sha1digest_1, privatekey, "");
-  STRING signature_sha1_2 := Create_RSA_Hash(testdata_sha1digest_2, "SHA-1", privatekey, "");
-  STRING signature_sha224 := Create_RSA_Hash(testdata_sha224digest, "SHA-224", privatekey, "");
-  STRING signature_sha256 := Create_RSA_Hash(testdata_sha256digest, "SHA-256", privatekey, "");
-  STRING signature_sha384 := Create_RSA_Hash(testdata_sha384digest, "SHA-384", privatekey, "");
-  STRING signature_sha512 := Create_RSA_Hash(testdata_sha512digest, "SHA-512", privatekey, "");
+  STRING signature_sha224 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-224");
+  STRING signature_sha256 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-256");
+  STRING signature_sha384 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-384");
+  STRING signature_sha512 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-512");
 
   // Signature created by 'openssl dgst -sha1 -sign privatekey.pem -out testsign.sgn testdata.txt'
   // (dumping: hexdump -C testsign.sgn)
@@ -245,19 +242,9 @@ O1t8+FbRGplZNW0qXQIDAQAB
     || "4a02436dd135f3b700420cf03ba95a3b"
     || "192a0529832e7d0dab30b07e1eb9f26b");
 
-  TestEq(expect_signature_md5, signature_md5);
-  TestEq(expect_signature_sha1, signature_sha1_1);
-  TestEq(expect_signature_sha1, signature_sha1_2);
   TestEq(expect_signature_sha256, signature_sha256);
   TestEq(expect_signature_sha384, signature_sha384);
   TestEq(expect_signature_sha512, signature_sha512);
-
-  TestEq(TRUE, Verify_RSA_Hash(testdata_md5digest, "MD5", signature_md5, publickey));
-  TestEq(TRUE, Verify_RSA_SHA1(testdata_sha1digest_1, signature_sha1_1, publickey));
-  TestEq(TRUE, Verify_RSA_Hash(testdata_sha1digest_2, "SHA-1", signature_sha1_2, publickey));
-  TestEq(TRUE, Verify_RSA_Hash(testdata_sha256digest, "SHA-256", signature_sha256, publickey));
-  TestEq(TRUE, Verify_RSA_Hash(testdata_sha384digest, "SHA-384", signature_sha384, publickey));
-  TestEq(TRUE, Verify_RSA_Hash(testdata_sha512digest, "SHA-512", signature_sha512, publickey));
 
   TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha224, "SHA-224"));
   TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha256, "SHA-256"));

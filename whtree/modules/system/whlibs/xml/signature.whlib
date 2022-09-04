@@ -105,11 +105,6 @@ MACRO EnsureAlgorithms()
           , type :=                    "digest"
           , hashmethod :=              "SHA-1"
           ]
-        , [ id :=                      "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
-          , type :=                    "signature"
-          , hashmethod :=              "SHA-1"
-          , signaturealgorithmtype :=  "rsa"
-          ]
         , [ id :=                      "http://www.w3.org/2001/04/xmldsig-more#rsa-sha224"
           , type :=                    "signature"
           , hashmethod :=              "SHA-224"
@@ -793,8 +788,7 @@ PUBLIC STRING FUNCTION CreateXMLSignature(STRING signaturealgorithm, STRING data
   {
     CASE "rsa"
     {
-      STRING hash := GetHashForString(data, algodata.hashmethod);
-      RETURN EncodeBase64(Create_RSA_Hash(hash, algodata.hashmethod, privatekey, passphrase));
+      RETURN EncodeBase64(MakeCryptoKey(privatekey)->Sign(data, algodata.hashmethod));
     }
     DEFAULT
     {
@@ -821,8 +815,7 @@ PUBLIC BOOLEAN FUNCTION VerifyXMLSignature(STRING signaturealgorithm, STRING dat
   {
     CASE "rsa"
     {
-      STRING hash := GetHashForString(data, algodata.hashmethod);
-      RETURN Verify_RSA_Hash(hash, algodata.hashmethod, DecodeBase64(signature_base64), publickey);
+      RETURN MakeCryptoKey(publickey)->Verify(data, DecodeBase64(signature_base64), algodata.hashmethod);
     }
     DEFAULT
     {
