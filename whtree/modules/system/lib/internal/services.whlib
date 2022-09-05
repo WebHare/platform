@@ -65,7 +65,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
   ASYNC FUNCTION __AsyncRemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
   {
     IF (NOT ObjectExists(this->__link))
-      THROW NEW Exception("Connection to the clustered service was already lost.");
+      THROW NEW Exception(`Connection to the clustered service '${this->__servicename}' was already lost.`);
 
     RECORD req := CreateDeferredPromise();
 
@@ -362,7 +362,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
   VARIANT FUNCTION __RemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
   {
     IF (NOT ObjectExists(this->__link))
-      THROW NEW Exception("Connection to the clustered service was already lost.");
+      THROW NEW Exception(`Connection to the clustered service '${this->__servicename}' was already lost.`);
 
     RECORD outmsg := [ call := tocall, args := args ];
 
