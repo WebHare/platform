@@ -701,7 +701,17 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
 PUBLIC MACRO TestAssert(BOOLEAN to_assert, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
 {
   IF (NOT to_assert)
+  {
+    IF (annotation = "")
+    {
+      RECORD caller := RECORD(GetStackTrace()); // this function is SKIPTRACE, so the first item is the caller
+      BLOB resource := GetWebhareResource(caller.filename);
+      STRING ARRAY lines := ArraySlice(Tokenize(BlobToString(resource), "\n"), caller.line - 1, 1);
+      IF (IsValueSet(lines))
+        annotation := `Assertion: ${SubString(lines[0], caller.col - 1)}`;
+    }
     ReportError("Assertion failed", DEFAULT RECORD ARRAY, annotation);
+  }
 }
 
 MACRO dumpcells(RECORD expected, RECORD actual)
