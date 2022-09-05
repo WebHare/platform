@@ -70,7 +70,7 @@
         <part height="2pr">
           <split type="horizontal" height="1pr">
             <part width="1pr" name="profilelistpart">
-              <select name="session" type="pulldown" onchange="GotSessionChange" />
+              <select name="session" type="pulldown" />
               <list name="profileslist"
                     selectmode="single"
                     onselect="onprofileselected"

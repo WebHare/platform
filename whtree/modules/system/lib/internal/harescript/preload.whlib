@@ -145,7 +145,6 @@ MACRO HandleConfigChange()
   ReadDebugConfig();
   IF (EncodeHSON(oldconfig) != EncodeHSON(__debugconfig))
   {
-    FinishProfiling();
     HandleDebugConfig(NOT gotfirstconfig);
     gotfirstconfig := TRUE;
   }
@@ -156,48 +155,37 @@ MACRO HandleConfigChange()
 
 MACRO HandleDebugConfig(BOOLEAN initialapply)
 {
-  IF (RecordExists(__debugconfig))
+  STRING wantprofiletype, wantcontext;
+
+  IF(initialapply AND RecordExists(__debugconfig) AND "brk" IN __debugconfig.tags)
+    Debugger();
+
+  IF(RecordExists(__debugconfig))
   {
-    FOREVERY (STRING tag FROM __debugconfig.tags)
+    wantcontext := __debugconfig.context;
+    IF("apr" IN __debugconfig.tags)
+      wantprofiletype := "apr";
+    ELSE IF("cov" IN __debugconfig.tags)
+      wantprofiletype := "cov";
+  }
+
+  IF(wantprofiletype != profilingtype OR profilingcontext != wantcontext) //either the type of profile or our context changed
+  {
+    IF(profilingtype != "")
+      FinishProfiling(); //close any running profile session. clears variable profilingtype
+
+    IF(wantprofiletype != "")
     {
-      SWITCH (tag)
-      {
-        CASE "apr", "system-apr"
-        {
-          IF (profilingtype = "" AND tag = "system-apr" AND profilingcontext != __debugconfig.context)
-            FinishProfiling();
+      profilingtype := wantprofiletype;
+      profilingstart := GetCurrentDateTime();
+      profilingsession := __debugconfig.outputsession;
+      profilingcontext := wantcontext;
+      __OnBeforeTerminateScript := PTR FinishProfiling;
 
-          IF (profilingtype = "" AND (initialapply OR tag = "system-apr"))
-          {
-            profilingtype := "apr";
-            profilingstart := GetCurrentDateTime();
-            profilingsession := __debugconfig.outputsession;
-            profilingcontext := __debugconfig.context;
-            EnableFunctionProfile();
-             __OnBeforeTerminateScript := PTR FinishProfiling;
-          }
-        }
-        CASE "cov", "system-cov"
-        {
-          IF (profilingtype = "" AND tag = "system-cov" AND profilingcontext != __debugconfig.context)
-            FinishProfiling();
-
-          IF (profilingtype = "" AND (initialapply OR tag = "system-cov"))
-          {
-            profilingtype := "cov";
-            profilingstart := GetCurrentDateTime();
-            profilingsession := __debugconfig.outputsession;
-            profilingcontext := __debugconfig.context;
-            EnableCoverageProfile();
-            __OnBeforeTerminateScript := PTR FinishProfiling;
-          }
-        }
-        CASE "brk"
-        {
-          IF (initialapply)
-            Debugger();
-        }
-      }
+      IF(profilingtype = "apr")
+        EnableFunctionProfile();
+      ELSE
+        EnableCoverageProfile();
     }
   }
 }
