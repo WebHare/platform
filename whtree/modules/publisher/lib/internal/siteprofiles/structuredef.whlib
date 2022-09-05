@@ -1372,10 +1372,10 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     this->PostLoadWork();
   }
 
-  PUBLIC MACRO LoadFromXML(OBJECT xmlnode, STRING structuredefns)
+  PUBLIC MACRO LoadFromXML(OBJECT xmlnode)
   {
-    OBJECT blockstylenode := xmlnode->GetChildElementsByTagNameNS(structuredefns, "blockstyles")->Item(0);
-    OBJECT embeddedobjects := xmlnode->GetChildElementsByTagNameNS(structuredefns, "embeddedobjects")->Item(0) ?? xmlnode->GetChildElementsByTagNameNS(structuredefns, "widgets")->Item(0);
+    OBJECT blockstylenode := PickFirst(xmlnode->ListChildren(whconstant_xmlns_publisher, "blockstyles"));
+    OBJECT embeddedobjects := PickFirst(xmlnode->ListChildren(whconstant_xmlns_publisher, "widgets"));
 
     RECORD structure := [ blockstyles := DEFAULT RECORD ARRAY
                         , blocktypes := DEFAULT RECORD ARRAY
@@ -1389,14 +1389,14 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
 
     FOREVERY(OBJECT styleblock FROM blockstylenode->childnodes->GetCurrentElements())
     {
-      IF(styleblock->localname = "cellstyle" AND structuredefns = "http://www.webhare.net/xmlns/publisher/siteprofile")
+      IF(styleblock->localname = "cellstyle")
       {
         INSERT this->ReadCellStyle(styleblock) INTO structure.cellstyles AT END;
       }
       ELSE
       {
         //Not really sure why we throw tablestyles and blockstyles on the same list... you can't directly toggle between these!
-        RECORD style := this->ReadStyleBlock(styleblock, structuredefns);
+        RECORD style := this->ReadStyleBlock(styleblock, whconstant_xmlns_publisher);
         INSERT style INTO structure.blockstyles AT END;
       }
     }
@@ -1535,7 +1535,7 @@ PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT 
 {
   OBJECT widgetsnode := startnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "widgets")->Item(0);
   OBJECT structuredef := NEW RichDocumentStructure;
-  structuredef->LoadFromXML(startnode, whconstant_xmlns_publisher);
+  structuredef->LoadFromXML(startnode);
 
   RECORD retval := MakeBaseSiteprofileXMLStructure();
   retval.structure := structuredef->structure;

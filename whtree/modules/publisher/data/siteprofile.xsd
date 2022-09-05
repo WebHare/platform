@@ -756,7 +756,6 @@
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="needstemplate" type="xs:boolean" />
-        <xs:attribute name="needsprofile" type="xs:boolean" />
         <xs:attribute name="isacceptableindex" type="xs:boolean" />
         <xs:attribute name="ispublishable" type="xs:boolean" />
         <xs:attribute name="ispublishedassubdir" type="xs:boolean" />
