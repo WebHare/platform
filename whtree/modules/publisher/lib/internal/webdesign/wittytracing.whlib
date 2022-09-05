@@ -38,7 +38,10 @@ MACRO OnWitty(OBJECT witty, INTEGER scriptid, STRING component, RECORD data, BOO
   }
   IF(before)
   {
-    INSERT CELL[ component, data := CleanupWittyData(data), stacktrace := GetStackTrace() ] INTO invokedwitties AT END;
+    IF(IsWHDebugOptionSet("win")) //only record and clean if we care (especially as CleanupWittyData is pretty slow and shouldn't run for all dev hits)
+      INSERT CELL[ component, data := CleanupWittyData(data), stacktrace := GetStackTrace() ] INTO invokedwitties AT END;
+    ELSE
+      INSERT CELL[ component ] INTO invokedwitties AT END;
 
     STRING resourcename := Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":");
     __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
