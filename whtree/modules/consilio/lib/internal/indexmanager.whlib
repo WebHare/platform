@@ -283,6 +283,9 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   DATETIME querystart := GetCurrentDateTime();
 
   RECORD indexmanager := indexoptions.indexmanagers;
+  IF (NOT RecordExists(indexmanager))
+    THROW NEW ElasticSearchException(`No indices attached to catalog '${catalog}'`, DEFAULT OBJECT);
+
   IF (RecordExists(indexmanager))
   {
     STRING queryuuid := GenerateUFS128BitId();

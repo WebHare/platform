@@ -938,10 +938,6 @@ PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogna
 
 RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER contentsourceid, INTEGER maxresults, RECORD query)
 {
-  RECORD ARRAY mgrs := GetIndexManagersForIndex(catalogid);
-  IF(Length(mgrs)=0)
-    RETURN DEFAULT RECORD;
-
   RECORD idxoptions := __GetIndexManagerOptions(catalogid);
   RECORD options := [ addscore := TRUE
                     , count := maxresults
