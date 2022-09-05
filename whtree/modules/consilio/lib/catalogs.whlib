@@ -1103,6 +1103,9 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     this->UpdateCatalog(DEFAULT RECORD);
 
+    IF(Length(this->ListContentSources()) = 1 AND Length(this->ListAttachedIndices())=0) //it's the first source and no storage yet, so create it
+      this->AttachIndex(0);
+
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
@@ -1247,9 +1250,13 @@ STATIC OBJECTTYPE ConsilioCatalog
 /** @short List all Consilio catalogs
     @param options Options
     @return List of catalogs
-    @cell return.id Catalog id
-    @cell return.tag Catalog tag
+    @cell(integer) return.id Catalog id
+    @cell(string) return.tag Catalog tag
+    @cell(string) return.description Description
+    @cell(string) return.definedby Where this catalog was defined/created
+    @cell(string) return.lang Catalog language
     @cell(boolean) return.managed True if this is managed catalog (supports contentsources)
+    @cell(string) return.suffixmask Wildcard mask for related suffixes, if any
 */
 PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1258,6 +1265,10 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
       SELECT id
            , tag := name
            , managed := type = whconstant_consilio_catalogtype_managed
+           , suffixmask := suffix
+           , description
+           , lang
+           , definedby
         FROM consilio.catalogs;
 
   RETURN catalogs;
@@ -1364,20 +1375,5 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   OBJECT catalog := OpenConsilioCatalogById(indexid);
-  IF(options.managed)  //only managed indices are attached immediately - with unmanaged the caller might want to create only suffixed indices
-  {
-    TRY
-    {
-      catalog->AttachIndex(0);
-    }
-    CATCH
-    {
-      DELETE FROM consilio.catalogs WHERE id=indexid;
-      THROW;
-    }
-
-    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-  }
-
   RETURN catalog;
 }

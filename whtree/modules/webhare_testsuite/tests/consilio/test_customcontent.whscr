@@ -85,7 +85,6 @@ MACRO TestCustomContent()
                                                                            , priority := 9
                                                                            ]);
   TestEq(0, __GetNumSubJobs());
-  Print(catalog->GetStorageInfo() || "\n");
 
   RECORD res;
 
@@ -115,6 +114,7 @@ MACRO TestCustomContent()
       ]));
 
   testfw->CommitWork();
+  Print(catalog->GetStorageInfo() || "\n");
 
   TestEq(0, __GetNumSubJobs());
   TestEq(RECORD[], SELECT * FROM contentsource->ListGroups() ORDER BY groupid);
