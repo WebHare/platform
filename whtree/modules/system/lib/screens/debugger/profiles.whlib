@@ -108,7 +108,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       }
     }
 
-    ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exlucisve lock in ReloadSessions
+    ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exclusive lock in ReloadSessions
   }
 
   // ---------------------------------------------------------------------------
