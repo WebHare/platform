@@ -510,54 +510,41 @@ PUBLIC RECORD FUNCTION CheckPKCSSignature(RECORD decoded, RECORD options DEFAULT
     }
   }
 
+  //TODO cache key objects returned by MakeCryptoKey per subjectpublickey?
   SWITCH (decoded.signaturealgorithm)
   {
-    CASE "SHA-1 with RSA Encryption"
-    {
-      STRING hash := GetHashForString(signeddata, "SHA-1");
-      IF (RecordExists(signingthing))
-      {
-        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-1", decoded.signature.data, signingthing.subjectpublickey);
-        IF (NOT result)
-          RETURN [ success := FALSE, code := "SIGNFAILURE" ];
-      }
-    }
     CASE "sha224WithRSAEncryption"
     {
-      STRING hash := GetHashForString(signeddata, "SHA-224");
       IF (RecordExists(signingthing))
       {
-        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-224", decoded.signature.data, signingthing.subjectpublickey);
+        BOOLEAN result := MakeCryptoKey(signingthing.subjectpublickey)->Verify(signeddata, decoded.signature.data, "SHA-224");
         IF (NOT result)
           RETURN [ success := FALSE, code := "SIGNFAILURE" ];
       }
     }
     CASE "sha256WithRSAEncryption"
     {
-      STRING hash := GetHashForString(signeddata, "SHA-256");
       IF (RecordExists(signingthing))
       {
-        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-256", decoded.signature.data, signingthing.subjectpublickey);
+        BOOLEAN result := MakeCryptoKey(signingthing.subjectpublickey)->Verify(signeddata, decoded.signature.data, "SHA-256");
         IF (NOT result)
           RETURN [ success := FALSE, code := "SIGNFAILURE" ];
       }
     }
     CASE "sha384WithRSAEncryption"
     {
-      STRING hash := GetHashForString(signeddata, "SHA-384");
       IF (RecordExists(signingthing))
       {
-        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-384", decoded.signature.data, signingthing.subjectpublickey);
+        BOOLEAN result := MakeCryptoKey(signingthing.subjectpublickey)->Verify(signeddata, decoded.signature.data, "SHA-384");
         IF (NOT result)
           RETURN [ success := FALSE, code := "SIGNFAILURE" ];
       }
     }
     CASE "sha512WithRSAEncryption"
     {
-      STRING hash := GetHashForString(signeddata, "SHA-512");
       IF (RecordExists(signingthing))
       {
-        BOOLEAN result := Verify_RSA_Hash(hash, "SHA-512", decoded.signature.data, signingthing.subjectpublickey);
+        BOOLEAN result := MakeCryptoKey(signingthing.subjectpublickey)->Verify(signeddata, decoded.signature.data, "SHA-512");
         IF (NOT result)
           RETURN [ success := FALSE, code := "SIGNFAILURE" ];
       }

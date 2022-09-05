@@ -4,6 +4,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
@@ -46,37 +48,37 @@ MACRO TestSAMLSigning()
       'H86smi5SwE9SSvUIWRsZeFQ=\n' ||
       '-----END PRIVATE KEY-----\n';
 
-  /** Certificate for previous key
-      Generated with code that looks like (rebuilt after losing it)
+  /** Certificate for previous key. Generate using:
           GetPrimary()->BeginWork();
-          OBJECT keypair := CreateKeyPair("samlkey", BobToString(privatekey), [ title := "samlkey", generateuniquename := TRUE ]);
+          OBJECT keypair := CreateKeyPair("samlkey", StringToBlob(privatekey), [ title := "samlkey", generateuniquename := TRUE ]);
           BLOB csr := keypair->GenerateCSR([ c := "NL", st := "Overijssel", l := "Enschede", o := "WebHare BV", cn := "SAML test certificate" ]);
           RECORD rec := keypair->SignCertificateRequest(csr, [ selfsign := TRUE, validuntil := MakeDate(2100, 1, 1) ]);
-          STRING certificate := BlobToString(rec.certificate);
+          STRING newcertificate := BlobToString(rec.certificate);
+          Print(newcertificate||"\n");
   */
   STRING certificate :=
-      '-----BEGIN CERTIFICATE-----\n' ||
-      'MIIDqDCCApCgAwIBAgIQGUnNhxoRxY1evmg7vV9jsDANBgkqhkiG9w0BAQsFADBu\n' ||
-      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
-      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
-      'VQQDDAl3ZWJzZXJ2ZXIwHhcNMjAxMTMwMTA1NjI5WhcNMDAwMTAxMDAwMDAwWjBu\n' ||
-      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
-      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
-      'VQQDDAl3ZWJzZXJ2ZXIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDk\n' ||
-      'T6t/6YbvtVclxL8AfjrArFXCURrPvZpyI5BhRlQnGxCNl7E6QTEPRibycPoHNoTe\n' ||
-      'n51zENI0mxA5hSRz8xwwL4ISYyaKC9LzM80Xq0dqteJuxr5a1AGDbNu+1eu0miPU\n' ||
-      'BCVA7uJYMe/7aX5ne94Y8lj9y6JewBZvJQVbk8yBluAZLebaToytRO/cFKpcqRDq\n' ||
-      '1vaIgf9xQjdjOeJYx/RYkQVZiC2FHltfvSFTx2OByI0Ou0JMPseVkKwmb5wTg3kQ\n' ||
-      'l9m4B7hEzlvcu/zCmGncvFSvB7/HI6yLH4nBommbUms4Fuodfj+UkGNQDLZuGgDz\n' ||
-      'pg2YXiwh7ZdttcOuB46NAgMBAAGjQjBAMB0GA1UdDgQWBBR9fF4VVmNqvTUjf3To\n' ||
-      'eb/Hp8GhejAfBgNVHSMEGDAWgBR9fF4VVmNqvTUjf3Toeb/Hp8GhejANBgkqhkiG\n' ||
-      '9w0BAQsFAAOCAQEAagUH93/uug1P+5lKqwF0rRrlyaXcojzWhQwnbC7/nR0Q8KZc\n' ||
-      'UwtCet2SW46uwXNSnwdY5jtXVkLDDAgw7y2vSTdc2GahF0qXBqvdgHLuhFHQL694\n' ||
-      'UaZV7whHV+FeZBRPPOqqJ+dinzX+5XOcTjVQ3OnRZAWbdJgUrsUqITsDux0OEA5c\n' ||
-      '6h4OXiTeTjRZ/zCX0g/9Y+N2rnCzJPx3qwQrem9kI7JgUKSR+4hUdx6jGxrvf4DA\n' ||
-      '1FkaX7QCXMEI0p0Z/ohXSK5uSKEeOjb0r8slVAvKz5ntv/2qbM4zwLLHV0eVztbX\n' ||
-      'C9VrcpdNNIRXq6F9RAM5s7B37QtUSnyU9hB/vQ==\n' ||
-      '-----END CERTIFICATE-----\n';
+`-----BEGIN CERTIFICATE-----
+MIIDoDCCAoigAwIBAgIQes0EXSxWROElRpEdKBNNuTANBgkqhkiG9w0BAQsFADBq
+MQswCQYDVQQGEwJOTDETMBEGA1UECAwKT3Zlcmlqc3NlbDERMA8GA1UEBwwIRW5z
+Y2hlZGUxEzARBgNVBAoMCldlYkhhcmUgQlYxHjAcBgNVBAMMFVNBTUwgdGVzdCBj
+ZXJ0aWZpY2F0ZTAeFw0yMjA5MDQyMTExMDJaFw0wMDAxMDEwMDAwMDBaMGoxCzAJ
+BgNVBAYTAk5MMRMwEQYDVQQIDApPdmVyaWpzc2VsMREwDwYDVQQHDAhFbnNjaGVk
+ZTETMBEGA1UECgwKV2ViSGFyZSBCVjEeMBwGA1UEAwwVU0FNTCB0ZXN0IGNlcnRp
+ZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5E+rf+mG77VX
+JcS/AH46wKxVwlEaz72aciOQYUZUJxsQjZexOkExD0Ym8nD6BzaE3p+dcxDSNJsQ
+OYUkc/McMC+CEmMmigvS8zPNF6tHarXibsa+WtQBg2zbvtXrtJoj1AQlQO7iWDHv
++2l+Z3veGPJY/cuiXsAWbyUFW5PMgZbgGS3m2k6MrUTv3BSqXKkQ6tb2iIH/cUI3
+YzniWMf0WJEFWYgthR5bX70hU8djgciNDrtCTD7HlZCsJm+cE4N5EJfZuAe4RM5b
+3Lv8wphp3LxUrwe/xyOsix+JwaJpm1JrOBbqHX4/lJBjUAy2bhoA86YNmF4sIe2X
+bbXDrgeOjQIDAQABo0IwQDAdBgNVHQ4EFgQUfXxeFVZjar01I3906Hm/x6fBoXow
+HwYDVR0jBBgwFoAUfXxeFVZjar01I3906Hm/x6fBoXowDQYJKoZIhvcNAQELBQAD
+ggEBALHWpSlqdCBwfXyq8YNLeHdWIAHSIltrPf9ajZ551T174lpYcAt91UfEbMu3
+Zf4O1gTDLtTQA6LI9kWv9EhMcZxC6XclT44pPH6rsXw6Q++ZpZj9AaH/96pLniAm
+Vs/uFtOf67G6XlEi9saDAE9yXMJ+J8eNWmtY0D76AwEFVLUNyrRRlVRx3vS1xmeW
+/rVsS8IIpzXjtW0JKzIVUtGCWnubMDhX1qIbgbD3MnSi0fKL6RSLOxIxlQGJgAvg
+J5n7fFxcasOdwv+heJwwi8KRLmbwmuLcyWOPLRsOVr6D5fBDToXiprh/ZWB3rV50
+FxQQ+f+xXvBD1hdRwFcZD+2TA04=
+-----END CERTIFICATE-----`;
 
 
   RECORD request :=
@@ -93,22 +95,12 @@ MACRO TestSAMLSigning()
       [ sign :=         privatekey
       , destination :=  "http://example.com/destination"
       , relaystate :=   "relaystate-1"
-      , signaturealgorithm := "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      , signaturealgorithm := "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
       ]);
 
   TestEQ(
       [ type := 'redirect'
-      , url := 'http://example.com/destination?SAMLRequest=lVHRasIwFH33K8Lds02qL1toKzIZCDrGdGPsLaQXDbRJ' ||
-               'zU1tP3%2BxTuZgGwzuS3LPuedwTjbr64od0ZNxNoc0EcDQalcau8vhZfswvoVZMcpI1VUj523Y22c8tEiBRaKlH' ||
-               'FpvpVNkSFpVI8mg5Wa%2BXslJImTjXXDaVXAGy9OVvxmKCH2IXq4pzf9UyuhqH0IjOe%2B6LummifM7PhFCcHHH' ||
-               'I6Yks7u5oHsyv8BT/rZebfQea2UsBWU1AlsucvB4GKfAXi%2BpTU6pLYlaXA64EL/EVIxFGmcrhBzmHdgi5masC' ||
-               'gPrUxN7VTcVJtrVvPzaA5tforh3ltoa/Qb90eioUWIfqwL25N3RlOgfYyQ5XB2CYihMDp588YMSNRm/hpxf3xsu' ||
-               'Rh8%3D&RelayState=relaystate-1&SigAlg=http%3A//www.w3.org/2000/09/xmldsig%23rsa-sha1&Si' ||
-               'gnature=iHXBOLEiYq5Knjt0oKsH4XJY9s8XbzEIKI4pBz/OUW9nIkF3tlTyo6CVW%2BUtZI/rAsBXpPnNbtD5o' ||
-               'WwUzpVnoC5emnjgmJtP/IpyMjx7%2BUStnjcsNjbiGsiupC3Iff%2BsYYP4bMz/6rjTC%2BIxTHAXRbnfgdz9gf' ||
-               'FG6rM48kcGn9gxgNWzqH1idwooUPeQpEdMz9/mPaHiV1CK1e5fRvFWsmKkixzmVml6OrW7o5kFb7DeWw76N2fju' ||
-               'IrxIKQTenxKSMp7oQ22P6fQALS47g6IVLtWXRjuPtSpKEsMPLyBjphvNavPVCBVLxPOwdClYZ49bsRWpP8PVEGY' ||
-               'DjAZ5Q1tdw%3D%3D'
+      , url := 'http://example.com/destination?SAMLRequest=lVHRasIwFH33K8Lds02qL1toKzIZCDrGdGPsLaQXDbRJzU1tP3%2BxTuZgGwzuS3LPuedwTjbr64od0ZNxNoc0EcDQalcau8vhZfswvoVZMcpI1VUj523Y22c8tEiBRaKlHFpvpVNkSFpVI8mg5Wa%2BXslJImTjXXDaVXAGy9OVvxmKCH2IXq4pzf9UyuhqH0IjOe%2B6LummifM7PhFCcHHHI6Yks7u5oHsyv8BT/rZebfQea2UsBWU1AlsucvB4GKfAXi%2BpTU6pLYlaXA64EL/EVIxFGmcrhBzmHdgi5masCgPrUxN7VTcVJtrVvPzaA5tforh3ltoa/Qb90eioUWIfqwL25N3RlOgfYyQ5XB2CYihMDp588YMSNRm/hpxf3xsuRh8%3D&RelayState=relaystate-1&SigAlg=http%3A//www.w3.org/2001/04/xmldsig-more%23rsa-sha256&Signature=hyStw6YAxMk54N1DCWO/oqG2DFTOMgiPkleA0Z8MFLlYtaNHRh%2Bax70bVV5rqYpkCa4LlHUBqiPoLLCJroI2C9X20YZZdDmRihhzirBDYoZwM/DtbnQAOX9wT%2BtFYWKOohk4SQAoxpV8cETSwkREnZCVbolD/Mkq9QLW6826%2B/O9LfrVUH9cGBGeGB62mwaZ3Il0T4J/agQK4jnC0BdOaRgy94uQhcLalUaTiDYfSBC288%2B1KbB2Yr9bABO1ShmgtegT3q33g6GB3wnrz6P2FKNJ2vpjKYS4qfPOmfiF2oPWfr5PoJv7/48rIthFjlb1V5af1USm5ADUYqJbXOHPww%3D%3D'
       ], encoded);
 
   RECORD webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", encoded.url, GetAllVariablesFromUrl(encoded.url));
@@ -145,7 +137,7 @@ MACRO TestSAMLSigning()
       [ sign :=         privatekey
       , destination :=  "http://example.com/destination"
       , relaystate :=   "relaystate-1"
-      , signaturealgorithm := "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      , signaturealgorithm := "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
       ]);
 
   TestEQ(
@@ -155,34 +147,7 @@ MACRO TestSAMLSigning()
             , method := "POST"
             , vars :=
                 [ [ name :=   'SAMLRequest'
-                  , value :=  'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHNhbWxwOkF1dGhuUmVx' ||
-                              'dWVzdCB4bWxucz0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxu' ||
-                              'czpzYW1sPSJ1cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoyLjA6YXNzZXJ0aW9uIiB4bWxuczpz' ||
-                              'YW1scD0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxuczpkcz0i' ||
-                              'aHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgeG1sbnM6eHNpPSJodHRwOi8v' ||
-                              'd3d3LnczLm9yZy8yMDAxL1hNTFNjaGVtYWluc3RhbmNlIiBJRD0icmVxLTEiIFZlcnNpb249' ||
-                              'IjIuMCIgSXNzdWVJbnN0YW50PSIyMDMwLTAxLTAxVDAwOjAwOjAwWiIgRGVzdGluYXRpb249' ||
-                              'Imh0dHA6Ly9leGFtcGxlLmNvbS9kZXN0aW5hdGlvbiIgQXNzZXJ0aW9uQ29uc3VtZXJTZXJ2' ||
-                              'aWNlSW5kZXg9IjEiIFByb3ZpZGVyTmFtZT0iZXhhbXBsZS5jb20iPjxzYW1sOklzc3Vlcj5o' ||
-                              'dHRwOi8vZXhhbXBsZS5jb20vc3A8L3NhbWw6SXNzdWVyPjxkczpTaWduYXR1cmU+PGRzOlNp' ||
-                              'Z25lZEluZm8+PGRzOkNhbm9uaWNhbGl6YXRpb25NZXRob2QgQWxnb3JpdGhtPSJodHRwOi8v' ||
-                              'd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48ZHM6U2lnbmF0dXJlTWV0aG9k' ||
-                              'IEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnI3JzYS1zaGEx' ||
-                              'Ii8+PGRzOlJlZmVyZW5jZSBVUkk9IiNyZXEtMSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5z' ||
-                              'Zm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyNlbnZl' ||
-                              'bG9wZWQtc2lnbmF0dXJlIi8+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cu' ||
-                              'dzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGln' ||
-                              'ZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2ln' ||
-                              'I3NoYTEiLz48ZHM6RGlnZXN0VmFsdWU+enVEVHdNemZaRkxyWDl4dTBadHY4b25UL1VZPTwv' ||
-                              'ZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWdu' ||
-                              'YXR1cmVWYWx1ZT5XWllOWTJlL3lpaVVhb0RJMDFiQks5WG01YlN4WnVvOTZrOUVLOFJoM2Fw' ||
-                              'RTBTYnBFY1UyZDczTEtiNjJld0pWblNwUTJCVTMrS0FGa0FiREhYYitaQlZNeEVESjl5TlYz' ||
-                              'Q01INklDWnZqYjhwVHJXMUszN09lMjNUWm54TmNndXJta1VWT3JpM2xtYVZOZjltWWU4cnU3' ||
-                              'd044UVI5T2pVemZDaGUra3RPVHFSblp3OVhjVVBLUm9WQXZPOFladmtUR3ZYUWpTeEFYTnJw' ||
-                              'MElxY2R4Mlp6d3hDbjBzaCs3T25ZMFNydGNPS3g0WEZuQ1JqdVRXVm8wRVhRZHZyVTZpVEpy' ||
-                              'ajdua0NLU01LQ1RFV2dTMDNvbGxyZ1VnZ2daWnVBeEFBWFEwb3RCNE15MVgwU2RucHJMQ3h3' ||
-                              'aUoveldnUzJVOHhES2F4WDdOQVEwb3MrSHVOcnc9PTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9k' ||
-                              'czpTaWduYXR1cmU+PC9zYW1scDpBdXRoblJlcXVlc3Q+Cg=='
+                  , value :=  'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHNhbWxwOkF1dGhuUmVxdWVzdCB4bWxucz0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxuczpzYW1sPSJ1cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoyLjA6YXNzZXJ0aW9uIiB4bWxuczpzYW1scD0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgeG1sbnM6eHNpPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxL1hNTFNjaGVtYWluc3RhbmNlIiBJRD0icmVxLTEiIFZlcnNpb249IjIuMCIgSXNzdWVJbnN0YW50PSIyMDMwLTAxLTAxVDAwOjAwOjAwWiIgRGVzdGluYXRpb249Imh0dHA6Ly9leGFtcGxlLmNvbS9kZXN0aW5hdGlvbiIgQXNzZXJ0aW9uQ29uc3VtZXJTZXJ2aWNlSW5kZXg9IjEiIFByb3ZpZGVyTmFtZT0iZXhhbXBsZS5jb20iPjxzYW1sOklzc3Vlcj5odHRwOi8vZXhhbXBsZS5jb20vc3A8L3NhbWw6SXNzdWVyPjxkczpTaWduYXR1cmU+PGRzOlNpZ25lZEluZm8+PGRzOkNhbm9uaWNhbGl6YXRpb25NZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48ZHM6U2lnbmF0dXJlTWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxkc2lnLW1vcmUjcnNhLXNoYTI1NiIvPjxkczpSZWZlcmVuY2UgVVJJPSIjcmVxLTEiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwLzA5L3htbGRzaWcjZW52ZWxvcGVkLXNpZ25hdHVyZSIvPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5rOWR6NXJGSnJWMGZLZHdGTFp3TGl4bjhGN2xhM29ockgxOU5IUG12WXZzPTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWduYXR1cmVWYWx1ZT5QNFJ2YlpGbk1JOVA1ME1KelZZUTN6cDZTYzJjNXg3VENxd1NsaDdYb0ViREt6TUprblhMVDM3cjdBWnlqeW1lUWozd1cyNm4rZlB3YkVTMHpyQXRuT2MwYVRCaW5NMkN3WHc0UFdPdmlmanhabklZQURhMkZPYnFZcTdHNjAyWTc0NlA2b3lxOUtLVGtGUnYwK3ZyNzNwSVNqMWhORlRTOHBCVFdKZlZ6Q3dWY1U1MmV3bWVnNXJMZmpyTm44TGY0dm84dStIWG16UDRrVm9IWE1jUkdWdmFCNE1VcklXMU45a01VSTNWQW16SksyTVhsbUZRcUM1U2ZCRk55M3BhQlBhakxJNGpNZnc2bVFrZ2pGM1prSDIzdzNUTEZXcVlUb3B1Y3dGRktMS1FDc2NQYWFyZzJldnZERmpqRzc3NW5ib2hpU2tSbXFleTB5L1RYNlU2WWc9PTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9kczpTaWduYXR1cmU+PC9zYW1scDpBdXRoblJlcXVlc3Q+Cg=='
                   ]
                 , [ name := 'RelayState'
                   , value := 'relaystate-1'
@@ -204,8 +169,7 @@ MACRO TestSAMLSigning()
       ], DEFAULT RECORD);
 
   FOREVERY (STRING signalg FROM
-        [ "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
-        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+        [ "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
         , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha224"
         , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
         , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"
