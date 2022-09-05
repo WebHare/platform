@@ -39,13 +39,13 @@ STRING FUNCTION EncodeCharacterAsCodePoint(INTEGER codepoint, STRING next)
   RETURN retval;
 }
 
-/**
-*  @param indata The string as given by the CSS parser (for a string token), without surrounding quotes
-*  @return STRING The string, with any control characters, quotes, et cetera escaped to CSS spec (which is to say: NO control characters)
-*
-*  UTF-8 May be encoded as: \0000 ; 0x0000 ; \u0000 ; \\u0000
-*  We will use \uXXXXXX.
-*  However, we will follow the CSSOM spec of U+[A-Fa-f0-9\?]{2,6}
+/** Encodes a CSS string
+    @param indata The string as given by the CSS parser (for a string token), without surrounding quotes
+    @return STRING The string, with any control characters, quotes, et cetera escaped to CSS spec (which is to say: NO control characters)
+
+    UTF-8 May be encoded as: \0000 ; 0x0000 ; \u0000 ; \\u0000
+    We will use \uXXXXXX.
+    However, we will follow the CSSOM spec of U+[A-Fa-f0-9\?]{2,6}
 */
 PUBLIC STRING FUNCTION EncodeCSSString(STRING indata)
 {
@@ -59,9 +59,11 @@ PUBLIC STRING FUNCTION EncodeCSSString(STRING indata)
       RETURN retval;
 
     STRING ucchars := UCLeft(s->remaining_data, 1);
-    s->ParseN(LENGTH(ucchars));
+    s->ParseN(LENGTH(ucchars) ?? 1); // Skip over invalid UTF-8
 
     INTEGER codepoint := GetUCValue(ucchars);
+    IF (codepoint = 0)
+      CONTINUE;
     IF (codepoint >= 127 OR codepoint < 32)
       retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
     ELSE  // quote ' and "
@@ -82,9 +84,11 @@ STRING FUNCTION SerializeIdentifier(STRING indata)
       RETURN retval;
 
     STRING ucchars := UCLeft(s->remaining_data, 1);
-    s->ParseN(LENGTH(ucchars));
+    s->ParseN(LENGTH(ucchars) ?? 1); // Skip over invalid UTF-8
 
     INTEGER codepoint := GetUCValue(ucchars);
+    IF (codepoint  = 0) // skip codepoint 0
+      CONTINUE;
     IF (codepoint < 32)
       retval := retval || EncodeCharacterAsCodePoint(codepoint, s->current);
     ELSE IF (codepoint >= 48 AND codepoint <= 57)
