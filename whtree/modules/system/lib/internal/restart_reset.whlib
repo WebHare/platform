@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/modules/publicconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+LOADLIB "mod::system/lib/internal/modules/moduleregistry.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -74,7 +75,6 @@ MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
   modlist := SELECT TEMPORARY validator := GetModuleXMLValidator(name)
                   , *
                   , databaseschemas := GetModuleDatabaseSchema(name)
-                  , regkeys := GetModuleRegKeys(name)
                   , runoncescripts := ParseModuleDefRunonce(validator)
                FROM modlist;
 
@@ -149,7 +149,7 @@ MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
     IF(showinfo)
       Print(">> InitModuleRegistryKeys\n");
 
-    result := InitModuleRegistryKeys(modlist);
+    result := InitModuleRegistryKeys(SELECT AS STRING ARRAY name FROM modlist);
     ReportOnInit(result);
   }
 

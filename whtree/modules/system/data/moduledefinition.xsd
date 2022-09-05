@@ -1461,7 +1461,7 @@
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded" >
         <xs:element name="node" type="ToplevelNode" />
-        <xs:element name="obsoletenode"> <!-- FIXME Implement! Added so we can at least start specifying nodes to kill -->
+        <xs:element name="obsoletenode">
           <xs:complexType>
             <xs:attribute name="name" type="Name" use="required" />
           </xs:complexType>

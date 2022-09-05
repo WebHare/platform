@@ -8,83 +8,11 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/scripts.whlib";
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
-
-RECORD ARRAY FUNCTION RecurseRegKey(OBJECT parentnode, STRING nodesofar)
-{
-  RECORD ARRAY keys;
-  FOREVERY(OBJECT node FROM parentnode->childnodes->GetCurrentElements())
-  {
-    STRING keyname := nodesofar || node->GetAttribute("name");
-
-    IF(node->namespaceuri!="http://www.webhare.net/xmlns/system/moduledefinition")
-      CONTINUE;
-    IF(node->localname = "node")
-    {
-      keys := keys CONCAT RecurseRegKey(node, keyname || ".");
-      CONTINUE;
-    }
-    IF(node->localname = "obsoletekey")
-    {
-      INSERT [ name := keyname, isobsolete := TRUE ] INTO keys AT END;
-    }
-
-    VARIANT val;
-    IF (node->localname IN [ "record" ])
-    {
-      // Cannot be initialized through moduledefinition
-      val := DEFAULT RECORD;
-    }
-    ELSE
-    {
-      INTEGER keytype := SearchElement(["","","string","","datetime","","boolean","integer","float","money","blob"], node->localname);
-      IF(keytype=-1)
-        CONTINUE;
-
-      STRING initialval := node->GetAttribute("initialval");
-      IF(node->localname="datetime")
-        val := initialval = "now" ? GetCurrentDatetime() : MakeDateFromText(initialval);
-      ELSE
-        val := AnyTypeFromString(initialval, keytype);
-    }
-
-    INSERT [ name := keyname, isobsolete := FALSE, description := node->GetAttribute("description"), value := val ] INTO keys AT END;
-  }
-  RETURN keys;
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetModuleRegKeys(STRING modname)
-{
-  OBJECT xmldoc := GetModuleDefinitionXML(modname);
-  RECORD ARRAY keys;
-
-  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "moduleregistry")->GetCurrentElements())
-  {
-    keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
-  }
-  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "registry")->GetCurrentElements())
-  {
-    RECORD rk := RecurseRegKey(keystore, Touppercase(modname));
-
-    STRING keyowner := ToUppercase(keystore->GetAttribute("owner"));
-    IF(keyowner != "_SYSTEM" AND keyowner != "")
-    {
-      //If they're not _SYSTEM owned, reflect them to <modules>.[modulename]
-      keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
-    }
-    ELSE
-    {
-      keys := keys CONCAT RecurseRegKey(keystore, "");
-    }
-  }
-
-  RETURN keys;
-}
 
 PUBLIC RECORD ARRAY FUNCTION GetModuleDatabaseSchema(STRING modname)
 {
@@ -95,32 +23,6 @@ PUBLIC RECORD ARRAY FUNCTION GetModuleDatabaseSchema(STRING modname)
     INSERT ParseWHDBSchemaSpec(modname, spec) INTO retval AT END;
 
   RETURN retval;
-}
-
-PUBLIC RECORD FUNCTION InitModuleRegistryKeys(RECORD ARRAY modules)
-{
-  RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
-  GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmoduleregistrykeys" ]);
-
-  RECORD ARRAY allregkeys;
-  FOREVERY(RECORD module FROM modules)
-    allregkeys := allregkeys CONCAT module.regkeys;
-
-  TRY
-  {
-    //FIXME create a bulk initialize api!
-    FOREVERY(RECORD keyrec FROM allregkeys)
-      IF(keyrec.isobsolete)
-        DeleteRegistryKey(keyrec.name);
-      ELSE
-        WriteRegistryKey(keyrec.name, keyrec.value, [ initialcreate := TRUE ]);
-  }
-  CATCH(OBJECT e)
-  {
-    INSERT INTO result.commitmessages(module, text) VALUES("", e->what) AT END;
-  }
-  result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
-  RETURN result;
 }
 
 /** @short
@@ -173,7 +75,7 @@ PUBLIC RECORD FUNCTION InitModuleIndependents(RECORD ARRAY modules, BOOLEAN list
   RETURN result;
 }
 
-RECORD ARRAY FUNCTION CheckedCommitWork()
+PUBLIC RECORD ARRAY FUNCTION CheckedCommitWork()
 {
   RECORD ARRAY msgs;
   TRY

@@ -184,7 +184,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadRegistryKeysByMask(STRING keymask)
     @public
     @loadlib mod::system/lib/configure.whlib
     @param confkey Key to delete
-    @see %ReadRegistryKey %WriteRegistryKey %ReadRegistryNode
+    @see %ReadRegistryKey %WriteRegistryKey %ReadRegistryNode %DeleteRegistryNode
 */
 PUBLIC MACRO DeleteRegistryKey(STRING confkey)
 {
@@ -200,7 +200,13 @@ PUBLIC MACRO DeleteRegistryKey(STRING confkey)
   GetPrimary()->BroadcastOnCommit(keyinfo.eventname, DEFAULT RECORD);
 }
 
-PUBLIC MACRO __DeleteRegistryNode(STRING confkey)
+/** @short Deletes a registry node. Module registry keys can be read using the key "modulename.registrykey...".
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param confkey Node to delete
+    @see %ReadRegistryKey %WriteRegistryKey %ReadRegistryNode %DeleteRegistryKey
+*/
+PUBLIC MACRO DeleteRegistryNode(STRING confkey)
 {
   confkey := FixupRegKey(confkey);
   IF(IsAnonymousConfKey(confkey))

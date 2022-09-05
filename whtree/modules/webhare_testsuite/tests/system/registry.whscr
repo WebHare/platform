@@ -4,6 +4,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::system/lib/internal/modules/moduleregistry.whlib";
+
 LOADLIB "wh::files.whlib";
 
 MACRO DoKeyTests(STRING basename, STRING nodebasename)
@@ -37,7 +39,7 @@ MACRO DoKeyTests(STRING basename, STRING nodebasename)
          ], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
 
   WriteRegistryKey(basename || ".__webhare_testsuite_base_node__.stupidvalue", 46, [initialcreate := TRUE]);
-  __DeleteRegistryNode(basename || ".__webhare_testsuite_base_node__");
+  DeleteRegistryNode(basename || ".__webhare_testsuite_base_node__");
   TestEq(RECORD[], ReadRegistryNode(basename || ".__webhare_testsuite_base_node__"));
 }
 
@@ -90,6 +92,23 @@ MACRO TestAnonymousRegistry()
   testfw->RollbackWork();
 }
 
+MACRO TestModuleDefs()
+{
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.registrytests.removekey", 42, [ initialcreate := TRUE ]);
+  WriteRegistryKey("webhare_testsuite.registrytests.removenode.subkey", 43, [ initialcreate := TRUE ]);
+  testfw->CommitWork();
+
+  TestEq(42, ReadRegistryKey("webhare_testsuite.registrytests.removekey"));
+  TestEq(43, ReadRegistryKey("webhare_testsuite.registrytests.removenode.subkey"));
+
+  TestEq(RECORD[], InitModuleRegistryKeys([ "webhare_testsuite" ]).commitmessages);
+
+  TestEq(0, ReadRegistryKey("webhare_testsuite.registrytests.removekey", [fallback := 0 ]));
+  TestEq(0, ReadRegistryKey("webhare_testsuite.registrytests.removenode.subkey", [ fallback := 0 ]));
+}
+
 RunTestFramework( [ PTR TestRegistry
                   , PTR TestAnonymousRegistry
+                  , PTR TestModuleDefs
                   ] );
