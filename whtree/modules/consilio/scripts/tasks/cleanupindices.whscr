@@ -83,7 +83,7 @@ FOREVERY (RECORD cat FROM catalogs)
 
     trans->CommitWork();
 
-    //Now actually delete them. if we were to crash after the comit before completing, the next cleanupindices will pick it up
+    //Now actually delete them. if we were to crash after the commit before completing, the next cleanupindices will pick it up
     FOREVERY(RECORD indexrec FROM indices)
       SendRawJSONToElasticSearch(indexrec.indexmanager,  "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
 
