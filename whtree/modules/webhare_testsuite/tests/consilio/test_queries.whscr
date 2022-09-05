@@ -181,9 +181,33 @@ MACRO RunExplainQuery()
   TestEq(TRUE, RecordExists(searchres.results[0]._explanation));
 }
 
+MACRO RunTotalTrackTest()
+{
+  // By default, up to 10,000 results are counted exactly
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0 ]);
+  TestEq(4, searchres.totalcount);
+  TestEq(TRUE, searchres.totalexact);
+
+  // If we track up to 3 results, we no longer receive the exact count
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := 3 ]);
+  TestEq(3, searchres.totalcount);
+  TestEq(FALSE, searchres.totalexact);
+
+  // If we track up to 0 results, we no longer receive any count
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := 0 ]);
+  TestEq(0, searchres.totalcount);
+  TestEq(FALSE, searchres.totalexact);
+
+  // Track all results
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := -1 ]);
+  TestEq(4, searchres.totalcount);
+  TestEq(TRUE, searchres.totalexact);
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
     , PTR RunTheMatchQueries
     , PTR RunTheAggregationQueries
     , PTR RunExplainQuery
+    , PTR RunTotalTrackTest
     ]);

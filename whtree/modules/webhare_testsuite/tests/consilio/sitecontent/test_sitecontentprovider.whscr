@@ -78,6 +78,7 @@ MACRO ConsilioTest()
   results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)
@@ -88,6 +89,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla2", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_3->objecturl
               , groupid :=    ToString(file_3->id)
@@ -98,6 +100,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla4", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_4->objecturl
               , groupid :=    ToString(file_4->id)
@@ -108,6 +111,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("paragraaf", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_6->objecturl
               , groupid :=    ToString(file_6->id)
@@ -141,7 +145,8 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla4", 0, 10);
   TestEq(
       [ totalcount :=       0
-      , results :=          DEFAULT RECORD ARRAY
+      , totalexact :=       TRUE
+      , results :=          RECORD[]
       ], results);
 
   // Remove a group manually
@@ -151,7 +156,8 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       0
-      , results :=          DEFAULT RECORD ARRAY
+      , totalexact :=       TRUE
+      , results :=          RECORD[]
       ], results);
 
   // Update the index
@@ -161,6 +167,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)
@@ -190,6 +197,7 @@ MACRO ConsilioTest()
   results := search_2_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)
@@ -202,12 +210,14 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       0
-      , results := DEFAULT RECORD ARRAY
+      , totalexact :=       TRUE
+      , results :=          RECORD[]
       ], results);
   search_1_obj->restrict_url := Left(file_1->url, SearchLastSubstring(file_1->url, "/") + 1);
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)
@@ -217,12 +227,14 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("blabla2", 0, 10);
   TestEq(
       [ totalcount :=       0
-      , results := DEFAULT RECORD ARRAY
+      , totalexact :=       TRUE
+      , results :=          RECORD[]
       ], results);
   search_1_obj->restrict_url := "";
   results := search_1_obj->Search("blabla2", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_3->objecturl
               , groupid :=    ToString(file_3->id)
@@ -241,6 +253,7 @@ MACRO ConsilioTest()
   results := search_1_obj->SearchQuery(query, 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_6->objecturl
               , groupid :=    ToString(file_6->id)
@@ -266,6 +279,7 @@ MACRO ConsilioTest()
   results := search_1_obj->SearchQuery(CQMatch("extrafield", "CONTAINS", "testextra5"), 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_5->objecturl
               , groupid :=    ToString(file_5->id)
@@ -289,6 +303,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("content", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_7->objecturl
               , groupid :=    ToString(file_7->id)
@@ -299,6 +314,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("certain", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_7->objecturl
               , groupid :=    ToString(file_7->id)
@@ -321,6 +337,7 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("content", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid := file_7->objecturl
               , groupid :=  ToString(file_7->id)
@@ -331,12 +348,14 @@ MACRO ConsilioTest()
   results := search_1_obj->Search("certain", 0, 10);
   TestEq(
       [ totalcount :=       0
+      , totalexact :=       TRUE
       , results :=          RECORD[]
       ], results);
   // Search for a word in the file title
   results := search_1_obj->Search("overwritten", 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid := file_7->objecturl
               , groupid :=  ToString(file_7->id)
@@ -348,6 +367,7 @@ MACRO ConsilioTest()
   results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)
@@ -369,6 +389,7 @@ MACRO ConsilioTest()
   results := search_1_obj->SearchQuery(CQMatch("body", "CONTAINS", "blabla"), 0, 10);
   TestEq(
       [ totalcount :=       1
+      , totalexact :=       TRUE
       , results :=
             [ [ objectid :=   file_1->objecturl
               , groupid :=    ToString(file_1->id)

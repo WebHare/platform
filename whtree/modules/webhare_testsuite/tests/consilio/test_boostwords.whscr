@@ -66,6 +66,7 @@ MACRO TestBoostWords()
   RECORD results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("blabla"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
+      , totalexact := TRUE
       , results :=
             [ [ objectid := file_2->objecturl
               , groupid := ToString(file_2->id)
@@ -81,6 +82,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("important"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 1
+      , totalexact := TRUE
       , results :=
             [ [ objectid := file_1->objecturl
               , groupid := ToString(file_1->id)
@@ -101,6 +103,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("important"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
+      , totalexact := TRUE
       , results :=
             [ [ objectid := file_2->objecturl
               , groupid := ToString(file_2->id)
@@ -124,6 +127,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("blabla"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 2
+      , totalexact := TRUE
       , results :=
             [ [ objectid := file_1->objecturl
               , groupid := ToString(file_1->id)
@@ -139,6 +143,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("schanulleke nothing"), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 0
+      , totalexact := TRUE
       , results := DEFAULT RECORD ARRAY
       , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);
@@ -147,6 +152,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("schanulleke nothing", [ querymode := "OR" ]), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 1
+      , totalexact := TRUE
       , results :=
             [ [ objectid := file_2->objecturl
               , groupid := ToString(file_2->id)
@@ -159,6 +165,7 @@ MACRO TestBoostWords()
   results := RunConsilioSearch("consilio:testfw_boostwords", CQParseUserQuery("+schanulleke +nothing", [ querymode := "OR" ]), [ first := 0, count := 10, mapping := CELL[], summaryfield := "" ]);
   TestEq(
       [ totalcount := 0
+      , totalexact := TRUE
       , results := DEFAULT RECORD ARRAY
       , eventmasks := STRING[ `consilio:index.${catalog->id}` ]
       ], results);

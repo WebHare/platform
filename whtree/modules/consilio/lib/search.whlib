@@ -152,6 +152,7 @@ STATIC OBJECTTYPE SearchObject
 
   PUBLIC BOOLEAN debug;
   PUBLIC BOOLEAN explain;
+  PUBLIC INTEGER totaltotrack;
 
   /** @short The language used for searching
   */
@@ -238,6 +239,7 @@ STATIC OBJECTTYPE SearchObject
   {
     this->language := language;
     this->summary_length := -1; // Default summary length
+    this->totaltotrack := default_track_total_hits;
     this->save_searches := save_searches;
     this->highlightfields := [ "body" ]; // For summary generation
 
@@ -282,6 +284,7 @@ STATIC OBJECTTYPE SearchObject
       @param count The number of results to return
       @return The search result
       @cell return.totalcount The total number of matches in Consilio
+      @cell return.totalexact The total number of matches is an exact value (if FALSE, it's a lower bound)
       @cell return.results The actual search results (records as defined by empty_result_record)
   */
   PUBLIC RECORD FUNCTION Search(STRING query, INTEGER first, INTEGER count)
@@ -289,6 +292,7 @@ STATIC OBJECTTYPE SearchObject
     // No results if query is empty, but we'll start a session
     IF (query = "")
       RETURN [ totalcount := 0
+             , totalexact := TRUE
              , results := DEFAULT RECORD ARRAY
              ];
 
@@ -361,6 +365,7 @@ STATIC OBJECTTYPE SearchObject
       IF(this->debug)
         Print("Query is empty, skipping search\n");
       RETURN [ totalcount := 0
+             , totalexact := TRUE
              , results := DEFAULT RECORD ARRAY
              ];
     }
@@ -381,6 +386,7 @@ STATIC OBJECTTYPE SearchObject
         , addscore
         , this->debug
         , this->explain
+        , this->totaltotrack
         , this->aggregation_mapping
         ];
     IF (this->have_empty_result_record)
