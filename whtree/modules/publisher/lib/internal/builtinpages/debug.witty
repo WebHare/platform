@@ -61,7 +61,7 @@
           <h2>[title]</h2>
           [forevery options]
           <div class="option">
-            <label [if makebold]style="font-weight:bold"[/if]><span class="checkarea"><input name="debug" value="[rowkey]" type="checkbox" [if selected]checked[/if]></span>[title] [if allowaswebvar]([rowkey])[/if]</label>
+            <label><span class="checkarea"><input name="debug" value="[rowkey]" type="checkbox" [if selected]checked[/if]></span>[title] ([rowkey])</label>
           </div>
           [/forevery]
         </div>

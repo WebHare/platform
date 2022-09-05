@@ -41,6 +41,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib" EXPORT WebPageBase;
+LOADLIB "mod::publisher/lib/internal/webdesign/wittytracing.whlib";
 
 CONSTANT RECORD initialrobotstag := [ noindex := FALSE
                                     , nofollow := FALSE
@@ -50,26 +51,6 @@ CONSTANT RECORD initialrobotstag := [ noindex := FALSE
                                     , nosnippet := FALSE
                                     , custom := ""
                                     ];
-
-VARIANT FUNCTION CleanupWittyData(VARIANT indata)
-{
-  IF(IsTypeIDArray(TYPEID(indata)))
-  {
-    VARIANT ARRAY vals;
-    FOREVERY(VARIANT val FROM indata)
-      INSERT CleanupWittyData(val) INTO vals AT END;
-    RETURN vals;
-  }
-  IF(TYPEID(indata) = TYPEID(RECORD) AND RecordExists(indata))
-    RETURN RepackRecord(SELECT name, value := CleanupWittyData(value) FROM UnpackRecord(indata));
-  IF(TYPEID(indata) = TYPEID(FUNCTION PTR))
-    RETURN indata != DEFAULT FUNCTION PTR ? "functionptr" : "default functionptr";
-  IF(TYPEID(indata) = TYPEID(OBJECT))
-    RETURN ObjectExists(indata) ? "object" : "default object";
-  IF(TYPEID(indata) = TYPEID(BLOB))
-    RETURN `blob (${Length(indata)} bytes)`;
-  RETURN indata;
-}
 
 RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
 {
@@ -133,11 +114,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC BOOLEAN __is_newstyle_pageobject;
   //content nav stops
   STRING ARRAY pvt_contentnavstops;
-  RECORD ARRAY __invokedwitties;
   RECORD _seosettings;
 
   /// Extra resource dependencies (for automatic outputtools reload)
-  STRING ARRAY resourcedeps;
+  STRING ARRAY __resourcedeps;
   /// Already generated anchors
   STRING ARRAY __seenanchors;
   /// Full tree to current target
@@ -237,13 +217,14 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING assetcachebuster;
   ///suppress ?c= timestamps
   PUBLIC BOOLEAN __suppresstimestamps;
-  ///additionally added resources. used only for harescript error handling
-  PUBLIC STRING ARRAY __additionalresources;
   ///If set, we're rendering a 'standard content page' - a builtin page that expects to be able to simply render <h2>, <p> etc.
   PUBLIC BOOLEAN isstandardcontentpage;
 
   ///Is this a preview page?
   PUBLIC PROPERTY ispreviewpage(this->__renderpreview, -);
+
+  /// Extra resource dependencies (for automatic outputtools reload)
+  PUBLIC PROPERTY resourcedependencies(this->__resourcedeps, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -345,8 +326,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     {
       IF(IsWHDebugOptionSet("sut"))
         __shortunknowntids := TRUE;
-      IF(IsWHDebugOptionSet("win") OR AreOutputToolsActive()) //record witty data themselves, or at least resources for the outputtools
-        __AddWittyInvocationHook(PTR this->__OnWitty);
+      IF(IsWHDebugOptionSet("win"))
+        EnableWittyTracing();
     }
 
     IF(ObjectExists(this->__config.applytester))
@@ -442,30 +423,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_startedrendering)
       THROW NEW Exception("The JS Obj(ect) settings cannot be modified when the page has started rendering - update should have been done in the prepare phase");
     this->__jsobjconfig := newconfig;
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
-
-  MACRO __OnWitty(OBJECT witty, INTEGER scriptid, STRING component, RECORD data, BOOLEAN before)
-  {
-    IF(NOT IsAbsoluteResourcePath(component))
-    {
-      STRING scriptname := witty->__GetScriptNameById(scriptid);
-      component := scriptname || ":" || component;
-    }
-    IF(before)
-    {
-      INSERT CELL[ component, data := CleanupWittyData(data), stacktrace := GetStackTrace() ] INTO this->__invokedwitties AT END;
-
-      STRING resourcename := Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":");
-      __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
-    }
-
-    IF(IsWHDebugOptionSet("win"))
-      Print(`<!-- ${before ? "START" : "END"} WITTY: ${component} -->`);
   }
 
   // ---------------------------------------------------------------------------
@@ -1072,7 +1029,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_startedrendering AND location != "body-bottom")
       THROW NEW Exception("Insertions cannot be added anymore when the page is being rendered");
 
-    IF(location NOT IN ["dependencies-top","dependencies-bottom","content-top","content-bottom","body-top","body-bottom"])
+    IF(location NOT IN ["dependencies-top","dependencies-bottom","content-top","content-bottom","body-top","body-bottom","body-devbottom"])
       THROW NEW Exception("Unrecognized insert position '" || location || "'");
 
     INSERT [ location := location, callback := callback ] INTO this->insertions AT END;
@@ -1194,38 +1151,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
     }
 
-    IF (IsRequest())
-    {
-      IF (IsWHDebugOptionSet("win") AND Length(this->__invokedwitties) > 0) //we were recording witties
-      {
-        Print(`<script type="application/json" id="wh-rendering-summary">${EncodeJSON([ invokedwitties := this->__invokedwitties ])}</script>`);
-      }
+    IF (IsRequest() AND IsWHDebugOptionSet("win"))
+      PrintInvokedWitties();
 
-      IF (AreOutputToolsActive())
-      {
-        // List all harescript libraries outside of the base modules
-        STRING ARRAY resources :=
-            (SELECT AS STRING ARRAY liburi
-              FROM GetAllUsedHarescriptLibraries()) CONCAT this->__additionalresources;
-
-        resources := resources CONCAT
-            SELECT AS STRING ARRAY DISTINCT Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":")
-              FROM this->__invokedwitties;
-
-        // Filter out anything inside the builtinmodules
-        resources :=
-            SELECT AS STRING ARRAY uri
-              FROM TorecordArray(resources, "uri")
-             WHERE uri LIKE "mod::*/*"
-               AND SubString(Tokenize(uri, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
-
-        RECORD outputtoolsdata := CELL
-            [ resources :=      GetSortedSet(resources CONCAT this->resourcedeps)
-            ];
-
-        Print(`<script type="application/json" id="wh-outputtoolsdata">${EncodeJSON(outputtoolsdata)}</script>`);
-      }
-    }
+    this->DoInserts("body-devbottom"); //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
   }
 
   PUBLIC MACRO RunPage()
@@ -1573,7 +1502,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   */
   PUBLIC MACRO AddResourceDependencies(STRING ARRAY deps)
   {
-    this->resourcedeps := this->resourcedeps CONCAT deps;
+    this->__resourcedeps := this->__resourcedeps CONCAT deps;
   }
 >;
 

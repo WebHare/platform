@@ -88,12 +88,5 @@ PUBLIC BOOLEAN FUNCTION IsWHDebugOptionSet(STRING opt)
   RETURN ToLowercase(opt) IN debugsettings;
 }
 
-/** Test whether the output tools are enabled (the green reload box) */
-PUBLIC BOOLEAN FUNCTION AreOutputToolsActive()
-{
-  RETURN GetWebCookie("__whpub_preview") = "debug" OR GetWebCookie("__passedon_whpub_preview") = "debug"; //view.shtml renames it
-}
-
 IF(IsRequest())
   ProcessWHDebugVariables(FALSE);
-

@@ -47,7 +47,7 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
         , iconcolor := "#e40015"
         , themecolor := "#4a4a4a"
         ];
-    webdesign->__additionalresources := webdesign->__additionalresources CONCAT resources;
+    webdesign->AddResourceDependencies(resources);
   }
 
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
