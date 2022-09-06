@@ -4,8 +4,6 @@
     @private Searching should be done through api.whlib (cacheable and without the option for string-merge built queries)
 */
 
-LOADLIB "wh::adhoccache.whlib";
-LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib"
     EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchNoAccess
@@ -21,6 +19,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 // we cannot loadlib api.whlib, it loadlibs us
 FUNCTION PTR CQParseUserQuery := MakeFunctionPtr("mod::consilio/lib/api.whlib#CQParseUserQuery");
+FUNCTION PTR __GetIndexManagerOptions := MakeFunctionPtr("mod::consilio/lib/api.whlib#__GetIndexManagerOptions");
 
 PUBLIC OBJECTTYPE SearchException EXTEND Exception
 < STRING code;
@@ -32,53 +31,6 @@ PUBLIC OBJECTTYPE SearchException EXTEND Exception
     this->code := errorcode;
   }
 >;
-
-RECORD FUNCTION GenerateDefaultMapping(RECORD ARRAY inprops)
-{
-  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
-
-  RECORD defaultmapping;
-  FOREVERY(RECORD row FROM inprops)
-  {
-    IF(row.type = "record")
-      defaultmapping := CellInsert(defaultmapping, row.name, GenerateDefaultMapping(row.properties));
-    ELSE
-      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
-  }
-  RETURN defaultmapping;
-}
-
-RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
-{
-  OBJECT catalog := OpenConsilioCatalogById(indexid);
-  IF (NOT ObjectExists(catalog))
-    THROW NEW Exception(`Cannot find catalog #${indexid}`);
-
-  RECORD ARRAY expectedmapping := catalog->GetExpectedMapping();
-  RECORD defaultmapping := GenerateDefaultMapping(expectedmapping);
-  defaultmapping := CELL[ ...defaultmapping
-                        //for some reason? these weren't part of the defaultvalue although they're always in the mapping... probably too many sources of fields
-                        , DELETE _indexdate
-                        , DELETE _indexed
-                        , DELETE _contentsource
-                        , DELETE body
-                        ];
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-
-  RETURN [ value := CELL [ defaultmapping, indexmanagers, expectedmapping, cat := catalog->tag ]
-         , ttl := 15 * 60 * 1000
-         , eventmasks := [ "consilio:contentsourceschanged"
-                         , "consilio:indexfields"
-                         ]
-         ];
-}
-
-PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
-{
-  RETURN GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
-}
-
 
 /** @short Get a description for an error code
     @long Use this function to get a short description for an error code
@@ -307,11 +259,11 @@ STATIC OBJECTTYPE SearchObject
     }
     ELSE
       want_summary := NOT RecordExists(this->empty_result_record);
-    // If 'score' is requested, request '_score' instead
+    // If 'score' is requested, request it through '_score'
     BOOLEAN want_score := CellExists(this->empty_result_record, "score") AND NOT CellExists(this->empty_result_record, "_score");
     IF (want_score)
     {
-      INSERT CELL _score := this->empty_result_record.score INTO this->empty_result_record;
+      INSERT CELL _score := "score" INTO this->empty_result_record;
       DELETE CELL score FROM this->empty_result_record;
     }
 
@@ -331,19 +283,11 @@ STATIC OBJECTTYPE SearchObject
         DELETE CELL _summary FROM this->empty_result_record;
       }
     }
-    // If 'score' was requested, rename '_score' in results
-    IF (want_score AND RecordExists(SELECT FROM result.results WHERE CellExists(results, "_score")))
+    // If 'score' was requested, reset the score mapping
+    IF (want_score AND RecordExists(this->empty_result_record))
     {
-      result.results :=
-          SELECT *
-               , score := _score
-               , DELETE _score
-            FROM result.results;
-      IF (RecordExists(this->empty_result_record))
-      {
-        INSERT CELL score := this->empty_result_record._score INTO this->empty_result_record;
-        DELETE CELL _score FROM this->empty_result_record;
-      }
+      INSERT CELL score := this->empty_result_record._score INTO this->empty_result_record;
+      DELETE CELL _score FROM this->empty_result_record;
     }
 
     RETURN result;
@@ -370,6 +314,8 @@ STATIC OBJECTTYPE SearchObject
              ];
     }
 
+    RECORD indexoptions := __GetIndexManagerOptions(this->catalog_id);
+
     STRING ARRAY highlightfields := this->highlightfields;
     // IF (this->summary_length != 0 AND "body" NOT IN highlightfields)
     //   INSERT "body" INTO highlightfields AT 0;
@@ -383,7 +329,6 @@ STATIC OBJECTTYPE SearchObject
         , restrict_to := this->restrict_url
         , this->exclude_urls
         , this->session
-        , addscore
         , this->debug
         , this->explain
         , this->totaltotrack
@@ -391,8 +336,12 @@ STATIC OBJECTTYPE SearchObject
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
+    ELSE
+      INSERT CELL mapping := indexoptions.defaultmapping INTO options;
+    IF (addscore)
+      INSERT CELL _score := "_score" INTO options.mapping;
 
-    RECORD result := SearchIndexManager(this->catalog_id, query, options, __GetIndexManagerOptions(this->catalog_id));
+    RECORD result := SearchIndexManager(this->catalog_id, query, options, indexoptions);
     IF (result.status != SearchOk) //though actually all SearchIndexManager non-ok paths should be capable of throwing (no-attached-indices might not yet?)
     {
       THROW NEW SearchException(result.status, "Search error: " || result.status);

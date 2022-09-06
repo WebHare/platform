@@ -2,13 +2,14 @@
 /** @topic consilio/api
 */
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
 LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenConsilioCatalog, OpenConsilioCatalogById;
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -449,14 +450,6 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRIN
   RETURN results;
 }
 
-STRING FUNCTION ValidateIndexTag(STRING indextag)
-{
-  IF(indextag = "" OR indextag NOT LIKE "?*:?*" OR indextag LIKE "*:*:*")
-    THROW NEW Exception(`Invalid indextag '${indextag}'`);
-
-  RETURN indextag;
-}
-
 /** @short Get a token to access a consilio search engine's autosuggest API
     @param catalogtag Catalog tag
     @cell(boolean) options.autosuggest Allow this token to be used for the autosuggest APIs
@@ -520,6 +513,52 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
                            ORDER BY COUNT(*), catalogid;
 
   RETURN SELECT AS STRING name FROM catalogs WHERE id = smallestcatalog;
+}
+
+RECORD FUNCTION GenerateDefaultMapping(RECORD ARRAY inprops)
+{
+  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
+
+  RECORD defaultmapping;
+  FOREVERY(RECORD row FROM inprops)
+  {
+    IF(row.type IN [ "record", "nested" ])
+      defaultmapping := CellInsert(defaultmapping, row.name, GenerateDefaultMapping(row.properties));
+    ELSE
+      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
+  }
+  RETURN defaultmapping;
+}
+
+RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
+{
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot find catalog #${indexid}`);
+
+  RECORD ARRAY expectedmapping := catalog->GetExpectedMapping();
+  RECORD defaultmapping := GenerateDefaultMapping(expectedmapping);
+  defaultmapping := CELL[ ...defaultmapping
+                        //for some reason? these weren't part of the defaultvalue although they're always in the mapping... probably too many sources of fields
+                        , DELETE _indexdate
+                        , DELETE _indexed
+                        , DELETE _contentsource
+                        , DELETE body
+                        ];
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RETURN [ value := CELL [ defaultmapping, indexmanagers, expectedmapping, cat := catalog->tag ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "consilio:contentsourceschanged"
+                         , "consilio:indexfields"
+                         ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
+{
+  RETURN GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
 }
 
 /** @short Search an index
@@ -604,7 +643,18 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , validatemapping := TRUE
       ], options, [ optional := [ "orderdesc" ] ]);
 
-  indextag := ValidateIndexTag(indextag);
+  IF(NOT RecordExists(query)
+      OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
+      OR (NOT CellExists(query, "query") AND NOT CellExists(query, "aggregation") AND query._type = "nothing")) //will not return anything
+    RETURN [ totalcount := 0
+           , results := RECORD[]
+           , eventmasks := STRING[]
+           ];
+
+  OBJECT catalog := OpenConsilioCatalog(indextag);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot open catalog '${indextag}'`);
+
   FOREVERY (RECORD ordering FROM options.ordering)
     options.ordering[#ordering] := ValidateOptions(
         [ orderby := ""
@@ -620,28 +670,6 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
             ]
         ]);
 
-  STRING language := options.language ?? GetTidLanguage();
-  IF(NOT RecordExists(query)
-      OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
-      OR (NOT CellExists(query, "query") AND NOT CellExists(query, "aggregation") AND query._type = "nothing")) //will not return anything
-    RETURN [ totalcount := 0
-           , results := RECORD[]
-           , eventmasks := STRING[]
-           ];
-
-  OBJECT search_obj := OpenSearchObject(language, indextag);
-  IF(options.refresh)
-    OpenConsilioCatalogById(search_obj->catalogid)->Refresh();
-
-  search_obj->highlightfields := options.highlightfields;
-  search_obj->save_searches := options.save_searches;
-  IF (options.save_searches)
-    search_obj->session_site := options.save_searches_site;
-  search_obj->summary_length := options.summary_length;
-  search_obj->debug := options.debug;
-  search_obj->explain := options.explain;
-  search_obj->totaltotrack := options.totaltotrack;
-
   IF (RecordExists(options.mapping))
   {
     IF(options.validatemapping)
@@ -653,12 +681,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
           THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
       }
     }
-
-    search_obj->empty_result_record := options.mapping;
   }
-
-  search_obj->restrict_url := options.restrict_url;
-  search_obj->exclude_urls := options.exclude_urls;
 
   IF (RecordExists(options.ordering))
     query := CELL[ ...query, options.ordering ];
@@ -681,43 +704,69 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     ELSE
       INSERT [ orderby := "_score" ] INTO query.ordering AT END;
   }
-  IF (CellExists(query, "aggregation"))
-  {
-    search_obj->aggregation_mapping := options.aggregation_mapping;
-  }
 
-  RECORD results := search_obj->__SearchQuery(query, options.first, options.count, options.scorefield != "");
-  IF(CellExists(results,'results'))
+  RECORD session;
+  IF (options.save_searches)
+    session := [ sessid := "", tag := "", siteid := options.save_searches_site ];
+
+  RECORD indexoptions := __GetIndexManagerOptions(catalog->id);
+  RECORD searchoptions := CELL
+      [ options.first
+      , options.count
+      , summary := options.summary_length
+      , options.highlightfields
+      , lang := options.language ?? GetTidLanguage()
+      , restrict_to := options.restrict_url
+      , options.exclude_urls
+      , session
+      , options.debug
+      , options.explain
+      , options.totaltotrack
+      ];
+  IF (RecordExists(options.mapping))
+    INSERT CELL mapping := options.mapping INTO searchoptions;
+  ELSE
+    INSERT CELL mapping := indexoptions.defaultmapping INTO searchoptions;
+  IF (options.scorefield != "")
+    INSERT CELL _score := options.scorefield INTO searchoptions.mapping;
+
+  IF (CellExists(query, "aggregation"))
+    INSERT CELL aggregation_mapping := options.aggregation_mapping INTO searchoptions;
+
+  IF (options.refresh)
+    catalog->Refresh();
+
+  RECORD result := SearchIndexManager(catalog->id, query, searchoptions, __GetIndexManagerOptions(catalog->id));
+  IF (result.status != SearchOk) //though actually all SearchIndexManager non-ok paths should be capable of throwing (no-attached-indices might not yet?)
+    THROW NEW Exception("Search error: " || result.status);
+  DELETE CELL status, session FROM result;
+
+  IF(CellExists(result,'results'))
   {
     //Translate results to the requested format
     //(should probablyhave returned proper results in the first place, but wait until we're ready to deprecate older apis)
     //cant fix it using the mapping, as it's unset before __searchquery
     IF(options.summaryfield = "")
     {
-      results.results := SELECT *, DELETE _summary, DELETE summary FROM results.results;
+      result.results := SELECT *, DELETE _summary, DELETE summary FROM result.results;
     }
     ELSE
     {
-      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _summary, DELETE summary], options.summaryfield, options.summary_length != 0 ? result._summary : "")
-                             FROM results.results AS result;
+      result.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _summary, DELETE summary], options.summaryfield, options.summary_length != 0 ? result._summary : "")
+                             FROM result.results AS result;
     }
 
     IF(options.scorefield = "")
     {
-      results.results := SELECT *, DELETE _score FROM results.results;
-    }
-    ELSE IF(ToUppercase(options.scorefield) != "_SCORE")
-    {
-      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _score], options.scorefield, result._score)
-                              FROM results.results AS result;
+      result.results := SELECT *, DELETE _score FROM result.results;
     }
 
     IF(Length(options.highlightfields) != 0)
-      results.results := Highlight(results.results, options.highlightfields, options.highlightclass);
+      result.results := Highlight(result.results, options.highlightfields, options.highlightclass);
   }
 
-  INSERT CELL eventmasks := [ "consilio:index." || search_obj->catalogid ] INTO results;
-  RETURN results;
+  INSERT CELL eventmasks := [ "consilio:index." || catalog->id ] INTO result;
+  RETURN result;
 }
 
 /** Get completion suggestions for a text
@@ -738,16 +787,27 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioSuggestions(STRING indextag, STRING sear
                              , exclude_urls := STRING[]
                              , debug := FALSE
                              ], options);
-  indextag := ValidateIndexTag(indextag);
 
-  OBJECT suggest_obj := OpenSuggestObject(indextag);
-  suggest_obj->restrict_url := options.restrict_url;
-  suggest_obj->exclude_urls := options.exclude_urls;
-  suggest_obj->debug := options.debug;
+  // No results if query is empty and no prefix is given
+  IF (searchtext = "")
+    RETURN DEFAULT RECORD ARRAY;
+
+  OBJECT catalog := OpenConsilioCatalog(indextag);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot open catalog '${indextag}'`);
+
+  // Get search results
+  RECORD result := SuggestIndexManager(catalog->id, searchtext, CELL
+      [ options.count
+      , restrict_to := options.restrict_url
+      , exclude_urls := options.exclude_urls
+      , options.debug
+      ]);
+  IF (result.status != SearchOk)
+    THROW NEW Exception("Suggest error: " || result.status);
 
   // Return all terms starting with "bla"
   RETURN SELECT num := suggestions.count //rename, 'count' is an annoying column to select, it clashes with the global AND count(*)
               , text
-           FROM suggest_obj->GetSuggestions(searchtext, options.count) AS suggestions;
+           FROM result.suggestions;
 }
-

@@ -253,7 +253,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , mapping := indexoptions.defaultmapping
       , aggregation_mapping := DEFAULT RECORD
       , session := DEFAULT RECORD
-      , addscore := FALSE
       , debug := FALSE
       , explain := FALSE
       , totaltotrack := default_track_total_hits
@@ -261,8 +260,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
-  IF(options.addscore)
-    options.mapping := CELL[...options.mapping, _score := 0f ];
   IF(options.explain)
     options.mapping := CELL[...options.mapping, _explanation := DEFAULT RECORD ];
 

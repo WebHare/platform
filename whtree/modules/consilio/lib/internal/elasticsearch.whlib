@@ -1093,7 +1093,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD 
     RECORD internalfields;
 
     IF(CellExists(mapping, '_score'))
-      INSERT CELL _score := hit._score INTO internalfields;
+      internalfields := CellInsert(internalfields, mapping._score, hit._score);
 
     IF(CellExists(mapping, '_summary'))
     {
