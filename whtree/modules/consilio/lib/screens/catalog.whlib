@@ -430,41 +430,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     IF(RecordExists(this->laststatus))
       lasterrors := this->laststatus.lasterrors;
 
-    IF (this->tolliumuser->HasRight("system:sysop"))
-    {
-      RECORD ARRAY globalerrors := SELECT FROM lasterrors WHERE contentsourceid = 0;
-      IF (LENGTH(globalerrors) != 0)
-      {
-        RECORD errorrec := GetErrorIconAndHint(TRUE);
-
-        INSERT CELL[...baserow
-            , id :=               0
-            , rowkey :=           "global"
-            , title :=             ""
-            , icon :=             ^catalogs->GetIcon("tollium:filemgr/mydocuments")
-            , tag :=              GetTid("consilio:catalog.publisher")
-            , size :=             ""
-            , status :=           0
-            , previewable :=      FALSE
-            , editable :=         FALSE
-            , manageable :=       FALSE
-            , inactive :=         FALSE
-            , readonly :=         TRUE
-            , style :=            "readonly"
-            , statushint :=       ""
-            , error :=            ^catalogs->GetIcon(errorrec.icon)
-            , errorhint :=        errorrec.hint
-            , haserrors :=        TRUE
-            , expanded :=         FALSE
-            , parent :=           0
-            , contentsource :=    FALSE
-            , hascontents :=      FALSE
-            , contentsourceid :=  0
-            , definedby :=        ""
-            ] INTO rows AT END;
-      }
-    }
-
     BOOLEAN access_all := this->tolliumuser->HasRightOn("consilio:read", 0);
     RECORD ARRAY accessible_indices := SELECT *
                                          FROM ListConsilioCatalogs()
