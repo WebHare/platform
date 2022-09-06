@@ -210,7 +210,7 @@ actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xm
 
 //Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
 OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
-OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE ] );
+OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE, title := "Various formdefinition testforms" ] );
 prebuilttype->SetInstanceData(formtest->id, [ prebuilttag := "formtest" ]);
 
 OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
@@ -261,6 +261,7 @@ testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www
 testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
 testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
 testpages->CreateFile( [ name := "unknownfile", type := 0, publish := TRUE, data := StringToBlob("\x00\x01\x02\x03") ]);
+testpages->CreateFile( [ name := "search", typens := "http://www.webhare.net/xmlns/consilio/searchpage", title := "Search", publish := TRUE ]);
 
 OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
 testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);

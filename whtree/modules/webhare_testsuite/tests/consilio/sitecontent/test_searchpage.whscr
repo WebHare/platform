@@ -1,0 +1,45 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+RECORD ARRAY FUNCTION ParseSearchResults()
+{
+  RETURN SELECT TEMPORARY titlenode := node->QuerySelector(".wh-searchpage__resulttitle")
+              , TEMPORARY summarynode := node->QuerySelector(".wh-searchpage__resultsummary")
+              , TEMPORARY linknode := node->QuerySelector(".wh-searchpage__resultlink")
+              , title := titlenode->textcontent
+              , summary := ObjectExists(summarynode) ? summarynode->textcontent : ""
+              , link := linknode->textcontent
+           FROM ToRecordArray(testfw->browser->QSA(".wh-searchpage__result"), "node");
+}
+
+MACRO TestSearchPage()
+{
+  //Test and submit a query
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search/"));
+
+  //verify structure ... wh-searchpage at documentElenent (for global style overrides) and .whsearchpage__root at the start
+  TEstEq(TRUE, ObjectExists(testfw->browser->QS("html.wh-searchpage")));
+  TEstEq(FALSE, ObjectExists(testfw->browser->QS("body .wh-searchpage")));
+  TEstEq(TRUE, ObjectExists(testfw->browser->QS("body .wh-searchpage__root")));
+
+  testfw->browser->QS(".wh-searchpage__searchform [name=q]")->SetAttribute("value", "form");
+  TestEq(TRUE, testfw->browser->SubmitForm(testfw->browser->QS("form.wh-searchpage__searchform")));
+
+  //Check the results
+  TestEqLike("* results for 'form'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+
+  RECORD ARRAY results := ParseSearchResults();
+
+  TestEq(TRUE, Length(results) > 0);
+  RECORD formtest_hit := SELECT * FROM results WHERE link LIKE "*/TestPages/formtest/";
+  TestEq(TRUE, RecordExists(formtest_hit));
+  TestEq("Various formdefinition testforms", formtest_hit.title);
+
+  //Test dealing with 0 results
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search/?q=simsalabimhoeplastaart"));
+  TestEqLike("No results for 'simsalabimhoeplastaart'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+}
+
+RunTestframework([ PTR TestSearchPage ]);
