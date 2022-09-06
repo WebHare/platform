@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+
+ASYNC MACRO TestDashboardApp()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:profiles"));
+  TestEq("Live profiling (apr)", TT("session")->selection.title);
+
+  STRING testpage := GetPrimaryWebhareInterfaceURL() || "?wh-debug=apr";
+  TestEq(TRUE, testfw->browser->GotoWebPage(testpage));
+
+  WHILE(NOT RecordExists(SELECT FROM TT("profileslist")->rows WHERE command LIKE `GET *wh-debug=apr*`))
+    AWAIT CreateSleepPromise(100);
+
+  //we've seen the profile appear, so the app isn't TOTALLY broken :-)
+
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+RunTestframework([ PTR TestDashboardApp
+                 ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
