@@ -1,0 +1,13 @@
+[component searchresult]
+  <li class="wh-searchpage__result customresult">
+    <a href="[link]">
+      <div class="wh-searchpage__resulttitle">[title]</div>
+      [if summary]
+        <div class="wh-searchpage__resultsummary">[summary]</div>
+      [/if]
+      <div class="wh-searchpage__resultlink">[link]</div>
+    </a>
+    [if filetype]<div class="filetype">filetype: [filetype]</div>[/if]
+    [if myfield1]<div class="myfield1">myfield1: [myfield1]</div>[/if]
+  </li>
+[/component]

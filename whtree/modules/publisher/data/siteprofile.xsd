@@ -894,6 +894,9 @@
       <!-- widget config -->
       <xs:element name="videowidget" type="VideoWidget" />
 
+      <!-- consilio plugins -->
+      <xs:element ref="searchpage" />
+
       <!-- former 'socialite' plugins -->
       <xs:element name="gtm" type="GTMPlugin" />
       <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
@@ -1976,5 +1979,18 @@
       <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
     </xs:restriction>
   </xs:simpleType>
+
+  <xs:element name="searchpage">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Configure the behavior of the Consilio site content search</xs:documentation>
+      </xs:annotation>
+      <xs:attribute name="witty">
+        <xs:annotation>
+          <xs:documentation>Path to witty with search page/results component overrides</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
 
 </xs:schema>

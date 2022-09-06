@@ -8,6 +8,9 @@ RECORD ARRAY FUNCTION ParseSearchResults()
   RETURN SELECT TEMPORARY titlenode := node->QuerySelector(".wh-searchpage__resulttitle")
               , TEMPORARY summarynode := node->QuerySelector(".wh-searchpage__resultsummary")
               , TEMPORARY linknode := node->QuerySelector(".wh-searchpage__resultlink")
+              , filetypenode := node->QuerySelector(".filetype")
+              , myfield1node := node->QuerySelector(".myfield1")
+              , node
               , title := titlenode->textcontent
               , summary := ObjectExists(summarynode) ? summarynode->textcontent : ""
               , link := linknode->textcontent
@@ -40,6 +43,31 @@ MACRO TestSearchPage()
   //Test dealing with 0 results
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search/?q=simsalabimhoeplastaart"));
   TestEqLike("No results for 'simsalabimhoeplastaart'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search-customized/?q=search"));
+  TestEqLike("* results for 'search'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+
+  results := ParseSearchResults();
+  RECORD searchcustomized_hit := SELECT * FROM results WHERE link LIKE "*/TestPages/search-customized/";
+  TestEq(TRUE, RecordExists(searchcustomized_hit));
+  TestEq("Search - customized", searchcustomized_hit.title);
+  TEstEq("wh-searchpage__result customresult", results[0].node->GetAttribute("class"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search-customized/?q=pagelistfile+main"));
+  TestEqLike("1 result for 'pagelistfile main'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+
+  results := ParseSearchResults();
+  TestEq(1, Length(results));
+  TestEq("filetype: html", results[0].filetypenode->textcontent);
+  TestEq(FALSE, ObjectExists(results[0].myfield1node));
+
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/search-customized/?q=pagelistfile+sub7"));
+  TestEqLike("1 result for 'pagelistfile sub7'", testfw->browser->QS(".wh-searchpage__feedback")->textcontent);
+  results := ParseSearchResults();
+  TestEq(1, Length(results));
+  TestEq("filetype: html", results[0].filetypenode->textcontent);
+  TestEq("myfield1: Seven", results[0].myfield1node->textcontent);
 }
 
 RunTestframework([ PTR TestSearchPage ]);

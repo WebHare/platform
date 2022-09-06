@@ -504,6 +504,12 @@
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" />
   </apply>
 
+  <!-- consilio testsearchpage -->
+  <apply>
+    <to type="all" pathmask="/testpages/search-customized" />
+    <searchpage witty="witty/basetest-searchpage.witty" />
+  </apply>
+
   <apply>
     <to type="all" pathmask="*override-widget-search*" />
     <setwidget contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"

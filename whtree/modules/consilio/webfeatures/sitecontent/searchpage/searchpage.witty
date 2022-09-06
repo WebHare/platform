@@ -1,41 +1,53 @@
 [component searchpage]
   <div class="wh-searchpage__root">
-    <div class="wh-searchpage__header">
-      <form class="wh-searchpage__searchform" role="search" method="get" action="[searchurl]" autocomplete="off"> [! role=search is okay: https://github.com/w3c/html-aria/issues/18 !]
-        <label class="wh-searchpage__searchlabel" for="wh-searchpage__query">
-          [gettid frontend.sitecontent.searchpage.searchlabel]
-        </label>
-        <input class="wh-searchpage__query" id="wh-searchpage__query" name="q" type="search" autocomplete="off" value="[querytext]" required>
-        <button class="wh-searchpage__searchbutton" type="submit">
-          <span class="wh-searchpage__searchbuttontitle">[gettid frontend.sitecontent.searchpage.searchbutton]</span>
-        </button>
-      </form>
-    </div>
+    [searchheader]
 
     [if querytext] [! a search was done !]
-      <div class="wh-searchpage__results">
-        <p class="wh-searchpage__feedback">
-          [if totalcount]
-            [gettid frontend.sitecontent.searchpage.numresults totalcount querytext]
-          [else]
-            [gettid frontend.sitecontent.searchpage.noresults querytext]
-          [/if]
-        </p>
-
-        <ul class="wh-searchpage__resultlist">
-          [forevery results]
-            <li class="wh-searchpage__result">
-              <a href="[link]">
-                <div class="wh-searchpage__resulttitle">[title]</div>
-                [if summary]
-                  <div class="wh-searchpage__resultsummary">[summary]</div>
-                [/if]
-                <div class="wh-searchpage__resultlink">[link]</div>
-              </a>
-            </li>
-          [/forevery]
-        </ul>
-      </div>
+      [searchresults]
     [/if]
   </div>
+[/component]
+
+[component searchheader]
+  <div class="wh-searchpage__header">
+    <form class="wh-searchpage__searchform" role="search" method="get" action="[searchurl]" autocomplete="off"> [! role=search is okay: https://github.com/w3c/html-aria/issues/18 !]
+      <label class="wh-searchpage__searchlabel" for="wh-searchpage__query">
+        [gettid frontend.sitecontent.searchpage.searchlabel]
+      </label>
+      <input class="wh-searchpage__query" id="wh-searchpage__query" name="q" type="search" autocomplete="off" value="[querytext]" required>
+      <button class="wh-searchpage__searchbutton" type="submit">
+        <span class="wh-searchpage__searchbuttontitle">[gettid frontend.sitecontent.searchpage.searchbutton]</span>
+      </button>
+    </form>
+  </div>
+[/component]
+
+[component searchresults]
+  <div class="wh-searchpage__results">
+    <p class="wh-searchpage__feedback">
+      [if totalcount]
+        [gettid frontend.sitecontent.searchpage.numresults totalcount querytext]
+      [else]
+        [gettid frontend.sitecontent.searchpage.noresults querytext]
+      [/if]
+    </p>
+
+    <ul class="wh-searchpage__resultlist">
+      [forevery results]
+        [searchresult]
+      [/forevery]
+    </ul>
+  </div>
+[/component]
+
+[component searchresult]
+  <li class="wh-searchpage__result">
+    <a href="[link]">
+      <div class="wh-searchpage__resulttitle">[title]</div>
+      [if summary]
+        <div class="wh-searchpage__resultsummary">[summary]</div>
+      [/if]
+      <div class="wh-searchpage__resultlink">[link]</div>
+    </a>
+  </li>
 [/component]

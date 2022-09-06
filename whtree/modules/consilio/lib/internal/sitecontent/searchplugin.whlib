@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC OBJECTTYPE SearchPagePlugin EXTEND WebDesignPluginBase
+<
+  PUBLIC STRING witty;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ witty := siteprofile->ParseFSPath(node, "witty")
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration)
+  {
+    this->witty := mergedconfiguration.witty;
+  }
+>;
