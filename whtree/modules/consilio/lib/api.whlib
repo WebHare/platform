@@ -396,8 +396,8 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
 }
 
 /** @short Add a raw OpenSearch query
-    @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ]]]`
-    @return Consilio wrapped raw Opensearc query record
+    @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ] ]`
+    @return Consilio wrapped raw Opensearch query record
 */
 PUBLIC RECORD FUNCTION CQOpenSearch(RECORD query)
 {
@@ -538,7 +538,7 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         prevent summary generation, defaults to -1)
     @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields`
     @cell(string array) options.highlightfields The fields in which found query words should be highlighted
-    @cell(string) options.summaryfield The name of the field to return the summary in (set to emtpy string to not return the
+    @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
         scores, defaults to `""`)

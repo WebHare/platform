@@ -403,7 +403,7 @@ INTEGER64 FUNCTION ReadWatermark(STRING input, INTEGER64 total_bytes)
 PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 {
   readable_bytes := ToLowercase(readable_bytes);
-  INTEGER factor := 1;
+  INTEGER64 factor := 1;
   IF (readable_bytes LIKE "*kb")
     factor := 1024;
   ELSE IF (readable_bytes LIKE "*mb")

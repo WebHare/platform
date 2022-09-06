@@ -2,7 +2,6 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
@@ -748,6 +747,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
   RETURN result;
 }
 
+/// @return Size, or -1 when no indexmanager configured, or -2 when index not found on indexmanager
 PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -768,17 +768,16 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
     RETURN size;
 
   STRING suffix := indexmanager.indextype = 1 ? "*" : "";
-  RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD);
-  IF (response.status = SearchOk)
+  TRY
   {
-    // 0     1         2
-    // epoch timestamp count
-    RECORD ARRAY indexlist :=
-        SELECT TEMPORARY parts := Tokenize(indexrow, " ")
-             , indexsize := Length(parts) > 2 ? ToInteger(parts[2], -1) : -1
-          FROM ToRecordArray(Tokenize(BlobToString(response.content), "\n"), "indexrow");
-
-    size := SELECT AS INTEGER indexsize FROM indexlist;
+    RECORD count := EnforceStructure([ [ count := 0 ] ], SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_cat/count/" || indexmanager.indexname || suffix || "?format=json", DEFAULT RECORD).result);
+    size := count.count;
+  }
+  CATCH (OBJECT e)
+  {
+    IF(NOT RecordExists(e->error) OR e->error.type != "index_not_found_exception")
+      THROW;
+    size := -2;
   }
 
   RETURN size;
