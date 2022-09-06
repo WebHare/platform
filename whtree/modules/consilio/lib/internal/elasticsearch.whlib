@@ -1083,9 +1083,11 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
 }
 
-PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping)
+PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping, RECORD options)
 {
   RECORD sourcemapping := CELL[...mapping, DELETE _score, DELETE _summary, DELETE _explanation, DELETE _suggested ];
+  options := ValidateOptions([ highlightfields := STRING[], highlightparts := STRING[] ], options, [ passthrough := TRUE ]);
+
   RECORD ARRAY results;
   FOREVERY (RECORD hit FROM hits)
   {
@@ -1097,12 +1099,12 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD 
 
     IF(CellExists(mapping, '_summary'))
     {
-      IF(CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
-        INSERT CELL _summary := hit.highlight.body[0] INTO internalfields;
-      ELSE IF(CellExists(hit._source,"_summary"))
-        INSERT CELL _summary := hit._source._summary INTO internalfields;
-      ELSE
-        INSERT CELL _summary := "" INTO internalfields;
+      STRING ARRAY summaries;
+      IF (CellExists(hit, "highlight"))
+        FOREVERY (STRING field FROM options.highlightparts)
+          IF (CellExists(hit.highlight, field))
+            summaries := summaries CONCAT GetCell(hit.highlight, field);
+      internalfields := CellInsert(internalfields, mapping._summary, Detokenize(summaries, " "));
     }
 
     IF(CellExists(mapping, '_explanation'))

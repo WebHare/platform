@@ -247,6 +247,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , count := 0
       , summary := 200
       , highlightfields := STRING[]
+      , highlightparts := [ "body" ]
       , lang := ""
       , restrict_to := ""
       , exclude_urls := STRING[]
@@ -264,7 +265,13 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     options.mapping := CELL[...options.mapping, _explanation := DEFAULT RECORD ];
 
   IF (options.summary != 0 AND NOT CellExists(options.mapping, "_SUMMARY"))
-    INSERT CELL _summary := "" INTO options.mapping;
+    INSERT CELL _summary := "summary" INTO options.mapping;
+  ELSE IF (CellExists(options.mapping, "_summary") AND options.mapping._summary = "") // Summary generation explicitly switched off
+  {
+    IF (Length(options.highlightparts) = 0)
+      options.summary := 0;
+    DELETE CELL _summary FROM options.mapping;
+  }
 
   RECORD result :=
       [ status := SearchIndexNotFound
@@ -333,17 +340,19 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
           , pre_tags := [ Length(options.highlightfields) > 0 ? "\x1d" : "" ]
           , post_tags := [ Length(options.highlightfields) > 0 ? "\x1c" : "" ]
           ] INTO searchquery;
-      // The body is used for summary generation with the given length (with number_of_fragments set to 1)
-      IF (options.summary != 0 OR "body" IN options.highlightfields)
-        INSERT [ body :=
-                   [ number_of_fragments := 1
-                   , fragment_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                   , no_match_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                   ]
-               ] INTO searchquery.highlight.fields AT END;
+      // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
+      IF (options.summary != 0 OR ArraysIntersect(options.highlightfields, options.highlightparts))
+      {
+        FOREVERY (STRING field FROM ArrayIntersection(options.highlightfields, options.highlightparts) ?? options.highlightparts)
+          INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 1
+                                                   , fragment_size := options.summary < 0 ? defaultoptions.summary : options.summary
+                                                   , no_match_size := options.summary < 0 ? defaultoptions.summary : options.summary
+                                                   ])
+            INTO searchquery.highlight.fields AT END;
+      }
       // The other highlight fields are returned completely (number_of_fragments set to 0)
-      FOREVERY (STRING field FROM options.highlightfields)
-        IF (field != "body")
+      FOREVERY (STRING field FROM ArrayDelete(options.highlightfields, options.highlightparts))
+        IF (field NOT IN options.highlightparts)
           INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
     }
     IF (options.restrict_to != defaultoptions.restrict_to)
@@ -460,7 +469,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
           // An array with length 0 is returned as VARIANT ARRAY
           IF (Length(response.result.hits.hits) > 0)
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
         }
       }
     }
@@ -588,7 +597,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             IF (scrolling)
               scrollid := response.result._scroll_id;
 
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
           }
           ELSE
           {

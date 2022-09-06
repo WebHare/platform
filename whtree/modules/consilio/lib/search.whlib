@@ -250,11 +250,11 @@ STATIC OBJECTTYPE SearchObject
 
     RECORD parsed_query := CQParseUserQuery(query, [ querymode := this->and_search ? "AND" : "OR" ]);
 
-    // If 'summary' is requested, request '_summary' instead
+    // If 'summary' is requested, request it through '_summary'
     BOOLEAN want_summary := CellExists(this->empty_result_record, "summary") AND NOT CellExists(this->empty_result_record, "_summary");
     IF (want_summary)
     {
-      INSERT CELL _summary := this->empty_result_record.summary INTO this->empty_result_record;
+      INSERT CELL _summary := "summary" INTO this->empty_result_record;
       DELETE CELL summary FROM this->empty_result_record;
     }
     ELSE
@@ -269,19 +269,11 @@ STATIC OBJECTTYPE SearchObject
 
     RECORD result := this->SearchQuery(parsed_query, first, count);
 
-    // If 'summary' was requested, rename '_summary' in results
-    IF (want_summary AND RecordExists(SELECT FROM result.results WHERE CellExists(results, "_summary")))
+    // If 'summary' was requested, reset the summary mapping
+    IF (want_summary AND RecordExists(this->empty_result_record))
     {
-      result.results :=
-          SELECT *
-               , summary := _summary
-               , DELETE _summary
-            FROM result.results;
-      IF (RecordExists(this->empty_result_record))
-      {
-        INSERT CELL summary := this->empty_result_record._summary INTO this->empty_result_record;
-        DELETE CELL _summary FROM this->empty_result_record;
-      }
+      INSERT CELL summary := "" INTO this->empty_result_record;
+      DELETE CELL _summary FROM this->empty_result_record;
     }
     // If 'score' was requested, reset the score mapping
     IF (want_score AND RecordExists(this->empty_result_record))

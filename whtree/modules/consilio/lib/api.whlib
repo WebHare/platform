@@ -577,6 +577,8 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
         prevent summary generation, defaults to -1)
     @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields`
     @cell(string array) options.highlightfields The fields in which found query words should be highlighted
+    @cell(string array) options.highlightparts The fields from which only a relevant highlighted part (with max length
+        `"summary_length"`) will be returned, defaults to `[ "body" ]`
     @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
@@ -627,6 +629,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , summary_length := -1
       , highlightclass := "consilio--highlight"
       , highlightfields := STRING[]
+      , highlightparts := [ "body" ]
       , summaryfield := "summary"
       , scorefield := ""
       , mapping := DEFAULT RECORD
@@ -715,6 +718,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , options.count
       , summary := options.summary_length
       , options.highlightfields
+      , options.highlightparts
       , lang := options.language ?? GetTidLanguage()
       , restrict_to := options.restrict_url
       , options.exclude_urls
@@ -729,6 +733,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     INSERT CELL mapping := indexoptions.defaultmapping INTO searchoptions;
   IF (options.scorefield != "")
     INSERT CELL _score := options.scorefield INTO searchoptions.mapping;
+  INSERT CELL _summary := options.summaryfield INTO searchoptions.mapping;
 
   IF (CellExists(query, "aggregation"))
     INSERT CELL aggregation_mapping := options.aggregation_mapping INTO searchoptions;
@@ -747,19 +752,10 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     //(should probablyhave returned proper results in the first place, but wait until we're ready to deprecate older apis)
     //cant fix it using the mapping, as it's unset before __searchquery
     IF(options.summaryfield = "")
-    {
-      result.results := SELECT *, DELETE _summary, DELETE summary FROM result.results;
-    }
-    ELSE
-    {
-      result.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _summary, DELETE summary], options.summaryfield, options.summary_length != 0 ? result._summary : "")
-                             FROM result.results AS result;
-    }
+      result.results := SELECT *, DELETE _summary FROM result.results;
 
     IF(options.scorefield = "")
-    {
       result.results := SELECT *, DELETE _score FROM result.results;
-    }
 
     IF(Length(options.highlightfields) != 0)
       result.results := Highlight(result.results, options.highlightfields, options.highlightclass);

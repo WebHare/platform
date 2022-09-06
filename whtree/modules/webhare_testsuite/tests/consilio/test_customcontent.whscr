@@ -191,7 +191,7 @@ MACRO TestCustomContent()
 
   // Test result fields
   // By default all known fields are returned
-  // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
+  // Also, if summary_length > 0 (which it is by default), a "summary" is returned
   res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEq(
       [ groupid := idprefix||"a"
