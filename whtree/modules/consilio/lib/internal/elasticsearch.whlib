@@ -1132,7 +1132,8 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
     IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(outputfield)))
     {
       VARIANT value := GetTypeDefaultArray(TypeID(outputfield));
-      INSERT field.value INTO value AT END;
+      IF (NOT IsDefaultValue(field.value))
+        INSERT field.value INTO value AT END;
       outputfield := value;
     }
 
@@ -1159,7 +1160,13 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
 
   FOREVERY(RECORD field FROM unpackedmapping)
     IF(SearchSubstring(field.name,'*') = -1 AND field.name NOT IN seenfields)
-      outputline := CellInsert(outputline, field.name, field.value); //insert fallback value to complete the output mapping
+    {
+      //insert fallback value to complete the output mapping
+      IF (IsTypeIDArray(TypeID(field.value)))
+        outputline := CellInsert(outputline, field.name, GetTypeDefaultValue(TypeID(field.value)));
+      ELSE
+        outputline := CellInsert(outputline, field.name, field.value);
+    }
 
   RETURN outputline;
 }
