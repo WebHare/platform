@@ -32,22 +32,24 @@
       [/if]
     </p>
 
-    <ul class="wh-searchpage__resultlist">
+    <ol class="wh-searchpage__resultlist">
       [forevery results]
         [searchresult]
       [/forevery]
-    </ul>
+    </ol>
   </div>
 [/component]
 
 [component searchresult]
   <li class="wh-searchpage__result">
-    <a href="[link]">
-      <div class="wh-searchpage__resulttitle">[title]</div>
+    <article>
+      <h2 class="wh-searchpage__resulttitle"><a href="[link]">[title]</a></h2>
       [if summary]
         <div class="wh-searchpage__resultsummary">[summary]</div>
       [/if]
-      <div class="wh-searchpage__resultlink">[link]</div>
-    </a>
+      <div class="wh-searchpage__resultlink" aria-hidden="true">  [! hide the link for screenreaders, it's already behind the title too so consider it decoration and it doesn't add much to read it aloud !]
+        <a href="[link]">[link]</a>
+      </div>
+    </article>
   </li>
 [/component]
