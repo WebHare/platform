@@ -295,7 +295,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     // Make sure at least objectid and groupid are returned, if this is not an aggregation query or unmanaged index
     IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
-    STRING ARRAY requested_fields := GetRequestedFields(mapping);
+    RECORD searchquery := CreateElasticsearchQuery(query, mapping, indexoptions);
 
     //FIXME Get rid of the broadcasts, just use the logging system ?
     RECORD searchstart := CELL[ event := "searchstart"
@@ -308,18 +308,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                               , options.lang
                               , sess := RecordExists(options.session) ? options.session.sessid : ""
                               , options.highlightfields
-                              , fields := requested_fields
+                              , fields := searchquery._source
                               , uuid := queryuuid
                               , now := querystart
                               , catalog
                               ];
 
-    RECORD searchquery := CreateElasticsearchQuery(query, indexoptions);
     IF (options.explain)
       INSERT CELL explain := TRUE INTO searchquery;
-
-    INSERT CELL _source := requested_fields INTO searchquery;
-
     IF (options.totaltotrack != defaultoptions.totaltotrack)
     {
       IF (options.totaltotrack > 0)
@@ -383,7 +379,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                  , summary_length := options.summary
                                                  , sess := RecordExists(options.session) ? options.session.sessid : ""
                                                  , options.highlightfields
-                                                 , fields := requested_fields
+                                                 , fields := searchquery._source
                                                  , now := querystart
                                                  , catalog
                                                  ]);
@@ -467,7 +463,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
           // An array with length 0 is returned as VARIANT ARRAY
           IF (Length(response.result.hits.hits) > 0)
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping);
         }
       }
     }
@@ -530,15 +526,10 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
     // Make sure at least objectid and groupid are returned, if this is not an unmanaged index
     IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
-    STRING ARRAY requested_fields := GetRequestedFields(mapping);
-
-    RECORD searchquery := CreateElasticsearchQuery(query, DEFAULT RECORD);
-
-    INSERT CELL _source := requested_fields INTO searchquery;
+    RECORD searchquery := CreateElasticsearchQuery(query, mapping, DEFAULT RECORD);
 
     // Optimization when scoring isn't relevant - https://opensearch.org/docs/latest/opensearch/ux/#sort-results
     INSERT CELL sort := [ "_doc" ] INTO searchquery;
-
     IF (options.first != defaultoptions.first)
       INSERT CELL "from" := options.first INTO searchquery;
     IF (options.totaltotrack != defaultoptions.totaltotrack)
@@ -600,7 +591,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             IF (scrolling)
               scrollid := response.result._scroll_id;
 
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping);
           }
           ELSE
           {
@@ -1373,19 +1364,4 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (options.excludereadonly ? catalog_indexmanagers.readonly = FALSE : TRUE)
     ORDER BY catalog_indexmanagers.searchpriority DESC;
-}
-
-// Create a (flattened) list of requested fields
-PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
-{
-  STRING ARRAY fields;
-  FOREVERY (RECORD field FROM UnpackRecord(mapping))
-  {
-    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
-      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
-        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
-    ELSE
-      INSERT ToLowercase(field.name) INTO fields AT END;
-  }
-  RETURN fields;
 }
