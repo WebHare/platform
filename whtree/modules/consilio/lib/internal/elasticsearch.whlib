@@ -654,24 +654,32 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
     }
     CASE "term"
     {
+      RECORD fieldmapping;
       IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
       {
-        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+        fieldmapping := LookupFieldInMapping(indexoptions.expectedmapping, query.field);
       }
 
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
         term := __HS_GetRawMoney(term);
-      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
-      result.query :=
-          [ bool :=
-              [ should :=
-                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
-                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
-                  ]
-              ]
-          ];
+      IF (RecordExists(fieldmapping) AND fieldmapping.type = "keyword")
+      {
+        result.query := [ term := CellInsert(DEFAULT RECORD, query.field, term) ];
+      }
+      ELSE
+      {
+        // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+        result.query :=
+            [ bool :=
+                [ should :=
+                    [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
+                    , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
+                    ]
+                ]
+            ];
+      }
     }
     CASE "match"
     {
@@ -701,24 +709,32 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
     }
     CASE "literal"
     {
+      RECORD fieldmapping;
       IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
       {
-        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+        fieldmapping := LookupFieldInMapping(indexoptions.expectedmapping, query.field);
       }
 
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
         term := __HS_GetRawMoney(term);
-      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
-      result.query :=
-          [ bool :=
-              [ should :=
-                  [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
-                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
-                  ]
-              ]
-          ];
+      IF (RecordExists(fieldmapping) AND fieldmapping.type = "keyword")
+      {
+        result.query := [ term := CellInsert(DEFAULT RECORD, query.field, term) ];
+      }
+      ELSE
+      {
+        // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+        result.query :=
+            [ bool :=
+                [ should :=
+                    [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
+                    , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
+                    ]
+                ]
+            ];
+      }
     }
     CASE "phrase"
     {
