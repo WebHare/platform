@@ -4,7 +4,6 @@
     <link rel="shortcut icon" href="favicon.ico" />
     <title>[forevery mask][if first][else],[/if][mask][/forevery] (JSTests)</title>
     [printheaders]
-    <script src="testdata.shtml?type=js"></script>
     [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
   </head>
   <body data-testslist="[testlisturl]"
@@ -45,7 +44,6 @@
     <script type="application/json" id="wh-config">[whconfig:json]</script>
     [printheaders]
     [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
-    [if harescripttestdata]<script src="/.webhare_testsuite/jstests/testdata.shtml"></script>[/if]
   </head>
   <body>
   </body>
