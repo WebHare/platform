@@ -80,6 +80,12 @@ getwhparameters()
     export RECORDSTORAGEPATH=
     export INDEXSTORAGEPATH=
   fi
+
+  if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
+    WEBHARE_ISRESTORED="$(cat "$WEBHARE_DATAROOT/webhare.restoremode")"
+    [ -n "$WEBHARE_ISRESTORED" ] || WEBHARE_ISRESTORED="1" #'1' marks us as restored without further info
+    export WEBHARE_ISRESTORED
+  fi
 }
 
 getmoduledir_nofail()
