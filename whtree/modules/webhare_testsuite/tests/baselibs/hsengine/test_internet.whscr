@@ -1,6 +1,7 @@
 ﻿<?wh
 /// @short Internet functions test
 
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testdata.whlib";
@@ -731,6 +732,7 @@ MACRO SocketUDPTest()
   IF (tries >= 5)
     ABORT("UDP: Did not receive any response");
 
+  CloseSocket(left_udp_socket);
   CloseSocket(right_udp_socket);
   CloseTest("TestInternet: Socket UDP test");
 }
@@ -978,6 +980,7 @@ MACRO TestWebBrowser()
   browser->__checkconnectipport := DEFAULT FUNCTION PTR;
 
   job->Close();
+  browser->Close();
 }
 
 BOOLEAN FUNCTION CheckIPPort(STRING response, STRING url, STRING ip, INTEGER port)
@@ -1117,6 +1120,40 @@ MACRO TestAsyncWebBrowser()
      browser->responseheaders);
 
   TestEQ(requestbody, BlobToString(browser->content));
+  link->Close();
+  acceptsocket->Close();
+}
+
+ASYNC MACRO WebBrowserLeakTest()
+{
+  RECORD ARRAY pre_handles := __HS_INTERNAL_ListHandles().items;
+
+  OBJECT server := CreateSocket("TCP");
+  TestEQ(TRUE, server->Bind("", 0));
+  TestEQ(TRUE, server->Listen());
+  server->Listen();
+
+  STRING url := "http://0.0.0.0:" || server->localport;
+
+  OBJECT b := NEW WebBrowser;
+  OBJECT p := b->AsyncGotoWebPage(url);
+
+  AWAIT server->AsyncWaitRead(MAX_DATETIME);
+
+  // First read fails, webbrowser will retry. This used to leak the connection socket
+  OBJECT incoming1 := server->Accept();
+  incoming1->Close();
+
+  AWAIT server->AsyncWaitRead(MAX_DATETIME);
+  OBJECT incoming2 := server->Accept();
+  incoming2->Close();
+  server->Close();
+
+  AWAIT p;
+  b->Close();
+
+  RECORD ARRAY post_handles := __HS_INTERNAL_ListHandles().items;
+  TestEQ(pre_handles, post_handles, "Handles have leaked!");
 }
 
 MACRO TestAsyncReadFromPartialReads()
@@ -1311,6 +1348,10 @@ MACRO SocketMarshallingTest()
   socket->Close();
   socket2->Close();
   socket3->Close();
+
+  linka->Close();
+  linkb->Close();
+  port->Close();
 }
 
 
@@ -1330,6 +1371,7 @@ TestReadLine(FALSE);
 TestReadLine(TRUE);
 TestWebBrowser();
 TestAsyncWebBrowser();
+WaitForPromise(WebBrowserLeakTest());
 TestAsyncReadFromPartialReads();
 TestSSLConnections();
 SocketMarshallingTest();

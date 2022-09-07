@@ -1196,7 +1196,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         PRINT("\nRETRY AFTER DISCONNECT\n");
 
       //retry - FIXME log connection attempts just like above. just make this a nice loop
-      this->pvt_conn := 0;
+      this->CloseCurrentConnection();
       connwith := YIELD* this->PointBrowserTo(url, options, isasync);
       IF(connwith<=0)
         RETURN FALSE;
