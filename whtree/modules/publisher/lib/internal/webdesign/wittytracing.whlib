@@ -1,0 +1,68 @@
+<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+BOOLEAN enabled;
+RECORD ARRAY invokedwitties;
+
+VARIANT FUNCTION CleanupWittyData(VARIANT indata)
+{
+  IF(IsTypeIDArray(TYPEID(indata)))
+  {
+    VARIANT ARRAY vals;
+    FOREVERY(VARIANT val FROM indata)
+      INSERT CleanupWittyData(val) INTO vals AT END;
+    RETURN vals;
+  }
+  IF(TYPEID(indata) = TYPEID(RECORD) AND RecordExists(indata))
+    RETURN RepackRecord(SELECT name, value := CleanupWittyData(value) FROM UnpackRecord(indata));
+  IF(TYPEID(indata) = TYPEID(FUNCTION PTR))
+    RETURN indata != DEFAULT FUNCTION PTR ? "functionptr" : "default functionptr";
+  IF(TYPEID(indata) = TYPEID(OBJECT))
+    RETURN ObjectExists(indata) ? "object" : "default object";
+  IF(TYPEID(indata) = TYPEID(BLOB))
+    RETURN `blob (${Length(indata)} bytes)`;
+  RETURN indata;
+}
+
+MACRO OnWitty(OBJECT witty, INTEGER scriptid, STRING component, RECORD data, BOOLEAN before)
+{
+  IF(NOT IsAbsoluteResourcePath(component))
+  {
+    STRING scriptname := witty->__GetScriptNameById(scriptid);
+    component := scriptname || ":" || component;
+  }
+  IF(before)
+  {
+    INSERT CELL[ component, data := CleanupWittyData(data), stacktrace := GetStackTrace() ] INTO invokedwitties AT END;
+
+    STRING resourcename := Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":");
+    __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
+  }
+
+  IF(IsWHDebugOptionSet("win"))
+    Print(`<!-- ${before ? "START" : "END"} WITTY: ${component} -->`);
+}
+
+PUBLIC MACRO EnableWittyTracing()
+{
+  IF(enabled)
+    RETURN; //Already enabled
+
+  enabled := TRUE;
+  __AddWittyInvocationHook(PTR OnWitty);
+}
+
+PUBLIC MACRO PrintInvokedWitties()
+{
+  Print(`<script type="application/json" id="wh-rendering-summary">${EncodeJSON([ invokedwitties := invokedwitties ])}</script>`);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetInvokedWitties()
+{
+  RETURN invokedwitties;
+}

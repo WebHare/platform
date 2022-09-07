@@ -4,7 +4,6 @@
     <!-- make sure our settings appear first, to stabilize ordering -->
     <to type="all" />
     <debugsettings title="Commonly used">
-      <option tag="debugmode" title="Enable output debugmode" />
       <option tag="etr" title="Show error stacktraces" />
       <option tag="apr" title="Auto-profile dynamic pagines" />
       <option tag="tol" title="Debug Tollium and apps" />

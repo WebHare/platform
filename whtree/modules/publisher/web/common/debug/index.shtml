@@ -60,15 +60,8 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       }
     }
 
-    IF("debugmode" IN debugopts)
-    {
-      DELETE FROM debugopts AT SearchElement(debugopts,'debugmode');
-      UpdateWebCookie("__whpub_preview",'debug', [ httponly := FALSE, lifetime := 30*86400 ]);
-    }
-    ELSE
-    {
-      UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE, lifetime := 30*86400  ]);
-    }
+    //Used for the original debug mode. Clear the cookie for anyone who still has it
+    UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE ]);
 
     RECORD cookieopts := [ httponly := FALSE, lifetime := 30*86400 ];
     IF(GetRequestURL() LIKE "https:*") //ensures 'etr' can be set for cross-domain RPC calls
@@ -93,8 +86,6 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
     fromurl := UnpackURL(GetRequestURL()).origin || "/" || UnpackURL(fromurl).urlpath;
 
     STRING ARRAY currentopts := Tokenize(GetWebCookie("wh-debug"), ".");
-    IF(AreOutputToolsActive())
-      INSERT "debugmode" INTO currentopts AT END;
 
     RECORD fromfile := LookupPublisherUrl(fromurl);
     INTEGER targetobject := fromfile.file ?? fromfile.folder ?? whconstant_whfsid_repository; //1 = repository, so we at least get all global options
@@ -120,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       options := options CONCAT SELECT grouptitle, title, tag FROM plugin->HookGetDebugSettings();
 
     IF(NOT this->issupervisor) //we'll not be signing, so only offer public flags
-      DELETE FROM options WHERE tag != "debugmode" AND tag NOT IN whconstant_whdebug_publicflags;
+      DELETE FROM options WHERE tag NOT IN whconstant_whdebug_publicflags;
 
     STRING ARRAY originalgroupordering := SELECT AS STRING ARRAY grouptitle FROM options;
     RECORD ARRAY optionspergroup := SELECT title := grouptitle, options := GroupedValues(options)
@@ -134,8 +125,6 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       grp.options := SELECT rowkey := tag
                           , title
                           , selected := tag IN currentopts
-                          , allowaswebvar := tag != "debugmode"
-                          , makebold := #grp=0 AND #options=0
                        FROM grp.options;
       knownopts := knownopts CONCAT (SELECT AS STRING ARRAY rowkey FROM grp.options);
       optionspergroup[#grp] := grp;
