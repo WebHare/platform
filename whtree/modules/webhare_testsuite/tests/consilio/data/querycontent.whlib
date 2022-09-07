@@ -9,6 +9,23 @@ CONSTANT RECORD ARRAY contentdatabase :=
     , shortkeyword := "eins"
     , price := 10m
     , myrec := [ reckeyword := ["rk1","rk2" ] ]
+    , record_field := [ [ firstname := "charles montgomery", lastname := "burns" ], [ firstname := "waylon", lastname := "smithers" ] ]
+    , nested_field := [ [ firstname := "charles montgomery", lastname := "burns" ], [ firstname := "waylon", lastname := "smithers" ] ]
+    , documents :=
+        [ [ title := "Introduction document"
+          , type := "intro"
+          , pages :=
+              [ [ page := 1, content := "Lorem ipsum dolor sit amet, consectetur adipiscing elit." ]
+              ]
+          ]
+        , [ title := "Content document"
+          , type := "content"
+          , pages :=
+              [ [ page := 1, content := "Lorem ipsum dolor sit amet, consectetur adipiscing elit." ]
+              , [ page := 2, content := "Proin fringilla ipsum eu lorem dapibus maximus." ]
+              ]
+          ]
+        ]
     ]
   , [ groupid := "QC2"
     , body := "This is the second document in the content database"
@@ -16,6 +33,27 @@ CONSTANT RECORD ARRAY contentdatabase :=
     , keywordfield := "keyword number two"
     , shortkeyword := "zwei"
     , price := 20m
+    , documents :=
+        [ [ title := "One document with many lorem pages"
+          , type := "intro"
+          ]
+        , [ title := "Second document, first object"
+          , type := "content"
+          , pages :=
+              [ [ page := 1, content := "Lorem ipsum dolor sit amet, consectetur adipiscing elit." ]
+              , [ page := 2, content := "Lorem maecenas ornare sagittis quam, sed facilisis diam pulvinar nec." ]
+              , [ page := 3, content := "Lorem etiam facilisis tincidunt purus vitae faucibus." ]
+              , [ page := 4, content := "Lorem suspendisse commodo felis mi." ]
+              , [ page := 5, content := "Lorem donec viverra nisi vel felis lacinia tempor." ]
+              , [ page := 6, content := "Lorem pellentesque imperdiet pulvinar porttitor." ]
+              , [ page := 7, content := "Lorem cras nec efficitur magna, lorem sed lorem aliquet ex." ]
+                // no 'lorem'
+              , [ page := 8, content := "Sed sodales egestas varius." ]
+              , [ page := 9, content := "Lorem suspendisse fermentum elit quis nisi bibendum, in egestas ipsum aliquet." ]
+              , [ page := 10, content := "Lorem nulla facilisi." ]
+              ]
+          ]
+        ]
     ]
   , [ groupid := "QC2"
     , body := "This is the second object for the second document in the content database"
@@ -23,6 +61,53 @@ CONSTANT RECORD ARRAY contentdatabase :=
     , keywordfield := "keyword number two second"
     , shortkeyword := "zweite"
     , price := 20.5m
+    , documents :=
+        [ [ title := "Many documents with one lorem page"
+          , type := "intro"
+          ]
+        , [ title := "Second document, second object, first subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem donec quis justo mi." ] ]
+          ]
+        , [ title := "Second document, second object, second subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem donec lorem leo, aliquet id pellentesque eu, volutpat ut enim." ] ]
+          ]
+        , [ title := "Second document, second object, third subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem praesent luctus nulla arcu, nec gravida nunc pharetra pellentesque." ] ]
+          ]
+        , [ title := "Second document, second object, fourth subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem quisque porta velit in mauris pulvinar finibus." ] ]
+          ]
+        , [ title := "Second document, second object, fifth subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem mauris ac nisi vitae felis congue mattis quis ut orci." ] ]
+          ]
+        , [ title := "Second document, second object, sixth subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem praesent auctor enim mauris, sed scelerisque sem fermentum sit amet." ] ]
+          ]
+        , [ title := "Second document, second object, seventh subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem morbi a tortor porttitor, lorem porttitor libero vel, lorem laoreet diam." ] ]
+          ]
+          // no 'lorem'
+        , [ title := "Second document, second object, eighth subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "In sed congue mauris." ] ]
+          ]
+          // 'lorem' in the title, not in the content
+        , [ title := "Second document, second object, ninth lorem subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Duis sagittis ultrices eros a fringilla." ] ]
+          ]
+        , [ title := "Second document, second object, tenth subdocument"
+          , type := "content"
+          , pages := [ [ page := 1, content := "Lorem phasellus eleifend sollicitudin facilisis." ] ]
+          ]
+        ]
     ]
   , [ groupid := "QC3"
     , body := "This is the third document in the content database"

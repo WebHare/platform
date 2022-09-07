@@ -344,6 +344,25 @@
       <datetime name="fieldgroup_datetime" />
     </fieldgroup>
 
+    <fieldgroup tag="nested_records">
+      <record name="record_field">
+        <text name="firstname" />
+        <text name="lastname" />
+      </record>
+      <nested name="nested_field">
+        <text name="firstname" />
+        <text name="lastname" />
+      </nested>
+      <nested name="documents">
+        <text name="title" />
+        <keyword name="type" />
+        <nested name="pages">
+          <integer name="page" />
+          <text name="content" />
+        </nested>
+      </nested>
+    </fieldgroup>
+
     <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
     <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" />
 

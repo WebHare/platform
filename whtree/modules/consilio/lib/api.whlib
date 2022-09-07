@@ -396,6 +396,37 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
   RETURN res;
 }
 
+/** @short Create a query to search through nested fields
+    @param field The nested field to query
+    @param query The query to run
+    @cell(integer) options.first The first result to return (0-based, defaults to 0)
+    @cell(integer) options.count The number of results to return (-1 for all results, defaults to 10)
+    @cell(boolean) options.returnnonmatching Set to TRUE to have all the nested subrecords returned (by default only the
+        matching subrecords are returned)
+    @cell(string) options.summaryfield The name of the field to return the summary for the nested result in
+    @cell(string) options.scorefield The name of the field to return the nested result's score in
+    @cell(string) options.totalcountfield The name of the field to return the total number of nested results in
+*/
+PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ first := 0
+      , count := 10
+      , returnnonmatching := FALSE
+      , summaryfield := ""
+      , scorefield := ""
+      , totalcountfield := ""
+      ], options);
+
+  RETURN CELL
+      [ _type := "nested"
+      , field
+      , subquery := query
+      , ...options
+      , boost := 1f
+      ];
+}
+
 /** @short Add a raw OpenSearch query
     @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ] ]`
     @return Consilio wrapped raw Opensearch query record
@@ -413,6 +444,11 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
     {
       SWITCH (TypeID(cellrec.value))
       {
+        CASE TypeID(RECORD ARRAY)
+        {
+          // Recurse into nested subresults
+          res := CellUpdate(res, cellrec.name, Highlight(cellrec.value, class));
+        }
         CASE TypeID(STRING)
         {
           res := CellUpdate(res, cellrec.name, AddHighlightClass(cellrec.value, class));
@@ -579,7 +615,7 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
     @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields`
     @cell(string array) options.highlightfields The fields in which found query words should be highlighted
     @cell(string array) options.highlightparts The fields from which only a relevant highlighted part (with max length
-        `"summary_length"`) will be returned, defaults to `[ "body" ]`
+        `"summary_length"`) will be returned in the summaryfield, defaults to `[ "body" ]`
     @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
@@ -735,6 +771,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   IF (options.scorefield != "")
     INSERT CELL _score := options.scorefield INTO searchoptions.mapping;
   INSERT CELL _summary := options.summaryfield INTO searchoptions.mapping;
+  searchoptions.mapping := CELL[ ...searchoptions.mapping, ...GetAdditionalFields(query) ];
 
   IF (CellExists(query, "aggregation"))
     INSERT CELL aggregation_mapping := options.aggregation_mapping INTO searchoptions;
@@ -764,6 +801,38 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
 
   INSERT CELL eventmasks := [ "consilio:index." || catalog->id ] INTO result;
   RETURN result;
+}
+
+RECORD FUNCTION GetAdditionalFields(RECORD query)
+{
+  query := CellExists(query, "query") ? query.query : query;
+  DELETE CELL aggregation, ordering FROM query;
+  IF (NOT RecordExists(UnpackRecord(query)))
+    RETURN DEFAULT RECORD;
+  RETURN GetAdditionalFieldsRecursive(DEFAULT RECORD, query);
+}
+
+RECORD FUNCTION GetAdditionalFieldsRecursive(RECORD fields, RECORD query)
+{
+  SWITCH (query._type)
+  {
+    CASE "boolean"
+    {
+      FOREVERY (RECORD subquery FROM query.subqueries)
+        fields := GetAdditionalFieldsRecursive(fields, subquery.query);
+    }
+    CASE "nested"
+    {
+      fields := GetAdditionalFieldsRecursive(fields, query.subquery);
+      IF (query.scorefield != "")
+        fields := CellInsert(fields, "_score." || query.field, query.scorefield);
+      IF (query.summaryfield != "")
+        fields := CellInsert(fields, "_summary." || query.field, query.summaryfield);
+      IF (query.totalcountfield != "")
+        fields := CellInsert(fields, "_totalcount." || query.field, query.totalcountfield);
+    }
+  }
+  RETURN fields;
 }
 
 /** Get completion suggestions for a text

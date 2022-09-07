@@ -843,6 +843,33 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
               ]
           ];
     }
+    CASE "nested"
+    {
+      result := CreateElasticsearchQueryRecursive(CELL[ ...result, query := query.subquery ], indexoptions);
+      RECORD inner_hits := [ name := query.field ];
+      IF (query.returnnonmatching)
+      {
+        // Returning all nested records, don't request any source fields for the inner hits
+        INSERT CELL _source := FALSE INTO inner_hits;
+      }
+      ELSE
+      {
+        // If only the matching nested records are returned, add the subfields within the query's path to the inner hits
+        // source and remove them from the global source
+        INSERT CELL _source := SELECT AS STRING ARRAY field FROM ToRecordArray(result._source, "field") WHERE field LIKE query.field || ".*" INTO inner_hits;
+        result._source := ArrayDelete(result._source, inner_hits._source);
+      }
+      IF (query.first > 0)
+        INSERT CELL "from" := query.first INTO inner_hits;
+      INSERT CELL size := query.count >= 0 AND query.count <= 100 - query.first ? query.count : 100 INTO inner_hits; // Maximum window size (from+size) of inner hits is 100
+      result.query :=
+          [ nested := CELL
+              [ path := query.field
+              , query := result.query
+              , inner_hits
+              ]
+          ];
+    }
     CASE "opensearch"
     {
       RETURN CELL[ ...result, query := query.rawquery ];
@@ -1085,27 +1112,26 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
 
 PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping, RECORD options)
 {
-  RECORD sourcemapping := CELL[...mapping, DELETE _score, DELETE _summary, DELETE _explanation, DELETE _suggested ];
   options := ValidateOptions([ highlightfields := STRING[], highlightparts := STRING[] ], options, [ passthrough := TRUE ]);
+
+  RECORD sourcemapping := mapping;
+  // Don't return internal fields in the parsed _source
+  FOREVERY (RECORD field FROM UnpackRecord(sourcemapping))
+    IF (__MatchesAnyMask(field.name, [ "_EXPLANATION", "_SCORE", "_SUGGESTED", "_SUMMARY", "_SCORE.*", "_SUMMARY.*", "_TOTALCOUNT.*" ]))
+      sourcemapping := CellDelete(sourcemapping, field.name);
 
   RECORD ARRAY results;
   FOREVERY (RECORD hit FROM hits)
   {
-    RECORD sourcehit := hit._source;
+    // Source may not exist within inner hits
+    RECORD sourcehit := CellExists(hit, "_source") ? hit._source : DEFAULT RECORD;
     RECORD internalfields;
 
     IF(CellExists(mapping, '_score'))
       internalfields := CellInsert(internalfields, mapping._score, hit._score);
 
     IF(CellExists(mapping, '_summary'))
-    {
-      STRING ARRAY summaries;
-      IF (CellExists(hit, "highlight"))
-        FOREVERY (STRING field FROM options.highlightparts)
-          IF (CellExists(hit.highlight, field))
-            summaries := summaries CONCAT GetCell(hit.highlight, field);
-      internalfields := CellInsert(internalfields, mapping._summary, Detokenize(summaries, " "));
-    }
+      internalfields := AddSummary(internalfields, hit, options.highlightparts, mapping._summary);
 
     IF(CellExists(mapping, '_explanation'))
       INSERT CELL _explanation := hit._explanation INTO internalfields;
@@ -1128,10 +1154,118 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD 
         }
       }
 
+    // Read inner hit sources recursively into the sourcehit (for nested queries)
+    IF (CellExists(hit, "inner_hits"))
+    {
+      RECORD innersource := ReadInnerHits(hit, mapping, options);
+      IF (RecordExists(innersource.value))
+        sourcehit := CellInsert(sourcehit, innersource.field, innersource.value);
+      IF (RecordExists(innersource.internalvalue))
+        internalfields := CellInsert(internalfields, innersource.field, innersource.internalvalue);
+      IF (CellExists(mapping, "_totalcount." || innersource.path))
+      {
+        internalfields := CellInsert(internalfields, GetCell(mapping, "_totalcount." || innersource.path), innersource.total.value);
+        internalfields := CellInsert(internalfields, GetCell(mapping, "_totalcount." || innersource.path) || ".exact", innersource.total.relation = "eq");
+      }
+    }
+
     RECORD singleresult := ParseSingleElasticsearchResult(sourcehit, sourcemapping);
-    INSERT CELL[...singleresult, ...internalfields] INTO results AT END;
+    INSERT CombineFields(singleresult, internalfields) INTO results AT END;
   }
   RETURN results;
+}
+
+RECORD FUNCTION AddSummary(RECORD fields, RECORD hit, STRING ARRAY highlightparts, STRING summaryfield)
+{
+  STRING ARRAY summaries;
+  IF (CellExists(hit, "highlight"))
+    FOREVERY (STRING field FROM highlightparts)
+      IF (CellExists(hit.highlight, field))
+        summaries := summaries CONCAT GetCell(hit.highlight, field);
+  RETURN CellInsert(fields, summaryfield, Detokenize(summaries, " "));
+}
+
+// Recursively combine records (kind of like MakeUpdatedRecord, but with adding new fields from updatedata)
+RECORD FUNCTION CombineFields(RECORD result, RECORD internalfields)
+{
+  FOREVERY (RECORD field FROM UnpackRecord(internalfields))
+  {
+    IF (CellExists(result, field.name))
+    {
+      IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      {
+        VARIANT resultvalue := GetCell(result, field.name);
+        IF (TypeID(resultvalue) = TypeID(RECORD ARRAY) AND Length(resultvalue) = Length(field.value))
+          field.value :=
+              SELECT AS RECORD ARRAY CombineFields(resultvalue[#value], value)
+                FROM field.value;
+      }
+      result := CellInsert(CellDelete(result, field.name), field.name, field.value);
+    }
+    ELSE
+      result := CellInsert(result, field.name, field.value);
+  }
+  RETURN result;
+}
+
+RECORD FUNCTION ReadInnerHits(RECORD hit, RECORD mapping, RECORD options)
+{
+  // The 'inner_hits' record contains one cell named after the field we're reading hits for
+  STRING path := SELECT AS STRING COLUMN name FROM UnpackRecord(hit.inner_hits);
+  STRING field := Tokenize(path, ".")[END-1];
+  hit := GetCell(hit.inner_hits, path);
+  RECORD total := EnforceStructure([ value := 0, relation := ""], hit.hits.total);
+  RECORD ARRAY value, internalvalue;
+  IF (Length(hit.hits.hits) > 0)
+  {
+    RECORD ARRAY innerhits := hit.hits.hits;
+    FOREVERY (RECORD innerhit FROM innerhits)
+    {
+      RECORD internalresult;
+      IF (CellExists(mapping, "_score." || path))
+        internalresult := CellInsert(internalresult, GetCell(mapping, "_score." || path), ToFloat(innerhit._score, 0f));
+      IF (CellExists(mapping, "_summary." || path))
+        internalresult := AddSummary(internalresult, innerhit, options.highlightparts, GetCell(mapping, "_summary." || path));
+
+      RECORD result;
+      // There are direct source fields for this hit
+      IF (CellExists(innerhit, "_source"))
+        result := innerhit._source;
+      // There are inner hits for this hit
+      IF (CellExists(innerhit, "inner_hits"))
+      {
+        RECORD innerresult := ReadInnerHits(innerhit, mapping, options);
+        IF (RecordExists(innerresult.value))
+          result := CellInsert(result, innerresult.field, innerresult.value);
+        IF (RecordExists(innerresult.internalvalue))
+          internalresult := CellInsert(internalresult, innerresult.field, innerresult.internalvalue);
+        IF (CellExists(mapping, "_totalcount." || innerresult.path))
+        {
+          internalresult := CellInsert(internalresult, GetCell(mapping, "_totalcount." || innerresult.path), innerresult.total.value);
+          internalresult := CellInsert(internalresult, GetCell(mapping, "_totalcount." || innerresult.path) || ".exact", innerresult.total.relation = "eq");
+        }
+      }
+      IF (RecordExists(result))
+      {
+        // Replace fields with highlighted content
+        IF (CellExists(innerhit, "highlight"))
+          FOREVERY(RECORD resultfield FROM UnpackRecord(result))
+          {
+            //TODO does this work properly with subfields? or do we need to look for flattened versions
+            IF (CellExists(innerhit.highlight, path || "." || resultfield.name))
+            {
+              result := CellDelete(result, resultfield.name);
+              result := CellInsert(result, resultfield.name, GetCell(innerhit.highlight, path || "." || resultfield.name)[0]);
+            }
+          }
+
+        INSERT result INTO value AT END;
+      }
+      IF (RecordExists(internalresult))
+        INSERT internalresult INTO internalvalue AT END;
+    }
+  }
+  RETURN CELL[ field, value, internalvalue, path, total ];
 }
 
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)

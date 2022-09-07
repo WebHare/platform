@@ -335,25 +335,18 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
     IF (options.summary != 0 OR Length(options.highlightfields) > 0)
     {
-      INSERT CELL highlight :=
-          [ fields := RECORD[]
-          , pre_tags := [ Length(options.highlightfields) > 0 ? "\x1d" : "" ]
-          , post_tags := [ Length(options.highlightfields) > 0 ? "\x1c" : "" ]
-          ] INTO searchquery;
-      // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
-      IF (options.summary != 0 OR ArraysIntersect(options.highlightfields, options.highlightparts))
-      {
-        FOREVERY (STRING field FROM ArrayIntersection(options.highlightfields, options.highlightparts) ?? options.highlightparts)
-          INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 1
-                                                   , fragment_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                                                   , no_match_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                                                   ])
-            INTO searchquery.highlight.fields AT END;
-      }
-      // The other highlight fields are returned completely (number_of_fragments set to 0)
-      FOREVERY (STRING field FROM ArrayDelete(options.highlightfields, options.highlightparts))
-        IF (field NOT IN options.highlightparts)
-          INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
+      RECORD highlightoptions := CELL
+          [ options.highlightfields
+          , options.highlightparts
+          , options.summary
+          , defaultsummary := defaultoptions.summary
+          , addparthighlighting := options.summary != 0 AND Length(options.highlightfields) = 0
+          , path := ""
+          ];
+      // Add highlighting recursively to the query (nested queries may have their own highlighting)
+      RECORD highlight := AddQueryHighlighting(searchquery, highlightoptions);
+      // Add the highlighting for the root query (AddQueryHighlighting returns the fields that are already highlighted on a lower level)
+      searchquery := AddFieldHighlighting(highlight.query, CELL[ ...highlightoptions, highlight.highlightfields ]).query;
     }
     IF (options.restrict_to != defaultoptions.restrict_to)
     {
@@ -495,6 +488,77 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   }
 
   RETURN result;
+}
+
+// query is an Opensearch query, not a WebHare query
+RECORD FUNCTION AddQueryHighlighting(RECORD searchquery, RECORD options)
+{
+  IF (CellExists(searchquery, "query") AND RecordExists(searchquery.query))
+  {
+    // Unwrap the 'query' field of the top-level searchquery and nested queries
+    RECORD highlight := AddQueryHighlighting(searchquery.query, options);
+    searchquery.query := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+  }
+  ELSE IF (CellExists(searchquery, "bool"))
+  {
+    // Recurse into boolean query clauses
+    FOREVERY (STRING requirement FROM [ "must", "must_not", "should" ])
+      IF (CellExists(searchquery.bool, requirement))
+      {
+        RECORD ARRAY subqueries := GetCell(searchquery.bool, requirement);
+        FOREVERY (RECORD subquery FROM subqueries)
+        {
+          RECORD highlight := AddQueryHighlighting(subquery, options);
+          subqueries[#subquery] := highlight.query;
+          options.highlightfields := highlight.highlightfields;
+        }
+        searchquery.bool := CellUpdate(searchquery.bool, requirement, subqueries);
+      }
+  }
+  ELSE IF (CellExists(searchquery, "nested"))
+  {
+    // Recurse into the query, collecting used highlight fields from deeper nested queries
+    RECORD highlight := AddQueryHighlighting(searchquery.nested.query, options);
+    searchquery.nested.query := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+    // Add highlighting to inner hits
+    highlight := AddFieldHighlighting(searchquery.nested.inner_hits, CELL[ ...options, searchquery.nested.path ]);
+    searchquery.nested.inner_hits := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+  }
+
+  RETURN CELL[ query := searchquery, options.highlightfields ];
+}
+
+RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
+{
+  // Add highlighting for the requested highlight fields
+  STRING ARRAY highlightfields := options.path != "" ? SELECT AS STRING ARRAY field FROM ToRecordArray(options.highlightfields, "field") WHERE field LIKE options.path || ".*" : options.highlightfields;
+  options.highlightfields := ArrayDelete(options.highlightfields, highlightfields);
+  IF (options.addparthighlighting OR Length(highlightfields) > 0)
+  {
+    INSERT CELL highlight :=
+        [ fields := RECORD[]
+        , pre_tags := [ Length(highlightfields) > 0 ? "\x1d" : "" ]
+        , post_tags := [ Length(highlightfields) > 0 ? "\x1c" : "" ]
+        ] INTO searchquery;
+    // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
+    IF (options.addparthighlighting OR ArraysIntersect(highlightfields, options.highlightparts))
+    {
+      FOREVERY (STRING field FROM ArrayIntersection(highlightfields, options.highlightparts) ?? options.highlightparts)
+        INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 1
+                                                 , fragment_size := options.summary < 0 ? options.defaultsummary : options.summary
+                                                 , no_match_size := options.summary < 0 ? options.defaultsummary : options.summary
+                                                 ])
+          INTO searchquery.highlight.fields AT END;
+    }
+    // The other highlight fields are returned completely (number_of_fragments set to 0)
+    FOREVERY (STRING field FROM ArrayDelete(highlightfields, options.highlightparts))
+      IF (field NOT IN options.highlightparts)
+        INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
+  }
+  RETURN CELL[ query := searchquery, options.highlightfields ];
 }
 
 PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD options)
