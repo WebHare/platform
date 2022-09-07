@@ -4,7 +4,7 @@ To install the searchpage you need to create a file of type `http://www.webhare.
 in the site. By default, the searchpage will use the best catalog (from %GetConsilioPublisherCatalog) for its folder.
 
 You can setup an `<allowfiletype typemask="http://www.webhare.net/xmlns/consilio/searchpage" />` apply rule to allow
-end users to create these search pages (but most sites will only have on search page anyway, so it's often best to
+end users to create these search pages (but most sites will only have one search page anyway, so it's often best to
 have the sysop create the searchpage and pin it)
 
 ## Customizing the search presentation
