@@ -291,7 +291,8 @@ MACRO UpdateModuleCatalogs(RECORD options)
     IF(want.managed AND want.catalog->managed) //If we are supposed to manage the catalog, we'll restore indices if needed
     {
       RECORD ARRAY indices := want.catalog->ListAttachedIndices();
-      IF(Length(indices) = 0)
+      //only add indices for managed catalogs that have something to index. cleanupindices will cleanup catalogs that lost all sources
+      IF(Length(indices) = 0 AND Length(want.catalog->ListContentSources()) > 0)
       {
         Print(`Managed catalog '${want.tag}' has no attached index yet, adding one\n`);
         trans->BeginWork();

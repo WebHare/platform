@@ -299,8 +299,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       {
         IF(this->wrdauthplugin->HasFailed())
           THROW NEW Exception("The authplugin could not load: " || this->wrdauthplugin->GetFailReason());
-        IF(NOT this->wrdauthplugin->wrdschema->__iswrdapi2017)
-          THROW NEW Exception("The applicationportal pages in 4.09 and up require an 'api2017' wrd schema");
 
         IF(NOT this->isoverriding)
           loggedin := this->wrdauthplugin->GetLoggedinEntity();
