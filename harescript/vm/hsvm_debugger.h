@@ -63,7 +63,8 @@ class Debugger
                 ManualBreakpoint = 4, // Breakpoint provided manually by user
                 Rule =          8,
                 NewLibraries =  16,
-                DebuggerTrap =  32
+                DebuggerTrap =  32,
+                Exception =     64
                 };
 
                 /// VM group
@@ -227,6 +228,7 @@ class Debugger
         void OnScriptReturnToJobMgr(JobManager::LockedJobData::WriteRef &jobdatalock, VMGroup &vmgroup, bool forced_abort);
         void OnScriptWaitEnded(JobManager::LockedJobData::WriteRef &jobdatalock, VMGroup &vmgroup, bool forced_abort);
         void OnScriptBreakpointHit(VMGroup &vmgroup, bool manualbreakpoint);
+        void OnScriptExceptionThrown(VMGroup &vmgroup);
         void OnScriptAuthenticationRecordChanged(VMGroup &vmgroup);
         void OnScriptNewLibrariesLoaded(VMGroup &vmgroup);
         void OnScriptDebuggerTrap(VMGroup &vmgroup);

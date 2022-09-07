@@ -711,7 +711,7 @@ STATIC OBJECTTYPE CSSSelectorParser
     RECORD ARRAY selectors;
     WHILE (TRUE)
     {
-      INSERT this->ParseComplexSelector(allowimplicitscope) INTO selectors AT END;
+      selectors := selectors CONCAT this->ParseComplexSelector(allowimplicitscope);
 
       this->TryParseWS();
       IF (NOT this->TryParse(","))
@@ -726,17 +726,16 @@ STATIC OBJECTTYPE CSSSelectorParser
 
   /** Parses a complex selector list
       @param allowimplicitscope Add implicit ":scope" before selectors starting with '>'
-      @return Single selector split into compoiund selectors and the combinators
-      @cell(record array) return.parts Compound selectors and their combinators
-      @cell(record array) return.parts.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
-      @cell(record array) return.parts.combinator Combinator AFTER the compound selector
+      @return Single selector split into compound selectors and their combinators
+      @cell(record array) return.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
+      @cell(record array) return.combinator Combinator AFTER the compound selector
         - "": return if matches
         - " ": any descendent matches
         - ">": direct descendent matches
         - "~": any following sibling matches
         - "+": next sibling matches
   */
-  RECORD FUNCTION ParseComplexSelector(BOOLEAN allowimplicitscope)
+  RECORD ARRAY FUNCTION ParseComplexSelector(BOOLEAN allowimplicitscope)
   {
     RECORD ARRAY parts;
     BOOLEAN requireselector := TRUE;
@@ -749,8 +748,8 @@ STATIC OBJECTTYPE CSSSelectorParser
         INSERT CELL
             [ combinator
             , compoundselector :=
-                  [ tagname := "*"
-                  , subclasses := [ [ type := ":", name := "scope" ] ]
+                  [ tag := ""
+                  , selectors := [ [ type := ":", name := "scope" ] ]
                   ]
             ] INTO parts AT END;
       }
@@ -776,11 +775,7 @@ STATIC OBJECTTYPE CSSSelectorParser
 
       requireselector := combinator != " ";
     }
-    STRING starts := "always";
-    FOREVERY (RECORD rec FROM parts[0].compoundselector.subclasses)
-      IF (rec.type = ":" AND (rec.name = "root" OR rec.name = "scope"))
-        starts := rec.name;
-    RETURN CELL[ parts, starts ];
+    RETURN parts;
   }
 
   /** Parses a combinator
@@ -812,23 +807,23 @@ STATIC OBJECTTYPE CSSSelectorParser
   /** Parses a compound selector
       @param required If no compound selector was found, throw an error if TRUE. Otherwise return DEFAULT RECORD
       @return Compound selector
-      @cell(string) return.tagname Expected tag name ('*' if all match)
-      @cell(record array) return.subclasses Subclass tests. Pseudo-class tests can have custom fields, returned
+      @cell(string) return.tag Expected tag name ('' if all match)
+      @cell(record array) return.selectors Subclass tests. Pseudo-class tests can have custom fields, returned
         by ParseFunction and ParsePseudoClass
-      @cell(record array) return.subclasses.type Type of test
+      @cell(record array) return.selectors.type Type of test
         - "#": ID test
         - ".": class tests
         - "[": attribute test
         - "(": function test
         - ":": pseudo-class test
-      @cell(record array) return.subclasses.value Match value
+      @cell(record array) return.selectors.value Match value
         - ID (for id test)
         - class (for class test)
         - attribute value (for attribute test). Lowercased for case insensitive matches.
-      @cell(record array) return.subclasses.name Name of function / pseudo class
-      @cell(record array) return.subclasses.attr Attribute name (for attribute test)
-      @cell(record array) return.subclasses.casesensitive Whether attribute test is case sensitive
-      @cell(record array) return.subclasses.matcher Attribute matching function (for attribute test)
+      @cell(record array) return.selectors.name Name of function / pseudo class
+      @cell(record array) return.selectors.attr Attribute name (for attribute test)
+      @cell(record array) return.selectors.casesensitive Whether attribute test is case sensitive
+      @cell(record array) return.selectors.matcher Attribute matching function (for attribute test)
         - "": only existence check
         - "=": equality check
         - "~=": value exists in space-separated list
@@ -837,23 +832,23 @@ STATIC OBJECTTYPE CSSSelectorParser
         - "$=": attribute value ends with value
         - "*=": attribute value contains with value
         - "nomatch": used for attributepart matches with an empty string - they don't match any element
-      @cell(record array) return.subclasses.tokens Function tokens (for function test) @includecelldef #CSSTokenizer::GetToken.return
+      @cell(record array) return.selectors.tokens Function tokens (for function test) @includecelldef #CSSTokenizer::GetToken.return
   */
   PUBLIC RECORD FUNCTION ParseCompoundSelector(BOOLEAN required)
   {
     BOOLEAN have_item;
 
-    STRING tagname := "*";
+    STRING tag := "";
     RECORD ident := this->TryParseType("ident");
     IF (RecordExists(ident))
     {
       have_item := TRUE;
-      tagname := ident.value;
+      tag := ident.value;
     }
     ELSE IF (this->TryParse("*"))
       have_item := TRUE;
 
-    RECORD ARRAY subclasses;
+    RECORD ARRAY selectors;
 
     BOOLEAN have_colon;
 
@@ -863,7 +858,7 @@ STATIC OBJECTTYPE CSSSelectorParser
       IF (RecordExists(hashid))
       {
         have_item := TRUE;
-        INSERT CELL[ type := "#", hashid.value ] INTO subclasses AT END;
+        INSERT CELL[ type := "#", hashid.value ] INTO selectors AT END;
       }
       ELSE IF (this->TryParse("."))
       {
@@ -872,7 +867,7 @@ STATIC OBJECTTYPE CSSSelectorParser
         ident := this->TryParseType("ident");
         IF (NOT RecordExists(ident))
           THROW NEW Exception(`Expected an identifier after '.'`);
-        INSERT CELL[ type := ".", value := ToLowercase(ident.value) ] INTO subclasses AT END;
+        INSERT CELL[ type := ".", value := ToLowercase(ident.value) ] INTO selectors AT END;
       }
       ELSE IF (this->TryParse("["))
       {
@@ -934,7 +929,7 @@ STATIC OBJECTTYPE CSSSelectorParser
             , matcher
             , value :=  casesensitive ? value : ToLowercase(value)
             , casesensitive
-            ] INTO subclasses AT END;
+            ] INTO selectors AT END;
       }
       ELSE IF (this->TryParse(":"))
       {
@@ -985,7 +980,7 @@ STATIC OBJECTTYPE CSSSelectorParser
                 , name :=     ident.value
                 , tokens :=   functokens
                 , ...this->ParseFunction(ident.value, functokens)
-                ] INTO subclasses AT END;
+                ] INTO selectors AT END;
           }
           ELSE
           {
@@ -993,7 +988,7 @@ STATIC OBJECTTYPE CSSSelectorParser
                 [ type :=     ":"
                 , name :=     ident.value
                 , ...this->ParsePseudoClass(ident.value)
-                ] INTO subclasses AT END;
+                ] INTO selectors AT END;
           }
         }
       }
@@ -1015,8 +1010,8 @@ STATIC OBJECTTYPE CSSSelectorParser
     }
 
     RETURN CELL
-        [ tagname
-        , subclasses
+        [ tag
+        , selectors
         ];
   }
 
@@ -1150,41 +1145,21 @@ STATIC OBJECTTYPE CSSSelectorParser
     }
   }
 
-  /** Parses functions
-      @param name Function name
-      @return Parsed pseudo class / function parameters for evaluation
-      @cell return.type Type override (used to expand a pseudo-class into a function)
-      @cell return.name Name override (used to expand a pseudo-class into a function)
-      @cell return.compoundselector Compound selector for :not function @includecelldef #ParseCompoundSelector.return
-      @cell(integer) return.factor A from the An+B in nth-child-alike tests
-      @cell(integer) return.ofs B from the An+B in nth-child-alike tests
-      @cell(object) return.node Exact node match (for :scope and :root)
+  /** Parses pseudo class selector
+      @param name Pseudo class name
+      @return Overrides for pseudoclass (can be used to transform into a function)
   */
   RECORD FUNCTION ParsePseudoClass(STRING name)
   {
-    // We rewrite the ...-child and ...-of-type to the nth-... forms
-    // need to overwrite type and name too to make it functions
     SWITCH (name)
     {
       CASE "first-child"
       {
-        RETURN
-            [ type :=             "("
-            , name :=             "nth-child"
-            , factor :=           0
-            , ofs :=              1
-            , compoundselector := DEFAULT RECORD
-            ];
+        RETURN DEFAULT RECORD;
       }
       CASE "last-child"
       {
-        RETURN
-            [ type :=             "("
-            , name :=             "nth-last-child"
-            , factor :=           0
-            , ofs :=              1
-            , compoundselector := DEFAULT RECORD
-            ];
+        RETURN DEFAULT RECORD;
       }
       CASE "only-child"
       {
@@ -1192,21 +1167,11 @@ STATIC OBJECTTYPE CSSSelectorParser
       }
       CASE "first-of-type"
       {
-        RETURN
-            [ type :=               "("
-            , name :=               "nth-of-type"
-            , factor :=             0
-            , ofs :=                1
-            ];
+        RETURN DEFAULT RECORD;
       }
       CASE "last-of-type"
       {
-        RETURN
-            [ type :=             "("
-            , name :=               "nth-last-of-type"
-            , factor :=             0
-            , ofs :=                1
-            ];
+        RETURN DEFAULT RECORD;
       }
       CASE "only-of-type"
       {
@@ -1254,8 +1219,29 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD
     IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node, ishtml, context))
       idx := idx + 1;
   }
+}
 
-  RETURN idx;
+/** Returns whether the 1-based index of a node is 1 (filtered with compoundselector)
+    @param node Node
+    @param ishtml Whether the node is from a HTML document
+    @param fromstart If TRUE, get the index from the start, else from the end
+    @param compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
+    @param context Query context
+    @cell(object) context.root Root node
+    @cell(object) context.scope Scope node
+    @return 1-based index of this node within its matching siblings list
+*/
+BOOLEAN FUNCTION TestFirst(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD compoundselector, RECORD context)
+{
+  WHILE (TRUE)
+  {
+    node := fromstart ? node->previouselementsibling : node->nextelementsibling;
+    IF (NOT ObjectExists(node))
+      RETURN TRUE;
+
+    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node, ishtml, context))
+      RETURN FALSE;
+  }
 }
 
 /** Test an index-based function (nth-child of)
@@ -1295,16 +1281,16 @@ BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECOR
 PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLEAN ishtml, RECORD context)
 {
   // tag name test
-  IF (selector.tagname != "*" AND
+  IF (selector.tag != "" AND
       (ishtml
-          ? ToUppercase(node->localname ?? node->nodename) != ToUppercase(selector.tagname)
-          : (node->localname ?? node->nodename) != selector.tagname))
+          ? ToUppercase(node->localname ?? node->nodename) != ToUppercase(selector.tag)
+          : (node->localname ?? node->nodename) != selector.tag))
     RETURN FALSE;
 
   BOOLEAN haveclasses;
   STRING ARRAY classes;
 
-  FOREVERY (RECORD sc FROM selector.subclasses)
+  FOREVERY (RECORD sc FROM selector.selectors)
   {
     SWITCH (sc.type)
     {
@@ -1360,7 +1346,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
         BOOLEAN ismatch;
         STRING comp := sc.value;
         FOREVERY (STRING value FROM attrvals)
-          {
+        {
           IF (NOT sc.casesensitive)
           {
             // sc.value was already lowercased during parsing
@@ -1406,8 +1392,8 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
           {
             // Construct a compound selector for the type of this node
             RECORD compoundselector :=
-                [ tagname :=      node->nodename
-                , subclasses :=   RECORD[]
+                [ tag :=          node->nodename
+                , selectors :=    RECORD[]
                 ];
 
             IF (NOT TestIndex(node, ishtml, TRUE, CELL[ ...sc, compoundselector ], context))
@@ -1417,8 +1403,8 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
           {
             // Construct a compound selector for the type of this node
             RECORD compoundselector :=
-                [ tagname :=      node->nodename
-                , subclasses :=   RECORD[]
+                [ tag :=          node->nodename
+                , selectors :=    RECORD[]
                 ];
 
             IF (NOT TestIndex(node, ishtml, FALSE, CELL[ ...sc, compoundselector ], context))
@@ -1436,6 +1422,36 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
       {
         SWITCH (sc.name)
         {
+          CASE "first-child"
+          {
+            IF (NOT TestFirst(node, ishtml, TRUE, DEFAULT RECORD, context))
+              RETURN FALSE;
+          }
+          CASE "last-child"
+          {
+            IF (NOT TestFirst(node, ishtml, FALSE, DEFAULT RECORD, context))
+              RETURN FALSE;
+          }
+          CASE "only-child"
+          {
+            IF (NOT TestFirst(node, ishtml, TRUE, DEFAULT RECORD, context))
+              RETURN FALSE;
+            IF (NOT TestFirst(node, ishtml, FALSE, DEFAULT RECORD, context))
+              RETURN FALSE;
+          }
+          CASE "first-of-type", "last-of-type", "only-of-type"
+          {
+            // Construct a compound selector for the type of this node
+            RECORD compoundselector :=
+                [ tag :=          node->nodename
+                , selectors :=    RECORD[]
+                ];
+
+            IF (sc.name != "last-of-type" AND NOT TestFirst(node, ishtml, TRUE, compoundselector, context))
+              RETURN FALSE;
+            IF (sc.name != "first-of-type" AND NOT TestFirst(node, ishtml, FALSE, compoundselector, context))
+              RETURN FALSE;
+          }
           CASE "root"
           {
             IF (NOT context.root->IsSameNode(node))
@@ -1457,31 +1473,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
               IF (child->nodetype IN [ 1, 3, 4 ]) // element, text or cdata
                 RETURN FALSE;
               child := child->nextsibling;
-
             }
-          }
-          CASE "only-child"
-          {
-            // use nth-first-child and nth-last-child evaluations
-            RECORD test := [ factor := 0, ofs := 1, compoundselector := DEFAULT RECORD ];
-            IF (NOT TestIndex(node, ishtml, TRUE, test, context))
-              RETURN FALSE;
-            IF (NOT TestIndex(node, ishtml, FALSE, test, context))
-              RETURN FALSE;
-          }
-          CASE "only-of-type"
-          {
-            // use nth-first-of-type and nth-last-of-type evaluations
-            RECORD compoundselector :=
-                [ tagname :=      node->nodename
-                , subclasses :=   RECORD[]
-                ];
-
-            RECORD test := CELL[ factor := 0, ofs := 1, compoundselector ];
-            IF (NOT TestIndex(node, ishtml, TRUE, test, context))
-              RETURN FALSE;
-            IF (NOT TestIndex(node, ishtml, FALSE, test, context))
-              RETURN FALSE;
           }
           DEFAULT
           {
@@ -1547,7 +1539,7 @@ RECORD ARRAY selector_cache;
 
 /** Parses a selector list
     @param selectors Selectors
-    @param
+    @param allowimplicitscope Allow start with `>` (and translate that to `:scope >`)
     @return Parsed complex selector list @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
 */
 PUBLIC RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(STRING selectors, BOOLEAN allowimplicitscope)
@@ -1585,6 +1577,15 @@ PUBLIC RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(STRING selectors, BOOLEAN
   RETURN parsed;
 }
 
+STRING FUNCTION GetPartStartPoint(RECORD part)
+{
+  STRING starts := "always";
+  FOREVERY (RECORD rec FROM part.compoundselector.selectors)
+    IF (rec.type = ":" AND (rec.name = "root" OR rec.name = "scope"))
+      starts := rec.name;
+  RETURN starts;
+}
+
 /** Evaluate CSS selectors
     @param doc Document
     @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
@@ -1596,6 +1597,12 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
 {
   IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
     THROW NEW Exception(`Illegal engine mode ${mode}`);
+
+  RECORD ARRAY selectorparts := ParseCSSRuleForEvaluation(selectors, mode IN [ "qS", "qSA" ]);
+
+  // Add an empty selector cell to all parts, the evaluation needs it
+  FOR (INTEGER i := 0, e := LENGTH(selectorparts); i < e; i := i + 1)
+    INSERT CELL selector := DEFAULT RECORD INTO selectorparts[i];
 
   // If the scope is set, use the first element in the scope path as root
   // because we might be searching in a detached tree.
@@ -1610,29 +1617,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       , scope :=      scope ?? root
       ];
 
-  RECORD ARRAY parsed := ParseCSSRuleForEvaluation(selectors, mode IN [ "qS", "qSA" ]);
-
-  /* Concatenate the selector parts into a big selector array
-    A single selector ends at combinator "" (match). Keep the indices
-    of the first part of the rules.
-  */
-  INTEGER ARRAY alwaysactive, rootactive, scopeactive;
-  RECORD ARRAY selectorparts;
-  FOREVERY (RECORD rec FROM parsed)
-  {
-    IF (rec.starts = "root")
-      INSERT LENGTH(selectorparts) INTO rootactive AT END;
-    ELSE IF (rec.starts = "scope")
-      INSERT LENGTH(selectorparts) INTO scopeactive AT END;
-    ELSE
-      INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
-    FOREVERY (RECORD part FROM rec.parts)
-    {
-      INSERT CELL[ ...part, selector := DEFAULT RECORD ] INTO selectorparts AT END;
-    }
-  }
-
-  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(context, selectorparts, alwaysactive, rootactive, scopeactive, scopepath, mode);
+  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(context, selectorparts, scopepath, mode);
 }
 
 /** Evaluate CSS selectors
@@ -1659,6 +1644,23 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
       , matches :=    RECORD[]
       ];
 
+  // Parse all selectors, add them to a bit selector array, with the correct selector data mixed in
+  RECORD ARRAY selectorparts;
+  FOREVERY (RECORD selector FROM selectors)
+  {
+    TRY
+    {
+      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(selector.selector, mode IN [ "qS", "qSA" ]);
+
+      FOREVERY (RECORD part FROM parsed)
+        INSERT CELL[ ...part, selector ] INTO selectorparts AT END;
+    }
+    CATCH (OBJECT error)
+    {
+      INSERT CELL[ selector, error ] INTO retval.errors AT END;
+    }
+  }
+
   // If the scope is set, use the first element in the scope path as root
   // because we might be searching in a detached tree.
   RECORD scopepath := GetNodePathList(scope);
@@ -1672,37 +1674,8 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
       , scope :=      scope ?? root
       ];
 
-  /* Concatenate the selector parts into a big selector array
-    A single selector ends at combinator "" (match). Keep the indices
-    of the first part of the rules.
-  */
-  INTEGER ARRAY alwaysactive, rootactive, scopeactive;
-  RECORD ARRAY selectorparts;
-  FOREVERY (RECORD selector FROM selectors)
-  {
-    TRY
-    {
-      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(selector.selector, mode IN [ "qS", "qSA" ]);
+  retval.matches := EvaluateSelectorRecursive(context, selectorparts, scopepath, mode);
 
-      FOREVERY (RECORD rec FROM parsed)
-      {
-        IF (rec.starts = "root")
-          INSERT LENGTH(selectorparts) INTO rootactive AT END;
-        ELSE IF (rec.starts = "scope")
-          INSERT LENGTH(selectorparts) INTO scopeactive AT END;
-        ELSE
-          INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
-        FOREVERY (RECORD part FROM rec.parts)
-          INSERT CELL[ ...part, selector ] INTO selectorparts AT END;
-      }
-    }
-    CATCH (OBJECT error)
-    {
-      INSERT CELL[ selector, error ] INTO retval.errors AT END;
-    }
-  }
-
-  retval.matches := EvaluateSelectorRecursive(context, selectorparts, alwaysactive, rootactive, scopeactive, scopepath, mode);
   RETURN retval;
 }
 
@@ -1712,10 +1685,7 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
     @param context Query context
     @cell(object) context.root Root node
     @cell(object) context.scope Scope node
-    @param selectorparts Selector parts @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return.parts
-    @param startrules Positions of the first part of selectors that are always active
-    @param rootrules Positions of the first part of selectors whose first selector contains :root
-    @param scoperules Positions of the first part of selectors whose first selector contains :scope
+    @param selectorparts Selector parts @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
     @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
     @param mode Selection mode
       - 'qS': querySelector mode, return the first match (within the scope subtree, if passed)
@@ -1724,10 +1694,29 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
       - 'closest': closest mode, return the closest node that matches
     @return List of matching nodes
 */
-RECORD ARRAY FUNCTION EvaluateSelectorRecursive(RECORD context, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, INTEGER ARRAY rootrules, INTEGER ARRAY scoperules, RECORD scopepath, STRING mode)
+RECORD ARRAY FUNCTION EvaluateSelectorRecursive(RECORD context, RECORD ARRAY selectorparts, RECORD scopepath, STRING mode)
 {
-  RECORD ARRAY retval;
+  INTEGER ARRAY startrules, rootrules, scoperules;
 
+  STRING prevcombinator;
+  FOREVERY (RECORD part FROM selectorparts)
+  {
+    IF (IsDefaultValue(prevcombinator))
+    {
+      STRING starts := GetPartStartPoint(part);
+      IF (starts = "root")
+        INSERT #part INTO rootrules AT END;
+      ELSE IF (starts = "scope")
+        INSERT #part INTO scoperules AT END;
+      ELSE
+        INSERT #part INTO startrules AT END;
+    }
+    prevcombinator := part.combinator;
+  }
+  IF (IsValueSet(prevcombinator))
+    THROW NEW Exception(`Parts don't end with a 'done' combinator`);
+
+  RECORD ARRAY retval;
 
   // Current depth in nodes, :root is depth 0
   INTEGER depth := 0;

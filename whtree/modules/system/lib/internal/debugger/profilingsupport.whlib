@@ -1135,6 +1135,7 @@ PUBLIC STATIC OBJECTTYPE DisplayedHandleList EXTEND DisplayedProfile
              , id
              , namesortkey :=   `${name}\n${Right(`0000000${id}`,8)}`
              , stacktrace
+             , creationdate
           FROM this->processed.items;
   }
 
@@ -1150,7 +1151,14 @@ PUBLIC STATIC OBJECTTYPE DisplayedHandleList EXTEND DisplayedProfile
     IF (listtype = "names")
     {
       columns :=
-          [ [ name :=     "id"
+          [ [ name :=     "creationdate"
+            , title :=    GetTid("system:debugger.profiles.creationdate")
+            , type :=     "datetime"
+            , precision := "milliseconds"
+            , width :=    "22x"
+            , storeutc := TRUE
+            ]
+          , [ name :=     "id"
             , title :=    GetTid("system:debugger.profiles.handle")
             , type :=     "integer"
             , decimals := 0

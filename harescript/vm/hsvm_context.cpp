@@ -94,6 +94,7 @@ OutputObject::OutputObject(HSVM *_vm, const char *_type)
 : type(_type)
 , vm(0)
 , wait_ignores_readbuffer(false)
+, creationdate(Blex::DateTime::Invalid())
 {
         id = Register(_vm);
 }
@@ -110,6 +111,8 @@ int OutputObject::Register(HSVM *_vm)
                 VirtualMachine *ownervm = GetVirtualMachine(vm);
                 id = ownervm->outobjects.Set(this);
                 stacktrace = ownervm->GetStackTraceForOutputObject();
+                if (stacktrace.get())
+                    creationdate = Blex::DateTime::Now();
         }
 
         return id;
@@ -1519,6 +1522,9 @@ template< bool debug >
         is_suspended = false;
         bool first_item = true;
 
+        // When debugger stopped before unwind, re-execute
+        if (is_unwinding)
+            UnwindToNextCatch(false);
 
         try
         {
@@ -1551,7 +1557,10 @@ template< bool debug >
                                         {
                                                 // Not going to run deinit macros on an uncaught exception
                                                 if (is_unwinding)
-                                                    break;
+                                                {
+                                                        AbortForUncaughtException();
+                                                        break;
+                                                }
 
                                                 PushStopExecuteFrame();
                                                 if (!AddCallToNextDeinitFunction())
@@ -1561,7 +1570,12 @@ template< bool debug >
                                             break;
                                 }
                                 else if (is_unwinding) // tailcall may have caused exception
-                                    UnwindToNextCatch(false);
+                                {
+                                        if (vm_errorhandler.AnyErrors() || (vmgroup->TestMustYield() && HandleAbortFlag()))
+                                            return 0;
+
+                                        UnwindToNextCatch(false);
+                                }
                                 else
                                     continue; // Check codeptr again for repeated signals
                         }
@@ -1840,6 +1854,13 @@ void VirtualMachine::UnwindToNextCatch(bool push_frame)
         if (push_frame)
             PushFrame(0);
 
+        // Debugger is stopping us
+        if (*vmgroup->abortflag == HSVM_ABORT_YIELD && is_suspendable)
+        {
+                executionstate.codeptr = SignalCodeptr;
+                return;
+        }
+
         StackTraceElement spos;
         ColumnNameId trace = 0;
         VarId tracevar = 0;
@@ -1924,6 +1945,18 @@ void VirtualMachine::UnwindToNextCatch(bool push_frame)
 
         if (callstack.empty())
             AbortForUncaughtException();
+}
+
+void VirtualMachine::ThrowException(VarId exception, bool _skip_first_traceitem)
+{
+        DEBUGPRINT("Exception, should dbg-break: " << vmgroup->dbg.break_on_exception);
+
+        if (vmgroup->dbg.break_on_exception)
+            vmgroup->jobmanager->GetDebugger().OnScriptExceptionThrown(*vmgroup);
+
+        stackmachine.MoveFrom(throwvar, exception);
+        is_unwinding = true;
+        skip_first_traceitem = _skip_first_traceitem;
 }
 
 void VirtualMachine::AbortForUncaughtException()

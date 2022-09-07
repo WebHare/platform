@@ -47,6 +47,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   */
   RECORD ARRAY pvt_breakpoints;
 
+  /// Whether to break on the next exception
+  BOOLEAN break_on_exception;
+
   /** Current status of the job
       FIXME: document
   */
@@ -304,6 +307,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
             INSERT this->GetTid(".pausereason_breakpoint") INTO pausereasons AT END;
           IF ((this->currstatus.pausereason BITAND pausereason_debuggertrap) != 0)
             INSERT this->GetTid(".pausereason_debuggertrap") INTO pausereasons AT END;
+          IF ((this->currstatus.pausereason BITAND pausereason_exception) != 0)
+            INSERT this->GetTid(".pausereason_exception") INTO pausereasons AT END;
 
           IF (LENGTH(pausereasons) != 0)
             status := status || " (" || Detokenize(pausereasons, ", ") || ")";
@@ -490,6 +495,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RefreshBreakpointList();
   }
 
+  MACRO GotBreakOnExceptionChange()
+  {
+    this->break_on_exception := ^breakonexception->value;
+    this->RefreshBreakpointList();
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Helper functions
@@ -498,9 +509,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   /// Save the list of files and the breakpoints to the registry
   MACRO SaveFormState()
   {
-    RECORD state :=
+    RECORD state := CELL
         [ files :=          (SELECT path, topline FROM this->openfiles)
         , breakpoints :=    (SELECT path, line FROM this->pvt_breakpoints)
+        , this->break_on_exception
         ];
 
     OBJECT work := this->BeginUnvalidatedWork();
@@ -531,6 +543,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                , line
             FROM oldstate.breakpoints;
     }
+
+    IF (CellExists(oldstate, "BREAK_ON_EXCEPTION"))
+      this->break_on_exception := oldstate.break_on_exception;
 
     this->RefreshFileList();
     this->RefreshBreakpointList();
@@ -664,6 +679,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO RefreshBreakpointList()
   {
+    ^breakonexception->value := this->break_on_exception;
     this->breakpoints->rows :=
         SELECT TEMPORARY resolvedname := this->ResolveFile(path)
              , rowkey :=        path || "\t" || COLUMN line
@@ -746,6 +762,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD config :=
         [ minstacksize :=   CellExists(this->step_config, "MINSTACKSIZE") ? this->step_config.minstacksize : 0
         , maxstacksize :=   CellExists(this->step_config, "MAXSTACKSIZE") ? this->step_config.maxstacksize : -1
+        , breakonexception := this->break_on_exception
         , breakpoints :=    CellExists(this->step_config, "BREAKPOINTS") ? this->step_config.breakpoints : DEFAULT RECORD ARRAY
         ];
 

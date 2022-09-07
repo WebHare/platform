@@ -2494,9 +2494,8 @@ void StringParser_SkipN(VarId id_set, VirtualMachine *vm)
 
 void ThrowException(VirtualMachine *vm)
 {
-        HSVM_CopyFrom(*vm, vm->throwvar, HSVM_Arg(0));
-        vm->is_unwinding = true;
-        vm->skip_first_traceitem = HSVM_BooleanGet(*vm, HSVM_Arg(1));
+        bool skip_first_traceitem = HSVM_BooleanGet(*vm, HSVM_Arg(1));
+        vm->ThrowException(HSVM_Arg(0), skip_first_traceitem);
 }
 
 void GetResetExceptionVariable(VarId id_set, VirtualMachine *vm)
@@ -2998,6 +2997,8 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                 }
                 else
                     stackm.InitVariable(var_stacktrace, VariableTypes::RecordArray);
+                VarId var_creationdate = stackm.RecordCellCreate(elt, vm->cn_cache.col_creationdate);
+                stackm.SetDateTime(var_creationdate, itr->creationdate);
         }
 
         for (auto &itr: vm->idmapstorages)
@@ -3009,6 +3010,7 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                         stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), name);
                         stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), id);
                         stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+                        stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_creationdate), VariableTypes::DateTime);
                 });
         }
 }

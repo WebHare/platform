@@ -192,7 +192,7 @@ FOREVERY(RECORD syncschema FROM matches)
   RunSync(wrdschema, remotepeer, args.remoteschema ?? wrdschema->tag, CELL
         [ forcetypes := args.forcetype
         , includetypes
-        , excludetype :=    args.excludetype
+        , excludetypes :=   args.excludetype
         ]);
 
 }

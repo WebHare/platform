@@ -196,7 +196,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , script := path
                          , testname := subtestname
                          , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
-                         , harescripttestdata := "harescript" IN ParseXSList(testnode->GetAttribute("testdata"))
                          , testscript := [ args := arginfo.args
                                          , scriptpath := subfile
                                          ]

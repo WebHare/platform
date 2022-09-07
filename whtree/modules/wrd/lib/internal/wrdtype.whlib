@@ -2305,8 +2305,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [8,13,17,26])
         THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " may not have " ||Length(toset.newsets) || " settings");
 
-      IF ((toset.attr.attributetype = 4 AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
-          OR (toset.attr.attributetype = 21 AND NOT IsValidURL(toset.newsets[0].rawdata)))
+      IF (((toset.attr.attributetype = 4 AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
+          OR (toset.attr.attributetype = 21 AND NOT IsValidURL(toset.newsets[0].rawdata))) AND NOT options.importmode)
       {
         options.errorcallback([tag := toset.attr.tag, code := "INVALIDVALUE", setvalue := toset.newsets[0].rawdata ]);
         anyerror := TRUE;

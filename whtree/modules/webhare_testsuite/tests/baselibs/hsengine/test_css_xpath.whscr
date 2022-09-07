@@ -10,6 +10,8 @@ LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
+
 
 MACRO TestDomStyleRewriter()
 {
@@ -436,6 +438,13 @@ MACRO TestCSSSelectorEngine()
   RunSelectorTests(customtests);
 }
 
+MACRO TestCSSParser()
+{
+  // Story: Invalid UTF-8 caused invalid loop
+  OBJECT stylesheet := MakeCSSStyleSheet(GetWebhareResource("mod::system/web/tests/snowbeagle.jpg"));
+  OBJECT ARRAY testrules := stylesheet->cssrules->GetRulesForSelector("#test");
+}
+
 PRINT("\n === Running TestCSS_XPath\n");
 TestCSSSelectorEngine();
 TestComplexCSSRule();
@@ -445,3 +454,4 @@ TestDomStyleRewriter();
 TestRewriterPrecedence();
 TestCSSSpecificity();
 TestRewriteDomStyles();
+TestCSSParser();

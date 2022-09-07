@@ -15,6 +15,7 @@ PUBLIC INTEGER pausereason_manualbreakpoint := 4;
 PUBLIC INTEGER pausereason_rule :=            8;
 PUBLIC INTEGER pausereason_newlibraries :=    16;
 PUBLIC INTEGER pausereason_debuggertrap :=    32;
+PUBLIC INTEGER pausereason_exception :=       64;
 
 
 BOOLEAN debug_msgs := FALSE;
@@ -1421,6 +1422,7 @@ STATIC OBJECTTYPE DebugJob
         , groupid :=      this->pvt_groupid
         , minstacksize := config.minstacksize
         , maxstacksize := config.maxstacksize
+        , breakonexception := config.breakonexception
         , breakpoints :=  SELECT vm
                                , liburi
                                , compile_id

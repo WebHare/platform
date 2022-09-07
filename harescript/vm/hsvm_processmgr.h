@@ -43,6 +43,8 @@ class BLEXLIB_PUBLIC OutputObject
         /// Registration stack trace
         std::unique_ptr< AsyncStackTrace > stacktrace;
 
+        Blex::DateTime creationdate;
+
         inline int GetId() { return id; }
         inline const char * GetType() { return type; }
 

@@ -1021,6 +1021,7 @@ STATIC OBJECTTYPE AttachedJob
             , groupid := this->pvt_groupid
             , minstacksize := msg.minstacksize
             , maxstacksize := msg.maxstacksize
+            , breakonexception := msg.breakonexception
             , breakpoints := msg.breakpoints
             ], msgid);
       }

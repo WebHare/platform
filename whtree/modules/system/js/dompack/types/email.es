@@ -164,7 +164,7 @@ function checkDomain(domain)
     domain = domain.substr(0, domain.length - 1);
 
   var subdomains = domain.split(".");
-  if (subdomains.length < 2)
+  if (subdomains.length < 2 || subdomains[subdomains.length-1].length < 2)
     return false;
 
   for (var i = 0; i < subdomains.length; ++i)
