@@ -34,8 +34,7 @@ MACRO ProcessWHDebugVariables(BOOLEAN skipchecks)
   IF("apr" IN debugsettings AND NOT didsetupprofiling)
   {
     didsetupprofiling := TRUE;
-    IF(__HS_INTERNAL_OVERRIDEEXECUTELIBRARY("") NOT LIKE "*/modules/publisher/web/view.shtml") //do not profile view.shtml, causes many dupes
-      SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
+    SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
   }
 }
 
