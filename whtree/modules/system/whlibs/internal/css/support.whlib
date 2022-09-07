@@ -1145,7 +1145,7 @@ STATIC OBJECTTYPE CSSSelectorParser
     }
   }
 
-  /** Parses pseudo class selectoRjkr
+  /** Parses pseudo class selector
       @param name Pseudo class name
       @return Overrides for pseudoclass (can be used to transform into a function)
   */
