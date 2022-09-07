@@ -1,0 +1,60 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ConsilioSearchPage EXTEND WebPageBase
+<
+  OBJECT userwitty;
+
+  MACRO RunComponent(STRING component, RECORD data)
+  {
+    IF(ObjectExists(this->userwitty) AND this->userwitty->HasComponent(component))
+      this->userwitty->RunComponent(component, data);
+    ELSE
+      EmbedWittyComponent(Resolve("searchpage.witty") || ":" || component, data);
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    OBJECT searchplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","searchpage");
+    IF(ObjectExists(searchplugin))
+    {
+      IF(searchplugin->witty != "")
+        this->userwitty := LoadWittyLibrary(searchplugin->witty, "HTML-NI");
+    }
+
+    INSERT "wh-searchpage" INTO this->webdesign->htmlclasses AT END;
+
+    STRING querytext := GetWebVariable("q"); //?q= is more common and assumed by google, so why not..
+    RECORD wittydata := CELL[ totalcount := 0
+                            , results := RECORD[]
+                            , searchurl := this->absolutebaseurl
+                            , querytext
+
+                            , searchheader := PTR this->RunComponent("searchheader", DEFAULT RECORD)
+                            , searchresults := PTR this->RunComponent("searchresults", DEFAULT RECORD)
+                            , searchresult := PTR this->RunComponent("searchresult", DEFAULT RECORD)
+                            ];
+    IF(querytext != "")
+    {
+      STRING catalog := GetConsilioPublisherCatalog(this->webdesign->targetfolder->id);
+      IF(catalog = "")
+        THROW NEW Exception(`Unable to determine which consilio catalog has indexed folder '${this->webdesign->targetfolder->whfspath}'`);
+
+      RECORD query := CQParseUserQuery(querytext);
+      RECORD result := RunConsilioSearch(catalog, query, [ summary_length := 150 ]);
+
+      wittydata.results := SELECT *, link := objectid, DELETE objectid FROM result.results;
+      wittydata.totalcount := result.totalcount;
+    }
+
+    RETURN PTR this->RunComponent("searchpage", wittydata);
+  }
+>;

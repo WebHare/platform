@@ -173,6 +173,7 @@ test.registerTests(
         test.true(field_address_country);
         test.eq('', field_address_country.value); // Empty initially
         test.fill(field_address_country, "NL");
+        field_address_street.scrollIntoView();
         test.true(test.canClick(field_address_street), "street should be available");
         test.false(test.canClick(field_address_province), "province should not be available");
         test.fill(field_address_country, "BE");

@@ -45,6 +45,11 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
       INSERT CELL rpcformtarget := OpenWebtoolForm(this->targetobject->id)->GetFormTarget() INTO this->htmldata;
     }
 
+    IF(this->targetobject->name LIKE "explicitly-no-title.*")
+    {
+      this->pagetitle := "";
+    }
+
     IF(this->targetobject->name = "testfile6.rtd")
     {
       this->consiliofields := CELL[ ...this->consiliofields

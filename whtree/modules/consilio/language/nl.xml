@@ -213,6 +213,16 @@
       <text tid="providertitle">WebHare website</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="frontend">   <!-- frontend -->
+    <textgroup gid="sitecontent">   <!-- frontend.sitecontent -->
+      <textgroup gid="searchpage">   <!-- frontend.sitecontent.searchpage -->
+        <text tid="noresults">Geen resultaten voor '<param p="1"/>'</text>
+        <text tid="numresults"><ifparam p="1" value="1">1 resultaat<else/><param p="1"/> resultaten</ifparam> voor '<param p="2"/>'</text>
+        <text tid="searchbutton">Zoeken</text>
+        <text tid="searchlabel">Zoeken naar</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->
       <text tid="catalog">Catalogus</text>
@@ -407,6 +417,13 @@
         <text tid="savesettingserror">Er is een fout opgetreden bij het toepassen van de nieuwe instellingen<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
         <text tid="valuetoohigh">De waarde van het veld '<param p="1"/>' mag niet hoger zijn dan de waarde van het veld '<param p="2"/>'</text>
         <text tid="valuetoolow">De waarde van het veld '<param p="1"/>' mag niet lager zijn dan de waarde van het veld '<param p="2"/>'</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webfeatures">   <!-- webfeatures -->
+    <textgroup gid="sitecontent">   <!-- webfeatures.sitecontent -->
+      <textgroup gid="searchpage">   <!-- webfeatures.sitecontent.searchpage -->
+        <text tid="searchpage">Consilio zoekpagina</text>
       </textgroup>
     </textgroup>
   </textgroup>

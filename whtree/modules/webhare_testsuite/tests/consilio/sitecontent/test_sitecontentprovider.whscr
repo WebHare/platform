@@ -34,7 +34,8 @@ MACRO ConsilioTest()
   OBJECT file_2 := siteroot->CreateFile([name:="testfile2.whlib", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla2'); }") ]);
   OBJECT file_3 := siteroot->CreateFile([name:="testfile3.shtml", data := StringToBlob("<?wh LOADLIB 'relative::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
   OBJECT file_4 := siteroot->CreateFile([name:="testfile4.txt", data := StringToBlob("blabla4"), publish := TRUE]);
-  OBJECT file_6 := siteroot->CreateFile([name:="testfile6.rtd", type := richdoctype->id, publish := TRUE]);
+  OBJECT file_6 := siteroot->CreateFile([name:="testfile6.rtd", type := richdoctype->id, publish := TRUE, title := "6th file"]);
+  OBJECT file_index := siteroot->CreateFile([name:="explicitly-no-title.rtd", type := richdoctype->id, publish := TRUE], [ setindex := TRUE ]);
 
   OBJECT myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
@@ -56,12 +57,14 @@ MACRO ConsilioTest()
 
   richdoctype->SetInstanceData(file_6->id, [data := myrichdoc->ExportAsRecord()]);
 
+  richdoctype->SetInstanceData(file_index->id, [ data := [ htmltext := StringToBlob(`<html><body><p>justanindex</p></body></html>`) ]]);
+
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount < 4)
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount < 5)
     Sleep(50);
-  Print(`.. consilio:testfw_frontend_1 reached expected length >= 4\n`);
+  Print(`.. consilio:testfw_frontend_1 reached expected length >= 5\n`);
 
   OBJECT search_1_obj := OpenSearchObject("en", "consilio:testfw_frontend_1");
   search_1_obj->empty_result_record := DEFAULT RECORD;
@@ -112,13 +115,28 @@ MACRO ConsilioTest()
             ]
       ], results);
 
+  TestEqMembers([[ objectid :=  file_1->objecturl
+                 , groupid :=   ToString(file_1->id)
+                 , title :=     "testfile1" //even if the file didn't have title, it should have adopted the name as its title
+                ]], RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("body", "CONTAINS", "blabla")).results, "*");
+
+  TestEqMembers([[ objectid :=  file_6->objecturl
+                 , groupid :=   ToString(file_6->id)
+                 , title :=     "6th file"
+                ]], RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("body", "CONTAINS", "soft-break")).results, "*");
+
+  TestEqMembers([[ objectid :=  file_index->objecturl
+                 , groupid :=   ToString(file_index->id)
+                 , title :=     "tmp" //an index without a title should inherit folder's title and if that isn't present, its name
+                ]], RunConsilioSearch("consilio:testfw_frontend_1", CQMatch("body", "CONTAINS", "justanindex")).results, "*");
+
   testfw->BeginWork();
   file_4->RecycleSelf();
   testfw->CommitWork();
 
-  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount != 3)
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount != 4)
     Sleep(50);
-  Print(`.. consilio:testfw_frontend_1 reached expected length 3 (after recycleself)\n`);
+  Print(`.. consilio:testfw_frontend_1 reached expected length 4 (after recycleself)\n`);
 
   results := search_1_obj->Search("blabla4", 0, 10);
   TestEq(

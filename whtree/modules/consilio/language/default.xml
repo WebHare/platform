@@ -213,6 +213,16 @@
       <text tid="providertitle">WebHare website</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="frontend">   <!-- frontend -->
+    <textgroup gid="sitecontent">   <!-- frontend.sitecontent -->
+      <textgroup gid="searchpage">   <!-- frontend.sitecontent.searchpage -->
+        <text tid="noresults">No results for '<param p="1"/>'</text>
+        <text tid="numresults"><ifparam p="1" value="1">1 result<else/><param p="1"/> results</ifparam> for '<param p="2"/>'</text>
+        <text tid="searchbutton">Search</text>
+        <text tid="searchlabel">Search for</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->
       <text tid="catalog">Catalog</text>
@@ -407,6 +417,13 @@
         <text tid="savesettingserror">An error occurred while applying the new settings<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
         <text tid="valuetoohigh">The value of field '<param p="1"/>' should not be higher than the value of field '<param p="2"/>'</text>
         <text tid="valuetoolow">The value of field '<param p="1"/>' should not be lower than the value of field '<param p="2"/>'</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webfeatures">   <!-- webfeatures -->
+    <textgroup gid="sitecontent">   <!-- webfeatures.sitecontent -->
+      <textgroup gid="searchpage">   <!-- webfeatures.sitecontent.searchpage -->
+        <text tid="searchpage">Consilio search page</text>
       </textgroup>
     </textgroup>
   </textgroup>
