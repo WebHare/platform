@@ -405,49 +405,50 @@ PUBLIC RECORD FUNCTION CQOpenSearch(RECORD query)
   RETURN CELL[ _type := "opensearch", rawquery := query ];
 }
 
-RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRING class)
+RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
 {
-  FOREVERY(STRING opt FROM fields)
-    fields[#opt] := ToUppercase(opt);
-
   FOREVERY(RECORD res FROM results)
   {
     FOREVERY(RECORD cellrec FROM UnpackRecord(res))
     {
-      IF(TypeID(cellrec.value)!=TypeID(STRING))
-        CONTINUE;
-
-      STRING newval := cellrec.value;
-      IF(cellrec.name IN fields)
+      SWITCH (TypeID(cellrec.value))
       {
-        // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
-        // when the highlight ends at the end of the string
-        INTEGER firstclose := SearchSubstring(newval, "\x1C");
-        IF (firstclose >= 0 AND SearchSubstring(newval, "\x1D") < 0)
-          newval := "\x1D" || newval;
-        INTEGER lastopen := SearchSubstring(newval, "\x1D");
-        IF (lastopen >= 0 AND SearchSubstring(newval, "\x1C") < lastopen)
-          newval := newval || "\x1C";
-
-        //translate the markers to something that will survive EncodeHTML
-        newval := Substitute(newval, "\x1D", '\uF8F0');
-        newval := Substitute(newval, "\x1C", '\uF8F1');
-        newval := EncodeHTML(newval);
-        newval := Substitute(newval, "&#63728;", '<span class="' || EncodeValue(class) || '">');
-        newval := Substitute(newval, "&#63729;", '</span>');
+        CASE TypeID(STRING)
+        {
+          res := CellUpdate(res, cellrec.name, AddHighlightClass(cellrec.value, class));
+        }
+        CASE TypeID(STRING ARRAY)
+        {
+          res := CellUpdate(res, cellrec.name, SELECT AS STRING ARRAY AddHighlightClass(value, class) FROM ToRecordArray(cellrec.value, "value"));
+        }
       }
-      ELSE
-      {
-        newval := Substitute(newval, "\x1D", '');
-        newval := Substitute(newval, "\x1C", '');
-      }
-      // Remove hyperlink markers
-      newval := Substitute(newval, "\x1F", '');
-      res := CellUpdate(res, cellrec.name, newval);
     }
     results[#res] := res;
   }
   RETURN results;
+}
+
+STRING FUNCTION AddHighlightClass(STRING value, STRING class)
+{
+  // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
+  // when the highlight ends at the end of the string
+  INTEGER firstclose := SearchSubstring(value, "\x1C");
+  IF (firstclose >= 0 AND (SearchSubstring(value, "\x1D") < 0 OR SearchSubstring(value, "\x1D") > firstclose))
+    value := "\x1D" || value;
+  INTEGER lastopen := SearchLastSubstring(value, "\x1D");
+  IF (lastopen >= 0 AND SearchLastSubstring(value, "\x1C") < lastopen)
+    value := value || "\x1C";
+
+  //translate the markers to something that will survive EncodeHTML
+  value := Substitute(value, "\x1D", '\uF8F0');
+  value := Substitute(value, "\x1C", '\uF8F1');
+  value := EncodeHTML(value);
+  value := Substitute(value, "&#63728;", '<span class="' || EncodeValue(class) || '">');
+  value := Substitute(value, "&#63729;", '</span>');
+
+  // Remove legacy hyperlink markers (won't be added anymore by parser_html, but might still be present in already indexed documents)
+  value := Substitute(value, "\x1F", '');
+  RETURN value;
 }
 
 /** @short Get a token to access a consilio search engine's autosuggest API
@@ -758,7 +759,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       result.results := SELECT *, DELETE _score FROM result.results;
 
     IF(Length(options.highlightfields) != 0)
-      result.results := Highlight(result.results, options.highlightfields, options.highlightclass);
+      result.results := Highlight(result.results, options.highlightclass);
   }
 
   INSERT CELL eventmasks := [ "consilio:index." || catalog->id ] INTO result;
