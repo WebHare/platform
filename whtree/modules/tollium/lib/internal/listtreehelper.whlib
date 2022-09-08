@@ -29,7 +29,7 @@ PUBLIC OBJECTTYPE ListTreeCallback
 
   /** Called when a single row has been updated
       @param row Row that has been updated
-      @cell rowkey Rowkey of the row
+      @cell row.rowkey Rowkey of the row
   */
   PUBLIC MACRO LTH_UpdatedRow(RECORD row)
   {
@@ -46,7 +46,7 @@ PUBLIC OBJECTTYPE ListTreeCallback
 
 
   /** Called when the list of child nodes of a row has been replaced.
-      @param parent Parent row
+      @param parentrow Parent row
       @param children Children rows
   */
   PUBLIC MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
@@ -61,10 +61,10 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   //
 
   /** All rows
-      @cell rowkey
-      @cell level
-      @cell expanded
-      @cell tolliumselected
+      @cell rowkey Rowkey
+      @cell level Row depth
+      @cell expanded Whether the row is expanded
+      @cell tolliumselected Whether the row has been selected
   */
   RECORD ARRAY pvt_rows;
 
@@ -152,10 +152,10 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
   /** The rows property returns all rows. It isn't writable,
       use one of the specialized setters for that
-      @cell rowkey
-      @cell level
-      @cell expanded
-      @cell tolliumselected
+      @cell rowkey Rowkey
+      @cell level Row depth
+      @cell expanded Whether the row is expanded
+      @cell tolliumselected Whether the row has been selected
   */
   PUBLIC PROPERTY rows(GetRows, -);
 
@@ -256,6 +256,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   //
 
   /** Returns an empty array of rowkey type
+      @return Empty array of rowkey type
   */
   VARIANT FUNCTION GetDefaultRowkeyArray()
   {
@@ -267,6 +268,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
 
   /** Returns a default rowkey
+      @return Default rowkey value
   */
   VARIANT FUNCTION GetDefaultRowkey()
   {
@@ -291,7 +293,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
   /** Validates a (list of) rowkey(s) given by the user. If no rowkeys have been found yet,
       the type will be auto-initialized.
-      @param rowkey or list of rowkeys.
+      @param newkeys Rowkey or list of rowkeys.
       @param require_array If true, require an array, also when in single select mode.
       @return An array of rowkeys (with max 1 member in single select mode and force_array off)
   */
@@ -468,6 +470,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
   /** Check rowkeys presence and type in a list of new rows, inserts them if needed.
       @param rows Rows to check
+      @param isfooterrow Whether the row is a footer row
       @return Rows with valid rowkeys present.
   */
   PUBLIC RECORD ARRAY FUNCTION CheckNewRows(RECORD ARRAY rows, BOOLEAN isfooterrow)
@@ -586,6 +589,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
 
   /** Load root again for dynamic trees
+      @param honor_expand @includecelldef #FlattenTree.honor_expanded
   */
   MACRO LoadRootItems(BOOLEAN honor_expand)
   {
@@ -1071,6 +1075,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
 
   /** Sets the current selection.
+      @param newkeys Rowkey of list of rowkeys to select
   */
   MACRO SetValue(VARIANT newkeys)
   {
@@ -1124,7 +1129,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
 
 
   /** Sets the single/multiple selection mode
-      @param multipleselection Whether multiple selection is required.
+      @param newselectmode New selection mode ("none", "single" or "multiple")
   */
   MACRO SetSelectionMode(STRING newselectmode)
   {
@@ -1504,13 +1509,16 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
     RETURN this->pvt_rows;
   }
 
-  //check if rows have already been loaded, without causing rows to load
+  /** check if rows have already been loaded, without causing rows to load
+      @return Whether rows have been loaded
+  */
   PUBLIC BOOLEAN FUNCTION AreRowsLoaded()
   {
     RETURN Length(this->pvt_rows) > 0;
   }
 
   /** Returns the root rows of a tree
+      @return Root rows
   */
   PUBLIC RECORD ARRAY FUNCTION GetRootRows()
   {
