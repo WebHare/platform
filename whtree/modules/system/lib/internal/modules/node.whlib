@@ -117,15 +117,15 @@ RECORD FUNCTION GetLockFileV2Versions(STRING packagedir, RECORD ARRAY actualnode
 }
 
 /** Returns all toplevel/unused packages
-    @param lockpackages
-    @param rootpackages
+    @param claimed_installed_packages
+    @param required_root_packages
     @return Issues
 */
-RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY rootpackages)
+RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY claimed_installed_packages, RECORD ARRAY required_root_packages)
 {
   RECORD ARRAY issues;
 
-  lockpackages :=
+  claimed_installed_packages :=
       SELECT name
            , version :=       value->GetProp("version", [ fallback := "" ])
            , usedby :=        STRING[]
@@ -133,32 +133,32 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
                               [ ...(SELECT name, range := value FROM value->GetProp("dependencies", [ fallback := CELL[] ])->Unpack())
                               , ...(SELECT name, range := value FROM value->GetProp("optionalDependencies", [ fallback := CELL[] ])->Unpack())
                               ]
-        FROM lockpackages;
+        FROM claimed_installed_packages;
 
   INSERT
       [ name :=           ""
       , version :=        ""
       , usedby :=         STRING[ "*" ]
-      , dependencies :=   rootpackages
-      ] INTO lockpackages AT 0;
+      , dependencies :=   required_root_packages
+      ] INTO claimed_installed_packages AT 0;
 
-  FOREVERY (RECORD pkg FROM lockpackages)
+  FOREVERY (RECORD pkg FROM claimed_installed_packages)
   {
     FOREVERY (RECORD dep FROM pkg.dependencies)
     {
       STRING basepath := pkg.name = "" ? "" : pkg.name || "/";
       WHILE (TRUE)
       {
-        RECORD pos := RecordLowerBound(lockpackages, [ name := `${basepath}node_modules/${dep.name}` ], [ "NAME" ]);
+        RECORD pos := RecordLowerBound(claimed_installed_packages, [ name := `${basepath}node_modules/${dep.name}` ], [ "NAME" ]);
         IF (pos.found)
         {
-          INSERT pkg.name INTO lockpackages[pos.position].usedby AT END;
-          IF(lockpackages[pos.position].version = "")
+          INSERT pkg.name INTO claimed_installed_packages[pos.position].usedby AT END;
+          IF(claimed_installed_packages[pos.position].version = "")
             BREAK; //if npm didn't lock the version, not our problem..
 
-          IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(lockpackages[pos.position].version, dep.range))
+          IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(claimed_installed_packages[pos.position].version, dep.range))
           {
-            RETURN [ [ error := `Installed module '${lockpackages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${lockpackages[pos.position].version}', wanted range '${dep.range}')` ] ];
+            RETURN [ [ error := `Installed module '${claimed_installed_packages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${claimed_installed_packages[pos.position].version}', wanted range '${dep.range}')` ] ];
           }
         }
         INTEGER nmpos := SearchLastSubstring(basepath, "node_modules/");
@@ -169,7 +169,7 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
     }
   }
 
-  RECORD ARRAY unused := SELECT * FROM lockpackages WHERE IsDefaultValue(usedby);
+  RECORD ARRAY unused := SELECT * FROM claimed_installed_packages WHERE IsDefaultValue(usedby);
   RETURN
       SELECT error := `Module ${name} version ${version} is installed but not requested. Please run 'wh fixmodules'`
         FROM unused;
@@ -178,7 +178,6 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
 RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
 {
   RECORD ARRAY issues;
-
   TRY
   {
     //Get the actual modules and their versions
@@ -193,9 +192,9 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
 
     //Decode package.json modules
     RECORD deps := CellExists(packagejson, 'dependencies') ? packagejson.dependencies : CELL[];
-    RECORD ARRAY flatmodules := SELECT name := ToLowercase(name), range := value FROM UnpackRecord(deps);
+    RECORD ARRAY required_root_packages := SELECT name := ToLowercase(name), range := value FROM UnpackRecord(deps);
 
-    FOREVERY (RECORD rec FROM SELECT * FROM flatmodules WHERE range = "" LIMIT 1)
+    FOREVERY (RECORD rec FROM SELECT * FROM required_root_packages WHERE range = "" LIMIT 1)
       INSERT [ error := `Package '${rec.name}' in package.json has an empty version range. Please put one in.` ] INTO issues AT 0;
 
     IF(Length(packagelockjsondata) = 0) //there was no package-lock.json
@@ -226,10 +225,10 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       {
         lockrootdeps_deps := SELECT name, range := value FROM lockrootdeps->GetProp("dependencies", [ fallback := CELL[] ])->Unpack();
       }
-      ELSE IF(Length(flatmodules) > 0)
+      ELSE IF(Length(required_root_packages) > 0)
         RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'wh fixmodules'" ] ];
 
-      IF (EncodeHSON(lockrootdeps_deps) != EncodeHSON(SELECT name, range FROM flatmodules ORDER BY name))
+      IF (EncodeHSON(lockrootdeps_deps) != EncodeHSON(SELECT name, range FROM required_root_packages ORDER BY name))
         RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'wh fixmodules'" ] ];
 
       // Get the list of all installed packages on disk
@@ -244,7 +243,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
 
       IF (TypeID(hiddenpackagelockjson) != TypeID(OBJECT) OR NOT ObjectExists(hiddenpackagelockjson) OR NOT hiddenpackagelockjson->HasProp("packages"))
       {
-        IF(Length(flatmodules) = 0 AND Length(ondiskpackages) = 0)
+        IF(Length(required_root_packages) = 0 AND Length(ondiskpackages) = 0)
           RETURN issues; //it's okay to have no package-lock if there are no dependencies anyway
 
         RETURN [ ...issues, [ error := "No version info available for installed packages. Please run 'wh fixmodules'" ] ];
@@ -255,16 +254,16 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       IF (props.modified < SELECT AS DATETIME MAX(modified) FROM ondiskpackages)
         RETURN [ ...issues, [ error := "Packages may have been manually modified after last installation. Please run 'wh fixmodules'" ] ];
 
-      // Check if the package list is equal from listed to installed
-      RECORD ARRAY packages := SELECT * FROM hiddenpackagelockjson->GetProp("packages")->Unpack() ORDER BY name;
-      IF (LENGTH(packages) != LENGTH(ondiskpackages))
+      // Check if the package list is equal from listed to installed.
+      RECORD ARRAY claimed_installed_packages := SELECT * FROM hiddenpackagelockjson->GetProp("packages")->Unpack() ORDER BY name;
+      IF (LENGTH(claimed_installed_packages) != LENGTH(ondiskpackages))
         RETURN [ ...issues, [ error := "Packages were manually modified after last installation. Please run 'wh fixmodules'" ] ];
-      FOREVERY (RECORD package FROM packages)
+      FOREVERY (RECORD package FROM claimed_installed_packages)
         IF (ondiskpackages[#package].name != package.name)
           RETURN [ ...issues, [ error := "Packages were manually modified after last installation. Please run 'wh fixmodules'" ] ];
 
       // package-lock.json sometimes has extra packages that aren't installed - we just care about the ondisk package versions
-      FOREVERY (RECORD package FROM packages)
+      FOREVERY (RECORD package FROM claimed_installed_packages)
       {
         // all installed packages should be named in the package lock
         RECORD pos := RecordLowerBound(lockpackages, package, [ "NAME" ]);
@@ -279,7 +278,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       }
 
       // check if all requested stuff is present on disk, and no extra modules installed
-      issues := issues CONCAT CheckV2Requests(packages, flatmodules);
+      issues := issues CONCAT CheckV2Requests(claimed_installed_packages, required_root_packages);
     }
 
     RETURN issues;
