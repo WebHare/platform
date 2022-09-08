@@ -49,6 +49,7 @@
       <action name="getobjectsnapshot" onexecute="dogetobjectsnapshot" frameflags="canrundelayedaction" />
       <action name="getblobreferences" onexecute="dogetblobreferenceswithunreferenced" frameflags="canrundelayedaction" />
       <action name="gethandlelist" onexecute="dogethandlelist" frameflags="canrundelayedaction" />
+      <action name="getadhoccachelist" onexecute="dogetadhoccachelist" frameflags="canrundelayedaction" />
       <action name="showprofiles" onexecute="doshowprofiles" />
 
       <action name="startfunctionprofiling" onexecute="dostartfunctionprofiling" frameflags="canrundelayedaction !runningprofile" />
@@ -90,6 +91,7 @@
           <item action="getobjectsnapshot" />
           <item action="getblobreferences" />
           <item action="gethandlelist" />
+          <item action="getadhoccachelist" />
           <item action="startfunctionprofiling" />
           <item action="startmemoryprofiling" />
           <item action="stopprofiling" />

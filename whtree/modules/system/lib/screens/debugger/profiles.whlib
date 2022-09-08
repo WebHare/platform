@@ -106,10 +106,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         this->ReloadSessions();
         ^session->value := session = "live" ? "live" : `session:${session}`;
       }
-    }
 
-    ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exclusive lock in ReloadSessions
-    this->GotSessionChange();
+      ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exclusive lock in ReloadSessions
+      this->GotSessionChange();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -608,6 +608,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       CASE "objectsnapshot"   { RETURN NEW DisplayedObjectsSnapshot; }
       CASE "blobreferences"   { RETURN NEW DisplayedBlobReferences; }
       CASE "handlelist"       { RETURN NEW DisplayedHandleList; }
+      CASE "adhoccachelist"   { RETURN NEW DisplayedAdhocCacheList; }
     }
     THROW NEW Exception("Unknown rawdata type '" || type || "'");
   }

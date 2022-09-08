@@ -281,6 +281,17 @@ struct LibraryInfo
         Blex::DateTime compile_id;
 };
 
+struct DebugStatFunctions
+{
+        struct Registration
+        {
+                std::function< void(HSVM *, HSVM_VariableId) > getstatdata;
+                std::function< void(HSVM *, std::vector< std::string > const &tags) > setdebugtags;
+        };
+
+        std::map< std::string, Registration > statfunctions;
+};
+
 
 /** The linking librarian is the objects that holds and caches all used libraries
     It also links them together, and keeps copies of the linked versions.
@@ -300,6 +311,9 @@ class BLEXLIB_PUBLIC Environment
     private:
         typedef Blex::InterlockedData<LibraryCache, Blex::ConditionMutex> LockedCache;
         LockedCache cache;
+
+        typedef Blex::InterlockedData<DebugStatFunctions, Blex::ReadWriteMutex> LockedDebugStatFunctions;
+        LockedDebugStatFunctions debugstatfunctions;
 
         /// Notification event manager
         Blex::NotificationEventManager &eventmgr;
@@ -444,6 +458,11 @@ class BLEXLIB_PUBLIC Environment
                 return allow_std_sharing;
         }
         inline GlobalBlobManager & GetBlobManager() { return blobmanager; }
+
+        void RegisterDebugStatFunction(std::string const &name, std::function< void(HSVM *, HSVM_VariableId) > const &func, std::function< void(HSVM *vm, std::vector< std::string > const &tags) > const &setdebugtags);
+        void UnregisterDebugStatFunction(std::string const &name);
+        bool CallDebugStatFunction(std::string const &name, HSVM *vm, HSVM_VariableId var);
+        void SetDebuggingTags(HSVM *vm, std::vector< std::string > const &tags);
 
         friend class JobManager;
 };

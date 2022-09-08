@@ -979,6 +979,7 @@ void Debugger::HandleMessage(std::string const &type)
         else if (type == "getmemorysnapshot")       { RPC_GetMemorySnapshot(); }
         else if (type == "getblobreferences")       { RPC_GetBlobReferences(); }
         else if (type == "gethandlelist")           { RPC_GetHandleList(); }
+        else if (type == "getadhoccachelist")       { RPC_GetAdhocCacheList(); }
         else
             throw std::runtime_error(("Unknown message type '" + type + "'").c_str());
 }
@@ -2120,13 +2121,51 @@ void Debugger::RPC_GetHandleList()
         }
 
         HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-gethandellist-response");
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-gethandlelist-response");
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_groupid), groupid);
 
         HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
         HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
 
         Baselibs::EncodeHandleList(it->second.vmgroup->mainvm, &lock->comm.vm, var_rawdata);
+
+        SendComposeVar(lock, lock->comm.msgid);
+        lock->comm.msgid = 0;
+}
+
+void Debugger::RPC_GetAdhocCacheList()
+{
+        JobManager::LockedJobData::WriteRef jobmgrlock(jobmgr.jobdata);
+        LockedData::WriteRef lock(data);
+        StackMachine &stackm = lock->comm.vm.GetStackMachine();
+        HSVM *vm = lock->comm.vm;
+        HSVM_VariableId msgvar = lock->comm.msgvar;
+        HSVM_VariableId composevar = lock->comm.composevar;
+        ColumnNameCache const &cn_cache = lock->comm.vm.cn_cache;
+
+        std::string groupid = HSVM_StringGetSTD(vm, stackm.RecordCellTypedGetByName(msgvar, cn_cache.col_groupid, VariableTypes::String, true));
+
+        std::map< std::string, JobData >::iterator it = lock->state.jobs.find(groupid);
+        if (it == lock->state.jobs.end() || !it->second.is_connected)
+        {
+                SendJobAndTypeOnlyResponse(lock, "error-notconnected", groupid);
+                return;
+        }
+
+        if (it->second.vmgroup->jmdata.state != RunningState::DebugStopped)
+        {
+                SendJobAndTypeOnlyResponse(lock, "error-notstopped", groupid);
+                return;
+        }
+
+        HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "TYPE")), "job-getadhoccachelist-response");
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_groupid), groupid);
+
+        HSVM_VariableId var_rawdata = HSVM_RecordCreate(vm, composevar, HSVM_GetColumnId(vm, "RAWDATA"));
+        HSVM_SetDefault(vm, var_rawdata, HSVM_VAR_Record);
+
+        it->second.vmgroup->mainvm->GetEnvironment().CallDebugStatFunction("adhoccache-listitems", lock->comm.vm, var_rawdata);
 
         SendComposeVar(lock, lock->comm.msgid);
         lock->comm.msgid = 0;

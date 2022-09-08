@@ -1066,6 +1066,13 @@ STATIC OBJECTTYPE AttachedJob
             , groupid := this->pvt_groupid
             ], msgid);
       }
+      CASE "job-getadhoccachelist"
+      {
+        this->SendRequest(
+            [ type := "getadhoccachelist"
+            , groupid := this->pvt_groupid
+            ], msgid);
+      }
       DEFAULT
       {
         IF (debuglevel >= 5)
