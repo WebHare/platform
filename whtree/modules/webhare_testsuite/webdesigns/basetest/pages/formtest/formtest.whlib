@@ -312,16 +312,15 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     TestEq(DEFAULT RECORD, rt_dynamic->richvalue);
     rt_dynamic->richvalue := [ htmltext := StringToBlob(`<html><body><p class="normal">Dynamic richtext</p></body></html>`) ];
     TestEqLike(`*Dynamic richtext*`, BlobToString(rt_dynamic->richvalue.htmltext));
-
-    IF(IsRequest())
-      this->PrepareForFrontend();
   }
 
   UPDATE PUBLIC MACRO PrepareForFrontend()
   {
-    FOREVERY(STRING torequire FROM Tokenize(GetFormWebVariable("require"),','))
-      IF(torequire != "")
-        GetMember(this, "^" || torequire)->required := TRUE;
+    FormBase::PrepareForFrontend();
+    IF(IsRequest())
+      FOREVERY(STRING torequire FROM Tokenize(GetFormWebVariable("require"),','))
+        IF(torequire != "")
+          GetMember(this, "^" || torequire)->required := TRUE;
   }
 
   PUBLIC MACRO RPC_Prefill()

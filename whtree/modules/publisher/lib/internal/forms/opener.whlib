@@ -43,6 +43,7 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
                              , formref := ""
                              , incontext := 0
                              , targetid := 0
+                             , prepareforfrontend := TRUE
                              ], options);
 
   RECORD parsed := CELL[ ...formdef
@@ -66,6 +67,8 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
 
     formobj := MakeObject(toopen);
     formobj->__EnsurePreInit();
+    IF(options.prepareforfrontend)
+      formobj->PrepareForfrontend();
 //    IF(NOT (formobj EXTENDSFROM FormBase))  TODO would be a nice check but introduces dependency hell.
 //      THROW NEW Exception("Form object " || parsed.lib || " " || parsed.objectname || " does not derive from FormBase");
   }

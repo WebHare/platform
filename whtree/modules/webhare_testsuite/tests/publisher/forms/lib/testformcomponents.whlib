@@ -17,9 +17,10 @@ PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
   }
   UPDATE PUBLIC MACRO PrepareForFrontend()
   {
-    FOREVERY(RECORD field FROM this->form->ListFields())
-      IF(field.obj->title="Email" AND field.obj->value="")
-        field.obj->value := "test@beta.webhare.net";
+    IF(this->form->formref != "noprefill")
+      FOREVERY(RECORD field FROM this->form->ListFields())
+        IF(field.obj->title="Email" AND field.obj->value="")
+          field.obj->value := "test@beta.webhare.net";
   }
   UPDATE PUBLIC MACRO ValidateForm(OBJECT work)
   {

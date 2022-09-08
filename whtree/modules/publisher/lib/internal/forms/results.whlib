@@ -663,7 +663,7 @@ STATIC OBJECTTYPE WHFSForm
     STRING resourcename := this->formdef->__resourcename ?? this->whfsobject->GetResourceName();
     RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
                                    [ webtoolformid := this->whfsobject->id ]);
-    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := NOT this->initcustomform, languagecode := langcode, applytester := this->__applytester ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := NOT this->initcustomform, languagecode := langcode, applytester := this->__applytester, prepareforfrontend := FALSE ]);
     RETURN form;
   }
 

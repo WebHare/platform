@@ -22,7 +22,7 @@ PUBLIC MACRO TestTestsuiteForms()   //Run through the testsuite forms. this may 
 
   OBJECT webdesign := GetWebDesign(testfile->id);
 
-  OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
+  OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM" ]);
   ValidateFormRenderTree(coreform->GetRenderTree());
 
   TestEqMembers([ groupclasses := ["radioboolean"]

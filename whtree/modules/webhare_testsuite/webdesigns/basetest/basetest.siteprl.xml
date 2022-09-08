@@ -65,7 +65,7 @@
 
     <!-- Test pages etc -->
     <prebuiltpage type="dynamic" tag="formtest" webpageobjectname="pages/formtest/formtest.whlib#FormTestPage" />
-    <formdefinitions name="webhare_testsuite:formtest" path="pages/formtest/formtest.formdef.xml" />
+    <formdefinitions path="pages/formtest/formtest.formdef.xml" />
     <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
     <prebuiltpage type="dynamic"
                   tag="requiresysoptest"

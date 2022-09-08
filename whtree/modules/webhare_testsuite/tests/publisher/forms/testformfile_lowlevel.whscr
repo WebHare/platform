@@ -26,7 +26,7 @@ MACRO DirectFormStorage1()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT formresults := OpenFormFileResults(formfile);
-  OBJECT liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
+  OBJECT liveform := OpenWebtoolForm(formfile->id);
 
   liveform->^firstname->value := "Pietje";
 
@@ -42,10 +42,11 @@ MACRO DirectFormStorage1()
 
   RECORD submitted := formresults->GetSingleResult(res.result.resultsguid);
   TestEqLike("mod::webhare_testsuite/*", submitted.useragent);
-  TestEq([ x := 42], submitted.extradata);
+  TestEq([ x := 42 ], submitted.extradata);
 
   //Open in edit mode
   liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
+  liveform->PrepareForFrontend(); //as we called a lowlevel API we're responsible for proper init
   liveform->EditExistingResult(res.result.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
@@ -82,6 +83,7 @@ MACRO DirectFormStorage2()
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT formresults := OpenFormFileResults(formfile);
   OBJECT liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
+  liveform->PrepareForFrontend(); //as we called a lowlevel API we're responsible for proper init
 
   RECORD ARRAY fields := liveform->ListFields();
   STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
@@ -95,6 +97,7 @@ MACRO DirectFormStorage2()
 
   //Open in edit mode
   liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
+  liveform->PrepareForFrontend(); //as we called a lowlevel API we're responsible for proper init
   liveform->EditExistingResult(res.result.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
@@ -121,7 +124,7 @@ MACRO VerifyAndCleanupMail()
 
 MACRO WorkHandlingErrors()
 {
-  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->id)->OpenForm("webhare_testsuite:formtest#workhandlingerrorsform");
+  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->id)->OpenForm("workhandlingerrorsform");
 
   // Test no transaction leaking, and correct handling of work errors
   liveform->^mode->value := "nofinish";
@@ -156,7 +159,7 @@ MACRO WorkHandlingErrors()
 MACRO TestAttributeMatching()
 {
   SetTidLanguage("nl");
-  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id)->OpenForm("webhare_testsuite:formtest#coretest", [ formref := "CORE-TEST-FORM" ]);
+  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id)->OpenForm("coretest", [ formref := "CORE-TEST-FORM" ]);
 
   TestEQ(TRUE, "wh-testsuite-matchattributes-type1" IN liveform->^matchattributes_type1->groupclasses);
   TestEQ(TRUE, "wh-testsuite-matchattributes-type2-true" IN liveform->^matchattributes_type2_true->groupclasses);
