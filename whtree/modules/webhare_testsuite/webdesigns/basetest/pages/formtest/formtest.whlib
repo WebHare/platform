@@ -112,11 +112,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     BOOLEAN nocheckboxselect := IsRequest() AND GetFormWebVariable("nocheckboxselect") = "1";
 
     ^invisible->visible := FALSE;
-    IF(ObjectExists(this->formcontext)) //we're invoked by the webdesign
-    {
-      TestEq('formtest', this->formcontext->targetobject->name);
-      TestEq('nl', this->formcontext->languagecode);
-    }
+    TestEq('formtest', this->formcontext->targetobject->name);
+    TestEq('nl', this->formcontext->languagecode);
 
     IF(GetTidLanguage() != "nl")
       ABORT("Expected GetTidLanguage() to be 'nl' during form initialization");

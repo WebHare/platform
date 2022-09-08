@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -120,7 +121,7 @@ MACRO VerifyAndCleanupMail()
 
 MACRO WorkHandlingErrors()
 {
-  OBJECT liveform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "workhandlingerrorsform");
+  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->id)->OpenForm("webhare_testsuite:formtest#workhandlingerrorsform");
 
   // Test no transaction leaking, and correct handling of work errors
   liveform->^mode->value := "nofinish";
@@ -155,7 +156,7 @@ MACRO WorkHandlingErrors()
 MACRO TestAttributeMatching()
 {
   SetTidLanguage("nl");
-  OBJECT liveform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "coretest", [ formref := "CORE-TEST-FORM" ]);
+  OBJECT liveform := GetWebContext(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id)->OpenForm("webhare_testsuite:formtest#coretest", [ formref := "CORE-TEST-FORM" ]);
 
   TestEQ(TRUE, "wh-testsuite-matchattributes-type1" IN liveform->^matchattributes_type1->groupclasses);
   TestEQ(TRUE, "wh-testsuite-matchattributes-type2-true" IN liveform->^matchattributes_type2_true->groupclasses);

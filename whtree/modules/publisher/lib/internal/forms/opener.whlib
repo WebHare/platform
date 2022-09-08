@@ -27,10 +27,11 @@ PUBLIC OBJECT FUNCTION OpenFormWithContext(OBJECT webcontext, STRING formname, R
   IF(NOT RecordExists(forminfo))
     THROW NEW Exception("No formdefinition defined for the current file" || (formfile != "" ? " with name " || formfile : ""));
 
-  RETURN OpenForm(forminfo.path, formname, [ ...options
-                                           , webcontext := webcontext
-                                           , applytester := webcontext->targetapplytester
-                                           ]);
+  RECORD formdef := GetFormDef(forminfo.path, formname);
+  RETURN OpenFormByDef(formdef, [ ...options
+                                , webcontext := webcontext
+                                , applytester := webcontext->targetapplytester
+                                ]);
 }
 
 PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -79,14 +80,4 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
   }
 
   RETURN formobj;
-}
-
-/** @topic forms/api
-    @public
-    @loadlib mod::publisher/lib/forms/api.whlib
-*/
-PUBLIC OBJECT FUNCTION OpenForm(STRING formdefinitionfile, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RECORD formdef := GetFormDef(formdefinitionfile, formname);
-  RETURN OpenFormByDef(formdef, options); //ADDME adhoc cache this
 }

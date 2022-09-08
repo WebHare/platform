@@ -4,7 +4,7 @@
 */
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/opener.whlib" EXPORT OpenForm;
+LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";

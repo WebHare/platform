@@ -38,14 +38,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 
-//Direct API to allow us to optimize this in the future (by eg not actually creating the form all the time)
-/*
-PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formdefinitionfile, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN OpenForm(formdefinitionfile, formname, options)->GetWittyData();
-}
-*/
-
 //we're not using this text yet, but prevent it from being deleted. can't mark individual tids as 'keep'
 CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsrequired";
 
