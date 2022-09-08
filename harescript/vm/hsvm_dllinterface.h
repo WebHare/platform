@@ -1298,6 +1298,25 @@ inline void HSVM_StringSetSTD(struct HSVM *vm, HSVM_VariableId id, const char *v
             HSVM_SetDefault(vm,id,HSVM_VAR_String);
 }
 
+/** Set a variable of type HSVM_VAR_Datetime from a Blex::DateTime
+    @param vm Virtual machine
+    @param id ID of the variable
+    @param value Value to set */
+inline void HSVM_DateTimeSetBlex(struct HSVM *vm, HSVM_VariableId id, Blex::DateTime value)
+{
+        HSVM_DateTimeSet(vm, id, value.GetDays(), value.GetMsecs());
+}
+
+/** Retrieves a variable of type HSVM_VAR_Datetime as a Blex::DateTime type
+    @param vm Virtual machine
+    @param id ID of the variable */
+inline Blex::DateTime HSVM_DateTimeGetBlex(struct HSVM *vm, HSVM_VariableId id)
+{
+        int high, low;
+        HSVM_DateTimeGet(vm, id, &high, &low);
+        return Blex::DateTime(high, low);
+}
+
 inline std::string HSVM_GetVMGroupIdSTD(struct HSVM *vm)
 {
         char groupid_buffer[129];

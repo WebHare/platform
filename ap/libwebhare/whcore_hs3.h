@@ -42,6 +42,8 @@ class AdhocCache : public Blex::NotificationEventReceiver
                 ExpireDate expires;
                 uint32_t hits;
                 EventMasks eventmasks;
+                Blex::DateTime creationdate;
+                std::shared_ptr< HareScript::AsyncStackTrace > stacktrace;
         };
 
         struct Library
@@ -83,9 +85,24 @@ class AdhocCache : public Blex::NotificationEventReceiver
         AdhocCache(Connection &conn);
         ~AdhocCache();
 
+        struct StatItem
+        {
+                std::string library;
+                std::string key;
+                uint64_t datasize;
+                uint64_t blobsize;
+                uint64_t objects;
+                ExpireDate expires;
+                uint32_t hits;
+                EventMasks eventmasks;
+                Blex::DateTime creationdate;
+                std::shared_ptr< HareScript::AsyncStackTrace > stacktrace;
+        };
+
         bool GetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId result, HashTag *store_hash);
-        void SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId date, Blex::DateTime expiry, std::vector< std::string > const &eventmasks);
+        void SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId date, Blex::DateTime expiry, std::vector< std::string > const &eventmasks, Blex::DateTime creationdate, std::shared_ptr< HareScript::AsyncStackTrace > const &stacktrace);
         void GetStats(HareScript::VirtualMachine *vm, HSVM_VariableId id_set);
+        void ListAllItems(std::vector< StatItem > *output);
         void InvalidateAll();
         void TwistKnobs(int32_t max_entries, int32_t min_entries_per_library);
 };
@@ -174,6 +191,7 @@ class BLEXLIB_PUBLIC ScriptContextData
 
         std::string adhoclibrary;
         Blex::DateTime adhoclibrarymodtime;
+        bool traceadhoccache;
 
         WHFileSystem::RecompileResult RecompileLibary(HareScript::ErrorHandler &handler, std::string const &uri, bool force);
         std::string GetLibaryPath(std::string const &uri);

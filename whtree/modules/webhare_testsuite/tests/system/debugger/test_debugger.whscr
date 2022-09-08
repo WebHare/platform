@@ -1,0 +1,71 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+PUBLIC RECORD FUNCTION JobFunction()
+{
+  OBJECT mutex := OpenLocalLockManager()->LockLocalMutex("test");
+
+
+  Sleep(60000);
+  RETURN DEFAULT RECORD;
+}
+
+ASYNC MACRO TestDebugger()
+{
+  OBJECT promise := AsyncCallFunctionFromJob(Resolve("#JobFunction"));
+
+  // Wait for job function to prove it has is running
+  WHILE (TRUE)
+  {
+    OBJECT mutex := OpenLocalLockManager()->TryLockLocalMutex("test", DEFAULT DATETIME);
+    IF (NOT ObjectExists(mutex))
+      BREAK;
+    mutex->Release();
+    AWAIT CreateSleepPromise(100);
+  }
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:debugger"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Job Monitor"));
+  TT("{list}:*[1/2]")->value := GetProcessInfo().processcode;
+
+  // Wait for list of jobs to show up
+  FOR (INTEGER i := 0; i < 600 AND NOT RecordExists(TT("{list}:*[2/2]")->rows); i := i + 1)
+    AWAIT CreateSleepPromise(100);
+
+  STRING job_rowkey := SELECT AS STRING rowkey FROM TT("{list}:*[2/2]")->rows WHERE rowkey != GetCurrentGroupId();
+  TT("{list}:*[2/2]")->value := job_rowkey;
+  TT(":Stop on connect")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Connect"));
+
+  // Wait for being able to run delayed actions
+  FOR (INTEGER i := 0; i < 600 AND NOT TT("frame")->flags.canrundelayedaction; i := i + 1)
+    AWAIT CreateSleepPromise(100);
+
+  // Take a adhoccache snapshot, show it in profiles list
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Take adhoccache snapshot[menuitem]"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+}
+
+IF (IsWithinFunctionRunningJob())
+  RETURN;
+
+RunTestFramework(
+    [ PTR TestDebugger()
+    ],
+    [ testusers :=
+            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+            ]
+    ]);

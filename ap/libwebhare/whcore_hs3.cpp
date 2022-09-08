@@ -34,7 +34,8 @@ namespace WHCore
 
 
 ScriptContextData::ScriptContextData(ScriptEnvironment *_env)
-: webhare(_env->whconn)
+: traceadhoccache(false)
+, webhare(_env->whconn)
 , env(*_env)
 {
 }
@@ -234,7 +235,7 @@ bool AdhocCache::RemoveEntry(LockedCacheData::WriteRef &lock, LibraryURI const &
         return true;
 }
 
-void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId data, Blex::DateTime expiry, EventMasks const &eventmasks)
+void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId data, Blex::DateTime expiry, EventMasks const &eventmasks, Blex::DateTime creationdate, std::shared_ptr< HareScript::AsyncStackTrace > const &stacktrace)
 {
         HareScript::StackMachine &stackm = vm->GetStackMachine();
         HareScript::Marshaller &marshaller = vm->GetCacheMarshaller();
@@ -289,6 +290,8 @@ void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachet
                 entry.data = packet;
                 entry.hits = 0;
                 entry.eventmasks = eventmasks;
+                entry.creationdate = creationdate;
+                entry.stacktrace = std::move(stacktrace);
 
                 lock->expiries.insert(std::make_pair(expiry, std::make_pair(library, hash)));
                 for (EventMasks::const_iterator it = eventmasks.begin(); it != eventmasks.end(); ++it)
@@ -319,6 +322,33 @@ void AdhocCache::GetStats(HareScript::VirtualMachine *vm, HSVM_VariableId id_set
                 --it;
                 Blex::DateTime value = it->first;
                 HSVM_DateTimeSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "OLDESTITEM")), value.GetDays(), value.GetMsecs());
+        }
+}
+
+void AdhocCache::ListAllItems(std::vector< StatItem > *output)
+{
+        LockedCacheData::WriteRef lock(lockedcachedata);
+
+        // Remove stale entries, looks better for stats
+        CullEntries(lock);
+
+        for (auto libitr = lock->libraries.begin(); libitr != lock->libraries.end(); ++libitr)
+        {
+                for (auto itemitr = libitr->second.entries.begin(); itemitr != libitr->second.entries.end(); ++itemitr)
+                {
+                        StatItem item;
+                        item.library = libitr->first;
+                        auto sizedata = itemitr->second.data->GetSize();
+                        item.datasize = sizedata.datasize;
+                        item.blobsize = sizedata.blobsize;
+                        item.objects = sizedata.objects;
+                        item.expires = itemitr->second.expires;
+                        item.hits = itemitr->second.hits;
+                        item.eventmasks = itemitr->second.eventmasks;
+                        item.creationdate = itemitr->second.creationdate;
+                        item.stacktrace = itemitr->second.stacktrace;
+                        output->push_back(item);
+                }
         }
 }
 
@@ -411,6 +441,9 @@ HareScript::VMGroup *ScriptEnvironment::CreateVMGroup(bool highpriority)
         return environment.ConstructVMGroup(highpriority);
 }
 
+void ListAdhocCacheItems(HSVM *vm, HSVM_VariableId id_set);
+void SetAdhocCachDebugTags(HSVM *vm, std::vector< std::string > const &tags);
+
 void ScriptEnvironment::Init()
 {
         //ADDME: Restore pimpl of HareScript stuff?
@@ -435,10 +468,14 @@ void ScriptEnvironment::Init()
 
         environment.RegisterVMCreationHandler(std::bind(&ScriptEnvironment::OnNewVM, this, std::placeholders::_1));
 //        cache_vm.reset(ConstructWHVM(&cache_errorhandler));
+
+        environment.RegisterDebugStatFunction("adhoccache-listitems", &ListAdhocCacheItems, SetAdhocCachDebugTags);
 }
+
 
 ScriptEnvironment::~ScriptEnvironment()
 {
+        environment.UnregisterDebugStatFunction("adhoccache-listitems");
 }
 
 /** Load and setup a WebHare-enhanced script */
@@ -733,7 +770,16 @@ void SetAdhocCacheData(HSVM *vm)
         std::sort(eventmasks.begin(), eventmasks.end());
         eventmasks.erase(std::unique(eventmasks.begin(), eventmasks.end()), eventmasks.end());
 
-        cache.SetEntry(HareScript::GetVirtualMachine(vm), HSVM_Arg(0), HSVM_IntegerGet(vm, HSVM_Arg(4)), scriptcontext->adhoclibrary, scriptcontext->adhoclibrarymodtime, HSVM_Arg(1), Blex::DateTime(daysvalue, msecsvalue), eventmasks);
+        std::shared_ptr< HareScript::AsyncStackTrace > stacktrace;
+        Blex::DateTime creationdate = Blex::DateTime::Invalid();
+        if (scriptcontext->traceadhoccache)
+        {
+                stacktrace.reset(new HareScript::AsyncStackTrace);
+                HareScript::GetVirtualMachine(vm)->GetRawAsyncStackTrace(stacktrace.get(), 0, nullptr);
+                creationdate = Blex::DateTime::Now();
+        }
+
+        cache.SetEntry(HareScript::GetVirtualMachine(vm), HSVM_Arg(0), HSVM_IntegerGet(vm, HSVM_Arg(4)), scriptcontext->adhoclibrary, scriptcontext->adhoclibrarymodtime, HSVM_Arg(1), Blex::DateTime(daysvalue, msecsvalue), eventmasks, creationdate, stacktrace);
 }
 
 void GetAdhocCacheStats(HSVM *vm, HSVM_VariableId id_set)
@@ -759,6 +805,62 @@ void SetupAdhocCache(HSVM *vm)
         AdhocCache &cache = scriptcontext->GetAdhocCache();
 
         cache.TwistKnobs(HSVM_IntegerGet(vm, HSVM_Arg(0)), HSVM_IntegerGet(vm, HSVM_Arg(1)));
+}
+
+void ListAdhocCacheItems(HSVM *vm, HSVM_VariableId id_set)
+{
+        ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
+
+        AdhocCache &cache = scriptcontext->GetAdhocCache();
+
+        std::vector< AdhocCache::StatItem > output;
+        cache.ListAllItems(&output);
+
+        HSVM_ColumnId col_items = HSVM_GetColumnId(vm, "ITEMS");
+        HSVM_ColumnId col_library = HSVM_GetColumnId(vm, "LIBRARY");
+        HSVM_ColumnId col_datasize = HSVM_GetColumnId(vm, "DATASIZE");
+        HSVM_ColumnId col_blobsize = HSVM_GetColumnId(vm, "BLOBSIZE");
+        HSVM_ColumnId col_objects = HSVM_GetColumnId(vm, "OBJECTS");
+        HSVM_ColumnId col_hits = HSVM_GetColumnId(vm, "HITS");
+        HSVM_ColumnId col_expires = HSVM_GetColumnId(vm, "EXPIRES");
+        HSVM_ColumnId col_eventmasks = HSVM_GetColumnId(vm, "EVENTMASKS");
+        HSVM_ColumnId col_creationdate = HSVM_GetColumnId(vm, "CREATIONDATE");
+        HSVM_ColumnId col_stacktrace = HSVM_GetColumnId(vm, "STACKTRACE");
+
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+        HSVM_VariableId items = HSVM_RecordCreate(vm, id_set, col_items);
+
+        HSVM_SetDefault(vm, items, HSVM_VAR_RecordArray);
+        for (auto &itr: output)
+        {
+                HSVM_VariableId elt = HSVM_ArrayAppend(vm, items);
+                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, elt, col_library), itr.library);
+                HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_datasize), itr.datasize);
+                HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_blobsize), itr.blobsize);
+                HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_objects), itr.objects);
+                HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_hits), itr.hits);
+                HSVM_DateTimeSetBlex(vm, HSVM_RecordCreate(vm, elt, col_expires), itr.expires);
+                HSVM_VariableId eventmasks = HSVM_RecordCreate(vm, elt, col_eventmasks);
+                HSVM_SetDefault(vm, eventmasks, HSVM_VAR_StringArray);
+                for (auto &eitr: itr.eventmasks)
+                    HSVM_StringSetSTD(vm, HSVM_ArrayAppend(vm, eventmasks), eitr);
+                HSVM_VariableId stacktrace = HSVM_RecordCreate(vm, elt, col_stacktrace);
+                if (itr.stacktrace.get())
+                {
+                        std::vector< HareScript::StackTraceElement > elements;
+                        HareScript::GetVirtualMachine(vm)->BuildAsyncStackTrace(*itr.stacktrace, &elements);
+                        GetVMStackTraceFromElements(HareScript::GetVirtualMachine(vm), stacktrace, elements, 0, false);
+                }
+                else
+                    HSVM_SetDefault(vm, stacktrace, HSVM_VAR_RecordArray);
+                HSVM_DateTimeSetBlex(vm, HSVM_RecordCreate(vm, elt, col_creationdate), itr.creationdate);
+        }
+}
+
+void SetAdhocCachDebugTags(HSVM *vm, std::vector< std::string > const &tags)
+{
+        ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
+        scriptcontext->traceadhoccache = std::find(tags.begin(), tags.end(), "traceadhoccache") != tags.end();
 }
 
 bool GetCell(HSVM *vm, HSVM_VariableId id, HSVM_ColumnId cid, bool const &defval)
@@ -1138,6 +1240,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata,"GETADHOCCACHESTATS::R:", GetAdhocCacheStats);
         HSVM_RegisterMacro(regdata,"INVALIDATEADHOCCACHE:::", InvalidateAdhocCache);
         HSVM_RegisterMacro(regdata,"__SYSTEM_SETUPADHOCCACHE:::II", SetupAdhocCache);
+        HSVM_RegisterFunction(regdata,"__SYSTEM_GETADHOCCACHEITEMMETADATA::R:", ListAdhocCacheItems);
 
         HSVM_RegisterFunction(regdata,"__SYSTEM_CONFIGUREREMOTELOGS::R:RA", ConfigureRemoteLogs);
         HSVM_RegisterMacro(regdata,"__SYSTEM_REMOTELOG:::SS", RemoteLog);

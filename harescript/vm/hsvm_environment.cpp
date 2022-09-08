@@ -873,6 +873,37 @@ void Environment::NoHSModUnload()
         externals.linkmanager.NoHSModUnload();
 }
 
+void Environment::RegisterDebugStatFunction(std::string const &name, std::function< void(HSVM *, HSVM_VariableId) > const &func, std::function< void(HSVM *vm, std::vector< std::string > const &tags) > const &setdebugtags)
+{
+        LockedDebugStatFunctions::WriteRef lock(debugstatfunctions);
+        lock->statfunctions[name].getstatdata = func;
+        lock->statfunctions[name].setdebugtags = setdebugtags;
+}
+void Environment::UnregisterDebugStatFunction(std::string const &name)
+{
+        LockedDebugStatFunctions::WriteRef lock(debugstatfunctions);
+        lock->statfunctions.erase(name);
+}
+
+bool Environment::CallDebugStatFunction(std::string const &name, HSVM *vm, HSVM_VariableId var)
+{
+        LockedDebugStatFunctions::ReadRef lock(debugstatfunctions);
+        auto itr = lock->statfunctions.find(name);
+        if (itr == lock->statfunctions.end() || !itr->second.getstatdata)
+            return false;
+        itr->second.getstatdata(vm, var);
+        return true;
+}
+
+void Environment::SetDebuggingTags(HSVM *vm, std::vector< std::string > const &tags)
+{
+        LockedDebugStatFunctions::ReadRef lock(debugstatfunctions);
+        for (auto &itr: lock->statfunctions)
+            if (itr.second.setdebugtags)
+                 itr.second.setdebugtags(vm, tags);
+
+}
+
 LibraryLoader::LibraryLoader(Environment &llib, ErrorHandler &_errorhandler)
 : llib(llib)
 , errorhandler(_errorhandler)
@@ -931,12 +962,11 @@ void LibraryLoader::GetWHLibraryInfo(Blex::ContextKeeper &keeper, std::string co
 
         info->loaded = curlib;
 
-        Library const *lib = llib.GetLibRef(keeper, liburi, errorhandler); //any
+        Library const *lib = nullptr;
         try
         {
-                if (lib)
-                    info->compile_id = lib->GetWrappedLibrary().resident.compile_id;
-
+                lib = llib.GetLibRef(keeper, liburi, errorhandler);
+                info->compile_id = lib->GetWrappedLibrary().resident.compile_id;
                 info->outofdate = curlib && lib != curlib;
 
                 // See if we already have another version of its dependents
@@ -953,9 +983,10 @@ void LibraryLoader::GetWHLibraryInfo(Blex::ContextKeeper &keeper, std::string co
         }
         catch (std::exception &e)
         {
+                if (lib)
+                    llib.ReleaseLibRef(lib);
                 info->compile_id = Blex::DateTime::Invalid();
-                llib.ReleaseLibRef(lib);
-                throw e;
+                info->outofdate = true;
         }
 }
 

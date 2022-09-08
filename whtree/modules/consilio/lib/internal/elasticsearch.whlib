@@ -93,12 +93,12 @@ PUBLIC STRING FUNCTION GetBuiltinOpensearchAddress()
   RETURN `http://${GetEnvironmentVariable("WEBHARE_OPENSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}/`;
 }
 
-PUBLIC ASYNC FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
+PUBLIC STRING FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
 {
-  RETURN AWAIT CreatePromise(PTR ConnectElasticsearch(indexmgrid, #1, #2, waituntil));
+  RETURN ConnectElasticsearch(indexmgrid, waituntil);
 }
 
-ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCTION PTR reject, DATETIME waituntil)
+STRING FUNCTION ConnectElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
 {
   WHILE (GetCurrentDateTime() < waituntil)
   {
@@ -111,10 +111,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
     {
       RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = indexmgrid;
       IF (NOT RecordExists(indexmgr) OR (NOT IsValidPlainHTTPUrl(indexmgr.address) AND indexmgr.address != "builtin-opensearch"))
-      {
-        reject(NEW Exception(SearchInvalidArgument));
-        RETURN;
-      }
+        THROW NEW Exception(SearchInvalidArgument);
 
       indexmanager := [ address := indexmgr.address
                       , browser := DEFAULT OBJECT
@@ -145,8 +142,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
         IF (statuscode = 401)
         {
           FetcherDebug(ConsilioDebugInfo, `Authentication error while connecting to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
-          reject(NEW ElasticsearchException(SearchNoAccess, indexmanager.browser));
-          RETURN;
+          THROW NEW ElasticsearchException(SearchNoAccess, indexmanager.browser);
         }
 
         FetcherDebug(ConsilioDebugInfo, `Could not connect to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
@@ -161,14 +157,13 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
     }
     IF (indexmanager.clusterstatus IN [ "yellow", "green" ])
     {
-      resolve(SearchOk);
-      RETURN;
+      RETURN SearchOk;
     }
 
     // Wait before trying again
-    AWAIT CreateSleepPromise(1000);
+    Sleep(1000);
   }
-  reject(NEW Exception(SearchTimeOutError));
+  THROW NEW Exception(SearchTimeOutError);
 }
 
 PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -191,7 +186,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
   }
 
-  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(opensearch_firstconnect_timeout, GetCurrentDateTime())));
+  WaitForElasticsearch(indexmgrid, AddTimeToDate(opensearch_firstconnect_timeout, GetCurrentDateTime()));
 
   INTEGER statuscode;
   RECORD indexmanager;
@@ -233,7 +228,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       IF (indexmanager.browser->GetSocketError() = -9) // timeout
       {
         FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
-        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
+        WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime()));
         FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
         // Don't break, try to send request again with new connection
       }

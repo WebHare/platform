@@ -74,7 +74,7 @@ bool MarshalPacket::TryClone(std::unique_ptr< MarshalPacket > *_copy) const
 }
 
 
-void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr)
+void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr) const
 {
         if (!objects.empty())
             ThrowInternalError("Cannot do a raw store for marshal packets with objects");
@@ -88,7 +88,7 @@ void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalB
                     ThrowInternalError("Cannot do a raw store for marshal packets with blobs");
 
                 blobsize = 4; // nr of blobs
-                for (std::vector< std::shared_ptr< BlobData > >::iterator it = blobs.begin(); it != blobs.end(); ++it)
+                for (auto it = blobs.begin(); it != blobs.end(); ++it)
                     blobsize += 8 + (*it)->length;
 
                 if (blobsize > (1ull << 30)) // Max 1 GB
@@ -116,7 +116,7 @@ void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalB
                 blobpos += 4;
 
                 std::size_t blobdatapos = blobpos + 8 * blobs.size();
-                for (std::vector< std::shared_ptr< BlobData > >::iterator it = blobs.begin(); it != blobs.end(); ++it)
+                for (auto it = blobs.begin(); it != blobs.end(); ++it)
                 {
                         Blex::putu64lsb(&(*target)[blobpos], (*it)->length);
                         blobpos += 8;
@@ -208,6 +208,17 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
                         blobs.push_back(blobdata);
                 }
         }
+}
+
+MarshalPacket::SizeData MarshalPacket::GetSize() const
+{
+        SizeData retval;
+        retval.datasize = data.size() + columndata.size();
+        retval.blobsize = 0;
+        for (auto &itr: blobs)
+            retval.blobsize += itr->length;
+        retval.objects = objects.size();
+        return retval;
 }
 
 // --------------------------------------------------------------------------

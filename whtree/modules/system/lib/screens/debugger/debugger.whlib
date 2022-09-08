@@ -1503,20 +1503,40 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->DoShowProfiles();
   }
 
-  ASYNC FUNCTION AsyncGetHandleList(BOOLEAN withunreferenced)
+  ASYNC FUNCTION AsyncGetHandleList()
   {
     RETURN this->job->GetHandleList();
   }
 
   MACRO DoGetHandleList()
   {
-    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetHandleList(TRUE)));
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetHandleList()));
 
     INSERT
         [ when :=     GetCurrentDateTime()
         , source :=   "debugger"
         , command :=  "handlesnapshot-" || LENGTH(this->profiles) + 1
         , type :=     "handlelist"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  ASYNC FUNCTION AsyncGetAdhocCacheList()
+  {
+    RETURN this->job->GetAdhocCacheList();
+  }
+
+  MACRO DoGetAdhocCacheList()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetAdhocCacheList()));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "handlesnapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "adhoccachelist"
         , rawdata :=  data.rawdata
         ] INTO this->profiles AT END;
 

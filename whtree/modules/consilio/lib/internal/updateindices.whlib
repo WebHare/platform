@@ -335,6 +335,10 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
           RECORD ARRAY exp := want.catalog->GetExpectedMapping();
           RECORD ARRAY issues := CompareMappings(res,exp,"");
+
+          IF (IsDefaultValue(issues))
+            CONTINUE;
+
           IF(options.zapanymismatch AND AttemptZap(want.catalog))
             BREAK;
 

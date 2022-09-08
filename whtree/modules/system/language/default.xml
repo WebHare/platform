@@ -62,6 +62,7 @@
     <text tid="func">Function</text>
     <text tid="getblobreferences">Take blob snapshot</text>
     <text tid="gethandlelist">Take handle snapshot</text>
+    <text tid="getadhoccachelist">Take adhoccache snapshot</text>
     <text tid="getmemorysnapshot">Take memory snapshot</text>
     <text tid="getmemorysnapshotwithunreferenced">Take memory snapshot (with garbage)</text>
     <text tid="getobjectsnapshot">Take objects snapshot</text>

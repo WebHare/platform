@@ -3022,9 +3022,10 @@ void ListHandles(VarId id_set, VirtualMachine *vm)
 
 void SetDebuggingTags(VirtualMachine *vm)
 {
-
         auto &stackm = vm->GetStackMachine();
         bool tracehandlecreation = false;
+
+        std::vector< std::string > tags;
 
         unsigned tagcount = stackm.ArraySize(HSVM_Arg(0));
         for (uint32_t idx = 0; idx < tagcount; ++idx)
@@ -3032,9 +3033,11 @@ void SetDebuggingTags(VirtualMachine *vm)
                 auto str = stackm.GetString(stackm.ArrayElementGet(HSVM_Arg(0), idx)).stl_stringview();
                 if (str == "handles"sv)
                     tracehandlecreation = true;
+                tags.push_back(std::string(str));
         }
 
         vm->SetTraceHandleCreation(tracehandlecreation);
+        vm->GetEnvironment().SetDebuggingTags(*vm, tags);
 }
 
 
