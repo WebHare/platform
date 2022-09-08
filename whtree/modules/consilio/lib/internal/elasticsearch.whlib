@@ -1,12 +1,13 @@
 <?wh
 
-LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -403,7 +404,7 @@ INTEGER64 FUNCTION ReadWatermark(STRING input, INTEGER64 total_bytes)
 PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 {
   readable_bytes := ToLowercase(readable_bytes);
-  INTEGER factor := 1;
+  INTEGER64 factor := 1;
   IF (readable_bytes LIKE "*kb")
     factor := 1024;
   ELSE IF (readable_bytes LIKE "*mb")
@@ -459,13 +460,29 @@ STRING ARRAY FUNCTION ExtractUserQueriesRecursive(RECORD query)
   RETURN STRING[];
 }
 
+// Create a (flattened) list of requested fields
+PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
+{
+  STRING ARRAY fields;
+  FOREVERY (RECORD field FROM UnpackRecord(mapping))
+  {
+    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
+      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
+        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
+    ELSE IF (field.name NOT LIKE "_SCORE.*") // Don't request our additional fields
+      INSERT ToLowercase(field.name) INTO fields AT END;
+  }
+  RETURN fields;
+}
+
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
-PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD indexoptions)
+PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RECORD indexoptions)
 {
   RECORD result :=
       [ query := DEFAULT RECORD
       , aggs := DEFAULT RECORD
-      , sort := DEFAULT VARIANT ARRAY
+      , sort := VARIANT[]
+      , _source := GetRequestedFields(mapping)
       ];
 
   IF (CellExists(input, "aggregation"))
@@ -486,7 +503,9 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD indexoption
 
   IF (RecordExists(UnpackRecord(query))) // query may be an empty record at this point
   {
-    result.query := CreateElasticsearchQueryRecursive(query, indexoptions);
+    RECORD created := CreateElasticsearchQueryRecursive(CELL[ ...result, query ], indexoptions);
+    result.query := created.query;
+    result._source := created._source;
 
     IF (CellExists(input, "filters"))
     {
@@ -522,6 +541,8 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD indexoption
     DELETE CELL aggs FROM result;
   IF (Length(result.sort) = 0)
     DELETE CELL sort FROM result;
+  IF (Length(result._source) = 0)
+    result := CELL[ ...result, _source := FALSE ];
   RETURN result;
 }
 
@@ -589,67 +610,76 @@ RECORD FUNCTION LookupFieldInMapping(RECORD ARRAY expectedmapping, STRING fieldn
 }
 
 //ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
-RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexoptions)
+RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexoptions)
 {
+  RECORD query := result.query;
   IF (NOT CellExists(query, "_type"))
     THROW NEW Exception(`Invalid query record: ${AnyToString(query, "tree")}`);
 
-  RECORD result;
   SWITCH (query._type)
   {
     CASE "all"
     {
-      result := [ match_all := CELL[] ];
+      result.query := [ match_all := CELL[] ];
     }
     CASE "nothing"
     {
-      RETURN DEFAULT RECORD;
+      RETURN CELL[ ...result, query :=  DEFAULT RECORD ];
     }
     CASE "boolean"
     {
       RECORD booleanquery;
-      RECORD ARRAY queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
-            FROM query.subqueries
-           WHERE required;
-      IF (Length(queries) > 0)
-        INSERT CELL must := queries INTO booleanquery;
-      queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
-            FROM query.subqueries
-           WHERE prohibited;
-      IF (Length(queries) > 0)
-        INSERT CELL must_not := queries INTO booleanquery;
-      queries :=
-          SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(subqueries.query, indexoptions)
-            FROM query.subqueries
-           WHERE NOT required AND NOT prohibited;
-      IF (Length(queries) > 0)
-        INSERT CELL should := queries INTO booleanquery;
+      RECORD ARRAY subqueries :=
+          SELECT *
+               , must := required
+               , must_not := prohibited
+               , should := NOT required AND NOT prohibited
+            FROM query.subqueries;
+      FOREVERY (STRING requirement FROM [ "must", "must_not", "should" ])
+      {
+        RECORD ARRAY queries :=
+            SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(CELL[ ...result, subqueries.query ], indexoptions)
+              FROM subqueries
+             WHERE GetCell(subqueries, requirement);
+        IF (Length(queries) > 0)
+        {
+          booleanquery := CellInsert(booleanquery, requirement, SELECT AS RECORD ARRAY queries.query FROM queries);
+          FOREVERY (RECORD subquery FROM queries)
+            result._source := ArrayIntersection(result._source, subquery._source);
+        }
+      }
 
       IF (RecordExists(booleanquery))
-        result := [ bool := booleanquery ];
+        result.query := [ bool := booleanquery ];
     }
     CASE "term"
     {
+      RECORD fieldmapping;
       IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
       {
-        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+        fieldmapping := LookupFieldInMapping(indexoptions.expectedmapping, query.field);
       }
 
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
         term := __HS_GetRawMoney(term);
-      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
-      result :=
-          [ bool :=
-              [ should :=
-                  [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
-                  , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
-                  ]
-              ]
-          ];
+      IF (RecordExists(fieldmapping) AND fieldmapping.type = "keyword")
+      {
+        result.query := [ term := CellInsert(DEFAULT RECORD, query.field, term) ];
+      }
+      ELSE
+      {
+        // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+        result.query :=
+            [ bool :=
+                [ should :=
+                    [ [ match := CellInsert(DEFAULT RECORD, query.field, [ query := term, analyzer := "consilio_analyzer" ]) ]
+                    , [ match := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", [ query := term, analyzer := "consilio_original" ]) ]
+                    ]
+                ]
+            ];
+      }
     }
     CASE "match"
     {
@@ -659,14 +689,14 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
       }
 
       IF (Length(query.fields) = 1)
-        result :=
+        result.query :=
             [ match := CellInsert(DEFAULT RECORD, query.fields[0], query.text) ];
       ELSE IF (Length(query.fields) > 1)
       {
         STRING ARRAY boosts :=
             SELECT AS STRING ARRAY FormatBoost(boost)
               FROM ToRecordArray(query.boosts ?? [ 1f ], "boost");
-        result :=
+        result.query :=
             [ multi_match :=
                 [ query := query.text
                 , type := "best_fields"
@@ -679,24 +709,32 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
     }
     CASE "literal"
     {
+      RECORD fieldmapping;
       IF(RecordExists(indexoptions)) //QueryindexManager doesn't pass this info
       {
-        LookupFieldInMapping(indexoptions.expectedmapping, query.field);
+        fieldmapping := LookupFieldInMapping(indexoptions.expectedmapping, query.field);
       }
 
       // Convert MONEYs
       VARIANT term := query.term;
       IF (TypeID(term) = TypeID(MONEY))
         term := __HS_GetRawMoney(term);
-      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
-      result :=
-          [ bool :=
-              [ should :=
-                  [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
-                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
-                  ]
-              ]
-          ];
+      IF (RecordExists(fieldmapping) AND fieldmapping.type = "keyword")
+      {
+        result.query := [ term := CellInsert(DEFAULT RECORD, query.field, term) ];
+      }
+      ELSE
+      {
+        // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+        result.query :=
+            [ bool :=
+                [ should :=
+                    [ [ term := CellInsert(DEFAULT RECORD, query.field, term) ]
+                    , [ term := CellInsert(DEFAULT RECORD, query.field || ".consilio_original", term) ]
+                    ]
+                ]
+            ];
+      }
     }
     CASE "phrase"
     {
@@ -705,7 +743,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
         STRING ARRAY boosts :=
             SELECT AS STRING ARRAY FormatBoost(boost)
               FROM ToRecordArray(query.boosts ?? [ 1f ], "boost");
-        result :=
+        result.query :=
             [ multi_match :=
                 [ query := Detokenize(query.words, " ")
                 , type := "phrase"
@@ -715,7 +753,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
                 ]
             ];
         IF (query.slop != 0)
-          INSERT CELL slop := query.slop INTO result.multi_match;
+          INSERT CELL slop := query.slop INTO result.query.multi_match;
       }
       ELSE
       {
@@ -726,7 +764,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
           IF (Length(query.boosts) > 0)
             query.boost := query.boost * query.boosts[0];
         }
-        result :=
+        result.query :=
             [ match_phrase := CellInsert(DEFAULT RECORD, query.field, Detokenize(query.words, " ")) ];
         IF (query.slop != 0)
         {
@@ -736,7 +774,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
               [ query := GetCell(result.match_phrase, query.field)
               , slop := query.slop
               ];
-          result.match_phrase := CellInsert(CellDelete(result.match_phrase, query.field), query.field, slop_query);
+          result.query.match_phrase := CellInsert(CellDelete(result.query.match_phrase, query.field), query.field, slop_query);
         }
       }
     }
@@ -781,8 +819,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
         INSERT CELL boost := query.boost INTO rangequery;
 
       // Return result directly, as we've already applied boost factor
-      RETURN
-          [ range := CellInsert(DEFAULT RECORD, query.field, rangequery) ];
+      RETURN CELL[ ...result, query := [ range := CellInsert(DEFAULT RECORD, query.field, rangequery) ] ];
     }
     CASE "exists"
     {
@@ -791,13 +828,13 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
         LookupFieldInMapping(indexoptions.expectedmapping, query.field);
       }
 
-      RETURN [ exists := [ field := query.field ] ];
+      RETURN CELL[ ...result, query := [ exists := [ field := query.field ] ] ];
     }
     CASE "user"
     {
       //older users may not have actually set stemmed_field. TODO queries.whlib does a CellExists so should we merge our enforcing with theirs?
       RECORD ARRAY fields := EnforceStructure([[ stemmed_field := FALSE ]], query.defaultfields ?? defaultfields);
-      RETURN
+      result.query :=
           [ simple_query_string :=
               [ query := query.userquery
               , fields := (SELECT AS STRING ARRAY field || (CellExists(fields, "boost") ? FormatBoost(boost) : "") FROM fields) CONCAT (SELECT AS STRING ARRAY field || ".consilio_original" FROM fields WHERE stemmed_field)
@@ -806,9 +843,36 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
               ]
           ];
     }
+    CASE "nested"
+    {
+      result := CreateElasticsearchQueryRecursive(CELL[ ...result, query := query.subquery ], indexoptions);
+      RECORD inner_hits := [ name := query.field ];
+      IF (query.returnnonmatching)
+      {
+        // Returning all nested records, don't request any source fields for the inner hits
+        INSERT CELL _source := FALSE INTO inner_hits;
+      }
+      ELSE
+      {
+        // If only the matching nested records are returned, add the subfields within the query's path to the inner hits
+        // source and remove them from the global source
+        INSERT CELL _source := SELECT AS STRING ARRAY field FROM ToRecordArray(result._source, "field") WHERE field LIKE query.field || ".*" INTO inner_hits;
+        result._source := ArrayDelete(result._source, inner_hits._source);
+      }
+      IF (query.first > 0)
+        INSERT CELL "from" := query.first INTO inner_hits;
+      INSERT CELL size := query.count >= 0 AND query.count <= 100 - query.first ? query.count : 100 INTO inner_hits; // Maximum window size (from+size) of inner hits is 100
+      result.query :=
+          [ nested := CELL
+              [ path := query.field
+              , query := result.query
+              , inner_hits
+              ]
+          ];
+    }
     CASE "opensearch"
     {
-      RETURN query.rawquery;
+      RETURN CELL[ ...result, query := query.rawquery ];
     }
     DEFAULT
     {
@@ -817,10 +881,10 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, RECORD indexopti
   }
   IF (query.boost != 1)
   {
-    result :=
-        [ function_score :=
-            [ boost := query.boost
-            , query := result
+    result.query :=
+        [ function_score := CELL
+            [ query.boost
+            , result.query
             ]
         ];
   }
@@ -1046,27 +1110,28 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
 }
 
-PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING ARRAY requested_fields, RECORD mapping)
+PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping, RECORD options)
 {
-  RECORD sourcemapping := CELL[...mapping, DELETE _score, DELETE _summary, DELETE _explanation, DELETE _suggested ];
+  options := ValidateOptions([ highlightfields := STRING[], highlightparts := STRING[] ], options, [ passthrough := TRUE ]);
+
+  RECORD sourcemapping := mapping;
+  // Don't return internal fields in the parsed _source
+  FOREVERY (RECORD field FROM UnpackRecord(sourcemapping))
+    IF (__MatchesAnyMask(field.name, [ "_EXPLANATION", "_SCORE", "_SUGGESTED", "_SUMMARY", "_SCORE.*", "_SUMMARY.*", "_TOTALCOUNT.*" ]))
+      sourcemapping := CellDelete(sourcemapping, field.name);
+
   RECORD ARRAY results;
   FOREVERY (RECORD hit FROM hits)
   {
-    RECORD sourcehit := hit._source;
+    // Source may not exist within inner hits
+    RECORD sourcehit := CellExists(hit, "_source") ? hit._source : DEFAULT RECORD;
     RECORD internalfields;
 
     IF(CellExists(mapping, '_score'))
-      INSERT CELL _score := hit._score INTO internalfields;
+      internalfields := CellInsert(internalfields, mapping._score, hit._score);
 
     IF(CellExists(mapping, '_summary'))
-    {
-      IF(CellExists(hit, "highlight") AND CellExists(hit.highlight, "body"))
-        INSERT CELL _summary := hit.highlight.body[0] INTO internalfields;
-      ELSE IF(CellExists(hit._source,"_summary"))
-        INSERT CELL _summary := hit._source._summary INTO internalfields;
-      ELSE
-        INSERT CELL _summary := "" INTO internalfields;
-    }
+      internalfields := AddSummary(internalfields, hit, options.highlightparts, mapping._summary);
 
     IF(CellExists(mapping, '_explanation'))
       INSERT CELL _explanation := hit._explanation INTO internalfields;
@@ -1089,10 +1154,118 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
         }
       }
 
+    // Read inner hit sources recursively into the sourcehit (for nested queries)
+    IF (CellExists(hit, "inner_hits"))
+    {
+      RECORD innersource := ReadInnerHits(hit, mapping, options);
+      IF (RecordExists(innersource.value))
+        sourcehit := CellInsert(sourcehit, innersource.field, innersource.value);
+      IF (RecordExists(innersource.internalvalue))
+        internalfields := CellInsert(internalfields, innersource.field, innersource.internalvalue);
+      IF (CellExists(mapping, "_totalcount." || innersource.path))
+      {
+        internalfields := CellInsert(internalfields, GetCell(mapping, "_totalcount." || innersource.path), innersource.total.value);
+        internalfields := CellInsert(internalfields, GetCell(mapping, "_totalcount." || innersource.path) || ".exact", innersource.total.relation = "eq");
+      }
+    }
+
     RECORD singleresult := ParseSingleElasticsearchResult(sourcehit, sourcemapping);
-    INSERT CELL[...singleresult, ...internalfields] INTO results AT END;
+    INSERT CombineFields(singleresult, internalfields) INTO results AT END;
   }
   RETURN results;
+}
+
+RECORD FUNCTION AddSummary(RECORD fields, RECORD hit, STRING ARRAY highlightparts, STRING summaryfield)
+{
+  STRING ARRAY summaries;
+  IF (CellExists(hit, "highlight"))
+    FOREVERY (STRING field FROM highlightparts)
+      IF (CellExists(hit.highlight, field))
+        summaries := summaries CONCAT GetCell(hit.highlight, field);
+  RETURN CellInsert(fields, summaryfield, Detokenize(summaries, " "));
+}
+
+// Recursively combine records (kind of like MakeUpdatedRecord, but with adding new fields from updatedata)
+RECORD FUNCTION CombineFields(RECORD result, RECORD internalfields)
+{
+  FOREVERY (RECORD field FROM UnpackRecord(internalfields))
+  {
+    IF (CellExists(result, field.name))
+    {
+      IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+      {
+        VARIANT resultvalue := GetCell(result, field.name);
+        IF (TypeID(resultvalue) = TypeID(RECORD ARRAY) AND Length(resultvalue) = Length(field.value))
+          field.value :=
+              SELECT AS RECORD ARRAY CombineFields(resultvalue[#value], value)
+                FROM field.value;
+      }
+      result := CellInsert(CellDelete(result, field.name), field.name, field.value);
+    }
+    ELSE
+      result := CellInsert(result, field.name, field.value);
+  }
+  RETURN result;
+}
+
+RECORD FUNCTION ReadInnerHits(RECORD hit, RECORD mapping, RECORD options)
+{
+  // The 'inner_hits' record contains one cell named after the field we're reading hits for
+  STRING path := SELECT AS STRING COLUMN name FROM UnpackRecord(hit.inner_hits);
+  STRING field := Tokenize(path, ".")[END-1];
+  hit := GetCell(hit.inner_hits, path);
+  RECORD total := EnforceStructure([ value := 0, relation := ""], hit.hits.total);
+  RECORD ARRAY value, internalvalue;
+  IF (Length(hit.hits.hits) > 0)
+  {
+    RECORD ARRAY innerhits := hit.hits.hits;
+    FOREVERY (RECORD innerhit FROM innerhits)
+    {
+      RECORD internalresult;
+      IF (CellExists(mapping, "_score." || path))
+        internalresult := CellInsert(internalresult, GetCell(mapping, "_score." || path), ToFloat(innerhit._score, 0f));
+      IF (CellExists(mapping, "_summary." || path))
+        internalresult := AddSummary(internalresult, innerhit, options.highlightparts, GetCell(mapping, "_summary." || path));
+
+      RECORD result;
+      // There are direct source fields for this hit
+      IF (CellExists(innerhit, "_source"))
+        result := innerhit._source;
+      // There are inner hits for this hit
+      IF (CellExists(innerhit, "inner_hits"))
+      {
+        RECORD innerresult := ReadInnerHits(innerhit, mapping, options);
+        IF (RecordExists(innerresult.value))
+          result := CellInsert(result, innerresult.field, innerresult.value);
+        IF (RecordExists(innerresult.internalvalue))
+          internalresult := CellInsert(internalresult, innerresult.field, innerresult.internalvalue);
+        IF (CellExists(mapping, "_totalcount." || innerresult.path))
+        {
+          internalresult := CellInsert(internalresult, GetCell(mapping, "_totalcount." || innerresult.path), innerresult.total.value);
+          internalresult := CellInsert(internalresult, GetCell(mapping, "_totalcount." || innerresult.path) || ".exact", innerresult.total.relation = "eq");
+        }
+      }
+      IF (RecordExists(result))
+      {
+        // Replace fields with highlighted content
+        IF (CellExists(innerhit, "highlight"))
+          FOREVERY(RECORD resultfield FROM UnpackRecord(result))
+          {
+            //TODO does this work properly with subfields? or do we need to look for flattened versions
+            IF (CellExists(innerhit.highlight, path || "." || resultfield.name))
+            {
+              result := CellDelete(result, resultfield.name);
+              result := CellInsert(result, resultfield.name, GetCell(innerhit.highlight, path || "." || resultfield.name)[0]);
+            }
+          }
+
+        INSERT result INTO value AT END;
+      }
+      IF (RecordExists(internalresult))
+        INSERT internalresult INTO internalvalue AT END;
+    }
+  }
+  RETURN CELL[ field, value, internalvalue, path, total ];
 }
 
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
@@ -1132,7 +1305,8 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
     IF (IsTypeIDArray(TypeID(fieldmapping)) AND NOT IsTypeIDArray(TypeID(outputfield)))
     {
       VARIANT value := GetTypeDefaultArray(TypeID(outputfield));
-      INSERT field.value INTO value AT END;
+      IF (NOT IsDefaultValue(field.value))
+        INSERT field.value INTO value AT END;
       outputfield := value;
     }
 
@@ -1159,7 +1333,13 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
 
   FOREVERY(RECORD field FROM unpackedmapping)
     IF(SearchSubstring(field.name,'*') = -1 AND field.name NOT IN seenfields)
-      outputline := CellInsert(outputline, field.name, field.value); //insert fallback value to complete the output mapping
+    {
+      //insert fallback value to complete the output mapping
+      IF (IsTypeIDArray(TypeID(field.value)))
+        outputline := CellInsert(outputline, field.name, GetTypeDefaultValue(TypeID(field.value)));
+      ELSE
+        outputline := CellInsert(outputline, field.name, field.value);
+    }
 
   RETURN outputline;
 }

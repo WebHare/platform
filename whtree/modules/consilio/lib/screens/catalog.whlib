@@ -904,12 +904,12 @@ PUBLIC BOOLEAN FUNCTION RunConsilioInspectDialog(OBJECT parent, STRING catalogna
 RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER contentsourceid, INTEGER maxresults, RECORD query)
 {
   RECORD idxoptions := __GetIndexManagerOptions(catalogid);
-  RECORD options := [ addscore := TRUE
-                    , count := maxresults
+  RECORD options := [ count := maxresults
                     , mapping := CELL[ ...idxoptions.defaultmapping
                                      , _indexdate := DEFAULT DATETIME
                                      , _indexed := DEFAULT DATETIME
                                      , _contentsource := 0
+                                     , _score := "_score"
                                      ]
                     ];
   RETURN SearchIndexManager(catalogid, query ?? CQAll(), options, idxoptions);

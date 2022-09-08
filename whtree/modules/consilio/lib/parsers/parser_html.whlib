@@ -235,10 +235,6 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
     STRING rel := SELECT AS STRING value FROM attrs WHERE field = "REL";
     IF (href != "" AND ToUppercase(rel) NOT LIKE "*NOFOLLOW*")
       cur_link_href := href;
-
-    // Add "this is hyperlink text" indicator
-    IF (adding_text)
-      AddTextToPage("\x1F");
   }
   ELSE IF (element_path[0] = "FRAME")
   {
@@ -302,9 +298,6 @@ MACRO ElementEnd(STRING name)
   }
   ELSE IF (element_path[0] = "A")
   {
-    IF (adding_text)
-      // Add "this was hyperlink text" indicator
-      AddTextToPage("\x1F");
     IF (cur_link_href != "")
       AddLinkToPage(cur_link_href, cur_link_text);
     cur_link_text := "";

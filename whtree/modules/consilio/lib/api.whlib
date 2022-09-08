@@ -2,13 +2,14 @@
 /** @topic consilio/api
 */
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
 LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenConsilioCatalog, OpenConsilioCatalogById;
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -395,66 +396,103 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
   RETURN res;
 }
 
+/** @short Create a query to search through nested fields
+    @param field The nested field to query
+    @param query The query to run
+    @cell(integer) options.first The first result to return (0-based, defaults to 0)
+    @cell(integer) options.count The number of results to return (-1 for all results, defaults to 10)
+    @cell(boolean) options.returnnonmatching Set to TRUE to have all the nested subrecords returned (by default only the
+        matching subrecords are returned)
+    @cell(string) options.summaryfield The name of the field to return the summary for the nested result in
+    @cell(string) options.scorefield The name of the field to return the nested result's score in
+    @cell(string) options.totalcountfield The name of the field to return the total number of nested results in
+*/
+PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ first := 0
+      , count := 10
+      , returnnonmatching := FALSE
+      , summaryfield := ""
+      , scorefield := ""
+      , totalcountfield := ""
+      ], options);
+
+  RETURN CELL
+      [ _type := "nested"
+      , field
+      , subquery := query
+      , ...options
+      , boost := 1f
+      ];
+}
+
 /** @short Add a raw OpenSearch query
-    @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ]]]`
-    @return Consilio wrapped raw Opensearc query record
+    @param query The raw query, eg `[ match_bool_prefix := [ "title" := "rises wi" ] ]`
+    @return Consilio wrapped raw Opensearch query record
 */
 PUBLIC RECORD FUNCTION CQOpenSearch(RECORD query)
 {
   RETURN CELL[ _type := "opensearch", rawquery := query ];
 }
 
-RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRING class)
+RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
 {
-  FOREVERY(STRING opt FROM fields)
-    fields[#opt] := ToUppercase(opt);
-
   FOREVERY(RECORD res FROM results)
   {
     FOREVERY(RECORD cellrec FROM UnpackRecord(res))
     {
-      IF(TypeID(cellrec.value)!=TypeID(STRING))
-        CONTINUE;
-
-      STRING newval := cellrec.value;
-      IF(cellrec.name IN fields)
+      SWITCH (TypeID(cellrec.value))
       {
-        // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
-        // when the highlight ends at the end of the string
-        INTEGER firstclose := SearchSubstring(newval, "\x1C");
-        IF (firstclose >= 0 AND SearchSubstring(newval, "\x1D") < 0)
-          newval := "\x1D" || newval;
-        INTEGER lastopen := SearchSubstring(newval, "\x1D");
-        IF (lastopen >= 0 AND SearchSubstring(newval, "\x1C") < lastopen)
-          newval := newval || "\x1C";
-
-        //translate the markers to something that will survive EncodeHTML
-        newval := Substitute(newval, "\x1D", '\uF8F0');
-        newval := Substitute(newval, "\x1C", '\uF8F1');
-        newval := EncodeHTML(newval);
-        newval := Substitute(newval, "&#63728;", '<span class="' || EncodeValue(class) || '">');
-        newval := Substitute(newval, "&#63729;", '</span>');
+        CASE TypeID(RECORD ARRAY)
+        {
+          // Recurse into nested subresults
+          res := CellUpdate(res, cellrec.name, Highlight(cellrec.value, class));
+        }
+        CASE TypeID(STRING)
+        {
+          res := CellUpdate(res, cellrec.name, AddHighlightClass(cellrec.value, class));
+        }
+        CASE TypeID(STRING ARRAY)
+        {
+          res := CellUpdate(res, cellrec.name, SELECT AS STRING ARRAY AddHighlightClass(value, class) FROM ToRecordArray(cellrec.value, "value"));
+        }
       }
-      ELSE
-      {
-        newval := Substitute(newval, "\x1D", '');
-        newval := Substitute(newval, "\x1C", '');
-      }
-      // Remove hyperlink markers
-      newval := Substitute(newval, "\x1F", '');
-      res := CellUpdate(res, cellrec.name, newval);
     }
     results[#res] := res;
   }
   RETURN results;
 }
 
-STRING FUNCTION ValidateIndexTag(STRING indextag)
+STRING FUNCTION AddHighlightClass(STRING value, STRING class)
 {
-  IF(indextag = "" OR indextag NOT LIKE "?*:?*" OR indextag LIKE "*:*:*")
-    THROW NEW Exception(`Invalid indextag '${indextag}'`);
+  // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
+  // when the highlight ends at the end of the string
+  INTEGER firstclose := SearchSubstring(value, "\x1C");
+  INTEGER lastopen := SearchLastSubstring(value, "\x1D");
+  IF (firstclose < 0 AND lastopen < 0)
+    RETURN value;
+  IF (class = "")
+  {
+    value := Substitute(value, "\x1D", "");
+    value := Substitute(value, "\x1C", "");
+    RETURN value;
+  }
+  IF (firstclose >= 0 AND (SearchSubstring(value, "\x1D") < 0 OR SearchSubstring(value, "\x1D") > firstclose))
+    value := "\x1D" || value;
+  IF (lastopen >= 0 AND SearchLastSubstring(value, "\x1C") < lastopen)
+    value := value || "\x1C";
 
-  RETURN indextag;
+  //translate the markers to something that will survive EncodeHTML
+  value := Substitute(value, "\x1D", '\uF8F0');
+  value := Substitute(value, "\x1C", '\uF8F1');
+  value := EncodeHTML(value);
+  value := Substitute(value, "&#63728;", '<span class="' || EncodeValue(class) || '">');
+  value := Substitute(value, "&#63729;", '</span>');
+
+  // Remove legacy hyperlink markers (won't be added anymore by parser_html, but might still be present in already indexed documents)
+  value := Substitute(value, "\x1F", '');
+  RETURN value;
 }
 
 /** @short Get a token to access a consilio search engine's autosuggest API
@@ -522,6 +560,52 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
   RETURN SELECT AS STRING name FROM catalogs WHERE id = smallestcatalog;
 }
 
+RECORD FUNCTION GenerateDefaultMapping(RECORD ARRAY inprops)
+{
+  //TODO shouldn't we be returning/allowing deep/structured results too ?  or can you optin to that?  not sure, this is just a default code
+
+  RECORD defaultmapping;
+  FOREVERY(RECORD row FROM inprops)
+  {
+    IF(row.type IN [ "record", "nested" ])
+      defaultmapping := CellInsert(defaultmapping, row.name, GenerateDefaultMapping(row.properties));
+    ELSE
+      defaultmapping := CellInsert(defaultmapping, row.name, row.defaultvalue);
+  }
+  RETURN defaultmapping;
+}
+
+RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
+{
+  OBJECT catalog := OpenConsilioCatalogById(indexid);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot find catalog #${indexid}`);
+
+  RECORD ARRAY expectedmapping := catalog->GetExpectedMapping();
+  RECORD defaultmapping := GenerateDefaultMapping(expectedmapping);
+  defaultmapping := CELL[ ...defaultmapping
+                        //for some reason? these weren't part of the defaultvalue although they're always in the mapping... probably too many sources of fields
+                        , DELETE _indexdate
+                        , DELETE _indexed
+                        , DELETE _contentsource
+                        , DELETE body
+                        ];
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RETURN [ value := CELL [ defaultmapping, indexmanagers, expectedmapping, cat := catalog->tag ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "consilio:contentsourceschanged"
+                         , "consilio:indexfields"
+                         ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
+{
+  RETURN GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
+}
+
 /** @short Search an index
     @param indextag Index to search (module:tag)
     @param query Search query
@@ -536,9 +620,12 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         %LookupPublisherUrl on the `restrict_url`)
     @cell(integer) options.summary_length The length of the summary to generate for each result (-1 for default length, 0 to
         prevent summary generation, defaults to -1)
-    @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields`
+    @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields` (set to
+        empty string to disable match highlighting)
     @cell(string array) options.highlightfields The fields in which found query words should be highlighted
-    @cell(string) options.summaryfield The name of the field to return the summary in (set to emtpy string to not return the
+    @cell(string array) options.highlightparts The fields from which only a relevant highlighted part (with max length
+        `"summary_length"`) will be returned in the summaryfield, defaults to `[ "body" ]`
+    @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
         scores, defaults to `""`)
@@ -562,10 +649,16 @@ PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
         returned
     @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
         are not returned
+    @cell(integer) options.totaltotrack By default, only up to a certain results are counted with the `totalexact` return
+        value being set to FALSE if there are more than that number of results. Set this option to the number of results that
+        should be always be counted or to -1 to always return the exact number of results (a higher setting comes with a
+        performance cost). Defaults to 10,000.
     @cell(boolean) options.validatemapping Validate the specified mapping. Defaults to TRUE
     @return The search result
     @cell(integer) return.totalcount The total number of results (not necessarily the number of returned results, if `count`
         is set to a value >= 0)
+    @cell(boolean) return.totalexact If the total number of results is exact, if FALSE it's a lower bound for the actual
+        number of results
     @cell(record array) return.results The actual results
     @cell(record array) return.aggregation The aggregation results for an aggregation query with a separate aggregation
         mapping (see the `aggregation_mapping` option)
@@ -582,6 +675,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , summary_length := -1
       , highlightclass := "consilio--highlight"
       , highlightfields := STRING[]
+      , highlightparts := [ "body" ]
       , summaryfield := "summary"
       , scorefield := ""
       , mapping := DEFAULT RECORD
@@ -591,13 +685,25 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , ordering := DEFAULT RECORD ARRAY
       , restrict_url := ""
       , exclude_urls := STRING[]
+      , totaltotrack := default_track_total_hits
       , debug := FALSE
       , explain := FALSE
       , refresh := FALSE
       , validatemapping := TRUE
       ], options, [ optional := [ "orderdesc" ] ]);
 
-  indextag := ValidateIndexTag(indextag);
+  IF(NOT RecordExists(query)
+      OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
+      OR (NOT CellExists(query, "query") AND NOT CellExists(query, "aggregation") AND query._type = "nothing")) //will not return anything
+    RETURN [ totalcount := 0
+           , results := RECORD[]
+           , eventmasks := STRING[]
+           ];
+
+  OBJECT catalog := OpenConsilioCatalog(indextag);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot open catalog '${indextag}'`);
+
   FOREVERY (RECORD ordering FROM options.ordering)
     options.ordering[#ordering] := ValidateOptions(
         [ orderby := ""
@@ -613,27 +719,6 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
             ]
         ]);
 
-  STRING language := options.language ?? GetTidLanguage();
-  IF(NOT RecordExists(query)
-      OR (CellExists(query, "query") AND RecordExists(query.query) AND query.query._type = "nothing")
-      OR (NOT CellExists(query, "query") AND NOT CellExists(query, "aggregation") AND query._type = "nothing")) //will not return anything
-    RETURN [ totalcount := 0
-           , results := RECORD[]
-           , eventmasks := STRING[]
-           ];
-
-  OBJECT search_obj := OpenSearchObject(language, indextag);
-  IF(options.refresh)
-    OpenConsilioCatalogById(search_obj->catalogid)->Refresh();
-
-  search_obj->highlightfields := options.highlightfields;
-  search_obj->save_searches := options.save_searches;
-  IF (options.save_searches)
-    search_obj->session_site := options.save_searches_site;
-  search_obj->summary_length := options.summary_length;
-  search_obj->debug := options.debug;
-  search_obj->explain := options.explain;
-
   IF (RecordExists(options.mapping))
   {
     IF(options.validatemapping)
@@ -645,12 +730,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
           THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
       }
     }
-
-    search_obj->empty_result_record := options.mapping;
   }
-
-  search_obj->restrict_url := options.restrict_url;
-  search_obj->exclude_urls := options.exclude_urls;
 
   IF (RecordExists(options.ordering))
     query := CELL[ ...query, options.ordering ];
@@ -673,43 +753,95 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     ELSE
       INSERT [ orderby := "_score" ] INTO query.ordering AT END;
   }
-  IF (CellExists(query, "aggregation"))
-  {
-    search_obj->aggregation_mapping := options.aggregation_mapping;
-  }
 
-  RECORD results := search_obj->__SearchQuery(query, options.first, options.count, options.scorefield != "");
-  IF(CellExists(results,'results'))
+  RECORD session;
+  IF (options.save_searches)
+    session := [ sessid := "", tag := "", siteid := options.save_searches_site ];
+
+  RECORD indexoptions := __GetIndexManagerOptions(catalog->id);
+  RECORD searchoptions := CELL
+      [ options.first
+      , options.count
+      , summary := options.summary_length
+      , options.highlightfields
+      , options.highlightparts
+      , lang := options.language ?? GetTidLanguage()
+      , restrict_to := options.restrict_url
+      , options.exclude_urls
+      , session
+      , options.debug
+      , options.explain
+      , options.totaltotrack
+      ];
+  IF (RecordExists(options.mapping))
+    INSERT CELL mapping := options.mapping INTO searchoptions;
+  ELSE
+    INSERT CELL mapping := indexoptions.defaultmapping INTO searchoptions;
+  IF (options.scorefield != "")
+    INSERT CELL _score := options.scorefield INTO searchoptions.mapping;
+  INSERT CELL _summary := options.summaryfield INTO searchoptions.mapping;
+  searchoptions.mapping := CELL[ ...searchoptions.mapping, ...GetAdditionalFields(query) ];
+
+  IF (CellExists(query, "aggregation"))
+    INSERT CELL aggregation_mapping := options.aggregation_mapping INTO searchoptions;
+
+  IF (options.refresh)
+    catalog->Refresh();
+
+  RECORD result := SearchIndexManager(catalog->id, query, searchoptions, __GetIndexManagerOptions(catalog->id));
+  IF (result.status != SearchOk) //though actually all SearchIndexManager non-ok paths should be capable of throwing (no-attached-indices might not yet?)
+    THROW NEW Exception("Search error: " || result.status);
+  DELETE CELL status, session FROM result;
+
+  IF(CellExists(result,'results'))
   {
     //Translate results to the requested format
     //(should probablyhave returned proper results in the first place, but wait until we're ready to deprecate older apis)
     //cant fix it using the mapping, as it's unset before __searchquery
     IF(options.summaryfield = "")
-    {
-      results.results := SELECT *, DELETE _summary, DELETE summary FROM results.results;
-    }
-    ELSE
-    {
-      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _summary, DELETE summary], options.summaryfield, options.summary_length != 0 ? result._summary : "")
-                             FROM results.results AS result;
-    }
+      result.results := SELECT *, DELETE _summary FROM result.results;
 
     IF(options.scorefield = "")
-    {
-      results.results := SELECT *, DELETE _score FROM results.results;
-    }
-    ELSE IF(ToUppercase(options.scorefield) != "_SCORE")
-    {
-      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _score], options.scorefield, result._score)
-                              FROM results.results AS result;
-    }
+      result.results := SELECT *, DELETE _score FROM result.results;
 
-    IF(Length(options.highlightfields) != 0)
-      results.results := Highlight(results.results, options.highlightfields, options.highlightclass);
+    IF(Length(options.highlightfields) + Length(options.highlightparts) != 0)
+      result.results := Highlight(result.results, options.highlightclass);
   }
 
-  INSERT CELL eventmasks := [ "consilio:index." || search_obj->catalogid ] INTO results;
-  RETURN results;
+  INSERT CELL eventmasks := [ "consilio:index." || catalog->id ] INTO result;
+  RETURN result;
+}
+
+RECORD FUNCTION GetAdditionalFields(RECORD query)
+{
+  query := CellExists(query, "query") ? query.query : query;
+  DELETE CELL aggregation, ordering FROM query;
+  IF (NOT RecordExists(UnpackRecord(query)))
+    RETURN DEFAULT RECORD;
+  RETURN GetAdditionalFieldsRecursive(DEFAULT RECORD, query);
+}
+
+RECORD FUNCTION GetAdditionalFieldsRecursive(RECORD fields, RECORD query)
+{
+  SWITCH (query._type)
+  {
+    CASE "boolean"
+    {
+      FOREVERY (RECORD subquery FROM query.subqueries)
+        fields := GetAdditionalFieldsRecursive(fields, subquery.query);
+    }
+    CASE "nested"
+    {
+      fields := GetAdditionalFieldsRecursive(fields, query.subquery);
+      IF (query.scorefield != "")
+        fields := CellInsert(fields, "_score." || query.field, query.scorefield);
+      IF (query.summaryfield != "")
+        fields := CellInsert(fields, "_summary." || query.field, query.summaryfield);
+      IF (query.totalcountfield != "")
+        fields := CellInsert(fields, "_totalcount." || query.field, query.totalcountfield);
+    }
+  }
+  RETURN fields;
 }
 
 /** Get completion suggestions for a text
@@ -730,16 +862,27 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioSuggestions(STRING indextag, STRING sear
                              , exclude_urls := STRING[]
                              , debug := FALSE
                              ], options);
-  indextag := ValidateIndexTag(indextag);
 
-  OBJECT suggest_obj := OpenSuggestObject(indextag);
-  suggest_obj->restrict_url := options.restrict_url;
-  suggest_obj->exclude_urls := options.exclude_urls;
-  suggest_obj->debug := options.debug;
+  // No results if query is empty and no prefix is given
+  IF (searchtext = "")
+    RETURN DEFAULT RECORD ARRAY;
+
+  OBJECT catalog := OpenConsilioCatalog(indextag);
+  IF (NOT ObjectExists(catalog))
+    THROW NEW Exception(`Cannot open catalog '${indextag}'`);
+
+  // Get search results
+  RECORD result := SuggestIndexManager(catalog->id, searchtext, CELL
+      [ options.count
+      , restrict_to := options.restrict_url
+      , exclude_urls := options.exclude_urls
+      , options.debug
+      ]);
+  IF (result.status != SearchOk)
+    THROW NEW Exception("Suggest error: " || result.status);
 
   // Return all terms starting with "bla"
   RETURN SELECT num := suggestions.count //rename, 'count' is an annoying column to select, it clashes with the global AND count(*)
               , text
-           FROM suggest_obj->GetSuggestions(searchtext, options.count) AS suggestions;
+           FROM result.suggestions;
 }
-

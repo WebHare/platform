@@ -93,6 +93,11 @@ MACRO TestSubpageIndexing()
 
   result := RunConsilioSearch("consilio:testfw_subpages", CQParseUserQuery("FP_sub10_piece6"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
   TestEq(2, result.totalcount);
+  TestEqMembers([ title := "Subdocument sub10 piece6", summary := 'This is an overwritten body: <span class="consilio--highlight">FP_sub10_piece6</span>' ], result.results[0], "*");
+  TestEqLike("http*sub10.html#piece6", result.results[0].objectid);
+
+  result := RunConsilioSearch("consilio:testfw_subpages", CQParseUserQuery("FP_sub10_piece6"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ], highlightclass := "" ]);
+  TestEq(2, result.totalcount);
   TestEqMembers([ title := "Subdocument sub10 piece6", summary := 'This is an overwritten body: FP_sub10_piece6' ], result.results[0], "*");
   TestEqLike("http*sub10.html#piece6", result.results[0].objectid);
 }

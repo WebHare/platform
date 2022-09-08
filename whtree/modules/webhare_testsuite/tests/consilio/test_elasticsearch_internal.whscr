@@ -56,8 +56,8 @@ MACRO TestElasticsearchParser()
   `);
 
   //DEC 2020 a commit broke parsing results as above because they are now recognized as a record.
-  RECORD mapping := [ "@timestamp" := "", "forms.completed" := 0, "forms.measurevariants" := 0, "forms.started" := 0, "minfin.versionnr" := 0, _summary := "" ];
-  RECORD ARRAY results := ReadElasticsearchResults(result.hits.hits, GetRequestedFields(mapping), mapping);
+  RECORD mapping := [ "@timestamp" := "", "forms.completed" := 0, "forms.measurevariants" := 0, "forms.started" := 0, "minfin.versionnr" := 0, _summary := "summary" ];
+  RECORD ARRAY results := ReadElasticsearchResults(result.hits.hits, DEFAULT RECORD, mapping, DEFAULT RECORD);
   TestEq(1117, results[0]."forms.measurevariants");
   TestEq(1434, results[1]."forms.measurevariants");
   TestEq("2019-07-02T00:00:00.000Z", results[1]."@timestamp");

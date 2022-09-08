@@ -2345,6 +2345,20 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="nested">
+        <xs:annotation>
+          <xs:documentation>
+            A field containing RECORD values (nested type with properties in Elasticsearch)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+          <xs:attributeGroup ref="FieldAttributes" />
+        </xs:complexType>
+      </xs:element>
+
       <xs:element name="latlng">
         <xs:annotation>
           <xs:documentation>

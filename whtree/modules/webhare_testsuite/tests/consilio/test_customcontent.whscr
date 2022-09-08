@@ -191,7 +191,7 @@ MACRO TestCustomContent()
 
   // Test result fields
   // By default all known fields are returned
-  // Also, if summary_length > 0 (which it is by default), a "_summary" is returned
+  // Also, if summary_length > 0 (which it is by default), a "summary" is returned
   res := RunConsilioSearch("consilio:testfw_customcontent", CQMatch("date_adate", "<=", MakeDate(2010,1,1)), [ first := 0, count := 1000 ]);
   TestEq(
       [ groupid := idprefix||"a"
@@ -201,12 +201,14 @@ MACRO TestCustomContent()
       , summary := "a a1"
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
+      , mapping_string := ""
       , mapping_boolean := FALSE
       , mapping_integer := 0
       , mapping_integer64 := 0i64
       , mapping_money := 0m
       , mapping_float := 0f
       , mapping_datetime := DEFAULT DATETIME
+      , mapping_string_array := STRING[]
       , mapping_boolean_array := BOOLEAN[]
       , mapping_integer_array := INTEGER[]
       , mapping_integer64_array := INTEGER64[]
@@ -234,12 +236,14 @@ MACRO TestCustomContent()
       , date_adate := MakeDate(2010, 1, 1)
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
+      , mapping_string := ""
       , mapping_boolean := FALSE
       , mapping_integer := 0
       , mapping_integer64 := 0i64
       , mapping_money := 0m
       , mapping_float := 0f
       , mapping_datetime := DEFAULT DATETIME
+      , mapping_string_array := STRING[]
       , mapping_boolean_array := BOOLEAN[]
       , mapping_integer_array := INTEGER[]
       , mapping_integer64_array := INTEGER64[]
@@ -683,12 +687,14 @@ MACRO TestTypes()
       [ groupid := idprefix || "a"
       , objectid := idprefix || "a1"
       , extradata := EncodeHSON(
-          [ mapping_integer := 2147483647
+          [ mapping_string := "lorem ipsum dolor sit amet"
+          , mapping_integer := 2147483647
           , mapping_integer64 := 9223372036854775807i64//TODO: Any number outside the 32-bit INTEGER range is decoded as a FLOAT
           , mapping_money := 90071992547.40991m // A scaled float is returned as a double with 53-bit precision (and decoded as a FLOAT anyway)
           , mapping_float := 9223372036854775808
           , mapping_boolean := TRUE
           , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+          , mapping_string_array := [ "lorem ipsum", "dolor sit amet" ]
           , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
           , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
           , mapping_money_array := [ 3.14, 5, 90071992547.40990m, 45035996273.70496m ]
@@ -719,12 +725,14 @@ MACRO TestTypes()
       , summary := ""
       , indexed_by := ToString(contentsource->id)
       , datafrom := "fetch"
+      , mapping_string := "lorem ipsum dolor sit amet"
       , mapping_integer := 2147483647
       , mapping_integer64 := 9223372036854775807i64
       , mapping_money := 90071992547.40991m
       , mapping_float := 9223372036854775808
       , mapping_boolean := TRUE
       , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+      , mapping_string_array := [ "lorem ipsum", "dolor sit amet" ]
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
       , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]
@@ -740,6 +748,14 @@ MACRO TestTypes()
       , _suggested := DEFAULT RECORD
       ], res.results[0]);
 
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_string", "=", "lorem ipsum"));
+  TestEq(0, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_string", "=", "lorem ipsum dolor sit amet"));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_string_array", "=", "lorem ipsum"));
+  TestEq(1, res.totalcount);
+  res := RunConsilioSearch(catalog->tag, CQMatch("mapping_string_array", "=", "lorem ipsum dolor sit amet"));
+  TestEq(0, res.totalcount);
   res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64", "=", 9223372036854775807i64));
   TestEq(1, res.totalcount);
   res := RunConsilioSearch(catalog->tag, CQMatch("mapping_integer64_array", "CONTAINS", 7521));
@@ -774,12 +790,14 @@ MACRO TestTypes()
       , summary := ""
       , indexed_by := ToString(maincontentsource->id)
       , datafrom := "fetch"
+      , mapping_string := "lorem ipsum dolor sit amet"
       , mapping_integer := 2147483647
       , mapping_integer64 := 9223372036854775807i64
       , mapping_money := 90071992547.40991m
       , mapping_float := 9223372036854775808
       , mapping_boolean := TRUE
       , mapping_datetime := MakeDateTime(2000, 1, 1, 12, 34, 56, 789)
+      , mapping_string_array := [ "lorem ipsum", "dolor sit amet" ]
       , mapping_boolean_array := [ FALSE, TRUE, FALSE ]
       , mapping_integer_array := INTEGER[ 0, 1, 1, 2, 3, 5, 8 ]
       , mapping_integer64_array := INTEGER64[ 9876543210i64, 7521 ]

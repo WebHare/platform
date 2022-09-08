@@ -2,7 +2,6 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
@@ -248,30 +247,36 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , count := 0
       , summary := 200
       , highlightfields := STRING[]
+      , highlightparts := [ "body" ]
       , lang := ""
       , restrict_to := ""
       , exclude_urls := STRING[]
       , mapping := indexoptions.defaultmapping
       , aggregation_mapping := DEFAULT RECORD
       , session := DEFAULT RECORD
-      , addscore := FALSE
       , debug := FALSE
       , explain := FALSE
+      , totaltotrack := default_track_total_hits
       , timeout := opensearch_read_timeout
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
-  IF(options.addscore)
-    options.mapping := CELL[...options.mapping, _score := 0f ];
   IF(options.explain)
     options.mapping := CELL[...options.mapping, _explanation := DEFAULT RECORD ];
 
   IF (options.summary != 0 AND NOT CellExists(options.mapping, "_SUMMARY"))
-    INSERT CELL _summary := "" INTO options.mapping;
+    INSERT CELL _summary := "summary" INTO options.mapping;
+  ELSE IF (CellExists(options.mapping, "_summary") AND options.mapping._summary = "") // Summary generation explicitly switched off
+  {
+    IF (Length(options.highlightparts) = 0)
+      options.summary := 0;
+    DELETE CELL _summary FROM options.mapping;
+  }
 
   RECORD result :=
       [ status := SearchIndexNotFound
       , totalcount := 0
+      , totalexact := TRUE
       , results := DEFAULT RECORD ARRAY
       , session := options.session
       ];
@@ -294,7 +299,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     // Make sure at least objectid and groupid are returned, if this is not an aggregation query or unmanaged index
     IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
-    STRING ARRAY requested_fields := GetRequestedFields(mapping);
+    RECORD searchquery := CreateElasticsearchQuery(query, mapping, indexoptions);
 
     //FIXME Get rid of the broadcasts, just use the logging system ?
     RECORD searchstart := CELL[ event := "searchstart"
@@ -307,43 +312,41 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                               , options.lang
                               , sess := RecordExists(options.session) ? options.session.sessid : ""
                               , options.highlightfields
-                              , fields := requested_fields
+                              , fields := searchquery._source
                               , uuid := queryuuid
                               , now := querystart
                               , catalog
                               ];
 
-    RECORD searchquery := CreateElasticsearchQuery(query, indexoptions);
     IF (options.explain)
       INSERT CELL explain := TRUE INTO searchquery;
-
-    INSERT CELL _source := requested_fields INTO searchquery;
-
+    IF (options.totaltotrack != defaultoptions.totaltotrack)
+    {
+      IF (options.totaltotrack > 0)
+        INSERT CELL track_total_hits := options.totaltotrack INTO searchquery;
+      ELSE
+        INSERT CELL track_total_hits := options.totaltotrack < 0 INTO searchquery; // -1: always track accurately, 0: don't track at all
+    }
     IF (options.first != defaultoptions.first)
       INSERT CELL "from" := options.first INTO searchquery;
     IF (CellExists(searchquery, "aggs") AND NOT RecordExists(options.aggregation_mapping))
       INSERT CELL size := 0 INTO searchquery; // Only interested in aggregation result
-    ELSE IF (options.count != defaultoptions.count)
+    ELSE
       INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
     IF (options.summary != 0 OR Length(options.highlightfields) > 0)
     {
-      INSERT CELL highlight :=
-          [ fields := RECORD[]
-          , pre_tags := [ Length(options.highlightfields) > 0 ? "\x1d" : "" ]
-          , post_tags := [ Length(options.highlightfields) > 0 ? "\x1c" : "" ]
-          ] INTO searchquery;
-      // The body is used for summary generation with the given length (with number_of_fragments set to 1)
-      IF (options.summary != 0 OR "body" IN options.highlightfields)
-        INSERT [ body :=
-                   [ number_of_fragments := 1
-                   , fragment_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                   , no_match_size := options.summary < 0 ? defaultoptions.summary : options.summary
-                   ]
-               ] INTO searchquery.highlight.fields AT END;
-      // The other highlight fields are returned completely (number_of_fragments set to 0)
-      FOREVERY (STRING field FROM options.highlightfields)
-        IF (field != "body")
-          INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
+      RECORD highlightoptions := CELL
+          [ highlightfields := ArrayUnion(options.highlightfields, options.highlightparts) // make sure all part fields are highlighted
+          , options.highlightparts
+          , options.summary
+          , defaultsummary := defaultoptions.summary
+          , addparthighlighting := options.summary != 0 AND Length(options.highlightfields) = 0
+          , path := ""
+          ];
+      // Add highlighting recursively to the query (nested queries may have their own highlighting)
+      RECORD highlight := AddQueryHighlighting(searchquery, highlightoptions);
+      // Add the highlighting for the root query (AddQueryHighlighting returns the fields that are already highlighted on a lower level)
+      searchquery := AddFieldHighlighting(highlight.query, CELL[ ...highlightoptions, highlight.highlightfields ]).query;
     }
     IF (options.restrict_to != defaultoptions.restrict_to)
     {
@@ -375,7 +378,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                  , summary_length := options.summary
                                                  , sess := RecordExists(options.session) ? options.session.sessid : ""
                                                  , options.highlightfields
-                                                 , fields := requested_fields
+                                                 , fields := searchquery._source
                                                  , now := querystart
                                                  , catalog
                                                  ]);
@@ -396,7 +399,8 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       {
         IF (CellExists(query, "aggregation"))
         {
-          result.totalcount := result.totalcount + response.result.hits.total.value;
+          result.totalcount := response.result.hits.total.value;
+          result.totalexact := response.result.hits.total.relation = "eq";
           IF (RecordExists(options.aggregation_mapping))
             INSERT CELL aggregation := RECORD[] INTO result;
 
@@ -451,11 +455,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF (NOT CellExists(query, "aggregation") OR RecordExists(options.aggregation_mapping))
         {
           IF (NOT RecordExists(options.aggregation_mapping))
-            result.totalcount := result.totalcount + response.result.hits.total.value;
+          {
+            result.totalcount := response.result.hits.total.value;
+            result.totalexact := response.result.hits.total.relation = "eq";
+          }
 
           // An array with length 0 is returned as VARIANT ARRAY
           IF (Length(response.result.hits.hits) > 0)
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
         }
       }
     }
@@ -483,6 +490,77 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   RETURN result;
 }
 
+// query is an Opensearch query, not a WebHare query
+RECORD FUNCTION AddQueryHighlighting(RECORD searchquery, RECORD options)
+{
+  IF (CellExists(searchquery, "query") AND RecordExists(searchquery.query))
+  {
+    // Unwrap the 'query' field of the top-level searchquery and nested queries
+    RECORD highlight := AddQueryHighlighting(searchquery.query, options);
+    searchquery.query := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+  }
+  ELSE IF (CellExists(searchquery, "bool"))
+  {
+    // Recurse into boolean query clauses
+    FOREVERY (STRING requirement FROM [ "must", "must_not", "should" ])
+      IF (CellExists(searchquery.bool, requirement))
+      {
+        RECORD ARRAY subqueries := GetCell(searchquery.bool, requirement);
+        FOREVERY (RECORD subquery FROM subqueries)
+        {
+          RECORD highlight := AddQueryHighlighting(subquery, options);
+          subqueries[#subquery] := highlight.query;
+          options.highlightfields := highlight.highlightfields;
+        }
+        searchquery.bool := CellUpdate(searchquery.bool, requirement, subqueries);
+      }
+  }
+  ELSE IF (CellExists(searchquery, "nested"))
+  {
+    // Recurse into the query, collecting used highlight fields from deeper nested queries
+    RECORD highlight := AddQueryHighlighting(searchquery.nested.query, options);
+    searchquery.nested.query := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+    // Add highlighting to inner hits
+    highlight := AddFieldHighlighting(searchquery.nested.inner_hits, CELL[ ...options, searchquery.nested.path ]);
+    searchquery.nested.inner_hits := highlight.query;
+    options.highlightfields := highlight.highlightfields;
+  }
+
+  RETURN CELL[ query := searchquery, options.highlightfields ];
+}
+
+RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
+{
+  // Add highlighting for the requested highlight fields
+  STRING ARRAY highlightfields := options.path != "" ? SELECT AS STRING ARRAY field FROM ToRecordArray(options.highlightfields, "field") WHERE field LIKE options.path || ".*" : options.highlightfields;
+  options.highlightfields := ArrayDelete(options.highlightfields, highlightfields);
+  IF (options.addparthighlighting OR Length(highlightfields) > 0)
+  {
+    INSERT CELL highlight :=
+        [ fields := RECORD[]
+        , pre_tags := [ Length(highlightfields) > 0 ? "\x1d" : "" ]
+        , post_tags := [ Length(highlightfields) > 0 ? "\x1c" : "" ]
+        ] INTO searchquery;
+    // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
+    IF (options.addparthighlighting OR ArraysIntersect(highlightfields, options.highlightparts))
+    {
+      FOREVERY (STRING field FROM ArrayIntersection(highlightfields, options.highlightparts) ?? options.highlightparts)
+        INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 1
+                                                 , fragment_size := options.summary < 0 ? options.defaultsummary : options.summary
+                                                 , no_match_size := options.summary < 0 ? options.defaultsummary : options.summary
+                                                 ])
+          INTO searchquery.highlight.fields AT END;
+    }
+    // The other highlight fields are returned completely (number_of_fragments set to 0)
+    FOREVERY (STRING field FROM ArrayDelete(highlightfields, options.highlightparts))
+      IF (field NOT IN options.highlightparts)
+        INSERT CellInsert(DEFAULT RECORD, field, [ number_of_fragments := 0 ]) INTO searchquery.highlight.fields AT END;
+  }
+  RETURN CELL[ query := searchquery, options.highlightfields ];
+}
+
 PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD options)
 {
   RECORD defaultoptions :=
@@ -493,12 +571,14 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       , suffix := ""
       , managedonly := FALSE
       , indexmanager := 0
+      , totaltotrack := 10000
       ];
   options := ValidateOptions(defaultoptions, options);
 
   RECORD result :=
       [ status := SearchIndexNotFound
       , totalcount := 0
+      , totalexact := TRUE
       , results := DEFAULT RECORD ARRAY
       ];
 
@@ -516,17 +596,19 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
     // Make sure at least objectid and groupid are returned, if this is not an unmanaged index
     IF (indexmanager.indextype != whconstant_consilio_catalogtype_unmanaged)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
-    STRING ARRAY requested_fields := GetRequestedFields(mapping);
-
-    RECORD searchquery := CreateElasticsearchQuery(query, DEFAULT RECORD);
-
-    INSERT CELL _source := requested_fields INTO searchquery;
+    RECORD searchquery := CreateElasticsearchQuery(query, mapping, DEFAULT RECORD);
 
     // Optimization when scoring isn't relevant - https://opensearch.org/docs/latest/opensearch/ux/#sort-results
     INSERT CELL sort := [ "_doc" ] INTO searchquery;
-
     IF (options.first != defaultoptions.first)
       INSERT CELL "from" := options.first INTO searchquery;
+    IF (options.totaltotrack != defaultoptions.totaltotrack)
+    {
+      IF (options.totaltotrack > 0)
+        INSERT CELL track_total_hits := options.totaltotrack INTO searchquery;
+      ELSE
+        INSERT CELL track_total_hits := options.totaltotrack < 0 INTO searchquery; // -1: always track accurately, 0: don't track at all
+    }
     BOOLEAN scrolling;
     IF (options.count != defaultoptions.count)
     {
@@ -566,7 +648,12 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
           IF (NOT scrolling)
             search_done := TRUE;
 
-          totalhits := response.result.hits.total.value;
+          // Only need to read the total count once - scrollid is empty when not scrolling or when receiving the first result
+          IF (scrollid = "")
+          {
+            result.totalcount := response.result.hits.total.value;
+            result.totalexact := response.result.hits.total.relation = "eq";
+          }
 
           // An array with length 0 is returned as VARIANT ARRAY
           IF (Length(response.result.hits.hits) > 0)
@@ -574,7 +661,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             IF (scrolling)
               scrollid := response.result._scroll_id;
 
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
+            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
           }
           ELSE
           {
@@ -586,8 +673,6 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       ELSE
         BREAK;
     }
-
-    result.totalcount := result.totalcount + totalhits;
 
     // Clear the last scrolling context, if necessary
     IF (scrollid != "")
@@ -748,6 +833,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
   RETURN result;
 }
 
+/// @return Size, or -1 when no indexmanager configured, or -2 when index not found on indexmanager
 PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -768,17 +854,16 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid, RECORD options DEFA
     RETURN size;
 
   STRING suffix := indexmanager.indextype = 1 ? "*" : "";
-  RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD);
-  IF (response.status = SearchOk)
+  TRY
   {
-    // 0     1         2
-    // epoch timestamp count
-    RECORD ARRAY indexlist :=
-        SELECT TEMPORARY parts := Tokenize(indexrow, " ")
-             , indexsize := Length(parts) > 2 ? ToInteger(parts[2], -1) : -1
-          FROM ToRecordArray(Tokenize(BlobToString(response.content), "\n"), "indexrow");
-
-    size := SELECT AS INTEGER indexsize FROM indexlist;
+    RECORD count := EnforceStructure([ [ count := 0 ] ], SendRawJSONToElasticsearch(indexmanager.id, "GET", "/_cat/count/" || indexmanager.indexname || suffix || "?format=json", DEFAULT RECORD).result);
+    size := count.count;
+  }
+  CATCH (OBJECT e)
+  {
+    IF(NOT RecordExists(e->error) OR e->error.type != "index_not_found_exception")
+      THROW;
+    size := -2;
   }
 
   RETURN size;
@@ -1349,19 +1434,4 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD op
              AND (options.managedonly ? catalogs.type = whconstant_consilio_catalogtype_managed : TRUE)
              AND (options.excludereadonly ? catalog_indexmanagers.readonly = FALSE : TRUE)
     ORDER BY catalog_indexmanagers.searchpriority DESC;
-}
-
-// Create a (flattened) list of requested fields
-PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
-{
-  STRING ARRAY fields;
-  FOREVERY (RECORD field FROM UnpackRecord(mapping))
-  {
-    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
-      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
-        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
-    ELSE
-      INSERT ToLowercase(field.name) INTO fields AT END;
-  }
-  RETURN fields;
 }

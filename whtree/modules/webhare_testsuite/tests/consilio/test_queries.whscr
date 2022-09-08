@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 
@@ -48,7 +49,7 @@ MACRO PrepareCustomCatalog()
   TestEq(0, __GetNumSubJobs());
 
   testfw->BeginWork();
-  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_queries", [ priority := 9 ]);
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_queries", [ priority := 9, fieldgroups := [ "webhare_testsuite:nested_records" ] ]);
   Print(catalog->GetStorageInfo() || "\n");
   testfw->CommitWork();
 
@@ -60,9 +61,8 @@ MACRO PrepareCustomCatalog()
       , maxgroupobjects :=  1000
       ]);
 
-
   RECORD ARRAY mapping := catalog->GetExpectedMapping();
-  dumpvalue(mapping,'tree');
+  // dumpvalue(mapping,'tree');
 
   TestEqMembers([[ name := "textfield", type := "text" ]], (SELECT * FROM mapping WHERE name = "textfield"),"*");
   TestEqMembers([[ name := "keywordfield", type := "keyword" ]], (SELECT * FROM mapping WHERE name = "keywordfield"),"*");
@@ -171,6 +171,133 @@ MACRO RunTheAggregationQueries()
          [ aggregation_mapping := [ groupid := 0 ] ]));
 }
 
+MACRO RunTheNestedQueries()
+{
+  // Searching for documents with a specific first and last name within the same record field doesn't work, as the first and
+  // last names aren't related. We don't want searching for first name 'charles' and last name 'smithers' to return the
+  // document, which has separate record [ firstname := "charles montgomery", lastname := "burns" ] and [ firstname := "waylon",
+  // lastname := "smithers" ]
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", CQAnd(
+      [ CQMatch("record_field.firstname", "=", "charles")
+      , CQMatch("record_field.lastname", "=", "smithers")
+      ]), [ mapping := [ record_field := [ [ firstname := "", lastname := "" ] ] ], debug := TRUE ]);
+  TestEq(1, searchres.totalcount);
+  TestEqMembers(
+      [ record_field :=
+          [ [ firstname := "charles montgomery", lastname := "burns" ]
+          , [ firstname := "waylon", lastname := "smithers" ]
+          ]
+      ], searchres.results[0], "record_field");
+
+  // We need a nested query on a nested field to query related first and last names
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQNested("nested_field", CQAnd(
+      [ CQMatch("nested_field.firstname", "=", "charles")
+      , CQMatch("nested_field.lastname", "=", "smithers")
+      ])), [ mapping := [ nested_field := [ [ firstname := "", lastname := "" ] ] ], debug := TRUE ]);
+  TestEq(0, searchres.totalcount);
+
+  // Test if we can find names that are related, by default only the matching burns subrecord is returned
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQNested("nested_field", CQAnd(
+      [ CQMatch("nested_field.firstname", "=", "charles")
+      , CQMatch("nested_field.lastname", "=", "burns")
+      ])), [ mapping := [ nested_field := [ [ firstname := "", lastname := "" ] ] ], debug := TRUE ]);
+  TestEq(1, searchres.totalcount);
+  TestEqMembers(
+      [ nested_field :=
+          [ [ firstname := "charles montgomery", lastname := "burns" ]
+          ]
+      ], searchres.results[0], "nested_field");
+
+  // Test if we can find names that are related, return all subrecords
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQNested("nested_field", CQAnd(
+      [ CQMatch("nested_field.firstname", "=", "charles")
+      , CQMatch("nested_field.lastname", "=", "burns")
+      ]), [ returnnonmatching := TRUE ]), [ mapping := [ nested_field := [ [ firstname := "", lastname := "" ] ] ], debug := TRUE ]);
+  TestEq(1, searchres.totalcount);
+  TestEqMembers(
+      [ nested_field :=
+          [ [ firstname := "charles montgomery", lastname := "burns" ]
+          , [ firstname := "waylon", lastname := "smithers" ]
+          ]
+      ], searchres.results[0], "nested_field");
+
+  // A more advanced test case:
+  // Find publications with non-intro documents with a title containing the word 'lorem' or having pages containing the word
+  // 'lorem', return the first two results with the total number and 5 best matching documents, with for each document the
+  // total number and 3 best matching pages with an excerpt. The 'lorem' query is highlighted in the document title and the
+  // most relevant fragment of the page content in the 'content' field.
+  searchres := RunConsilioSearch("consilio:testfw_queries",
+      CQNested("documents",
+               CQAnd([ CQOr([ CQNested("documents.pages",
+                                       CQParseUserQuery("lorem", [ defaultfields := [ [ field := "documents.pages.content" ] ] ]),
+                                       [ count := 3
+                                       , scorefield := "pagescore"
+                                       , totalcountfield := "numpages"
+                                       , summaryfield := "content"
+                                       ])
+                            , CQParseUserQuery("lorem", [ defaultfields := [ [ field := "documents.title" ] ] ])
+                            ])
+                     , CQNot(CQMatch("documents.type", "=", "intro"))
+                     ]),
+               [ count := 5
+               , scorefield := "docscore"
+               , totalcountfield := "numdocs"
+               ]),
+  [ count := 2
+  , mapping :=
+      [ documents :=
+          [ [ title := ""
+            , pages :=
+                [ [ page := 0
+                  ]
+                ]
+            ]
+          ]
+      ]
+  , debug := TRUE
+  , scorefield := "pubscore"
+  , highlightfields := [ "documents.title", "documents.pages.content" ]
+  , highlightparts := [ "documents.pages.content" ]
+  , summaryfield := ""
+  , summary_length := 20
+  ]);
+
+  // Of the 3 matching publications, only the first 2 are returned
+  TestEq(3, searchres.totalcount);
+  TestEq(2, Length(searchres.results));
+
+  // The first returned publication
+  RECORD publication := searchres.results[0];
+  TestEq("QC2", publication.groupid);
+  TestEq("O2", publication.objectid);
+  // Of the 9 matching documents, only the first 5 are returned
+  TestEq(9, publication.numdocs);
+  TestEq(5, Length(publication.documents));
+  RECORD document := publication.documents[0];
+  TestEq(TRUE, document.docscore > 0);
+  TestEq('Second document, second object, ninth <span class="consilio--highlight">lorem</span> subdocument', document.title); // Contains lorems in the document title, should be scored highest, 'lorem' should be highlighted
+  TestEq(0, document.numpages); // Document has no matching pages
+  TestEq(0, Length(document.pages));
+  document := publication.documents[1];
+  TestEqLike("*seventh*", document.title); // Contains 3 lorems, should be scored second highest
+  TestEq(1, document.numpages);
+  TestEq(TRUE, document.pages[0].pagescore > 0);
+  TestEq('<span class="consilio--highlight">Lorem</span> morbi a tortor', document.pages[0].content);
+
+  publication := searchres.results[1];
+  TestEq("QC2", publication.groupid);
+  TestEq("O1", publication.objectid);
+  TestEq(1, publication.numdocs);
+  document := publication.documents[0];
+  TestEq(TRUE, document.docscore > 0);
+  // Of the 9 matching pages within this document, only the first 3 are returnd
+  TestEq(9, document.numpages);
+  TestEq(3, Length(document.pages));
+  TestEq(TRUE, document.pages[0].pagescore > 0);
+  TestEq(7, document.pages[0].page); // Contains 3 lorems, should be scored highest
+  TestEq('magna, <span class="consilio--highlight">lorem</span> sed <span class="consilio--highlight">lorem</span>', document.pages[0].content); // the last two lorems are highlighted, as they are closest
+}
+
 MACRO RunExplainQuery()
 {
   // Just testing if the '_explanation' is only present if the 'explain' option is set
@@ -181,9 +308,34 @@ MACRO RunExplainQuery()
   TestEq(TRUE, RecordExists(searchres.results[0]._explanation));
 }
 
+MACRO RunTotalTrackTest()
+{
+  // By default, up to 10,000 results are counted exactly
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0 ]);
+  TestEq(4, searchres.totalcount);
+  TestEq(TRUE, searchres.totalexact);
+
+  // If we track up to 3 results, we no longer receive the exact count
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := 3 ]);
+  TestEq(3, searchres.totalcount);
+  TestEq(FALSE, searchres.totalexact);
+
+  // If we track up to 0 results, we no longer receive any count
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := 0 ]);
+  TestEq(0, searchres.totalcount);
+  TestEq(FALSE, searchres.totalexact);
+
+  // Track all results
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ count := 0, totaltotrack := -1 ]);
+  TestEq(4, searchres.totalcount);
+  TestEq(TRUE, searchres.totalexact);
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
     , PTR RunTheMatchQueries
     , PTR RunTheAggregationQueries
+    , PTR RunTheNestedQueries
     , PTR RunExplainQuery
+    , PTR RunTotalTrackTest
     ]);

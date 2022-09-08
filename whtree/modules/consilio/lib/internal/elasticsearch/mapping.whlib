@@ -225,7 +225,7 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
           , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
           , field.name
           , settings := DEFAULT RECORD
-          , properties := CellExists(field,"properties") ? ParseContentSourceMapping(RECORD[], field.properties) : RECORD[]
+          , properties := type IN [ "record", "nested" ] ? ParseContentSourceMapping(RECORD[], field.properties) : RECORD[]
           , field.definedby
           , suggested := CellExists(field,"suggested") ? field.suggested : FALSE
           ] INTO properties AT END;
@@ -271,6 +271,7 @@ VARIANT FUNCTION GetFieldTypeDefaultValue(STRING type)
     CASE "integer64"  { RETURN 0i64; }
     CASE "money"      { RETURN 0m; }
     CASE "record"     { RETURN DEFAULT RECORD; }
+    CASE "nested"     { RETURN DEFAULT RECORD; }
   }
   RETURN "";
 }
@@ -281,6 +282,7 @@ STRING FUNCTION GetOpensearchTypeForConsilioType(STRING intype)
   {
     CASE "keyword", "integer", "boolean", "text", "completion" { RETURN intype; }
     CASE "record"    { RETURN "object"; }
+    CASE "nested"    { RETURN "nested"; }
     CASE "integer64" { RETURN "long"; }
     CASE "float"     { RETURN "double"; }
     CASE "datetime"  { RETURN "date"; }
@@ -317,7 +319,7 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
     RECORD subfields := PrepareMappingUpdate(prop.properties);
     IF(RecordExists(subfields))
     {
-      IF(prop.type="record")
+      IF(prop.type IN ["record", "nested"])
       {
         //A record has properties - these subfields can individually receive values to index
         INSERT CELL properties := subfields.properties INTO esfielddata;
@@ -416,7 +418,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
     {
       //dumpvalue(cell[match,row],'tree');
       STRING expectfieldtype := GetOpensearchTypeForConsilioType(row.type);
-      STRING currentfieldtype := CellExists(match.value,'properties') ? 'object' : match.value.type;
+      STRING currentfieldtype := CellExists(match.value, "type") ? match.value.type : CellExists(match.value, "properties") ? "object" : "";
 
       IF(expectfieldtype != currentfieldtype)
       {
@@ -440,7 +442,7 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
       DELETE FROM current WHERE current.name = match.name;
     }
 
-    IF(row.type = "record") //deeper types to compare
+    IF(row.type IN [ "record", "nested" ]) //deeper types to compare
     {
       mismatches := mismatches CONCAT CompareMappings(RecordExists(match) ? match.value : DEFAULT RECORD, row.properties, field || '.');
     }
