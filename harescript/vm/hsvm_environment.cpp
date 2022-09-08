@@ -965,7 +965,7 @@ void LibraryLoader::GetWHLibraryInfo(Blex::ContextKeeper &keeper, std::string co
         Library const *lib = nullptr;
         try
         {
-                lib = llib.GetLibRef(keeper, liburi, errorhandler); //any
+                lib = llib.GetLibRef(keeper, liburi, errorhandler);
                 info->compile_id = lib->GetWrappedLibrary().resident.compile_id;
                 info->outofdate = curlib && lib != curlib;
 
