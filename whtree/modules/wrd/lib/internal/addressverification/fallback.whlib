@@ -18,6 +18,13 @@ PUBLIC STATIC OBJECTTYPE FallbackAddressAPI EXTEND WRDAddressVerificationBase
       IF(Length(data.input.zip) != 4 OR ToInteger(data.input.zip,0) < 1000)
         RETURN [ status := "invalid_zip", data := data.output, looked_up := DEFAULT RECORD ];
     }
+
+    IF(data.input.country="DE")
+    {
+      IF(Length(data.input.zip) != 5 OR ToInteger(data.input.zip,-1) = -1)
+        RETURN [ status := "invalid_zip", data := data.output, looked_up := DEFAULT RECORD ];
+    }
+
     RETURN WRDAddressVerificationBase::CheckAddressInternal(data, options);
   }
 

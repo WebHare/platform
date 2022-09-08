@@ -384,11 +384,18 @@ MACRO TestFallbackAPI()
   TestEq('ok', checkres.status);
   TestEq([ city := "Antwerpen", country := "BE", nr_detail := "27", zip := "2018", street := "Koningin Astridplein" ], checkres.data);
 
+  //block invalid BE zips
   checkres := api->CheckAddress([ zip := "999", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
   TestEq('invalid_zip', checkres.status);
 
   checkres := api->CheckAddress([ zip := "2500", nr_detail := "Lier", country := "BE", street := "Baron Opsomerlaan", city := "1"], [ alwaysverify := TRUE ]);
   TestEq('invalid_city', checkres.status);
+
+  //block invalid DE zips
+  checkres := api->CheckAddress([ zip := "655520", nr_detail := "1", country := "DE", street := "Hauptstra\u00DFe", city := "Bad Camberg"], [ alwaysverify := TRUE ]);
+  TestEq('invalid_zip', checkres.status);
+  checkres := api->CheckAddress([ zip := "6520", nr_detail := "1", country := "DE", street := "Hauptstra\u00DFe", city := "Bad Camberg"], [ alwaysverify := TRUE ]);
+  TestEq('invalid_zip', checkres.status);
 
   //block users typing their phone number into the nr_detail field
   checkres := api->CheckAddress([ zip := "2018", nr_detail := "0474000000", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
