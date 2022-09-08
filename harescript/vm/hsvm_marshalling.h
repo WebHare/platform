@@ -74,10 +74,10 @@ class BLEXLIB_PUBLIC MarshalPacket
         ~MarshalPacket();
 
         /// Returns whether any objects are present
-        bool AnyObjects() { return !objects.empty(); }
+        bool AnyObjects()  const{ return !objects.empty(); }
 
         /// Returns whether any objects are present
-        bool AnyBlobs() { return !blobs.empty(); }
+        bool AnyBlobs() const { return !blobs.empty(); }
 
         /** Tries to clone the packet (fails when any objects are present)
             @param copy Filled with new clone
@@ -88,12 +88,24 @@ class BLEXLIB_PUBLIC MarshalPacket
         /** Stores raw data (throws if objects or blobs are present)
             @param target
         */
-        void WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr);
+        void WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr) const;
 
         /** Reads raw data
             @param target
         */
         void Read(uint8_t const *start, uint8_t const *end, GlobalBlobManager *blobmgr);
+
+        struct SizeData
+        {
+                uint64_t datasize;
+                uint64_t blobsize;
+                uint64_t objects;
+        };
+
+        /** Returns the size of all the data
+            @return Size in bytes
+        */
+        SizeData GetSize() const;
 
     private:
         void Reset();
