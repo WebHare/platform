@@ -26,7 +26,7 @@
               tid="filetypes.webtool-poll"
               wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll">
     <members>
-      <member name="allowvotestill" type="datetime" />  <!-- ADDME: implement this option -->
+      <datetime name="allowvotestill" />  <!-- ADDME: implement this option -->
 
       <!--
            ADDME: (when a customer pays for this) option to specify when results become available
@@ -38,21 +38,21 @@
 
       <member name="shoresults"     type="datetime" />
       -->
-      <member name="ismultiplechoice" type="boolean" />
-      <member name="question" type="richdocument" />
-      <member name="messageaftervoting" type="richdocument" />
-      <member name="title" type="string" />
-      <member name="options" type="array">
-        <member name="guid" type="string" />  <!-- GUID used for referencing the option -->
-        <member name="title" type="string" />
+      <boolean name="ismultiplechoice" />
+      <richdocument name="question" />
+      <richdocument name="messageaftervoting" />
+      <string name="title" />
+      <array name="options">
+        <string name="guid" />  <!-- GUID used for referencing the option -->
+        <string name="title" />
 
         <!-- to make options (for which there already are votes) or to prepare an option to become available later) -->
-        <member name="hide" type="boolean" />
+        <boolean name="hide" />
 
         <!-- member name="intlink" type="whfsref" -->
 
         <!-- whfsobject, for other poll option editors to do magic things (experimental for now) -->
-      </member>
+      </array>
     </members>
   </widgettype>
 
@@ -72,7 +72,7 @@
           name="editpoll"
           width="85x"
           footerbuttons="ok cancel"
-          lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib">
+          library="/lib/screens/objectprops/webtools-poll.whlib">
     <compositions>
       <p:whfsinstance name="fsobject" typedef="http://www.webhare.net/xmlns/publisher/pollwebtool" />
     </compositions>
@@ -120,7 +120,7 @@
           footerbuttons="ok cancel"
           gid="webtools.editpolloption"
           implementation="lib"
-          lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib"
+          library="/lib/screens/objectprops/webtools-poll.whlib"
           tid=".frametitle_option">
     <compositions>
       <record name="row" />
@@ -148,7 +148,7 @@
               requiremergefieldscontext="true"
               tid="webtools.mergefield.widgettitle">
     <members>
-      <member name="fieldname" type="string" />
+      <string name="fieldname" />
     </members>
   </widgettype>
 
@@ -184,7 +184,7 @@
               requiremergefieldscontext="true"
               tid="webtools.confirmfield.widgettitle">
     <members>
-      <member name="linktext" type="string" />
+      <string name="linktext" />
     </members>
   </widgettype>
 

@@ -22,7 +22,6 @@
   <test script="logfile.whscr" />
   <test script="testwebhareservice.whscr" />
   <test script="testresources.whscr" />
-  <test script="appserver.whscr" />
   <test name="modules" path="modules/" />
   <test name="nodejs" path="nodejs/" />
   <test name="setup" path="setup/" />
