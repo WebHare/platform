@@ -469,9 +469,11 @@ STRING FUNCTION AddHighlightClass(STRING value, STRING class)
   // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
   // when the highlight ends at the end of the string
   INTEGER firstclose := SearchSubstring(value, "\x1C");
+  INTEGER lastopen := SearchLastSubstring(value, "\x1D");
+  IF (firstclose < 0 AND lastopen < 0)
+    RETURN value;
   IF (firstclose >= 0 AND (SearchSubstring(value, "\x1D") < 0 OR SearchSubstring(value, "\x1D") > firstclose))
     value := "\x1D" || value;
-  INTEGER lastopen := SearchLastSubstring(value, "\x1D");
   IF (lastopen >= 0 AND SearchLastSubstring(value, "\x1C") < lastopen)
     value := value || "\x1C";
 

@@ -336,7 +336,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     IF (options.summary != 0 OR Length(options.highlightfields) > 0)
     {
       RECORD highlightoptions := CELL
-          [ options.highlightfields
+          [ highlightfields := ArrayUnion(options.highlightfields, options.highlightparts) // make sure all part fields are highlighted
           , options.highlightparts
           , options.summary
           , defaultsummary := defaultoptions.summary
