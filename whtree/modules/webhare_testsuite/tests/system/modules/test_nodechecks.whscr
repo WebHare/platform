@@ -1,0 +1,32 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
+
+MACRO TestCoreModules()
+{
+  //This is dupe with testcheckmodule.whscr but should be fast enough to redo, and it helps us spot regressions when developing on node.whlib
+  TestEq(RECORD[], CheckNodeModulesInModule(GetWebhareConfiguration().installationroot, [ skipmodtimecheck := TRUE ]));
+  FOREVERY(STRING module FROM whconstant_builtinmodules)
+    TestEq(RECORD[], CheckNodeModulesInModule(GetModuleInstallationRoot(module), [ skipmodtimecheck := TRUE ]));
+}
+
+MACRO TestRegressions()
+{
+  /* Copy test cases into nodechecks.
+     - Copy only the absolutely necessary JSON files
+     - If your CI requires folders to exist but to be empty, you'll need to recreate them or insert a `.keep` file or something similar as git does not create empty dirs
+     - Don't forget about node_modules/.package.json (hidden file!)
+     */
+
+  RECORD ARRAY issues := CheckNodeModulesInModule(GetWebHareResourceDiskPath(Resolve("data/nodechecks/undetected-root-module")), [ skipmodtimecheck := TRUE ]);
+  TestEq(1, Length(issues));
+  TestEqLike("*node-fetch*not installed*", issues[0].error);
+}
+
+RunTestframework([ PTR TestCoreModules
+                 , PTR TestRegressions
+                 ]);

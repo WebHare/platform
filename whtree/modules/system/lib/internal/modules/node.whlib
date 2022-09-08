@@ -158,7 +158,8 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY claimed_installed_packages, R
 
           IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(claimed_installed_packages[pos.position].version, dep.range))
           {
-            RETURN [ [ error := `Installed module '${claimed_installed_packages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${claimed_installed_packages[pos.position].version}', wanted range '${dep.range}')` ] ];
+            INSERT [ [ error := `Installed module '${claimed_installed_packages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${claimed_installed_packages[pos.position].version}', wanted range '${dep.range}')` ] ]
+                   INTO issues AT END;
           }
         }
         INTEGER nmpos := SearchLastSubstring(basepath, "node_modules/");
@@ -170,12 +171,18 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY claimed_installed_packages, R
   }
 
   RECORD ARRAY unused := SELECT * FROM claimed_installed_packages WHERE IsDefaultValue(usedby);
-  RETURN
-      SELECT error := `Module ${name} version ${version} is installed but not requested. Please run 'wh fixmodules'`
-        FROM unused;
+  issues := issues CONCAT SELECT error := `Module ${name} version ${version} is installed but not requested. Please run 'wh fixmodules'`
+                     FROM unused;
+
+  STRING ARRAY installednames := SELECT AS STRING ARRAY Substring(name, 13) FROM claimed_installed_packages WHERE name LIKE "node_modules/*";
+  RECORD ARRAY missing := SELECT * FROM required_root_packages WHERE name != "" AND name NOT IN installednames;
+  issues := issues CONCAT SELECT error := `Module ${name} version ${range} is requested but not installed. Please run 'wh fixmodules'`
+                     FROM missing;
+
+  RETURN issues;
 }
 
-RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
+RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder, RECORD options)
 {
   RECORD ARRAY issues;
   TRY
@@ -251,7 +258,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
 
       // modification date must be after the moddate of all ondisk package folders
       // this may give false alarms if run on a dev server after a module push, because all modtimes are then simply ordered by extraction order
-      IF (props.modified < SELECT AS DATETIME MAX(modified) FROM ondiskpackages)
+      IF (NOT options.skipmodtimecheck AND props.modified < SELECT AS DATETIME MAX(modified) FROM ondiskpackages)
         RETURN [ ...issues, [ error := "Packages may have been manually modified after last installation. Please run 'wh fixmodules'" ] ];
 
       // Check if the package list is equal from listed to installed.
@@ -289,15 +296,17 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
   }
 }
 
-PUBLIC RECORD ARRAY FUNCTION CheckNodeModulesInModule(STRING modulerootdir)
+PUBLIC RECORD ARRAY FUNCTION CheckNodeModulesInModule(STRING modulerootdir, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ skipmodtimecheck := FALSE ], options);
+
   RECORD ARRAY issues;
 
   FOREVERY(RECORD nodefolder FROM ListNodePackageRoots(modulerootdir))
   {
     issues := issues CONCAT SELECT error
                                  , basepath := nodefolder.basepath
-                              FROM CheckNodeFolder(nodefolder);
+                              FROM CheckNodeFolder(nodefolder, options);
   }
   RETURN issues;
 }
