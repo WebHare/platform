@@ -170,6 +170,7 @@ PUBLIC MACRO CustomForm()
   tester := OpenFormsapiFormTester(testfw->browser);
   submitrec.firstname := "Klaasje";
   submitrec.address.country := "DE";
+  submitrec.address.zip := "12345";
 
   res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
