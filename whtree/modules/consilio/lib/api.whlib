@@ -649,7 +649,7 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
         returned
     @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
         are not returned
-    @cell(integer) options.totaltotrack By default, only up to a certain results are counted with the `totalatleast` return
+    @cell(integer) options.totaltotrack By default, only up to a certain results are counted with the `totalexact` return
         value being set to FALSE if there are more than that number of results. Set this option to the number of results that
         should be always be counted or to -1 to always return the exact number of results (a higher setting comes with a
         performance cost). Defaults to 10,000.
