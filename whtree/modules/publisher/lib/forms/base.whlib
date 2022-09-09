@@ -7,6 +7,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
@@ -37,14 +38,6 @@ LOADLIB "mod::system/lib/remoting/server.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-
-//Direct API to allow us to optimize this in the future (by eg not actually creating the form all the time)
-/*
-PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formdefinitionfile, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN OpenForm(formdefinitionfile, formname, options)->GetWittyData();
-}
-*/
 
 //we're not using this text yet, but prevent it from being deleted. can't mark individual tids as 'keep'
 CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsrequired";
@@ -247,6 +240,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
   RECORD ARRAY __formerrors;
   RECORD ARRAY __formwarnings;
   RECORD ARRAY __formmessages;
+  STRING __formphase;
 
   /** @cell name
       @cell obj
@@ -662,6 +656,14 @@ PUBLIC STATIC OBJECTTYPE FormBase
   //Prepare form for use in the frontend (either rendering or for result data)
   PUBLIC MACRO PrepareForFrontend()
   {
+    IF(GetDtapStage() != "production") //not enabling this everywhere (yet?) as this mostly validation that everyone invokes the protocol right
+    {
+      IF(this->__formphase = "prepared-frontend")
+        THROW NEW Exception(`Duplicate PrepareForFrontend`);
+      IF(this->__formphase != "")
+        THROW NEW Exception(`PrepareForFrontend was invoked but form is already in phase '${this->__formphase}'`);
+    }
+    this->__formphase := "prepared-frontend";
   }
 
   PUBLIC MACRO CheckRateLimits()
@@ -708,6 +710,14 @@ PUBLIC STATIC OBJECTTYPE FormBase
   */
   PUBLIC RECORD FUNCTION FormExecuteSubmit(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() != "production") //not enabling this everywhere (yet?) as this mostly validation that everyone invokes the protocol right
+    {
+      IF(this->__formphase NOT IN [ "prepared-frontend", "submitted" ]) //Note that we don't mind multiple submissions
+        THROW NEW Exception(`PrepareForFrontend must have been invoked before running form submit (phase=${this->__formphase})`);
+
+      this->__formphase := "submitted";
+    }
+
     options := ValidateOptions([ extradata := DEFAULT RECORD], options);
     //Construct the fields - FIXME move this back to NEW() but it gives confusing errors. #586
     IF(NOT MemberExists(this,'submit'))
@@ -781,6 +791,17 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   PUBLIC RECORD FUNCTION GetWittyData()
   {
+    IF(GetDtapStage() != "production") //not enabling this everywhere (yet?) as this mostly validation that everyone invokes the protocol right
+    {
+      IF(this->__formphase NOT IN ["prepared-frontend","submitted"]) //submitted has checked for PrepareForFrontend too, render-after-submit happens in confirmation
+      {
+        IF(GetObjectTypeName(this) NOT IN ["FORMBASE","WEBTOOLFORMBASE"])
+          THROW NEW Exception(`PrepareForFrontend must be invoked before attempting to render a form. If you did... check whether ${GetObjectTypeName(this)} updates PrepareForFrontend without invoking FormBase::PrepareForFrontend`);
+        ELSE
+          THROW NEW Exception(`PrepareForFrontend must be invoked before attempting to render a form`);
+      }
+    }
+
     RECORD wittydata := [ formattributes := PTR this->__FormAttributes
                         , formallfields := PTR this->__FormAllFields
                         , formprologue := PTR this->__FormPrologue
@@ -802,6 +823,12 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   PUBLIC RECORD FUNCTION GetRenderTree()
   {
+    IF(GetDtapStage() != "production") //not enabling this everywhere (yet?) as this mostly validation that everyone invokes the protocol right
+    {
+      IF(this->__formphase NOT IN ["prepared-frontend","submitted"]) //submitted has checked for PrepareForFrontend too, render-after-submit happens in confirmation
+        THROW NEW Exception(`PrepareForFrontend must be invoked before attempting to render a form (phase=${this->__formphase})`);
+    }
+
     RECORD ARRAY pages := SELECT AS RECORD ARRAY page.obj->GetRenderTree()
                             FROM ToRecordArray(this->__formpages, "page")
                            WHERE page.obj->visible; //eliminate permanently invisible pages

@@ -98,6 +98,8 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   //Prepare form for use in the frontend (either rendering or for result data)
   UPDATE PUBLIC MACRO PrepareForFrontend()
   {
+     FormBase::PrepareForFrontend();
+
     // All handlers get a chance to run so they can still do prefill/data corrections which may affect storage/activation
     FOREVERY(RECORD handler FROM this->formhandlers)
       handler.handlerobject->PrepareForFrontend();

@@ -83,7 +83,7 @@ PUBLIC MACRO FillInForm()
                                 ,[ htmltitle := "Email"
                                  , type := "email"
                                  , required := TRUE
-                                 , value := ""
+                                 , value := "test@beta.webhare.net"
                                  ]
                                 ,[ htmltitle := "Groups &#38; stuff"
                                  , type := "group"
@@ -476,7 +476,7 @@ MACRO TestDirectFormSubmission()
   testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ count := 0 ]);
 
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
-  OBJECT form := OpenWebtoolForm(formfile->id);
+  OBJECT form := OpenWebtoolForm(formfile->id, [ formref := "noprefill" ]);
   OBJECT emailfield := SELECT AS OBJECT obj FROM form->ListFields() WHERE title = ":Email";
 
   RECORD result;

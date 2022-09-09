@@ -63,14 +63,14 @@ OBJECT FUNCTION GetFormObject(RECORD submitinfo)
       parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
 
     form := OpenFormByDef(parseresult, [ webcontext := webcontext
-                                              , applytester := applytester
-                                              ]);
+                                       , applytester := applytester
+                                       ]);
   }
   ELSE
   {
     form := OpenFormByTarget(submitinfo.target, [ __applycontext := TRUE ]);
   }
-  form->PrepareForFrontend();
+
   RETURN form;
 }
 

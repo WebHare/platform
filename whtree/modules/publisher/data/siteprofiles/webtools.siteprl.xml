@@ -247,4 +247,10 @@
     </blockstyles>
   </rtdtype>
 
+  <!-- Test form definition. we need this available everywhere so the publisher's form test works -->
+  <apply>
+    <to type="all" />
+    <formdefinitions name="publisher:testpages" path="mod::publisher/lib/internal/forms/testpage.formdef.xml" />
+  </apply>
+
 </siteprofile>
