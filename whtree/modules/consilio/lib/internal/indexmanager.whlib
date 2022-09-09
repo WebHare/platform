@@ -540,6 +540,7 @@ RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
         [ fields := RECORD[]
         , pre_tags := [ Length(highlightfields) > 0 ? "\x1d" : "" ]
         , post_tags := [ Length(highlightfields) > 0 ? "\x1c" : "" ]
+        // We cannot use encoder := "html", as it only encodes fragments with matches
         ] INTO searchquery;
     // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
     IF (options.addparthighlighting OR ArraysIntersect(highlightfields, options.highlightparts))

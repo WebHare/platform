@@ -5,6 +5,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
 LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListConsilioCatalogs, OpenConsilioCatalog, OpenConsilioCatalogById;
@@ -436,7 +437,7 @@ PUBLIC RECORD FUNCTION CQOpenSearch(RECORD query)
   RETURN CELL[ _type := "opensearch", rawquery := query ];
 }
 
-RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
+RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRING class)
 {
   FOREVERY(RECORD res FROM results)
   {
@@ -447,15 +448,18 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
         CASE TypeID(RECORD ARRAY)
         {
           // Recurse into nested subresults
-          res := CellUpdate(res, cellrec.name, Highlight(cellrec.value, class));
+          STRING ARRAY subfields := SELECT AS STRING ARRAY Substring(field, Length(cellrec.name) + 1) FROM ToRecordArray(fields, "field") WHERE field LIKE cellrec.name || ".*";
+          res := CellUpdate(res, cellrec.name, Highlight(cellrec.value, subfields, class));
         }
         CASE TypeID(STRING)
         {
-          res := CellUpdate(res, cellrec.name, AddHighlightClass(cellrec.value, class));
+          IF (cellrec.name IN fields)
+            res := CellUpdate(res, cellrec.name, AddHighlightClass(cellrec.value, class));
         }
         CASE TypeID(STRING ARRAY)
         {
-          res := CellUpdate(res, cellrec.name, SELECT AS STRING ARRAY AddHighlightClass(value, class) FROM ToRecordArray(cellrec.value, "value"));
+          IF (cellrec.name IN fields)
+            res := CellUpdate(res, cellrec.name, SELECT AS STRING ARRAY AddHighlightClass(value, class) FROM ToRecordArray(cellrec.value, "value"));
         }
       }
     }
@@ -464,34 +468,39 @@ RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING class)
   RETURN results;
 }
 
+// The value of a highlighted field is always HTML-encoded
 STRING FUNCTION AddHighlightClass(STRING value, STRING class)
 {
-  // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
-  // when the highlight ends at the end of the string
   INTEGER firstclose := SearchSubstring(value, "\x1C");
   INTEGER lastopen := SearchLastSubstring(value, "\x1D");
+  // If there are no markers, just return the (encoded) value
   IF (firstclose < 0 AND lastopen < 0)
-    RETURN value;
+    RETURN EncodeHTML(value);
+
+  // If the highlight class name is empty, remove the markers
   IF (class = "")
   {
     value := Substitute(value, "\x1D", "");
     value := Substitute(value, "\x1C", "");
-    RETURN value;
+    RETURN EncodeHTML(value);
   }
+
+  // OpenSearch seems to not add the pre tag when the highlight starts at the start of the string or add the post tag
+  // when the highlight ends at the end of the string
   IF (firstclose >= 0 AND (SearchSubstring(value, "\x1D") < 0 OR SearchSubstring(value, "\x1D") > firstclose))
     value := "\x1D" || value;
   IF (lastopen >= 0 AND SearchLastSubstring(value, "\x1C") < lastopen)
     value := value || "\x1C";
 
-  //translate the markers to something that will survive EncodeHTML
-  value := Substitute(value, "\x1D", '\uF8F0');
-  value := Substitute(value, "\x1C", '\uF8F1');
+  // Translate the markers to something that will survive EncodeHTML
+  value := Substitute(value, "\x1D", "\uF8F0");
+  value := Substitute(value, "\x1C", "\uF8F1");
   value := EncodeHTML(value);
-  value := Substitute(value, "&#63728;", '<span class="' || EncodeValue(class) || '">');
-  value := Substitute(value, "&#63729;", '</span>');
+  value := Substitute(value, "&#63728;", `<span class="${EncodeValue(class)}">`);
+  value := Substitute(value, "&#63729;", "</span>");
 
   // Remove legacy hyperlink markers (won't be added anymore by parser_html, but might still be present in already indexed documents)
-  value := Substitute(value, "\x1F", '');
+  value := Substitute(value, "\x1F", "");
   RETURN value;
 }
 
@@ -622,9 +631,11 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
         prevent summary generation, defaults to -1)
     @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields` (set to
         empty string to disable match highlighting)
-    @cell(string array) options.highlightfields The fields in which found query words should be highlighted
+    @cell(string array) options.highlightfields The fields in which found query words should be highlighted (note that all
+        fields mentioned in highlightfields are HTML-encoded)
     @cell(string array) options.highlightparts The fields from which only a relevant highlighted part (with max length
-        `"summary_length"`) will be returned in the summaryfield, defaults to `[ "body" ]`
+        `"summary_length"`) will be returned in the summaryfield, defaults to `[ "body" ]` (note that all fields mentioned in
+        highlightparts are HTML-encoded)
     @cell(string) options.summaryfield The name of the field to return the summary in (set to empty string to not return the
         summary, defaults to `"summary"`)
     @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
@@ -780,7 +791,8 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   IF (options.scorefield != "")
     INSERT CELL _score := options.scorefield INTO searchoptions.mapping;
   INSERT CELL _summary := options.summaryfield INTO searchoptions.mapping;
-  searchoptions.mapping := CELL[ ...searchoptions.mapping, ...GetAdditionalFields(query) ];
+  RECORD nestedfields := GetNestedFields(query);
+  searchoptions.mapping := CELL[ ...searchoptions.mapping, ...nestedfields.mapping ];
 
   IF (CellExists(query, "aggregation"))
     INSERT CELL aggregation_mapping := options.aggregation_mapping INTO searchoptions;
@@ -804,41 +816,49 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     IF(options.scorefield = "")
       result.results := SELECT *, DELETE _score FROM result.results;
 
-    IF(Length(options.highlightfields) + Length(options.highlightparts) != 0)
-      result.results := Highlight(result.results, options.highlightclass);
+    STRING ARRAY highlightfields :=
+        SELECT AS STRING ARRAY ToUppercase(field)
+          FROM ToRecordArray(GetSortedSet(STRING[ ...options.highlightfields, ...options.highlightparts, options.summaryfield, ...nestedfields.highlightfields ]), "field")
+         WHERE field != "";
+    IF(Length(highlightfields) != 0)
+      result.results := Highlight(result.results, highlightfields, options.highlightclass);
   }
 
   INSERT CELL eventmasks := [ "consilio:index." || catalog->id ] INTO result;
   RETURN result;
 }
 
-RECORD FUNCTION GetAdditionalFields(RECORD query)
+RECORD FUNCTION GetNestedFields(RECORD query)
 {
+  RECORD fields := [ mapping := DEFAULT RECORD, highlightfields := STRING[] ];
   query := CellExists(query, "query") ? query.query : query;
   DELETE CELL aggregation, ordering FROM query;
   IF (NOT RecordExists(UnpackRecord(query)))
-    RETURN DEFAULT RECORD;
-  RETURN GetAdditionalFieldsRecursive(DEFAULT RECORD, query);
+    RETURN fields;
+  RETURN GetNestedFieldsRecursive(fields, query);
 }
 
-RECORD FUNCTION GetAdditionalFieldsRecursive(RECORD fields, RECORD query)
+RECORD FUNCTION GetNestedFieldsRecursive(RECORD fields, RECORD query)
 {
   SWITCH (query._type)
   {
     CASE "boolean"
     {
       FOREVERY (RECORD subquery FROM query.subqueries)
-        fields := GetAdditionalFieldsRecursive(fields, subquery.query);
+        fields := GetNestedFieldsRecursive(fields, subquery.query);
     }
     CASE "nested"
     {
-      fields := GetAdditionalFieldsRecursive(fields, query.subquery);
+      fields := GetNestedFieldsRecursive(fields, query.subquery);
       IF (query.scorefield != "")
-        fields := CellInsert(fields, "_score." || query.field, query.scorefield);
+        fields.mapping := CellInsert(fields.mapping, "_score." || query.field, query.scorefield);
       IF (query.summaryfield != "")
-        fields := CellInsert(fields, "_summary." || query.field, query.summaryfield);
+      {
+        fields.mapping := CellInsert(fields.mapping, "_summary." || query.field, query.summaryfield);
+        INSERT query.field || "." || query.summaryfield INTO fields.highlightfields AT END;
+      }
       IF (query.totalcountfield != "")
-        fields := CellInsert(fields, "_totalcount." || query.field, query.totalcountfield);
+        fields.mapping := CellInsert(fields.mapping, "_totalcount." || query.field, query.totalcountfield);
     }
   }
   RETURN fields;
