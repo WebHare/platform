@@ -6,4 +6,5 @@
   <test script="testparsers.whscr" />
   <test script="test_dashboard.whscr" />
   <test script="test_profiler.whscr" />
+  <test script="test_nodechecks.whscr" />
 </group>
