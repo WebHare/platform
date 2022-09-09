@@ -661,7 +661,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
       IF(this->__formphase = "prepared-frontend")
         THROW NEW Exception(`Duplicate PrepareForFrontend`);
       IF(this->__formphase != "")
-        THROW NEW Exception(`PrepareForFrontend was invoked but form is already in phase 'PrepareForFrontend'`);
+        THROW NEW Exception(`PrepareForFrontend was invoked but form is already in phase '${this->__formphase}'`);
     }
     this->__formphase := "prepared-frontend";
   }
