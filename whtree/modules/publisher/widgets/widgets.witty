@@ -28,7 +28,7 @@
     [forevery images]
       <figure class="wh-gallery__image">
         <a href="[link]" class="wh-gallery__imagelink" data-image-width="[width]" data-image-height="[height]"[if dominantcolor] data-dominantcolor="[dominantcolor]"[/if]>
-          <img class="wh-gallery__imageelement" width="[thumbnail.width]" height="[thumbnail.height]" loading="lazy" src="[thumbnail.link]" srcset="[thumbnail.link] 2x" alt="[description]"[if dominantcolor]  style="background-color: [dominantcolor]"[/if]>
+          <img class="wh-gallery__imageelement" width="[thumbnail.width]" height="[thumbnail.height]" loading="lazy" src="[thumbnail.link]" srcset="[thumbnail_2x.link] 2x" alt="[description]"[if dominantcolor]  style="background-color: [dominantcolor]"[/if]>
         </a>
         [if title]
           <figcaption class="wh-gallery__imagecaption">

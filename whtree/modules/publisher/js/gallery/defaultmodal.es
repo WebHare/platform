@@ -26,7 +26,7 @@ export class DefaultModalGallery extends ModalGalleryBase
 
     this.overlay = <div class="wh-gallery-modal">
                      {this.countnode}
-                     <div class="wh-gallery-modal__close" data-action="close"><i class="fal fa-times"></i></div>
+                     <div class="wh-gallery-modal__close" onClick={() => this.hideOverlay()}><i class="fal fa-times"></i></div>
                      <h2 class="wh-gallery-modal__title">{this.title}</h2>
                      {this.slidescontainer}
                    </div>;
@@ -194,7 +194,6 @@ export class DefaultModalGallery extends ModalGalleryBase
     this.activeidx = idx;
 
     document.body.appendChild(this.overlay);
-    this.overlay.addEventListener("click", ev => this.onOverlayClick(ev));
 
     document.documentElement.classList.add("hidescroll");
 
@@ -203,20 +202,6 @@ export class DefaultModalGallery extends ModalGalleryBase
 
 
     window.addEventListener("resize",this.resizefn);
-  }
-
-  onOverlayClick(ev)
-  {
-    let actionnode = dompack.closest(ev.target, "[data-action]");
-    if( actionnode )
-    {
-      if( actionnode.dataset.action == "close" )
-        this.hideOverlay();
-      else if( actionnode.dataset.action == "previous" )
-        this.previousImage();
-      else if( actionnode.dataset.action == "next" )
-        this.nextImage();
-    }
   }
 
   hideOverlay(ev)
