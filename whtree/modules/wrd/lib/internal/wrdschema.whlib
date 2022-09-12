@@ -785,8 +785,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 
   PUBLIC RECORD ARRAY FUNCTION RunQuery(RECORD querydata)
   {
-    INSERT CELL wrdschema := this INTO querydata;
-    RETURN RunWRDQuery(querydata);
+    RETURN MakeWRDQuery(CELL[...querydata, wrdschema := this ])->Execute(DEFAULT RECORD);
   }
 
   //////////////////////////////////////////

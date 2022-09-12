@@ -349,7 +349,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   }
 >;
 
-PUBLIC OBJECT FUNCTION OpenWRDSchemaByName(STRING findname, STRING currentlanguage DEFAULTSTO "")
+PUBLIC OBJECT FUNCTION OpenWRDSchemaByName(STRING findname, STRING currentlanguage DEFAULTSTO "")  __ATTRIBUTES__(DEPRECATED "OpenWRDSchemaByName is a legacy API, you should switch to the new 'WRD 2017' APIs in mod::wrd/lib/api.whlib")
 {
   RECORD schemarec := IsWRDMetadataCacheDisabled() ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
