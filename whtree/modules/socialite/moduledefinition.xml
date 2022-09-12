@@ -212,9 +212,6 @@
     <webdesignplugin name="opengraph"
                      namespace="http://www.webhare.net/xmlns/socialite"
                      objectname="lib/internal/webdesignplugin.whlib#opengraphplugin" />
-    <webdesignplugin name="analyticsexperiment"
-                     namespace="http://www.webhare.net/xmlns/socialite"
-                     objectname="lib/internal/webdesignplugin.whlib#analyticsexperimentplugin" />
     <webdesignplugin name="seotab"
                      hooksfeatures="objectprops"
                      namespace="http://www.webhare.net/xmlns/socialite"
