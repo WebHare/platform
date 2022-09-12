@@ -4,7 +4,6 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/internal/import.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/setentity.whlib";
@@ -214,39 +213,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     RETURN basedata;
   }
 
-  /** @short Returns all requested fields of the entity with the given find_id
-      @param find_ids ids of the entity
-      @param fields name of the fields to return
-      @return Record array with a cell for each requested field, in unspecified order
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetEntitiesFields(INTEGER ARRAY find_ids, STRING ARRAY fields)
-  {
-    RECORD ARRAY filters;
-    IF(Length(find_ids)=0)
-      RETURN DEFAULT RECORD ARRAY;
-
-    IF(Length(find_ids) = 1)
-      filters := [ [ field := "WRD_ID", value := find_ids[0] ] ];
-    ELSE
-      filters := [ [ field := "WRD_ID", matchtype := "IN", value := find_ids ] ];
-
-    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    RETURN RunWRDQuery([ sources := [ [ type := this
-                                      , filters := filters
-                                      , outputcolumns := fields
-                                      , historymode := "all"
-                                      ]
-                                    ]
-                       ]);
-  }
-
-  PUBLIC RECORD FUNCTION GetNewEntityFields(STRING ARRAY fields)
-  {
-    RETURN this->GetDefaultValues(fields);
-  }
-
-
-
   PUBLIC RECORD ARRAY FUNCTION GetDomVals(STRING findtag)
   {
     IF(NOT IsDtapLive())
@@ -316,8 +282,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     RETURN this->GetEntity(entityrec.entity_id);
   }
 
-  //ADDME: Meer error checks, zoals op requiretype_left & right
-
   PUBLIC OBJECT FUNCTION MakeQuery(RECORD querydata)
   {
     INTEGER resultlimit := -1;
@@ -333,11 +297,4 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
     RETURN MakeWRDQuery(wrdquery);
   }
-
-
-  PUBLIC OBJECT FUNCTION CreateImportSession()
-  {
-    RETURN NEW WRDImporter(this);
-  }
-
 >;

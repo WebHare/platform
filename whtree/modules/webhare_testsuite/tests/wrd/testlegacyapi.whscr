@@ -1128,55 +1128,6 @@ MACRO TestWRDQuery_Mentions_Single()
 }
 
 
-MACRO TestWRDQuery_ExpImp()
-{
-  //ADDME regression tests with predefined query XMLs
-  //FIXME test queries with subrecords in outputcolumns - THESE BREAK NOW!
-
-  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
-  OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
-
-  RECORD query := [ sources := [[ type := wrdperson
-                                , outputcolumns := [ arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]
-                                , filters := [[ type := "NOT"
-                                              , filter := [ type := "OR"
-                                                          , filters := [[ field := "TEST_SINGLE_DOMAIN", domainvaluetag := "TEST_DOMAINVALUE_1_1" ]
-                                                                       ]
-                                                          ]
-                                             ]]
-                               ]]
-                  ];
-
-  OBJECT domimpl := NEW XmlDOMImplementation;
-  OBJECT doc := domimpl->CreateDocument("http://www.webhare.net/xmlns/wrd/query", "query", DEFAULT OBJECT);
-  schemaobj->StoreQueryInXML(doc->documentelement, query);
-//  print(doc->outerxml||"\n\n");
-
-  RECORD retrievedquery := schemaobj->LoadQueryFromXML(doc->documentelement);
-  TestEq(1, Length(retrievedquery.sources));
-  TestEq(wrdperson, retrievedquery.sources[0].type);
-  TestEq(query.sources[0].outputcolumns, retrievedquery.sources[0].outputcolumns);
-  TestEq(query.sources[0].filters, retrievedquery.sources[0].filters);
-
-  //Test broken query - referring to nonexisting domain field
-  STRING brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
-  || '<sources xmlns:hs="http://www.webhare.net/xmlns/hs/xmlrecord">'
-  || '<source type="WRD_PERSON" name="__source0">'
-  || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
-  || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
-  || '</source></sources></query>';
-  TestThrowsLike("*", PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
-
-  //Test broken query - referring to nonexisting type
-   brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
-  || '<sources xmlns:hs="http://www.webhare.net/xmlns/hs/xmlrecord">'
-  || '<source type="BLADIEBLA" name="__source0">'
-  || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
-  || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
-  || '</source></sources></query>';
-  TestThrowsLike("*", PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
-}
-
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestAddress
                  , PTR TestSchema
@@ -1197,5 +1148,4 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestWRDQuery_ContainsAndMDEqual
                  , PTR TestWRDQuery_Mentions_Single
                  , PTR TestWRDQuery_DeepOutputColumns
-                 , PTR TestWRDQuery_ExpImp
                  ], [ wrdauth := FALSE ]);

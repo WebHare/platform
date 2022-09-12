@@ -107,19 +107,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
 
   // ---------------------------------------------------------------------------
   //
-  // Simple query storage
-  //
-  PUBLIC MACRO StoreQueryInXML(OBJECT node, RECORD query)
-  {
-    MakeWRDQuery(query)->SerializeToXML(node);
-  }
-  PUBLIC RECORD FUNCTION LoadQueryFromXML(OBJECT node)
-  {
-    RETURN ImportQueryFromXML(this, node);
-  }
-
-  // ---------------------------------------------------------------------------
-  //
   // Public API
   //
 
@@ -236,12 +223,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
 
     // Find the type, open it and return the entity
     RETURN this->GetType(entityrec.type_id)->GetEntity(entityrec.entity_id);
-  }
-
-  /** Get a XML export of this schema */
-  PUBLIC BLOB FUNCTION GetXMLMetadataFile()
-  {
-    RETURN CreateWRDSchemaDefinitionFile(this);
   }
 
   PUBLIC OBJECT FUNCTION CreateExporter()
