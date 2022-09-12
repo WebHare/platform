@@ -24,6 +24,9 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
       IF(ObjectExists(wrdauth))
         wrdauth->__disableintegration := TRUE;
     }
+
+    this->robotstag.noindex := TRUE;
+    this->robotstag.nofollow := TRUE;
   }
   UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
   {

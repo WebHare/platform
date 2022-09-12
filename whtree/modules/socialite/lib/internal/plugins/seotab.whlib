@@ -10,6 +10,7 @@ PUBLIC OBJECTTYPE SeoTabPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
+    siteprofile->AddWarning(node, `The <seotab xmlns="http://www.webhare.net/xmlns/consilio"> version of this plugin has been deprecated. You should switch to <baseproperties seotab="true" ... />`);
     RETURN [ features := ParseXSList(node->GetAttribute("features"))
            ];
   }

@@ -31,7 +31,6 @@
 
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
-    <robots xmlns="http://www.webhare.net/xmlns/consilio" nofollow="true" noindex="true" />
   </apply>
 
   <!-- on dev servers, open up a /testportal -->
