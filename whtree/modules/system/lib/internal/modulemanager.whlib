@@ -393,7 +393,6 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
     RECORD existing_rec :=
         SELECT id
              , name
-             , objtype
           FROM system.module_rights
          WHERE name = localname
            AND COLUMN module = module_id;

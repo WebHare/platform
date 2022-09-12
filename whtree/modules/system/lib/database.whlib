@@ -174,7 +174,6 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER "id" NULL := 0
     , STRING "name"
-    , INTEGER "objtype" NULL := 0
     , INTEGER "module" NULL := 0
     ; KEY id
     > module_rights

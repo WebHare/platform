@@ -1048,11 +1048,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:datetime>
     </d:table>
 
-    <!-- FIXME Obsolete module_objecttypes. But do that once it seems unlikely that
-         users will accidentally upgrade try to downgrade immediately to a version requiring 'storagetable'.
-
     <d:obsoletetable name="module_objecttypes" />
-       -->
 
     <d:table name="module_rights" primarykey="id">
       <d:integer name="id" autonumberstart="1">
@@ -1065,11 +1061,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
-      <d:integer name="objtype"> <!-- references=".module_objecttypes" ondelete="cascade" nullable="false" --> <!-- FIXME Obsolete this column once module_objecttypes is gone -->
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="objtype" />
       <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
         <d:documentation>
 
