@@ -1026,6 +1026,7 @@ PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
   RETURN document;
 }
 
+// Convert DEFAULT DATETIME to DEFAULT RECORD so it's sent as 'null'
 VARIANT ARRAY FUNCTION ConvertDefaultDatetime(DATETIME ARRAY dates)
 {
   VARIANT ARRAY converted;
@@ -1169,6 +1170,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD 
   RETURN results;
 }
 
+// Add the highlighted parts to the fields record in the summaryfield cell
 RECORD FUNCTION AddSummary(RECORD fields, RECORD hit, STRING ARRAY highlightparts, STRING summaryfield)
 {
   STRING ARRAY summaries;
@@ -1202,6 +1204,8 @@ RECORD FUNCTION CombineFields(RECORD result, RECORD internalfields)
   RETURN result;
 }
 
+// Read nested inner hits recursively, return source fields in value and generated fields (score, summary, totalcount) in
+// internalvalue
 RECORD FUNCTION ReadInnerHits(RECORD hit, RECORD mapping, RECORD options)
 {
   // The 'inner_hits' record contains one cell named after the field we're reading hits for
