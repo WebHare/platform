@@ -4,7 +4,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/components/entity.whlib";
 
 
@@ -226,13 +226,15 @@ PUBLIC OBJECTTYPE DomainTagEdit EXTEND TolliumFragmentBase
 
   MACRO SetAutocompleteData()
   {
-    this->autosuggest->data :=
-        [ tags_domain_id := ObjectExists(this->tags_domain) ? this->tags_domain->id : 0
-        , value_tag := this->value_tag
-        , title_tag := this->title_tag
-        , extra_filters := this->extra_filters
-        , casesensitive := this->casesensitive
-        ];
+    IF(ObjectExists(this->tags_domain))
+      this->autosuggest->data :=
+          [ tags_domain_id := this->tags_domain->id
+          , tags_schema_id := this->tags_domain->wrdschema->id
+          , value_tag := this->value_tag
+          , title_tag := this->title_tag
+          , extra_filters := this->extra_filters
+          , casesensitive := this->casesensitive
+          ];
   }
 
 >;
@@ -259,7 +261,7 @@ PUBLIC OBJECTTYPE DomainTagsAutoSuggest EXTEND TolliumAutoSuggestBase
 
   MACRO NEW(RECORD data)
   {
-    this->tags_domain := OpenWRDType(data.tags_domain_id);
+    this->tags_domain := OpenWRDSchemaById(data.tags_schema_id)->GetTypeById(data.tags_domain_id);
     this->title_tag := data.title_tag;
     this->extra_filters := data.extra_filters;
     this->casesensitive := data.casesensitive;

@@ -1,7 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 
 PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
 < PRIVATE VARIANT FUNCTION GetValue()
@@ -169,12 +169,11 @@ PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
         IF (title_attr = "")
           ABORT("Could not find a suitable presentation attribute");
 
-        RECORD ARRAY opts := RunWRDQuery(
-          [ sources := [ [ type := this->descr.domaintype
-                         , filters := this->descr.filters
+        RECORD ARRAY opts := this->descr.domaintype->RunQuery(
+                         [ filters := this->descr.filters
                          , outputcolumns := [ title := title_attr
                                             , rowkey := "WRD_ID"
-                                            ] ] ] ]);
+                                            ] ]);
 
         IF (this->presentation_function != DEFAULT FUNCTION PTR)
         {

@@ -4,7 +4,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 
 LOADLIB "mod::wrd/lib/anonymize.whlib";
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE AnonymizeBGTask EXTEND TolliumBackgroundTask
@@ -28,7 +28,7 @@ PUBLIC STATIC OBJECTTYPE AnonymizeBGTask EXTEND TolliumBackgroundTask
   MACRO Run()
   {
     OBJECT work := this->BeginWork();
-    OBJECT wrdschema := OpenWRDSchemaByName(this->data.wrdschema);
+    OBJECT wrdschema := OpenWRDSchema(this->data.wrdschema);
     AnonymizeWRDSchema(wrdschema, [ onprogress := PTR this->onprogress]);
     work->Finish();
   }
