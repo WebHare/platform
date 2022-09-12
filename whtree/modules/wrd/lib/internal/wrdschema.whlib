@@ -13,12 +13,10 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
-LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/support2.whlib" ;
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib" ;
 LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
@@ -785,36 +783,11 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   // Queries
   //
 
-  PUBLIC OBJECT FUNCTION __GetStoredQueryByTag(STRING query_tag)
-  {
-    RECORD rec :=
-        SELECT *
-          FROM wrd.storedqueries
-         WHERE ToUppercase(tag) = ToUppercase(query_tag)
-           AND wrd_schema = this->id;
-
-    IF (NOT RecordExists(rec))
-      RETURN DEFAULT OBJECT;
-
-    RETURN NEW WRDStoredQuery(this, rec, FALSE);
-  }
-
   PUBLIC RECORD ARRAY FUNCTION RunQuery(RECORD querydata)
   {
     INSERT CELL wrdschema := this INTO querydata;
     RETURN RunWRDQuery(querydata);
   }
-
-  PUBLIC RECORD ARRAY FUNCTION RunStoredQuery(STRING query_tag, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions( [ parameters := DEFAULT RECORD ], options);
-    OBJECT query := this->__GetStoredQueryByTag(query_tag);
-    IF(NOT ObjectExists(query))
-      THROW NEW Exception(`No such stored query '${query_tag}' in schema '${this->tag}'`);
-
-    RETURN query->Execute(options.parameters);
-  }
-
 
   //////////////////////////////////////////
   //

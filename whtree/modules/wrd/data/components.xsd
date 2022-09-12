@@ -571,36 +571,6 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="queryresults">
-    <xs:complexType>
-      <xs:annotation>
-        <xs:appinfo>
-          <xs:documentation>
-            This option source can be used to select the results of a query.
-          </xs:documentation>
-          <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/queryresults.whlib#QueryResults" />
-        </xs:appinfo>
-      </xs:annotation>
-      <xs:attributeGroup ref="QueryAttributes" />
-
-      <xs:attribute name="wrdschema" type="xs:string">
-        <xs:annotation>
-          <xs:documentation>
-            The WRD schema were the query is stored.
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-
-      <xs:attribute name="querytag" type="xs:string" use="required">
-        <xs:annotation>
-          <xs:documentation>
-            The tag of the stored query.
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-
   <xs:complexType name="EntityListBase">
     <xs:sequence minOccurs="0" maxOccurs="unbounded">
       <xs:choice>

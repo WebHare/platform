@@ -21,7 +21,6 @@
 
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/wrd/query" schemaLocation="mod::wrd/data/querydefinition.xsd"/>
 
   <xs:simpleType name="Name">
     <xs:restriction base="xs:string">
@@ -63,7 +62,6 @@
           <!-- legacy -->
           <xs:element name="classification" type="AttachmentDefinition" />
         </xs:choice>
-        <xs:element ref="q:queries" minOccurs="0" maxOccurs="1" />
         <xs:element name="keyvalues" minOccurs="0" maxOccurs="1">
           <xs:complexType>
             <xs:sequence>

@@ -11,13 +11,10 @@ LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib" ;
-LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/support2.whlib" ;
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib" ;
-LOADLIB "mod::wrd/lib/internal/wrdtrans.whlib";
 LOADLIB "mod::wrd/lib/internal/legacy-wrdtype.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdschema.whlib";
 
@@ -240,77 +237,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
     // Find the type, open it and return the entity
     RETURN this->GetType(entityrec.type_id)->GetEntity(entityrec.entity_id);
   }
-
-
-  /** Returns a stored query object
-      @param entity Owner of the stored query, 0 for global queries
-      @param query_tag Tag of the stored query
-      @seealso GetListOfStoredQueries, RunStoredQuery
-  */
-  PUBLIC OBJECT FUNCTION GetStoredQueryByTag(INTEGER entity, STRING query_tag)
-  {
-    RECORD rec :=
-        SELECT *
-          FROM wrd.storedqueries
-         WHERE ToUppercase(tag) = ToUppercase(query_tag)
-           AND wrd_schema = this->id;
-
-    IF (NOT RecordExists(rec))
-      RETURN DEFAULT OBJECT;
-
-    RETURN NEW WRDStoredQuery(this, rec, FALSE);
-  }
-
-
-  /** Returns a stored query object
-      @param query_tag Tag of the stored query
-      @seealso GetListOfStoredQueries, RunStoredQuery
-  */
-  PUBLIC OBJECT FUNCTION GetStoredQuery(INTEGER query_id)
-  {
-    RECORD rec :=
-        SELECT *
-          FROM wrd.storedqueries
-         WHERE id = query_id
-           AND wrd_schema = this->id;
-
-    IF (NOT RecordExists(rec))
-      RETURN DEFAULT OBJECT;
-
-    RETURN NEW WRDStoredQuery(this, rec, FALSE);
-  }
-
-  /** Returns the list of all stored queries
-      @return All stored queries within this schema
-      @cell return.id Id of stored query
-      @cell return.tag Tag of stored query
-      @cell return.title Title of stored query
-      @cell return.description Description of stored query
-      @cell return.entity Owner of stored query
-      @seealso GetStoredQuery, RunStoredQuery
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetListOfStoredQueries()
-  {
-    RETURN
-        SELECT id
-             , tag
-          FROM wrd.storedqueries
-         WHERE wrd_schema = this->id;
-  }
-
-
-  /** Creates a new stored query
-      @param entity Owner new stored query (optional)
-      @param tag Tag of the new stored query (optional)
-      @param title Title of the new stored query (optional)
-      @param description Description of the new stored query
-      @param query WRD query record with the new query.
-  */
-  PUBLIC OBJECT FUNCTION CreateStoredQuery(/*INTEGER entity, */STRING tag, /*STRING title, STRING description, */RECORD query/*, BOOLEAN ispublic DEFAULTSTO FALSE*/)
-  {
-    THROW NEW Exception(`Legacy WRDType stored queries are no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
-  }
-
 
   /** Get a XML export of this schema */
   PUBLIC BLOB FUNCTION GetXMLMetadataFile()

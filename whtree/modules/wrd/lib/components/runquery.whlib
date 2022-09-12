@@ -215,31 +215,6 @@ PUBLIC STATIC OBJECTTYPE RunQuery EXTEND WRDQueryBase
   // Public API
   //
 
-  /** @short Set the WRD schema and read the query for the given entity
-      @param wrdschema The name of the WRD schema to open
-      @param entityid Owner of the stored query, of 0 for global queries
-      @param querytag The tag of the (globally) stored WRD query within the schema
-  PUBLIC MACRO SetStoredQuery(STRING wrdschema, INTEGER entityid, STRING querytag)
-  {
-    // Try to open the WRD schema
-    TRY
-    {
-      this->pvt_wrdschema := OpenWRDSchemaByName(wrdschema, this->owner->tolliumuser->language);
-    }
-    CATCH (OBJECT e)
-    {
-      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "': " || e->what);
-    }
-    IF (NOT ObjectExists(this->pvt_wrdschema))
-      THROW NEW TolliumException(this, "Could not open WRD schema '" || wrdschema || "'");
-
-    // Try to load the stored query
-    this->pvt_wrdquery := this->pvt_wrdschema->GetStoredQueryByTag(entityid, querytag);
-    IF (NOT ObjectExists(this->pvt_wrdquery))
-      THROW NEW TolliumException(this, "Could not find stored query '" || querytag || "' in WRD schema '" || wrdschema || "'");
-  }
-  */
-
   UPDATE RECORD ARRAY FUNCTION ExecuteWRDQuery()
   {
     this->eventlistener->masks := this->querytype->GetEventMasks();
