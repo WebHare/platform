@@ -23,7 +23,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSubFiles(INTEGER objid)
   IF(NOT RecordExists(objinfo))
     RETURN RECORD[];
 
-  RETURN GetSearchSubfiles(objinfo, FALSE).subfiles;
+  RETURN GetSearchSubfiles(objinfo).subfiles;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetPageList(INTEGER objid)
