@@ -4,7 +4,6 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/forms/api.whlib";
-LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 

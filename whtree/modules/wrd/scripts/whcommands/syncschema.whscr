@@ -6,7 +6,6 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
-LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";

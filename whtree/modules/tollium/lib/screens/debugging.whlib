@@ -5,7 +5,6 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/commondialogs.whlib";
 
 
 ///////////////////////////////////////////////////////////////////////////////

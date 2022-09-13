@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -16,7 +15,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
-LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 
 PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
 <

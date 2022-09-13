@@ -10,8 +10,6 @@ LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";

@@ -6,7 +6,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";

@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";

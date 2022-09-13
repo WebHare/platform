@@ -3,8 +3,6 @@
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 
-LOADLIB "mod::system/lib/internal/dbase/base.whlib";
-
 
 /** Find the first gap range in a list of strictly increasing integers
     @param ids Strictly increasing list of integers (sorted and no duplicates)

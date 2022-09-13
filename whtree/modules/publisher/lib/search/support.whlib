@@ -1,9 +1,5 @@
 <?wh
 
-LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
-
-LOADLIB "mod::system/lib/database.whlib";
-
 
 // In a separate library, so both moduledefparser.whlib and searchfilters.whlib can loadlib it without causing recursive loadlibs
 PUBLIC RECORD __searchfilterprops;

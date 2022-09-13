@@ -1,7 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
-LOADLIB "mod::wrd/lib/api.whlib";
 
 PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
 < PRIVATE VARIANT FUNCTION GetValue()

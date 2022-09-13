@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";

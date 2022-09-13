@@ -7,7 +7,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testfw/emails.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/testfw/networking.whlib";
 
 

@@ -7,7 +7,7 @@
               tid="widgets.anchorwidget.title"
               wittycomponent="widgets.witty:anchor">
     <members>
-      <member name="name" type="string" />
+      <string name="name" />
     </members>
   </widgettype>
 
@@ -18,11 +18,11 @@
               tid="widgets.slideshowwidget.title"
               wittycomponent="widgets.witty:slideshow">
     <members>
-      <member name="slides" type="array">
-        <member name="title" type="string" />
-        <member name="image" type="file" />
-        <member name="link" type="intextlink" />
-      </member>
+      <array name="slides">
+        <string name="title" />
+        <file name="image" />
+        <intextlink name="link" />
+      </array>
     </members>
   </widgettype>
 
@@ -32,8 +32,8 @@
               tid="widgets.twocolumnswidget.title"
               wittycomponent="widgets.witty:twocolumns">
     <members>
-      <member name="rtdleft" type="richdocument" />
-      <member name="rtdright" type="richdocument" />
+      <richdocument name="rtdleft" />
+      <richdocument name="rtdright" />
     </members>
   </widgettype>
 
@@ -54,8 +54,7 @@
               renderobjectname="/lib/widgets/gallerywidget.whlib#GalleryWidgetBase"
               tid="widgets.gallerywidget.title"
               wittycomponent="widgets.witty:gallery">
-    <members>
-    </members>
+    <members />
   </widgettype>
 
   <!-- contentsnippet widget -->
@@ -87,7 +86,7 @@
               renderobjectname="widgets.whlib#WittyWidget"
               tid="widgets.witty.wittyblock">
     <members>
-      <member name="wittycode" type="string" />
+      <string name="wittycode" />
     </members>
   </widgettype>
 
@@ -97,9 +96,8 @@
               renderobjectname="widgets.whlib#WittyWidget"
               tid="widgets.witty.wittyinline">
     <members>
-      <member name="wittycode" type="string" />
+      <string name="wittycode" />
     </members>
   </widgettype>
-
 
 </siteprofile>

@@ -4,8 +4,6 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
-
 
 /** @short Retrieves a news item by ID; to be used for populating Tollium list / listedit components.
     @long Retrieves a newsitem from the database for the given ID, looks up the proper display name for the author (using the

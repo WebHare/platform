@@ -6,7 +6,6 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
-LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 STRING FUNCTION CleanPath(STRING inpath)

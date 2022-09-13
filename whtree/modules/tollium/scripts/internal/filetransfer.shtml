@@ -5,7 +5,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 
