@@ -42,7 +42,7 @@ MACRO TestIndexTypeAPIs()
   OBJECT applytester := GetApplytesterForObject(testrtd->id);
   TestEq(DEFAULT RECORD, GetRichDocumentIndexableContent(DEFAULT RECORD, CELL[applytester]));
 
-  RECORD indexable := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd->id), FALSE);
+  RECORD indexable := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd->id));
   TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.subfiles[0].data));
   TestEq(2, Length(indexable.indextypes));
   TestEq(2, Length(indexable.indexversions));
@@ -55,12 +55,12 @@ MACRO TestIndexTypeAPIs()
   testrtd_noinstances := testloc->CreateFile([name := "noinstances.rtd", type := richdoctype->id ]);
   richdoctype->SetInstanceData(testrtd_noinstances->id, [ data := testdoc_noinstances ] );
 
-  RECORD indexable_noinstances := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd_noinstances->id), FALSE);
+  RECORD indexable_noinstances := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd_noinstances->id));
   //No subcontent, so no indextypes or versions other than the file itself
   TestEq(1, Length(indexable_noinstances.indextypes));
   TestEq(1, Length(indexable_noinstances.indexversions));
 
-  RECORD indexable_unknknowntype := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testunknownfile->id), FALSE);
+  RECORD indexable_unknknowntype := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testunknownfile->id));
   TestEq(1, Length(indexable_unknknowntype.subfiles), "The file is its only subfile");
   TestEq(2, Length(indexable_unknknowntype.indextypes));
   TestAssert(indexable_unknknowntype.indextypes[1] != indexable.indextypes[1], "Assert different type hashes");

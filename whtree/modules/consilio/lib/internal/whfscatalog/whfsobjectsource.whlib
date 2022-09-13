@@ -128,9 +128,12 @@ RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
       ];
 }
 
-RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
+PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj)
 {
-  OBJECT provider := searchprovider != "" ? MakeObject(searchprovider) : NEW SearchProviderBase;
+  RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
+
+  //TODO Cache searchprovider objects, they shouldn't need reconstruction (unless out of date but then *we* need to fully restart)
+  OBJECT provider := scp.searchprovider != "" ? MakeObject(scp.searchprovider) : NEW SearchProviderBase;
 
   RECORD ARRAY subfiles;
   STRING ARRAY indextypes, indexversions;
@@ -170,49 +173,17 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
     }
   }
 
-  RETURN
-      [ value := CELL
-          [ fsobj.id
-          , formodificationdate := fsobj.modificationdate
-          , subfiles :=   subfiles
-          //TODO support indextypes/versions on more than one page? or should we just require that they're all supplied in one big block?
-          , indextypes
-          , indexversions
-          ]
-      , eventmasks := [ "system:whfs.folder." || (fsobj.isfolder ? fsobj.id : fsobj.parent) // broadcast after file/folder has changed
-                      , "system:whfs.types" // broadcast after siteprofile recompile (searchproviders may have changed)
-                      ]
-      ];
-}
-
-PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
-{
-  RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
-  RECORD cachetag := CELL[ fsobj.id ];
-  RECORD retval;
-
-  // If not forced, get cached subfile
-  IF (NOT force)
-  {
-    // Check if it's still up to date
-    RECORD bodyinfo := GetAdhocCached(cachetag, PTR GetSearchSubfilesUncached(scp.searchprovider, fsobj));
-    IF (bodyinfo.formodificationdate >= fsobj.modificationdate)
-      retval := bodyinfo;
-  }
-  IF(NOT RecordExists(retval))
-  {
-    // Explicitly update the cache
-    RECORD value := GetSearchSubfilesUncached(scp.searchprovider, fsobj);
-    StoreAdhocCached(cachetag, value);
-    retval := value.value;
-  }
-
   IF(scp.typehash != "")
-    INSERT scp.typehash INTO retval.indextypes AT END;
+    INSERT scp.typehash INTO indextypes AT END;
   IF(scp.versionhash != "")
-    INSERT scp.versionhash INTO retval.indexversions AT END;
+    INSERT scp.versionhash INTO indexversions AT END;
 
-  RETURN retval;
+  RETURN CELL[ fsobj.id
+             , subfiles
+             //TODO support indextypes/versions on more than one page? or should we just require that they're all supplied in one big block?
+             , indextypes
+             , indexversions
+             ];
 }
 
 RECORD ARRAY FUNCTION Cleanup(RECORD ARRAY inmapping)
@@ -364,9 +335,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             [ fsobj->id
             , fsobj->type
             , fsobj->isfolder
-            , fsobj->modificationdate
             , fsobj->parent
-            ], options.rebuild);
+            ]);
 
         RECORD firstdocfields := CELL[ ...basefields
                                      , ...GetParsedIndexFields(fsobj, 0)
