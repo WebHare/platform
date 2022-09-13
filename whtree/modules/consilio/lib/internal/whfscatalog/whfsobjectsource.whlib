@@ -11,6 +11,7 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+LOADLIB "mod::publisher/lib/search/searchproviders.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
@@ -129,7 +130,7 @@ RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
 
 RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
 {
-  OBJECT provider := MakeObject(searchprovider);
+  OBJECT provider := searchprovider != "" ? MakeObject(searchprovider) : NEW SearchProviderBase;
 
   RECORD ARRAY subfiles;
   STRING ARRAY indextypes, indexversions;
@@ -187,12 +188,6 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
 PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
 {
   RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
-  IF (scp.searchprovider = "")
-    RETURN [ subfiles := RECORD[]
-           , indextypes := STRING[]
-           , indexversions := STRING[]
-           ];
-
   RECORD cachetag := CELL[ fsobj.id ];
   RECORD retval;
 
@@ -213,10 +208,9 @@ PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
   }
 
   IF(scp.typehash != "")
-  {
     INSERT scp.typehash INTO retval.indextypes AT END;
+  IF(scp.versionhash != "")
     INSERT scp.versionhash INTO retval.indexversions AT END;
-  }
 
   RETURN retval;
 }
