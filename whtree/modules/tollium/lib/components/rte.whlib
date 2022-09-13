@@ -744,7 +744,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       CASE "clear_formatting"
       {
-        IF (this->owner->RunMessageBox("tollium:commondialogs.confirmclearformatting") = "yes")
+        IF (this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.confirmclearformatting") = "yes"))
           this->ClearFormatting();
       }
       CASE "object-insert"
@@ -827,7 +827,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     {
       CASE "hyperlink"
       {
-        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.hyperlink"
+        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink"
                                               ,[ rte := this
                                                , data := data
                                                , offercustomhyperlink := this->offercustomhyperlink
@@ -840,7 +840,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       CASE "cell"
       {
-        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.tableproperties"
+        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#tableproperties"
                                               ,[ rte := this
                                                , data := data
                                                ]);
@@ -865,7 +865,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
           RETURN DEFAULT RECORD;
         }
 
-        RETURN this->owner->RunScreen("mod::tollium/screens/components/rte.xml#imageproperties"
+        RETURN this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#imageproperties"
                                       ,[ rte := this
                                        , data := data
                                        , originalimg := originalimg
@@ -888,7 +888,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   PUBLIC MACRO HandleInsertHyperlink()
   {
-    OBJECT scr := this->owner->LoadScreen("tollium:components/rte.hyperlink"
+    OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink"
                                          ,[ rte := this
                                           , data := DEFAULT RECORD
                                           , offercustomhyperlink := this->offercustomhyperlink
@@ -1001,13 +1001,13 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     }
     IF(data.action = "webhare-inspect")
     {
-      this->owner->RunScreen("mod::tollium/screens/components/rte.xml#inspectwidget", CELL[ rte := this, instance ]);
+      this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#inspectwidget", CELL[ rte := this, instance ]);
       RETURN DEFAULT RECORD;
     }
 
     IF(data.subaction = "delete")
     {
-      IF(this->owner->RunMessageBox("tollium:commondialogs.confirmdeleteembeddedobject") != "yes")
+      IF(this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.confirmdeleteembeddedobject")) != "yes")
         RETURN DEFAULT RECORD;
       RETURN [ type := "remove" ];
     }

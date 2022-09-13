@@ -180,7 +180,7 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
                          ORDER BY ToUppercase(title);
 
     ^cellstyle->options := SELECT rowkey := tag
-                                , title := tag = "" ? GetTid("tollium:components.rte.normalcell") : (title ?? tag)
+                                , title := tag = "" ? this->GetTid(".normalcell") : (title ?? tag)
                                 , tolliumselected := tag = data.data.cellstyletag
                              FROM this->rte->rtdtypeinfo.structure.cellstyles
                          ORDER BY tag="" DESC
@@ -202,7 +202,7 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
 
   MACRO DoRemoveTable()
   {
-    IF (this->RunSimpleScreen("confirm", GetTid("tollium:components.rte.sureremovetable")) = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".sureremovetable")) = "yes")
       this->tolliumresult := "remove";
   }
 >;

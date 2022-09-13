@@ -684,9 +684,7 @@
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
       <text tid="inspect">Inspecteer</text>
-      <text tid="normalcell">Standaard celopmaak</text>
       <text tid="properties">Eigenschappen</text>
-      <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
       <text tid="table_addcolumn_after">Kolom toevoegen aan de rechterkant</text>
       <text tid="table_addcolumn_before">Kolom toevoegen aan de linkerkant</text>
       <text tid="table_addpara_after">Voeg paragraaf toe na tabel</text>
@@ -703,45 +701,6 @@
       <text tid="toomanyplaintextbytes_error">Veld '<param p="1"/>' bevat meer tekst dan toegestaan (<param p="2"/> bytes, <param p="3"/> toegestaan).</text>
       <text tid="toomanyplaintextcharacters">Veld '<param p="1"/>' bevat meer tekst dan aangeraden (<param p="2"/> karakters, <param p="3"/> aangeraden).</text>
       <text tid="toomanyplaintextcharacters_error">Veld '<param p="1"/>' bevat meer tekst dan toegestaan (<param p="2"/> karakters, <param p="3"/> toegestaan).</text>
-      <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
-        <text tid="destination">Bestemming</text>
-        <text tid="hyperlink">Hyperlink</text>
-        <text tid="openinnewwindow">Open link in nieuw venster</text>
-        <text tid="removehyperlink">Verwijder hyperlink</text>
-      </textgroup>
-      <textgroup gid="imageproperties">   <!-- components.rte.imageproperties -->
-        <text tid="accessibility">Toegankelijkheid</text>
-        <text tid="alttext">Alternatieve tekst</text>
-        <text tid="destination">Bestemming</text>
-        <text tid="dimensions">Afmetingen</text>
-        <text tid="downloadoriginal">Download origineel</text>
-        <text tid="height">Hoogte</text>
-        <text tid="hyperlink">Hyperlink</text>
-        <text tid="imageproperties">Eigenschappen van afbeelding</text>
-        <text tid="img_inline">In de alinea</text>
-        <text tid="img_left">Links zwevend</text>
-        <text tid="img_right">Rechts zwevend</text>
-        <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
-        <text tid="openinnewwindow">Open in nieuw venster</text>
-        <text tid="position">Plaatsing</text>
-        <text tid="properties">Eigenschappen</text>
-        <text tid="width">Breedte</text>
-      </textgroup>
-      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
-        <text tid="inspectwidget">Inspecteer widget</text>
-        <text tid="searchpreview">Search preview</text>
-        <text tid="value">Waarde</text>
-      </textgroup>
-      <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
-        <text tid="cellproperties">Celeigenschappen</text>
-        <text tid="cellstyle">Celstijl</text>
-        <text tid="leftheader">De linkerkolom is een koptekstkolom</text>
-        <text tid="removetable">Tabel verwijderen</text>
-        <text tid="tableandcellproperties">Tabel- en celeigenschappen</text>
-        <text tid="tableproperties">Tabeleigenschappen</text>
-        <text tid="tablestyle">Tabelstijl</text>
-        <text tid="topheader">De bovenste rij is een tabelkop</text>
-      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="exclusive">   <!-- exclusive -->
@@ -1117,6 +1076,49 @@
       <text tid="oldpassword">Huidig wachtwoord</text>
       <text tid="pagetitle">Wijzig wachtwoord</text>
       <text tid="showpasswords">Laat wachtwoorden als tekst zien</text>
+    </textgroup>
+    <textgroup gid="rtedialogs">   <!-- tolliumcomponents.rtedialogs -->
+      <textgroup gid="hyperlink">   <!-- tolliumcomponents.rtedialogs.hyperlink -->
+        <text tid="destination">Bestemming</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="openinnewwindow">Open link in nieuw venster</text>
+        <text tid="removehyperlink">Verwijder hyperlink</text>
+      </textgroup>
+      <textgroup gid="imageproperties">   <!-- tolliumcomponents.rtedialogs.imageproperties -->
+        <text tid="accessibility">Toegankelijkheid</text>
+        <text tid="alttext">Alternatieve tekst</text>
+        <text tid="destination">Bestemming</text>
+        <text tid="dimensions">Afmetingen</text>
+        <text tid="downloadoriginal">Download origineel</text>
+        <text tid="height">Hoogte</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="imageproperties">Eigenschappen van afbeelding</text>
+        <text tid="img_inline">In de alinea</text>
+        <text tid="img_left">Links zwevend</text>
+        <text tid="img_right">Rechts zwevend</text>
+        <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
+        <text tid="openinnewwindow">Open in nieuw venster</text>
+        <text tid="position">Plaatsing</text>
+        <text tid="properties">Eigenschappen</text>
+        <text tid="width">Breedte</text>
+      </textgroup>
+      <textgroup gid="inspectwidget">   <!-- tolliumcomponents.rtedialogs.inspectwidget -->
+        <text tid="inspectwidget">Inspecteer widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Waarde</text>
+      </textgroup>
+      <textgroup gid="tableproperties">   <!-- tolliumcomponents.rtedialogs.tableproperties -->
+        <text tid="cellproperties">Celeigenschappen</text>
+        <text tid="cellstyle">Celstijl</text>
+        <text tid="leftheader">De linkerkolom is een koptekstkolom</text>
+        <text tid="normalcell">Standaard celopmaak</text>
+        <text tid="removetable">Tabel verwijderen</text>
+        <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
+        <text tid="tableandcellproperties">Tabel- en celeigenschappen</text>
+        <text tid="tableproperties">Tabeleigenschappen</text>
+        <text tid="tablestyle">Tabelstijl</text>
+        <text tid="topheader">De bovenste rij is een tabelkop</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->
