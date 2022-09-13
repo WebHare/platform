@@ -1118,6 +1118,7 @@
         <text tid="img_right">Floating right</text>
         <text tid="keepaspectratio">Keep aspect ratio</text>
         <text tid="openinnewwindow">Open in new window</text>
+        <text tid="overridedimensions">Override dimensions</text>
         <text tid="position">Positioning</text>
         <text tid="properties">Properties</text>
         <text tid="width">Width</text>

@@ -446,9 +446,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
                               , innerbody
                               );
 
-    //FOREVERY(RECORD embed FROM this->embedded)
-      //retval := Substitute(retval, "cid:" || embed.contentid, embed.url);
-
     RETURN retval;
   }
 
@@ -460,10 +457,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
 
   PUBLIC MACRO SetHTMLFromClientRTE(STRING newvalue)
   {
-/*    FOREVERY(RECORD embed FROM this->embedded)
-      IF(embed.contentid!="")
-        newvalue := Substitute(newvalue, embed.url, "cid:" || embed.contentid);
-*/
     this->lastseenhtmltext := StringToBlob(newvalue);
     this->htmldoc := MakeXMLDocumentFromHTML(this->lastseenhtmltext);
     this->SelfValidateAndCleanup();

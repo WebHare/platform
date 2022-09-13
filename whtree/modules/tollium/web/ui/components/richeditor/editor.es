@@ -557,8 +557,8 @@ export class RTE
 
       return { type: 'img'
              , align: align
-             , width:  parseInt(node.getAttribute("width")) || node.width
-             , height: parseInt(node.getAttribute("height")) || node.height
+             , width:  parseInt(node.getAttribute("width")) || 0
+             , height: parseInt(node.getAttribute("height")) || 0
              , alttext: node.alt
              , link: linkinfo
              , src: node.src
@@ -596,8 +596,15 @@ export class RTE
     }
     else if(node.matches('img'))
     {
-      node.width = settings.width;
-      node.height = settings.height;
+      if(settings.width)
+        node.setAttribute("width", settings.width);
+      else
+        node.removeAttribute("width");
+      if(settings.height)
+        node.setAttribute("height", settings.height);
+      else
+        node.removeAttribute("height");
+
       node.align = '';
       node.alt = settings.alttext;
       node.className = "wh-rtd__img" + (settings.align=='left' ? " wh-rtd__img--floatleft" : settings.align=="right" ? " wh-rtd__img--floatright" : "");

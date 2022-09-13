@@ -9,8 +9,7 @@
     </actions>
 
     <compositions>
-      <record name="settings" />
-      <radiogroup composition="settings" cellname="align" name="align" />
+      <radiogroup name="align" />
     </compositions>
 
     <body spacers="none">
@@ -39,10 +38,9 @@
               </cell>
             </row>
           </grid>
-          <heading tid=".dimensions" />
+          <heading name="overridedimensions" checkbox="true" enablecomponents="width height" />
           <line>
-            <textedit composition="settings"
-                      cellname="width"
+            <textedit cellname="width"
                       name="width"
                       width="6x"
                       minvalue="1"
@@ -53,8 +51,7 @@
             <text value="px" />
           </line>
           <line>
-            <textedit composition="settings"
-                      cellname="height"
+            <textedit cellname="height"
                       name="height"
                       width="6x"
                       minvalue="1"
@@ -64,13 +61,10 @@
                       valuetype="integer" />
             <text value="px" />
           </line>
-          <line layout="left">
-            <checkbox name="keepaspectratio" labeltid=".keepaspectratio" onchange="onwidthchange" title="" />
-          </line>
           <heading tid=".accessibility" />
           <text tid=".alttext" />
           <line layout="left">
-            <textarea composition="settings" cellname="alttext" name="alttext" height="3x" errorlabeltid=".alttext" title="" />
+            <textarea name="alttext" height="3x" errorlabeltid=".alttext" title="" />
           </line>
         </tab>
         <tab tid=".hyperlink">

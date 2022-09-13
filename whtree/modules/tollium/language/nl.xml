@@ -1098,6 +1098,7 @@
         <text tid="img_right">Rechts zwevend</text>
         <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
         <text tid="openinnewwindow">Open in nieuw venster</text>
+        <text tid="overridedimensions">Overschrijf dimensies</text>
         <text tid="position">Plaatsing</text>
         <text tid="properties">Eigenschappen</text>
         <text tid="width">Breedte</text>

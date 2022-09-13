@@ -322,75 +322,43 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
 
   RECORD FUNCTION GetRTEResizeInstruction(RECORD image, OBJECT imgnode)
   {
-    INTEGER setwidth := ToInteger(imgnode->GetAttribute('width'),0);
-    INTEGER setheight := ToInteger(imgnode->GetAttribute('height'),0);
-
-    IF(setwidth > 0 AND setheight > 0) //user specified width/height
-    {
-      IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth) //too big, so keep aspect ratio
-      {
-        FLOAT aspectratio := FLOAT(setwidth) / FLOAT(setheight);
-        setwidth := this->maximagewidth;
-        setheight := INTEGER(this->maximagewidth / aspectratio + 0.5 );
-      }
-      RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
-    }
-
-    IF(NOT RecordExists(image)) //without width/height info nothing we can do
+    IF(NOT RecordExists(image) OR image.width <= 0 OR image.height <= 0) //without width/height info nothing we can do
       RETURN DEFAULT RECORD;
 
-    FLOAT aspectratio;
-    IF(image.width = 0 OR image.height = 0)
-      aspectratio := 1;
-    ELSE
-      aspectratio := FLOAT(image.width) / FLOAT(image.height);
+    INTEGER setwidth := ToInteger(imgnode->GetAttribute('width'), image.width);
+    IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth) //limi to maximagewidth
+      setwidth := this->maximagewidth;
 
-    IF(setheight > 0)
-    {
-      setwidth := INTEGER(setheight * aspectratio + 0.5);
+    FLOAT aspectratio := FLOAT(image.width) / FLOAT(image.height);
+    INTEGER setheight := INTEGER(setwidth / aspectratio + 0.5);
+    IF(image.width = setwidth AND image.height = setheight)
+      RETURN [ method := "none" ];
 
-      IF(this->maximagewidth = 0 OR setwidth <= this->maximagewidth) //endresult is within bounds
-        RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ]; //then it's okay
-    }
-
-    IF(setwidth <= 0)
-      setwidth := image.width;
-
-    IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth)
-      setwidth := this->maximagewidth; //constrain image width
-
-    setheight := INTEGER(setwidth / aspectratio + 0.5);
-    RETURN  [ method := "stretch", setwidth := setwidth, setheight := setheight ];
+    RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
   }
 
   MACRO FormatImageElement(OBJECT outputobject, OBJECT node)
   {
     STRING src := node->GetAttribute('src');
+    IF(IsValidPlainHTTPURL(src))
+      RETURN;
 
-    BOOLEAN isexternal := IsValidPlainHTTPURL(src);
     RECORD howtoresize;
     STRING imageurl;
-    IF(isexternal)
-    {
-      imageurl := src;
-      howtoresize := this->GetRTEResizeInstruction(DEFAULT RECORD, node);
-    }
-    ELSE
-    {
-      RECORD theimage := outputobject->document->GetEmbeddedFile(src);
-      IF(NOT RecordExists(theimage) OR NOT this->IsTagAcceptable("img") OR theimage.__blobsource = "")
-      {
-        this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
-        RETURN;
-      }
 
-      /* ADDME support other rich document sources than Publisher
-         ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
-      */
-      howtoresize := this->GetRTEResizeInstruction(theimage, node);
-      INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
-      imageurl := GetCachedImageLink(theimage, howtoresize);
+    RECORD theimage := outputobject->document->GetEmbeddedFile(src);
+    IF(NOT RecordExists(theimage) OR NOT this->IsTagAcceptable("img") OR theimage.__blobsource = "")
+    {
+      this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
+      RETURN;
     }
+
+    /* ADDME support other rich document sources than Publisher
+       ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
+    */
+    howtoresize := this->GetRTEResizeInstruction(theimage, node);
+    INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
+    imageurl := GetCachedImageLink(theimage, howtoresize);
 
     STRING classes;
     STRING ARRAY classtokens := Tokenize(node->GetAttribute('class'),' ');
