@@ -13,7 +13,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
-LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
@@ -75,17 +74,6 @@ MACRO Setup()
 
   TestEq(FALSE, reltype->GetAttribute("KARMA").isinherited);
   TestEq(TRUE, persontype->GetAttribute("KARMA").isinherited);
-
-  // Maak een stored query aan voor personen
-  RECORD querydata := [ sources := [ [ type := wrdschema->GetType("WRD_PERSON")
-                                     , outputcolumns := [ fullname := "WRD_FULLNAME"
-                                                        , email := "WRD_CONTACT_EMAIL"
-                                                        ]
-                                     ]
-                                   ]
-                      ];
-
-  NEW WRDStoredQuery(wrdschema, [ tag := "QUERY_PERSON", title := "Personenquery", query_rec := querydata], TRUE);
 
   persontype->CreateAttribute("FREE1", "FREE", [ title := "Free 1" ]);
   RECORD free1 := persontype->GetAttribute("FREE1");

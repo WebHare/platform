@@ -4486,7 +4486,7 @@ RECORD FUNCTION ParseFilters(OBJECT obj, OBJECT wrdtype, RECORD ARRAY filters, R
 /** @param querydata @includecelldef #MakeWRDQuery.querydata
     @return Query results
 */
-PUBLIC RECORD ARRAY FUNCTION RunWRDQuery(RECORD querydata)
+PUBLIC RECORD ARRAY FUNCTION RunWRDQuery(RECORD querydata) __ATTRIBUTES__(DEPRECATED "RunWRDQuery is a legacy API, you should run queries on a schema or a type using mod::wrd/lib/api.whlib")
 {
   OBJECT wrd_query := MakeWRDQuery(querydata);
   RETURN wrd_query->Execute(DEFAULT RECORD);

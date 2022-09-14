@@ -532,29 +532,7 @@
       </d:index>
     </d:table>
 
-    <d:table name="storedqueries" primarykey="id" parentlinkcolumn="wrd_schema">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="tag" maxlength="256"> <!-- FIXME mark as required, but first drop all untagged queries. create unique index over query,schema. or simply merge this into eg storedvalues -->
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-
-      <d:blob name="query" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:blob>
-      <d:integer name="wrd_schema" nullable="0" references=".schemas" ondelete="cascade">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-    </d:table>
+    <d:obsoletetable name="storedqueries" />
 
     <d:table name="pendingpayments" primarykey="id" parentlinkcolumn="providerattr">
       <d:integer name="id" autonumberstart="1">

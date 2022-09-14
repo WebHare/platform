@@ -1,14 +1,12 @@
 ﻿<?wh
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::util/comparisons.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
 
 
 ////////////////////
@@ -141,7 +139,7 @@ PUBLIC OBJECT FUNCTION GetTypeFromData(OBJECT component, OBJECT screen, RECORD i
   }
   ELSE IF(indata.wrdschema != "")
   {
-    wrdschema := OpenWRDSchemaByName(indata.wrdschema, screen->tolliumuser->language);
+    wrdschema := OpenWRDSchema(indata.wrdschema);
     IF(NOT ObjectExists(wrdschema))
       THROW NEW TolliumException(component, "No WRD schema named '" || indata.wrdschema || "' found");
   }

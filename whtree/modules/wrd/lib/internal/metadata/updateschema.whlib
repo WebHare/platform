@@ -35,8 +35,6 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/queries.whlib";
-LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 
 
 RECORD wrdtype_default :=
@@ -559,19 +557,6 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
 
     UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
-  }
-
-  RECORD ARRAY localqueries := SELECT * FROM wrd.storedqueries WHERE wrd_schema = local_schema->id;
-  FOREVERY(RECORD query FROM schemadef.queries)
-  {
-    RECORD fullquery := ImportQueryFromXML(local_schema, query.querynode);
-    RECORD matchingquery := SELECT * FROM localqueries WHERE ToUppercase(localqueries.tag) = ToUppercase(query.tag);
-    //FIXME update queries only if needed
-    IF(RecordExists(matchingquery))
-      DELETE FROM wrd.storedqueries WHERE id = matchingquery.id;
-
-    INSERT CELL query_rec := fullquery INTO query;
-    NEW WRDStoredQuery(local_schema, query, TRUE);
   }
 
   IF (RecordExists(schemadef.metadata))

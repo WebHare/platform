@@ -4,9 +4,11 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/objectapi.whlib";
 
 RECORD ARRAY options :=
   [ [ name := "schemaname", type := "param" ]
@@ -38,7 +40,7 @@ iF(cmdargs.schemaname = "") //show all
 ELSE
 {
   Print("Usage per type:\n");
-  OBJECT wrdschema := OpenWRDSchemaByName(cmdargs.schemaname);
+  OBJECT wrdschema := OpenWRDSchema(cmdargs.schemaname);
   RECORD ARRAY wrdtypes := SELECT id, tag, title
                              FROM wrd.types
                             WHERE types.wrd_schema=wrdschema->id

@@ -109,14 +109,6 @@ PUBLIC SCHEMA
 
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "tag"
-    , BLOB "query"
-    , INTEGER "wrd_schema" NULL := 0
-    ; KEY id
-    > storedqueries
-
-  , TABLE
-    < INTEGER "id" NULL := 0
     , DATETIME "creationdate"
     , DATETIME "nextcheck"
     , STRING "uuid"

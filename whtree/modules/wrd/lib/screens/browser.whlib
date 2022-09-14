@@ -14,7 +14,6 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
-LOADLIB "mod::wrd/lib/internal/wrd2dot.whlib";
 
 
 /* ADDME?
@@ -198,13 +197,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->SendFileToUser(file, "text/xml", filename, now);
   }
 
-  MACRO DoExportDotStructure()
-  {
-    DATETIME now := GetCurrentDateTime();
-    BLOB dotschema := MakeDotFromWRDSchema(this->contexts->wrdschema, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE);
-    STRING filename := GetSafeFilename("wrd_structure_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".gv";
-    this->frame->SendFileToUser(dotschema, "text/vnd.graphviz", filename, now);
-  }
+  //TODO re-add as a 'dev' plugin to the new WRD Browser
+  //MACRO DoExportDotStructure()
+  //{
+  //  DATETIME now := GetCurrentDateTime();
+  //  BLOB dotschema := MakeDotFromWRDSchema(this->contexts->wrdschema, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE);
+  //  STRING filename := GetSafeFilename("wrd_structure_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".gv";
+  //  this->frame->SendFileToUser(dotschema, "text/vnd.graphviz", filename, now);
+  //}
 
   MACRO DoManageSchemas()
   {

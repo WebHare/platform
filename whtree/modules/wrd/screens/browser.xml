@@ -45,7 +45,7 @@
       <action name="managepaymentproviders" onexecute="domanagepaymentproviders" />
       <action name="exportschema" onexecute="doexportschema"  />
       <action name="exportxmlmetadata" onexecute="doexportxmlmetadata"  />
-      <action name="exportdotstructure" onexecute="doexportdotstructure"  />
+      <!-- <action name="exportdotstructure" onexecute="doexportdotstructure"  /> -->
       <action name="addtostartmenu" tid="tollium:common.actions.addtostartmenu" onexecute="doaddtostartmenu" />
 
       <action name="newfree" frameflags="right_readwrite" onexecute="donewfree" />
@@ -88,7 +88,7 @@
         <item tid="tollium:common.actions.export">
           <item action="exportschema" />
           <item action="exportxmlmetadata" />
-          <item action="exportdotstructure" />
+          <!-- <item action="exportdotstructure" /> -->
         </item>
         <divider/>
         <item action="editentity" />

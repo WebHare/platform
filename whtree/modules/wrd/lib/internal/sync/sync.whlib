@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
@@ -381,7 +381,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
 
   YIELD [ status := `Getting sync instructions`, progress := 20m, important := TRUE ];
   IF (NOT ObjectExists(remotepeer))
-    res := GetSyncInstructions(OpenWRDSchemaByName(remoteschemaname), currentcontents, syncinstructionoptions);
+    res := GetSyncInstructions(OpenWRDSchema(remoteschemaname), currentcontents, syncinstructionoptions);
   ELSE
     res := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, currentcontents, syncinstructionoptions);
 
@@ -1052,7 +1052,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
   YIELD [ status := `Getting schema structure instructions`, progress := 0m, important := TRUE ];
   RECORD schemasyncinstr;
   IF (NOT ObjectExists(remotepeer))
-    schemasyncinstr := GetSyncInstructions(OpenWRDSchemaByName(remoteschemaname), RECORD[], [ excludetypes := [ "*" ] ]);
+    schemasyncinstr := GetSyncInstructions(OpenWRDSchema(remoteschemaname), RECORD[], [ excludetypes := [ "*" ] ]);
   ELSE
     schemasyncinstr := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, RECORD[], [ excludetypes := [ "*" ] ]);
 

@@ -6,7 +6,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 
-LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/csvexport.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
 
@@ -31,7 +31,7 @@ IF(NOT RecordExists(cmdargs) OR cmdargs.schemaname="")
 
 OBJECT trans := OpenPrimary();
 
-OBJECT wrdschema := OpenWRDSchemaByName(cmdargs.schemaname);
+OBJECT wrdschema := OpenWRDSchema(cmdargs.schemaname);
 
 IF(NOT ObjectExists(wrdschema))
 {
