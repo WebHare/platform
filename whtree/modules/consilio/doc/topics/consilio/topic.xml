@@ -1,7 +1,7 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Consilio"
        shortdescription="WebHare Consilio"
-       docorder="setup searchpage field-types custom-sources frontend pxl robotsplugin opensearch pagelists publisherindex">
+       docorder="setup searchpage field-types custom-sources frontend pxl opensearch pagelists publisherindex">
   <section name="api"
            title="Consilio API"
            description="API for searching in consilio"

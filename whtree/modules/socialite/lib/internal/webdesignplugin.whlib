@@ -357,44 +357,6 @@ PUBLIC OBJECTTYPE AnalyticsPlugin EXTEND WebDesignPluginBase
 >;
 
 
-PUBLIC OBJECTTYPE AnalyticsExperimentPlugin EXTEND WebDesignPluginBase
-<
-  STRING experimentkey;
-
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RETURN [ experimentkey := node->GetAttribute("experimentkey")
-           ];
-  }
-
-  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
-  {
-    this->experimentkey := mergedconfiguration.experimentkey;
-  }
-
-  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
-  {
-    IF(this->experimentkey="")
-      RETURN;
-
-    STRING code := "\n<script>function utmx_section(){}function utmx(){}(function(){var\n"
-                || "k='" || EncodeJava(this->experimentkey) || "',d=document,l=d.location,c=d.cookie;\n"
-                || "if(l.search.indexOf('utm_expid='+k)>0)return;\n"
-                || "function f(n){if(c){var i=c.indexOf(n+'=');if(i>-1){var j=c.\n"
-                || "indexOf(';',i);return escape(c.substring(i+n.length+1,j<0?c.\n"
-                || "length:j))}}}var x=f('__utmx'),xx=f('__utmxx'),h=l.hash;d.write(\n"
-                || "'<sc'+'ript src=\"'+'http'+(l.protocol=='https:'?'s://ssl':\n"
-                || "'://www')+'.google-analytics.com/ga_exp.js?'+'utmxkey='+k+\n"
-                || "'&utmx='+(x?x:'')+'&utmxx='+(xx?xx:'')+'&utmxtime='+new Date().\n"
-                || "valueOf()+(h?'&utmxhash='+escape(h.substr(1)):'')+\n"
-                || "'\" type=\"text/javascript\" charset=\"utf-8\"><\/sc'+'ript>')})();\n"
-                || "</script><script>utmx('url','A/B');</script>\n";
-
-    webdesign->InsertHTML(code,"dependencies-top");
-  }
-
->;
-
 PUBLIC OBJECTTYPE SocialiteGTMWrapper EXTEND GTMPlugin
 <
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
