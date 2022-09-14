@@ -28,7 +28,7 @@ RECORD testdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</
                                  ]
                    ];
 
-OBJECT testrtd, testrtd_noinstances;
+OBJECT testrtd, testrtd_noinstances, testunknownfile;
 
 MACRO TestIndexTypeAPIs()
 {
@@ -42,19 +42,31 @@ MACRO TestIndexTypeAPIs()
   OBJECT applytester := GetApplytesterForObject(testrtd->id);
   TestEq(DEFAULT RECORD, GetRichDocumentIndexableContent(DEFAULT RECORD, CELL[applytester]));
 
-  RECORD indexable := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd->id), FALSE);
+  RECORD indexable := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd->id));
   TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.subfiles[0].data));
   TestEq(2, Length(indexable.indextypes));
   TestEq(2, Length(indexable.indexversions));
+
+  testunknownfile := testloc->CreateFile( [ name := "unknown", type := 0 ]);
+  richdoctype->SetInstanceData(testunknownfile->id, [data := testdoc]);
+  TestEq(0, testunknownfile->type);
 
   RECORD testdoc_noinstances := CELL[...testdoc, instances := RECORD[]];
   testrtd_noinstances := testloc->CreateFile([name := "noinstances.rtd", type := richdoctype->id ]);
   richdoctype->SetInstanceData(testrtd_noinstances->id, [ data := testdoc_noinstances ] );
 
-  RECORD indexable_noinstances := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd_noinstances->id), FALSE);
+  RECORD indexable_noinstances := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testrtd_noinstances->id));
   //No subcontent, so no indextypes or versions other than the file itself
   TestEq(1, Length(indexable_noinstances.indextypes));
   TestEq(1, Length(indexable_noinstances.indexversions));
+
+  RECORD indexable_unknknowntype := GetSearchSubfiles((SELECT * FROM system.fs_objects WHERE id = testunknownfile->id));
+  TestEq(1, Length(indexable_unknknowntype.subfiles), "The file is its only subfile");
+  TestEq(2, Length(indexable_unknknowntype.indextypes));
+  TestAssert(indexable_unknknowntype.indextypes[1] != indexable.indextypes[1], "Assert different type hashes");
+  TestAssert(indexable_unknknowntype.indextypes[0] = indexable.indextypes[0], "But matching widget types");
+  TestEq(1, Length(indexable_unknknowntype.indexversions));
+  TestAssert(indexable_unknknowntype.indexversions[0] = indexable.indexversions[0], "And matching widget versions");
 
   testfw->CommitWork();
 
@@ -77,6 +89,11 @@ MACRO TestIndexTypeAPIs()
   TestEq(1, Length(objs2[0].data.document_fields.mod_consilio.indexversions));
   TestEq(TRUE, objs2[0].data.document_fields.mod_consilio.indextypes[0] IN fetched.document_fields.mod_consilio.indextypes, "The filetype hash has to be in both files");
   TestEq(TRUE, objs2[0].data.document_fields.mod_consilio.indexversions[0] IN fetched.document_fields.mod_consilio.indexversions, "The filetype version hash has to be in both files");
+
+  RECORD ARRAY objs_unknown := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testunknownfile->id, RECORD[], [ rebuild := TRUE ]);
+  TestEq(1, Length(objs_unknown));
+  TestEq(2, Length(objs_unknown[0].data.document_fields.mod_consilio.indextypes));
+  TestEq(1, Length(objs_unknown[0].data.document_fields.mod_consilio.indexversions));
 }
 
 MACRO TestPublisherIndex()

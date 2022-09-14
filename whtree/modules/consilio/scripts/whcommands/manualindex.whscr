@@ -12,7 +12,7 @@ RECORD args;
 INTEGER numdone;
 INTEGER setlimit;
 
-MACRO ProcessContentSource(OBJECT catalog, RECORD csource)
+MACRO ProcessContentSource(OBJECT catalog, RECORD csource, STRING groupmask)
 {
   OBJECT contentsource := catalog->OpenContentSourceById(csource.id);
   Print(`Processing catalog '${catalog->tag}' content source '${contentsource->tag ?? contentsource->GetWHFSPath()}'\n`);
@@ -29,6 +29,16 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource)
   RECORD ARRAY groups := res.tocheck_groups;
   IF(Length(groups) = 0)
     Print("No groups in this content source!\n");
+
+  IF(groupmask != "")
+  {
+    DELETE FROM groups WHERE ToUppercase(id) NOT LIKE ToUppercase(groupmask);
+    IF(Length(groups) = 0)
+    {
+      Print(`No groups in this content source match the mask '${groupmask}'\n`);
+      RETURN;
+    }
+  }
 
   FOREVERY(RECORD grouptocheck FROM groups)
   {
@@ -58,7 +68,7 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource)
     IF(setlimit != 0 AND numdone >= setlimit)
       BREAK;
   }
-  IF(setlimit = 0) //allowed to index all
+  IF(setlimit = 0 AND groupmask = "") //allowed to index all
   {
     Print("\nCleaning the index...");
     res := CleanupIndex([ indexid := catalog->id
@@ -77,11 +87,12 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource)
                               , [ name := "breakonerror", type := "switch" ]
                               , [ name := "catalogmask", type := "param", required := TRUE ]
                               , [ name := "contentsourcemask", type := "param", required := FALSE ]
+                              , [ name := "groupmask", type := "param", required := FALSE ]
                               ]);
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] [--breakonerror] <catalogmask> [contentsourcemask]\n");
+  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] [--breakonerror] <catalogmask> [contentsourcemask] [groupmask]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
@@ -94,11 +105,18 @@ OpenPrimary();
 
 RECORD ARRAY matchcatalogs := SELECT * FROM ListConsilioCatalogs() WHERE ToUppercase(tag) LIKE ToUppercase(args.catalogmask);
 IF(Length(matchcatalogs) = 0)
-  THROW NEW Exception(`No such catalog '${args.catalogmask}'`);
+  TerminateScriptWithError(`No such catalog '${args.catalogmask}'`);
 
 FOREVERY(RECORD catalogrec FROM matchcatalogs)
 {
   OBJECT catalog := OpenConsilioCatalogById(catalogrec.id);
-  FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask) OR "#" || id = contentsourcemask)
-    ProcessContentSource(catalog, csource);
+  RECORD ARRAY matchcsources := SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask) OR "#" || id = contentsourcemask;
+
+  IF(Length(matchcsources) = 0)
+  {
+    Print(`No content sources in catalog '${catalog->tag}' match the mask '${contentsourcemask}'\n`);
+    CONTINUE;
+  }
+  FOREVERY(RECORD csource FROM matchcsources)
+    ProcessContentSource(catalog, csource, args.groupmask);
 }
