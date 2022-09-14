@@ -286,10 +286,11 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
     // Load the stored screenshot into the container iframe
     ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
-        [ width := INTEGER(Ceil(feedback.size.width))
-        , height := INTEGER(Ceil(feedback.size.height))
+        [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
+                        , height := INTEGER(Ceil(feedback.size.height))
+                        , scaled := ^scaled->value
+                        ]
         , url := GetFeedbackScreenshotURL(this->data.rowkey)
-        , scaled := ^scaled->value
         ]);
   }
 
