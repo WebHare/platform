@@ -206,7 +206,7 @@ export default class StructuredEditor extends EditorBase
             var repl = this._createImageDownloadNode();
             pastecontent.appendChild(repl);
 
-            var promise = this.uploadPastedImage('datatransfer', item.getAsFile(), repl);
+            var promise = this.uploadImageToServer(item.getAsFile(), repl);
             if (promise) // Upload didn't fail early?
             {
               promise.then(function()

@@ -46,9 +46,9 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       ]
 
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
-      , title :=          "Softenters, images at root level"
-      , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/tests/webhare.png" />`
-      , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></p>`
+      , title :=          "Softenters, images at root level, verify restructuring doesnt add random width/ehight"
+      , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img src="/tests/webhare.png" />`
+      , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" src="/tests/webhare.png" /></p>`
       ]
 
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"

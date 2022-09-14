@@ -24,21 +24,31 @@ RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwind
 PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
 <
   OBJECT rte;
-  FLOAT origaspect;
   BOOLEAN suspendonchange;
   RECORD original;
+  FLOAT origaspect;
 
   MACRO Init(RECORD data)
   {
-    ^settings->value := data.data;
+    ^align->value := data.data.align;
+    ^alttext->value := data.data.alttext;
+
     this->rte := data.rte;
     this->original := data.originalimg;
+
+    IF(data.data.height > 0 AND data.data.width > 0) //if a height is set, we're overriding
+    {
+      ^overridedimensions->value := TRUE;
+      ^height->value := data.data.height;
+      ^width->value := data.data.width;
+    }
+    ELSE
+    {
+      ^height->value := data.originalimg.height;
+      ^width->value := data.originalimg.width;
+    }
+
     this->origaspect := data.originalimg.height > 0 ? FLOAT(data.originalimg.width) / FLOAT(data.originalimg.height) : 0f;
-
-    FLOAT currentaspect := ^height->value > 0 ? FLOAT(^width->value) / FLOAT(^height->value) : 0f;
-    IF(Abs(currentaspect - this->origaspect) < 0.0005)
-      ^keepaspectratio->value := TRUE;
-
     SetupHyperlinkOptions(this, this->rte, data.data.link, ^link, ^openinnewwindow);
   }
 
@@ -47,14 +57,17 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
     IF(NOT this->BeginFeedback()->Finish())
       RETURN DEFAULT RECORD;
     ELSE
-      RETURN CELL[ ...^settings->value
+      RETURN CELL[ height := ^overridedimensions->value ? ^height->value : 0
+                 , width := ^overridedimensions->value ? ^width->value : 0
                  , link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value)
+                 , alttext := ^alttext->value
+                 , align := ^align->value
                  ];
   }
 
   MACRO OnWidthChange()
   {
-    IF(this->suspendonchange OR NOT ^keepaspectratio->value OR this->origaspect = 0)
+    IF(this->suspendonchange OR this->origaspect = 0)
       RETURN;
 
     this->suspendonchange := TRUE;
@@ -63,7 +76,7 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
   }
   MACRO OnHeightchange()
   {
-    IF(this->suspendonchange OR NOT ^keepaspectratio->value OR this->origaspect = 0)
+    IF(this->suspendonchange OR this->origaspect = 0)
       RETURN;
 
     this->suspendonchange := TRUE;
@@ -180,7 +193,7 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
                          ORDER BY ToUppercase(title);
 
     ^cellstyle->options := SELECT rowkey := tag
-                                , title := tag = "" ? GetTid("tollium:components.rte.normalcell") : (title ?? tag)
+                                , title := tag = "" ? this->GetTid(".normalcell") : (title ?? tag)
                                 , tolliumselected := tag = data.data.cellstyletag
                              FROM this->rte->rtdtypeinfo.structure.cellstyles
                          ORDER BY tag="" DESC
@@ -202,7 +215,7 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
 
   MACRO DoRemoveTable()
   {
-    IF (this->RunSimpleScreen("confirm", GetTid("tollium:components.rte.sureremovetable")) = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".sureremovetable")) = "yes")
       this->tolliumresult := "remove";
   }
 >;

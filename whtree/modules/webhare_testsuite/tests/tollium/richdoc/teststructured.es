@@ -152,8 +152,11 @@ test.registerTests(
       imgpaste.innerHTML = '<img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" width="27" height="13"/>';
       rte.getEditor().selectNodeOuter(rte.qS('p'));
       rte.getEditor()._pasteContent(imgpaste); //FIXME white box test...
-      test.eq(1, rte.qSA("img").length);
       await test.wait("ui");
+
+      test.eq(1, rte.qSA("img").length);
+      test.false(rte.qS("img").hasAttribute("width"), "images without explicit width/height settings shouldn't have width/height");
+      test.false(rte.qS("img").hasAttribute("height"), "images without explicit width/height settings shouldn't have width/height");
 
       test.clickTolliumButton("Edit raw html");
       await test.wait("ui");
@@ -174,14 +177,17 @@ test.registerTests(
 
         test.subtest("checkimageprops");
         //verify 'original dimensions' by simply setting aspect ratio back to "ON". should restore the 27x26 range
-        test.eq('13', test.compByName('height').querySelector('input').value);
-        test.click(test.compByName('keepaspectratio'));
+        test.eq(false, test.compByName('overridedimensions!cbox').querySelector('input').checked);
+        test.eq('26', test.compByName('height').querySelector('input').value);
+        test.eq('27', test.compByName('width').querySelector('input').value);
+
+        test.setTodd('overridedimensions!cbox', true);
         await test.wait("ui");
+        test.setTodd('height', '13');
 
         test.subtest("checkimageprops2");
-        test.eq('26', test.compByName('height').querySelector('input').value);
+        await test.wait( () => test.compByName('width').querySelector('input').value == 14); //Wait for width to be updated
 
-        //set 26... and off to the second tab!
         test.clickTolliumLabel('Hyperlink');
         test.clickTolliumLabel('External link');
         await test.wait("ui");
@@ -190,18 +196,21 @@ test.registerTests(
 
         var textfield = test.getTolliumLabel("External link").closest('.form').querySelector('input[type=text]');
         test.fill(textfield, "http://b-lex.nl/");
+        test.setTodd('alttext', "Alty!");
         test.clickTolliumButton("OK");
         await test.wait("ui");
 
         test.subtest("verifyhyperlink-external");
         var imgnode=rte.qSA('img')[0];
-        test.eq(26,imgnode.height);
+        test.eq(13, imgnode.height);
+        test.eq("13", imgnode.getAttribute("height"));
         test.eq("A", imgnode.parentNode.nodeName.toUpperCase());
         test.eq("http://b-lex.nl/", imgnode.parentNode.href);
+        test.eq("Alty!", imgnode.getAttribute("alt"));
       }
     }
 
-    //reopen the properties to verify
+    //reopen the properties to verify and unset 'overridedimensions'
   , { name: 'openimageprops-2'
     , test: async function(doc,win)
       {
@@ -211,7 +220,13 @@ test.registerTests(
         await test.wait("ui");
 
         test.subtest("checkimageprops");
-        test.eq('26', test.compByName('height').querySelector('input').value);
+        test.eq('13', test.compByName('height').querySelector('input').value);
+        test.eq(true, test.compByName('overridedimensions!cbox').querySelector('input').checked);
+        test.eq("Alty!", test.compByName('alttext').querySelector('textarea').value);
+        test.setTodd('alttext', '');
+        test.setTodd('overridedimensions!cbox', false);
+        await test.wait('ui');
+
         test.clickTolliumLabel('Hyperlink');
         var textfield = test.getTolliumLabel("External link").closest('.form').querySelector('input[type=text]');
         test.eq("http://b-lex.nl/", textfield.value);
@@ -223,9 +238,11 @@ test.registerTests(
 
         test.subtest("checkimageprops");
         var imgnode=rte.qSA('img')[0];
-        test.eq(26,imgnode.height);
+        test.eq(null, imgnode.getAttribute("height"));
+        test.eq(null, imgnode.getAttribute("width"));
         test.eq("A", imgnode.parentNode.nodeName.toUpperCase());
         test.eq("http://b-lex.nl/nieuws/", imgnode.parentNode.href);
+        test.false(imgnode.getAttribute("alt"));
       }
     , waits: [ 'ui' ]
     }

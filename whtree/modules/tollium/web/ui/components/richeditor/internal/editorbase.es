@@ -367,7 +367,6 @@ export default class EditorBase
       throw Error("No eventnode");
     this.rte=rte;
     this.lastselectionstate = new TextFormattingState();
-    //this.InitializeBrowserCapabilities();
 
     this.language = options && options.language || 'en';
     this.SetBreakupNodes(options && options.breakupnodes);
@@ -1568,23 +1567,6 @@ export default class EditorBase
       }
     });
   }
-
-  async uploadPastedImage(type, data, node)
-  {
-    let busylock = dompack.flagUIBusy();
-    try
-    {
-      if(type == 'datatransfer')
-        await this.uploadImageToServer(data, node);
-      else if(type == 'url') //uploading remote image
-        await this.uploadImageByURLToServer(data,node);
-    }
-    finally
-    {
-      busylock.release();
-    }
-  }
-
   _gotPaste(event)
   {
     if(dompack.debugflags.rte)
@@ -1610,7 +1592,7 @@ export default class EditorBase
 
           var repl = this._createImageDownloadNode();
           this.replaceSelectionWithNode(repl, true);
-          await this.uploadPastedImage('datatransfer', file, repl);
+          await this.uploadImageToServer(file, repl);
           //setTimeout(() => this.handlePasteDone(), 1); why go through this when just replacing one image ?
           return;
         }
@@ -1661,6 +1643,8 @@ export default class EditorBase
     else
     {
       img.src = properurl;
+      img.removeAttribute("width");
+      img.removeAttribute("height");
       this.rte.knownimages.push(img.src);
     }
   }
@@ -2674,14 +2658,26 @@ export default class EditorBase
   //Upload an image to the server, and then replace the src in the specified image node
   async uploadImageToServer(filetoupload, imgnode)
   {
-    let uploader = new compatupload.UploadSession([filetoupload]);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
-    let res = await uploader.upload();
-    let properurl = await formservice.getUploadedFileFinalURL(res[0].url);
-    imgnode.src = properurl;
-    this.rte.knownimages.push(imgnode.src);
-    imgnode.classList.add("wh-rtd__img");
+    let busylock = dompack.flagUIBusy();
+    try
+    {
+      let uploader = new compatupload.UploadSession([filetoupload]);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
+      let res = await uploader.upload();
+      let properurl = await formservice.getUploadedFileFinalURL(res[0].url);
+      imgnode.src = properurl;
+      this.rte.knownimages.push(imgnode.src);
+      imgnode.classList.add("wh-rtd__img");
 
-    await preload.promiseImage(imgnode.src); //don't return until the upload is done!
+      //drop width/height form external images
+      imgnode.removeAttribute("width");
+      imgnode.removeAttribute("height");
+
+      await preload.promiseImage(imgnode.src); //don't return until the upload is done!
+    }
+    finally
+    {
+      busylock.release();
+    }
   }
   //FIXME if we can select embeddedobjects, we can merge this into executeAction
   launchActionPropertiesForNode(node, subaction)

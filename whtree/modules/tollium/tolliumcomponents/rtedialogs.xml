@@ -1,0 +1,180 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumcomponents.rtedialogs"
+         library="rtedialogs.whlib">
+
+  <screen name="imageproperties" gid=".imageproperties">
+    <actions>
+      <downloadaction name="download" ondownload="dodownload" tid=".downloadoriginal" />
+    </actions>
+
+    <compositions>
+      <radiogroup name="align" />
+    </compositions>
+
+    <body spacers="none">
+      <tabs>
+        <tab tid=".properties">
+          <heading tid=".position" />
+          <grid>
+            <col width="1pr" />
+            <col width="1pr" />
+            <col width="1pr" />
+            <row>
+              <cell layout="center">
+                <image width="42px" height="44px" onclick="doimginline" value="rte/img_inline" />  <!-- ADDME need something like 'labelfor' -->
+                <radiobutton group="align" rowkey="" />
+                <text valuetid=".img_inline" />
+              </cell>
+              <cell layout="center">
+                <image width="42px" height="44px" onclick="doimgleft" value="rte/img_left" />
+                <radiobutton group="align" rowkey="left" />
+                <text valuetid=".img_left" />
+              </cell>
+              <cell layout="center">
+                <image width="42px" height="44px" onclick="doimgright" value="rte/img_right" />
+                <radiobutton group="align" rowkey="right" />
+                <text valuetid=".img_right" />
+              </cell>
+            </row>
+          </grid>
+          <heading name="overridedimensions" checkbox="true" enablecomponents="width height" />
+          <line>
+            <textedit cellname="width"
+                      name="width"
+                      width="6x"
+                      minvalue="1"
+                      maxvalue="10000"
+                      onchange="onwidthchange"
+                      required="true"
+                      valuetype="integer" />
+            <text value="px" />
+          </line>
+          <line>
+            <textedit cellname="height"
+                      name="height"
+                      width="6x"
+                      minvalue="1"
+                      maxvalue="10000"
+                      onchange="onheightchange"
+                      required="true"
+                      valuetype="integer" />
+            <text value="px" />
+          </line>
+          <heading tid=".accessibility" />
+          <text tid=".alttext" />
+          <line layout="left">
+            <textarea name="alttext" height="3x" errorlabeltid=".alttext" title="" />
+          </line>
+        </tab>
+        <tab tid=".hyperlink">
+          <heading tid=".destination" />
+          <p:intextlink name="link" required="false" title="" />
+          <line layout="left">
+            <checkbox name="openinnewwindow" labeltid=".openinnewwindow" title="" />
+          </line>
+        </tab>
+      </tabs>
+    </body>
+
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button action="download" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="ok cancel" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+  <!-- allowresize/savesate was set by wouterH 29 july 2013. don't know why. reverted as it breaks dynamic changes to the dialog
+       we will set a minwidth to give the extlink component some room
+       -->
+  <screen name="hyperlink" minwidth="80x" gid=".hyperlink">
+    <actions>
+      <action name="removehyperlink" onexecute="doremovehyperlink" />
+    </actions>
+
+    <body>
+      <heading name="destination" height="1pr" />
+      <p:intextlink name="link" required="true" title="" />
+      <line layout="left">
+        <checkbox name="openinnewwindow" labeltid=".openinnewwindow" title="" />
+      </line>
+    </body>
+
+    <footer>
+      <grid>
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <button name="removehyperlinkbutton" action="removehyperlink" tid=".removehyperlink" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="ok cancel" />
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="tableproperties" minwidth="80x" gid=".tableproperties" tid=".tableandcellproperties">
+    <actions>
+      <action name="removetable" onexecute="doremovetable" />
+    </actions>
+
+    <body>
+      <heading tid=".tableproperties" />
+      <select name="tablestyle" type="pulldown" />
+      <line layout="left">
+        <checkbox name="topheader" labeltid=".topheader" title="" />
+      </line>
+      <line layout="left">
+        <checkbox name="leftheader" labeltid=".leftheader" title="" />
+      </line>
+      <heading tid=".cellproperties" />
+      <select name="cellstyle" type="pulldown" />
+    </body>
+
+    <footer>
+      <grid>
+        <col />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <button action="removetable" tid=".removetable" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="ok cancel" />
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+  <screen name="inspectwidget"
+          width="60x"
+          height="10gr"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".inspectwidget"
+          savestate="size">
+    <actions>
+    </actions>
+
+    <body spacers="none">
+      <tabs height="1pr" minwidth="40x" minheight="7gr">
+        <tab tid=".value">
+          <hsvalue name="value" height="1pr" />
+        </tab>
+        <tab tid=".searchpreview">
+          <iframe name="searchpreview" width="1pr" height="1pr" />
+        </tab>
+      </tabs>
+    </body>
+  </screen>
+
+</screens>

@@ -22,9 +22,7 @@
     <messagebox name="notimplemented" icon="information" buttons="close" />
     <messagebox name="confirmrowdeletion" icon="information" buttons="yes no" />
     <messagebox name="exceptionemailsent" icon="information" buttons="close" tid="commondialogs.exception.emailsent" />
-    <messagebox name="confirmclearformatting" buttons="yes no" icon="warning" />
     <messagebox name="confirmclearcontents" buttons="yes no" icon="warning" />
-    <messagebox name="confirmdeleteembeddedobject" buttons="yes no" icon="warning" />
     <messagebox name="webhareclosedformaintenance" buttons="ok" icon="warning" />
     <messagebox name="addedtostartmenu" buttons="ok" icon="information" dontshowagain="ok" />
     <messagebox name="alreadyaddedtostartmenu" buttons="ok" icon="information" />

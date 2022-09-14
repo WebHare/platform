@@ -684,9 +684,7 @@
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
       <text tid="inspect">Inspect</text>
-      <text tid="normalcell">Default cell styling</text>
       <text tid="properties">Properties</text>
-      <text tid="sureremovetable">Are you sure you want to remove this table?</text>
       <text tid="table_addcolumn_after">Add Column to the Right</text>
       <text tid="table_addcolumn_before">Add Column to the Left</text>
       <text tid="table_addpara_after">Add Paragraph after Table</text>
@@ -703,45 +701,6 @@
       <text tid="toomanyplaintextbytes_error">Field '<param p="1"/>' contains more text than allowed (<param p="2"/> bytes, <param p="3"/> allowed).</text>
       <text tid="toomanyplaintextcharacters">Field '<param p="1"/>' contains more text than recommended (<param p="2"/> characters, <param p="3"/> recommended).</text>
       <text tid="toomanyplaintextcharacters_error">Field '<param p="1"/>' contains more text than allowed (<param p="2"/> characters, <param p="3"/> allowed).</text>
-      <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
-        <text tid="destination">Destination</text>
-        <text tid="hyperlink">Hyperlink</text>
-        <text tid="openinnewwindow">Open link in new window</text>
-        <text tid="removehyperlink">Remove hyperlink</text>
-      </textgroup>
-      <textgroup gid="imageproperties">   <!-- components.rte.imageproperties -->
-        <text tid="accessibility">Accessibility</text>
-        <text tid="alttext">Alternative text</text>
-        <text tid="destination">Destination</text>
-        <text tid="dimensions">Dimensions</text>
-        <text tid="downloadoriginal">Download original</text>
-        <text tid="height">Height</text>
-        <text tid="hyperlink">Hyperlink</text>
-        <text tid="imageproperties">Image properties</text>
-        <text tid="img_inline">In line with text</text>
-        <text tid="img_left">Floating left</text>
-        <text tid="img_right">Floating right</text>
-        <text tid="keepaspectratio">Keep aspect ratio</text>
-        <text tid="openinnewwindow">Open in new window</text>
-        <text tid="position">Positioning</text>
-        <text tid="properties">Properties</text>
-        <text tid="width">Width</text>
-      </textgroup>
-      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
-        <text tid="inspectwidget">Inspect widget</text>
-        <text tid="searchpreview">Search preview</text>
-        <text tid="value">Value</text>
-      </textgroup>
-      <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
-        <text tid="cellproperties">Cell properties</text>
-        <text tid="cellstyle">Cell style</text>
-        <text tid="leftheader">The left column is a header column</text>
-        <text tid="removetable">Remove Table</text>
-        <text tid="tableandcellproperties">Table and cell properties</text>
-        <text tid="tableproperties">Table Properties</text>
-        <text tid="tablestyle">Table style</text>
-        <text tid="topheader">The first row is a header row</text>
-      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="debugging" limitlanguages="en">   <!-- debugging -->
@@ -1137,6 +1096,50 @@
       <text tid="oldpassword">Current password</text>
       <text tid="pagetitle">Change password</text>
       <text tid="showpasswords">Show passwords as plain text</text>
+    </textgroup>
+    <textgroup gid="rtedialogs">   <!-- tolliumcomponents.rtedialogs -->
+      <textgroup gid="hyperlink">   <!-- tolliumcomponents.rtedialogs.hyperlink -->
+        <text tid="destination">Destination</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="openinnewwindow">Open link in new window</text>
+        <text tid="removehyperlink">Remove hyperlink</text>
+      </textgroup>
+      <textgroup gid="imageproperties">   <!-- tolliumcomponents.rtedialogs.imageproperties -->
+        <text tid="accessibility">Accessibility</text>
+        <text tid="alttext">Alternative text</text>
+        <text tid="destination">Destination</text>
+        <text tid="dimensions">Dimensions</text>
+        <text tid="downloadoriginal">Download original</text>
+        <text tid="height">Height</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="imageproperties">Image properties</text>
+        <text tid="img_inline">In line with text</text>
+        <text tid="img_left">Floating left</text>
+        <text tid="img_right">Floating right</text>
+        <text tid="keepaspectratio">Keep aspect ratio</text>
+        <text tid="openinnewwindow">Open in new window</text>
+        <text tid="overridedimensions">Override dimensions</text>
+        <text tid="position">Positioning</text>
+        <text tid="properties">Properties</text>
+        <text tid="width">Width</text>
+      </textgroup>
+      <textgroup gid="inspectwidget">   <!-- tolliumcomponents.rtedialogs.inspectwidget -->
+        <text tid="inspectwidget">Inspect widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Value</text>
+      </textgroup>
+      <textgroup gid="tableproperties">   <!-- tolliumcomponents.rtedialogs.tableproperties -->
+        <text tid="cellproperties">Cell properties</text>
+        <text tid="cellstyle">Cell style</text>
+        <text tid="leftheader">The left column is a header column</text>
+        <text tid="normalcell">Default cell styling</text>
+        <text tid="removetable">Remove Table</text>
+        <text tid="sureremovetable">Are you sure you want to remove this table?</text>
+        <text tid="tableandcellproperties">Table and cell properties</text>
+        <text tid="tableproperties">Table Properties</text>
+        <text tid="tablestyle">Table style</text>
+        <text tid="topheader">The first row is a header row</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->

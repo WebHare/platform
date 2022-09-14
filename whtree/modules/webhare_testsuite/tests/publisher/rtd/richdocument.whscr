@@ -408,8 +408,6 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">Afbeelding: <img src="cid:imagecid-81400" width="160" height="120"/></p>'
                                             || '<p class="normal">Grotere afbeelding: <img src="cid:imagecid-81400" width="320" height="240"/></p>'
                                             || '<p class="normal">Opgerekte afbeelding: <img src="cid:imagecid-81400" width="320" height="280"/></p>'
-                                            || '<p class="normal">alleen verticaal, te groot: <img src="cid:imagecid-81400" height="280"/></p>'
-                                            || '<p class="normal">alleen verticaal, binnen grenzen: <img src="cid:imagecid-81400" height="140"/></p>'
                                             || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
                                             || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="120"/></p>'
                                             || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>'
@@ -434,10 +432,10 @@ MACRO PublishRichDocImageTest()
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
 
   OBJECT ARRAY imgtags := doc->GetElementsByTagName("img")->GetCurrentElements();
-  TestEq(9, Length(imgtags));
+  TestEq(6, Length(imgtags), "The external image will not be in the output");
 
   TestEq("160", imgtags[0]->GetAttribute("width"));
-  TestEq("120", imgtags[0]->GetAttribute("height"));
+  TestEq("106", imgtags[0]->GetAttribute("height"));
   TestEq(TRUE, imgtags[0]->GetAttribute("src") LIKE "/*"); //site relative URL
 
   OBJECT browser := NEW WebBrowser;
@@ -446,12 +444,11 @@ MACRO PublishRichDocImageTest()
   TestEq("image/jpeg", browser->contenttype);
   OBJECT imgcanvas := CreateCanvasFromBlob(browser->content);
   TestEq(160, imgcanvas->width);
-  TestEq(120, imgcanvas->height);
+  TestEq(106, imgcanvas->height);
 
-  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
-  imgsrc->SetImageSize(160,120);
+  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), [ method := "scale", setwidth := 160, setheight := 106 ]);
   TestEq(160, imgsrc->width);
-  TestEq(120, imgsrc->height);
+  TestEq(106, imgsrc->height);
 
 
 //  CreateDiskfileFromBlob("/tmp/imgcanvas.png", TRUE, FALSE, imgcanvas->ExportAsPNG(TRUE));
@@ -459,37 +456,24 @@ MACRO PublishRichDocImageTest()
   FLOAT diff := imgsrc->CompareWithCanvas(imgcanvas);
   TestEq(TRUE, diff < 93f, "Diff: " || FormatFloat(diff,7)); //ADDME why don't we simply get MSE 0 ?
 
-
-  //The second image should have bene reduced from 320x240 to 300x225
+  //The second image should have been reduced from 320x240 to 300x225
   TestEq("300", imgtags[1]->GetAttribute("width"));
-  TestEq("225", imgtags[1]->GetAttribute("height"));
+  TestEq("199", imgtags[1]->GetAttribute("height"));
 
-  //The third image should have bene reduced from 320x260 to 300x244 (broken aspect ratio should have been preserved)
+  //The third image should have been reduced from 320x260 to 300x199 (we no longer let you change the aspect ratio, it breaks responsive sizing)
   TestEq("300", imgtags[2]->GetAttribute("width"));
-  TestEq("263", imgtags[2]->GetAttribute("height"));
-
-  //The fourth image, had height 280. 373x280 is too big, so it should be reduced to 300x199
-  TestEq("300", imgtags[3]->GetAttribute("width"));
-  TestEq("199", imgtags[3]->GetAttribute("height"));
-  //This one had height 140, that's okay. It should become 211x140
-  TestEq("211", imgtags[4]->GetAttribute("width"));
-  TestEq("140", imgtags[4]->GetAttribute("height"));
+  TestEq("199", imgtags[2]->GetAttribute("height"));
 
   //Width 320. 300x199 again
-  TestEq("300", imgtags[5]->GetAttribute("width"));
-  TestEq("199", imgtags[5]->GetAttribute("height"));
+  TestEq("300", imgtags[3]->GetAttribute("width"));
+  TestEq("199", imgtags[3]->GetAttribute("height"));
   //Width 120. should work out
-  TestEq("120", imgtags[6]->GetAttribute("width"));
-  TestEq("80", imgtags[6]->GetAttribute("height"));
+  TestEq("120", imgtags[4]->GetAttribute("width"));
+  TestEq("80", imgtags[4]->GetAttribute("height"));
 
   //Unspecified. Should reduced to 300x199
-  TestEq("300", imgtags[7]->GetAttribute("width"));
-  TestEq("199", imgtags[7]->GetAttribute("height"));
-
-  //External image should still be reduced. We don't recommend external images and we don't support them in <richdocument>
-  TestEq("300", imgtags[8]->GetAttribute("width"));
-  TestEq("150", imgtags[8]->GetAttribute("height"));
-  TestEq("https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png", imgtags[8]->GetAttribute("src"));
+  TestEq("300", imgtags[5]->GetAttribute("width"));
+  TestEq("199", imgtags[5]->GetAttribute("height"));
 }
 
 MACRO IntLinktest()
