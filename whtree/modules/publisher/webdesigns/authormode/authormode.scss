@@ -1,0 +1,35 @@
+@import "~dompack/components/dialog/mixins";
+
+wh-authorbar
+{
+  all: initial;
+  position: fixed;
+  display:block;
+  top: 0;
+  left:40%;
+  background: lightblue;
+  padding:5px;
+  border-bottom-left-radius:5px;
+  border-bottom-right-radius:5px;
+  color: black;
+  opacity: 0.5;
+
+  z-index:99999;
+
+  &:hover
+  {
+    opacity: 1;
+  }
+  html.wh-feedback--dompointer &
+  {
+    display:none;
+  }
+}
+
+.wh-authormode__dialog
+{
+  @include dompack-dialog;
+  background: white;
+  padding: 20px;
+}
+

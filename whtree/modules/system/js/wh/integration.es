@@ -110,6 +110,17 @@ export function executeSubmitInstruction(instr, options)
   }
 }
 
+function activeAuthorMode()
+{
+  let script = document.createElement("script");
+  script.src = "/.ap/publisher.authormode/ap.js";
+
+  let css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href="/.ap/publisher.authormode/ap.css";
+  document.querySelector("head").append(script,css);
+}
+
 if(typeof window !== 'undefined') //check we're in a browser window, ie not serverside or some form of worker
 {
   let whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
@@ -121,4 +132,14 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
     config.obj={};
   if(!config.site)
     config.site={};
+
+  // For now, explicitly activate using: localStorage.whAuthorMode=JSON.stringify({active:true})
+  try
+  {
+    if(JSON.parse(localStorage?.whAuthorMode)?.active)
+      activeAuthorMode();
+  }
+  catch(ignore)
+  {
+  }
 }

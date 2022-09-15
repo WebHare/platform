@@ -26,6 +26,7 @@ function activateDOMPointer()
   window.addEventListener("mousemove", highlightDOM, true);
   window.addEventListener("click", captureDOMNode, true);
   window.addEventListener("keydown", maybeCancelDOMPointer, true);
+  document.documentElement.classList.add("wh-feedback--dompointer");
 }
 
 function deactivateDOMPointer()
@@ -33,6 +34,7 @@ function deactivateDOMPointer()
   window.removeEventListener("mousemove", highlightDOM, true);
   window.removeEventListener("click", captureDOMNode, true);
   window.removeEventListener("keydown", maybeCancelDOMPointer, true);
+  document.documentElement.classList.remove("wh-feedback--dompointer");
 }
 
 function resolveWithResult(result)
