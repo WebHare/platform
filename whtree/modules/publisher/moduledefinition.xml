@@ -1005,6 +1005,17 @@
       <!-- TODO proper name because 'sharedworker' isn't really a proper name for a non-browser environment -->
       <assetpack name="pwaserviceworker" entrypoint="webfeatures/pwa/pwaserviceworker.es" supportedlanguages="en" compatibility="es2016" environment="sharedworker" webharepolyfills="false"/>
     </webdesign>
+
+    <webdesign name="authormode" hidden="true">
+      <!-- (ab)using this <webdesign> to create other assetpacks as we can't create them outside a design
+           we shouldn't polyfill with this assetpack or we'll be messing up anyone trying to test locally ('dev' module will affect their site)
+     -->
+      <assetpack compatibility="es2016"
+                 entrypoint="webdesigns/authormode/authormode.es"
+                 supportedlanguages="en nl"
+                 webharepolyfills="false" />
+    </webdesign>
+
     <webfeature name="savedurlhistory" tid="webfeatures.savedurlhistory.webfeaturetitle"  siteprofile="webfeatures/savedurlhistory/savedurlhistory.siteprl.xml"/>
 
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="embeddededitor" />
@@ -1110,6 +1121,7 @@
     <webservice name="forum" transports="jsonrpc" library="lib/internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
 
     <webservice name="feedback" transports="jsonrpc" library="lib/internal/feedback/rpc.whlib" primarytrans="auto" prefix="RPC_" />
+    <webservice name="authorservice" transports="jsonrpc" library="lib/internal/authormode/authorservice.whlib" primarytrans="none" prefix="RPC_" />
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
 
