@@ -54,7 +54,7 @@ iframe.contentWindow.addEventListener("load", function(event) {
     </head>
     <body>
       <div>
-        [gettid tolliumapps.feedback.main.screenshot-iframe] FIXME
+        &lt;iframe&gt;
       </div>
     </body>
   </html>
