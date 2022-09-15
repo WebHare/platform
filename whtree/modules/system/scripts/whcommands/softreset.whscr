@@ -8,7 +8,6 @@ LOADLIB "wh::os.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";

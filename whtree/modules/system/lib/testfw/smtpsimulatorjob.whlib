@@ -8,7 +8,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testfw/appserveremulator.whlib";
 LOADLIB "mod::system/lib/testfw/emails.whlib";
 

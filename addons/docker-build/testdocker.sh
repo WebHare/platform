@@ -174,10 +174,13 @@ if [ -n "$TESTSECRET_SECRETSURL" ]; then
 fi
 
 if [ -n "$ISMODULETEST" -a -z "$WEBHAREIMAGE" ]; then
-  WEBHAREIMAGE=head
+  WEBHAREIMAGE=main
 fi
 
-if [ "$WEBHAREIMAGE" == "head" -o "$WEBHAREIMAGE" == "stable" -o "$WEBHAREIMAGE" == "beta" ]; then
+# We're renaming 'head' to 'main' as 'head' is confusing
+[ "$WEBHAREIMAGE" == "head" ] && WEBHAREIMAGE=main
+
+if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
   WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#'`
   if [ -z "$WEBHAREIMAGE" ]; then
     echo "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"

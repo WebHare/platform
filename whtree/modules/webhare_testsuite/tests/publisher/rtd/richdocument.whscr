@@ -411,8 +411,12 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
                                             || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="120"/></p>'
                                             || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>'
+                                            || '<p class="normal">ongewijzigd + origineel: <img src="cid:imagecid-81500" /></p>'
+                                            || '<p class="normal">ongewijzigd + fixed proper width/height: <img src="cid:imagecid-81500" width="178" /></p>'
                                             || '<p class="normal">external link: <img src="https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png" width="600" height="300" /></p>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ CELL[ ...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), contentid := "imagecid-81400" ]
+                               , CELL[ ...WrapBlob(GetHarescriptResource("mod::system/web/tests/webhare.png"),"webhare.png"), contentid := "imagecid-81500" ]
+                               ]
                  ]);;
   richdoc->SaveToWHFS(testfile);
   testfw->CommitWork();
@@ -432,7 +436,7 @@ MACRO PublishRichDocImageTest()
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
 
   OBJECT ARRAY imgtags := doc->GetElementsByTagName("img")->GetCurrentElements();
-  TestEq(6, Length(imgtags), "The external image will not be in the output");
+  TestEq(8, Length(imgtags), "The external image will not be in the output");
 
   TestEq("160", imgtags[0]->GetAttribute("width"));
   TestEq("106", imgtags[0]->GetAttribute("height"));
@@ -474,6 +478,12 @@ MACRO PublishRichDocImageTest()
   //Unspecified. Should reduced to 300x199
   TestEq("300", imgtags[5]->GetAttribute("width"));
   TestEq("199", imgtags[5]->GetAttribute("height"));
+
+  //Unspecified. Should stay at 178x51
+  TestEq("178", imgtags[6]->GetAttribute("width"));
+  TestEq("51", imgtags[6]->GetAttribute("height"));
+  TestEq("178", imgtags[7]->GetAttribute("width"));
+  TestEq("51", imgtags[7]->GetAttribute("height"));
 }
 
 MACRO IntLinktest()

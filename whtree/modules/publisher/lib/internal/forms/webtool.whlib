@@ -11,7 +11,6 @@ LOADLIB "mod::publisher/lib/webtools/internal/buildformhandler.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

@@ -4,7 +4,6 @@
     @topic modules/config */
 
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 

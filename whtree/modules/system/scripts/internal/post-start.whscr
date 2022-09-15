@@ -8,7 +8,6 @@ LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";

@@ -15,7 +15,6 @@ LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/tolliumapps/formedit/formcomponentapi.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";

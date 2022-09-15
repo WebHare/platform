@@ -3,7 +3,6 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
-LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 

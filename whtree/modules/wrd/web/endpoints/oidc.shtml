@@ -3,7 +3,6 @@
 LOADLIB "wh::internet/jwt.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";

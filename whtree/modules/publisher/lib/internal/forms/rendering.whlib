@@ -2,8 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
-LOADLIB "mod::system/lib/services.whlib";
-
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
 PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)

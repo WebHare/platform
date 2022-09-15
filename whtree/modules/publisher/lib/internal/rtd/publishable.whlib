@@ -332,7 +332,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
     FLOAT aspectratio := FLOAT(image.width) / FLOAT(image.height);
     INTEGER setheight := INTEGER(setwidth / aspectratio + 0.5);
     IF(image.width = setwidth AND image.height = setheight)
-      RETURN [ method := "none" ];
+      RETURN [ method := "none", setwidth := setwidth, setheight := setheight ];
 
     RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
   }

@@ -2,7 +2,6 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internal/jobs.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 

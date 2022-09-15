@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/pagelists.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 
@@ -11,10 +10,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // Content provider for WebHare documents
 PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider

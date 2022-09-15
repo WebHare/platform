@@ -3,8 +3,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::publisher/lib/widgets.whlib";
-
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

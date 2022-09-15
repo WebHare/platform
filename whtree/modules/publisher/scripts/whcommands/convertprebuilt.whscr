@@ -1,11 +1,7 @@
 <?wh
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::publisher/lib/urlhistory.whlib";
-LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
-
 LOADLIB "mod::system/lib/migrations.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),

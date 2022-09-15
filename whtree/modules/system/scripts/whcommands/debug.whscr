@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/debug.whlib";

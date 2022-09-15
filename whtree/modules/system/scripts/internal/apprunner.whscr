@@ -12,7 +12,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/services/apprunner.whlib";

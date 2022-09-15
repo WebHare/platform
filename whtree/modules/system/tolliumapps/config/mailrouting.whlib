@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -7,7 +6,6 @@ LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
 STRING FUNCTION HideSMTPPassword(STRING url)

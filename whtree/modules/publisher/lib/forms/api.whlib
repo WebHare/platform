@@ -8,9 +8,7 @@ LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
-LOADLIB "mod::publisher/lib/forms/base.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";

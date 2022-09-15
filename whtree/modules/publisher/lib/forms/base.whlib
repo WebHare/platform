@@ -11,7 +11,6 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
-LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";

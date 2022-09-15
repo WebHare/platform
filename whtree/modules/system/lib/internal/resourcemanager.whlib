@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/semver.whlib";
