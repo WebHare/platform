@@ -1,0 +1,115 @@
+<?wh
+// Tollium's embdded doc system
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD checkedmodules;
+
+CONSTANT RECORD docinfostructure :=
+ [ languages :=
+   [[ code := ""
+    , texts := [[ topic := "", link := "" ]]
+   ]]
+];
+
+RECORD FUNCTION GetModuleDefEmbedNode(STRING modulename)
+{
+  OBJECT node := GetModuleDefinitionXML(modulename);
+  IF(ObjectExists(node))
+    node := PickFirst(node->documentelement->ListChildren(whconstant_xmlns_moduledef, "documentation"));
+  IF(ObjectExists(node))
+    node := PickFirst(node->ListChildren(whconstant_xmlns_moduledef, "embedded"));
+  IF(ObjectExists(node))
+  {
+    RETURN [ rooturlkey := node->GetAttribute("rooturlkey")
+           , rooturl := node->GetAttribute("rooturl")
+           , subpath := node->GetAttribute("subpath")
+           ];
+  }
+  RETURN DEFAULT RECORD;
+}
+
+RECORD FUNCTION DownloadDocInfo(RECORD embedinfo)
+{
+  STRING rooturl;
+  IF(embedinfo.rooturlkey != "")
+    rooturl := ReadRegistryKey(embedinfo.rooturlkey, [ fallback := "" ]);
+  IF(rooturl = "")
+    rooturl := embedinfo.rooturl;
+
+  IF(rooturl = "")
+    RETURN DEFAULT RECORD;
+
+  OBJECT browser;
+  TRY
+  {
+    browser := NEW Webbrowser;
+    //ensure url ends with a '/', even after appending a subpath
+    IF(rooturl NOT LIKE "*/")
+      rooturl := rooturl || "/";
+    IF(embedinfo.subpath != "")
+      rooturl := rooturl || (embedinfo.subpath LIKE "/*" ? Substring(embedinfo.subpath,1) : embedinfo.subpath);
+    IF(rooturl NOT LIKE "*/")
+      rooturl := rooturl || "/";
+
+    IF(NOT browser->GotoWebPage(rooturl || "whdocs-v1.json"))
+      RETURN DEFAULT RECORD;
+
+    RECORD docinfo := DecodeJSONBlob(browser->content);
+    IF(RecordExists(docinfo)) //ELSE: throw? report if developer/dtapstage dev?
+    {
+      docinfo := CELL[ ...EnforceStructure(docinfostructure, docinfo)
+                     , base := rooturl
+                     ];
+    }
+    RETURN docinfo;
+  }
+  FINALLY
+  {
+    browser->Close();
+  }
+}
+
+RECORD FUNCTION GetModuleDocInfo(STRING modulename)
+{
+  //We currently only lookup by module name, but the XML syntax (an <embedded> nodes inside <documentation>) wouldn't preclude muiltiple embedded nodes mathing the doclink by prefix
+  IF(CellExists(checkedmodules, modulename))
+    RETURN Getcell(checkedmodules, modulename);
+
+  //FIXME adhoccahe, timeouts
+  RECORD moduleinfo;
+  RECORD embedinfo := GetModuleDefEmbedNode(modulename);
+  IF(RecordExists(embedinfo))
+    moduleinfo := DownloadDocInfo(embedinfo);
+  checkedmodules := CellInsert(checkedmodules, modulename, moduleinfo);
+  RETURN moduleinfo;
+}
+
+PUBLIC RECORD FUNCTION GetRemoteEmbeddedDocumentation(STRING doclink)
+{
+  STRING modulename := Left(doclink, SearchSubstring(doclink, ':'));
+  STRING sublink := Substring(doclink, Length(modulename) + 1);
+  RECORD modinfo := GetModuleDocInfo(modulename);
+
+  IF(NOT RecordExists(modinfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD mylang := SELECT * FROM modinfo.languages WHERE code = GetTidLanguage();
+  IF(NOT RecordExists(mylang))
+    RETURN DEFAULT RECORD;
+
+  RECORD mytopic := SELECT * FROM mylang.topics WHERE topic = sublink;
+  IF(NOT RecordExists(mytopic) OR mytopic.link = "")
+    RETURN DEFAULT RECORD;
+
+  RETURN [ editinfo := DEFAULT RECORD
+         , url := ResolveToAbsoluteURL(modinfo.base, mytopic.link)
+         ];
+}

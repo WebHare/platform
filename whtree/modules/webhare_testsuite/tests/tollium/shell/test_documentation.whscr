@@ -1,15 +1,39 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 ASYNC MACRO TestDocumentationSite()
 {
+  //Setup docroot URL. note that there should be some way to ensure/verify that the Help system can prescan/preload URLs as to not break the UI waiting for remote assets
+  testfw->BeginWork();
+
+  STRING randomdocroot := GenerateUFS128BitId();
+  OBJECT testfolder := GetTestsuiteTempFolder()->CreateFolder([name := "docs." || randomdocroot]);
+  OBJECT subpath := testfolder->CreateFolder([name := "docsubpath"]); //from webhare_testsuite moduledefinition.xml
+  OBJECT docindex := subpath->CreateFile(
+     [ name := "whdocs-v1.json"
+     , publish := TRUE
+     , data := EncodeJSONBlob([ languages := [[ code := "en"
+                                              , topics := [[ topic := "exists", link := "existingdocs" ]]
+                                             ]]
+                              ])
+     ]);
+
+  WriteRegistryKey("webhare_testsuite.tests.docroot", GetTestsuiteTempFolder()->objecturl || "docs." || randomdocroot); //NOTE: no final slash... we expect the docscode to be robust against that
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(testfolder->id);
+
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs"));
   TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
   TestEq("https://www.example.com/", TT("alwayshelp")->GetDocumentationURL());
@@ -33,6 +57,8 @@ ASYNC MACRO TestDocumentationSite()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
   TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
   TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
+  TestEq(FALSE, TTIsVisible("remotehelp_doesnotexist->helpicon"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Let's build a documentation testsite

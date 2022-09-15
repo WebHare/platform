@@ -24,3 +24,30 @@ to hold the actual documentation.
 You can point `SetupDynamicDocumentation` to a folder of this type using a `site::`
 path. Set the `editdocumentation` in the setup call to allow the current user
 to add and edit the documentation (you would generally use a `HasRight` check)
+
+## Remote documentation
+A `doclink=` of the form `module:path` refers to the `<documentation><embedded>` node of that module's definition. This
+element is used to construct the documentation index by downloading `<rooturl>/<subpath>/whdocs-v1.json`.
+
+The JSON file should have the following structure
+- languages: array of objects:
+  - code: string, eg 'en'
+  - texts: array of objects:
+    - topic: eg "objectprops/general"
+    - link: documentation link relative to whdocs-v1.json
+
+Example:
+```json
+{ "languages":
+  [ { "code": "en"
+    , "texts": [ { "topic": "objectprops/general"
+                 , "link": "objectprops-general/"
+                 }
+               , { "topic": "objectprops/seosettings"
+                 , "link": "objectprops-seo/"
+                 }
+               ]
+    }
+  ]
+}
+```
