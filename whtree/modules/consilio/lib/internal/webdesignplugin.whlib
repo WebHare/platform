@@ -12,7 +12,7 @@ PUBLIC STATIC OBJECTTYPE RobotsPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
-    siteprofile->AddWarning(node, `The <robots xmlns="http://www.webhare.net/xmlns/consilio"> version of this plugin has been deprecated. See https://www.webhare.dev/reference/siteprofiles/seo-settings...`);
+    siteprofile->AddHint(node, `The <robots xmlns="http://www.webhare.net/xmlns/consilio"> version of this plugin has been deprecated. See https://www.webhare.dev/reference/siteprofiles/seo-settings...`);
     RETURN [ noindex  := ParseXSBoolean(node->GetAttribute("noindex"))
            , nofollow := ParseXSBoolean(node->GetAttribute("nofollow"))
            , noarchive := ParseXSBoolean(node->GetAttribute("noarchive"))
