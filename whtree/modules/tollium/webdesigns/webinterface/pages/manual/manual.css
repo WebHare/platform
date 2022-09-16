@@ -3,3 +3,18 @@ div.wh-tollium--manual
   background-color: #f5f9fd !important;
   padding: 10px;
 }
+  div.wh-tollium--manual h1
+, div.wh-tollium--manual h2
+, div.wh-tollium--manual h3
+, div.wh-tollium--manual p
+, div.wh-tollium--manual ul
+, div.wh-tollium--manual ol
+{
+  margin-bottom: 10px;
+}
+
+  div.wh-tollium--manual ul
+, div.wh-tollium--manual ol
+{
+  padding-left: 20px;
+}

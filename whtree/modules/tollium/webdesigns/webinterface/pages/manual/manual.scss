@@ -1,0 +1,17 @@
+
+html.wh-tollium--manual
+{
+  background: transparent;
+
+  body
+  {
+    margin: 10px;
+    display: block;
+    min-height: auto;
+  }
+
+  .wh-backend__topbar, .wh-backend__bottombar
+  {
+    display:none;
+  }
+}
