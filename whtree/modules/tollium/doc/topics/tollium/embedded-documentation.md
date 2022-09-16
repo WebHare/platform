@@ -59,6 +59,5 @@ but the requested the topic isn't present. The missing topic, language and refer
 to the URL. You would use this to inform editors on how to set up missing documentation
 
 ## WebHare platform documentation
-The remote documentation for the core modules is hosted on https://docs.webhare.dev/embedded-documentation/
-(this path is stored in the `system.webhare.docroot` key). This is the URL
-Documentation for the WebHare platform modules is
+The remote documentation for all builtin modules are hosted on https://docs.webhare.dev/embedded-documentation/.
+This path is stored in the `system.services.webhare.docroot` registry key.

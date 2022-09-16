@@ -1139,7 +1139,7 @@
   </hooking>
 
   <documentation>
-    <embedded rooturlkey="system.services.webhare.docroot" subpath="publisher" /> <!-- all ours builtin module embeded docs live on https://docs.webhare.dev/embedded-documentation/ so they share one key -->
+    <embedded rooturlkey="system.services.webhare.docroot" subpath="publisher" />
     <xmlschemas>
       <xmlschema path="components.xsd" title="Components from the Publisher module"/>
       <xmlschema path="siteprofile.xsd" title="Site profile specification"/>
