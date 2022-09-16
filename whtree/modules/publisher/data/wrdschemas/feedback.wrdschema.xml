@@ -16,7 +16,7 @@
 
   <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">
     <attributes>
-      <!-- Currently 1 -->
+      <!-- Currently 2 -->
       <integer tag="VERSION" title="Version" />
 
       <!-- Feedback tracking id, eg FB1234 -->
@@ -50,6 +50,7 @@
       <free tag="BROWSER" title="Browser triplet" />
       <free tag="DEVICE" title="Browser device" />
       <free tag="USERAGENT" title="Browser user agent" />
+      <free tag="URL" title="The URL the screenshot was taken of" />
 
       <domain tag="TYPE" domain="FEEDBACKTYPE" />
       <free tag="REMARKS" />
