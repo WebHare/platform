@@ -7,6 +7,9 @@
       <heading title="alwayshelp" name="alwayshelp" doclink="https://www.example.com/" />
       <heading title="neverhelp" name="neverhelp" />
       <heading title="relativehelp" name="relativehelp" doclink="/subpage" />
+      <hr/>
+      <heading title="remotehelp_exists" name="remotehelp_exists" doclink="webhare_testsuite:exists" />
+      <heading title="remotehelp_doesnotexist" name="remotehelp_doesnotexist" doclink="webhare_testsuite:doesnotexist" />
     </body>
   </screen>
 

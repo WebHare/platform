@@ -17,6 +17,14 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- A float that should be in the range 0..1 (opacity, percentages..) -->
+  <xs:simpleType name="Float_0_1">
+    <xs:restriction base="xs:float">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- A 24 hour time (like xs:time without timezone and no 23:59:60 shenanigans) -->
   <xs:simpleType name="Time24H">
     <xs:restriction base="xs:string">

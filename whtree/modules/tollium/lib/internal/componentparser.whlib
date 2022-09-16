@@ -233,6 +233,10 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     {
       RETURN [ defaultvalue := ToMoney(defaultval,0.0), finaltype := TYPEID(MONEY) ];
     }
+    IF(attrtype->name = "Float_0_1") // float limited to 0..1 rnage
+    {
+      RETURN [ defaultvalue := ToFloat(defaultval,0.0), finaltype := TYPEID(FLOAT) ];
+    }
     IF(attrtype->name = "ImageSrcList")
     {
       STRING ARRAY defval := SELECT AS STRING ARRAY ReadIconRef(module, val) FROM ToRecordArray(ParseXSList(defaultval), "val");

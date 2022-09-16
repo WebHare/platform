@@ -437,14 +437,20 @@ vercomp () {
       return 0
   fi
   local IFS=.
-  local i ver1=($1) ver2=($2)
+  local ver1number="${1%-*}" ver2number="${2%-*}"
+  local ver1suffix ver2suffix
+  # check if we truncated something, if so, grab the suffix
+  [ "$ver1number" != "$1" ] && ver1suffix="-${1#*-}"
+  [ "$ver2number" != "$2" ] && ver2suffix="-${2#*-}"
+
+  local i ver1=($ver1number) ver2=($ver2number)
+
   # fill empty fields in ver1 with zeros
   for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
   do
       ver1[i]=0
   done
-  #echo VERCOMP APRTS 1: ${ver1[*]}
-  #echo VERCOMP APRTS 2: ${ver2[*]}
+
   for ((i=0; i<${#ver1[@]}; i++))
   do
       if [[ -z ${ver2[i]} ]]
@@ -452,6 +458,7 @@ vercomp () {
           # fill empty fields in ver2 with zeros
           ver2[i]=0
       fi
+
       if ((10#${ver1[i]} > 10#${ver2[i]}))
       then
           return 1 #ver1 (LHS) is NEWER than ver2
@@ -462,13 +469,10 @@ vercomp () {
       fi
   done
 
-  local lastver1=${ver1[${#ver1[@]} - 1]}
-  local lastver2=${ver2[${#ver2[@]} - 1]}
-
-  if [[ $lastver2 =~ - ]] && ! [[ $lastver1 =~ - ]] ; then #Comparing 1.2.3 to 1.2.3-xyz
+  if [[ $ver2suffix =~ - ]] && ! [[ $ver1suffix =~ - ]] ; then #Comparing 1.2.3 to 1.2.3-xyz
     return 1 #ver1 (without a -xxx) is thus newer than ver2
   fi
-  if [[ $lastver1 =~ - ]] && ! [[ $lastver2 =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
+  if [[ $ver1suffix =~ - ]] && ! [[ $ver2suffix =~ - ]] ; then #Comparing 1.2.3-xyz to 1.2.3
     return 2 #ver1 is older
   fi
 

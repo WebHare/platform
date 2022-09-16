@@ -31,6 +31,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/contexts.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/embeddeddocs.whlib";
 LOADLIB "mod::tollium/lib/internal/language.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
@@ -1726,12 +1727,16 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   {
     IF(doclink = "")
       RETURN DEFAULT RECORD;
-    IF(IsAbsoluteURL(doclink))
+    IF(IsValidPlainHTTPURL(doclink))
     {
       RETURN [ editinfo := DEFAULT RECORD
              , url := doclink
+             , missing := FALSE
              ];
     }
+
+    IF(doclink LIKE "*:*") //not a URL but still a colon.. is our new approach to docs and doesn't require any runtime setup
+      RETURN GetRemoteEmbeddedDocumentation(this->contexts, doclink);
 
     IF(NOT RecordExists(this->docsettings))
       RETURN DEFAULT RECORD;
@@ -1753,7 +1758,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
         editinfo := [ parent := this->docsettings.basefolder->id, name := ToLowercase(sublink) ];
 
       IF(RecordExists(match) OR RecordExists(editinfo))
-        RETURN CELL[ editinfo, url := RecordExists(match) ? match.link : "" ];
+        RETURN CELL[ editinfo, url := RecordExists(match) ? match.link : "", missing := NOT RecordExists(match) ];
       ELSE
         RETURN DEFAULT RECORD;
     }
@@ -1761,6 +1766,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     {
       RETURN [ editinfo := DEFAULT RECORD
              , url := ResolveToAbsoluteURL(this->docsettings.baseurl, sublink)
+             , missing := FALSE
              ];
     }
 

@@ -236,6 +236,7 @@
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
       <boolean name="taskthrownow" />
+      <string name="docroot" />
     </node>
     <node name="apis">
       <record name="twitter_testclient" />
@@ -497,5 +498,9 @@
     <target name="siteprofilehook" />
     <intercept name="publisher_whfsindex" target="publisher:whfsindex_priority" interceptfunction="lib/internal/hooks.whlib#HookPublisherIndexPriorities" />
   </hooking>
+
+  <documentation>
+    <embedded rooturlkey="webhare_testsuite.tests.docroot" subpath="docsubpath" />
+  </documentation>
 
 </module>

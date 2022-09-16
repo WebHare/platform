@@ -475,6 +475,7 @@ PUBLIC OBJECTTYPE ImageTest EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
+    ^opacity->value := 0.75;
   }
 
   MACRO DoUpdatePlaceHolder()
@@ -532,6 +533,11 @@ PUBLIC OBJECTTYPE ImageTest EXTEND TolliumScreenBase
   MACRO DoClearOnClick()
   {
     this->image->onclick := DEFAULT FUNCTION PTR;
+  }
+
+  MACRO OnOpacityChange()
+  {
+    ^image->opacity := ^opacity->value;
   }
 >;
 

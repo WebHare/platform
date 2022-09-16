@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# wh runtest system.test-wh-functions
 source "${WEBHARE_DIR}/lib/wh-functions.sh"
 
 testEq()
@@ -59,6 +59,10 @@ testVersionChecks()
   testRejectedUpgrade 4.34.0     5.0.0-dev  "Should not allow you to upgrade from 4.34 straight to 5.0"
   testRejectedUpgrade 4.34.99    5.0.0-dev  "Should not allow you to upgrade from 4.34 straight to 5.0"
   testRejectedUpgrade 4.35.0-dev 5.0.0-dev  "Should not allow you to upgrade from 4.35 dangerous prereleases straight to 5.0"
+
+  testAllowedUpgrade  5.1.0-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to a custom version should be accepted, and '-' shouldn't confuse the parser"
+  testAllowedUpgrade  5.1.0-dev  5.1.1-custom-5.1  "A 'sideways' upgrade to a newer is acceptable"
+  testRejectedUpgrade 5.1.1-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to a older is unacceptable"
 }
 
 testDockerTagCalculation()

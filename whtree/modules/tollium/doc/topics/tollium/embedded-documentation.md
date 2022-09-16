@@ -24,3 +24,40 @@ to hold the actual documentation.
 You can point `SetupDynamicDocumentation` to a folder of this type using a `site::`
 path. Set the `editdocumentation` in the setup call to allow the current user
 to add and edit the documentation (you would generally use a `HasRight` check)
+
+## Remote documentation
+A `doclink=` of the form `module:path` refers to the `<documentation><embedded>` node of that module's definition. This
+element is used to construct the documentation index by downloading `<rooturl>/<subpath>/whdocs-v1.json`.
+
+The JSON file should have the following structure
+- languages: array of objects:
+  - code: string, eg 'en'
+  - texts: array of objects:
+    - topic: eg "objectprops/general"
+    - link: documentation link relative to whdocs-v1.json
+- editfallback: link to editor information, relative to whdocs-v1.json
+
+Example:
+```json
+{ "languages":
+  [ { "code": "en"
+    , "topics": [ { "topic": "objectprops/general"
+                  , "link": "objectprops-general/"
+                  }
+                , { "topic": "objectprops/seosettings"
+                  , "link": "objectprops-seo/"
+                  }
+                ]
+    }
+  ]
+, "editfallback": "docs-missing/"
+}
+```
+
+The 'missingtopic' link is used when a user has editing rights to the documentation
+but the requested the topic isn't present. The missing topic, language and referrer URL are added
+to the URL. You would use this to inform editors on how to set up missing documentation
+
+## WebHare platform documentation
+The remote documentation for all builtin modules are hosted on https://docs.webhare.dev/embedded-documentation/.
+This path is stored in the `system.services.webhare.docroot` registry key.

@@ -1,15 +1,41 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 ASYNC MACRO TestDocumentationSite()
 {
+  //Setup docroot URL. note that there should be some way to ensure/verify that the Help system can prescan/preload URLs as to not break the UI waiting for remote assets
+  testfw->BeginWork();
+
+  STRING randomdocroot := GenerateUFS128BitId();
+  OBJECT testfolder := GetTestsuiteTempFolder()->CreateFolder([name := "docs." || randomdocroot]);
+  OBJECT subpath := testfolder->CreateFolder([name := "docsubpath"]); //from webhare_testsuite moduledefinition.xml
+  OBJECT docindex := subpath->CreateFile(
+     [ name := "whdocs-v1.json"
+     , publish := TRUE
+     , data := EncodeJSONBlob([ languages := [[ code := "en"
+                                              , topics := [[ topic := "exists", link := "existingdocs" ]]
+                                             ]]
+                              , editfallback := "docs-missing/"
+                              ])
+     ]);
+
+  WriteRegistryKey("webhare_testsuite.tests.docroot", GetTestsuiteTempFolder()->objecturl || "docs." || randomdocroot); //NOTE: no final slash... we expect the docscode to be robust against that
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(testfolder->id);
+
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs"));
   TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
   TestEq("https://www.example.com/", TT("alwayshelp")->GetDocumentationURL());
@@ -30,9 +56,27 @@ ASYNC MACRO TestDocumentationSite()
   TestEq("", openhelp.params[1]);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
   TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
   TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
+  TestEq(1f, TT("remotehelp_exists->helpicon")->opacity);
+  TestEq(FALSE, TTIsVisible("remotehelp_doesnotexist->helpicon"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", TRUE);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_doesnotexist->helpicon")); //should now offer editing
+  TestEq(`${subpath->objecturl}existingdocs`, TT("remotehelp_exists")->GetDocumentationURL());;
+  TestEqLike(`${subpath->objecturl}docs-missing?*`, TT("remotehelp_doesnotexist")->GetDocumentationURL());
+  TestEq("doesnotexist", GetVariableFromURL(TT("remotehelp_doesnotexist")->GetDocumentationURL(), "topic"));
+  TestEq(0.5f, TT("remotehelp_doesnotexist->helpicon")->opacity);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Let's build a documentation testsite

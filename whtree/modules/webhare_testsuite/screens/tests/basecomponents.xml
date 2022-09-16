@@ -397,7 +397,7 @@
         <col width="1pr" />
         <row>
           <cell>
-            <image name="image" title="image" onclick="ondirectclick" action="actionclick" />
+            <image name="image" title="image" onclick="ondirectclick" action="actionclick" opacity="0.75"/>
           </cell>
           <cell>
             <line>
@@ -408,6 +408,7 @@
               <checkbox name="action2checkbox" />
               <button action="action2" title="Action2" />
             </line>
+            <textedit name="opacity" value="0.75" decimals="2" onchange="onopacitychange" valuetype="float" minvalue="0" maxvalue="1" title="Opacity" />
           </cell>
         </row>
       </grid>

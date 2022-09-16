@@ -257,6 +257,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   */
   RECORD ARRAY scheduledmessageboxes;
 
+  // is the sidetabs experiment activated?
+  BOOLEAN sidetabs;
+
   RECORD basesettings;
 
   // ---------------------------------------------------------------------------
@@ -290,6 +293,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     this->autotitles := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
     this->showdeveloperoptions := this->tolliumuser->HasRight("system:supervisor");
     this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
+    this->sidetabs := this->tolliumuser->GetRegistryKey("publisher.prefs.sidetabs", FALSE);
   }
 
   MACRO Init(RECORD data)
@@ -464,7 +468,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
     this->UpdatePinned(); // also calls this->ApplyVersioningPolicy();
 
-    IF(ReadRegistryKey("publisher.filemgr.objectpropssidetabs")) //EXPERIMENTAL!
+    IF(this->sidetabs)
     {
       ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
       FOREVERY(OBJECT page FROM ^maintabs->pages)
@@ -475,6 +479,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
     ELSE
     {
+      ^maintab_heading->visible := FALSE;
+      ^seotab_heading->visible := FALSE;
+      ^typeh->doclink := "";
+      ^tasksettings_heading->visible := FALSE;
+      ^linkcheck_heading->visible := FALSE;
       ^tablistgrid->visible := FALSE;
       ^maintabs->RemoveFromParent();
       ^tablistgrid->parent->InsertComponentBefore(^maintabs,^tablistgrid,TRUE);

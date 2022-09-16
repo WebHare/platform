@@ -50,6 +50,7 @@ export default class ObjImage extends ActionableBase
     this.imgwidth = 0;
     this.imgheight = 0;
     this.objectfit = data.objectfit;
+    this.opacity = data.opacity ?? 1;
 
 
     // Overlays support ////////////////////////////////////////////
@@ -186,7 +187,9 @@ export default class ObjImage extends ActionableBase
     let imgdefer = dompack.createDeferred();
     let interfacelock = dompack.flagUIBusy();
 
-    this.imgnode = dompack.create('img', { style: { opacity: 0, objectFit: this.objectfit } //hide the image while loading
+    this.imgnode = dompack.create('img', { style: { opacity: 0  //hide the image while loading
+                                                  , objectFit: this.objectfit
+                                                  }
                                          , on: { load:  event => imgdefer.resolve(this)
                                                , error: error => imgdefer.reject(error)
                                                }
@@ -566,7 +569,7 @@ export default class ObjImage extends ActionableBase
     {
       dompack.setStyles(this.imgnode, { "width": coords.width
                                       , "height": coords.height
-                                      , "opacity":"1"
+                                      , "opacity": this.opacity
                                       });
     }
 

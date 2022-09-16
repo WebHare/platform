@@ -1901,7 +1901,7 @@ The full base URL on which this site will be published, calculated by combining 
       </node>
       <node name="filemgr">
         <boolean name="defaultautotitles" description="Default autotitle setting" initialval="false" />
-        <boolean name="objectpropssidetabs" description="Enable experimental objectprops sidetabs" initialval="false" />
+        <obsoletekey name="objectpropssidetabs" />
       </node>
       <node name="trashcan">
         <integer name="trashcanexpire" initialval="90" description="Expiry time for trashcan items in days (0 to disable)" />
@@ -1977,6 +1977,7 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="webhare">
           <obsoletenode name="servicesurl" />
           <string name="serviceshosts" description="URL to provider of integrated WebHare services" initialval="services-1.webhare.com services-2.webhare.com" />
+          <string name="docroot" description="Embedded documentation root" initialval="https://docs.webhare.dev/embedded-documentation/" />
         </node>
         <node name="smtp"> <!-- system.services.smtp -->
           <string name="mailfrom" description="Default FROM address" />

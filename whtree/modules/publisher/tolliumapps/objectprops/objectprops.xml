@@ -67,6 +67,7 @@
               <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
 
               <!-- general fields -->
+              <heading name="maintab_heading" tid=".maintab" doclink="publisher:objectprops/general" />
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <textedit name="title" width="1pr" maxlength="256" tid="~title" />
               <textedit composition="seosettings"
@@ -96,7 +97,7 @@
               <!-- Site-specific fields -->
 
               <!-- box name=settings endewd here -->
-              <heading name="typeh" tid=".info" />
+              <heading name="typeh" tid=".info" doclink="publisher:objectprops/general-properties" />
               <line>
                 <text name="type" />
                 <text name="size" title="" />  <!-- tid=".size" -->
@@ -128,6 +129,7 @@
               </panel>
             </tab>
             <tab name="seotab" title="">
+              <heading name="seotab_heading" tid=".seotab" doclink="publisher:objectprops/seotab" />
               <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
               <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
               <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
@@ -152,6 +154,7 @@
               <spacer name="seotabinsertpoint" visible="false" />  <!-- this is just an insertion point -->
             </tab>
             <tab name="tasksettings" height="1pr">
+              <heading name="tasksettings_heading" tid=".tasksettings" doclink="publisher:objectprops/tasks" />
               <grid>
                 <col width="1pr" />
                 <col />
@@ -182,6 +185,7 @@
               </grid>
             </tab>
             <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
+              <heading name="linkcheck_heading" tid=".linkcheck" doclink="publisher:objectprops/linkcheck" />
               <includefragment name="objectreport" fragment="consilio:report.objectreport" />
             </tab>
           </tabs>
