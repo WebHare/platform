@@ -274,6 +274,18 @@ describe("test_compileerrors", (done) =>
     assert(result.haserrors === true);
   });
 
+  it("TypeScript with jsx is working", async function()
+  {
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript-jsx/test-typescript.tsx", false);
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript-jsx/test-typescript.tsx")), 'test-typescript.tsx');
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript-jsx/test-typescript-2.tsx")), 'test-typescript-2.tsx'); // loaded by test-typescript.tsx
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript-jsx/folder/index.tsx")), 'typescript/index.tsx'); // loaded by test-typescript.tsx
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
+  });
+
   it("cleanup", () =>
   {
     bridge.close(); //otherwise mocha wont terminate
