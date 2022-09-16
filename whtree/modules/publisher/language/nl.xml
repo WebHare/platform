@@ -1761,38 +1761,48 @@
     </textgroup>
     <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
       <text tid="apptitle">Feedback</text>
+      <textgroup gid="escalate">   <!-- tolliumapps.feedback.escalate -->
+        <text tid="escalate">Escaleren naar Service Desk</text>
+        <text tid="message">Bericht</text>
+      </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
         <text tid="appversions">Applicatieversies</text>
         <text tid="browser">Browser</text>
         <text tid="device">Apparaat</text>
-        <text tid="download">HTML downloaden</text>
         <text tid="extradata">Aanvullende gegevens</text>
         <text tid="feedback">Feedback</text>
         <text tid="login">Gebruikersnaam</text>
         <text tid="name">Naam</text>
-        <text tid="noextradata">Er zijn geen aanvullende gegevens beschikbaar</text>
-        <text tid="scaled">Maak de schermafbeelding passend</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Versie</text>
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
         <text tid="addcomment">Voeg toe</text>
-        <text tid="browser">Browser</text>
+        <text tid="anonymous">Anonieme gebruiker</text>
+        <text tid="close">Afsluiten</text>
         <text tid="comment">Opmerking</text>
-        <text tid="device">Apparaat</text>
+        <text tid="comments">Opmerkingen</text>
+        <text tid="escalate">Escaleren</text>
         <text tid="feedback">Feedback</text>
         <text tid="feedbackid">Feedback ID</text>
+        <text tid="feedbackmultihint">Dubbele-rij indeling</text>
+        <text tid="feedbacksinglehint">Enkele-rijd indeling</text>
+        <text tid="filter">Filters</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
         <text tid="remarks">Opmerkingen</text>
         <text tid="reportedby">Gemeld door</text>
-        <text tid="scope">Scope</text>
-        <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
+        <text tid="screenshot">Schermafbeelding</text>
         <text tid="status">Status</text>
+        <text tid="status-all">Alles</text>
+        <text tid="status-closed">Afgesloten</text>
+        <text tid="status-escalated">Geëscaleerd</text>
+        <text tid="status-new">Nieuw</text>
         <text tid="type">Type</text>
-        <text tid="wrd_creationdate">Wanneer</text>
+        <text tid="wrd_modificationdate">Wanneer</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
+          <text tid="confirmclosefeedback">Weet u zeker dat u deze feedback wilt afsluiten?</text>
           <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
           <text tid="unsupportedversion">Deze feedback kan niet worden weergegeven.</text>
         </textgroup>
