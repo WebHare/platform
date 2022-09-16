@@ -1809,9 +1809,11 @@
         <text tid="type">Type feedback</text>
       </textgroup>
       <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
+        <text tid="assigned">Toegewezen</text>
         <text tid="bug">Fout</text>
         <text tid="closed">Afgesloten</text>
         <text tid="creating">Wordt aangemaakt</text>
+        <text tid="escalated">Geëscaleerd</text>
         <text tid="feedback">Algemene feedback</text>
         <text tid="layout">Layout</text>
         <text tid="missingtid">Missende tekst</text>

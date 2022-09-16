@@ -54,7 +54,7 @@
 
       <domain tag="TYPE" domain="FEEDBACKTYPE" />
       <free tag="REMARKS" />
-      <enum tag="STATUS" allowedvalues="creating new closed resolved" gid="tolliumapps.feedback.types" required="true"/>
+      <enum tag="STATUS" allowedvalues="creating new assigned escalated closed resolved" gid="tolliumapps.feedback.types" required="true"/>
 
       <!--
         When a logged in user is recognized, the result of GetUserDataForLogging
@@ -74,7 +74,7 @@
 
   <attachment tag="LOG" linkfrom="FEEDBACK">
     <attributes>
-      <enum tag="STATUSCHANGE" allowedvalues="new closed resolved" gid="tolliumapps.feedback.types" />
+      <enum tag="STATUSCHANGE" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
       <free tag="TEXT" />
       <record tag="WEBHAREUSER" required="true" />
     </attributes>
