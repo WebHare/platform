@@ -479,6 +479,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
     ELSE
     {
+      ^maintab_heading->visible := FALSE;
+      ^seotab_heading->visible := FALSE;
+      ^typeh->doclink := "";
+      ^tasksettings_heading->visible := FALSE;
+      ^linkcheck_heading->visible := FALSE;
       ^tablistgrid->visible := FALSE;
       ^maintabs->RemoveFromParent();
       ^tablistgrid->parent->InsertComponentBefore(^maintabs,^tablistgrid,TRUE);
