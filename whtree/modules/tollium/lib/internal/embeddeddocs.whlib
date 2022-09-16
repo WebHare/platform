@@ -13,11 +13,12 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 RECORD checkedmodules;
 
 CONSTANT RECORD docinfostructure :=
- [ languages :=
-   [[ code := ""
-    , texts := [[ topic := "", link := "" ]]
-   ]]
-];
+  [ languages :=
+    [[ code := ""
+      , texts := [[ topic := "", link := "" ]]
+     ]]
+  , editfallback := ""
+  ];
 
 RECORD FUNCTION GetModuleDefEmbedNode(STRING modulename)
 {
@@ -89,10 +90,11 @@ RECORD FUNCTION GetModuleDocInfo(STRING modulename)
   IF(RecordExists(embedinfo))
     moduleinfo := DownloadDocInfo(embedinfo);
   checkedmodules := CellInsert(checkedmodules, modulename, moduleinfo);
+
   RETURN moduleinfo;
 }
 
-PUBLIC RECORD FUNCTION GetRemoteEmbeddedDocumentation(STRING doclink)
+PUBLIC RECORD FUNCTION GetRemoteEmbeddedDocumentation(OBJECT contexts, STRING doclink)
 {
   STRING modulename := Left(doclink, SearchSubstring(doclink, ':'));
   STRING sublink := Substring(doclink, Length(modulename) + 1);
@@ -102,14 +104,30 @@ PUBLIC RECORD FUNCTION GetRemoteEmbeddedDocumentation(STRING doclink)
     RETURN DEFAULT RECORD;
 
   RECORD mylang := SELECT * FROM modinfo.languages WHERE code = GetTidLanguage();
-  IF(NOT RecordExists(mylang))
-    RETURN DEFAULT RECORD;
+  IF(RecordExists(mylang))
+  {
+    RECORD mytopic := SELECT * FROM mylang.topics WHERE topic = sublink;
+    IF(RecordExists(mytopic) AND mytopic.link != "")
+    {
+      RETURN [ editinfo := DEFAULT RECORD
+             , url := ResolveToAbsoluteURL(modinfo.base, mytopic.link)
+             , missing := FALSE
+             ];
+    }
+  }
 
-  RECORD mytopic := SELECT * FROM mylang.topics WHERE topic = sublink;
-  IF(NOT RecordExists(mytopic) OR mytopic.link = "")
-    RETURN DEFAULT RECORD;
+  IF(modinfo.editfallback != "" AND contexts->user->ShowDeveloperOptions()) //there may be some edit info there...
+  {
+    RETURN [ editinfo := DEFAULT RECORD
+           , url := UpdateURLVariables(ResolveToAbsoluteURL(modinfo.base, modinfo.editfallback)
+                                      , CELL[ topic := sublink
+                                            , lang := GetTidLanguage()
+                                            , module := modulename
+                                            , referrer := contexts->controller->baseurl
+                                            ])
+           , missing := TRUE
+           ];
+  }
 
-  RETURN [ editinfo := DEFAULT RECORD
-         , url := ResolveToAbsoluteURL(modinfo.base, mytopic.link)
-         ];
+  RETURN DEFAULT RECORD;
 }

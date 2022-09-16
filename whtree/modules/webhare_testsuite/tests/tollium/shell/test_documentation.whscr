@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -26,6 +27,7 @@ ASYNC MACRO TestDocumentationSite()
      , data := EncodeJSONBlob([ languages := [[ code := "en"
                                               , topics := [[ topic := "exists", link := "existingdocs" ]]
                                              ]]
+                              , editfallback := "docs-missing/"
                               ])
      ]);
 
@@ -54,11 +56,27 @@ ASYNC MACRO TestDocumentationSite()
   TestEq("", openhelp.params[1]);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
   TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
   TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
   TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
+  TestEq(1f, TT("remotehelp_exists->helpicon")->opacity);
   TestEq(FALSE, TTIsVisible("remotehelp_doesnotexist->helpicon"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", TRUE);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_doesnotexist->helpicon")); //should now offer editing
+  TestEq(`${subpath->objecturl}existingdocs`, TT("remotehelp_exists")->GetDocumentationURL());;
+  TestEqLike(`${subpath->objecturl}docs-missing?*`, TT("remotehelp_doesnotexist")->GetDocumentationURL());
+  TestEq("doesnotexist", GetVariableFromURL(TT("remotehelp_doesnotexist")->GetDocumentationURL(), "topic"));
+  TestEq(0.5f, TT("remotehelp_doesnotexist->helpicon")->opacity);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Let's build a documentation testsite

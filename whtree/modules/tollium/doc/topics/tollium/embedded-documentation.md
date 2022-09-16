@@ -35,6 +35,7 @@ The JSON file should have the following structure
   - texts: array of objects:
     - topic: eg "objectprops/general"
     - link: documentation link relative to whdocs-v1.json
+- editfallback: link to editor information, relative to whdocs-v1.json
 
 Example:
 ```json
@@ -49,5 +50,15 @@ Example:
                ]
     }
   ]
+, "editfallback": "docs-missing/"
 }
 ```
+
+The 'missingtopic' link is used when a user has editing rights to the documentation
+but the requested the topic isn't present. The missing topic, language and referrer URL are added
+to the URL. You would use this to inform editors on how to set up missing documentation
+
+## WebHare platform documentation
+The remote documentation for the core modules is hosted on https://docs.webhare.dev/embedded-documentation/
+(this path is stored in the `system.webhare.docroot` key). This is the URL
+Documentation for the WebHare platform modules is

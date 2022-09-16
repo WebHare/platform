@@ -81,7 +81,10 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
       RETURN;
 
     this->__doclink := newlink;
-    ^helpicon->visible := RecordExists(this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink));
+
+    RECORD helpinfo := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    ^helpicon->visible := RecordExists(helpinfo);
+    ^helpicon->opacity := RecordExists(helpinfo) AND helpinfo.missing ? 0.5f : 1f;
   }
   PUBLIC STRING FUNCTION GetDocumentationUrl()
   {
