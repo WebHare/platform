@@ -1901,7 +1901,7 @@ The full base URL on which this site will be published, calculated by combining 
       </node>
       <node name="filemgr">
         <boolean name="defaultautotitles" description="Default autotitle setting" initialval="false" />
-        <boolean name="objectpropssidetabs" description="Enable experimental objectprops sidetabs" initialval="false" />
+        <obsoletekey name="objectpropssidetabs" />
       </node>
       <node name="trashcan">
         <integer name="trashcanexpire" initialval="90" description="Expiry time for trashcan items in days (0 to disable)" />

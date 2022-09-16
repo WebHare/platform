@@ -3,7 +3,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
-
 PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
 <
   MACRO Init()
@@ -15,6 +14,8 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
       INSERT "nouploadrename" INTO opts AT END;
     IF(this->tolliumuser->GetRegistryKey("publisher.prefs.groupfolders", TRUE))
       INSERT "groupfolders" INTO opts AT END;
+    IF(this->tolliumuser->GetRegistryKey("publisher.prefs.sidetabs", FALSE))
+      INSERT "sidetabs" INTO opts AT END;
 
     IF(this->contexts->user->HasRight("system:supervisor"))
     {
@@ -56,6 +57,7 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.groupfolders", "groupfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showforeignfolders", "showforeignfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showmenubar", "showmenubar" IN opts);
+    this->tolliumuser->SetRegistryKey("publisher.prefs.sidetabs", "sidetabs" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.autotitles", ^autotitles->value);
 
     IF(^tweaks->visible)
