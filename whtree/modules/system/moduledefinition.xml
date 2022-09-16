@@ -1977,6 +1977,7 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="webhare">
           <obsoletenode name="servicesurl" />
           <string name="serviceshosts" description="URL to provider of integrated WebHare services" initialval="services-1.webhare.com services-2.webhare.com" />
+          <string name="docroot" description="Embedded documentation root" initialval="https://docs.webhare.dev/embedded-documentation/" />
         </node>
         <node name="smtp"> <!-- system.services.smtp -->
           <string name="mailfrom" description="Default FROM address" />

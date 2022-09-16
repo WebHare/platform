@@ -7,6 +7,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -15,8 +16,8 @@ RECORD checkedmodules;
 CONSTANT RECORD docinfostructure :=
   [ languages :=
     [[ code := ""
-      , texts := [[ topic := "", link := "" ]]
-     ]]
+     , topics := [[ topic := "", link := "" ]]
+    ]]
   , editfallback := ""
   ];
 
@@ -41,7 +42,7 @@ RECORD FUNCTION DownloadDocInfo(RECORD embedinfo)
 {
   STRING rooturl;
   IF(embedinfo.rooturlkey != "")
-    rooturl := ReadRegistryKey(embedinfo.rooturlkey, [ fallback := "" ]);
+    rooturl := ReadRegistryKey(embedinfo.rooturlkey);
   IF(rooturl = "")
     rooturl := embedinfo.rooturl;
 
@@ -60,16 +61,24 @@ RECORD FUNCTION DownloadDocInfo(RECORD embedinfo)
     IF(rooturl NOT LIKE "*/")
       rooturl := rooturl || "/";
 
-    IF(NOT browser->GotoWebPage(rooturl || "whdocs-v1.json"))
+    rooturl := rooturl || "whdocs-v1.json";
+
+    IF(NOT browser->GotoWebPage(rooturl))
+    {
+      LogError("tollium:embeddeddocs", `Error '${browser->GetHTTPStatusCode()}' downloading documentation from ${rooturl}`);
       RETURN DEFAULT RECORD;
+    }
 
     RECORD docinfo := DecodeJSONBlob(browser->content);
-    IF(RecordExists(docinfo)) //ELSE: throw? report if developer/dtapstage dev?
+    IF(NOT RecordExists(docinfo))
     {
-      docinfo := CELL[ ...EnforceStructure(docinfostructure, docinfo)
-                     , base := rooturl
-                     ];
+      LogError("tollium:embeddeddocs", `Unable to parse JSON document at ${rooturl}`);
+      RETURN DEFAULT RECORD;
     }
+
+    docinfo := CELL[ ...EnforceStructure(docinfostructure, docinfo)
+                   , base := rooturl
+                   ];
     RETURN docinfo;
   }
   FINALLY

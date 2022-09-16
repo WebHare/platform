@@ -41,13 +41,13 @@ Example:
 ```json
 { "languages":
   [ { "code": "en"
-    , "texts": [ { "topic": "objectprops/general"
-                 , "link": "objectprops-general/"
-                 }
-               , { "topic": "objectprops/seosettings"
-                 , "link": "objectprops-seo/"
-                 }
-               ]
+    , "topics": [ { "topic": "objectprops/general"
+                  , "link": "objectprops-general/"
+                  }
+                , { "topic": "objectprops/seosettings"
+                  , "link": "objectprops-seo/"
+                  }
+                ]
     }
   ]
 , "editfallback": "docs-missing/"
