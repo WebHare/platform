@@ -2485,6 +2485,12 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="opacity" default="1" type="sc:Float_0_1">
+      <xs:annotation>
+        <xs:documentation>Opacity (0..1), defaults to 1</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="objectfit" default="none">
       <xs:annotation>
         <xs:documentation>

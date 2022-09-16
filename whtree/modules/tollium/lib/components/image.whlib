@@ -43,6 +43,8 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
 
   STRING __objectfit;
 
+  FLOAT __opacity;
+
 
   /** @cell pvt_imginfo.data
       @cell pvt_imginfo.mimetype
@@ -76,6 +78,9 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
   /// Object fit (fill | contain | cover | none | scale-down) - not supported on IE11.
   PUBLIC PROPERTY objectfit(__objectfit, SetObjectFit);
 
+  /// Image opacity
+  PUBLIC PROPERTY opacity(__opacity, SetOpacity);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor & tollium stuff
@@ -89,7 +94,8 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
     this->pvt_placeholder := "tollium:placeholders/na";
     this->componenttype := "image";
     this->formfieldtype := "record";
-    this->objectfit := "scale-down";//"none";
+    this->__objectfit := "scale-down";
+    this->__opacity := 1;
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -99,6 +105,7 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
     this->pvt_action := def.action;
     this->placeholder := def.placeholder;
     this->pvt_onclick := def.onclick;
+    this->__opacity := def.opacity;
     this->__objectfit := def.objectfit;
 
     // Overlays
@@ -132,6 +139,7 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
                          , unmasked_events := GetUnmask(this,["click"])
                          , overlays_allowcreate := this->pvt_oncreateoverlay != DEFAULT FUNCTION PTR
                          , objectfit := this->__objectfit
+                         , opacity := this->__opacity
                          ];
 
 
@@ -213,7 +221,7 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
     this->ExtUpdatedAction();
   }
 
-  UPDATE MACRO SetObjectFit(STRING newobjectfit)
+  MACRO SetObjectFit(STRING newobjectfit)
   {
     IF(this->__objectfit = newobjectfit)
       RETURN;
@@ -222,6 +230,17 @@ PUBLIC OBJECTTYPE TolliumImage EXTEND TolliumOverlaysComponentBase
       THROW NEW Exception(`Invalid object-fit '${newobjectfit}`);
 
     this->__objectfit := newobjectfit;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetOpacity(FLOAT newopacity)
+  {
+    IF(this->__opacity = newopacity)
+      RETURN;
+    IF(newopacity < 0 OR newopacity > 1)
+      THROW NEW Exception(`Invalid opacity '${FormatFloat(newopacity,5)}' - must be in range [0,1]`);
+
+    this->__opacity := newopacity;
     this->ExtUpdatedComponent();
   }
 

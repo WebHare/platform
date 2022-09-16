@@ -14,6 +14,7 @@ test.registerTests(
         test.eq(300, img.naturalHeight);
         test.true(img.closest('.t-image--clickable'));
         test.false(test.compByName('image').classList.contains('todd--disabled'));
+        test.eq("0.75", getComputedStyle(img).opacity);
 
         // Update placeholder
         test.click(test.getMenu(['I01']));
