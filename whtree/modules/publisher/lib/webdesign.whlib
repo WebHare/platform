@@ -269,7 +269,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     this->_targetobject_fulltree := (this->targetobject ?? this->targetfolder)->GetFullTree();
 
-    IF(this->IsStaticPublication())
+    IF(this->IsStaticPublication() OR this->pvt_targetobject->typens = "http://www.webhare.net/xmlns/publisher/formwebtool")
       this->canonicalurl := this->pvt_targetobject->url;
 
     this->relativelinksscope := "protocol";
