@@ -65,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Action handlers
   //
 
-  MACRO DoView()
+  MACRO DoProperties()
   {
     IF (^feedback->selection.version NOT IN [ 1,2 ])
       this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
@@ -81,6 +81,12 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     OBJECT work := this->BeginUnvalidatedWork();
     this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "escalated" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "escalated"
+        , text := message
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
     work->Finish();
   }
 
@@ -91,6 +97,26 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     OBJECT work := this->BeginUnvalidatedWork();
     this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "closed" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "closed"
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
+    work->Finish();
+  }
+
+  MACRO DoReopen()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmreopenfeedback")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "new" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "new"
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
     work->Finish();
   }
 
@@ -227,6 +253,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
              , reportedby     := reportinfo.realname ?? reportinfo.login ?? this->GetTid(".anonymous")
              , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
              , type := GetTid(type)
+               // For now, always allow escalating/closing
+             , canescalate := status != "escalated"
+             , canclose := status != "closed"
+             , canreopen := status = "closed"
           FROM rows;
 
     RETURN rows;
@@ -316,13 +346,28 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     INSERT CELL[ curissue.wrd_creationdate
                , text := curissue.remarks
                , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
+               , statuschange := "new" // Assume the status of the feedback was 'new' at the time of the first comment
                ] INTO logentries AT END;
 
     logentries := SELECT when := this->tolliumuser->FormatDatetime(wrd_creationdate, "minutes", TRUE, FALSE)
                        , text
                        , entryby := userinfo.realname ?? userinfo.login ?? this->GetTid(".anonymous")
+                       , statuschange
                     FROM logentries
                 ORDER BY wrd_creationdate;
+
+    STRING status;
+    FOREVERY (RECORD entry FROM logentries)
+    {
+      STRING oldstatus, newstatus;
+      IF (entry.statuschange != "")
+      {
+        oldstatus := status;
+        newstatus := GetTid("publisher:tolliumapps.feedback.types." || entry.statuschange);
+        status := newstatus;
+      }
+      logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
+    }
 
     ^issuelog->blobvalue := this->issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
   }

@@ -2,16 +2,19 @@
 
   <screen name="main" allowresize="true" gid=".main" icon="tollium:actions/checklist" menubar="menubar">
     <actions>
-      <action name="view" onexecute="doview" tid="~view">
-        <enableon source="feedback" min="1" />
-      </action>
       <action name="escalate" onexecute="doescalate">
-        <enableon source="feedback" min="1" />
+        <enableon source="feedback" min="1" checkflags="canescalate" />
       </action>
       <action name="close" onexecute="doclose">
-        <enableon source="feedback" min="1" />
+        <enableon source="feedback" min="1" checkflags="canclose" />
+      </action>
+      <action name="reopen" onexecute="doreopen">
+        <enableon source="feedback" min="1" checkflags="canreopen" />
       </action>
       <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+        <enableon source="feedback" min="1" />
+      </action>
+      <action name="properties" onexecute="doproperties" shortcut="ctrl+i" tid="~properties">
         <enableon source="feedback" min="1" />
       </action>
       <action name="togglefilter" onexecute="dotogglefilter" title="" />
@@ -20,21 +23,33 @@
       <action name="addcomment">
         <enableon source="feedback" min="1" max="1" onexecute="doaddcomment" />
       </action>
-      <action name="settings" onexecute="dosettings" tid="~settings" />
       <action name="export" onexecute="doexport" tid="~export" />
-      <action name="exit" onexecute="doexit" tid="~exit" />
+      <action name="settings" onexecute="dosettings" tid="~settings" />
+      <action name="exit" onexecute="doexit" shortcut="ctrl+q" tid="~exit" />
     </actions>
 
     <menus>
       <menu name="menubar">
         <item tid=".feedback">
-          <item action="view" />
+          <item action="escalate" />
+          <item action="close" />
+          <item action="reopen" />
+          <divider />
           <item action="delete" />
+          <item action="properties" />
         </item>
         <item action="export" />
         <item action="settings" />
         <divider />
         <item action="exit" />
+      </menu>
+      <menu name="selectcontext">
+        <item action="escalate" />
+        <item action="close" />
+        <item action="reopen" />
+        <divider />
+        <item action="delete" />
+        <item action="properties" />
       </menu>
     </menus>
 
@@ -43,11 +58,11 @@
     </compositions>
 
     <toolbar>
-      <button action="view" icon="tollium:actions/view" />
-      <button action="escalate" icon="tollium:actions/view" />
+      <button action="escalate" icon="tollium:objects/envelope+tollium:overlays/forward" />
+      <button action="close" icon="tollium:objects/envelope+tollium:overlays/strike" />
       <divider />
-      <button action="close" icon="tollium:actions/view" />
       <button action="delete" icon="tollium:actions/delete" />
+      <button action="properties" icon="tollium:actions/properties" />
     </toolbar>
 
     <body spacers="none">
@@ -92,9 +107,12 @@
           <list name="feedback"
                 height="1pr"
                 borders="none"
+                emptytid=".nofeedback"
+                flags="canescalate canclose canreopen"
                 ongetchildren="getfeedbackrows"
                 onselect="onfeedbackselect"
-                openaction="view"
+                openaction="properties"
+                selectcontextmenu="selectcontext"
                 selectmode="single"
                 sortascending="false"
                 sortcolumn="wrd_modificationdate">
@@ -172,7 +190,7 @@
     </body>
   </screen>
 
-  <screen name="feedback" width="1000x" height="100x" footerbuttons="close" gid=".feedback">
+  <screen name="feedback" width="100x" height="40x" footerbuttons="close" gid=".feedback">
     <compositions>
       <record name="data" />
       <record composition="data" cellname="userdata" name="userdata" />

@@ -57,6 +57,10 @@
         content: "";
         display: block;
       }
+      div.status
+      {
+        font-style: italic;
+      }
     </style>
     <script src="/.publisher/backend/feedback/issues.js"></script>
   </head>
@@ -67,11 +71,12 @@
           <span class="date">[when]</span>
           <b>[entryby]</b>
         </div>
-[!         [if not externalversion]
-          <div class="internalinfo">
-            [if oldstatus]<span class="status">[oldstatus] => [newstatus]</span>[/if]
-          </div>
-        [/if] !]
+        [if oldstatus]
+          <div class="status">[gettid tolliumapps.feedback.main.statuschange oldstatus newstatus]</div>
+        [elseif newstatus]
+          [! Feedback created (status change from '' to 'new') !]
+          <div class="status">[gettid tolliumapps.feedback.main.feedbackadded]</div>
+        [/if]
 
         [if text]
           <div class="text">[text]</div>
