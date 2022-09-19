@@ -369,6 +369,11 @@ MACRO PublisherSearchTest()
   TestEq(FALSE, CellExists(items[5], '_score'));
   TestEq(FALSE, CellExists(items[5], '_summary'));
 
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla", [ querymode := "OR" ])]), [ highlightfields := ["title"] ]);
+  TestEq(1, result.totalcount);
+  items := SELECT * FROM result.results ORDER BY whfspath;
+  TestEq("blafile &#38; co", items[0].title); // title should be encoded if it's highlighted
+
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["_summary"], summaryfield := "_summary" ]);
   TestEq(6, result.totalcount);
 

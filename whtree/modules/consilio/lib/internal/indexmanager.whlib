@@ -488,7 +488,17 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   RETURN result;
 }
 
-// query is an Opensearch query, not a WebHare query
+// Recursively add a highlight record to nested queries
+// @param searchquery An Opensearch query, not a WebHare CQ query
+// @cell options.highlightfields The fields in which to highlight matches (both fields that should be summarized and fields
+//     that should be returned completely)
+// @cell options.highlightparts The fields for which a summary with match highlighting should be returned
+// @cell options.summary The length of generated summaries (0 for no summary, -1 for default)
+// @cell options.defaultsummary The default length of generated summaries
+// @cell options.addparthighlighting If summaries should be generated for the highlightparts fields
+// @cell options.path The current nested query path
+// @cell return.query The query with added highlight records
+// @cell return.highlightfields Remaining fields to be highlighted (fields already highlighted in nested queries are not returned)
 RECORD FUNCTION AddQueryHighlighting(RECORD searchquery, RECORD options)
 {
   IF (CellExists(searchquery, "query") AND RecordExists(searchquery.query))
@@ -529,9 +539,9 @@ RECORD FUNCTION AddQueryHighlighting(RECORD searchquery, RECORD options)
   RETURN CELL[ query := searchquery, options.highlightfields ];
 }
 
+// This function does the actual adding of the highlight record, returning the augmented query and remaining highlightfields
 RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
 {
-  // Add highlighting for the requested highlight fields
   STRING ARRAY highlightfields := options.path != "" ? SELECT AS STRING ARRAY field FROM ToRecordArray(options.highlightfields, "field") WHERE field LIKE options.path || ".*" : options.highlightfields;
   options.highlightfields := ArrayDelete(options.highlightfields, highlightfields);
   IF (options.addparthighlighting OR Length(highlightfields) > 0)
@@ -540,6 +550,7 @@ RECORD FUNCTION AddFieldHighlighting(RECORD searchquery, RECORD options)
         [ fields := RECORD[]
         , pre_tags := [ Length(highlightfields) > 0 ? "\x1d" : "" ]
         , post_tags := [ Length(highlightfields) > 0 ? "\x1c" : "" ]
+        // We cannot use encoder := "html", as it only encodes fragments with matches
         ] INTO searchquery;
     // The 'highlightparts' fields are used for summary generation with the given length (with number_of_fragments set to 1)
     IF (options.addparthighlighting OR ArraysIntersect(highlightfields, options.highlightparts))

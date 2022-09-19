@@ -89,7 +89,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
           , type := "content"
           , pages := [ [ page := 1, content := "Lorem praesent auctor enim mauris, sed scelerisque sem fermentum sit amet." ] ]
           ]
-        , [ title := "Second document, second object, seventh subdocument"
+        , [ title := "Second <document>, second object & seventh subdocument"
           , type := "content"
           , pages := [ [ page := 1, content := "Lorem morbi a tortor porttitor, lorem porttitor libero vel, lorem laoreet diam." ] ]
           ]
@@ -99,7 +99,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
           , pages := [ [ page := 1, content := "In sed congue mauris." ] ]
           ]
           // 'lorem' in the title, not in the content
-        , [ title := "Second document, second object, ninth lorem subdocument"
+        , [ title := "Second <document>, second object & ninth lorem subdocument"
           , type := "content"
           , pages := [ [ page := 1, content := "Duis sagittis ultrices eros a fringilla." ] ]
           ]

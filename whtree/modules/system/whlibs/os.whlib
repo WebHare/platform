@@ -714,7 +714,7 @@ PUBLIC BOOLEAN FUNCTION IsAnsiCmdEnabled()
       <li>Formatting: "bold", "bold-off", "underline"</li>
       <li>Colors: "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "default"</li>
       <li>Background colors: "back-black", "back-red", "back-green", "back-yellow", "back-blue", "back-magenta", "back-cyan", "back-white", "back-default"</li>
-      <li>Misc control: "erasedisplay"<li>
+      <li>Misc control: "erasedisplay", "clearscrollback"<li>
       <li>Cursor: "cursorposition:<row>:<col>", "up:<n>", "down:<n>", "left:<n>", "right:<n>"<li>
     </ul>
     If no terminal is present, empty strings are returned. Use SetAnsiCmdMode to override.
@@ -778,6 +778,7 @@ PUBLIC STRING FUNCTION AnsiCmd(STRING types)
       CASE "back-default"   { retval := retval || "\033[49m"; }
 
       CASE "erasedisplay"   { retval := retval || "\033[2J"; }
+      CASE "clearscrollback" { retval := retval || "\033[3J"; }
       CASE "cursorposition", "pos" { retval := retval || `\033[${parts[1]};${parts[2]}H`; }
       CASE "up"             { retval := retval || `\033[${parts[1]}}A`; }
       CASE "down"           { retval := retval || `\033[${parts[1]}}B`; }
