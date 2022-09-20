@@ -29,8 +29,9 @@
         }
       </style>
     </head>
-    <body inert>
+    <body>
       <iframe src="[url]"></iframe>
+      <div></div>
       <script src="/.publisher/common/feedback/screenshot.js"></script>
     </body>
   </html>

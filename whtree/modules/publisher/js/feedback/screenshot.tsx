@@ -15,9 +15,19 @@ export default function takeScreenshot(domFilterCallback: (node: Node) => boolea
   const bodyNode = document.createElement("div");
   bodyNode.append(bodyFragment);
 
+  const htmlAttrs: Array<{ name: string, value: string }> = [ ...document.documentElement.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
   const styleSheets = [ ...document.styleSheets ].map(sheet => [ ...sheet.cssRules ].map(rule => rule.cssText).join(""));
-  const htmlAttrs = [ ...document.documentElement.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
-  const bodyAttrs = [ ...document.body.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
+  const bodyAttrs: Array<{ name: string, value: string }> = [ ...document.body.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
+
+  // Save the document's and body's scroll positions
+  if (document.documentElement.scrollTop)
+    htmlAttrs.push({ name: "data-wh-screenshot-scroll-top", value: document.documentElement.scrollTop.toString() });
+  if (document.documentElement.scrollLeft)
+    htmlAttrs.push({ name: "data-wh-screenshot-scroll-left", value: document.documentElement.scrollLeft.toString() });
+  if (document.body.scrollTop)
+    bodyAttrs.push({ name: "data-wh-screenshot-scroll-top", value: document.body.scrollTop.toString() });
+  if (document.body.scrollLeft)
+    bodyAttrs.push({ name: "data-wh-screenshot-scroll-left", value: document.body.scrollLeft.toString() });
 
   return (
     { version: SCREENSHOTVERSION
@@ -42,6 +52,9 @@ function cloneNodeContents(source: Node, target: DocumentFragment | Element, dom
     return;
   target.append(...[ ...source.childNodes ].map(childNode =>
   {
+    // Skip over the author bar and nodes having a 'data-wh-screenshot-skip' attribute
+    if (childNode instanceof HTMLElement && childNode.dataset.whScreenshotSkip || childNode.nodeName == "WH-AUTHORBAR")
+      return;
     if (!domFilterCallback || domFilterCallback(childNode))
     {
       const childClone = childNode.cloneNode(false);

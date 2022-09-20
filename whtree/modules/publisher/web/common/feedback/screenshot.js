@@ -100,6 +100,6 @@ window.addEventListener("message", event =>
     }
   }
 });
-window.addEventListener("resize", () => recalculateSizes());
 
+window.addEventListener("resize", () => recalculateSizes());
 recalculateSizes();

@@ -3,7 +3,7 @@
 .wh-feedback__dompointer
 {
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   z-index: 1000000000;
 }
 
