@@ -242,17 +242,16 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(CELL
         [ outputcolumns := CELL
             [ rowkey := "wrd_id", "version", "wrd_creationdate", "wrd_modificationdate", "browser", "device", "userdata"
-            , "feedbackid", "remarks", "status", "type", "url"
+            , "feedbackid", "remarks", "status", "topic", "url"
             ]
         , filters
         ]);
-    rows := this->contexts->wrdschema->^feedbacktype->Enrich(rows, "type", [ type := "wrd_title" ], [ rightouterjoin := TRUE ]);
+    rows := this->contexts->wrdschema->^topic->Enrich(rows, "topic", [ topic := "wrd_title" ], [ rightouterjoin := TRUE ]);
     rows :=
         SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
              , *
              , reportedby     := reportinfo.realname ?? reportinfo.login ?? this->GetTid(".anonymous")
              , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
-             , type := GetTid(type)
                // For now, always allow escalating/closing
              , canescalate := status != "escalated"
              , canclose := status != "closed"

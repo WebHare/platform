@@ -1809,6 +1809,7 @@
         <text tid="status-escalated">Escalated</text>
         <text tid="status-new">New</text>
         <text tid="statuschange">Status changed from <param p="1"/> to <param p="2"/></text>
+        <text tid="topic">Topic</text>
         <text tid="type">Type</text>
         <text tid="wrd_modificationdate">When</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->

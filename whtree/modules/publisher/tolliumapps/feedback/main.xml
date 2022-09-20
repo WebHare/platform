@@ -117,23 +117,24 @@
                 sortascending="false"
                 sortcolumn="wrd_modificationdate">
             <column name="feedbackid" type="text" width="12x" />
-            <column name="status" type="text" optiongid="tolliumapps.feedback.types" />
+            <column name="status" type="text" width="10x" optiongid="tolliumapps.feedback.types" />
             <column name="wrd_modificationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
-            <column name="reportedby" type="text" width="20x" linkname="reportedbylink" />
-
-            <!-- <column name="type" type="text" width="10x" /> -->
-            <column name="remarks" type="text" />
+            <column name="reportedby" type="text" linkname="reportedbylink" />
+            <column name="topic" type="text" />
+            <column name="remarks" type="text" width="3pr"/>
             <rowlayout name="singlerow">
               <col coldef="feedbackid" />
               <col coldef="status" />
               <col coldef="wrd_modificationdate" />
               <col coldef="reportedby" />
+              <col coldef="topic" />
               <col coldef="remarks" />
               <row>
                 <cell coldef="feedbackid" />
                 <cell coldef="status" />
                 <cell coldef="wrd_modificationdate" />
                 <cell coldef="reportedby" />
+                <cell coldef="topic" />
                 <cell coldef="remarks" />
               </row>
             </rowlayout>
@@ -149,7 +150,8 @@
                 <cell coldef="reportedby" />
               </row>
               <row>
-                <cell coldef="remarks" colspan="4" />
+                <cell coldef="topic" />
+                <cell coldef="remarks" colspan="3" />
               </row>
             </rowlayout>
           </list>
