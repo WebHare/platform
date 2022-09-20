@@ -1,0 +1,68 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+STRING lang := GetWebVariable("lang");
+IF (lang NOT IN [ "en", "nl" ])
+  lang := "en";
+SetTidLanguage(lang);
+
+IF (IsRequestPost())
+{
+  IF (GetWebHeader("Content-Type") != "application/json")
+    AbortWithHTTPError(400);
+
+  OpenPrimary();
+  OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
+
+  AddHTTPHeader("Content-Type", "application/json", FALSE);
+  RECORD userdata := DecodeJSONBlob(GetRequestBody());
+
+  RECORD response := CELL
+      [ token := GetFeedbackWebToken(userdata)
+      , topics := SELECT *, DELETE wrd_ordering FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ tag := "wrd_tag", title := "wrd_title", "wrd_ordering" ]]) ORDER BY wrd_ordering
+      ];
+
+  SendBlobTo(0, EncodeJSONBlob(response));
+  RETURN;
+}
+
+?><!doctype html>
+<html>
+  <head>
+    <title>Login</title>
+    <script src="feedbacklogin.js"></script>
+    <style>
+      form
+      {
+        display: grid;
+        grid-template-columns: auto auto 1fr;
+      }
+      label, button
+      {
+        grid-column: 1;
+      }
+      input
+      {
+        grid-column: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="feedbacklogin">
+      <label for="name"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.name") || ":")) ?></label>
+      <input name="name" required />
+      <label for="email"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.email") || ":")) ?></label>
+      <input name="email" type="email" required />
+      <button type="submit"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.login"))) ?></button>
+    </form>
+  </body>
+</html>

@@ -44,21 +44,27 @@
       }
       div.header
       {
+        align-items: end;
         background: #f0f0f0;
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        justify-content: start;
       }
       div.header span.date
       {
-        float: right;
+        flex: 1;
         font-size: 11px;
+        order: 10;
+        text-align: right;
       }
-      div.header:after
+      div.header span.user
       {
-        clear: both;
-        content: "";
-        display: block;
+        flex: none;
       }
-      div.status
+      div.header span.status
       {
+        flex: none;
         font-style: italic;
       }
     </style>
@@ -69,14 +75,14 @@
       <div class="entry">
         <div class="header">
           <span class="date">[when]</span>
-          <b>[entryby]</b>
+          <span class="user"><b>[entryby]</b></span>
+          [if oldstatus]
+            <span class="status">[gettid tolliumapps.feedback.main.statuschange oldstatus newstatus]</span>
+          [elseif newstatus]
+            [! Feedback created (status change from '' to 'new') !]
+            <span class="status">[gettid tolliumapps.feedback.main.feedbackadded]</span>
+          [/if]
         </div>
-        [if oldstatus]
-          <div class="status">[gettid tolliumapps.feedback.main.statuschange oldstatus newstatus]</div>
-        [elseif newstatus]
-          [! Feedback created (status change from '' to 'new') !]
-          <div class="status">[gettid tolliumapps.feedback.main.feedbackadded]</div>
-        [/if]
 
         [if text]
           <div class="text">[text]</div>

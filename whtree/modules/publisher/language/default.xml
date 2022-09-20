@@ -1416,6 +1416,11 @@
       <text tid="explain">Please check the box below</text>
       <text tid="title">Verification</text>
     </textgroup>
+    <textgroup gid="feedback" limitlanguages="en nl">   <!-- site.feedback -->
+      <text tid="email">Email</text>
+      <text tid="login">Login</text>
+      <text tid="name">Name</text>
+    </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Replace image</text>
       <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload image</text>
@@ -1786,7 +1791,7 @@
         <text tid="comments">Comments</text>
         <text tid="escalate">Escalate</text>
         <text tid="feedback">Feedback</text>
-        <text tid="feedbackadded">Feedback added</text>
+        <text tid="feedbackadded">Feedback submitted</text>
         <text tid="feedbackid">Feedback ID</text>
         <text tid="feedbackmultihint">Multi-row layout</text>
         <text tid="feedbacksinglehint">Single row layout</text>

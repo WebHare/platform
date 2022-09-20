@@ -17,7 +17,7 @@ type HighlightCallback = (node: Element) => Element;
 
 export interface FeedbackOptions
 {
-  scope?: string;
+  token: string;
   addElement?: boolean;
   highlightCallback?: HighlightCallback;
   domFilterCallback?: (node: Node) => boolean;
@@ -65,20 +65,22 @@ export interface PointResult
 }
 
 
-const defaultOptions: FeedbackOptions = { addElement: true };
+const defaultOptions: FeedbackOptions = { token: null, addElement: true };
 let feedbackOptions: FeedbackOptions;
 
 /** @short Initialize the global feedback options
     @param options New options
-    @cell(string) options.scope The feedback scope (required)
-    @cell(boolean) options.addElement If the user should be asked to point at an element
-    @cell(function) options.highlightCallback A function that, given a hovered element, returns the element that should be
+    @cell options.userData Author data
+    @cell options.userData.realname The user's name
+    @cell options.userData.email The user's email address
+    @cell options.addElement If the user should be asked to point at an element
+    @cell options.highlightCallback A function that, given a hovered element, returns the element that should be
         highlighted (optional, by default the hovered element is highlighted)
-    @cell(function) options.domFilterCallback A function that, given a DOM element, returns whether the element returns if
+    @cell options.domFilterCallback A function that, given a DOM element, returns whether the element returns if
         the element should be included in the screenshot (optional, by default all elements are included)
-    @cell(function) options.postFilterCallback A function that receives the screenshot DOM fragment and can do additional
+    @cell options.postFilterCallback A function that receives the screenshot DOM fragment and can do additional
         filtering or manipulation
-    @cell(function) options.feedbackPromise A function that returns a Promise, which resolves with extra data (a record-like
+    @cell options.feedbackPromise A function that returns a Promise, which resolves with extra data (a record-like
         object) to add to the feedback
 */
 export function initFeedback(options: FeedbackOptions): void
@@ -97,15 +99,13 @@ export function initFeedback(options: FeedbackOptions): void
 export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>
 {
   const options = { ...feedbackOptions, ...extraOptions };
-  if (!options.scope)
-    console.error(`No scope supplied for feedback`);
   const element = options.addElement ? await pointAtDOM(event, { highlightCallback: options.highlightCallback }) : null;
   if (!options.addElement || element)
   {
     const data = takeScreenshot(options.domFilterCallback, options.postFilterCallback);
     const extraData = options.feedbackPromise ? await options.feedbackPromise() : {};
     if (extraData)
-      return await service.storeFeedback(location.pathname, options.scope, { ...data, element, extraData });
+      return await service.storeFeedback(location.pathname, "unused_scope", { ...data, element, extraData, token: options.token });
   }
   return { success: false, error: "cancelled" };
 }

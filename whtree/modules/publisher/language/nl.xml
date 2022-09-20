@@ -1416,6 +1416,11 @@
       <text tid="explain">Vink het vakje hieronder aan</text>
       <text tid="title">Verificatie</text>
     </textgroup>
+    <textgroup gid="feedback">   <!-- site.feedback -->
+      <text tid="email">E-mail</text>
+      <text tid="login">Inloggen</text>
+      <text tid="name">Naam</text>
+    </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Vervang afbeelding</text>
       <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload afbeelding</text>
@@ -1785,7 +1790,7 @@
         <text tid="comments">Opmerkingen</text>
         <text tid="escalate">Escaleren</text>
         <text tid="feedback">Feedback</text>
-        <text tid="feedbackadded">Feedback toegevoegd</text>
+        <text tid="feedbackadded">Feedback ingediend</text>
         <text tid="feedbackid">Feedback ID</text>
         <text tid="feedbackmultihint">Dubbele-rij indeling</text>
         <text tid="feedbacksinglehint">Enkele-rijd indeling</text>

@@ -1,25 +1,32 @@
 <?wh
 
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/jwt.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
 
+PUBLIC CONSTANT STRING tollium_feedback_scope := "tollium:webharebackend";
+CONSTANT RECORD feedback_userdata_fields := [ name := "", email := "" ];
+
 PUBLIC OBJECT FUNCTION GetScreenshotWitty()
 {
   RETURN LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI");
 }
+
 PUBLIC STRING FUNCTION GetFeedbackScreenshotURL(INTEGER issueid)
 {
   RETURN GetPrimaryWebhareInterfaceURL() || ".publisher/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
 }
+
 PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
 {
   RECORD ARRAY fields;
@@ -88,7 +95,6 @@ PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
 }
 
 /** @short Store feedback
-    @param scope The scope to store the feedback for
     @param data The feedback data
     @cell(integer) data.version The feedback data's version, currently 1 (can be used by the Feedback application to determine which
         fields are available)
@@ -123,12 +129,9 @@ PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
     @cell(string) data.optiongid Can be supplied for fields of type "tid" to resolve tid values
     @return The stored feedback's GUID, which can be used to store extra data using %StoreExtraData
 */
-PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
+PUBLIC STRING FUNCTION StoreFeedback(RECORD data)
 {
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
-  INTEGER scopeid := wrdschema->^scope->Search("wrd_tag", ToUppercase(scope));
-  IF (scopeid = 0)
-    THROW NEW Exception(`No such scope '${scope}'`);
 
   //TODO commit hash, branch?
   RECORD ARRAY appversions := [[ name := "webhare", version := GetWebhareVersionInfo().version ]]
@@ -141,7 +144,7 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
                             ORDER BY name;
 
   data := CELL[ ...data
-              , wrd_leftentity := scopeid
+              , wrd_leftentity := wrdschema->^scope->Search("wrd_tag", ToUppercase("tollium:webharebackend"))//FIXME: scope is no longer used, but wrd_leftentity is required
               , feedbackid := GetWRDSequenceNext(wrdschema->id, "publisher:feedbackid", [ mutex := "publisher:feedbackid"
                                                                                         , nrformat := "FB%04n"
                                                                                         ])
@@ -154,28 +157,71 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
 
 /** @short Store additional data with existing feedback (new extradata is merged with existing extradata)
     @param guid The feedback's GUID, as returned by %StoreFeedback
-    @param extradata @includecelldef #StoreFeedback.data.extradata
+    @cell(string) settings.topic The topic to store the feedback for
+    @cell(string) settings.remarks User's remarks
+    @cell(record) settings.extradata @includecelldef #StoreFeedback.data.extradata
+    @return The feedback id
 */
-PUBLIC MACRO StoreFeedbackExtraData(STRING guid, RECORD settings)
+PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
 {
-  settings := ValidateOptions([ type := 0
+  settings := ValidateOptions([ topic := ""
                               , remarks := ""
                               , extradata := DEFAULT RECORD
-                              ], settings);
+                              ], settings, [ discard := [ "type" ] ]);
 
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
   INTEGER feedbackid := wrdschema->^feedback->Search("wrd_guid", guid);
   IF (feedbackid = 0)
     THROW NEW Exception(`No feedback with guid '${guid}'`);
 
+  INTEGER topicid := wrdschema->^topic->Search("wrd_tag", ToUppercase(settings.topic));
+  IF (settings.topic != "" AND topicid = 0)
+    THROW NEW Exception(`No such topic '${settings.topic}'`);
+
   RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity" ]);
   IF(feedback.status != "creating")
     THROW NEW Exception(`Feedback with guid '${guid}' has already been completed`);
 
   wrdschema->^feedback->UpdateEntity(feedbackid,
-      CELL[ settings.type
+      CELL[ topic := topicid
           , settings.remarks
           , extradata := CELL[...feedback.extradata, ...settings.extradata ]
           , status := "new"
           ]);
+  RETURN wrdschema->^feedback->GetEntityField(feedbackid, "feedbackid");
+}
+
+STRING FUNCTION GetFeedbackSecret(STRING kid)
+{
+  // The secret key should be at least 256 bits, which the cookiesecret already is
+  RETURN GetClusterKeyBase("cookiesecret") || tollium_feedback_scope;
+}
+
+// @cell(string) userdata.name The user's full name
+// @cell(string) userdata.email The user's email address
+// @return A JSON Web Token
+PUBLIC STRING FUNCTION GetFeedbackWebToken(RECORD userdata)
+{
+  userdata := ValidateOptions(feedback_userdata_fields, userdata, [ optional := [ "*" ] ]);
+  OBJECT token := NEW JSONWebToken("HS256", GetfeedbackSecret(""));
+  token->payload := userdata;
+  RETURN token->GetAuthorizationValue();
+}
+
+// @param token A JSON Web Token
+// @cell(string) return.name The user's full name
+// @cell(string) return.email The user's email address
+PUBLIC RECORD FUNCTION VerifyFeedbackWebToken(STRING token)
+{
+  IF (token != "")
+  {
+    TRY
+    {
+      RECORD userdata := VerifyJSONWebToken(token, [ alg := [ "HS256" ], secret_callback := PTR GetFeedbackSecret ])->payload;
+      RETURN EnforceStructure(feedback_userdata_fields, userdata);
+    }
+    CATCH (OBJECT e)
+      LogHareScriptException(e);
+  }
+  RETURN DEFAULT RECORD;
 }

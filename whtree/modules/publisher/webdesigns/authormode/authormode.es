@@ -4,10 +4,10 @@ import * as dompack from 'dompack';
 import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog.es';
 
-function reportIssue(e)
+function reportIssue(event)
 {
-  dompack.stop(e);
-  runFeedbackReport();
+  dompack.stop(event);
+  runFeedbackReport(event);
 }
 
 function setupAuthorMode()
@@ -17,7 +17,7 @@ function setupAuthorMode()
   document.body.append(
     <wh-authorbar>
       <div class="wh-authorbar__title">WebHare auteursmode!</div>
-      <a href="#" class="wh-authorbar__action" onClick={e => reportIssue(e)}>Meld een probleem</a>
+      <a href="#" class="wh-authorbar__action" onClick={event => reportIssue(event)}>Meld een probleem</a>
     </wh-authorbar>)
 }
 

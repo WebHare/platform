@@ -1,26 +1,30 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <object tag="SCOPE" title="Scope">
+  <object tag="TOPIC" title="Topic">
     <attributes>
+      <free tag="WRD_TITLE" title="Title" />
+      <free tag="WRD_TAG" title="Tag" />
+      <integer tag="WRD_ORDERING" title="Ordering" />
+      <domain tag="DEFAULT_PRIORITY" domain="PRIORITY" title="Default priority" />
+      <domainmultiple tag="ALLOWED_PRIORITIES" domain="PRIORITY" title="Allowed priorities" />
     </attributes>
   </object>
 
-  <attachment tag="FEEDBACKTYPE" linkfrom="SCOPE">
+  <object tag="PRIORITY" title="Priority">
     <attributes>
-      <integer tag="WRD_ORDERING" />
-      <free tag="ROWKEY" />
-      <free tag="WRD_TITLE" />
+      <free tag="WRD_TITLE" title="Title" />
+      <integer tag="WRD_ORDERING" title="Ordering" />
     </attributes>
-  </attachment>
+  </object>
 
-  <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">
+  <attachment tag="FEEDBACK" linkfrom="SCOPE" title="Feedback">
     <attributes>
       <!-- Currently 2 -->
       <integer tag="VERSION" title="Version" />
 
       <!-- Feedback tracking id, eg FB1234 -->
-      <free tag="FEEDBACKID" title="Feedback id" required="true" unique="true" />
+      <free tag="FEEDBACKID" required="true" title="Feedback id" unique="true" />
+      <domain tag="TOPIC" domain="TOPIC" title="Feedback topic" />
 
       <!--
         RECORD ARRAY htmlattrs
@@ -33,12 +37,14 @@
         STRING bodycontents (the 'innerHTML' of the <body> node)
       -->
       <record tag="SCREENSHOT" title="Screenshot HTML data" />
+
       <!--
         Browser viewport size
         INTEGER width
         INTEGER height
       -->
       <record tag="SIZE" title="Browser window size" />
+
       <!--
         The selected element bounding box
         INTEGER top
@@ -51,24 +57,28 @@
       <free tag="DEVICE" title="Browser device" />
       <free tag="USERAGENT" title="Browser user agent" />
       <free tag="URL" title="The URL the screenshot was taken of" />
-
-      <domain tag="TYPE" domain="FEEDBACKTYPE" />
-      <free tag="REMARKS" />
-      <enum tag="STATUS" allowedvalues="creating new assigned escalated closed resolved" gid="tolliumapps.feedback.types" required="true"/>
+      <free tag="REMARKS" title="User comment" />
+      <enum tag="STATUS"
+            allowedvalues="creating new assigned escalated closed resolved"
+            gid="tolliumapps.feedback.types"
+            required="true"
+            title="Feedback status" />
 
       <!--
         When a logged in user is recognized, the result of GetUserDataForLogging
       -->
       <record tag="USERDATA" title="User data" />
-      <!--
-        Extra data supplied by the user
-      -->
-      <record tag="EXTRADATA" title="Extra data" />
-
-      <array tag="APPVERSIONS">
-        <free tag="name" required="true" title="Module/item name" description="The described item, currently 'webhare' or an installed module"/>
-        <free tag="version" title="Item version" description="The (hopefully) semantic version"/>
+      <record tag="EXTRADATA" title="Extra data supplied by the user" />
+      <array tag="APPVERSIONS" title="WebHare and installed module versions">
+        <free tag="name"
+              description="The described item, currently 'webhare' or an installed module"
+              required="true"
+              title="Module/item name" />
+        <free tag="version" description="The (hopefully) semantic version" title="Item version" />
       </array>
+
+      <!-- No longer used -->
+      <domain tag="TYPE" domain="FEEDBACKTYPE" />
     </attributes>
   </attachment>
 
@@ -77,6 +87,17 @@
       <enum tag="STATUSCHANGE" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
       <free tag="TEXT" />
       <record tag="WEBHAREUSER" required="true" />
+    </attributes>
+  </attachment>
+
+  <!-- No longer used -->
+  <object tag="SCOPE" title="Scope" />
+
+  <attachment tag="FEEDBACKTYPE" linkfrom="SCOPE">
+    <attributes>
+      <integer tag="WRD_ORDERING" />
+      <free tag="ROWKEY" />
+      <free tag="WRD_TITLE" />
     </attributes>
   </attachment>
 
