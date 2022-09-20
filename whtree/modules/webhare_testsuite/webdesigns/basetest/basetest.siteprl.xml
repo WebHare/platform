@@ -546,6 +546,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*/widgets.rtd" />
+    <videowidget limitnetworks="youtube youku" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*/consenttest.rtd" />
     <videowidget requireconsent="remarketing" />
     <gtm account="GTM-TN7QQM" launch="manual" />

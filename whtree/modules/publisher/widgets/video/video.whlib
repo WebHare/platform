@@ -54,14 +54,21 @@ PUBLIC STATIC OBJECTTYPE EditVideo EXTEND TolliumScreenBase
 
 PUBLIC RECORD FUNCTION EditEmbeddedVideoInstance(OBJECT parent, RECORD currentinstance)
 {
+  STRING ARRAY limitnetworks;
+  IF(ObjectExists(parent->contexts->applytester))
+  {
+    RECORD settings := parent->contexts->applytester->GetPLuginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","videowidget");
+    IF(RecordExists(settings))
+      limitnetworks := settings.limitnetworks;
+  }
   IF(NOT RecordExists(currentinstance)) //creating
   {
-    OBJECT dlg := parent->LoadScreen("mod::publisher/tolliumcomponents/embedvideo.xml#searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
+    OBJECT dlg := parent->LoadScreen("mod::publisher/tolliumcomponents/embedvideo.xml#searchvideo", CELL[ value := currentinstance, limitnetworks ]);
     RETURN dlg->RunModal() = "ok" ? dlg->selectedvideo : DEFAULT RECORD;
   }
   ELSE
   {
-    currentinstance := parent->RunScreen(Resolve("video.xml#editvideo"), [ value := currentinstance, limitnetworks := STRING[] ]);
+    currentinstance := parent->RunScreen(Resolve("video.xml#editvideo"), CELL[ value := currentinstance, limitnetworks ]);
     RETURN currentinstance;
   }
 }
