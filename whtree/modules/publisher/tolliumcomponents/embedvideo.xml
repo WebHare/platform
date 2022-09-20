@@ -1,43 +1,43 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="embedvideo.whlib"
-         gid="tolliumcomponents.embedvideo"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.embedvideo" library="embedvideo.whlib">
 
-  <fragment name="embedvideocomponent"
-            >
+  <fragment name="embedvideocomponent">
     <actions>
-      <action name="preview" title="" onexecute="dopreview"/>
-      <action name="act_search" title="" onexecute="doedit"/>
-      <action name="clear" title="" onexecute="doclear"/>
+      <action name="preview" onexecute="dopreview" title="" />
+      <action name="act_search" onexecute="doedit" title="" />
+      <action name="clear" onexecute="doclear" title="" />
     </actions>
     <contents>
-      <inlineblock name="thumbnail" title="" borders="all">
+      <inlineblock name="thumbnail" borders="all" title="">
         <panel backgroundcolor="#ffffffcc" borders="bottom" spacers="left">
           <line layout="tabs-space">
-            <text title="" value="" width="1pr" />
-            <buttongroup layout="horizontal" borders="left">
+            <text width="1pr" title="" value="" />
+            <buttongroup borders="left" layout="horizontal">
               <button name="previewbutton"
+                      type="icon"
                       action="preview"
-                      hinttid=".preview_video" title=""
-                      type="icon" icon="tollium:actions/play" />
+                      hinttid=".preview_video"
+                      icon="tollium:actions/play"
+                      title="" />
               <button name="searchbutton"
+                      type="icon"
                       action="act_search"
-                      hinttid=".search_video" title=""
-                      type="icon" icon="tollium:actions/edit" />
+                      hinttid=".search_video"
+                      icon="tollium:actions/edit"
+                      title="" />
               <button name="clearbutton"
+                      type="icon"
                       action="clear"
-                      hinttid=".clear_video" title=""
-                      type="icon" icon="tollium:actions/delete" />
+                      hinttid=".clear_video"
+                      icon="tollium:actions/delete"
+                      title="" />
             </buttongroup>
           </line>
         </panel>
-        <panel height="1pr">
-        </panel>
-        <panel backgroundcolor="#ffffffcc" borders="top" spacers="left right" layout="left">
+        <panel height="1pr" />
+        <panel backgroundcolor="#ffffffcc" borders="top" layout="left" spacers="left right">
           <line>
-            <image name="videotype" title="" width="16px" height="16px" visible="false" />
-            <text name="videotitle" title="" valuetid=".no_video" ellipsis="true" width="1pr" />
+            <image name="videotype" width="16px" height="16px" title="" visible="false" />
+            <text name="videotitle" width="1pr" ellipsis="true" title="" valuetid=".no_video" />
             <text name="duration" title="" value="" />
           </line>
         </panel>
@@ -46,16 +46,15 @@
   </fragment>
 
   <screen name="searchvideo"
-          allowresize="true"
+          height="52x"
           minwidth="120x"
           minheight="450px"
-          height="52x"
+          allowresize="true"
           flags="movieselected"
-          savestate="size"
-          >
-
+          footerbuttons="ok cancel"
+          savestate="size">
     <actions>
-      <action name="clear" onexecute="doclear" tid="tollium:common.actions.clear" />
+      <action name="clear" onexecute="doclear" tid="~clear" />
       <action name="search" onexecute="dosearch" title="" />
       <action name="preview" onexecute="dopreview" title="" />
       <action name="actsubmit" onexecute="dosubmit" title="" />
@@ -64,32 +63,26 @@
     <body>
       <line layout="left">
         <select name="network" type="pulldown" onchange="onnetworkchange" />
-        <textedit name="movietext" tid=".searchwords"  value="" defaultbutton="searchbutton" width="1pr" />
-        <button name="searchbutton" action="search" tid="tollium:common.actions.search" />
+        <textedit name="movietext" width="1pr" defaultbutton="searchbutton" tid=".searchwords" value="" />
+        <button name="searchbutton" action="search" tid="~search" />
         <button action="clear" />
       </line>
 
       <!-- This info text says that you can search by search terms AND ids, but ids doesn't work yet... so if that is
            fixed, re-enable this text -->
       <panel name="infotextpanel" layout="left" visible="true">
-        <text title="" valuetid=".infotext" selectable="true" />
+        <text selectable="true" title="" valuetid=".infotext" />
       </panel>
-
       <panel name="errortextpanel" layout="left" visible="false">
         <line>
-          <image value="tollium:status/warning" title="" name="errorimage" width="16px" height="16px" />
-          <text bold="true" title="" name="errortext"/>
+          <image name="errorimage" width="16px" height="16px" title="" value="tollium:status/warning" />
+          <text name="errortext" bold="true" title="" />
         </line>
       </panel>
-
-      <panel height="1pr" vscroll="true" name="searchresultscontainer">
-        <table name="searchresults" width="1pr" selectmode="single" openaction="actsubmit" />
+      <panel name="searchresultscontainer" height="1pr" vscroll="true">
+        <table name="searchresults" width="1pr" openaction="actsubmit" selectmode="single" />
       </panel>
-
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-
   </screen>
+
 </screens>

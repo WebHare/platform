@@ -46,10 +46,10 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
   PUBLIC STRING ARRAY limitnetworks;
   PUBLIC MACRO PTR onchange;
   PUBLIC PROPERTY value(pvt_value, SetValue);
-  UPDATE PUBLIC PROPERTY title(this->thumbnail->title, this->thumbnail->title);
-  UPDATE PUBLIC PROPERTY width(this->thumbnail->width, this->thumbnail->width);
-  UPDATE PUBLIC PROPERTY height(this->thumbnail->height, this->thumbnail->height);
-  UPDATE PUBLIC PROPERTY hint(this->thumbnail->hint, this->thumbnail->hint);
+  UPDATE PUBLIC PROPERTY title(^thumbnail->title, ^thumbnail->title);
+  UPDATE PUBLIC PROPERTY width(^thumbnail->width, ^thumbnail->width);
+  UPDATE PUBLIC PROPERTY height(^thumbnail->height, ^thumbnail->height);
+  UPDATE PUBLIC PROPERTY hint(^thumbnail->hint, ^thumbnail->hint);
 
 
   // ---------------------------------------------------------------------------
@@ -118,17 +118,17 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
     this->pvt_value := value;
     IF (RecordExists(this->pvt_value))
     {
-      this->videotype->SetImageSrc("tollium:social_media/" || this->pvt_value.network);
-      this->videotype->visible := TRUE;
-      this->videotitle->value := this->pvt_value.title;
-      this->duration->value := (this->pvt_value.duration / 60) || ":" || Right("0" || (this->pvt_value.duration % 60), 2);
+      ^videotype->SetImageSrc("tollium:social_media/" || this->pvt_value.network);
+      ^videotype->visible := TRUE;
+      ^videotitle->value := this->pvt_value.title;
+      ^duration->value := (this->pvt_value.duration / 60) || ":" || Right("0" || (this->pvt_value.duration % 60), 2);
     }
     ELSE
     {
-      this->videotype->value := DEFAULT RECORD;
-      this->videotype->visible := FALSE;
-      this->videotitle->value := GetTid("publisher:tolliumcomponents.embedvideo.no_video");
-      this->duration->value := "";
+      ^videotype->value := DEFAULT RECORD;
+      ^videotype->visible := FALSE;
+      ^videotitle->value := GetTid("publisher:tolliumcomponents.embedvideo.no_video");
+      ^duration->value := "";
     }
 
     IF (RecordExists(this->pvt_value) AND RecordExists(this->pvt_value.thumbnail))
@@ -136,17 +136,17 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
       this->pvt_src := this->AddInlineDownload(this->pvt_value.thumbnail.data, this->pvt_value.thumbnail.mimetype, this->pvt_value.thumbnail.filename);
 
       // The fit|width|height value is a special value that is interpreted by the panel/inline component JavaScript code
-      this->thumbnail->backgroundimages := [ [ src := this->pvt_src
-                                             , repeat := "no-repeat", size := "fit|" || this->pvt_value.thumbnail.width || "|" || this->pvt_value.thumbnail.height
-                                             ]
-                                           ];
+      ^thumbnail->backgroundimages := [ [ src := this->pvt_src
+                                         , repeat := "no-repeat", size := "fit|" || this->pvt_value.thumbnail.width || "|" || this->pvt_value.thumbnail.height
+                                         ]
+                                       ];
     }
     ELSE
     {
       this->RemoveDownload(this->pvt_src);
       this->pvt_src := "";
 
-      this->thumbnail->backgroundimages := DEFAULT RECORD ARRAY;
+      ^thumbnail->backgroundimages := DEFAULT RECORD ARRAY;
     }
 
     this->UpdateButtonState();
@@ -158,18 +158,6 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
     IF(this->onchange != DEFAULT MACRO PTR)
       this->onchange();
   }
-
-/*
-  UPDATE MACRO SetReadonly(BOOLEAN readonly)
-  {
-    this->pvt_readonly := readonly;
-    this->textedit->enabled := NOT readonly;
-    this->replace->visible := NOT readonly;
-    this->remove->visible := NOT readonly;
-    this->preview->visible := NOT readonly;
-  }
-*/
-
 
   // ---------------------------------------------------------------------------
   //
@@ -202,24 +190,24 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
   // Set button titles and enabled states (after value has changed)
   MACRO UpdateButtonState()
   {
-    this->act_search->enabled := NOT this->readonly;
-    this->searchbutton->visible := this->enabled AND this->act_search->enabled;
+    ^act_search->enabled := NOT this->readonly;
+    ^searchbutton->visible := this->enabled AND ^act_search->enabled;
 
     IF (RecordExists(this->value))
     {
-      this->preview->enabled := TRUE;
-      this->clear->enabled := NOT this->readonly AND NOT this->required;
+      ^preview->enabled := TRUE;
+      ^clear->enabled := NOT this->readonly AND NOT this->required;
 
-      this->previewbutton->visible := this->enabled;
-      this->clearbutton->visible := this->enabled AND this->clear->enabled;
+      ^previewbutton->visible := this->enabled;
+      ^clearbutton->visible := this->enabled AND ^clear->enabled;
     }
     ELSE
     {
-      this->preview->enabled := FALSE;
-      this->clear->enabled := FALSE;
+      ^preview->enabled := FALSE;
+      ^clear->enabled := FALSE;
 
-      this->previewbutton->visible := FALSE;
-      this->clearbutton->visible := FALSE;
+      ^previewbutton->visible := FALSE;
+      ^clearbutton->visible := FALSE;
     }
   }
 >;
