@@ -1,16 +1,10 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/components/embedvideo.whlib"
-         gid="components.embedvideo"
+         library="embedvideo.whlib"
+         gid="tolliumcomponents.embedvideo"
          >
 
-  <messageboxes>
-    <messagebox name="novideoselected"  icon="error" buttons="ok" />
-    <messagebox name="searchunavailable" icon="error" buttons="ok" />
-  </messageboxes>
-
   <fragment name="embedvideocomponent"
-            gid=".movies"
             >
     <actions>
       <action name="preview" title="" onexecute="dopreview"/>
@@ -25,15 +19,15 @@
             <buttongroup layout="horizontal" borders="left">
               <button name="previewbutton"
                       action="preview"
-                      hinttid="publisher:components.embedvideo.hints.preview_video" title=""
+                      hinttid=".preview_video" title=""
                       type="icon" icon="tollium:actions/play" />
               <button name="searchbutton"
                       action="act_search"
-                      hinttid="publisher:components.embedvideo.hints.search_video" title=""
+                      hinttid=".search_video" title=""
                       type="icon" icon="tollium:actions/edit" />
               <button name="clearbutton"
                       action="clear"
-                      hinttid="publisher:components.embedvideo.hints.clear_video" title=""
+                      hinttid=".clear_video" title=""
                       type="icon" icon="tollium:actions/delete" />
             </buttongroup>
           </line>
@@ -43,7 +37,7 @@
         <panel backgroundcolor="#ffffffcc" borders="top" spacers="left right" layout="left">
           <line>
             <image name="videotype" title="" width="16px" height="16px" visible="false" />
-            <text name="videotitle" title="" valuetid="publisher:components.embedvideo.no_video" ellipsis="true" width="1pr" />
+            <text name="videotitle" title="" valuetid=".no_video" ellipsis="true" width="1pr" />
             <text name="duration" title="" value="" />
           </line>
         </panel>
@@ -52,8 +46,6 @@
   </fragment>
 
   <screen name="searchvideo"
-          gid=".searchvideo"
-          tid=".screentitle"
           allowresize="true"
           minwidth="120x"
           minheight="450px"

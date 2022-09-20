@@ -1158,7 +1158,7 @@
     <xs:annotation>
       <xs:documentation>Search for video and offers the accompanying metadata as an embedvideo instance</xs:documentation>
       <xs:appinfo>
-        <tai:tolliumcomponent placement="inline" fragment="components/embedvideo.embedvideocomponent" />
+        <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/embedvideo.xml#embedvideocomponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

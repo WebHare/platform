@@ -125,17 +125,11 @@
       <text tid="nosharedblocksources">Er zijn geen bronnen voor gedeelde blokken beschikbaar</text>
     </textgroup>
     <textgroup gid="embedvideo">   <!-- components.embedvideo -->
-      <text tid="no_video">Geen video ingesteld</text>
-      <text tid="novideoselected">U heeft geen video geselecteerd.</text>
-      <text tid="searchunavailable">Het zoeken naar videos is niet gelukt. De systeembeheerder moet mogelijk controleren of het systeem goed ingesteld is.<br/><br/>Foutmelding: <param p="1"/></text>
       <textgroup gid="actions">   <!-- components.embedvideo.actions -->
         <text tid="search">Naar een andere video zoeken</text>
       </textgroup>
       <textgroup gid="hints">   <!-- components.embedvideo.hints -->
-        <text tid="clear_video">Video leegmaken</text>
         <text tid="other_actions">Andere acties</text>
-        <text tid="preview_video">Voorvertoning van de video</text>
-        <text tid="search_video">Naar een video zoeken</text>
       </textgroup>
       <textgroup gid="movies">   <!-- components.embedvideo.movies -->
         <text tid="previewaction">Weergeven</text>
@@ -146,23 +140,13 @@
         <text tid="textedit">Video</text>
       </textgroup>
       <textgroup gid="searchvideo">   <!-- components.embedvideo.searchvideo -->
-        <text tid="creationdate">Geplaatst op</text>
-        <text tid="description">Omschrijving</text>
-        <text tid="duration">Duur</text>
         <text tid="edit_hint">Aanpassen</text>
-        <text tid="error_maxresults">Uw zoekopdracht leverde meer dan <param p="1"/> resultaten op. Probeert u a.u.b. een specifiekere zoekopdracht.</text>
-        <text tid="error_noresults">Uw zoekopdracht leverde geen resultaten op. Probeert u a.u.b. een andere zoekopdracht.</text>
-        <text tid="infotext">U kunt naar video's zoeken op basis van:<br/><br/>- een willekeurige zoekterm<br/>- een Vimeo/Youtube/Youku videocode (bijvoorbeeld "BAf7lcYEXag")<br/>- een directe Vimeo/Youtube/Youku URL (bijvoorbeeld "http://vimeo.com/37695028")<br/><br/>Klik op "Zoeken" om de resultaten weer te geven.  Selecteer het resultaat en klik op "OK" om de video in te voegen.</text>
-        <text tid="network">Zoek in</text>
-        <text tid="openinwindow">Afspelen in nieuw venster</text>
         <text tid="preview">Voorbeeld</text>
         <text tid="preview_hint">Tonen</text>
         <text tid="remove">Verwijderen</text>
         <text tid="remove_hint">Verwijderen</text>
         <text tid="replace">Vervangen</text>
         <text tid="screentitle">Videobrowser</text>
-        <text tid="searchfirst">Geef een aantal sleutelwoorden op om te zoeken naar een film</text>
-        <text tid="searchwords">naar</text>
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
@@ -2435,6 +2419,25 @@
       <text tid="field-none">Geen voorwaarde</text>
       <text tid="field-not">Voldoe niet aan voorwaarde</text>
       <text tid="field-or">Voldoe aan een of meer</text>
+    </textgroup>
+    <textgroup gid="embedvideo">   <!-- tolliumcomponents.embedvideo -->
+      <text tid="clear_video">Video leegmaken</text>
+      <text tid="creationdate">Geplaatst op</text>
+      <text tid="description">Omschrijving</text>
+      <text tid="duration">Duur</text>
+      <text tid="error_maxresults">Uw zoekopdracht leverde meer dan <param p="1"/> resultaten op. Probeert u a.u.b. een specifiekere zoekopdracht.</text>
+      <text tid="error_noresults">Uw zoekopdracht leverde geen resultaten op. Probeert u a.u.b. een andere zoekopdracht.</text>
+      <text tid="infotext">U kunt naar video's zoeken op basis van:<br/><br/>- een willekeurige zoekterm<br/>- een Vimeo/Youtube/Youku videocode (bijvoorbeeld "BAf7lcYEXag")<br/>- een directe Vimeo/Youtube/Youku URL (bijvoorbeeld "http://vimeo.com/37695028")<br/><br/>Klik op "Zoeken" om de resultaten weer te geven.  Selecteer het resultaat en klik op "OK" om de video in te voegen.</text>
+      <text tid="network">Zoek in</text>
+      <text tid="no_video">Geen video ingesteld</text>
+      <text tid="novideoselected">U heeft geen video geselecteerd.</text>
+      <text tid="openinwindow">Afspelen in nieuw venster</text>
+      <text tid="preview_video">Voorvertoning van de video</text>
+      <text tid="search_video">Naar een video zoeken</text>
+      <text tid="searchfirst">Geef een aantal sleutelwoorden op om te zoeken naar een film</text>
+      <text tid="searchunavailable">Het zoeken naar videos is niet gelukt. De systeembeheerder moet mogelijk controleren of het systeem goed ingesteld is.<br/><br/>Foutmelding: <param p="1"/></text>
+      <text tid="searchvideo">Videobrowser</text>
+      <text tid="searchwords">naar</text>
     </textgroup>
     <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
       <text tid="cannotshowinsecurecontent">De inhoud van de onbeveiligde URL '<param p="1"/>' kan niet getoond worden binnen een beveiligde site.</text>

@@ -56,7 +56,7 @@ PUBLIC RECORD FUNCTION EditEmbeddedVideoInstance(OBJECT parent, RECORD currentin
 {
   IF(NOT RecordExists(currentinstance)) //creating
   {
-    OBJECT dlg := parent->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
+    OBJECT dlg := parent->LoadScreen("mod::publisher/tolliumcomponents/embedvideo.xml#searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
     RETURN dlg->RunModal() = "ok" ? dlg->selectedvideo : DEFAULT RECORD;
   }
   ELSE

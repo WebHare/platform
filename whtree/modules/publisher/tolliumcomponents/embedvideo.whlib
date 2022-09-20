@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -127,7 +127,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
     {
       this->videotype->value := DEFAULT RECORD;
       this->videotype->visible := FALSE;
-      this->videotitle->value := GetTid("publisher:components.embedvideo.no_video");
+      this->videotitle->value := GetTid("publisher:tolliumcomponents.embedvideo.no_video");
       this->duration->value := "";
     }
 
@@ -178,7 +178,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
 
   MACRO DoEdit()
   {
-    OBJECT dlg := this->owner->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := this->value, limitnetworks := this->limitnetworks ]);
+    OBJECT dlg := this->owner->LoadScreen(Resolve("embedvideo.xml#searchvideo"), [ value := this->value, limitnetworks := this->limitnetworks ]);
     IF (dlg->RunModal() = "ok")
       this->value := dlg->selectedvideo;
   }
@@ -302,7 +302,7 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     }
     CATCH(OBJECT e)
     {
-      this->RunMessageBox("publisher:components/embedvideo.searchunavailable", e->what);
+      this->RunSimpleScreen("error", this->GetTid(".searchunavailable", e->what));
       RETURN;
     }
 
@@ -478,7 +478,7 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     RECORD video := this->GetSelectedMovie();
     IF (NOT RecordExists(video))
     {
-      this->RunMessageBox(".novideoselected");
+      this->RunSimpleScreen("error", this->GetTid(".novideoselected"));
       RETURN FALSE;
     }
 
