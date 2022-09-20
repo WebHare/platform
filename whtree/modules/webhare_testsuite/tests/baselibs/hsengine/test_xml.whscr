@@ -252,6 +252,7 @@ RECORD FUNCTION MakeSimpleNode(INTEGER id)
          , int := 12345
          , mon := 123.45
          , fl := 123.45f
+         , i64 := 123i64
          , emptyrecord := CELL[]
          , defaultrecord := DEFAULT RECORD
          , recarray := [ CELL[], DEFAULT RECORD ]

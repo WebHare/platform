@@ -264,6 +264,10 @@ STRING FUNCTION EncodeEntityAsXML(RECORD data, FUNCTION PTR blobhandler)
     {
       RETURN "<" || realnodename || " hs:type='integer'>" || data.value || "</" || realnodename || ">";
     }
+    CASE TypeID(INTEGER64)
+    {
+      RETURN "<" || realnodename || " hs:type='integer64'>" || data.value || "</" || realnodename || ">";
+    }
     CASE TypeID(MONEY)
     {
       RETURN "<" || realnodename || " hs:type='money'>" || FormatMoney(data.value,0,'.','',FALSE) || "</" || realnodename || ">";
@@ -328,7 +332,6 @@ PUBLIC STRING FUNCTION EncodeRecordAsXML(RECORD rec, STRING nodename, FUNCTION P
   {
     localname := nodename;
   }
-
 
   RETURN InnerEncodeRecordAsXML(rec, localname, TRUE, xmlns, blobhandler);
 }
