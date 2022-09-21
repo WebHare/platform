@@ -1416,6 +1416,11 @@
       <text tid="explain">Vink het vakje hieronder aan</text>
       <text tid="title">Verificatie</text>
     </textgroup>
+    <textgroup gid="feedback">   <!-- site.feedback -->
+      <text tid="email">E-mail</text>
+      <text tid="login">Inloggen</text>
+      <text tid="name">Naam</text>
+    </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Vervang afbeelding</text>
       <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload afbeelding</text>
@@ -1761,57 +1766,91 @@
     </textgroup>
     <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
       <text tid="apptitle">Feedback</text>
+      <textgroup gid="escalate">   <!-- tolliumapps.feedback.escalate -->
+        <text tid="escalate">Escaleren naar Service Desk</text>
+        <text tid="message">Bericht</text>
+      </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
         <text tid="appversions">Applicatieversies</text>
         <text tid="browser">Browser</text>
         <text tid="device">Apparaat</text>
-        <text tid="download">HTML downloaden</text>
         <text tid="extradata">Aanvullende gegevens</text>
         <text tid="feedback">Feedback</text>
         <text tid="login">Gebruikersnaam</text>
         <text tid="name">Naam</text>
-        <text tid="noextradata">Er zijn geen aanvullende gegevens beschikbaar</text>
-        <text tid="scaled">Maak de schermafbeelding passend</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Versie</text>
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
         <text tid="addcomment">Voeg toe</text>
-        <text tid="browser">Browser</text>
+        <text tid="allstatuses">Alle feedback</text>
+        <text tid="alltopics">Alle onderwerpen</text>
+        <text tid="anonymous">Anonieme gebruiker</text>
+        <text tid="close">Afsluiten</text>
         <text tid="comment">Opmerking</text>
-        <text tid="device">Apparaat</text>
+        <text tid="comments">Opmerkingen</text>
+        <text tid="escalate">Escaleren</text>
         <text tid="feedback">Feedback</text>
+        <text tid="feedbackadded">Feedback ingediend</text>
         <text tid="feedbackid">Feedback ID</text>
+        <text tid="feedbackmultihint">Dubbele-rij indeling</text>
+        <text tid="feedbacksinglehint">Enkele-rijd indeling</text>
+        <text tid="filter">Filters</text>
+        <text tid="filtertopic">Toon onderwerp</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="managetopics">Onderwerpen beheren</text>
+        <text tid="nofeedback">Er is geen feedback om te tonen</text>
         <text tid="remarks">Opmerkingen</text>
+        <text tid="reopen">Heropenen</text>
         <text tid="reportedby">Gemeld door</text>
-        <text tid="scope">Scope</text>
-        <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
+        <text tid="screenshot">Schermafbeelding</text>
         <text tid="status">Status</text>
+        <text tid="status-closed">Afgesloten</text>
+        <text tid="status-escalated">Geëscaleerd</text>
+        <text tid="status-new">Nieuw</text>
+        <text tid="statuschange">Status gewijzigd van <param p="1"/> naar <param p="2"/></text>
+        <text tid="topic">Onderwerp</text>
         <text tid="type">Type</text>
-        <text tid="wrd_creationdate">Wanneer</text>
+        <text tid="wrd_modificationdate">Wanneer</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
+          <text tid="confirmclosefeedback">Weet u zeker dat u deze feedback wilt afsluiten?</text>
           <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
+          <text tid="confirmreopenfeedback">Weet u zeker dat u deze feedback wilt heropenen?</text>
           <text tid="unsupportedversion">Deze feedback kan niet worden weergegeven.</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
+        <text tid="allowed_priorities">Toegestande prioriteiten</text>
+        <text tid="default_priority">Standaard prioriteit</text>
+        <text tid="editpriority">Prioriteit</text>
+        <text tid="edittopic">Onderwerp</text>
+        <text tid="managetopics">Feedback-onderwerpen beheren</text>
+        <text tid="priorities">Prioriteiten</text>
+        <text tid="priority">Prioriteit</text>
+        <text tid="topic">Onderwerp</text>
+        <text tid="topics">Onderwerpen</text>
+        <text tid="wrd_tag">Tag</text>
+        <text tid="wrd_title">Naam</text>
+      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend</text>
-        <text tid="settings">Feedback scope instellingen</text>
+        <text tid="settings">Feedbackinstellingen</text>
       </textgroup>
       <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
         <text tid="apptitle">Feedback</text>
         <text tid="intro">Geeft u alstublieft wat extra informatie.</text>
         <text tid="remarks">Opmerkingen</text>
-        <text tid="thankyou">Bedankt voor uw feedback!</text>
+        <text tid="thankyou">Bedankt voor uw feedback!<ifparam p="1" value=""><else/><br/>Deze is geregistreerd met id '<param p="1"/>'.</ifparam></text>
         <text tid="type">Type feedback</text>
       </textgroup>
       <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
+        <text tid="assigned">Toegewezen</text>
         <text tid="bug">Fout</text>
         <text tid="closed">Afgesloten</text>
         <text tid="creating">Wordt aangemaakt</text>
+        <text tid="escalated">Geëscaleerd</text>
         <text tid="feedback">Algemene feedback</text>
         <text tid="layout">Layout</text>
         <text tid="missingtid">Missende tekst</text>

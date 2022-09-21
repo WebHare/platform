@@ -1,8 +1,9 @@
 import * as dompack from "dompack";
+import { DeferredPromise, PointOptions, PointResult } from "./index";
 
-let deferred, highlighter, highlightCallback;
+let deferred: DeferredPromise<PointResult>, highlighter: HTMLElement, highlightCallback: (node: Element) => Element;
 
-export default function pointAtDOM(event, options)
+export default function pointAtDOM(event: MouseEvent, options: PointOptions): Promise<PointResult>
 {
   if (deferred)
     return Promise.reject(new Error("Already pointing at DOM"));
@@ -37,7 +38,7 @@ function deactivateDOMPointer()
   document.documentElement.classList.remove("wh-feedback--dompointer");
 }
 
-function resolveWithResult(result)
+function resolveWithResult(result: PointResult)
 {
   deactivateDOMPointer();
   const resolve = deferred.resolve;
@@ -46,15 +47,15 @@ function resolveWithResult(result)
   resolve(result);
 }
 
-function maybeCancelDOMPointer(event)
+function maybeCancelDOMPointer(event: KeyboardEvent)
 {
   dompack.stop(event);
 
-  if (event.which === 27 && deferred)
-    resolveWithResult();
+  if (event.code === "Escape" && deferred)
+    resolveWithResult(null);
 }
 
-function highlightDOM(event)
+function highlightDOM(event: MouseEvent)
 {
   const hoverNode = getHoveredDOMNode(event);
   if (hoverNode) {
@@ -68,14 +69,14 @@ function highlightDOM(event)
     document.body.removeChild(highlighter);
 }
 
-function captureDOMNode(event)
+function captureDOMNode(event: MouseEvent)
 {
   dompack.stop(event);
 
   if (deferred) {
     const hoverNode = getHoveredDOMNode(event);
     if (!hoverNode)
-      resolveWithResult();
+      resolveWithResult(null);
     else {
       const rect = hoverNode.getBoundingClientRect();
       resolveWithResult({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
@@ -83,7 +84,7 @@ function captureDOMNode(event)
   }
 }
 
-function getHoveredDOMNode(event)
+function getHoveredDOMNode(event: MouseEvent)
 {
   const el = document.elementFromPoint(event.clientX, event.clientY);
   return highlightCallback ? highlightCallback(el) : el;

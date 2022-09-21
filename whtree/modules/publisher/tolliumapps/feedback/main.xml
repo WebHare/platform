@@ -3,32 +3,58 @@
          gid="tolliumapps.feedback"
          library="main.whlib">
 
-  <screen name="main" allowresize="true" gid=".main" icon="tollium:actions/checklist" menubar="menubar">
+  <screen name="main" allowresize="true" flags="issysop" gid=".main" icon="tollium:actions/checklist" menubar="menubar">
     <actions>
-      <action name="view" onexecute="doview" tid="~view">
-        <enableon source="feedback" min="1" />
+      <action name="escalate" onexecute="doescalate">
+        <enableon source="feedback" min="1" checkflags="canescalate" />
+      </action>
+      <action name="close" onexecute="doclose">
+        <enableon source="feedback" min="1" checkflags="canclose" />
+      </action>
+      <action name="reopen" onexecute="doreopen">
+        <enableon source="feedback" min="1" checkflags="canreopen" />
       </action>
       <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="feedback" min="1" />
       </action>
+      <action name="properties" onexecute="doproperties" shortcut="ctrl+i" tid="~properties">
+        <enableon source="feedback" min="1" />
+      </action>
+      <action name="togglefilter" onexecute="dotogglefilter" title="" />
+      <action name="setfeedbackmulti" onexecute="dosetfeedbackmulti" title="" />
+      <action name="setfeedbacksingle" onexecute="dosetfeedbacksingle" title="" />
       <action name="addcomment">
         <enableon source="feedback" min="1" max="1" onexecute="doaddcomment" />
       </action>
-      <action name="settings" onexecute="dosettings" tid="~settings" />
       <action name="export" onexecute="doexport" tid="~export" />
-      <action name="exit" onexecute="doexit" tid="~exit" />
+      <action name="managetopics" frameflags="issysop" onexecute="domanagetopics" />
+      <action name="settings" frameflags="issysop" onexecute="dosettings" tid="~settings" />
+      <action name="exit" onexecute="doexit" shortcut="ctrl+q" tid="~exit" />
     </actions>
 
     <menus>
       <menu name="menubar">
         <item tid=".feedback">
-          <item action="view" />
+          <item action="escalate" />
+          <item action="close" />
+          <item action="reopen" />
+          <divider />
           <item action="delete" />
+          <item action="properties" />
         </item>
         <item action="export" />
-        <item action="settings" />
+        <item action="managetopics" disablemode="hidden" />
+        <item action="settings" disablemode="hidden" />
         <divider />
         <item action="exit" />
+      </menu>
+      <menu name="selectcontext">
+        <item action="escalate" />
+        <item action="close" />
+        <item action="reopen" />
+        <divider />
+        <item action="delete" />
+        <item action="properties" />
       </menu>
     </menus>
 
@@ -37,40 +63,124 @@
     </compositions>
 
     <toolbar>
-      <button action="view" icon="tollium:actions/view" />
+      <button action="escalate" icon="tollium:objects/envelope+tollium:overlays/forward" />
+      <button action="close" icon="tollium:objects/envelope+tollium:overlays/strike" />
+      <divider />
       <button action="delete" icon="tollium:actions/delete" />
+      <button action="properties" icon="tollium:actions/properties" />
     </toolbar>
 
-    <body spacers="top left bottom">
-      <select name="scope" type="pulldown" onchange="onselectscope" />
+    <body spacers="none">
       <split type="horizontal" height="1pr">
-        <part width="2pr">
-          <wrd:entitylist name="feedback"
-                          height="1pr"
-                          borders="top left bottom"
-                          onmaprows="mapfeedbackrows"
-                          onselect="onfeedbackselect"
-                          openaction="view"
-                          requestcolumns="version wrd_creationdate browser device userdata feedbackid remarks status type"
-                          sortascending="false"
-                          sortcolumn="wrd_creationdate"
-                          wrdtype="feedback">
-            <column name="feedbackid" type="text" width="12x" />
-            <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
-            <column name="reportedby" type="text" width="20x" linkname="reportedbylink" />
-            <column name="type" type="text" width="10x" />
-            <column name="remarks" type="text" />
-
-            <!-- <column name="status" type="text" /> COMING REAL SOON! -->
-          </wrd:entitylist>
-        </part>
         <part width="1pr">
-          <split type="vertical" height="1pr">
-            <part spacers="left right">
-              <text valuetid=".comment" />
+          <panel backgroundcolor="#f0f0f0" borders="bottom">
+            <line layout="tabs-space">
+              <select name="status" type="pulldown" onchange="onselectstatus" title="">
+                <option rowkey="" tid=".allstatuses" />
+                <option rowkey="new" />
+                <option rowkey="escalated" />
+                <option rowkey="closed" />
+              </select>
+              <spacer width="1pr" />
+              <buttongroup borders="left right" layout="horizontal">
+                <button name="listfilterbtn"
+                        type="icon"
+                        action="togglefilter"
+                        hinttid=".filter"
+                        icon="tollium:actions/filter"
+                        title="" />
+              </buttongroup>
+              <buttongroup borders="left" layout="horizontal">
+                <button name="feedbackmulti"
+                        type="icon"
+                        action="setfeedbackmulti"
+                        hinttid=".feedbackmultihint"
+                        icon="tollium:buttonbar/showmultirow"
+                        title="" />
+                <button name="feedbacksingle"
+                        type="icon"
+                        action="setfeedbacksingle"
+                        hinttid=".feedbacksinglehint"
+                        icon="tollium:buttonbar/showsinglerow"
+                        title="" />
+              </buttongroup>
+            </line>
+          </panel>
+          <panel name="filterpanel" borders="bottom" spacers="left right" visible="false">
+            <select name="topic" type="pulldown" onchange="onselecttopic" tid=".filtertopic">
+              <option rowkey="" tid=".alltopics" />
+            </select>
+          </panel>
+          <list name="feedback"
+                height="1pr"
+                borders="none"
+                emptytid=".nofeedback"
+                flags="canescalate canclose canreopen"
+                ongetchildren="getfeedbackrows"
+                onselect="onfeedbackselect"
+                openaction="properties"
+                selectcontextmenu="selectcontext"
+                selectmode="single"
+                sortascending="false"
+                sortcolumn="wrd_modificationdate">
+            <column name="feedbackid" type="text" width="12x" />
+            <column name="status" type="text" width="10x" optiongid="tolliumapps.feedback.types" />
+            <column name="wrd_modificationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
+            <column name="reportedby" type="text" linkname="reportedbylink" />
+            <column name="topic" type="text" />
+            <column name="remarks" type="text" width="3pr" />
+            <rowlayout name="singlerow">
+              <col coldef="feedbackid" />
+              <col coldef="status" />
+              <col coldef="wrd_modificationdate" />
+              <col coldef="reportedby" />
+              <col coldef="topic" />
+              <col coldef="remarks" />
+              <row>
+                <cell coldef="feedbackid" />
+                <cell coldef="status" />
+                <cell coldef="wrd_modificationdate" />
+                <cell coldef="reportedby" />
+                <cell coldef="topic" />
+                <cell coldef="remarks" />
+              </row>
+            </rowlayout>
+            <rowlayout name="multirow">
+              <col coldef="feedbackid" />
+              <col coldef="status" />
+              <col coldef="wrd_modificationdate" />
+              <col coldef="reportedby" />
+              <row>
+                <cell coldef="feedbackid" />
+                <cell coldef="status" />
+                <cell coldef="wrd_modificationdate" />
+                <cell coldef="reportedby" />
+              </row>
+              <row>
+                <cell coldef="topic" />
+                <cell coldef="remarks" colspan="3" />
+              </row>
+            </rowlayout>
+          </list>
+        </part>
+        <part width="2pr">
+          <tabs height="1pr">
+            <tab spacers="none" tid=".screenshot">
+              <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
+                <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
+                  <line layout="tabs-space">
+                    <url name="url" width="1pr" title="" />
+                  </line>
+                </panel>
+                <iframe name="screenshot" width="1pr" height="1pr" />
+              </panel>
+            </tab>
+            <tab height="1pr" tid=".comments">
+              <panel height="1pr" borders="all">
+                <iframe name="issuelog" height="1pr" />
+              </panel>
               <textarea name="comment"
-                        height="1pr"
-                        minheight="4gr"
+                        height="4gr"
                         defaultbutton="addcommentbutton"
                         enabled="false"
                         errorlabeltid=".comment"
@@ -82,70 +192,111 @@
               <line layout="right">
                 <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
               </line>
-            </part>
-            <part height="1pr" spacers="left right">
-              <iframe name="issuelog" height="1pr" />
-            </part>
-          </split>
+            </tab>
+          </tabs>
         </part>
       </split>
     </body>
   </screen>
 
-  <screen name="feedback" width="1000x" height="100x" gid=".feedback">
+  <screen name="feedback" width="100x" height="40x" footerbuttons="close" gid=".feedback">
     <compositions>
       <record name="data" />
       <record composition="data" cellname="userdata" name="userdata" />
     </compositions>
 
     <body>
-      <panel width="1pr" height="1pr" backgroundcolor="#b6b2b2" borders="all">
-        <!-- Same background color as RTD -->
-        <iframe name="screenshot" width="1pr" height="1pr" />
-      </panel>
-      <line layout="left">
-        <checkbox name="scaled" labeltid=".scaled" onchange="onscaleiframe" title="" value="true" />
-      </line>
+      <datetime composition="data"
+                cellname="wrd_creationdate"
+                type="datetime"
+                precision="minutes"
+                readonly="true"
+                storeutc="true" />
+      <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
+      <text composition="data" cellname="device" selectable="true" wordwrap="true" />
+      <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
+      <text composition="userdata" cellname="login" selectable="true" />
+      <heading name="extradata" visible="false" />
+      <spacer name="extradatainsertpoint" visible="false" />
+      <heading tid=".appversions" />
+      <list name="appversions" height="1pr">
+        <column name="name" type="text" width="1pr" />
+        <column name="version" type="text" width="1pr" />
+      </list>
+    </body>
+  </screen>
+
+  <screen name="escalate" width="60x" height="15x" allowresize="true" footerbuttons="ok cancel" gid=".escalate">
+    <body layout="left">
+      <text labelfor="message" tid=".message" />
+      <textarea name="message" width="1pr" height="1pr" title="" />
+    </body>
+  </screen>
+
+  <screen name="managetopics" footerbuttons="close" gid=".managetopics" implementation="none">
+    <body>
       <grid>
-        <cell width="1pr">
-          <datetime composition="data"
-                    cellname="wrd_creationdate"
-                    type="datetime"
-                    precision="minutes"
-                    readonly="true"
-                    storeutc="true" />
-          <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
-          <text composition="data" cellname="device" selectable="true" wordwrap="true" />
-          <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
-          <text composition="userdata" cellname="login" selectable="true" />
-          <heading tid=".extradata" />
-          <line layout="left">
-            <text name="noextradata" title="" valuetid=".noextradata" />
-          </line>
+        <cell>
+          <heading tid=".topics" />
+          <wrd:entitiesedit width="40x"
+                            deletemode="delete-denyreferred"
+                            entityeditscreen="#edittopic"
+                            orderable="true"
+                            wrdtype="topic">
+            <column name="wrd_title" type="text" tid=".topic" />
+          </wrd:entitiesedit>
         </cell>
-        <cell width="1pr">
-          <heading tid=".appversions" />
-          <list name="appversions" height="1pr">
-            <column name="name" type="text" width="1pr" />
-            <column name="version" type="text" width="1pr" />
-          </list>
+        <cell>
+          <heading tid=".priorities" />
+          <wrd:entitiesedit width="40x"
+                            deletemode="delete-denyreferred"
+                            entityeditscreen="#editpriority"
+                            orderable="true"
+                            wrdtype="priority">
+            <column name="wrd_title" type="text" tid=".priority" />
+          </wrd:entitiesedit>
         </cell>
       </grid>
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="settings" gid=".settings">
+  <screen name="edittopic" footerbuttons="ok cancel" gid=".managetopics">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body>
+      <textedit composition="entity" cellname="wrd_tag" required="true" />
+      <textedit composition="entity" cellname="wrd_title" required="true" />
+      <inlineblock tid=".allowed_priorities">
+        <select composition="entity"
+                cellname="allowed_priorities"
+                type="checkboxlist"
+                onchange="onallowedpriorities"
+                required="true">
+          <wrd:runquery orderingtag="wrd_ordering" wrdtype="priority" />
+        </select>
+      </inlineblock>
+      <select composition="entity" cellname="default_priority" type="pulldown" required="true" rowkeytype="integer">
+        <option rowkey="0" invalidselection="true" title="" />
+      </select>
+    </body>
+  </screen>
+
+  <screen name="editpriority" footerbuttons="ok cancel" gid=".managetopics" implementation="wrd:entityedit">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body>
+      <textedit composition="entity" cellname="wrd_title" required="true" />
+    </body>
+  </screen>
+
+  <screen name="settings" footerbuttons="ok cancel" gid=".settings">
     <body>
       <checkbox name="enabletolliumfeedback" labeltid=".enabletolliumfeedback" title="" />
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

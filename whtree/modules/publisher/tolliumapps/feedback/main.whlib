@@ -5,13 +5,15 @@ LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
+
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
 
 CONSTANT FLOAT maxscreenshotsize := 640;
 
@@ -27,29 +29,29 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO NEW()
   {
     this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
-    this->issuewitty := LoadWittyLibrary(Resolve("issues.witty"),"HTML-NI");
-  }
-
-  MACRO DoSettings()
-  {
-    this->RunScreen("#settings", [ scope := ^scope->value ]);
+    this->issuewitty := LoadWittyLibrary(Resolve("issues.witty"), "HTML-NI");
   }
 
   MACRO Init(RECORD data)
   {
-    ^scope->options :=
-        SELECT rowkey := wrd_id
-             , title := ToLowercase(wrd_tag)
-          FROM this->contexts->wrdschema->^scope->RunQuery([ outputcolumns := [ "wrd_id", "wrd_tag" ]])
-         WHERE this->tolliumuser->HasRightOn("publisher:managefeedbackscope", wrd_id)
-         ORDER BY wrd_tag;
+    ^topic->options := ^topic->options CONCAT
+        SELECT *
+             , DELETE wrd_ordering
+          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+         ORDER BY wrd_ordering
+                , ToUppercase(title)
+                , rowkey;
+    ^status->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.laststatus", ""));
+    this->SetRowlayout(this->contexts->user->GetRegistryKey("publisher.feedback.feedbackrowlayout", "multirow"));
 
-    IF (Length(^scope->options) <= 1)
-      ^scope->visible := FALSE;
+    ^feedback->eventmasks := this->contexts->wrdschema->^feedback->GetEventMasks();
+    ^loglistener->masks := this->contexts->wrdschema->^log->GetEventMasks();
+
+    ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->doneinit := TRUE;
-    ^scope->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.lastscopeid", 0));
-    ^loglistener->masks := this->contexts->wrdschema->^log->GetEventMasks();
   }
 
 
@@ -58,12 +60,59 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Action handlers
   //
 
-  MACRO DoView()
+  MACRO DoProperties()
   {
-    IF (^feedback->selection.version != 1)
+    IF (^feedback->selection.version NOT IN [ 1,2 ])
       this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
     ELSE
       this->RunScreen("#feedback", ^feedback->selection);
+  }
+
+  MACRO DoEscalate()
+  {
+    STRING message := this->RunScreen("#escalate");
+    IF (message = "")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "escalated" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "escalated"
+        , text := message
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
+    work->Finish();
+  }
+
+  MACRO DoClose()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmclosefeedback")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "closed" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "closed"
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
+    work->Finish();
+  }
+
+  MACRO DoReopen()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmreopenfeedback")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->value, [ status := "new" ]);
+    this->contexts->wrdschema->^log->CreateEntity(
+        [ wrd_leftentity := ^feedback->value
+        , statuschange := "new"
+        , webhareuser := this->contexts->user->GetUserDataForLogging()
+        ]);
+    work->Finish();
   }
 
   MACRO DoDelete()
@@ -77,9 +126,20 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     work->Finish();
   }
 
-  MACRO DoExit()
+  MACRO DoToggleFilter()
   {
-    this->tolliumresult := "close";
+    ^filterpanel->visible := NOT ^filterpanel->visible;
+    ^listfilterbtn->pressed := ^filterpanel->visible;
+  }
+
+  MACRO DoSetFeedbackMulti()
+  {
+    this->SetRowLayout("multirow");
+  }
+
+  MACRO DoSetFeedbackSingle()
+  {
+    this->SetRowLayout("singlerow");
   }
 
   MACRO DoAddComment()
@@ -97,90 +157,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^comment->value := "";
   }
 
-
-  //----------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
-
-  RECORD ARRAY FUNCTION MapFeedbackRows(RECORD ARRAY rows)
-  {
-    rows := SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
-                 , *
-                 , reportedby     := reportinfo.realname ?? reportinfo.login
-                 , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
-              FROM rows;
-
-    rows := this->contexts->wrdschema->^feedbacktype->Enrich(rows, "TYPE", [ type := "wrd_title" ], [ rightouterjoin := TRUE ]);
-    rows := SELECT *, type := GetTid(type) FROM rows;
-
-    RETURN rows;
-  }
-
-  MACRO OnFeedbackSelect()
-  {
-    FOREVERY(OBJECT logentry FROM this->logentries)
-      logentry->DeleteComponent();
-    this->logentries := OBJECT[];
-
-    ^comment->enabled := ^feedback->value != 0;
-
-    this->RefreshLog();
-  }
-
-  MACRO RefreshLog()
-  {
-    IF(^feedback->value = 0)
-    {
-      ^issuelog->blobvalue := DEFAULT BLOB;
-      RETURN;
-    }
-
-    RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
-        [ outputcolumns := CELL[ "WRD_ID", "WRD_CREATIONDATE", "TEXT", "WEBHAREUSER", "STATUSCHANGE" ]
-        , filters := [ [ field := "wrd_leftentity", value := ^feedback->value ]
-                     ]
-        ]);
-
-    logentries := SELECT *
-                       , userinfo := EnforceStructure([ realname := "", login := "" ], webhareuser)
-                    FROM logentries;
-
-    RECORD curissue := ^feedback->selection;
-    INSERT CELL[ curissue.wrd_creationdate
-               , text := curissue.remarks
-               , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
-               ] INTO logentries AT END;
-
-    logentries := SELECT when := this->tolliumuser->FormatDatetime(wrd_creationdate, "minutes", TRUE, FALSE)
-                       , text
-                       , entryby := userinfo.realname ?? userinfo.login
-                    FROM logentries
-                ORDER BY wrd_creationdate DESC;
-
-    ^issuelog->blobvalue := this->issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
-  }
-
-  MACRO OnSelectScope()
-  {
-    ^feedback->listfilters := [ [ field := "wrd_leftentity", value := ^scope->value ]
-                              , [ field := "status", matchtype := "!=", value := "creating" ]
-                              ];
-
-    IF(this->doneinit)
-      this->contexts->user->SetRegistryKey("publisher.feedback.lastscopeid", ^scope->value);
-  }
-
-  MACRO OnLogEvent(RECORD ARRAY events)
-  {
-    this->RefreshLog();
-  }
-
   MACRO DoExport()
   {
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(
         [ outputcolumns := CELL[ "wrd_id", "feedbackid", "userdata", "type", "remarks", "wrd_creationdate" ]
-        , filters := [ [ field := "wrd_leftentity", value := ^scope->value ]
+        , filters := [ [ field := "wrd_leftentity", value := tollium_feedback_scope ]
                      ]
         ]);
 
@@ -194,8 +175,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     rows := SELECT *, type := GetTid(type) FROM rows ORDER BY wrd_creationdate;
 
     RECORD ARRAY log := this->contexts->wrdschema->^log->RunQuery(
-        [ outputcolumns := CELL[ "WRD_CREATIONDATE", "WRD_LEFTENTITY", "TEXT", "WEBHAREUSER" ]
-        , filters := [ [ field := "WRD_LEFTENTITY", value := SELECT AS INTEGER ARRAY wrd_id FROM rows ]
+        [ outputcolumns := CELL[ "wrd_creationdate", "wrd_leftentity", "text", "webhareuser" ]
+        , filters := [ [ field := "wrd_leftentity", value := SELECT AS INTEGER ARRAY wrd_id FROM rows ]
                      ]
         ]);
 
@@ -220,16 +201,188 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     RunColumnFileExportDialog(this,
       CELL[ rows
-          , columns := [[ type := "text",     name := "feedbackid",       title := this->GetTid(".feedbackid") ]
-                       ,[ type := "datetime", name := "wrd_creationdate", title := this->GetTid(".wrd_creationdate"), storeutc := TRUE ]
-                       ,[ type := "text",     name := "reportedby",       title := this->GetTid(".reportedby") ]
-                       ,[ type := "text",     name := "reportedbyemail",  title := GetTid("~email") ]
-                       ,[ type := "text",     name := "type",             title := this->GetTid(".type") ]
-                       ,[ type := "text",     name := "remarks",          title := this->GetTid(".remarks") ]
-                       ,[ type := "text",     name := "issuelog",         title := this->GetTid(".issuelog") ]
+          , columns := [[ type := "text",     name := "feedbackid",           title := this->GetTid(".feedbackid") ]
+                       ,[ type := "datetime", name := "wrd_modificationdate", title := this->GetTid(".wrd_modificationdate"), storeutc := TRUE ]
+                       ,[ type := "text",     name := "reportedby",           title := this->GetTid(".reportedby") ]
+                       ,[ type := "text",     name := "reportedbyemail",      title := GetTid("~email") ]
+                       ,[ type := "text",     name := "type",                 title := this->GetTid(".type") ]
+                       ,[ type := "text",     name := "remarks",              title := this->GetTid(".remarks") ]
+                       ,[ type := "text",     name := "issuelog",             title := this->GetTid(".issuelog") ]
                        ]
           , exporttitle := "Feedback"
           ]);
+  }
+
+  MACRO DoManageTopics()
+  {
+    this->RunScreen("#managetopics");
+  }
+
+  MACRO DoSettings()
+  {
+    this->RunScreen("#settings");
+  }
+
+  MACRO DoExit()
+  {
+    this->tolliumresult := "close";
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  RECORD ARRAY FUNCTION GetFeedbackRows(RECORD unused)
+  {
+    RECORD ARRAY filters :=
+        [ [ field := "wrd_leftentity", value := tollium_feedback_scope ]
+        ];
+    IF (^status->value != "")
+      INSERT CELL[ field := "status", ^status->value ] INTO filters AT END;
+    ELSE
+      INSERT [ field := "status", matchtype := "!=", value := "creating" ] INTO filters AT END;
+    IF (^topic->value != "")
+      INSERT CELL[ field := "topic", ^topic->value ] INTO filters AT END;
+
+    RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(CELL
+        [ outputcolumns := CELL
+            [ rowkey := "wrd_id", "version", "wrd_creationdate", "wrd_modificationdate", "browser", "device", "userdata"
+            , "feedbackid", "remarks", "status", "topic", "url"
+            ]
+        , filters
+        ]);
+    rows := this->contexts->wrdschema->^topic->Enrich(rows, "topic", [ topic := "wrd_title" ], [ rightouterjoin := TRUE ]);
+    rows :=
+        SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
+             , *
+             , reportedby     := reportinfo.realname ?? reportinfo.login ?? this->GetTid(".anonymous")
+             , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
+               // For now, always allow escalating/closing
+             , canescalate := status != "escalated"
+             , canclose := status != "closed"
+             , canreopen := status = "closed"
+          FROM rows;
+
+    RETURN rows;
+  }
+
+  MACRO OnFeedbackSelect()
+  {
+    IF (^feedback->value != 0)
+    {
+      RECORD feedbacksize := this->contexts->wrdschema->^feedback->GetEntityField(^feedback->value, "size");
+      // Load the stored screenshot into the container iframe
+      ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
+          [ screenshot := [ width := INTEGER(Ceil(feedbacksize.width))
+                          , height := INTEGER(Ceil(feedbacksize.height))
+                          , scaled := TRUE// For now, we'll always scale, we can make it an option later: ^scaled->value
+                          ]
+          , url := GetFeedbackScreenshotURL(^feedback->value)
+          ]);
+      ^url->value := ^feedback->selection.url;
+      ^urlpanel->visible := ^feedback->selection.version = 2; // version 2 adds the url of the visited page
+    }
+    ELSE
+    {
+      ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+      ^urlpanel->visible := FALSE;
+    }
+    FOREVERY(OBJECT logentry FROM this->logentries)
+      logentry->DeleteComponent();
+    this->logentries := OBJECT[];
+
+    ^comment->enabled := ^feedback->value != 0;
+
+    this->RefreshLog();
+  }
+
+  MACRO OnScaleIframe()
+  {
+    ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
+  }
+
+  MACRO OnSelectStatus()
+  {
+    ^feedback->Invalidate();
+
+    IF (this->doneinit)
+      this->contexts->user->SetRegistryKey("publisher.feedback.laststatus", ^status->value);
+  }
+
+  MACRO OnSelectTopic()
+  {
+    ^feedback->Invalidate();
+  }
+
+  MACRO OnLogEvent(RECORD ARRAY events)
+  {
+    this->RefreshLog();
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshLog()
+  {
+    IF(^feedback->value = 0)
+    {
+      ^issuelog->blobvalue := DEFAULT BLOB;
+      RETURN;
+    }
+
+    RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
+        [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange" ]
+        , filters := [ [ field := "wrd_leftentity", value := ^feedback->value ]
+                     ]
+        ]);
+
+    logentries := SELECT *
+                       , userinfo := EnforceStructure([ realname := "", login := "" ], webhareuser)
+                    FROM logentries;
+
+    RECORD curissue := ^feedback->selection;
+    INSERT CELL[ curissue.wrd_creationdate
+               , text := curissue.remarks
+               , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
+               , statuschange := "new" // Assume the status of the feedback was 'new' at the time of the first comment
+               ] INTO logentries AT END;
+
+    logentries := SELECT when := this->tolliumuser->FormatDatetime(wrd_creationdate, "minutes", TRUE, FALSE)
+                       , text
+                       , entryby := userinfo.realname ?? userinfo.login ?? this->GetTid(".anonymous")
+                       , statuschange
+                    FROM logentries
+                ORDER BY wrd_creationdate;
+
+    STRING status;
+    FOREVERY (RECORD entry FROM logentries)
+    {
+      STRING oldstatus, newstatus;
+      IF (entry.statuschange != "")
+      {
+        oldstatus := status;
+        newstatus := GetTid("publisher:tolliumapps.feedback.types." || entry.statuschange);
+        status := newstatus;
+      }
+      logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
+    }
+
+    ^issuelog->blobvalue := this->issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
+  }
+
+  MACRO SetRowLayout(STRING layout)
+  {
+    IF (layout NOT IN [ "singlerow", "multirow" ] OR ^feedback->rowlayout = layout)
+      RETURN;
+    ^feedback->rowlayout := layout;
+    this->contexts->user->SetRegistryKey("publisher.feedback.feedbackrowlayout", layout);
+    ^feedbackmulti->pressed := layout = "multirow";
+    ^feedbacksingle->pressed := layout = "singlerow";
   }
 >;
 
@@ -250,16 +403,15 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->data := data;
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE","FEEDBACKID","APPVERSIONS"] CONCAT ^data->GetComposedCellnames());
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey,
+        [ "extradata", "size", "feedbackid", "appversions" ] CONCAT ^data->GetComposedCellnames());
     ^data->value := feedback;
     this->frame->title := this->frame->title || " - " || feedback.feedbackid;
 
     RECORD ARRAY extrafields := GetFeedbackExtraFields(feedback.extradata);
     IF(Length(extrafields) > 0)
     {
-      // The 'there is no extra data available' text doesn't have to be displayed
-      ^noextradata->DeleteComponent();
-
+      ^extradata->visible := TRUE;
       FOREVERY (RECORD extra FROM extrafields)
       {
         OBJECT comp;
@@ -277,65 +429,53 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
           comp->title := extra.title;
           IF (comp->componenttype = "text")
             comp->selectable := TRUE;
-          this->frame->bodynode->InsertComponentAfter(comp, DEFAULT OBJECT, TRUE);
+          this->frame->bodynode->InsertComponentBefore(comp, ^extradatainsertpoint, TRUE);
         }
       }
     }
 
     ^appversions->rows := feedback.appversions;
-
-    // Load the stored screenshot into the container iframe
-    ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
-        [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
-                        , height := INTEGER(Ceil(feedback.size.height))
-                        , scaled := ^scaled->value
-                        ]
-        , url := GetFeedbackScreenshotURL(this->data.rowkey)
-        ]);
   }
+>;
 
-
-  //----------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
-
-  MACRO OnScaleIframe()
+PUBLIC STATIC OBJECTTYPE Escalate EXTEND TolliumScreenBase
+<
+  STRING FUNCTION Submit()
   {
-    ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
+    RETURN ^message->value;
   }
 >;
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
-  INTEGER scope;
-
-  MACRO Init(RECORD data)
+  MACRO Init()
   {
-    this->scope := data.scope;
-    BOOLEAN iswebharescope := ToLowercase(this->contexts->wrdschema->^scope->GetEntityField(this->scope,"WRD_TAG")) = "tollium:webharebackend";
-
-    ^enabletolliumfeedback->visible := iswebharescope;
-    IF(^enabletolliumfeedback->visible)
-    {
-      ^enabletolliumfeedback->value := ReadRegistryKey("system.backend.features.feedback");
-    }
+    ^enabletolliumfeedback->value := ReadRegistryKey("system.backend.features.feedback");
   }
+
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
     BOOLEAN refreshtollium;
-    IF(^enabletolliumfeedback->visible AND ^enabletolliumfeedback->value != ReadRegistryKey("system.backend.features.feedback"))
+    IF (^enabletolliumfeedback->value != ReadRegistryKey("system.backend.features.feedback"))
     {
       WriteRegistryKey("system.backend.features.feedback", ^enabletolliumfeedback->value);
       refreshtollium := TRUE;
     }
 
-    IF(NOT work->Finish())
+    IF (NOT work->Finish())
       RETURN FALSE;
 
-    IF(refreshtollium)
+    IF (refreshtollium)
       BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
     RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditTopic EXTEND WRDEntityEditScreenBase
+<
+  MACRO OnAllowedPriorities()
+  {
+    ^entity->^default_priority->options := [ [ rowkey := 0, title := "", invalidselection := TRUE ] ] CONCAT ^entity->^allowed_priorities->selection;
   }
 >;

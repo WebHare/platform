@@ -1,64 +1,69 @@
-let screenshot = JSON.parse(document.documentElement.dataset.screenshot);
+const screenshot = JSON.parse(document.documentElement.dataset.screenshot);
+const iframe = document.querySelector("iframe");
 
-var isScaled, isLoaded;
+let isScaled, isLoaded, docPadding, factor, translateX, translateY;
 
-var docSize = document.body.getBoundingClientRect();
-var docWidth = docSize.width;
-var docHeight = docSize.height;
-var frameWidth = screenshot.width;
-var frameHeight = screenshot.height;
-var scaleWidth = screenshot.width;
-var scaleHeight = screenshot.height;
-var factor = 1;
-
-if (frameWidth > docWidth || frameHeight > docHeight)
+function recalculateSizes()
 {
-  var widthFactor = docWidth / frameWidth;
-  var heightFactor = docHeight / frameHeight;
-  factor = Math.min(widthFactor, heightFactor);
-  scaleWidth = Math.round(frameWidth * factor);
-  scaleHeight = Math.round(frameHeight * factor);
+  docPadding = parseInt(getComputedStyle(document.body).paddingTop);
+  const docWidth = innerWidth - 2 * docPadding;
+  const docHeight = innerHeight - 2 * docPadding;
+  const frameWidth = screenshot.width;
+  const frameHeight = screenshot.height;
+  let scaleWidth = screenshot.width;
+  let scaleHeight = screenshot.height;
+  factor = 1;
+
+  if (frameWidth > docWidth || frameHeight > docHeight)
+  {
+    let widthFactor = docWidth / frameWidth;
+    let heightFactor = docHeight / frameHeight;
+    factor = Math.min(widthFactor, heightFactor);
+    scaleWidth = Math.round(frameWidth * factor);
+    scaleHeight = Math.round(frameHeight * factor);
+  }
+  translateX = Math.round(((scaleWidth - frameWidth) / 2) + ((docWidth - scaleWidth) / 2));
+  translateY = Math.round(((scaleHeight - frameHeight) / 2) + ((docHeight - scaleHeight) / 2));
+
+  iframe.style.width = `${frameWidth}px`;
+  iframe.style.height = `${frameHeight}px`;
+  setScaled(screenshot.scaled);
 }
-var translateX = Math.round(((scaleWidth - frameWidth) / 2) + ((docWidth - scaleWidth) / 2));
-var translateY = Math.round(((scaleHeight - frameHeight) / 2) + ((docHeight - scaleHeight) / 2));
 
-var iframe = document.querySelector("iframe");
-iframe.style.width = `${frameWidth}px`;
-iframe.style.height = `${frameHeight}px`;
-
-iframe.contentWindow.addEventListener("load", function(event) {
+iframe.contentWindow.addEventListener("load", () =>
+{
   for (const node of iframe.contentDocument.querySelectorAll("[data-wh-screenshot-scroll-top]"))
     node.scrollTop = parseInt(node.dataset.whScreenshotScrollTop);
   for (const node of iframe.contentDocument.querySelectorAll("[data-wh-screenshot-scroll-left]"))
     node.scrollLeft = parseInt(node.dataset.whScreenshotScrollLeft);
-  for (const node of iframe.contentDocument.querySelectorAll("iframe")) {
+  for (const node of iframe.contentDocument.querySelectorAll("iframe"))
+  {
     node.srcdoc = `<!doctype html>
-  <html>
-    <head>
-      <style>
-        html, body {
-          background: #ffffff;
-          height: 100%;
-          width: 100%;
-        }
-        body {
-          display: flex;
-          justify-content: center;
-        }
-        div {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-      </style>
-    </head>
-    <body>
-      <div>
-        &lt;iframe&gt;
-      </div>
-    </body>
-  </html>
-`;
+      <html>
+        <head>
+          <style>
+            html, body {
+              background: #ffffff;
+              height: 100%;
+              width: 100%;
+            }
+            body {
+              display: flex;
+              justify-content: center;
+            }
+            div {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div>
+            &lt;iframe&gt;
+          </div>
+        </body>
+      </html>`;
     node.sandbox = "";
   }
   if (isScaled)
@@ -66,26 +71,35 @@ iframe.contentWindow.addEventListener("load", function(event) {
   isLoaded = true;
 });
 
-function setScaled(scaled) {
+function setScaled(scaled)
+{
   isScaled = scaled;
-  if (scaled) {
-    iframe.style.transform = `translate(${translateX}px, ${translateY}px) scale(${factor})`;
+  if (scaled)
+  {
+    iframe.style.transform = `scale(${factor})`;
     if (isLoaded)
       document.body.style.overflow = "hidden";
-    window.scrollTo(0, 0);
-  } else {
+    window.scrollTo(docPadding, docPadding);
+  }
+  else
+  {
     iframe.style.transform = "none";
     document.body.style.overflow = "";
     window.scrollTo(-translateX, -translateY);
   }
 }
-window.addEventListener("message", function(event) {
-  switch (event.data.type) {
-    case "scaled": {
+
+window.addEventListener("message", event =>
+{
+  switch (event.data.type)
+  {
+    case "scaled":
+    {
       setScaled(event.data.scaled);
       break;
     }
   }
-}, false);
+});
 
-setScaled(screenshot.scaled);
+window.addEventListener("resize", () => recalculateSizes());
+recalculateSizes();

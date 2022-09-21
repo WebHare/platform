@@ -133,13 +133,11 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
   if(!config.site)
     config.site={};
 
-  // For now, explicitly activate using: localStorage.whAuthorMode=JSON.stringify({active:true})
+  // Activate by going to /.publisher/common/feedback/feedbacklogin.shtml
   try
   {
-    if(JSON.parse(localStorage?.whAuthorMode)?.active)
+    if(JSON.parse(localStorage?.whAuthorMode)?.token)
       activeAuthorMode();
   }
-  catch(ignore)
-  {
-  }
+  catch(ignore) {}
 }

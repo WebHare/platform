@@ -5,6 +5,7 @@ import * as dialogapi from 'dompack/api/dialog.es';
 import * as authorservice from "../authorservice.rpc.json";
 
 let aboutdompointer = null;
+let authorMode = null, userData;
 
 function toggleAboutLocation()
 {
@@ -20,7 +21,7 @@ async function submitFeedback(dialog, event, result)
   //SubmitFeedback. TODO capture browser triplet and resolution etc too
   let form = event.target;
   let submission = await authorservice.submitFeedback(result.guid,
-    { subject: form.elements.subject.value
+    { topic: form.elements.topic.value
     , remarks: form.elements.remarks.value
     });
 
@@ -31,8 +32,11 @@ async function submitFeedback(dialog, event, result)
   dialog.resolve("ok");
 }
 
-export async function runFeedbackReport()
+export async function runFeedbackReport(event)
 {
+  if (!authorMode)
+    return;
+
   //TODO cancel or prevent recursive call (setup an abort controller and signal it if already set)
   let which = await dialogapi.runMessageBox("Betreft je feedback een specifiek element op deze pagina ?",
       [ { title: "Specifiek", result: "specific" }
@@ -71,14 +75,12 @@ export async function runFeedbackReport()
   dialog.contentnode.append(
     <form onSubmit={ event => submitFeedback(dialog, event, result)}>
       Melder:<br/>
-      <input name="email" type="email" readonly value="tester@webhare.nl"/>
+      <input name="email" type="email" readonly value={userData.email}/>
       <br/>
 
       Type/onderwerp:<br/>
-      <select name="subject">
-        <option>Bug/onduidelijk</option>
-        <option>Spelfout</option>
-        <option>Kritiek</option>
+      <select name="topic">
+        { authorMode.topics.map(topic => <option value={topic.tag}>{topic.title}</option>) }
       </select>
       <br/>
 
@@ -94,6 +96,10 @@ export async function runFeedbackReport()
 }
 
 // Initialize the feedback options
-feedbackapi.initFeedback({
-  scope: "tollium:webharebackend", //FIXME ?!?
-});
+try
+{
+  authorMode = JSON.parse(localStorage?.whAuthorMode);
+  userData = JSON.parse(atob(authorMode.token.split(".")[1]));
+  feedbackapi.initFeedback({ token: authorMode.token });
+}
+catch(ignore) {}

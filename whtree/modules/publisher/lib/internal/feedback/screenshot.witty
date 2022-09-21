@@ -7,8 +7,16 @@
           height: 100%;
           width: 100%;
         }
+        body {
+          align-items: center;
+          display: flex;
+          justify-content: center;
+          padding: 10px;
+        }
         iframe {
           border: none;
+          box-shadow: 0 0 10px rgba(0, 0, 0, .5);
+          flex: none;
           z-index: 1;
         }
         div {
@@ -22,8 +30,8 @@
       </style>
     </head>
     <body>
-      <div>&nbsp;</div>
       <iframe src="[url]"></iframe>
+      <div></div>
       <script src="/.publisher/common/feedback/screenshot.js"></script>
     </body>
   </html>
