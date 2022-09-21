@@ -31,23 +31,15 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->issuewitty := LoadWittyLibrary(Resolve("issues.witty"), "HTML-NI");
   }
 
-  MACRO DoSettings()
-  {
-    this->RunScreen("#settings", [ scope := ^scope->value ]);
-  }
-
   MACRO Init(RECORD data)
   {
-    ^scope->options :=
-        SELECT rowkey := wrd_id
-             , title := ToLowercase(wrd_tag)
-          FROM this->contexts->wrdschema->^scope->RunQuery([ outputcolumns := [ "wrd_id", "wrd_tag" ]])
-         WHERE this->tolliumuser->HasRightOn("publisher:managefeedbackscope", wrd_id)
-         ORDER BY wrd_tag;
-    IF (Length(^scope->options) <= 1)
-      ^scope->visible := FALSE;
-    ^scope->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.lastscopeid", 0));
-
+    ^topic->options := ^topic->options CONCAT
+        SELECT *
+             , DELETE wrd_ordering
+          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+         ORDER BY wrd_ordering
+                , ToUppercase(title)
+                , rowkey;
     ^status->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.laststatus", ""));
     this->SetRowlayout(this->contexts->user->GetRegistryKey("publisher.feedback.feedbackrowlayout", "multirow"));
 
@@ -55,6 +47,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^loglistener->masks := this->contexts->wrdschema->^log->GetEventMasks();
 
     ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->doneinit := TRUE;
   }
@@ -166,7 +160,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(
         [ outputcolumns := CELL[ "wrd_id", "feedbackid", "userdata", "type", "remarks", "wrd_creationdate" ]
-        , filters := [ [ field := "wrd_leftentity", value := ^scope->value ]
+        , filters := [ [ field := "wrd_leftentity", value := tollium_feedback_scope ]
                      ]
         ]);
 
@@ -218,6 +212,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
           ]);
   }
 
+  MACRO DoSettings()
+  {
+    this->RunScreen("#settings");
+  }
+
   MACRO DoExit()
   {
     this->tolliumresult := "close";
@@ -232,12 +231,14 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GetFeedbackRows(RECORD unused)
   {
     RECORD ARRAY filters :=
-        [ [ field := "wrd_leftentity", value := ^scope->value ]
+        [ [ field := "wrd_leftentity", value := tollium_feedback_scope ]
         ];
-    IF (^status->value != "all")
+    IF (^status->value != "")
       INSERT CELL[ field := "status", ^status->value ] INTO filters AT END;
     ELSE
       INSERT [ field := "status", matchtype := "!=", value := "creating" ] INTO filters AT END;
+    IF (^topic->value != "")
+      INSERT CELL[ field := "topic", ^topic->value ] INTO filters AT END;
 
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(CELL
         [ outputcolumns := CELL
@@ -304,12 +305,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->contexts->user->SetRegistryKey("publisher.feedback.laststatus", ^status->value);
   }
 
-  MACRO OnSelectScope()
+  MACRO OnSelectTopic()
   {
     ^feedback->Invalidate();
-
-    IF (this->doneinit)
-      this->contexts->user->SetRegistryKey("publisher.feedback.lastscopeid", ^scope->value);
   }
 
   MACRO OnLogEvent(RECORD ARRAY events)
@@ -444,33 +442,25 @@ PUBLIC STATIC OBJECTTYPE Escalate EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
-  INTEGER scope;
-
-  MACRO Init(RECORD data)
+  MACRO Init()
   {
-    this->scope := data.scope;
-    BOOLEAN iswebharescope := ToLowercase(this->contexts->wrdschema->^scope->GetEntityField(this->scope, "wrd_tag")) = "tollium:webharebackend";
-
-    ^enabletolliumfeedback->visible := iswebharescope;
-    IF(^enabletolliumfeedback->visible)
-    {
-      ^enabletolliumfeedback->value := ReadRegistryKey("system.backend.features.feedback");
-    }
+    ^enabletolliumfeedback->value := ReadRegistryKey("system.backend.features.feedback");
   }
+
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
     BOOLEAN refreshtollium;
-    IF(^enabletolliumfeedback->visible AND ^enabletolliumfeedback->value != ReadRegistryKey("system.backend.features.feedback"))
+    IF (^enabletolliumfeedback->value != ReadRegistryKey("system.backend.features.feedback"))
     {
       WriteRegistryKey("system.backend.features.feedback", ^enabletolliumfeedback->value);
       refreshtollium := TRUE;
     }
 
-    IF(NOT work->Finish())
+    IF (NOT work->Finish())
       RETURN FALSE;
 
-    IF(refreshtollium)
+    IF (refreshtollium)
       BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
     RETURN TRUE;
   }

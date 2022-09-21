@@ -10,6 +10,7 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
@@ -739,7 +740,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none"
                                        : GetWebVariable("notifications") = "browser" ? "browser"
                                        : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
-            , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? "tollium:webharebackend" : ""
+            , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? tollium_feedback_scope : ""
             , initialinstructions := this->CalculateInitialInstructions(webcontext)
             ];
 

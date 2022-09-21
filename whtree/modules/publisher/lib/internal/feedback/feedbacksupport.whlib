@@ -144,7 +144,7 @@ PUBLIC STRING FUNCTION StoreFeedback(RECORD data)
                             ORDER BY name;
 
   data := CELL[ ...data
-              , wrd_leftentity := wrdschema->^scope->Search("wrd_tag", ToUppercase("tollium:webharebackend"))//FIXME: scope is no longer used, but wrd_leftentity is required
+              , wrd_leftentity := wrdschema->^scope->Search("wrd_tag", ToUppercase(tollium_feedback_scope))//FIXME: scope is no longer used, but wrd_leftentity is required
               , feedbackid := GetWRDSequenceNext(wrdschema->id, "publisher:feedbackid", [ mutex := "publisher:feedbackid"
                                                                                         , nrformat := "FB%04n"
                                                                                         ])

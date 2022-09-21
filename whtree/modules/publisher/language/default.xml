@@ -1785,6 +1785,8 @@
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
         <text tid="addcomment">Add comment</text>
+        <text tid="allstatuses">All feedback</text>
+        <text tid="alltopics">All topics</text>
         <text tid="anonymous">Anonymous user</text>
         <text tid="close">Close</text>
         <text tid="comment">Comment</text>
@@ -1796,6 +1798,7 @@
         <text tid="feedbackmultihint">Multi-row layout</text>
         <text tid="feedbacksinglehint">Single row layout</text>
         <text tid="filter">Filters</text>
+        <text tid="filtertopic">Show topic</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
         <text tid="nofeedback">There is no feedback to show</text>
@@ -1804,7 +1807,6 @@
         <text tid="reportedby">Reported by</text>
         <text tid="screenshot">Screenshot</text>
         <text tid="status">Status</text>
-        <text tid="status-all">All</text>
         <text tid="status-closed">Closed</text>
         <text tid="status-escalated">Escalated</text>
         <text tid="status-new">New</text>
@@ -1821,7 +1823,7 @@
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accept feedback in the WebHare backend</text>
-        <text tid="settings">Feedback  scope settings</text>
+        <text tid="settings">Feedback settings</text>
       </textgroup>
       <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
         <text tid="apptitle">Feedback</text>

@@ -1784,6 +1784,8 @@
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
         <text tid="addcomment">Voeg toe</text>
+        <text tid="allstatuses">Alle feedback</text>
+        <text tid="alltopics">Alle onderwerpen</text>
         <text tid="anonymous">Anonieme gebruiker</text>
         <text tid="close">Afsluiten</text>
         <text tid="comment">Opmerking</text>
@@ -1795,6 +1797,7 @@
         <text tid="feedbackmultihint">Dubbele-rij indeling</text>
         <text tid="feedbacksinglehint">Enkele-rijd indeling</text>
         <text tid="filter">Filters</text>
+        <text tid="filtertopic">Toon onderwerp</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
         <text tid="nofeedback">Er is geen feedback om te tonen</text>
@@ -1803,7 +1806,6 @@
         <text tid="reportedby">Gemeld door</text>
         <text tid="screenshot">Schermafbeelding</text>
         <text tid="status">Status</text>
-        <text tid="status-all">Alles</text>
         <text tid="status-closed">Afgesloten</text>
         <text tid="status-escalated">Geëscaleerd</text>
         <text tid="status-new">Nieuw</text>
@@ -1820,7 +1822,7 @@
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend</text>
-        <text tid="settings">Feedback scope instellingen</text>
+        <text tid="settings">Feedbackinstellingen</text>
       </textgroup>
       <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
         <text tid="apptitle">Feedback</text>

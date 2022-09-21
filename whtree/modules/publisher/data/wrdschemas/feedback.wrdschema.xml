@@ -3,7 +3,7 @@
   <object tag="TOPIC" title="Topic">
     <attributes>
       <free tag="WRD_TITLE" title="Title" />
-      <free tag="WRD_TAG" title="Tag" />
+      <free tag="WRD_TAG" title="Tag" required="true" />
       <integer tag="WRD_ORDERING" title="Ordering" />
       <domain tag="DEFAULT_PRIORITY" domain="PRIORITY" title="Default priority" />
       <domainmultiple tag="ALLOWED_PRIORITIES" domain="PRIORITY" title="Allowed priorities" />
