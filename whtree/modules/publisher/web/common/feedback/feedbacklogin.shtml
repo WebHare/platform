@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -10,17 +11,14 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 
 
-STRING lang := GetWebVariable("lang");
-IF (lang NOT IN [ "en", "nl" ])
-  lang := "en";
-SetTidLanguage(lang);
+OpenPrimary();
+OBJECT webdesign := GetWebdesignForUrl(GetRequestUrl());
 
 IF (IsRequestPost())
 {
   IF (GetWebHeader("Content-Type") != "application/json")
     AbortWithHTTPError(400);
 
-  OpenPrimary();
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
 
   AddHTTPHeader("Content-Type", "application/json", FALSE);
@@ -28,41 +26,46 @@ IF (IsRequestPost())
 
   RECORD response := CELL
       [ token := GetFeedbackWebToken(userdata)
-      , topics := SELECT *, DELETE wrd_ordering FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ tag := "wrd_tag", title := "wrd_title", "wrd_ordering" ]]) ORDER BY wrd_ordering
+      , topics := (SELECT *, DELETE wrd_ordering FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ tag := "wrd_tag", title := "wrd_title", "wrd_ordering" ]]) ORDER BY wrd_ordering)
+        // If we have a webdesign, redirect to the site's root
+      , redirect := ObjectExists(webdesign) ? webdesign->targetsite->webroot : ""
       ];
 
   SendBlobTo(0, EncodeJSONBlob(response));
   RETURN;
 }
 
-?><!doctype html>
-<html>
-  <head>
-    <title>Login</title>
-    <script src="feedbacklogin.js"></script>
-    <style>
-      form
-      {
-        display: grid;
-        grid-template-columns: auto auto 1fr;
-      }
-      label, button
-      {
-        grid-column: 1;
-      }
-      input
-      {
-        grid-column: 2;
-      }
-    </style>
-  </head>
-  <body>
-    <form id="feedbacklogin">
-      <label for="name"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.name") || ":")) ?></label>
-      <input name="name" required />
-      <label for="email"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.email") || ":")) ?></label>
-      <input name="email" type="email" required />
-      <button type="submit"><?wh Print(EncodeHTML(GetTid("publisher:site.feedback.login"))) ?></button>
+MACRO PrintForm()
+{
+  Print(`
+    <form id="publisher-feedbacklogin" class="wh-form wh-styledinput wh-form--allowsubmit" action="javascript:console.error('Form not active')">
+      <div class="wh-form__page">
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--textedit">
+          <label class="wh-form__label" for="name">${EncodeHTML(GetTid("publisher:site.feedback.name"))}</label>
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <input name="name" type="text" class="wh-form__textinput" required />
+            </div>
+          </div>
+        </div>
+        <div class="wh-form__fieldgroup">
+          <label class="wh-form__label" for="email">${EncodeHTML(GetTid("publisher:site.feedback.email"))}</label>
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <input name="email" type="email" class="wh-form__textinput" required />
+            </div>
+          </div>
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <button type="submit" class="wh-form__button wh-form__button--submit">${EncodeValue(GetTid("publisher:site.feedback.login"))}</button>
+        </div>
+      </div>
     </form>
-  </body>
-</html>
+    <script src="feedbacklogin.js"></script>
+  `);
+}
+
+IF (ObjectExists(webdesign))
+  webdesign->RunPageWithContents(PTR PrintForm);
+ELSE
+  PrintForm();
