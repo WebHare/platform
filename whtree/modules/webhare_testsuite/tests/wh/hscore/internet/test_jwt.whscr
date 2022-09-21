@@ -17,12 +17,12 @@ MACRO JWTTest()
 
   STRING key_id := "testkey";
 
-  // wh sql '?generaterandomtext(256,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
-  STRING hs256_key := "gMAmPh4FEVKdfSSIxv63PWd7WcQbudfvs-EtM6bG_xF1cr21S2n7Bg_pjtPZRJJBO-y92J9yQ9e1CZ5pOXw5_aW_owpDjQYZsE_7F4EMV_fg_VgqffRxxoAHkggs3NQhKwXv1PFBMg-MnSjq-rNEP-sdRFoZ-lr137OPcLSZPB2C6ouuif8hokCYMLB0Z2ggPsRIlF57auyQk63ZUW5eqr_HeiFo515JOhaAXAJITGvMJyg2i2BNHbxd6xk-hS48";
-  // wh sql '?generaterandomtext(384,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
-  STRING hs384_key := "_h0eLkmTJ8qlKDbiP3VF8QEMa0ETbBCGX0_3PQufb6Ihw71oLhPkdaONMOcc6RJx_enzI5C7EwFj9hg4FxV597me8M339bK0LNoha5716kCn-3DWf507WL9jl6_OV_v8oF4zaF--Uf11b0y7GCsHz9BflsZkptT_9v91AYuzOYTO6hy4p7kL4thLnYOhrtkA9duX2DHZzdUwrPxZ_pD0sGzNNIwX9wL8ygZrpJfKTiZZimo9hdVKoJWzK5HbVnXqwSeMslKC33caeJdqVdM2CYScYGR4pPRJ848ezOm62_HNoANQl5tRISjS3ZY9qv3hYvEUZMRSLqKeBJxjftSB6Ip2Tec7RzzeU77VnHzc0aTgtiTC1h-NjAapyxZKBx1t";
-  // wh sql '?generaterandomtext(512,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
-  STRING hs512_key := "yqgBA_EZKpcOYWByDL7ZA1gwhIB7KNYgEwsNuaWGpcvnxrQMxt4gjpoGCckPWWyjW_-C6hSUvLr3Otczsnt32E9MMFvBqHAGfXn-tULu_J2ozxdKMEk9svZ2TsDjyVmYIludYTtIsGIsgTpvIcdA02tszdpyCDDXbKHBqqKT0zXJKl3jbTiyRmeZm6HL2XKknpl6xp7KnQUHSLpRgKag5_aCHNmVL3KWM93d4V0WEk-VtjNOkndoPHnmW0currMkgV93ZlAyQzbMAysNKXuQr3DynanTB579AXDTMwdvUGKMO4lPjWpSz4AHHCd2aHJjTxzFeiF89NvHslFxCEbqizKezC4AEzd0Mjz-Fr_heiM2So-hpRnDRk3u-n5vnBp_4Y4q9g_b9p0m34iPICcOQAGhydJBQDO2-B9sXb3hAZ454i9KFumSZxpUCVM3xiha2w-3I3LRitdBj2GhbL4HJPguwq6pYZSxH1pkkcmjLDEm3qfGnGFen0_1lUU74K4M";
+  // wh sql '?generaterandomtext(32,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs256_key := "vK8nPk52L4na1Z85_rt5-jxspDlPoX1r";
+  // wh sql '?generaterandomtext(48,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs384_key := "pD-cODl8zkS2nPeFdWVPVm4AjssXUtCrAmcpDJCgpnvPIcRF";
+  // wh sql '?generaterandomtext(64,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs512_key := "Jw-9_HLo2jv9Aem0ev3rBPEMTYemotg1yR386O8xMQy_-sk9KNclOLO5jeGExiul";
 
   // openssl genrsa -out rsa1024-key.pem 1024
   STRING rsa1024_key := `-----BEGIN RSA PRIVATE KEY-----
@@ -132,14 +132,14 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.1GwRlVaO4Ptv4FMG66aTghCpUx-UzE37mGI199srI-o", authvalue);
+  TestEq("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.H8Q840O4Uc3LrXR76M0KVbi-vN-HV3WDevAw3_g_F1E", authvalue);
 
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
   jwt_token->kid := key_id;
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.xNOz29jFiXuLciNdU-RtnBdo5wzCS-7O2IMDIRtXS5I", authvalue);
+  TestEq("eyJhbGciOiJIUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.lT9vvFawWnafMffffnNy_NjHNQNTXwWH_96lckQ3iPE", authvalue);
 
   // Test secret/key callback
   TestThrowsLike("Empty secret or key is not accepted for JWT token alg \'HS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations ]));
@@ -147,38 +147,38 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestThrowsLike("Invalid key size 7 for algorithm \'HS256\'", PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", hs256_key, #1) ]));
 
   // This token has 'loggedInAs' and 'iat' in the payload and 'typ' and 'kid' in the header not in alphabetical order
-  verified := VerifyJSONWebToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3RrZXkifQ.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.-c4uv4U6W-SVJojikw5WtPxQB3I36qIpJBWZ7O2Ku2A", [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
+  verified := VerifyJSONWebToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3RrZXkifQ.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.3j8S8_Fy5e-Rphxh8ZSc-Plq0r1V1_YcL35iyyqKsHM", [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
 
   // HS384
-  TestThrowsLike("Invalid key size 256 for algorithm \'HS384\'", PTR TestMakeJSONWebToken("HS384", hs256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 32 for algorithm \'HS384\'", PTR TestMakeJSONWebToken("HS384", hs256_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("HS384", hs384_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.TWVjAmzdfJ3LMDDK6ilpMTqqHVWOv_3qfu_drK59_PJUKCfNf-WwuFgmAcBk0yoF", authvalue);
+  TestEq("eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.nEcLUzcaIh_l2BVlPS8pPZ_MT3d7wFxjm3mLESQIe7KNF-DZrCZ406qttqWZYtw5", authvalue);
 
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs384_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
   jwt_token->kid := key_id;
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzM4NCIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.WuozBCUC8AfOnv5ABnsk5GY_1WNwoSf_dresfPg5yRr6XWzrHq5f5Eu90WQhUNqC", authvalue);
+  TestEq("eyJhbGciOiJIUzM4NCIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.Aekbj_ZgncjHvG5wOYgdaNYk-W9hJb_3C-9_jdj7lF4zifu-09YjGKbxeBcwgxTF", authvalue);
 
   // HS512
-  TestThrowsLike("Invalid key size 256 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs256_key)); // key length mismatch
-  TestThrowsLike("Invalid key size 384 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs384_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 32 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs256_key)); // key length mismatch
+  TestThrowsLike("Invalid key size 48 for algorithm \'HS512\'", PTR TestMakeJSONWebToken("HS512", hs384_key)); // key length mismatch
   jwt_token := NEW JSONWebToken("HS512", hs512_key);
   jwt_token->SetPayload(test_payload, test_payload_translations);
 
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.YFc6KVyHsaV9MwsfuMWa6MpXUzpwYguI3o0FEk29CmrX6P2TzLSljfQJy1VPdkVwxtH1NWuc2Wu8aIC8B7H9fw", authvalue);
+  TestEq("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.F43j8yKgsuh9c1KtflGkg8jeu2-owSV8jMRbqI6Vg196prmlbzhIxDu6rdorf1g0wLu-3GJFpUR8dSrsuvvQNQ", authvalue);
 
   verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs512_key, #1) ]);
   TestEq(test_payload, verified->payload);
 
   jwt_token->kid := key_id;
   authvalue := jwt_token->GetAuthorizationValue();
-  TestEq("eyJhbGciOiJIUzUxMiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.CWtMaGY8l4N-0__mpdxfDfF5sODqV0ntHPBmBySvgl3-arjfzkPizIUNJRt3KNjKKTi4Ncl7euf_TJ9qgG3NfA", authvalue);
+  TestEq("eyJhbGciOiJIUzUxMiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.vRJvHs_ipJfFxR2qBgrvxC1uyug2r3mIMz3dI5Vs39PB5BAKiEB4UZn7zqd9tTseoGsMoZyhq2qbdY2o8xKgJg", authvalue);
 
   // RS256
   TestThrowsLike("Invalid key type \'EC\' for algorithm \'RS256\'", PTR TestMakeJSONWebToken("RS256", ec256_key)); // key type mismatch
