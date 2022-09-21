@@ -999,6 +999,7 @@
     <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />
     <webdesignplugin name="googleanalytics4" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/ga4plugin.whlib#GoogleAnalytics4Plugin" />
     <webdesignplugin name="pwafile" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/pwa/pwafileplugin.whlib#pwafileplugin" hooksfeatures="objectprops" />
+    <webdesignplugin name="videowidget" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin" />
     <webdesign name="blank" title="Blank webdesign" siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" istemplate="true" path="data/webdesigntemplates/blank" />
     <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml">
       <!-- TODO support top level assetpacks so we don't need to hijack a <webdesign> just to build an assetpack -->
@@ -1030,7 +1031,6 @@
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="pollsettings" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="extendformeditor" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="allowwidgettype" />
-    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="videowidget" />
 
     <versioningpolicy name="default" objectname="lib/internal/versioning/defaultpolicy.whlib#DefaultVersioningPolicy" />
 

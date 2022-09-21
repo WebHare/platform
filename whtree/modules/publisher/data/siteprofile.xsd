@@ -1972,6 +1972,11 @@
         <xs:list itemType="xs:positiveInteger" />
       </xs:simpleType>
     </xs:attribute>
+    <xs:attribute name="limitnetworks">
+      <xs:annotation>
+        <xs:documentation>Space separated list of network masks to which we should limit our network selection</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:simpleType name="Name">

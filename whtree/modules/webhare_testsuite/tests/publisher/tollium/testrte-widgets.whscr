@@ -68,7 +68,7 @@ ASYNC MACRO TestVideoWidget()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
 
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-video" ]));
-
+  TestEq(["YouTube","Youku"], SELECT AS STRING ARRAY title FROM TT("network")->options);
   TT("movietext")->value := "BAf7lcYEXag";
   TTClick("searchbutton");
   TestEq(TRUE, ObjectExists(TT("searchresults")->selection)); //first hit should be selected

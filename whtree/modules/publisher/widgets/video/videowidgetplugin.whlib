@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+//We exist to allow <videowidget> to be parsed during siteprofile compilation (originally videowidget had to open XML files as it used applytester->GetCustomSettings)
+PUBLIC STATIC OBJECTTYPE VideoWidgetPlugin EXTEND WebDesignPluginBase
+<
+  RECORD config;
+
+  PUBLIC PROPERTY requireconsent(this->config.requireconsent,-);
+  PUBLIC PROPERTY breakpoints(this->config.breakpoints,-);
+  PUBLIC PROPERTY limitnetworks(this->config.limitnetworks,-);
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ requireconsent := node->GetAttribute("requireconsent")
+           , breakpoints := (SELECT AS INTEGER ARRAY ToInteger(val,0) FROM ToRecordArray(ParseXSList(node->GetAttribute("breakpoints")),'val'))
+           , limitnetworks := ParseXSList(node->GetAttribute("limitnetworks"))
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->config := config ?? [ requireconsent := ""
+                              , breakpoints := INTEGER[]
+                              , limitnetworks := STRING[""]
+                              ];
+  }
+>;

@@ -125,17 +125,11 @@
       <text tid="nosharedblocksources">There are no shared block sources available</text>
     </textgroup>
     <textgroup gid="embedvideo">   <!-- components.embedvideo -->
-      <text tid="no_video">No video set</text>
-      <text tid="novideoselected">You have not selected a video to insert.</text>
-      <text tid="searchunavailable">Searching for videos failed. The system administrator may have to verify whether the system is properly configured.<br/><br/>The error was: <param p="1"/></text>
       <textgroup gid="actions">   <!-- components.embedvideo.actions -->
         <text tid="search">Search for another video</text>
       </textgroup>
       <textgroup gid="hints">   <!-- components.embedvideo.hints -->
-        <text tid="clear_video">Clear the video</text>
         <text tid="other_actions">Other actions</text>
-        <text tid="preview_video">Preview the video</text>
-        <text tid="search_video">Search for a video</text>
       </textgroup>
       <textgroup gid="movies">   <!-- components.embedvideo.movies -->
         <text tid="previewaction">Preview</text>
@@ -146,23 +140,13 @@
         <text tid="textedit">Video</text>
       </textgroup>
       <textgroup gid="searchvideo">   <!-- components.embedvideo.searchvideo -->
-        <text tid="creationdate">Creation date</text>
-        <text tid="description">Description</text>
-        <text tid="duration">Duration</text>
         <text tid="edit_hint">Edit</text>
-        <text tid="error_maxresults">Your query returned more than <param p="1"/> results. Try narrowing your search.</text>
-        <text tid="error_noresults">Your query returned no results.</text>
-        <text tid="infotext">You can search videos using:<br/><br/>- search terms (keywords)<br/>- a Vimeo / Youtube / Youku videocode (for example: “BAf7lcYEXag”)<br/>- a direct Vimeo / Youtube / Youku URL (for example: "http://vimeo.com/37695028")<br/><br/>Click "Search" to display the results. Select one of the results and click "OK" to insert the video.</text>
-        <text tid="network">Search</text>
-        <text tid="openinwindow">Play in new window</text>
         <text tid="preview">Preview</text>
         <text tid="preview_hint">Preview</text>
         <text tid="remove">Remove</text>
         <text tid="remove_hint">Remove</text>
         <text tid="replace">Replace</text>
         <text tid="screentitle">Video browser</text>
-        <text tid="searchfirst">Enter some keywords to search for your movie</text>
-        <text tid="searchwords">for</text>
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
@@ -2436,6 +2420,25 @@
       <text tid="field-none">No condition</text>
       <text tid="field-not">Don't match condition</text>
       <text tid="field-or">Match any</text>
+    </textgroup>
+    <textgroup gid="embedvideo">   <!-- tolliumcomponents.embedvideo -->
+      <text tid="clear_video">Clear the video</text>
+      <text tid="creationdate">Creation date</text>
+      <text tid="description">Description</text>
+      <text tid="duration">Duration</text>
+      <text tid="error_maxresults">Your query returned more than <param p="1"/> results. Try narrowing your search.</text>
+      <text tid="error_noresults">Your query returned no results.</text>
+      <text tid="infotext">You can search videos using:<br/><br/>- search terms (keywords)<br/>- a Vimeo / Youtube / Youku videocode (for example: “BAf7lcYEXag”)<br/>- a direct Vimeo / Youtube / Youku URL (for example: "http://vimeo.com/37695028")<br/><br/>Click "Search" to display the results. Select one of the results and click "OK" to insert the video.</text>
+      <text tid="network">Search</text>
+      <text tid="no_video">No video set</text>
+      <text tid="novideoselected">You have not selected a video to insert.</text>
+      <text tid="openinwindow">Play in new window</text>
+      <text tid="preview_video">Preview the video</text>
+      <text tid="search_video">Search for a video</text>
+      <text tid="searchfirst">Enter some keywords to search for your movie</text>
+      <text tid="searchunavailable">Searching for videos failed. The system administrator may have to verify whether the system is properly configured.<br/><br/>The error was: <param p="1"/></text>
+      <text tid="searchvideo">Video browser</text>
+      <text tid="searchwords">for</text>
     </textgroup>
     <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
       <text tid="cannotshowinsecurecontent">The content of the insecure URL '<param p="1"/>' cannot be shown within a secure site.</text>
