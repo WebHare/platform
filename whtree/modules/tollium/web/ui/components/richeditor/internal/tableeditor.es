@@ -350,8 +350,7 @@ export class TableEditor
       if (!this.colgroup)
         this.colgroup = <colgroup class="wh-tableeditor-colgroup" />;
 
-      if (this.colgroup !== this.node.firstChild)
-        this.node.prepend(this.colgroup);
+      this.ensureColGroupInserted();
 
       while (this.colgroup.childNodes.length > this.numcolumns)
         this.colgroup.lastChild.remove();
@@ -598,10 +597,33 @@ export class TableEditor
       {
         if (!this.node)
           return; // We've been destroyed
-        if (this.colgroup !== this.node.firstChild)
-          this.node.prepend(this.colgroup);
+
+        this.ensureColGroupInserted();
         this.columns.remove();
       },1);
+    }
+  }
+
+  getCaptionNode()
+  {
+    if (this.node.firstElementChild?.tagName == "CAPTION")
+      return this.node.firstElementChild;
+
+    return null;
+  }
+
+  ensureColGroupInserted()
+  {
+    if (this.colgroup.parentNode !== this.node) // not inserted yet?
+    {
+      /* The <colgroup> must appear after any optional <caption> element
+         but before any <thead>, <th>, <tbody>, <tfoot> and <tr> element.
+      */
+      let captionnode = this.getCaptionNode();
+      if (captionnode)
+        captionnode.after(this.colgroup);
+      else
+        this.node.prepend(this.colgroup);
     }
   }
 
