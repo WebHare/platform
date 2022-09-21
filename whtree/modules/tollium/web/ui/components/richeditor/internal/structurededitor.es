@@ -2051,9 +2051,14 @@ export default class StructuredEditor extends EditorBase
 
 //    console.log(options);
 
-    // If we need a
+    // If the copied selection contains a trailing segment break, make sure a segment break is inserted only
+    // if the insert locator doesn't point to a segment break (ignoring whitespace).
     if (options.breakafter)
-      parsed.push({ type: 'block', style: this.structure.defaultblockstyle, nodes: [] });
+    {
+      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
+      if (upres.type === "node" || upres.type === "char")
+        parsed.push({ type: 'block', style: this.structure.defaultblockstyle, nodes: [] });
+    }
 
     if(debugicc)
     {
@@ -2806,7 +2811,7 @@ export default class StructuredEditor extends EditorBase
     domlevel.cleanupBogusBreaks(range.getAncestorElement(), preservelocators);
 
     // If the current block has lost its style, reset to default block style
-    if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode))
+    if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode) && !block.isintable)
     {
       let localrange = Range.fromNodeInner(block.contentnode);
       this.changeRangeBlockStyle(localrange, block.blockparent, this.structure.defaultblockstyle, preservelocators.concat([ range ]));

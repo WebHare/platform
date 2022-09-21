@@ -968,7 +968,7 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(macwordpaste, true), locators[0]));
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf."</p><p class="normal"><b>"MSWord normal"</b></p><p class="normal">"(*0*)(*1*)after"</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
+        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf."</p><p class="normal"><b>"MSWord normal(*0*)(*1*)"</b></p><p class="normal">"after"</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         //test with empty p's, p's filled with only br and p's filled with zwsp
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)"</p>');
