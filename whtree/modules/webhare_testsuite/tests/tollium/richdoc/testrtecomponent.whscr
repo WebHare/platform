@@ -267,7 +267,7 @@ ASYNC MACRO TestCounters()
 
 MACRO TestStructuredBlocksRTE()
 {
-  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/richdoc.autotest2");
+  OBJECT scr := GetTestController()->LoadScreen("mod::webhare_testsuite/screens/tests/richdoc.xml#autotest2");
   RECORD whrte := scr->testrte->GetWHRTEStructure();
 //  TestEq(3, Length(whrte.blocktypes));
 

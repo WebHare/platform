@@ -14,6 +14,7 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/forum.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -287,9 +288,10 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
   }
 >;
 
-PUBLIC OBJECTTYPE Level1Widget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE Level1Widget EXTEND WidgetBase
 <
   OBJECT rtd;
+
   MACRO NEW()
   {
     this->rtd := this->OpenRTD(this->data.richdoc);
@@ -297,11 +299,17 @@ PUBLIC OBJECTTYPE Level1Widget EXTEND WidgetBase
   }
   UPDATE PUBLIC MACRO Render()
   {
+    STRING ARRAY libraries_temp;
+    IF(ObjectExists(this->context->targetapplytester)) //eg. testrtecomponent triggers this path without an applytester as it doesn't use a site
+      FOREVERY(INTEGER lib FROM this->context->targetapplytester->GetLibrary("temp"))
+        INSERT (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=lib) ?? "#" || lib INTO libraries_temp AT END;
+
     Print('<div class="level1widget" data-lang="' || this->context->languagecode || '" data-mytype="' || this->widgettype || '" data-rtdtype="' || this->rtdtype
            || '" data-targetsite="'   || (ObjectExists(this->context->targetsite) ? this->context->targetsite->id : -1)
            || '" data-targetfolder="' || (ObjectExists(this->context->targetfolder) ? this->context->targetfolder->id : -1)
            || '" data-whfssettingid="' || this->whfssettingid
            || '" data-whfsfileid="' || this->whfsfileid
+           || '" data-libraries-temp="' || EncodeValue(Detokenize(libraries_temp,' ')) || '"'
            // not exposed yet|| '" data-targetobject="' || (ObjectExists(this->context->targetobject) ? this->context->targetobject->id : -1)
            || '">');
     Print("</div>");

@@ -40,7 +40,7 @@ CONSTANT RECORD blockwidgetoptions :=
     ];
 
 /** Base class for widgets (former embedded objects) used for RTD documents which use the new 'rtd type' system */
-PUBLIC OBJECTTYPE WidgetBase
+PUBLIC STATIC OBJECTTYPE WidgetBase
 <
   RECORD __pvt_widgetsettings;
   OBJECT ARRAY __pvt_openrtds;
