@@ -1110,7 +1110,10 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 
     OBJECT applytester := this->contexts->applytester;
     IF(ObjectExists(applytester))
+    {
+      this->editable->applytester := applytester;
       this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
+    }
 
     OBJECT richdocumentcontext := this->contexts->richdocument;
     IF(ObjectExists(richdocumentcontext))

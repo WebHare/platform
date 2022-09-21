@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -21,7 +22,15 @@ MACRO PrepContentSnippets()
       [ snippettext :=  [ htmltext := StringToBlob(`
                            <html><body>
                              <p class="wh-normal">A simple text snippet</p>
+                             <div class="wh-rtd-embeddedobject" data-instanceid="level1snippet" />
                            </body></html>`)
+                        , instances :=
+                          [ [ instanceid := "level1snippet"
+                            , data :=
+                              [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"
+                              ]
+                            ]
+                          ]
                         ]
       ]);
 
@@ -103,13 +112,14 @@ MACRO TestInclusions()
   WaitForPublishCompletion(richdocfolder->id);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(richdocfolder->objecturl || "snippets-1/"));
-  TestEq(["p","p"], SELECT AS STRING ARRAY node->nodename FROM ToRecordArray(testfw->browser->QS("#content")->ListChildren("*","*"),"node"));
+  TestEq(["p","p","div"], SELECT AS STRING ARRAY node->nodename FROM ToRecordArray(testfw->browser->QS("#content")->ListChildren("*","*"),"node"));
   TestEq("A simple text snippet", testfw->browser->QS("#content > p + p")->textcontent);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(richdocfolder->objecturl || "snippets-2/"));
-  TestEq(["p","p","p"], SELECT AS STRING ARRAY node->nodename FROM ToRecordArray(testfw->browser->QS("#content")->ListChildren("*","*"),"node"));
+  TestEq(["p","p","p","div"], SELECT AS STRING ARRAY node->nodename FROM ToRecordArray(testfw->browser->QS("#content")->ListChildren("*","*"),"node"));
   TestEq("An including snippet", testfw->browser->QS("#content > p + p")->textcontent);
   TestEq("A simple text snippet", testfw->browser->QS("#content > p + p + p")->textcontent);
+  TestEq("/webhare-tests/webhare_testsuite.testsite/tmp/", testfw->browser->QS("#content > div.level1widget")->GetAttribute("data-libraries-temp"));
 }
 
 ASYNC MACRO TestInsertContentSnippetWidget()
@@ -176,14 +186,27 @@ ASYNC MACRO TestManageSnippets()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
   TT(":Widget name")->value := "New Snippet";
-  TT("component")->GetComponent("snippettext")->value :=
-                        [ htmltext := StringToBlob(`
-                           <html><body>
-                             <p class="wh-normal">My little snippet.</p>
-                           </body></html>`)
-                        ];
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
+  OBJECT rte := TT("component")->GetComponent("snippettext");
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+
+  GetTestController()->GrabInstructions(); //Flush all instructions
+
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE title = "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR); //widget editor for embedlvl1 automatically opens
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //Get the preview and ensure it had an applytester - <richdocument> had a bug where it didn't forward the applytester, breaking previews in "New widget" (fake applytester) flows
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestAssert(RecordExists(insertedobjectinstr), "Should have an inserted object on the instructionstream");
+
+  OBJECT inserteddom := MakeXMLDocumentFromHTML(StringToBlob(insertedobjectinstr.messages[0].data.htmltext));
+  TestEq("/webhare-tests/webhare_testsuite.testsite/tmp/", inserteddom->QuerySelector("div")->GetAttribute("data-libraries-temp"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
