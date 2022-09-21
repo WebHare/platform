@@ -385,17 +385,17 @@ PUBLIC STATIC OBJECTTYPE JSONWebToken
       {
         CASE "HS256"
         {
-          IF (Length(secret) < 256)
+          IF (Length(secret) < 32)
             THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
         }
         CASE "HS384"
         {
-          IF (Length(secret) < 384)
+          IF (Length(secret) < 48)
             THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
         }
         CASE "HS512"
         {
-          IF (Length(secret) < 512)
+          IF (Length(secret) < 64)
             THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
         }
       }
