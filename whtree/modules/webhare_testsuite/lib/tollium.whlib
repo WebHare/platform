@@ -3,9 +3,6 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 PUBLIC MACRO RunScreen(OBJECT controller, RECORD data)
 {
-  IF ("allowtestfw" NOT IN data.params)
-    DisallowFrameWorkUsage("Please use the parameter 'allowtestfw', or place exclusive='true' in the info of the current javascript test");
-
   controller->user->timezone := "CET";
   controller->LoadScreen("webhare_testsuite:" || data.params[0], [ params := ArraySlice(data.params, 1) ])->RunModal();
 }

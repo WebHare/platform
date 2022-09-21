@@ -39,7 +39,7 @@
 </html>[/component]
 
 [component emptytestpage]<!DOCTYPE html>
-<html data-exclusive="[exclusive]">
+<html>
   <head>
     <script type="application/json" id="wh-config">[whconfig:json]</script>
     [printheaders]

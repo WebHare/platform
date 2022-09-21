@@ -43,7 +43,7 @@ IF(urlbase LIKE "*/!/*")
 
       SendWebFile(EncodeJSONBlob(
         SELECT name :=    testname
-             , url :=     "../testpage/" || testname || (exclusive ? "?exclusive=1":"")
+             , url :=     "../testpage/" || testname
              , isjs :=    testscript.scriptpath NOT LIKE "*.es"
              , args :=    testscript.args
              , tags
@@ -67,7 +67,6 @@ IF(urlbase LIKE "*/!/*")
       {
         RECORD data := [ printheaders := DEFAULT MACRO PTR
                        , hasdevmodule := IsModuleInstalled("dev")
-                       , exclusive :=    affectedtest.exclusive ? "1" : "0"
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"

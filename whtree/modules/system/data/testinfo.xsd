@@ -72,7 +72,6 @@
               </xs:element>
             </xs:sequence>
             <xs:attribute name="file" use="required" />
-            <xs:attribute name="exclusive" type="xs:boolean" />
             <xs:attributeGroup ref="TestShared" />
           </xs:complexType>
         </xs:element>
