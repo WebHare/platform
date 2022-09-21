@@ -56,7 +56,10 @@ Example:
 
 The 'missingtopic' link is used when a user has editing rights to the documentation
 but the requested the topic isn't present. The missing topic, language and referrer URL are added
-to the URL. You would use this to inform editors on how to set up missing documentation
+to the URL. You would use this to inform editors on how to set up missing documentation.
+
+Remote documentation is downloaded at startup and every 6 hours by the `tollium:updateremotedocumentation` task. You can
+manually reschedule this task to force an immediately redownload of all documentation indices.
 
 ## WebHare platform documentation
 The remote documentation for all builtin modules are hosted on https://docs.webhare.dev/embedded-documentation/.
