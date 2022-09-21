@@ -9,8 +9,6 @@
   <test script="websockets.whscr" />
   <test script="test-webserver-minimalconfig.whscr" />
   <jstest name="websockets" file="websockets.es" />
-
-  <jstest file="accessrules.es" exclusive="true" />
-
-  <test name="remoting"   path="remoting/" />
+  <jstest file="accessrules.es" />
+  <test name="remoting" path="remoting/" />
 </group>

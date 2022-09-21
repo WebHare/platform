@@ -1,14 +1,13 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="lib">
   <jstest file="testdashboard.es" />
-  <jstest file="testappbar.es" name="testappbar-websocket">
-    <arg value="websocket"/>
+  <jstest name="testappbar-websocket" file="testappbar.es">
+    <arg value="websocket" />
   </jstest>
-  <jstest file="testappbar.es" name="testappbar-jsonrpc">
-    <arg value="jsonrpc"/>
+  <jstest name="testappbar-jsonrpc" file="testappbar.es">
+    <arg value="jsonrpc" />
   </jstest>
-
   <jstest file="testappstart.es" />
-  <jstest file="testeventserver.es" exclusive="true" />
+  <jstest file="testeventserver.es" />
   <test script="testsvg.whscr" />
   <jstest file="testdirty.es" />
   <test script="testdirty-hs.whscr" />

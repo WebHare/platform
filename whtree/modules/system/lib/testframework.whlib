@@ -62,7 +62,6 @@ LOADLIB "mod::wrd/lib/auth.whlib";
 PUBLIC CONSTANT STRING testfw_testmodule := "webhare_testsuite_temp";
 
 CONSTANT STRING betatestport := "testframework.whlib created temporary test port";
-STRING disallowtestframework; // disallow access to testframework if filled with reason
 
 OBJECTTYPE EventListener
 < INTEGER ARRAY cbs;
@@ -454,9 +453,6 @@ STATIC OBJECTTYPE TestFramework
     this->RegisterTest("whfs.prepare", PTR this->WHFSPrepare);
 
     SetMissingTidCallback(PTR this->OnMissingTid(#1, GetMissingTidCallback()));
-
-    IF (disallowtestframework != "")
-      THROW NEW Exception("The testframework may only be used in an exclusive context: " || disallowtestframework);
 
     FOREVERY(RECORD testrole FROM options.testroles)
       this->DeclareTestRole(testrole.role, testrole.grantrights);
@@ -2228,14 +2224,6 @@ PUBLIC MACRO DumpStackTrace(RECORD ARRAY trace)
     }
     PRINT(`${path}:${rec.line}:${rec.col}: Called from ${rec.func}\n`);
   }
-}
-
-/** Ensures that further usage of the testframework throws an error
-    @param why Reason (leave empty to allow usage of the test framwork)
-*/
-PUBLIC MACRO DisallowFrameWorkUsage(STRING why)
-{
-  disallowtestframework := why;
 }
 
 /** Opens temporary the WRD schema created by the testsuite

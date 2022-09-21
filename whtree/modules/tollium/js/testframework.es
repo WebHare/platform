@@ -1,8 +1,6 @@
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
 
-var overridetoken = '';
-
 function escapeRegExp(str) {
   return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 }
@@ -246,25 +244,16 @@ export function compByTitle(title)
     return elts[0];
   return compByName(elts[0].dataset.labelfor || elts[0].for);
 }
-function getTestScreen(testscreen, whdebug)
-  {
-    let allowtestfw = [ "1", "true" ].includes(document.documentElement.dataset.exclusive) ? ",allowtestfw" : "";
-    var debugvars = "";
-    if (whdebug && whdebug.length)
-      debugvars = "&wh-debug=" + (typeof whdebug == "string" ? whdebug.split(" ") : whdebug).join(",");
-    var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + allowtestfw + ')&' + getTolliumDebugVariables() + debugvars;
-    return baseurl;
-  }
+function getTestScreen(testscreen)
+{
+  var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + ')&' + getTolliumDebugVariables();
+  return baseurl;
+}
 function getCompTestPage(componentname, params, whdebug)
-  {
-    var debugvars = "";
-    if (whdebug && whdebug.length)
-    {
-      debugvars = "&wh-debug=" + (typeof whdebug == "string" ? whdebug.split(" ") : whdebug).concat(Object.keys(dompack.debugflags)).join(",");
-    }
-    var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ','+encodeURIComponent(JSON.stringify(params||null)).replace(/,/g, '%2C')+')&' + getTolliumDebugVariables() + debugvars;
-    return baseurl;
-  }
+{
+  var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ','+encodeURIComponent(JSON.stringify(params||null)).replace(/,/g, '%2C')+')&' + getTolliumDebugVariables();
+  return baseurl;
+}
 function getTolliumButton(toddbuttontitle)
 {
   return test.qSA("t-button").filter(button => button.textContent.includes(toddbuttontitle))[0];
@@ -378,15 +367,6 @@ function getTolliumHost()
     return test.getTestSiteRoot() + 'testsuiteportal/';
   }
 
-function setTolliumOverrideToken(token)
-  {
-    token = token || "";
-    overridetoken = token;
-    var pos = token.indexOf("overridetoken=");
-    if (pos != -1)
-      overridetoken = token.substr(pos + 14);
-  }
-
 function getTolliumDebugVariables()
   {
     var addurl = 'intolerant=1';
@@ -399,8 +379,6 @@ function getTolliumDebugVariables()
         addurl += '&wh-debug=' + parenturi.searchParams.get('wh-debug');
       if(parenturi.searchParams.get('transport'))
         addurl += '&transport=' + encodeURIComponent(parenturi.searchParams.get('transport'));
-      if (overridetoken)
-        addurl += "&language=debug&overridetoken=" + overridetoken;
       if(parenturi.hash)
         addurl += parenturi.hash;
     }
@@ -544,7 +522,6 @@ export { getTestScreen };
 export { getTolliumDebugVariables };
 export { getTolliumHost };
 export { setTodd };
-export { setTolliumOverrideToken };
 export { testClickTolliumButton };
 export { testClickTolliumLabel };
 export { testClickTolliumToolbarButton };

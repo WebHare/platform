@@ -122,7 +122,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
            ];
   }
 
-  RECORD ARRAY FUNCTION ParseXMLNode(RECORD testsettings, STRING testfile, OBJECT node, STRING testname, RECORD ARRAY params, BOOLEAN skipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, RECORD validationconfig)
+  RECORD ARRAY FUNCTION ParseXMLNode(RECORD testsettings, STRING testfile, OBJECT node, STRING testname, RECORD ARRAY params, BOOLEAN skipauto, STRING webroot, STRING sitename, RECORD validationconfig)
   {
     STRING url := webroot != "" ? UpdateURLVariables(ResolveToAbsoluteURL(webroot, "/.system/jstests/"), [ site := sitename ]) : "";
     RECORD ARRAY tests;
@@ -144,7 +144,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
         {
           STRING name := elt->GetAttribute("name");
           BOOLEAN inner_skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
-          BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
 
           STRING inner_site := sitename;
           STRING inner_webroot := webroot;
@@ -161,7 +160,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
             subtestname := subtestname || (subtestname != "" ? "." : "") || name;
 
           RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
-          tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, nodeexclusive, validationconfig);
+          tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, validationconfig);
         }
 
       CASE "jstest", "mochanodetest"
@@ -174,7 +173,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
 
           STRING name := elt->GetAttribute("name");
           STRING file := testnode->GetAttribute("file");
-          BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
           IF(name="")
           {
             name := Tokenize(file,'.')[0];
@@ -199,7 +197,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , testscript := [ args := arginfo.args
                                          , scriptpath := subfile
                                          ]
-                         , exclusive := nodeexclusive
                          , baseurl := url
                          , sitename := sitename
                          , flaky := ParseXSBoolean(testnode->GetAttribute("flaky"))
@@ -231,8 +228,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
             IF(name="")
               name := Tokenize(path,'/')[0];
 
-            BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->GetAttribute("exclusive") IN [ "true", "1" ] : exclusive;
-
             STRING subtestname := testname;
             IF(name!="")
               subtestname := subtestname || (subtestname != "" ? "." : "") || name;
@@ -240,7 +235,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
             BOOLEAN localskipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
             BOOLEAN okifmissing := ParseXSBoolean(elt->GetAttribute("okifmissing"));
             RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
-            tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, nodeexclusive, okifmissing, validationconfig);
+            tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, okifmissing, validationconfig);
           }
           ELSE IF (script != "")
           {
@@ -259,8 +254,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
               type := "fail";
             }
 
-            BOOLEAN nodeexclusive := elt->HasAttribute("exclusive") ? elt->HasAttribute("exclusive") IN [ "true", "1" ] : exclusive;
-
             INSERT MakeMergedRecord(ApplyTestSettings(testsettings, elt),
                 [ type := type
                 , errormsg := errormsg
@@ -271,7 +264,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
                 , xfail := xfail
                 , runscriptarguments := RecordExists(arginfo) ? arginfo.runscriptargs : DEFAULT STRING ARRAY
                 , arguments := RecordExists(arginfo) ? arginfo.args : DEFAULT STRING ARRAY
-                , exclusive := nodeexclusive
                 , baseurl := url
                 , sitename := sitename
                 , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
@@ -304,7 +296,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
     RETURN FALSE;
   }
 
-  RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, BOOLEAN okifmissing, RECORD validationconfig DEFAULTSTO DEFAULT RECORD)
+  RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN okifmissing, RECORD validationconfig DEFAULTSTO DEFAULT RECORD)
   {
 
   //  IF (print_debug)
@@ -329,7 +321,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
       [ [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
       ];
 
-    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, exclusive, validationconfig);
+    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, validationconfig);
     RETURN tests;
   }
 
@@ -395,7 +387,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
         CONTINUE;
 
       RECORD validationconfig := GetModuleValidationConfig(mod);
-      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "", FALSE, FALSE, validationconfig);
+      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "", FALSE, validationconfig);
     }
 
     RETURN tests;
