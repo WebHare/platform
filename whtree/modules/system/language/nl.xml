@@ -1120,7 +1120,9 @@
         <text tid="dashboardbackground">Achtergrond</text>
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Titel rechtsboven:</text>
+        <text tid="docroot">vanaf</text>
         <text tid="elasticsecret">Elasticsearch sleutel</text>
+        <text tid="embeddeddocs">Ingebedde documentatie</text>
         <text tid="errorlog">Bewaar errorlog</text>
         <text tid="fullaccessips">IPs die loginchecks overslaan</text>
         <text tid="geiop2">GeoLite2</text>
@@ -1151,11 +1153,13 @@
         <text tid="servertype-development">Ontwikkeling</text>
         <text tid="servertype-production">Productie</text>
         <text tid="servertype-test">Test</text>
+        <text tid="services">Diensten</text>
         <text tid="settings">Globale instellingen</text>
         <text tid="tasks">Taken</text>
         <text tid="tasksfinishedretention">Bewaar voltooide taken</text>
         <text tid="trustxforwarded">IPs die 'X-Forwarded-For' mogen instellen</text>
         <text tid="usagelog">Bewaar gebruikslog</text>
+        <text tid="webhareservices">WebHare services</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Bewaar WRD audit events</text>
         <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
