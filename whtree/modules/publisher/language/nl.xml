@@ -1800,6 +1800,7 @@
         <text tid="filtertopic">Toon onderwerp</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="managetopics">Onderwerpen beheren</text>
         <text tid="nofeedback">Er is geen feedback om te tonen</text>
         <text tid="remarks">Opmerkingen</text>
         <text tid="reopen">Heropenen</text>
@@ -1819,6 +1820,19 @@
           <text tid="confirmreopenfeedback">Weet u zeker dat u deze feedback wilt heropenen?</text>
           <text tid="unsupportedversion">Deze feedback kan niet worden weergegeven.</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
+        <text tid="allowed_priorities">Toegestande prioriteiten</text>
+        <text tid="default_priority">Standaard prioriteit</text>
+        <text tid="editpriority">Prioriteit</text>
+        <text tid="edittopic">Onderwerp</text>
+        <text tid="managetopics">Feedback-onderwerpen beheren</text>
+        <text tid="priorities">Prioriteiten</text>
+        <text tid="priority">Prioriteit</text>
+        <text tid="topic">Onderwerp</text>
+        <text tid="topics">Onderwerpen</text>
+        <text tid="wrd_tag">Tag</text>
+        <text tid="wrd_title">Naam</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend</text>

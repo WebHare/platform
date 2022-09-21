@@ -1801,6 +1801,7 @@
         <text tid="filtertopic">Show topic</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="managetopics">Manage topics</text>
         <text tid="nofeedback">There is no feedback to show</text>
         <text tid="remarks">Remarks</text>
         <text tid="reopen">Reopen</text>
@@ -1820,6 +1821,19 @@
           <text tid="confirmreopenfeedback">Are you sure you want to reopen this feedback?</text>
           <text tid="unsupportedversion">This feedback cannot be displayed.</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
+        <text tid="allowed_priorities">Allowed priorities</text>
+        <text tid="default_priority">Default priority</text>
+        <text tid="editpriority">Priority</text>
+        <text tid="edittopic">Topic</text>
+        <text tid="managetopics">Manage feedback topics</text>
+        <text tid="priorities">Priorities</text>
+        <text tid="priority">Priority</text>
+        <text tid="topic">Topic</text>
+        <text tid="topics">Topics</text>
+        <text tid="wrd_tag">Tag</text>
+        <text tid="wrd_title">Name</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
         <text tid="enabletolliumfeedback">Accept feedback in the WebHare backend</text>

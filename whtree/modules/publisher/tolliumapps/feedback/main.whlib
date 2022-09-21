@@ -12,6 +12,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 
 CONSTANT FLOAT maxscreenshotsize := 640;
@@ -210,6 +211,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
                        ]
           , exporttitle := "Feedback"
           ]);
+  }
+
+  MACRO DoManageTopics()
+  {
+    this->RunScreen("#managetopics");
   }
 
   MACRO DoSettings()
@@ -463,5 +469,13 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     IF (refreshtollium)
       BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
     RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditTopic EXTEND WRDEntityEditScreenBase
+<
+  MACRO OnAllowedPriorities()
+  {
+    ^entity->^default_priority->options := [ [ rowkey := 0, title := "", invalidselection := TRUE ] ] CONCAT ^entity->^allowed_priorities->selection;
   }
 >;
