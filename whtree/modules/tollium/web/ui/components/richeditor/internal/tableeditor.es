@@ -684,6 +684,31 @@ export class TableEditor
     this.node.className=newstyletag + " wh-rtd-table wh-rtd__table";
   }
 
+  getCaption()
+  {
+    return this.getCaptionNode()?.textContent || "";
+  }
+
+  setCaption(caption)
+  {
+    if (!caption)
+    {
+      this.getCaptionNode()?.remove();
+      return;
+    }
+
+    // A <caption> must always be the first descendant of the table
+    // (make sure not to pick up the caption of another table/element nested within our table)
+    let captionnode = this.getCaptionNode();
+    if (!captionnode)
+    {
+      captionnode = document.createElement("caption");
+      this.node.prepend(captionnode);
+    }
+
+    captionnode.textContent = caption;
+  }
+
   getActionState(cellnode)
   {
     let mergedata = this._getSplitMergeData(cellnode);

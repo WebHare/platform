@@ -61,7 +61,7 @@
                       valuetype="integer" />
             <text value="px" />
           </line>
-          <heading tid=".accessibility" />
+          <heading tid="~accessibility" />
           <text tid=".alttext" />
           <line layout="left">
             <textarea name="alttext" height="3x" errorlabeltid=".alttext" title="" />
@@ -135,6 +135,10 @@
       <line layout="left">
         <checkbox name="leftheader" labeltid=".leftheader" title="" />
       </line>
+
+      <heading tid="~accessibility" /> <!-- note image puts it at the end, but it's a table property not a cell property so we'll keep it just above cellprops for now -->
+      <textarea name="tablecaption" width="1pr" />
+
       <heading tid=".cellproperties" />
       <select name="cellstyle" type="pulldown" />
     </body>

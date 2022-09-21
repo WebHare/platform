@@ -185,6 +185,8 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
     ^topheader->value := data.data.datacell.row != 0;
     ^leftheader->value := data.data.datacell.col != 0;
 
+    ^tablecaption->value := data.data.tablecaption;
+
     ^tablestyle->options := SELECT rowkey := ToLowercase(tag)
                                  , title := title ?? ToLowercase(tag)
                                  , tolliumselected := ToLowercase(tag) = data.data.tablestyletag
@@ -208,7 +210,9 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
         [ datacell :=     [ row := ^topheader->value ? 1 : 0
                           , col := ^leftheader->value ? 1 : 0
                           ]
+        , tablecaption := ^tablecaption->value
         , tablestyletag := ^tablestyle->value
+
         , cellstyletag := ^cellstyle->value
         ];
   }

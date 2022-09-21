@@ -880,6 +880,7 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tilde" keepemptyreason="These are the new common texts, and cannot be revoked once used">   <!-- tilde -->
+    <text tid="accessibility">Accessibility</text>
     <text tid="add">Add</text>
     <text tid="advanced">Advanced</text>
     <text tid="apikey">API key</text>
@@ -1105,7 +1106,6 @@
         <text tid="removehyperlink">Remove hyperlink</text>
       </textgroup>
       <textgroup gid="imageproperties">   <!-- tolliumcomponents.rtedialogs.imageproperties -->
-        <text tid="accessibility">Accessibility</text>
         <text tid="alttext">Alternative text</text>
         <text tid="destination">Destination</text>
         <text tid="dimensions">Dimensions</text>
@@ -1136,6 +1136,7 @@
         <text tid="removetable">Remove Table</text>
         <text tid="sureremovetable">Are you sure you want to remove this table?</text>
         <text tid="tableandcellproperties">Table and cell properties</text>
+        <text tid="tablecaption">Table caption</text>
         <text tid="tableproperties">Table Properties</text>
         <text tid="tablestyle">Table style</text>
         <text tid="topheader">The first row is a header row</text>

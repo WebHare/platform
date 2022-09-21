@@ -530,6 +530,7 @@ export class RTE
       let tablenode = node.closest('table');
       let editor = TableEditor.getEditorForNode(tablenode);
       return { type: 'cell'
+             , tablecaption: editor.getCaption()
              , tablestyletag: tablenode.classList[0]
              , cellstyletag: node.classList[1] || ''
              , datacell: editor.locateFirstDataCell()
@@ -679,6 +680,7 @@ export class RTE
     {
       editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
       editor.setStyleTag(settings.tablestyletag);
+      editor.setCaption(settings.tablecaption);
     }
   }
 
