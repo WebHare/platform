@@ -1828,7 +1828,7 @@
         <text tid="apptitle">Feedback</text>
         <text tid="intro">Geeft u alstublieft wat extra informatie.</text>
         <text tid="remarks">Opmerkingen</text>
-        <text tid="thankyou">Bedankt voor uw feedback!</text>
+        <text tid="thankyou">Bedankt voor uw feedback!<ifparam p="1" value=""><else/><br/>Deze is geregistreerd met id '<param p="1"/>'.</ifparam></text>
         <text tid="type">Type feedback</text>
       </textgroup>
       <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
