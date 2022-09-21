@@ -252,6 +252,9 @@ IF(ReadRegistryKey("system.global.installationid") = "")
 IF(ReadRegistryKey("system.global.servertype") = "")
   WriteRegistryKey("system.global.servertype", IsModuleInstalled("webhare_testsuite") ? "development" : "test");
 
+IF(ReadRegistryKey("system.tasks.maintenanceoffset") = 0)
+  WriteRegistryKey("system.tasks.maintenanceoffset", Random(1,240));
+
 IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
   WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
 IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")

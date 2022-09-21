@@ -71,7 +71,16 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
       {
         INTEGER64 timeoffset;
         IF(cacheinfo.runtz = "maintenance")
-          timeoffset := ToInteger64(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0) * 60000;
+        {
+          INTEGER64 maintenanceoffset := ToInteger(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0);
+          IF(maintenanceoffset = 0)
+            maintenanceoffset := ReadRegistryKey("system.tasks.maintenanceoffset");
+          IF(maintenanceoffset < 0 OR maintenanceoffset >= 1440) //larger than 24 hours...
+            maintenanceoffset := Random(0,1439); //then we'll take just something random in that rnage
+
+          //Add a small jitter between 0 and 1 minute to prevent everyone aiming for :00 exactly
+          timeoffset := maintenanceoffset * 60000i64 + Random(0,999);
+        }
 
         RETURN AddTimeToDate(timeoffset, GetNextCronTime(AddTimeToDate(-timeoffset,GetCurrentDatetime()), cacheinfo.runat));
       }

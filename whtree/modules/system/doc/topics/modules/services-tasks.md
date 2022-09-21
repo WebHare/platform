@@ -85,4 +85,5 @@ about the supported formats.
 The `maintenance` timezone is a special timezone which matches UTC but is offset
 by the amount of minutes specified in the `WEBHARE_MAINTENANCE_OFFSET` environment
 variable. This can be used to prevent multiple servers running heavy maintenance
-tasks all at the same time.
+tasks all at the same time. If not set WebHare will pick a random offset between
+1 and 240 minutes.
