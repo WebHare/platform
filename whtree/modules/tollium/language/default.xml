@@ -1131,6 +1131,7 @@
       <textgroup gid="tableproperties">   <!-- tolliumcomponents.rtedialogs.tableproperties -->
         <text tid="cellproperties">Cell properties</text>
         <text tid="cellstyle">Cell style</text>
+        <text tid="headers">Headers</text>
         <text tid="leftheader">The left column is a header column</text>
         <text tid="normalcell">Default cell styling</text>
         <text tid="removetable">Remove Table</text>

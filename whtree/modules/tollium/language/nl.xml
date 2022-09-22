@@ -1111,6 +1111,7 @@
       <textgroup gid="tableproperties">   <!-- tolliumcomponents.rtedialogs.tableproperties -->
         <text tid="cellproperties">Celeigenschappen</text>
         <text tid="cellstyle">Celstijl</text>
+        <text tid="headers">Koppen</text>
         <text tid="leftheader">De linkerkolom is een koptekstkolom</text>
         <text tid="normalcell">Standaard celopmaak</text>
         <text tid="removetable">Tabel verwijderen</text>

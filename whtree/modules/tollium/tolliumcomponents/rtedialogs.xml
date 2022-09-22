@@ -132,13 +132,11 @@
     <body>
       <heading doclink="tollium:rte/table-properties" tid=".tableproperties" />
       <select name="tablestyle" type="pulldown" />
-      <line layout="left">
-        <checkbox name="topheader" labeltid=".topheader" title="" />
-      </line>
-      <line layout="left">
-        <checkbox name="leftheader" labeltid=".leftheader" title="" />
-      </line>
       <heading doclink="tollium:rte/table-accessibility" tid="~accessibility" />  <!-- note image puts it at the end, but it's a table property not a cell property so we'll keep it just above cellprops for now -->
+      <select name="headers" type="checkbox">
+        <option rowkey="topheader" tid=".topheader" />
+        <option rowkey="leftheader" tid=".leftheader" />
+      </select>
       <textarea name="tablecaption" width="1pr" />
       <heading name="cellproperties" doclink="tollium:rte/cell-properties" tid=".cellproperties" />
       <select name="cellstyle" type="pulldown" />
