@@ -205,6 +205,7 @@ OBJECTTYPE ParsedBlock
   PUBLIC INTEGER colspan;
   PUBLIC INTEGER rowspan;
   PUBLIC INTEGER width;
+  PUBLIC STRING caption;
   PUBLIC INTEGER ARRAY colwidths;
 
   MACRO NEW(RECORD options)
@@ -899,7 +900,13 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
             }
 
             FOREVERY (OBJECT subnode FROM child->childnodes->GetCurrentElements())
-              IF (ToLowercase(subnode->nodename) = "colgroup")
+            {
+              STRING nodename := ToLowercase(subnode->nodename);
+              IF (nodename = "caption")
+              {
+                newblock->caption := TrimWhitespace(subnode->textcontent);
+              }
+              ELSE IF (nodename = "colgroup")
               {
                 INTEGER ARRAY colwidths;
                 FOREVERY (OBJECT subsubnode FROM subnode->childnodes->GetCurrentElements())
@@ -921,6 +928,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                 // If a colgroup is present, enumerate all columns
                 newblock->colwidths := ArraySlice(colwidths CONCAT RepeatElement(0, dims.cols), 0, dims.cols);
               }
+            }
 
             RECORD defaultcontentstyle := SELECT * FROM this->structure.blockstyles WHERE tag = ToUppercase(type.style.tabledefaultblockstyle);
 
@@ -1259,6 +1267,12 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     IF (parsed.block->width != 0)
       node->SetAttribute("style", `width: ${parsed.block->width}px;`);
 
+    IF (parsed.block->caption != "")
+    {
+      OBJECT captionnode := parentnode->ownerdocument->CreateElement("caption");
+      captionnode->textcontent := parsed.block->caption;
+      node->AppendChild(captionnode);
+    }
     IF (NOT IsDefaultValue(parsed.block->colwidths))
     {
       OBJECT colgroup := parentnode->ownerdocument->CreateElement("colgroup");

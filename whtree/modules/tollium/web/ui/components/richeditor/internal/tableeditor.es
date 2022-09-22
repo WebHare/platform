@@ -350,8 +350,7 @@ export class TableEditor
       if (!this.colgroup)
         this.colgroup = <colgroup class="wh-tableeditor-colgroup" />;
 
-      if (this.colgroup !== this.node.firstChild)
-        this.node.prepend(this.colgroup);
+      this.ensureColGroupInserted();
 
       while (this.colgroup.childNodes.length > this.numcolumns)
         this.colgroup.lastChild.remove();
@@ -598,10 +597,33 @@ export class TableEditor
       {
         if (!this.node)
           return; // We've been destroyed
-        if (this.colgroup !== this.node.firstChild)
-          this.node.prepend(this.colgroup);
+
+        this.ensureColGroupInserted();
         this.columns.remove();
       },1);
+    }
+  }
+
+  getCaptionNode()
+  {
+    if (this.node.firstElementChild?.tagName == "CAPTION")
+      return this.node.firstElementChild;
+
+    return null;
+  }
+
+  ensureColGroupInserted()
+  {
+    if (this.colgroup.parentNode !== this.node) // not inserted yet?
+    {
+      /* The <colgroup> must appear after any optional <caption> element
+         but before any <thead>, <th>, <tbody>, <tfoot> and <tr> element.
+      */
+      let captionnode = this.getCaptionNode();
+      if (captionnode)
+        captionnode.after(this.colgroup);
+      else
+        this.node.prepend(this.colgroup);
     }
   }
 
@@ -660,6 +682,31 @@ export class TableEditor
   setStyleTag(newstyletag)
   {
     this.node.className=newstyletag + " wh-rtd-table wh-rtd__table";
+  }
+
+  getCaption()
+  {
+    return this.getCaptionNode()?.textContent || "";
+  }
+
+  setCaption(caption)
+  {
+    if (!caption)
+    {
+      this.getCaptionNode()?.remove();
+      return;
+    }
+
+    // A <caption> must always be the first descendant of the table
+    // (make sure not to pick up the caption of another table/element nested within our table)
+    let captionnode = this.getCaptionNode();
+    if (!captionnode)
+    {
+      captionnode = document.createElement("caption");
+      this.node.prepend(captionnode);
+    }
+
+    captionnode.textContent = caption;
   }
 
   getActionState(cellnode)

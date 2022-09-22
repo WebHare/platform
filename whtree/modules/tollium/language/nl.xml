@@ -860,6 +860,7 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tilde">   <!-- tilde -->
+    <text tid="accessibility">Toegankelijkheid</text>
     <text tid="add">Toevoegen</text>
     <text tid="advanced">Geavanceerd</text>
     <text tid="apikey">API sleutel</text>
@@ -1085,7 +1086,6 @@
         <text tid="removehyperlink">Verwijder hyperlink</text>
       </textgroup>
       <textgroup gid="imageproperties">   <!-- tolliumcomponents.rtedialogs.imageproperties -->
-        <text tid="accessibility">Toegankelijkheid</text>
         <text tid="alttext">Alternatieve tekst</text>
         <text tid="destination">Bestemming</text>
         <text tid="dimensions">Afmetingen</text>
@@ -1116,6 +1116,7 @@
         <text tid="removetable">Tabel verwijderen</text>
         <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
         <text tid="tableandcellproperties">Tabel- en celeigenschappen</text>
+        <text tid="tablecaption">Tabel bijschrift</text>
         <text tid="tableproperties">Tabeleigenschappen</text>
         <text tid="tablestyle">Tabelstijl</text>
         <text tid="topheader">De bovenste rij is een tabelkop</text>

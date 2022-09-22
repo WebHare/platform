@@ -1679,7 +1679,13 @@ export default class StructuredEditor extends EditorBase
 
             // If the table has any content, it should *always* close whatever block we're currently in
 
-            block = { type: 'table', style: type.style, nodes: [], colwidths: [], firstdatacell: firstdatacell };
+            block = { type: 'table'
+                    , style: type.style
+                    , nodes: []
+                    , colwidths: []
+                    , firstdatacell: firstdatacell
+                    , caption: child.querySelector('caption')?.textContent ?? ""
+                    };
             topblocklist.push(block);
 
             // Make head rows as non-data
@@ -2991,6 +2997,9 @@ export default class StructuredEditor extends EditorBase
     var node = document.createElement('table');
     node.className = data.style.classname + " wh-rtd-table wh-rtd__table";
     var tbody = document.createElement('tbody');
+
+    if(data.caption)
+      node.appendChild(<caption>{data.caption.trim()}</caption>);
 
     if (data.colwidths)
     {

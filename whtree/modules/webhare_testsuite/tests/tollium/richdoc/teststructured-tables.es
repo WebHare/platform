@@ -4,6 +4,21 @@ import * as dompack from 'dompack';
 
 import {selectRange} from "@mod-tollium/web/ui/components/richeditor/internal/selection.es";
 
+async function openPropsOnFirstTable()
+{
+  const driver = new rtetest.RTEDriver('structured');
+  var rtenode = test.compByName('structured');
+  var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+  var first_td_p = table.querySelector("td p");
+
+  driver.setSelection(first_td_p);
+
+  test.click(first_td_p.parentNode, { button: 2 });
+  test.click(test.getOpenMenuItem("Properties"));
+
+  await test.wait('ui');
+}
+
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/richdoc.main')
     , waits: [ 'ui' ]
@@ -38,17 +53,7 @@ test.registerTests(
   , "Test table top header"
   , async function()
     {
-      const driver = new rtetest.RTEDriver('structured');
-      var rtenode = test.compByName('structured');
-      var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-      var first_td_p = table.querySelector("td p");
-
-      driver.setSelection(first_td_p);
-
-      test.click(first_td_p.parentNode, { button: 2 });
-      test.click(test.getOpenMenuItem("Properties"));
-
-      await test.wait('ui');
+      await openPropsOnFirstTable();
 
       test.eq('mytable', test.getCurrentScreen().qSA("select")[0].value);
       test.fill(test.getCurrentScreen().qSA("select")[0], 'othertable');
@@ -58,12 +63,15 @@ test.registerTests(
       test.eq('Default cell styling', test.getCurrentScreen().qSA("select")[1].selectedOptions[0].textContent);
       test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
 
+      test.setTodd("tablecaption", " This is a test caption");
+
       test.clickTolliumButton("OK");
 
       await test.wait('ui');
 
-      table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      let table = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode table");
       test.true(table.classList.contains("othertable"));
+      test.eq("This is a test caption", table.querySelector("caption").textContent);
 
       test.eq(2,table.querySelectorAll("tr").length);
       test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -80,11 +88,19 @@ test.registerTests(
       test.eq("col", nodes[1].scope);
       test.eq("", nodes[2].scope);
 
+      // See if properties are properly re-read
+      await openPropsOnFirstTable();
+      test.eq("This is a test caption", test.compByName("tablecaption").querySelector("textarea").value);
+
+      test.clickTolliumButton("OK");
+
+      await test.wait('ui');
+
       // See if reparse keep the header structure
       test.clickTolliumButton("Rewrite");
       await test.wait("ui");
 
-      table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      table = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode table");
       test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
       test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader").length);
 
