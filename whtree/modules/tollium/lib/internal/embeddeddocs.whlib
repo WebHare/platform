@@ -1,6 +1,7 @@
 <?wh
 // Tollium's embdded doc system
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -12,6 +13,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD checkedmodules;
+
+CONSTANT INTEGER docinfoversion := 1; //may need to change this if ondisk format changes
 
 CONSTANT RECORD docinfostructure :=
   [ languages :=
@@ -28,32 +31,31 @@ RECORD FUNCTION GetModuleDefEmbedNode(STRING modulename)
     node := PickFirst(node->documentelement->ListChildren(whconstant_xmlns_moduledef, "documentation"));
   IF(ObjectExists(node))
     node := PickFirst(node->ListChildren(whconstant_xmlns_moduledef, "embedded"));
-  IF(ObjectExists(node))
-  {
-    RETURN [ rooturlkey := node->GetAttribute("rooturlkey")
-           , rooturl := node->GetAttribute("rooturl")
-           , subpath := node->GetAttribute("subpath")
-           ];
-  }
-  RETURN DEFAULT RECORD;
+  IF(NOT ObjectExists(node))
+    RETURN DEFAULT RECORD;
+
+  STRING rooturlkey := node->GetAttribute("rooturlkey");
+  STRING rooturl;
+  IF(rooturlkey != "")
+    rooturl := ReadRegistryKey(rooturlkey);
+  IF(rooturl = "")
+    rooturl := node->GetAttribute("rooturl");
+  IF(rooturl = "")
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[ rooturl
+             , subpath := node->GetAttribute("subpath")
+             ];
 }
 
 RECORD FUNCTION DownloadDocInfo(RECORD embedinfo)
 {
-  STRING rooturl;
-  IF(embedinfo.rooturlkey != "")
-    rooturl := ReadRegistryKey(embedinfo.rooturlkey);
-  IF(rooturl = "")
-    rooturl := embedinfo.rooturl;
-
-  IF(rooturl = "")
-    RETURN DEFAULT RECORD;
-
   OBJECT browser;
   TRY
   {
     browser := NEW Webbrowser;
     //ensure url ends with a '/', even after appending a subpath
+    STRING rooturl := embedinfo.rooturl;
     IF(rooturl NOT LIKE "*/")
       rooturl := rooturl || "/";
     IF(embedinfo.subpath != "")
@@ -65,19 +67,20 @@ RECORD FUNCTION DownloadDocInfo(RECORD embedinfo)
 
     IF(NOT browser->GotoWebPage(rooturl))
     {
-      LogError("tollium:embeddeddocs", `Error '${browser->GetHTTPStatusCode()}' downloading documentation from ${rooturl}`);
+      PrintTo(2, `Error '${browser->GetHTTPStatusCode()}' downloading documentation from ${rooturl}\n`);
       RETURN DEFAULT RECORD;
     }
 
     RECORD docinfo := DecodeJSONBlob(browser->content);
     IF(NOT RecordExists(docinfo))
     {
-      LogError("tollium:embeddeddocs", `Unable to parse JSON document at ${rooturl}`);
+      PrintTo(2, `Unable to parse JSON document at ${rooturl}\n`);
       RETURN DEFAULT RECORD;
     }
 
     docinfo := CELL[ ...EnforceStructure(docinfostructure, docinfo)
                    , base := rooturl
+                   , version := docinfoversion
                    ];
     RETURN docinfo;
   }
@@ -93,11 +96,26 @@ RECORD FUNCTION GetModuleDocInfo(STRING modulename)
   IF(CellExists(checkedmodules, modulename))
     RETURN Getcell(checkedmodules, modulename);
 
-  //FIXME adhoccahe, timeouts
   RECORD moduleinfo;
-  RECORD embedinfo := GetModuleDefEmbedNode(modulename);
-  IF(RecordExists(embedinfo))
-    moduleinfo := DownloadDocInfo(embedinfo);
+  BLOB cachedmoduleinfo := GetDiskResource(MergePath(GetModuleStorageRoot("tollium"), `embeddeddocs/${modulename}.whdocs.hson`), [ allowmissing := TRUE ]);
+  IF(Length(cachedmoduleinfo) != 0)
+  {
+    RECORD rawdata;
+
+    //Try to deecode. Log but ignore if corrupt
+    TRY
+    {
+      rawdata := DecodeHSONBlob(cachedmoduleinfo);
+      IF(rawdata.version != docinfoversion)
+        THROW NEW Exception(`Invalid docinfo version #${rawdata.version} for module '${modulename}'`);
+
+      moduleinfo := rawdata;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+    }
+  }
   checkedmodules := CellInsert(checkedmodules, modulename, moduleinfo);
 
   RETURN moduleinfo;
@@ -139,4 +157,36 @@ PUBLIC RECORD FUNCTION GetRemoteEmbeddedDocumentation(OBJECT contexts, STRING do
   }
 
   RETURN DEFAULT RECORD;
+}
+
+PUBLIC BOOLEAN FUNCTION RefreshEmbeddedDocumentation(STRING modulemask)
+{
+  //TODO for easier cleanup of obsolete module data we should join any future centrale 'module cache' folder in storage/ - but no such folder is there yet.
+  STRING outdir := MergePath(GetModuleStorageRoot("tollium"), "embeddeddocs");
+  CreateDiskDirectoryRecursive(outdir, TRUE);
+  BOOLEAN anyerrors;
+
+  FOREVERY(STRING mod FROM GetInstalledModuleNames())
+  {
+    IF(ToUppercase(mod) LIKE ToUppercase(modulemask))
+    {
+      STRING outpath := MergePath(outdir, mod) || ".whdocs.hson";
+      RECORD embedinfo := GetModuleDefEmbedNode(mod), moduleinfo;
+      IF(NOT RecordExists(embedinfo))
+      {
+        DeleteDiskFile(outpath); //delete any module file if present, as apparently its docs are gone
+        CONTINUE;
+      }
+
+      moduleinfo := DownloadDocInfo(embedinfo);
+      IF(NOT RecordExists(moduleinfo))
+      {
+        anyerrors := TRUE;
+        CONTINUE;
+      }
+
+      StoreDiskFile(outpath, EncodeHSONBlob(moduleinfo), [ overwrite := TRUE ]);
+    }
+  }
+  RETURN anyerrors;
 }

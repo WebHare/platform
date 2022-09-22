@@ -74,6 +74,13 @@
             <textedit composition="tweaks" cellname="historyseconds" valuetype="integer" width="8x"  tid=".processhistory" /> <!-- title="Nr of seconds to keep process history" /-->
             <text title="" valuetid="~units.seconds"/>
           </line>
+        </tab>
+        <tab tid=".services">
+          <heading tid=".webhareservices" />
+          <line layout="left">
+            <checkbox name="embeddeddocs" enablecomponents="docroot" title="" labeltid=".embeddeddocs" />
+            <textedit name="docroot" width="1pr" validationchecks="http-url" required="true" />
+          </line>
           <heading tid=".geonames"/>
           <line layout="left">
             <text title="" valuetid=".geonamesinfo" wordwrap="true" />

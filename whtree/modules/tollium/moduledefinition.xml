@@ -10,7 +10,8 @@
   </meta>
 
   <servicemanager>
-    <task runat="4 6 * * *" runtz="maintenance" script="scripts/internal/cleanrtetemporaries.whscr" tag="cleanrtetemporaries" />
+    <task runat="4 6 * * *" runtz="maintenance" script="scripts/tasks/cleanrtetemporaries.whscr" tag="cleanrtetemporaries" />
+    <task runat="17 0,6,12,18 * * *" runtz="maintenance" tag="updateremotedocumentation" script="scripts/tasks/updateremotedocumentation.whscr" description="Download remote documentation settings" runatstartup="true"/>
   </servicemanager>
 
   <backend>

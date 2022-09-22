@@ -60,9 +60,9 @@
     <text tid="files">Files</text>
     <text tid="framevariable">Frame variabele</text>
     <text tid="func">Function</text>
+    <text tid="getadhoccachelist">Take adhoccache snapshot</text>
     <text tid="getblobreferences">Take blob snapshot</text>
     <text tid="gethandlelist">Take handle snapshot</text>
-    <text tid="getadhoccachelist">Take adhoccache snapshot</text>
     <text tid="getmemorysnapshot">Take memory snapshot</text>
     <text tid="getmemorysnapshotwithunreferenced">Take memory snapshot (with garbage)</text>
     <text tid="getobjectsnapshot">Take objects snapshot</text>
@@ -1306,7 +1306,9 @@
         <text tid="dashboardbackground">Background</text>
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Title top right:</text>
+        <text tid="docroot">from</text>
         <text tid="elasticsecret">Elasticsearch key</text>
+        <text tid="embeddeddocs">Embedded documentation</text>
         <text tid="errorlog">Keep error log</text>
         <text tid="fullaccessips">IPs skipping login checks</text>
         <text tid="geiop2">GeoLite2</text>
@@ -1337,11 +1339,13 @@
         <text tid="servertype-development">Development</text>
         <text tid="servertype-production">Production</text>
         <text tid="servertype-test">Test</text>
+        <text tid="services">Services</text>
         <text tid="settings">Global settings</text>
         <text tid="tasks">Tasks</text>
         <text tid="tasksfinishedretention">Save completed tasks</text>
         <text tid="trustxforwarded">IPs trusted to set X-Forwarded-For</text>
         <text tid="usagelog">Keep usage log</text>
+        <text tid="webhareservices">WebHare services</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Keep WRD audit events</text>
         <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->

@@ -3,6 +3,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
@@ -66,6 +67,10 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     OBJECT wrdschema := this->contexts->userapi->wrdschema;
     ^passwordvalidationchecks->value := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
+
+    STRING docroot := ReadRegistryKey("system.services.webhare.docroot");
+    ^embeddeddocs->value := docroot != "";
+    ^docroot->value := docroot ?? "https://docs.webhare.dev/embedded-documentation/";
   }
 
   STRING FUNCTION GotBrowseMaxAge(STRING value)
@@ -151,6 +156,13 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^smtp->WriteToRegistry();
     ^geonames->WriteToRegistry();
     ^geoip2->WriteToRegistry();
+
+    STRING setdocroot := ^embeddeddocs->value ? ^docroot->value : "";
+    IF(setdocroot != ReadRegistryKey("system.services.webhare.docroot"))
+    {
+      WriteRegistryKey("system.services.webhare.docroot", setdocroot);
+      ScheduleTimedTask("tollium:updateremotedocumentation");
+    }
 
     IF(NOT work->Finish())
       RETURN FALSE;
