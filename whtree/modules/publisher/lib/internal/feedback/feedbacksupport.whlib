@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/jwt.whlib";
 
@@ -15,7 +16,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 
 
 PUBLIC CONSTANT STRING tollium_feedback_scope := "tollium:webharebackend";
-CONSTANT RECORD feedback_userdata_fields := [ name := "", email := "" ];
 
 PUBLIC OBJECT FUNCTION GetScreenshotWitty()
 {
@@ -127,9 +127,12 @@ PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
     @cell(string) data.title The field title
     @cell(string) data.tid The field tid (if a title is supplied, the tid is ignored)
     @cell(string) data.optiongid Can be supplied for fields of type "tid" to resolve tid values
-    @return The stored feedback's GUID, which can be used to store extra data using %StoreExtraData
+    @cell(string) return.guid The stored feedback's GUID, which can be used to store extra data using %StoreExtraData
+    @cell(record array) return.topics The available topics
+    @cell(string) return.topics.tag Topic tag (the topic value to submit to %StoreFeedbackExtraData)
+    @cell(string) return.topics.title Topic title
 */
-PUBLIC STRING FUNCTION StoreFeedback(RECORD data)
+PUBLIC RECORD FUNCTION StoreFeedback(RECORD data)
 {
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
 
@@ -149,10 +152,21 @@ PUBLIC STRING FUNCTION StoreFeedback(RECORD data)
                                                                                         , nrformat := "FB%04n"
                                                                                         ])
               , appversions
+              , status := "creating"
               ];
 
   OBJECT entity := wrdschema->^feedback->CreateEntity(data);
-  RETURN entity->guid;
+  RETURN CELL
+      [ entity->guid
+        //TODO: For now we'll just return all available topics, these may be restricted by webdesign and/or reporting rights
+      , topics :=
+          (SELECT *
+                , DELETE wrd_ordering
+             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+            ORDER BY wrd_ordering
+                   , ToUppercase(title)
+                   , rowkey)
+      ];
 }
 
 /** @short Store additional data with existing feedback (new extradata is merged with existing extradata)
@@ -191,7 +205,7 @@ PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
   RETURN wrdschema->^feedback->GetEntityField(feedbackid, "feedbackid");
 }
 
-STRING FUNCTION GetFeedbackSecret(STRING kid)
+STRING FUNCTION GetFeedbackSecret(STRING kid_unused)
 {
   // The secret key should be at least 256 bits, which the cookiesecret already is
   RETURN GetClusterKeyBase("cookiesecret") || tollium_feedback_scope;
@@ -200,9 +214,17 @@ STRING FUNCTION GetFeedbackSecret(STRING kid)
 // @cell(string) userdata.name The user's full name
 // @cell(string) userdata.email The user's email address
 // @return A JSON Web Token
-PUBLIC STRING FUNCTION GetFeedbackWebToken(RECORD userdata)
+PUBLIC STRING FUNCTION GetFeedbackWebToken(OBJECT tolliumuser)
 {
-  userdata := ValidateOptions(feedback_userdata_fields, userdata, [ optional := [ "*" ] ]);
+  RECORD userdata := tolliumuser->GetUserDataForLogging();
+  // Convert GetUserDataForLogging data to JWT claims (see https://www.iana.org/assignments/jwt/jwt.xhtml)
+  userdata :=
+      [ iap := userdata.when
+      , sub := userdata.wrd_guid
+      , name := userdata.realname
+      , email := userdata.emailaddress
+      , preferred_username := userdata.login
+      ];
   OBJECT token := NEW JSONWebToken("HS256", GetfeedbackSecret(""));
   token->payload := userdata;
   RETURN token->GetAuthorizationValue();
@@ -217,8 +239,21 @@ PUBLIC RECORD FUNCTION VerifyFeedbackWebToken(STRING token)
   {
     TRY
     {
-      RECORD userdata := VerifyJSONWebToken(token, [ alg := [ "HS256" ], secret_callback := PTR GetFeedbackSecret ])->payload;
-      RETURN EnforceStructure(feedback_userdata_fields, userdata);
+      RECORD userdata := EnforceStructure(
+          [ iap := DEFAULT DATETIME
+          , sub := ""
+          , name := ""
+          , email := ""
+          , preferred_username := ""
+          ], VerifyJSONWebToken(token, [ alg := [ "HS256" ], secret_callback := PTR GetFeedbackSecret ])->payload);
+      // Convert JWT claims to GetUserDataForLogging data (see https://www.iana.org/assignments/jwt/jwt.xhtml)
+      RETURN
+          [ when := userdata.iap
+          , wrd_guid := userdata.sub
+          , realname := userdata.name
+          , emailaddress := userdata.email
+          , login := userdata.preferred_username
+          ];
     }
     CATCH (OBJECT e)
       LogHareScriptException(e);

@@ -72,8 +72,15 @@ export async function run(event, options)
 
 function filterDOM(node)
 {
-  // Don't include the trigger element in the screenshot
-  return node.nodeType != Node.ELEMENT_NODE || !node.classList.contains("wh-tollium__feedback");
+  // Nodes other than alements (e.g. text, comments) are always allowed
+  if (node.nodeType != Node.ELEMENT_NODE)
+    return true;
+         // Don't include the trigger element in the screenshot
+  return !node.classList.contains("wh-tollium__feedback")
+         // Don't include invisible applications
+      && (!node.classList.contains("appcanvas") || node.classList.contains("appcanvas--visible"))
+         // Don't include invisible tab sheets
+      && (!node.classList.contains("tabsheet") || !node.classList.contains("invisible"));
 }
 
 // Initialize the feedback options - we always init, as backend apps can trigger feedback too

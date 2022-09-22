@@ -133,10 +133,23 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
   if(!config.site)
     config.site={};
 
-  // Activate by going to /.publisher/common/feedback/feedbacklogin.shtml
   try
   {
-    if(JSON.parse(localStorage?.whAuthorMode)?.token)
+    // Is author mode activated through the Publisher?
+    if (location.search.includes("wh-feedback-token="))
+    {
+      const url = new URL(location.href);
+      const token = JSON.parse(atob(url.searchParams.get("wh-feedback-token")));
+      if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) // Check if the string has the general JWT header.payload.signature format
+      {
+        localStorage.whFeedbackToken = token;
+        url.searchParams.delete("wh-feedback-token");
+        history.replaceState(null, "", url);
+      }
+    }
+
+    const token = localStorage?.whFeedbackToken;
+    if (token.match(/^[^.]*\.[^.]*\.[^.]*$/))
       activeAuthorMode();
   }
   catch(ignore) {}

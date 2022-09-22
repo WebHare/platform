@@ -39,12 +39,7 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING pathname, STRING unused_scope, R
 
   RECORD userdata := VerifyFeedbackWebToken(data.token);
   DELETE CELL token FROM data;
-  IF (RecordExists(userdata))
-  {
-    // Convert the JWT payload to something compatible with GetUserDataForLogging
-    userdata := [ realname := userdata.name, emailaddress := userdata.email ];
-  }
-  ELSE
+  IF (NOT RecordExists(userdata))
   {
     TRY
     {
@@ -61,10 +56,10 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING pathname, STRING unused_scope, R
   GetPrimary()->BeginWork();
   TRY
   {
-    STRING guid := StoreFeedback(CELL[ ...data, status := "creating", userdata ]);
+    RECORD result := StoreFeedback(CELL[ ...data, userdata ]);
     RETURN CELL
         [ success := TRUE
-        , guid
+        , ...result
         ];
   }
   // Use FINALLY here to catch the exception, so we can safely rollback or commit in case of error resp. success (using CATCH

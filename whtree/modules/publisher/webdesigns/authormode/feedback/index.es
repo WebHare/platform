@@ -5,7 +5,7 @@ import * as dialogapi from 'dompack/api/dialog.es';
 import * as authorservice from "../authorservice.rpc.json";
 
 let aboutdompointer = null;
-let authorMode = null, userData;
+let feedbackToken = null, userData;
 
 function toggleAboutLocation()
 {
@@ -34,7 +34,7 @@ async function submitFeedback(dialog, event, result)
 
 export async function runFeedbackReport(event)
 {
-  if (!authorMode)
+  if (!feedbackToken)
     return;
 
   //TODO cancel or prevent recursive call (setup an abort controller and signal it if already set)
@@ -80,7 +80,7 @@ export async function runFeedbackReport(event)
 
       Type/onderwerp:<br/>
       <select name="topic">
-        { authorMode.topics.map(topic => <option value={topic.tag}>{topic.title}</option>) }
+        { result.topics.map(topic => <option value={topic.tag}>{topic.title}</option>) }
       </select>
       <br/>
 
@@ -98,8 +98,11 @@ export async function runFeedbackReport(event)
 // Initialize the feedback options
 try
 {
-  authorMode = JSON.parse(localStorage?.whAuthorMode);
-  userData = JSON.parse(atob(authorMode.token.split(".")[1]));
-  feedbackapi.initFeedback({ token: authorMode.token });
+  if (localStorage?.whFeedbackToken.match(/^[^.]*\.[^.]*\.[^.]*$/))
+  {
+    feedbackToken = localStorage.whFeedbackToken;
+    userData = JSON.parse(atob(feedbackToken.split(".")[1]));
+    feedbackapi.initFeedback({ token: feedbackToken });
+  }
 }
 catch(ignore) {}

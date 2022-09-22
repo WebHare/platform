@@ -65,6 +65,7 @@
             title="Feedback status" />
 
       <!--
+        When a feedback token is used, the payload of the token
         When a logged in user is recognized, the result of GetUserDataForLogging
       -->
       <record tag="USERDATA" title="User data" />
