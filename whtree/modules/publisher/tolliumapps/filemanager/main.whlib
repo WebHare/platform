@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/versioning.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
@@ -2273,8 +2274,9 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
-    STRING desturl := SELECT AS STRING link FROM system.fs_objects WHERE id = ^filelist->selection.id;
-    openhandler->SendURL(desturl);
+    OBJECT obj := OpenWHFSObject(^filelist->selection.id);
+    // Add feedback token to activate authormode data
+    openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(EncodeBase64(EncodeJSON(GetFeedbackWebToken(this->contexts->user))))}`);
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)

@@ -94,6 +94,9 @@ export function initFeedback(options: FeedbackOptions): void
     @return The result
     @cell(boolean) return.success If the feedback was successfully stored
     @cell(string) return.guid If successful, the feedback GUID
+    @cell(object array) return.topics If successful, an array of available topics
+    @cell(string) return.topics.tag The topic tag
+    @cell(string) return.topics.title The topic title
     @cell(string) return.error If not successful, an error message
 */
 export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>
