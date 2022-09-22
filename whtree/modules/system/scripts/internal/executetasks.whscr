@@ -76,7 +76,7 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
           IF(maintenanceoffset = 0)
             maintenanceoffset := ReadRegistryKey("system.tasks.maintenanceoffset");
           IF(maintenanceoffset < 0 OR maintenanceoffset >= 1440) //larger than 24 hours...
-            maintenanceoffset := Random(0,1439); //then we'll take just something random in that rnage
+            maintenanceoffset := Random(0,1439); //then we'll take just something random in that range
 
           //Add a small jitter between 0 and 1 minute to prevent everyone aiming for :00 exactly
           timeoffset := maintenanceoffset * 60000i64 + Random(0,59999);
