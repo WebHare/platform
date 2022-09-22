@@ -884,6 +884,24 @@ export class TableEditor
     return widths;
   }
 
+  /** Get the current and maximum size of the table. Does a reflow, so cache the results
+      @return
+      @cell return.maxsize Maximum size (only use .x)
+      @cell return.maxsize.x Maximum width
+      @cell return.cursize Current size
+      @cell return.cursize.x Current width
+      @cell return.cursize.y Current height
+  */
+  _getSizes()
+  {
+    let cursize = getSize(this.node);
+    let tempdiv = dompack.create("div");
+    this.node.before(tempdiv);
+    let maxsize = getSize(tempdiv);
+    tempdiv.remove();
+    return { cursize, maxsize };
+  }
+
   /** Resize a set of columns
       @param leftidx Left column (negative to count from right, -1 for rightmost column)
       @param sizediff Amount of pixels to add to the left column
@@ -896,8 +914,17 @@ export class TableEditor
     if (leftidx < 0)
       leftidx = widths.length + leftidx;
 
+    let istableresize = leftidx == widths.length - 1;
+    if (istableresize)
+    {
+      // when resizing the table, don't grow beyond max width
+      let { cursize, maxsize } = this._getSizes();
+      let maxsizediff = maxsize.x - cursize.x;
+      sizediff = Math.min(maxsizediff, sizediff);
+    }
+
     // We're resizing the cell at position idx and the cell next to it (idx + 1)
-    var rightidx = leftidx == widths.length - 1 ? -1 : leftidx + 1;
+    var rightidx = istableresize ? -1 : leftidx + 1;
 
     var shrinkidx = -1, growidx = -1;
     if (sizediff < 0)
@@ -918,7 +945,12 @@ export class TableEditor
     if (shrinkidx != -1)
     {
       // Shrink the column with the requested amount
-      var testwidths = [...widths];
+      let testwidths = [...widths];
+
+      // Make sure the column keeps at least 8 pixels
+      if (sizediff > testwidths[shrinkidx] - 8)
+        sizediff = testwidths[shrinkidx] - 8;
+
       testwidths[shrinkidx] -= sizediff;
       if (testwidths[shrinkidx] < 1)
         testwidths[shrinkidx] = 1;
@@ -1184,11 +1216,8 @@ export class TableEditor
     var tableresize = resizer.classList.contains("wh-tableeditor-resize-table");
 
     // Calculate the resize bounds
-    var cursize = getSize(this.node);
-    var tempdiv = dompack.create("div");
-    this.node.before(tempdiv);
-    var maxsize = getSize(tempdiv);
-    tempdiv.remove();
+    let { cursize, maxsize } = this._getSizes();
+
     var maxpos = { x: tableresize ? maxsize.x : cursize.x
                  , y: tableresize ? Number.MAX_VALUE : cursize.y
                  };
@@ -1229,9 +1258,9 @@ export class TableEditor
 
     // Update the resize placeholder's position
     if (this.resizing.colresize)
-      this.resizing.placeholder.style.left = Math.max(Math.min(this.resizing.orgpos.x + event.detail.movedX, this.resizing.maxpos.x - this.options.placeholder_size), 0) + 'px';
+      this.resizing.placeholder.style.left = Math.max(Math.min(this.resizing.orgpos.x + event.detail.movedX, this.resizing.maxpos.x - this.options.placeholder_size), 8) + 'px';
     else
-      this.resizing.placeholder.style.top = Math.max(Math.min(this.resizing.orgpos.y + event.detail.movedY, this.resizing.maxpos.y - this.options.placeholder_size), 0) + 'px';
+      this.resizing.placeholder.style.top = Math.max(Math.min(this.resizing.orgpos.y + event.detail.movedY, this.resizing.maxpos.y - this.options.placeholder_size), 8) + 'px';
   }
 
   _onResized(event)
@@ -1247,7 +1276,8 @@ export class TableEditor
     {
       if (this.resizing.colresize)
       {
-        this._resizeColumns(-1, event.detail.movedX);
+        let toadjust = Math.min(event.detail.movedX, this.resizing.maxpos.x - this.resizing.orgpos.x);
+        this._resizeColumns(-1, toadjust);
       }
       else
       {

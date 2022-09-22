@@ -141,7 +141,7 @@ test.registerTests(
     }
 
   , { name: 'tableeditor-resize-col4'
-    , test: function(doc, win)
+    , test: async function(doc, win)
       {
         // The table itself should not be resized
         var coords = getRoundedCoordinates(table);
@@ -160,12 +160,54 @@ test.registerTests(
         test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 300 - 66, clienty: coords.top + 1 + 85 }
                               , { up: 0, clientx: coords.left, clienty: coords.top + 10, delay: gesture_time, transition: test.dragTransition }
                               ]);
-        // Resize the table, making it bigger
-        test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 300, clienty: coords.top + 10 }
-                              , { up: 0, clientx: coords.left + 1 + 325, clienty: coords.top + 1 + 85, delay: gesture_time, transition: test.dragTransition }
-                              ]);
       }
-    , waits: [ 'pointer', 'animationframe' ]
+    }
+  , "tableeditor-resize-table-wider/smaller"
+  , async function()
+    {
+      let doc = test.getDoc();
+      let coords = getRoundedCoordinates(table);
+      test.eq(301, coords.width);
+      test.eq(96, coords.height);
+
+      // Resize the table, making it bigger
+      test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 300, clienty: coords.top + 10 }
+                            , { up: 0, clientx: coords.left + 1 + 325, clienty: coords.top + 1 + 85, delay: gesture_time, transition: test.dragTransition }
+                            ]);
+
+      await test.wait("pointer");
+      await test.wait("animationframe");
+
+      // The table should be 25 pixels wider
+      coords = getRoundedCoordinates(table);
+      test.eq(326, coords.width);
+      test.eq(96, coords.height);
+
+      // Resize the table, making it bigger than the content area
+      test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 326, clienty: coords.top + 10 }
+        , { up: 0, clientx: coords.left + 1 + 400, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
+        ]);
+
+      await test.wait("pointer");
+      await test.wait("animationframe");
+
+      // The table should be 25 pixels wider
+      coords = getRoundedCoordinates(table);
+      test.eq(383, coords.width);
+      test.eq(96, coords.height);
+
+      // Resize the table, making it bigger than the content area (-2 to make sure the mouse isn't placed outside the content area)
+      test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 383 - 2, clienty: coords.top + 10 }
+        , { up: 0, clientx: coords.left + 1 + 326 - 2, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
+        ]);
+
+      await test.wait("pointer");
+      await test.wait("animationframe");
+
+      // The table should be 25 pixels wider
+      coords = getRoundedCoordinates(table);
+      test.eq(326, coords.width);
+      test.eq(96, coords.height);
     }
 
   , { name: 'tableeditor-resize-table-wider'
@@ -473,4 +515,43 @@ test.registerTests(
     , waits: [ 'pointer', 'animationframe' ]
     }
 
+  , 'tableeditor-col-minsize'
+  , async function()
+    {
+      let doc = test.getDoc();
+
+      // The table itself should not be resized
+      var coords = getRoundedCoordinates(table);
+      test.eq(257, coords.width);
+      test.eq(129, coords.height);
+
+      // The first column should be 41 pixels wide (40 content + 1 border), the second column 51 pixels (50 content +
+      // 1 border), the fourth column 66 pixels (65 content + 1 border), the third column 142 pixels (300 - 41 - 51 - 66)
+      let cells = table.querySelectorAll('tr:first-child th');
+      test.eq(98, getRoundedCoordinates(cells[0]).width);
+      test.eq(51, getRoundedCoordinates(cells[1]).width);
+      test.eq(41, getRoundedCoordinates(cells[2]).width);
+      test.eq(66, getRoundedCoordinates(cells[3]).width);
+
+      // Clear the first column, reset div width
+      for (let node of table.querySelectorAll("td:first-child > div, th:first-child > div"))
+      {
+        node.style.width = "";
+        node.textContent = "";
+      }
+      // Resize first column all the way to 0
+      test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 1 + 98, clienty: coords.top + 1 + 10 }
+                            , { up: 0, clientx: coords.left - 20, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
+                            ]);
+
+      await test.wait("pointer");
+      await test.wait("animationframe");
+
+      // should be 8 pixels left
+      cells = table.querySelectorAll('tr:first-child th');
+      test.eq(8, getRoundedCoordinates(cells[0]).width);
+      test.eq(141, getRoundedCoordinates(cells[1]).width);
+      test.eq(41, getRoundedCoordinates(cells[2]).width);
+      test.eq(66, getRoundedCoordinates(cells[3]).width);
+    }
   ]);
