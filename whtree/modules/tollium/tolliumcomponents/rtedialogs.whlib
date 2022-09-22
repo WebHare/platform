@@ -206,6 +206,7 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
     ELSE
     {
       ^cellstyle->visible := FALSE;
+      ^cellproperties->visible := FALSE;
     }
   }
 
