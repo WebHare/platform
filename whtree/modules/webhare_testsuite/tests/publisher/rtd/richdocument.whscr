@@ -292,6 +292,7 @@ MACRO PublishRichDocTableTest()
     `<html>
       <body>
         <table class="mytable">
+          <caption>I'm &amp; caption</caption>
           <colgroup>
             <col style="width:100px"/>
             <col style="width:100px"/>
@@ -327,6 +328,7 @@ MACRO PublishRichDocTableTest()
   TestEq("wh-rtd__tablecell redpill", cells[1]->GetAttribute("class"));
   TestEq("wh-rtd__tablecell bluepill", cells[2]->GetAttribute("class"));
   TestEq("wh-rtd__tablecell", cells[3]->GetAttribute("class"));
+  TestEq(`<caption class="wh-rtd__tablecaption">I'm &amp; caption</caption>`, doc->QuerySelector("table > caption")->outerhtml);
 }
 
 

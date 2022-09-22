@@ -215,6 +215,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
     this->Print("<div class=\"wh-rtd__tablewrap " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
     this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
 
+    IF(outputobject->__table.caption != "")
+      this->Print(`<caption class="wh-rtd__tablecaption">${EncodeHTML(outputobject->__table.caption)}</caption>`);
+
     this->print("<colgroup>" || lf);
     FOREVERY(RECORD col FROM outputobject->__table.cols)
       this->Print('<col style="' || col.node->GetAttribute("style") || '"/>'); //ADDME sanitize style?
@@ -589,7 +592,13 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
   {
     this->__table := [ cols := DEFAULT RECORD ARRAY
                      , rows := DEFAULT RECORD ARRAY
+                     , caption := ""
                      ];
+
+
+    OBJECT caption := this->blocknode->GetChildElementsByTagname("caption")->Item(0);
+    IF(ObjectExists(caption))
+      this->__table.caption := caption->textcontent;
 
     OBJECT tbody := this->blocknode->GetChildElementsByTagname("tbody")->Item(0);
     IF(NOT ObjectExists(tbody))
