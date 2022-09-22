@@ -651,7 +651,7 @@ function validateMouseDownTarget(part, elhere, position)
 {
   let wantedtotarget = part.el;
 
-  if(wantedtotarget && elhere != wantedtotarget && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something diferent
+  if(wantedtotarget && elhere != wantedtotarget && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something different
   {
     while(wantedtotarget && wantedtotarget.inert)
       wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent

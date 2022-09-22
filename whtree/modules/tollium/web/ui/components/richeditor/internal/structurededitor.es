@@ -2562,7 +2562,7 @@ export default class StructuredEditor extends EditorBase
       // Disallow deleting tables, embedded blocks and captions
       let checkblock = (node) =>
       {
-        if (node.matches("div,table,content"))
+        if (node.matches("div,table,caption"))
           return false;
         return true;
       };
