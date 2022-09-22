@@ -2249,6 +2249,7 @@
         <text tid="path">Pad</text>
         <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
         <text tid="pinfolder">Bescherm deze map (verbied hernoemen en verwijderen)</text>
+        <text tid="publicationsettings">Publicatie-instellingen</text>
         <text tid="publish">Publiceer dit bestand</text>
         <text tid="requestapproval">Indienen</text>
         <text tid="restrictions">Beperkingen</text>

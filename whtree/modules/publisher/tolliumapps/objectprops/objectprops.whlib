@@ -489,6 +489,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       ^tablistgrid->parent->InsertComponentBefore(^maintabs,^tablistgrid,TRUE);
       ^tablistcell->visible := FALSE;
       ^maintabs->type := "regular";
+      ^publicationsettings_heading->doclink := "";
+      ^restrictions->doclink := "";
 
       FOREVERY(OBJECT page FROM ^maintabs->pages)
       {

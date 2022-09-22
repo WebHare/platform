@@ -2250,6 +2250,7 @@
         <text tid="path">Path</text>
         <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
         <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
+        <text tid="publicationsettings">Publication settings</text>
         <text tid="publish">Publish this file</text>
         <text tid="requestapproval">Submit for approval</text>
         <text tid="restrictions">Restrictions</text>

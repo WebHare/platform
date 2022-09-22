@@ -47,8 +47,8 @@
         </panel>
         <text name="versioningmovemessage" title="" value="" />
       </panel>
-      <grid height="1pr" name="tablistgrid">
-        <cell width="25x" name="tablistcell">
+      <grid name="tablistgrid" height="1pr">
+        <cell name="tablistcell" width="25x">
           <list name="tablist"
                 height="1pr"
                 borders="right"
@@ -67,7 +67,7 @@
               <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
 
               <!-- general fields -->
-              <heading name="maintab_heading" tid=".maintab" doclink="publisher:objectprops/general" />
+              <heading name="maintab_heading" doclink="publisher:objectprops/general" tid=".maintab" />
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <textedit name="title" width="1pr" maxlength="256" tid="~title" />
               <textedit composition="seosettings"
@@ -97,7 +97,7 @@
               <!-- Site-specific fields -->
 
               <!-- box name=settings endewd here -->
-              <heading name="typeh" tid=".info" doclink="publisher:objectprops/general-properties" />
+              <heading name="typeh" doclink="publisher:objectprops/general-properties" tid=".info" />
               <line>
                 <text name="type" />
                 <text name="size" title="" />  <!-- tid=".size" -->
@@ -106,7 +106,7 @@
               <text name="deleted" tid=".deleted" visible="false" />
               <text name="originallocation" visible="false" />
               <spacer name="properties" visible="false" />  <!-- this is just an insertion point -->
-              <heading name="restrictions" />
+              <heading name="restrictions" doclink="publisher:objectprops/general-restrictions" />
               <line layout="left">
                 <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
                 <text name="objectpinned" title="" visible="false" />
@@ -119,6 +119,9 @@
                   <text name="notpublishedtext" title="" value="" />
                 </panel>
                 <panel name="publicationsettings">
+                  <heading name="publicationsettings_heading"
+                           doclink="publisher:objectprops/general-publication"
+                           tid=".publicationsettings" />
                   <line layout="left">
                     <checkbox name="publish" labeltid=".publish" title="" />
                   </line>
@@ -129,7 +132,7 @@
               </panel>
             </tab>
             <tab name="seotab" title="">
-              <heading name="seotab_heading" tid=".seotab" doclink="publisher:objectprops/seotab" />
+              <heading name="seotab_heading" doclink="publisher:objectprops/seotab" tid=".seotab" />
               <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
               <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
               <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
@@ -154,7 +157,7 @@
               <spacer name="seotabinsertpoint" visible="false" />  <!-- this is just an insertion point -->
             </tab>
             <tab name="tasksettings" height="1pr">
-              <heading name="tasksettings_heading" tid=".tasksettings" doclink="publisher:objectprops/tasks" />
+              <heading name="tasksettings_heading" doclink="publisher:objectprops/tasks" tid=".tasksettings" />
               <grid>
                 <col width="1pr" />
                 <col />
@@ -185,7 +188,7 @@
               </grid>
             </tab>
             <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
-              <heading name="linkcheck_heading" tid=".linkcheck" doclink="publisher:objectprops/linkcheck" />
+              <heading name="linkcheck_heading" doclink="publisher:objectprops/linkcheck" tid=".linkcheck" />
               <includefragment name="objectreport" fragment="consilio:report.objectreport" />
             </tab>
           </tabs>
