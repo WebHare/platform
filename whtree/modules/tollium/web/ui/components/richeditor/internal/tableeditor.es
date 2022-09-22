@@ -945,6 +945,9 @@ export class TableEditor
     let tempdiv = dompack.create("div");
     this.node.before(tempdiv);
     let maxsize = getSize(tempdiv);
+    // Compensate for table and div not positioned at the same x-position
+    let xoffsetdiff = this.node.offsetLeft - tempdiv.offsetLeft;
+    maxsize.x -= xoffsetdiff;
     tempdiv.remove();
     return { cursize, maxsize };
   }
