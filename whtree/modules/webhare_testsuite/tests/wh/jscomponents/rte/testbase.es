@@ -278,10 +278,10 @@ test.registerTests(
 
         /* ADDME should also work with simple cursor positioning ?
         rte.setCursor(body.getElementsByTagName('b')[0],2);
-        test.false(rte.getSelectionState().properties);
+        test.false(rte.getSelectionState().propstarget);
 
         rte.setCursor(body.getElementsByTagName('img')[0],2);
-        test.true(rte.getSelectionState().properties);
+        test.true(rte.getSelectionState().propstarget);
         */
 
         rtetest.setRTESelection(win, rte, {startContainer:body.childNodes[1], startOffset:4, endContainer:body.childNodes[1], endOffset:8});
@@ -291,20 +291,20 @@ test.registerTests(
           + ' een "<a id="anchor" name="anchor">"anchor"</a>" '
           + ' en een img in een link "<a id="link2" href="../link2"><img id="img2" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" /></a>');
 
-        test.false(rte.getSelectionState().properties);
+        test.false(rte.getSelectionState().propstarget);
 
         rtetest.setRTESelection(win, rte, {startContainer:body, startOffset:2, endContainer:body, endOffset:3});
-        test.true(rte.getSelectionState().properties);
-        test.eq("img", rte.getSelectionState().actionelements[0].element);
+        test.true(rte.getSelectionState().propstarget);
+        test.eq("IMG", rte.getSelectionState().propstarget.tagName);
 
         // When settings selection at start of link text, browser puts selection outside of link
         rte.setCursor(test.qS('#link').firstChild,0);
         //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
-        test.false(rte.getSelectionState().properties);
+        test.false(rte.getSelectionState().propstarget);
 
 
         rte.setCursor(test.qS('#link').firstChild,1);
-        test.true(rte.getSelectionState().properties);
+        test.true(rte.getSelectionState().propstarget);
 
         win.apropshandler = function(targetid,target)
                             {
@@ -315,10 +315,10 @@ test.registerTests(
         test.eq(null, win.apropshandler); //ensure it was invoked
 
         rte.setCursor(test.qS('#anchor').firstChild,0);
-        test.false(rte.getSelectionState().properties);
+        test.false(rte.getSelectionState().propstarget);
 
         rte.setCursor(test.qS('#link2'),0);
-        test.false(rte.getSelectionState().properties); //as we're positioned _before_ the image, only <a href matches, so it's okay
+        test.false(rte.getSelectionState().propstarget); //as we're positioned _before_ the image, only <a href matches, so it's okay
 
         rtetest.setRTESelection(win, rte, {startContainer:test.qS('#link2')
                          ,startOffset:0
@@ -329,10 +329,8 @@ test.registerTests(
         //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(selrange.getAncestorElement(), rte.getSelectionRange()));
 
         var state = rte.getSelectionState();
-        test.true(state.properties);
-        test.eq(2, state.actionelements.length);
-        test.eq('img', state.actionelements[0].element); //img is deepest, should be selected first
-        test.eq('a', state.actionelements[1].element);
+        test.true(state.propstarget);
+        test.eq("IMG", rte.getSelectionState().propstarget.tagName);
 
         win.imgpropshandler = function(targetid,target)
                             {

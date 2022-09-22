@@ -60,6 +60,13 @@ STRING FUNCTION GenerateExpectHS(STRING expect_text)
   FOREVERY(OBJECT stylednode FROM expectedhtml->GetElements("colgroup"))
     stylednode->parentnode->RemoveChild(stylednode);
 
+  //Clean up captions
+  FOREVERY(OBJECT stylednode FROM expectedhtml->GetElements("caption"))
+  {
+    stylednode->RemoveAttribute("contenteditable");
+    stylednode->RemoveAttribute("inert");
+  }
+
   expect_text := expectedhtml->body->innerhtml;
 
   RETURN expect_text;

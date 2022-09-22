@@ -84,6 +84,7 @@
   </services>
 
   <documentation>
+    <embedded rooturlkey="system.services.webhare.docroot" subpath="tollium" />
     <xmlschemas>
       <xmlschema path="portal.xsd" title="portal components" />
       <xmlschema path="screens.xsd" title="base tollium components" />

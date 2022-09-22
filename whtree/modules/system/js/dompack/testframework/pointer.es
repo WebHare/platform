@@ -649,13 +649,18 @@ function convertbndrec(elt)
 // Validate if the targeted element in part (if el is specitied) is the same as the at element hittested from the mouse cursor target
 function validateMouseDownTarget(part, elhere, position)
 {
-  if(part.el&&elhere != part.el && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something diferent
-  {
-    if(!part.el.contains(elhere))
-    {
-      console.log("Wanted to target: ", part.el, " at " + position.x + "," + position.y," but actual element is:", elhere, part);
+  let wantedtotarget = part.el;
 
-      console.log("Original target", part.el, part.el.nodeName, convertbndrec(part.el));
+  if(wantedtotarget && elhere != wantedtotarget && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something different
+  {
+    while(wantedtotarget && wantedtotarget.inert)
+      wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent
+
+    if(!wantedtotarget.contains(elhere))
+    {
+      console.log("Wanted to target: ", wantedtotarget, " at " + position.x + "," + position.y," but actual element is:", elhere, part);
+
+      console.log("Original target", wantedtotarget, part.el.nodeName, convertbndrec(part.el));
       console.log("Final target", elhere, elhere.nodeName, convertbndrec(elhere));
       var fc = elhere.firstChild;
       if (fc)
@@ -664,7 +669,7 @@ function validateMouseDownTarget(part, elhere, position)
 //        console.log('partel', part.el.innerHTML);
 //        console.log('elhere', elhere.innerHTML);
 
-      var partel=part.el;
+      var partel=wantedtotarget;
       setTimeout(function()
        {
         console.log("AFTER DELAY: Original target", partel, partel.nodeName, partel.getBoundingClientRect());
@@ -1286,6 +1291,10 @@ function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options)
 
   var doc = el.ownerDocument || el;
   var evt = doc.createEvent("MouseEvent");
+
+  //find a valid target for mouse events
+  while(el && (el.inert || (el.nodeType == 1 && getComputedStyle(el).pointerEvents == 'none')))
+    el = el.parentNode;
 
   //console.log(arguments,typeof doc, typeof el, typeOf(doc), typeOf(el));
   //console.trace();

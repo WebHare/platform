@@ -1270,6 +1270,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     IF (parsed.block->caption != "")
     {
       OBJECT captionnode := parentnode->ownerdocument->CreateElement("caption");
+      captionnode->SetAttribute("class", "wh-rtd__tablecaption");
       captionnode->textcontent := parsed.block->caption;
       node->AppendChild(captionnode);
     }

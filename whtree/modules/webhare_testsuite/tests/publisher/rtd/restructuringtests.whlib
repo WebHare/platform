@@ -5,12 +5,6 @@
 */
 
 
-
-/** tests
-
-    expect_hs is used for harescript overrides. Harescript doesn't have a CSS engine, and can't measure table widths.
-    However, the hs engine should read and preserve it from the javascript reformatted data.
-*/
 PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     [ [ title :=          "Extra surronding divs"
       , rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage"
@@ -108,7 +102,7 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                           `</tbody></table>`
       , expect :=         `<h1 class="heading1">H1</h1>` ||
                           `<table class="table wh-rtd-table wh-rtd__table" style="width: 389px;">` ||
-                            `<caption>To boldly caption things we never captioned before</caption>` ||
+                            `<caption class="wh-rtd__tablecaption" contenteditable="false" inert="true">To boldly caption things we never captioned before</caption>` ||
                             `<colgroup class="wh-tableeditor-colgroup"><col style="width: 123px;"><col style="width: 127px;"><col style="width: 132px;"></colgroup>` ||
                             `<tbody>` ||
                               `<tr style="height: 18px;">` ||
@@ -134,34 +128,6 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                                 `<td colspan="2" class="wh-rtd__tablecell"><p class="normal">C2-2</p></td>` ||
                               `</tr>` ||
                             `</tbody>` ||
-                          `</table>`
-      , expect_hs :=      `<h1 class="heading1">H1</h1>` ||
-                          `<table class="table wh-rtd-table wh-rtd__table">` ||
-                            `<caption>To boldly caption things we never captioned before</caption>` ||
-                            `<tbody>` ||
-                              `<tr>` ||
-                                `<td class="wh-rtd__tablecell"><p class="normal">EOS</p></td>`||
-                                `<td class="wh-rtd__tablecell"><p class="normal">Team</p></td>`||
-                                `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages</p></td>`||
-                              `</tr>`||
-                              `<tr>`||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Mission Statement</li><li>Strategic Plan</li><li>Who\`s who</li><li>Internet pages</li><li>MSc topics EOS 2014/2015</li><li>Posters EOS MSc topics 2015</li></ul><p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a><br>-<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br>-<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br>-<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br>-<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p><p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p></td>` ||
-                                `<td class="wh-rtd__tablecell"><h2 class="heading2">As of 1 July 2013</h2><ul class="unordered"><li>Chair: Prof. Dr. Ir. M.G. Vosselman</li><li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. Stein</li><li>Portfolio manager Education: J.P.G. Bakx</li><li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. Bijker</li><li>Management Assistant : Ms. T.K.A. Brefeld</li></ul></td>` ||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Minutes and other social information for department members only</li></ul></td>` ||
-                              `</tr>` ||
-                              `<tr>` ||
-                                `<td class="wh-rtd__tablecell"><p class="normal">1</p><p class="normal">2</p><p class="mystyle">3</p><p class="mystyle">4</p><p class="normal">9</p></td>`||
-                                `<td class="wh-rtd__tablecell"></td>`||
-                                `<td class="wh-rtd__tablecell"></td>`||
-                              `</tr>`||
-                              `<tr>` ||
-                                `<td colspan="2" class="wh-rtd__tablecell"><p class="normal">C2-1</p></td>` ||
-                                `<td rowspan="2" class="wh-rtd__tablecell"><p class="mystyle">R2</p></td>` ||
-                              `</tr>` ||
-                              `<tr>` ||
-                                `<td colspan="2" class="wh-rtd__tablecell"><p class="normal">C2-2</p></td>` ||
-                              `</tr>` ||
-                            `</tbody>`||
                           `</table>`
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"

@@ -702,7 +702,8 @@ export class TableEditor
     let captionnode = this.getCaptionNode();
     if (!captionnode)
     {
-      captionnode = document.createElement("caption");
+      //inert is sufficient for most browsers but for firefox we still need contenteditable="false" (but inert is coming soon!)
+      captionnode = <caption class="wh-rtd__tablecaption" contenteditable="false" inert />;
       this.node.prepend(captionnode);
     }
 

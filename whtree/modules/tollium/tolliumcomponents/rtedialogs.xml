@@ -15,7 +15,7 @@
     <body spacers="none">
       <tabs>
         <tab tid=".properties">
-          <heading tid=".position" />
+          <heading doclink="tollium:rte/image-positioning" tid=".position" />
           <grid>
             <col width="1pr" />
             <col width="1pr" />
@@ -38,7 +38,10 @@
               </cell>
             </row>
           </grid>
-          <heading name="overridedimensions" checkbox="true" enablecomponents="width height" />
+          <heading name="overridedimensions"
+                   checkbox="true"
+                   doclink="tollium:rte/image-dimensions"
+                   enablecomponents="width height" />
           <line>
             <textedit cellname="width"
                       name="width"
@@ -61,7 +64,7 @@
                       valuetype="integer" />
             <text value="px" />
           </line>
-          <heading tid="~accessibility" />
+          <heading doclink="tollium:rte/image-accessibility" tid="~accessibility" />
           <text tid=".alttext" />
           <line layout="left">
             <textarea name="alttext" height="3x" errorlabeltid=".alttext" title="" />
@@ -127,19 +130,15 @@
     </actions>
 
     <body>
-      <heading tid=".tableproperties" />
+      <heading doclink="tollium:rte/table-properties" tid=".tableproperties" />
       <select name="tablestyle" type="pulldown" />
-      <line layout="left">
-        <checkbox name="topheader" labeltid=".topheader" title="" />
-      </line>
-      <line layout="left">
-        <checkbox name="leftheader" labeltid=".leftheader" title="" />
-      </line>
-
-      <heading tid="~accessibility" /> <!-- note image puts it at the end, but it's a table property not a cell property so we'll keep it just above cellprops for now -->
+      <heading doclink="tollium:rte/table-accessibility" tid="~accessibility" />  <!-- note image puts it at the end, but it's a table property not a cell property so we'll keep it just above cellprops for now -->
+      <select name="headers" type="checkbox">
+        <option rowkey="topheader" tid=".topheader" />
+        <option rowkey="leftheader" tid=".leftheader" />
+      </select>
       <textarea name="tablecaption" width="1pr" />
-
-      <heading tid=".cellproperties" />
+      <heading name="cellproperties" doclink="tollium:rte/cell-properties" tid=".cellproperties" />
       <select name="cellstyle" type="pulldown" />
     </body>
 
