@@ -28,7 +28,7 @@ test.registerTests(
       await test.wait(10);
       body.focus();
 
-      rtetest.setStructuredContent(win, `<table class="table wh-rtd-table wh-rtd__table" style="width: 200px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 199px;"></colgroup><tbody>` +
+      rtetest.setStructuredContent(win, `<table class="table wh-rtd__table" style="width: 200px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 199px;"></colgroup><tbody>` +
 `<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"aap"</p></td></tr>` +
 `<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"noot(*0*)(*1*)"</p></td></tr>` +
 `<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"mies"</p></td></tr>` +

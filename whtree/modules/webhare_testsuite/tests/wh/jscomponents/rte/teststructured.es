@@ -357,7 +357,7 @@ test.registerTests(
 
         let withtable =
             '<p class="normal">"(*0*)a"</p>' +
-            '<table class="table wh-rtd-table wh-rtd__table" style="width: 19px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 18px;"></colgroup>' +
+            '<table class="table wh-rtd__table" style="width: 19px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 18px;"></colgroup>' +
               `<tbody><tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"1"</p></td></tr></tbody>` +
             '</table>' +
             '<p class="normal">"b(*1*)"</p>';

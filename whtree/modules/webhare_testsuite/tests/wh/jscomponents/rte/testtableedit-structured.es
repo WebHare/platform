@@ -90,7 +90,7 @@ test.registerTests(
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&notablestyle=1');
       let rte = test.getWin().rte;
       // let editor = rte.getEditor();
-      const tabletext = `<table class="table wh-rtd-table wh-rtd__table" style="width: 301px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"></colgroup><tbody><tr class="wh-rtd--hascolheader" style="height: 25px;"><th scope="col" class="wh-rtd__tablecell"><p class="normal">aap</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">noot</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">mies</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">wim</p></th></tr><tr style="height: 35px;"><td class="wh-rtd__tablecell"><p class="normal">zus</p></td><td class="wh-rtd__tablecell"><p class="normal">
+      const tabletext = `<table class="table wh-rtd__table" style="width: 301px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"></colgroup><tbody><tr class="wh-rtd--hascolheader" style="height: 25px;"><th scope="col" class="wh-rtd__tablecell"><p class="normal">aap</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">noot</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">mies</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">wim</p></th></tr><tr style="height: 35px;"><td class="wh-rtd__tablecell"><p class="normal">zus</p></td><td class="wh-rtd__tablecell"><p class="normal">
 
                           JET
 
