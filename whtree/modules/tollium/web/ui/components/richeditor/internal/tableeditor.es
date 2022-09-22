@@ -192,7 +192,6 @@ export class TableEditor
                    };
 
     this.node.propWhTableEditor = this;
-    this.node.classList.add("wh-rtd-table");
     this.node.classList.add("wh-rtd__table");
 
     fixTableMissingCells(this.node);
@@ -681,7 +680,7 @@ export class TableEditor
 
   setStyleTag(newstyletag)
   {
-    this.node.className=newstyletag + " wh-rtd-table wh-rtd__table";
+    this.node.className=newstyletag + " wh-rtd__table";
   }
 
   getCaption()

@@ -101,7 +101,7 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                             `<tr> <td colspan="2"><p class="normal">C2-2</p></td></tr>` ||
                           `</tbody></table>`
       , expect :=         `<h1 class="heading1">H1</h1>` ||
-                          `<table class="table wh-rtd-table wh-rtd__table" style="width: 389px;">` ||
+                          `<table class="table wh-rtd__table" style="width: 389px;">` ||
                             `<caption class="wh-rtd__tablecaption" contenteditable="false" inert="true">To boldly caption things we never captioned before</caption>` ||
                             `<colgroup class="wh-tableeditor-colgroup"><col style="width: 123px;"><col style="width: 127px;"><col style="width: 132px;"></colgroup>` ||
                             `<tbody>` ||
@@ -139,7 +139,7 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Don't get confused by the div wrapper named after a table class. Empty caption should be stripped."
       , input :=          `<h1 class="heading1">Kop</h1><div class="wh-rtd__tablewrap table"><table class="alttable"><caption></caption><tbody><tr><td>Cell 1</td></tr></tbody></table>`
-      , expect :=         `<h1 class="heading1">Kop</h1><table class="alttable wh-rtd-table wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
+      , expect :=         `<h1 class="heading1">Kop</h1><table class="alttable wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
       ]
 
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"

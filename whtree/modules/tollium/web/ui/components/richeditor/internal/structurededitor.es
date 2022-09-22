@@ -2989,7 +2989,7 @@ export default class StructuredEditor extends EditorBase
   _createTableNode(data)
   {
     var node = document.createElement('table');
-    node.className = data.style.classname + " wh-rtd-table wh-rtd__table";
+    node.className = data.style.classname + " wh-rtd__table";
     var tbody = document.createElement('tbody');
 
     if(data.caption)
