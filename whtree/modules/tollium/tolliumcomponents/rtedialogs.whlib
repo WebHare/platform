@@ -194,27 +194,39 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
                             WHERE type = "table"
                          ORDER BY ToUppercase(title);
 
-    ^cellstyle->options := SELECT rowkey := tag
-                                , title := tag = "" ? this->GetTid(".normalcell") : (title ?? tag)
-                                , tolliumselected := tag = data.data.cellstyletag
-                             FROM this->rte->rtdtypeinfo.structure.cellstyles
-                         ORDER BY tag="" DESC
-                                , ToUppercase(title ?? tag);
+    IF(data.data.type = "cell")
+    {
+      ^cellstyle->options := SELECT rowkey := tag
+                                  , title := tag = "" ? this->GetTid(".normalcell") : (title ?? tag)
+                                  , tolliumselected := tag = data.data.cellstyletag
+                               FROM this->rte->rtdtypeinfo.structure.cellstyles
+                           ORDER BY tag="" DESC
+                                  , ToUppercase(title ?? tag);
+    }
+    ELSE
+    {
+      ^cellstyle->visible := FALSE;
+    }
   }
 
   /** Returns action to be executed by RTE when tolliumresult = "ok"
   */
   PUBLIC RECORD FUNCTION GetValue()
   {
-    RETURN
-        [ datacell :=     [ row := ^topheader->value ? 1 : 0
-                          , col := ^leftheader->value ? 1 : 0
-                          ]
-        , tablecaption := ^tablecaption->value
-        , tablestyletag := ^tablestyle->value
+    RECORD val := CELL[ datacell :=     [ row := ^topheader->value ? 1 : 0
+                                        , col := ^leftheader->value ? 1 : 0
+                                        ]
+                      , tablecaption := ^tablecaption->value
+                      , tablestyletag := ^tablestyle->value
+                      ];
 
-        , cellstyletag := ^cellstyle->value
-        ];
+    IF(^cellstyle->visible) //editing a cell
+    {
+      val := CELL[ ...val
+                 , cellstyletag := ^cellstyle->value
+                 ];
+    }
+    RETURN val;
   }
 
   MACRO DoRemoveTable()

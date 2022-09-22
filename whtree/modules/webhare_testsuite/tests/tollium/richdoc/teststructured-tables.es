@@ -4,16 +4,14 @@ import * as dompack from 'dompack';
 
 import {selectRange} from "@mod-tollium/web/ui/components/richeditor/internal/selection.es";
 
-async function openPropsOnFirstTable()
+async function openPropsOnFirstTable({toclick} = {toclick:"td p"})
 {
   const driver = new rtetest.RTEDriver('structured');
   var rtenode = test.compByName('structured');
   var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-  var first_td_p = table.querySelector("td p");
 
-  driver.setSelection(first_td_p);
-
-  test.click(first_td_p.parentNode, { button: 2 });
+  driver.setSelection(table.querySelector(toclick));
+  test.click(table.querySelector(toclick), { button: 2 });
   test.click(test.getOpenMenuItem("Properties"));
 
   await test.wait('ui');
@@ -89,7 +87,8 @@ test.registerTests(
       test.eq("", nodes[2].scope);
 
       // See if properties are properly re-read
-      await openPropsOnFirstTable();
+      await openPropsOnFirstTable({ toclick: 'caption'});
+
       test.eq("This is a test caption", test.compByName("tablecaption").querySelector("textarea").value);
 
       test.clickTolliumButton("OK");

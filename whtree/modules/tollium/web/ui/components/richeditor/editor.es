@@ -525,7 +525,35 @@ export class RTE
              , __node: node
              };
     }
-    else if(node.matches('td,th'))
+    else if(node.matches('td,th,caption'))
+    {
+      let tablenode = node.closest('table');
+      let editor = TableEditor.getEditorForNode(tablenode);
+      let targetinfo = { tablecaption: editor.getCaption()
+                       , tablestyletag: tablenode.classList[0]
+                       , numrows: editor.numrows
+                       , numcolumns: editor.numcolumns
+                       , datacell: editor.locateFirstDataCell()
+                       };
+
+      if(node.matches('td,th'))
+      {
+        targetinfo = { ...targetinfo
+                     , type: 'cell'
+                     , cellstyletag: node.classList[1] || ''
+                     , __node: node
+                     };
+      }
+      else
+      {
+        targetinfo = { ...targetinfo
+                     , type: 'table'
+                     , __node: tablenode
+                     };
+      }
+      return targetinfo;
+    }
+    else if(node.matches('caption'))
     {
       let tablenode = node.closest('table');
       let editor = TableEditor.getEditorForNode(tablenode);
@@ -577,6 +605,8 @@ export class RTE
       this._updateHyperlink(actiontarget.__node, settings);
     else if(node.matches('td,th'))
       this._updateCell(actiontarget.__node, settings);
+    else if(node.matches('table'))
+      this._updateTable(actiontarget.__node, settings);
     else if(node.matches('.wh-rtd-embeddedobject'))
     {
       if(node.classList.contains("wh-rtd-embeddedobject"))
@@ -663,17 +693,13 @@ export class RTE
     undolock.close();
   }
 
-  _updateCell(node, settings)
+  _updateTable(table, settings)
   {
-    let table = node.closest('table');
     if(settings.removetable)
     {
       this.getEditor().removeTable(table);
       return;
     }
-
-    //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
-    this.getEditor().setCellStyle(node, settings.cellstyletag);
 
     let editor = TableEditor.getEditorForNode(table);
     if (editor)
@@ -682,6 +708,13 @@ export class RTE
       editor.setStyleTag(settings.tablestyletag);
       editor.setCaption(settings.tablecaption);
     }
+  }
+
+  _updateCell(node, settings)
+  {
+    //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
+    this.getEditor().setCellStyle(node, settings.cellstyletag);
+    this._updateTable(node.closest('table'), settings);
   }
 
   // ---------------------------------------------------------------------------

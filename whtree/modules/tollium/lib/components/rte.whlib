@@ -838,7 +838,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         ELSE
           RETURN DEFAULT RECORD;
       }
-      CASE "cell"
+      CASE "cell", "table"
       {
         OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#tableproperties"
                                               ,[ rte := this

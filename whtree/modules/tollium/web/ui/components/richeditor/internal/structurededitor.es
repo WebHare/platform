@@ -90,9 +90,7 @@ export default class StructuredEditor extends EditorBase
 
     super(element, rte, options, undonode);
 
-    this.properties_selector += ", div.wh-rtd-embeddedobject, span.wh-rtd-embeddedobject, .wh-rtd__tablecell";
-                            //, { element:"table", hasclasses: ["wh-rtd__table"] } //not needed, we have th and td ?
-
+    this.properties_selector += ", div.wh-rtd-embeddedobject, span.wh-rtd-embeddedobject, .wh-rtd__tablecell, table.wh-rtd__table caption";
     this.textstyletags = [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ];
 
     this.textstylewhitelistedattributes =
@@ -2561,10 +2559,10 @@ export default class StructuredEditor extends EditorBase
         return true;
       }
 
-      // Disallow deleting tables and embedded blocks
+      // Disallow deleting tables, embedded blocks and captions
       let checkblock = (node) =>
       {
-        if (node.nodeName.toLowerCase() === "div" || node.nodeName.toLowerCase() === "table")
+        if (node.matches("div,table,content"))
           return false;
         return true;
       };
@@ -2995,7 +2993,7 @@ export default class StructuredEditor extends EditorBase
     var tbody = document.createElement('tbody');
 
     if(data.caption)
-      node.appendChild(<caption>{data.caption.trim()}</caption>);
+      node.appendChild(<caption class="wh-rtd__tablecaption" contenteditable="false" inert>{data.caption.trim()}</caption>);
 
     if (data.colwidths)
     {
