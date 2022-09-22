@@ -90,12 +90,8 @@ export default class StructuredEditor extends EditorBase
 
     super(element, rte, options, undonode);
 
-    this.actionelements.push( { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
+    this.properties_selector += ", div.wh-rtd-embeddedobject, span.wh-rtd-embeddedobject, .wh-rtd__tablecell";
                             //, { element:"table", hasclasses: ["wh-rtd__table"] } //not needed, we have th and td ?
-                            , { element:"th", hasclasses: ["wh-rtd__tablecell"] }
-                            , { element:"td", hasclasses: ["wh-rtd__tablecell"] }
-                            );
 
     this.textstyletags = [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ];
 

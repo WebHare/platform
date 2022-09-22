@@ -345,9 +345,7 @@ export default class EditorBase
         };
 
     //elements that respond to action-properties
-    this.actionelements = [ { element:"img" }
-                          , { element:"a",     hasattributes: ["href"] }
-                          ];
+    this.properties_selector = "img, a[href]";
 
     //if(this.options.log) console.log('apply saved state');
     //this.stateHasChanged(true);
@@ -1809,47 +1807,6 @@ export default class EditorBase
     return [];
   }
 
-  getActionsForNode(node)
-  {
-    var actions=[];
-    for (const act of this.actionelements)
-    {
-      if(act.element != node.nodeName.toLowerCase())
-        continue;
-      if(act.hasattributes)
-      {
-        let ismatch=true;
-        for (let j=0;j<act.hasattributes.length;++j)
-        {
-          if(!node.hasAttribute(act.hasattributes[j]))
-            ismatch=false;
-        }
-        if(!ismatch)
-          continue;
-      }
-      if(act.hasclasses)
-      {
-        let ismatch=true;
-        for (let j=0;j<act.hasclasses.length;++j)
-          if(!node.classList.contains(act.hasclasses[j]))
-            ismatch=false;
-        if(!ismatch)
-          continue;
-      }
-      actions.push(act);
-    }
-    return actions;
-  }
-
-  checkActionElements(node, formatting)
-  {
-    this.getActionsForNode(node).forEach(action =>
-    {
-      formatting.actionelements.push(action);
-      formatting.actiontargets.push(node);
-    });
-  }
-
   getFormattingStateForRange(range)
   {
     if(Range.getLogLevel()&16)
@@ -1976,7 +1933,9 @@ export default class EditorBase
           formatting.numberedlist=true;
           break;
       }
-      this.checkActionElements(node, formatting);
+
+      if(!formatting.propstarget && node.matches(this.properties_selector))
+        formatting.propstarget = node;
     }
 
     // check delayed surrounds
@@ -1996,8 +1955,6 @@ export default class EditorBase
       if (!found)
         formatting.textstyles.push({ nodeName: info.element });
     }
-
-    formatting.properties = formatting.actionelements.length != 0;
 
     var listoptions = this.getAvailableListActions(range);
 
@@ -2034,7 +1991,7 @@ export default class EditorBase
               { available:  true//formatting.hasTextStyle("img")
               }
         , "action-properties":
-              { available:  formatting.actionelements.length != 0
+              { available:  formatting.propstarget
               }
         , "b":
               { available:  true
@@ -2731,10 +2688,10 @@ export default class EditorBase
       if(action.action == 'action-properties')
       {
         var selstate = this.getSelectionState();
-        if(selstate.actionelements.length == 0)
+        if(!selstate.propstarget)
           return;
 
-        actionnode = selstate.actiontargets[0];
+        actionnode = selstate.propstarget;
         action.actiontarget = { __node: actionnode };
         //action.subaction = not needed yet on this route
       }
@@ -2952,8 +2909,7 @@ class TextFormattingState
     this.haveselection = false;
 
     this.textstyles = [];
-    this.actionelements = [];
-    this.actiontargets = [];
+    this.propstarget = null;
 
     this.actionstate = {};
     this.actionparent = null; // nearest ol/ul/td/th

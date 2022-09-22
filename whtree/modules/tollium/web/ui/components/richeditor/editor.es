@@ -213,7 +213,7 @@ export class RTE
     if(!selectionstate)
       return;
 
-    let actiontarget = selectionstate.actiontargets.length ? this.getTargetInfo({__node: selectionstate.actiontargets[0] }) : null;
+    let actiontarget = selectionstate.propstarget ? this.getTargetInfo({__node: selectionstate.propstarget }) : null;
 
     let menuitems = [];
     for(let menuitem of
