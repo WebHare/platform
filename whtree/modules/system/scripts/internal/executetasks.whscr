@@ -72,7 +72,7 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
         INTEGER64 timeoffset;
         IF(cacheinfo.runtz = "maintenance")
         {
-          INTEGER64 maintenanceoffset := ToInteger(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0);
+          INTEGER maintenanceoffset := ToInteger(GetEnvironmentVariable("WEBHARE_MAINTENANCE_OFFSET"),0);
           IF(maintenanceoffset = 0)
             maintenanceoffset := ReadRegistryKey("system.tasks.maintenanceoffset");
           IF(maintenanceoffset < 0 OR maintenanceoffset >= 1440) //larger than 24 hours...
