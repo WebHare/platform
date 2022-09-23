@@ -1,13 +1,18 @@
-import "./authormode.scss";
-import { runFeedbackReport } from "./feedback";
+import "typeface-roboto";
 import * as dompack from 'dompack';
+import * as dialogapi from 'dompack/api/dialog';
 import * as dialog from 'dompack/components/dialog';
-import * as dialogapi from 'dompack/api/dialog.es';
+import { getTid } from "@mod-tollium/js/gettid";
+import { runFeedbackReport } from "./feedback";
 
-function reportIssue(event)
+import "./authormode.scss";
+import "./authormode.lang.json";
+
+
+function reportIssue(event, addElement)
 {
   dompack.stop(event);
-  runFeedbackReport(event);
+  runFeedbackReport(event, addElement);
 }
 
 function setupAuthorMode()
@@ -16,10 +21,24 @@ function setupAuthorMode()
 
   document.body.append(
     <wh-authorbar>
-      <div class="wh-authorbar__title">WebHare auteursmode!</div>
-      <a href="#" class="wh-authorbar__action" onClick={event => reportIssue(event)}>Meld een probleem</a>
+      <div class="wh-authorbar__title">{ getTid("publisher:site.authormode.title") }</div>
+      <div class="wh-authorbar__actions">
+        <ul class="wh-authorbar__actiongroup">
+          <li class="wh-authorbar__action">
+            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} target="_blank">{ getTid("publisher:site.authormode.openinwebhare") }</a>
+          </li>
+        </ul>
+        <ul class="wh-authorbar__actiongroup">
+          <li class="wh-authorbar__action">
+            <a href="#" onClick={event => reportIssue(event, true)}>{ getTid("publisher:site.authormode.feedback-specific") }</a>
+          </li>
+          <li class="wh-authorbar__action">
+            <a href="#" onClick={event => reportIssue(event, false)}>{ getTid("publisher:site.authormode.feedback-general") }</a>
+          </li>
+        </ul>
+      </div>
     </wh-authorbar>)
 }
 
-dialogapi.setupDialogs(options => dialog.createDialog('wh-authormode__dialog', options));
+dialogapi.setupDialogs(options => dialog.createDialog('wh-authormode__dialog', options), { messageboxclassbase: "wh-authormode__message__" });
 dompack.onDomReady(setupAuthorMode);

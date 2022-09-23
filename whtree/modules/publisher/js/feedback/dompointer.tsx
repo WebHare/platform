@@ -65,8 +65,11 @@ function highlightDOM(event: MouseEvent)
     highlighter.style.width = rect.width + "px";
     highlighter.style.height = rect.height + "px";
     document.body.appendChild(highlighter);
-  } else
-    document.body.removeChild(highlighter);
+  }
+  else
+  {
+    highlighter.remove();
+  }
 }
 
 function captureDOMNode(event: MouseEvent)

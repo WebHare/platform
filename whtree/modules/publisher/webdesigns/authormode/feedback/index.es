@@ -1,17 +1,12 @@
 import * as dompack from 'dompack';
-import "./feedback.scss";
-import * as feedbackapi from "@mod-publisher/js/feedback";
 import * as dialogapi from 'dompack/api/dialog.es';
+import * as feedbackapi from "@mod-publisher/js/feedback";
+import { getTid } from "@mod-tollium/js/gettid";
+
 import * as authorservice from "../authorservice.rpc.json";
 
-let aboutdompointer = null;
+let aboutdompointer = null, dontshowagain = null;
 let feedbackToken = null, userData;
-
-function toggleAboutLocation()
-{
-  //TODO have a way to move the bar out of the way on mobile
-  aboutdompointer.classList.toggle("wh-authormode__aboutdompointer--atbottom");
-}
 
 async function submitFeedback(dialog, event, result)
 {
@@ -25,70 +20,94 @@ async function submitFeedback(dialog, event, result)
     , remarks: form.elements.remarks.value
     });
 
-  await dialogapi.runMessageBox(submission.responsetext,
-      [ { title: "Ok", result: "ok" }
+  await dialogapi.runMessageBox(
+    <div>
+      <h2>{ getTid("publisher:site.authormode.feedbacksubmitted") }</h2>
+      <p>{ submission.responsetext }</p>
+    </div>,
+      [ { title: getTid("tollium:tilde.ok"), result: "ok" }
       ], { /*signal: actrl.signal, */allowcancel: true });
 
   dialog.resolve("ok");
 }
 
-export async function runFeedbackReport(event)
+export async function runFeedbackReport(event, addElement)
 {
   if (!feedbackToken)
     return;
 
-  //TODO cancel or prevent recursive call (setup an abort controller and signal it if already set)
-  let which = await dialogapi.runMessageBox("Betreft je feedback een specifiek element op deze pagina ?",
-      [ { title: "Specifiek", result: "specific" }
-      , { title: "Algemeen", result: "general" }
-      , { title: "Annuleren", result: "cancel" }
-      ], { /*signal: actrl.signal, */allowcancel: true });
-
-  if (!which || which === "cancel")
-    return;
-
-  if(which == 'specific')
+  if (addElement && !localStorage.whFeedbackHintHidden)
   {
-    if(!aboutdompointer)
+    if (!aboutdompointer)
     {
-      //TODO CANCEL button/link..
-      aboutdompointer = <div class="wh-authormode__aboutdompointer">Wijs het element aan waarover je feedback wil geven</div>;
-      aboutdompointer.addEventListener("mouseenter", toggleAboutLocation);
-      document.body.append(aboutdompointer);
+      aboutdompointer =
+        <div class="wh-authormode__aboutdompointer">
+          <div class="wh-authormode__aboutdompointer__block">
+            <span class="wh-authormode__aboutdompointer__text">{ getTid("publisher:site.authormode.aboutdompointer") }</span>
+            <span class="wh-authormode__aboutdompointer__dontshowagain">
+              <label>
+                { dontshowagain = <input type="checkbox" /> }
+                &nbsp;
+                { getTid("publisher:site.authormode.dontshowagain") }
+              </label>
+            </span>
+          </div>
+        </div>;
     }
-    aboutdompointer.classList.remove("wh-authormode__aboutdompointer--atbottom");
+
+    // Create a promise, store the resolve callback
+    let aboutresolve;
+    const aboutpromise = new Promise(resolve => aboutresolve = resolve);
+    // Upon clicking, set whFeedbackHintHidden and call the resolve callback
+    dontshowagain.onchange = () => { localStorage.whFeedbackHintHidden = "1"; aboutresolve(); };
+    // Show the aboutdompointer block
+    document.body.append(aboutdompointer);
+    // Wait for 2 seconds before calling the resolve callback
+    setTimeout(aboutresolve, 2000);
+    // Wait for the promise
+    await aboutpromise;
+    // Remove the aboutdompointer block again
+    aboutdompointer.remove();
   }
 
   // Get the feedback data with the screenshot
   // TODO there needs to be a spinner "Preparing Feedback" or something like that
-  const result = await feedbackapi.getFeedback(event, { addElement: which === "specific" });
+  const result = await feedbackapi.getFeedback(event, { addElement });
   if (!result.success)
   {
-    await dialogapi.runMessageBox("Het uploaden van je feedback is helaas niet gelukt. Probeer het later nog eens.",
-        [ { title: "Ok", result: "ok" }
-        ], { /*signal: actrl.signal, */allowcancel: true });
+    if (result.error != "cancelled")
+    {
+      await dialogapi.runMessageBox(getTid("publisher:site.authormode.feedbackerror"),
+          [ { title: getTid("tollium:tilde.close"), result: "ok" }
+          ], { /*signal: actrl.signal, */allowcancel: true });
+    }
     return;
   }
 
   // Create dialog
-  let dialog = dialogapi.createDialog();
+  let dialog = dialogapi.createDialog({ /*signal: actrl.signal, */allowcancel: false });
   dialog.contentnode.append(
-    <form onSubmit={ event => submitFeedback(dialog, event, result)}>
-      Melder:<br/>
-      <input name="email" type="email" readonly value={userData.email}/>
-      <br/>
-
-      Type/onderwerp:<br/>
-      <select name="topic">
-        { result.topics.map(topic => <option value={topic.tag}>{topic.title}</option>) }
-      </select>
-      <br/>
-
-      Toelichting:<br/>
-      <textarea name="remarks"></textarea>
-      <br/>
-
-      <button type="submit">Versturen</button>
+    <form onSubmit={ event => submitFeedback(dialog, event, result) }>
+      <h2>{ getTid("publisher:site.authormode.feedbackform") }</h2>
+      <p>
+        <label>{ getTid("publisher:site.authormode.from") }: </label>
+        { userData.name }
+      </p>
+      <p>
+        <label for="topic">{ getTid("publisher:site.authormode.topic") }:</label><br/>
+        <select name="topic" required>
+          <option value="" selected disabled>{ getTid("publisher:site.authormode.topic-placeholder") }</option>
+          { result.topics.map(topic => <option value={topic.tag}>{topic.title}</option>) }
+        </select>
+      </p>
+      <p>
+        <label for="remarks">{ getTid("publisher:site.authormode.remarks") }:</label><br/>
+        <textarea name="remarks" placeholder={ getTid("publisher:site.authormode.remarks-placeholder") } maxlength="4096"></textarea>
+      </p>
+      <div class="wh-authormode__message__buttongroup">
+        <button onClick={ () => dialog.resolve("cancel") }>{ getTid("tollium:tilde.cancel") }</button>
+        <button type="submit">{ getTid("tollium:tilde.submit") }</button>
+      </div>
     </form>
     );
 

@@ -13,7 +13,7 @@ export interface DeferredPromise<T>
 // Object with string keys and string, number of boolean values
 type KeyValueObject = { [key: string]: { value: string | number | boolean }};
 
-type HighlightCallback = (node: Element) => Element;
+type HighlightCallback = (node: Element) => Element | null;
 
 export interface FeedbackOptions
 {
