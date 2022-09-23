@@ -62,7 +62,7 @@ export async function runFeedbackReport(event, addElement)
     dontshowagain.onchange = () => { localStorage.whFeedbackHintHidden = "1"; aboutresolve(); };
     // Show the aboutdompointer block
     document.body.append(aboutdompointer);
-    // Wait for 5 seconds before calling the resolve callback
+    // Wait for 2 seconds before calling the resolve callback
     setTimeout(aboutresolve, 2000);
     // Wait for the promise
     await aboutpromise;
