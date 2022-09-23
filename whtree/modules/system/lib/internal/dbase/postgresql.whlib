@@ -1424,7 +1424,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
         FOREVERY(RECORD indexdef FROM kill_indices)
         {
-          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(indexdef.index_name)}`;
+          // Index might be already dropped when this command executes, so use "IF EXISTS"
+          STRING cmd := `DROP INDEX IF EXISTS ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(indexdef.index_name)}`;
           context->AddCommand(cmd);
         }
       }
