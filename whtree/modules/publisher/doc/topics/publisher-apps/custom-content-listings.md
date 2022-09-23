@@ -17,7 +17,7 @@ The following example sets up a custom listing for the /news/ folder in your sit
 
 You'll also need to provide the handler itself. An example implementation of NewsListHandler which simply deletes the status column:
 ```harescript
-LOADLIB "module::publisher/hooks.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
 
 PUBLIC OBJECTTYPE NewsListHandler EXTEND ContentsListHandlerBase
 <
