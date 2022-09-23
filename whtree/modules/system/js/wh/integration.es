@@ -125,18 +125,8 @@ function activeAuthorMode()
   document.querySelector("head").append(script,css);
 }
 
-if(typeof window !== 'undefined') //check we're in a browser window, ie not serverside or some form of worker
+function checkAuthorMode()
 {
-  let whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
-  if(whconfigel)
-    config = JSON.parse(whconfigel.textContent);
-
-  // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
-  if(!config.obj)
-    config.obj={};
-  if(!config.site)
-    config.site={};
-
   try
   {
     // Is author mode activated through the Publisher?
@@ -157,4 +147,20 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
       activeAuthorMode();
   }
   catch(ignore) {}
+}
+
+if(typeof window !== 'undefined') //check we're in a browser window, ie not serverside or some form of worker
+{
+  let whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
+  if(whconfigel)
+    config = JSON.parse(whconfigel.textContent);
+
+  // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
+  if(!config.obj)
+    config.obj={};
+  if(!config.site)
+    config.site={};
+
+  if(window.top === window) //we're top level
+    checkAuthorMode();
 }

@@ -30,7 +30,7 @@ You'll need to set up a versioning policy object and a review app in your module
 An example policy object and app launcher could be
 
 ```harescript
-LOADLIB "module::publisher/versioning.whlib";
+LOADLIB "mod::publisher/lib/versioning.whlib";
 
 PUBLIC STATIC OBJECTTYPE SitePolicy EXTEND VersioningPolicyBase
 <
