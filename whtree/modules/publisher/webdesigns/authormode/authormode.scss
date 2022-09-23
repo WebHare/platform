@@ -208,7 +208,9 @@ wh-authorbar
   {
     @include forminputstyle;
     cursor: pointer;
+    display: inline-block;
     height: 16px;
+    padding: 0;
     position: relative;
     vertical-align: middle;
     width: 16px;

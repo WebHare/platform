@@ -59,6 +59,7 @@ export async function runFeedbackReport(event, addElement)
     let aboutresolve;
     const aboutpromise = new Promise(resolve => aboutresolve = resolve);
     // Upon clicking, set whFeedbackHintHidden and call the resolve callback
+    dontshowagain.checked = false;
     dontshowagain.onchange = () => { localStorage.whFeedbackHintHidden = "1"; aboutresolve(); };
     // Show the aboutdompointer block
     document.body.append(aboutdompointer);
