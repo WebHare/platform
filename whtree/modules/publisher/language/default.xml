@@ -1413,7 +1413,7 @@
   </textgroup>
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="authormode" limitlanguages="en nl">   <!-- site.authormode -->
-      <text tid="aboutdompointer">Point to the element you want have feedback about</text>
+      <text tid="aboutdompointer">Point to the element you want give feedback about</text>
       <text tid="dontshowagain">Don't show this again</text>
       <text tid="feedback-general">General feedback</text>
       <text tid="feedback-specific">Specific feedback</text>
