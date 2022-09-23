@@ -40,7 +40,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   COMPILEPID=$!
 
   echo "Running fixmodules"
-  wh fixmodules --onlymodules --nocompile tollium
+  wh fixmodules --onlymodules --nocompile
   RETVAL=$?
   if [ $RETVAL != 0 ]; then
     echo "Fixmodules failed with errorcode $RETVAL"
