@@ -112,6 +112,10 @@ export function executeSubmitInstruction(instr, options)
 
 function activeAuthorMode()
 {
+  // Check if authormode is already loaded
+  if (document.querySelector(`script[src="/.ap/publisher.authormode/ap.js"]`))
+    return;
+
   let script = document.createElement("script");
   script.src = "/.ap/publisher.authormode/ap.js";
 

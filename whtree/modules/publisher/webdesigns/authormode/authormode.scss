@@ -1,35 +1,342 @@
 @import "~dompack/components/dialog/mixins";
 
-wh-authorbar
+:root
+{
+  --wh-authorbar-height: 155px;
+  --wh-authorbar-width: 35px;
+  --wh-authorbar-effect: 250ms;
+  --wh-authorbar-input: 100ms;
+  --wh-authorbar-black: #242424;
+  --wh-authorbar-blue: #308fe2;
+  --wh-authorbar-border: #999999;
+}
+
+@mixin forminputstyle
 {
   all: initial;
-  position: fixed;
-  display:block;
-  top: 0;
-  left:40%;
-  background: lightblue;
-  padding:5px;
-  border-bottom-left-radius:5px;
-  border-bottom-right-radius:5px;
-  color: black;
-  opacity: 0.5;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid var(--wh-authorbar-border);
+  border-radius: 3px;
+  box-sizing: border-box;
+  color: var(--wh-authorbar-black);
+  font: inherit;
+  padding: 10px 15px;
 
-  z-index:99999;
+  &:focus
+  {
+    border: 1px solid var(--wh-authorbar-border);
+    box-shadow: 0 0 3px 2px var(--wh-authorbar-blue) !important;
+  }
+}
+
+wh-authorbar
+{
+
+  all: initial;
+  box-shadow: 2px 2px 4px 0 rgba(0, 0, 0, 0.26);
+  color: #ffffff;
+  display: block;
+  font-family: roboto, arial, helvetica, sans-serif;
+  font-size: 14px;
+  height: var(--wh-authorbar-height);
+  position: fixed;
+  right: 0;
+  top: 65%;
+  width: var(--wh-authorbar-width);
+  z-index: 99999;
+
+  &::before
+  {
+    background: var(--wh-authorbar-blue) url(web/img/webhare.svg) center 8px/20px 20px no-repeat;
+    border-bottom-left-radius: 3px;
+    border-top-left-radius: 3px;
+    bottom: 0;
+    content: "";
+    display: block;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transition: background var(--wh-authorbar-effect);
+  }
+
+  &:hover::before
+  {
+    background-color: #2175bf;
+  }
+
+  html.wh-feedback--dompointer &
+  {
+    display: none;
+  }
+}
+
+.wh-authorbar__title
+{
+  align-items: center;
+  cursor: default;
+  display: flex;
+  height: var(--wh-authorbar-width);
+  padding-left: 10px;
+  transform: rotate(-90deg) translateX(calc(var(--wh-authorbar-width) - var(--wh-authorbar-height)));
+  white-space: nowrap;
+}
+
+.wh-authorbar__actions
+{
+  background: #ffffff;
+  border-radius: 3px;
+  box-shadow: 2px 3px 7px 2px rgba(0, 0, 0, 0.21);
+  color: var(--wh-authorbar-black);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  transition: opacity var(--wh-authorbar-effect), transform var(--wh-authorbar-effect);
+  left: 0;
+  z-index: -1;
+
+  // The after pseudo element fills the gap between the blue bar and the actions popup, to keep it visible when the mouse
+  // moves between them
+  &::after
+  {
+    background: transparent;
+    bottom: 0;
+    content: "";
+    display: block;
+    position: absolute;
+    right: -4px;
+    top: 0;
+    width: 4px;
+  }
+
+  wh-authorbar:hover &
+  {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(calc(-100% - 4px));
+  }
+}
+
+.wh-authorbar__actiongroup
+{
+  list-style: none;
+  margin: 0;
+  padding: 10px 0;
+  position: relative;
+
+  & + &
+  {
+    margin-top: 1px;
+
+    &::before
+    {
+      background: #e1e1e1;
+      content: "";
+      display: block;
+      height: 1px;
+      left: 15px;
+      position: absolute;
+      right: 15px;
+      top: -1px;
+    }
+  }
+}
+
+.wh-authorbar__action
+{
+  list-style: none;
+  margin: 0;
+  padding: 5px 20px;
+  transition: background var(--wh-authorbar-effect);
+  white-space: nowrap;
 
   &:hover
   {
-    opacity: 1;
+    background: #eeeeee;
   }
-  html.wh-feedback--dompointer &
+
+  a
   {
-    display:none;
+    color: inherit;
+    display: block;
+    text-decoration: none;
   }
+}
+
+.wh-authormode__aboutdompointer
+{
+  all: initial;
+  align-items: center;
+  bottom: 0;
+  content: "";
+  cursor: default;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 99999;
+}
+
+.wh-authormode__aboutdompointer__block
+{
+  align-items: start;
+  background: var(--wh-authorbar-blue);
+  border-radius: 3px;
+  box-shadow: 2px 2px 4px 0 rgba(0, 0, 0, 0.26);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-family: roboto, arial, helvetica, sans-serif;
+  font-size: 14px;
+  padding: 10px;
+}
+
+.wh-authormode__aboutdompointer__dontshowagain
+{
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 4px;
+
+  input[type="checkbox"]
+  {
+    @include forminputstyle;
+    cursor: pointer;
+    height: 16px;
+    position: relative;
+    vertical-align: middle;
+    width: 16px;
+
+    &::after
+    {
+      background: transparent;
+      border-radius: 2px;
+      bottom: 2px;
+      content: "";
+      display: block;
+      left: 2px;
+      position: absolute;
+      right: 2px;
+      top: 2px;
+      transition: background var(--wh-authorbar-input);
+    }
+
+    &:checked::after
+    {
+      background: var(--wh-authorbar-blue);
+    }
+  }
+
+  label
+  {
+    cursor: pointer;
+  }
+}
+
+.wh-authormode__dialog__holder
+{
+  box-shadow: 2px 3px 7px 2px rgba(0, 0, 0, 0.2);
 }
 
 .wh-authormode__dialog
 {
   @include dompack-dialog;
-  background: white;
-  padding: 20px;
+
+  background: #ffffff;
+  color: var(--wh-authorbar-black);
+  font-family: roboto, arial, helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5em;
+  padding: 25px;
+  width: 410px;
+
+  h2
+  {
+    color: var(--wh-authorbar-blue);
+    font: inherit;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 0 20px;
+  }
+
+  p
+  {
+    font: inherit;
+    margin: 0 0 20px;
+  }
+
+  input, textarea, select
+  {
+    @include forminputstyle;
+
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  textarea
+  {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  select
+  {
+    background-image: url("web/img/pulldown-arrow.svg");
+    background-repeat: no-repeat;
+    background-size: 24px;
+    background-position: calc(100% - 15px) center;
+    cursor: pointer;
+  }
+
+  button
+  {
+    @include forminputstyle;
+
+    align-items: center;
+    border: 1px solid var(--wh-authorbar-blue);
+    color: var(--wh-authorbar-blue);
+    cursor: pointer;
+    display: flex;
+    flex: 1;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+    transition: background var(--wh-authorbar-input), color var(--wh-authorbar-input);
+
+    &:active,
+    &[type="submit"]
+    {
+      background: var(--wh-authorbar-blue);
+      color: #ffffff;
+    }
+
+    &[type="submit"]:active
+    {
+      background: #ffffff;
+      color: var(--wh-authorbar-blue);
+    }
+  }
+
+  label
+  {
+    font-weight: bold;
+  }
 }
 
+.wh-authormode__message__buttongroup
+{
+  display: flex;
+  gap: 20px;
+  justify-content: stretch;
+}
+
+.wh-authormode__dialog__modalbg
+{
+  z-index: 100000;
+}

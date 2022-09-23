@@ -1412,14 +1412,25 @@
     </textgroup>
   </textgroup>
   <textgroup gid="site">   <!-- site -->
+    <textgroup gid="authormode">   <!-- site.authormode -->
+      <text tid="aboutdompointer">Wijs het element aan waarover je feedback wil geven</text>
+      <text tid="dontshowagain">Laat dit niet meer zien</text>
+      <text tid="feedback-general">Algemene feedback</text>
+      <text tid="feedback-specific">Specifieke feedback</text>
+      <text tid="feedbackerror">Het uploaden van je feedback is helaas niet gelukt. Probeer het later nog eens.</text>
+      <text tid="feedbackform">Feedback</text>
+      <text tid="feedbacksubmitted">Feedback is verstuurd</text>
+      <text tid="from">Van</text>
+      <text tid="openinwebhare">Open in WebHare</text>
+      <text tid="remarks">Omschrijving</text>
+      <text tid="remarks-placeholder">Omschrijf het probleem zo duidelijk mogelijk</text>
+      <text tid="title">WebHare-acties</text>
+      <text tid="topic">Onderwerp</text>
+      <text tid="topic-placeholder">Kies het type…</text>
+    </textgroup>
     <textgroup gid="captcha">   <!-- site.captcha -->
       <text tid="explain">Vink het vakje hieronder aan</text>
       <text tid="title">Verificatie</text>
-    </textgroup>
-    <textgroup gid="feedback">   <!-- site.feedback -->
-      <text tid="email">E-mail</text>
-      <text tid="login">Inloggen</text>
-      <text tid="name">Naam</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
       <text tid="imgedit-groupelement-replace"><param p="1"/>, Vervang afbeelding</text>
