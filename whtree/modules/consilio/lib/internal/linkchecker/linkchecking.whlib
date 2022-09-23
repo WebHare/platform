@@ -76,7 +76,11 @@ INTEGER last_serverstatus;
 
 PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([debug := FALSE, nocache := FALSE], options);
+  options := ValidateOptions(
+      [ debug := FALSE
+      , nocache := FALSE
+      , get_on_302 := FALSE
+      ], options);
 
   IF (url LIKE "*://linkchecker.test/expect-???/*") //mocks for testing
   {
@@ -129,10 +133,12 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
     https://www.pensioenfederatie.nl/
   - Server redirects to an error page, which in turn redirects to that error page, resulting in circular redirection
     http://www.duo.nl/
+  - Server redirects (302) to the same page when using HEAD, resulting in circular redirection
+    https://wetten.overheid.nl/BWBR0018450/2021-07-01/
   */
 
   //if we get an odd HEAD response, retry with GET
-  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code = 400 OR result.code >= 500))
+  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code = 400 OR result.code >= 500 OR (result.code = 302 AND options.get_on_302)))
     result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := TRUE ]);
 
   IF (NOT result.success AND result.errorcode != "")
