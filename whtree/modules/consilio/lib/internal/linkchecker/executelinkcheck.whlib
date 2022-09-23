@@ -137,6 +137,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
 
       STRING ARRAY visited := [url]; // List of visited URL's for this page (to detect circular references)
       response := CheckLink(url, CELL[options.debug,options.nocache]);
+      BOOLEAN get_on_302; // Some servers return a 302 redirect to self using HEAD, but 200 using GET
       WHILE (response.code = 301 // Moved Permanently
           OR response.code = 302 // Found
           OR response.code = 303 // See Other
@@ -150,8 +151,19 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
         newurl := ResolveToAbsoluteURL(url, newurl);
         IF (newurl IN visited)
         {
-          // We've seen this URL before: circular redirection
-          response.code := 009;
+          // If this was a HEAD request, retry it with a GET request
+          IF (NOT get_on_302)
+          {
+            get_on_302 := TRUE;
+            // Reset visited links, retry the check
+            visited := STRING[];
+            response := CheckLink(url, CELL[options.debug,options.nocache,get_on_302]);
+          }
+          ELSE
+          {
+            // We've seen this URL before: circular redirection
+            response.code := 009;
+          }
         }
         ELSE IF (Length(visited) > max_redirections)
         {
@@ -163,7 +175,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
           // Try the new URL
           url := newurl;
           INSERT url INTO visited AT END;
-          response := CheckLink(url, CELL[options.debug,options.nocache]);
+          response := CheckLink(url, CELL[options.debug,options.nocache,get_on_302]);
         }
       }
 
