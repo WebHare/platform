@@ -2008,19 +2008,30 @@ export default class StructuredEditor extends EditorBase
 //      console.warn("inblock not specified, checking if at start of block");
 
       var down = locator.clone();
-      var downres = down.scanBackward(this.getContentBodyNode(), { whitespace: true });
+      let downres = down.scanBackward(this.getContentBodyNode(), { whitespace: true });
+      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
 
 //      console.warn('scanned: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, down: down }));
 
-      //console.warn(downres, block, locator);
+      // Split the block if the locator is at the start of a non-empty block (block is empty when forward scan finds a bogus segment break)
       if (downres.type == 'outerblock')
       {
         options.inblock = false;
 //        console.error('break block at insert', block);
-        if (block.contentnode != block.blockroot)
+        if (upres.bogussegmentbreak && !block.inlist)
         {
-          var splitres = domlevel.splitDom(block.blockparent, [ { locator: down, toward: 'start', preservetoward: 'end' } ], null);
-          locator = splitres[0].end;
+          // paragraph is empty, just delete it
+          locator = domlevel.Locator.newPointingTo(block.node);
+          locator.removeNode(preservelocators, undoitem);
+        }
+        else
+        {
+          console.warn('break block at insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), block));
+          if (block.contentnode != block.blockroot)
+          {
+            var splitres = domlevel.splitDom(block.blockparent, [ { locator: down, toward: 'start', preservetoward: 'end' } ], null);
+            locator = splitres[0].end;
+          }
         }
       }
       else
@@ -2056,7 +2067,7 @@ export default class StructuredEditor extends EditorBase
     if (options.breakafter)
     {
       let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
-      if (upres.type === "node" || upres.type === "char")
+      if ((upres.type === "node" || upres.type === "char") && !upres.segmentbreak)
         parsed.push({ type: 'block', style: this.structure.defaultblockstyle, nodes: [] });
     }
 

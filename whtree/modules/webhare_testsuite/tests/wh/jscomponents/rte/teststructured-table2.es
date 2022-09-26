@@ -47,5 +47,21 @@ test.registerTests(
 
       // no trailing empty paragraph left?
       test.eq(`<p class="normal">nootddd</p>`, tables[0].querySelectorAll("td")[1].innerHTML);
+
+      rtetest.setStructuredContent(win, `<table class="table wh-rtd__table" style="width: 200px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 199px;"></colgroup><tbody>` +
+`<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"aap"</p></td></tr>` +
+`<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p></td></tr>` +
+`<tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"mies"</p></td></tr>` +
+`</tbody></table><p class="normal">"insert me"</p><p class="normal">"extra paragraph"</p>`);
+
+      // Make sure no traling empty paragraph is present when pasting inside an empty table cell
+      await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+        { typesdata: { "text/html": `<meta charset='utf-8'><p class="normal" style="box-sizing: border-box; padding: 0px; margin: 0px; font-weight: 400; color: rgb(0, 0, 0); font-family: Arial, sans-serif; font-size: 13.3333px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-left; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;">ddd</p><br class="Apple-interchange-newline">` }
+        , files: []
+        , items: []
+        }), { waits: 1 });
+
+      // no trailing empty paragraph left?
+      test.eq(`<p class="normal">ddd</p>`, tables[0].querySelectorAll("td")[1].innerHTML);
     }
   ]);
