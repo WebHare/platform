@@ -1404,7 +1404,7 @@ export default class StructuredEditor extends EditorBase
       return { type: 'textstyle', style: style, displayblock: node.style.display === "block" };
 
     if (node.nodeName.toLowerCase() == 'br')
-      return { type: 'br' };
+      return { type: 'br', isinterchange: node.classList.contains("Apple-interchange-newline") };
     if (node.nodeName.toLowerCase() == "img")
       return { type: "img" };
 
@@ -1581,11 +1581,15 @@ export default class StructuredEditor extends EditorBase
           } break;
         case 'br':
           {
-            this._addItemToBlockNodes(block, { type: type.type, value: this.getTextStyleRecordFromNode(child) });
+            // Ignore chrome interchange br's if followed by one of our bogus br's
+            if (!type.isinterchange || !child.nextSibling || child.nextSibling.nodeName.toLowerCase() != "br")
+            {
+              this._addItemToBlockNodes(block, { type: type.type, value: this.getTextStyleRecordFromNode(child) });
 
-            // Treats BR's at top-level as paragraph breaks - force new block at next content
-            if (block.surrogate && (!options || options.externalcontent))
-              block = null;
+              // Treats BR's at top-level as paragraph breaks - force new block at next content
+              if (block.surrogate && (!options || options.externalcontent))
+                block = null;
+            }
           } break;
         case 'embeddedobject':
           {
@@ -2000,56 +2004,53 @@ export default class StructuredEditor extends EditorBase
     preservelocators = preservelocators || [];
 
     locator = locator.clone();
-    var block = this.getBlockAtNode(locator.getNearestNode());
-    var inlist = block.islist;
+    let block = this.getBlockAtNode(locator.getNearestNode());
+    let inlist = block.islist;
 
+    let breakblock = false;
     if (typeof options.inblock == "undefined")
     {
 //      console.warn("inblock not specified, checking if at start of block");
-
-      var down = locator.clone();
-      let downres = down.scanBackward(this.getContentBodyNode(), { whitespace: true });
-      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
-
-//      console.warn('scanned: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, down: down }));
-
-      // Split the block if the locator is at the start of a non-empty block (block is empty when forward scan finds a bogus segment break)
+      const downres = locator.clone().scanBackward(this.getContentBodyNode(), { whitespace: true });
       if (downres.type == 'outerblock')
       {
         options.inblock = false;
-//        console.error('break block at insert', block);
-        if (upres.bogussegmentbreak && !block.inlist)
-        {
-          // paragraph is empty, just delete it
-          locator = domlevel.Locator.newPointingTo(block.node);
-          locator.removeNode(preservelocators, undoitem);
-        }
-        else
-        {
-          console.warn('break block at insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), block));
-          if (block.contentnode != block.blockroot)
-          {
-            var splitres = domlevel.splitDom(block.blockparent, [ { locator: down, toward: 'start', preservetoward: 'end' } ], null);
-            locator = splitres[0].end;
-          }
-        }
+        breakblock = true;
       }
       else
         options.inblock = true;
-    }
-    else
-    {
-//      console.error("inblock specified: ", options.inblock);
     }
 
     // When pasting inside a block, overwrite the first blockstyle of the parsed contents, so the textstyle correction algorithm
     // in the parser will evict disallowed styles
     const initialblockstyle = options.inblock && block && block.blockstyle || null;
-    var parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
+    let parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
 
     if(dompack.debugflags.rte)
-      console.log('[rte] parsed container contents', parsed);
+      console.log('[rte] parsed container contents', parsed, { breakblock });
 
+    if (breakblock)
+    {
+      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
+      if (upres.bogussegmentbreak && !block.inlist && parsed.length)
+      {
+        // paragraph is empty, just delete it
+        locator = domlevel.Locator.newPointingTo(block.node);
+        locator.removeNode(preservelocators, undoitem);
+      }
+      else
+      {
+        // break block at insert position into two, append at the end of the first part
+        if (block.contentnode != block.blockroot)
+        {
+          let down = locator.clone();
+          down.scanBackward(this.getContentBodyNode(), { whitespace: true });
+
+          let splitres = domlevel.splitDom(block.blockparent, [ { locator: down, toward: 'start', preservetoward: 'end' } ], null);
+          locator = splitres[0].end;
+        }
+      }
+    }
 
     if(debugicc)
     {
