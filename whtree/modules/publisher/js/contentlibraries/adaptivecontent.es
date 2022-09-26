@@ -19,18 +19,18 @@ function matchCondition(condition)
   {
     case "newvisitor":
     {
-      if (beacons.getVisitCount() == 1)
-        return { ok: `First visit` };
-      else
+      if (beacons.getVisitCount() > 1)
         return { fail: `Subsequent visit` };
+      else
+        return { ok: `First visit or unknown user` };
     }
 
     case "returningvisitor":
     {
-      if (beacons.getVisitCount() == 1)
-        return { fail: `First visit` };
-      else
+      if (beacons.getVisitCount() > 1)
         return { ok: `Subsequent visit` };
+      else
+        return { fail: `First visit or unknown user` };
     }
 
     case "beacon":

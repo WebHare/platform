@@ -11,7 +11,6 @@ async function resetAll()
   await test.wait(() => test.qSA("#currentbeacons div").length == 0);
   await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
   test.getDoc().cookie="webhare-testsuite-consent=;path=/";
-  await test.load(testinfo.url + "?wh-debug=bac");
 }
 
 test.registerTests(
@@ -25,8 +24,6 @@ test.registerTests(
   , "run tests"
   , async function()
     {
-      testinfo = await test.invoke("mod::webhare_testsuite/tests/publisher/contentlibraries/libs/adaptivecontent.whlib#SetupDCTest");
-
       // Clear all beacons and reload
       await resetAll();
       await test.load(testinfo.url + "?wh-debug=bac");
@@ -41,9 +38,9 @@ test.registerTests(
       await test.sleep(100);
       test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
-      // This is the first visit, show Widget 2.A
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
-      test.eq("Widget 2.A", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
+      // This is the first visit, show Widget 2.B
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
+      test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Check if both widgets were registered, order isn't guaranteed though
       const trailers =
@@ -86,31 +83,31 @@ test.registerTests(
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-1a"));
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.A", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
-      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
+      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
       // The content widget beacon should not have been triggered (wait a bit as beacons aren't triggered immediately)
       await test.sleep(100);
       test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
       // This is still the first visit (session hasn't changed yet)
-      test.eq("Widget 2.A", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
+      test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Refresh with the reference date set to one week in the future, we should now get Widget 1.B
       let date = new Date();
       date.setDate(date.getDate() + 7);
       await test.load(testinfo.url + "?now=" + date.toISOString() + "&wh-debug=bac");
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-1b"));
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.B", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
       // The content widget beacon should now trigger
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
-      // Reset the session and reload, should trigger a new visit for the same visitor (widget 2.A no longer applies)
+      // Reset the session and reload, should trigger a new visit for the same visitor (widget 2.B no longer applies)
       test.click("#resetvisitsession");
       await test.load(testinfo.url + "?wh-debug=bac");
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
-      test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
+      test.eq("Widget 2.A", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Header slot is empty (the header widget is shown during January 2000)
       test.eq(0, test.qSA("#headerslotholder .accontent-widget--content").length);
@@ -161,6 +158,11 @@ test.registerTests(
     {
       await resetAll();
       await test.load(testinfo.url + "?defaultconsent=&beaconconsent=analytics&wh-debug=anl,bac");
+
+      // Test if the 'newvisitor' content is shown when no consent is given
+      // There was a regression where the 'returningvisitor' content (2.A) would be shown if no consent was given
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2"));
+      test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Test visit counter not updating
       test.click("button[data-messagebox-result=no]"); //cancel cookie request

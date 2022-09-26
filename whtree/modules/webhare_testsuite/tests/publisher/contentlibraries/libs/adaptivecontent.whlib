@@ -114,7 +114,7 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
 
   OBJECT widget2a := slot2->CreateWidget(
       [ type := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1")->id
-      , condition := [ _type := "newvisitor" ]
+      , condition := [ _type := "returningvisitor" ]
       , title := "Widget 2A"
       ]);
   widget2a->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1",
@@ -122,9 +122,16 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
 
   OBJECT widget2b := slot2->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption2"
+      , condition := [ _type := "newvisitor" ]
       , title := "Widget 2B"
       ]);
   widget2b->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption2", [ text := "Widget 2.B"]);
+
+  OBJECT widget2c := slot2->CreateWidget(
+      [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption2"
+      , title := "Widget 2C"
+      ]);
+  widget2c->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption2", [ text := "Widget 2.C"]);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT beacondoc := GetTestsuiteTempFolder()->CreateFile(
