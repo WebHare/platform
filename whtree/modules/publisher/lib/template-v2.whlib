@@ -262,7 +262,6 @@ INTEGER htmldoc_id;
 
 PUBLIC BOOLEAN __publisher_created_htmldoc;
 PUBLIC MACRO PTR __publisher_newfileopen_hook;
-PUBLIC FUNCTION PTR __publisher_newfile_intercept;
 
 ////////////////////////////////////////////////////////////////////////////
 //
@@ -650,11 +649,6 @@ MACRO __Internal_CreateFile(STRING pagename, INTEGER pageid, BOOLEAN dbfile)
   IF (newfileid=0)
     ABORT("Illegal/duplicate filename '" || pagename || "'");
 
-  IF (__publisher_newfile_intercept != DEFAULT FUNCTION PTR AND dbfile = FALSE)
-  {
-    newfileid := __publisher_newfile_intercept(TRUE, pagename, pageid, newfileid);
-  }
-
   INTEGER postprocstream, htmldest := newfileid;
   IF(Length(postprochtmlfuncs)>0 AND (pagename LIKE "*.html" OR pagename LIKE "*.shtml"))
   {
@@ -749,10 +743,6 @@ PUBLIC MACRO CloseFile()
   }
 
   INTEGER outputfileid := openpages[0].fileid;
-  IF (__publisher_newfile_intercept != DEFAULT FUNCTION PTR AND openpages[0].dbfile = FALSE)
-  {
-    outputfileid := __publisher_newfile_intercept(FALSE, openpages[0].name, openpages[0].number, outputfileid);
-  }
   PUBLISHER_CloseOutput(outputfileid);
 
   //Pop the page number
