@@ -2583,7 +2583,20 @@ export default class StructuredEditor extends EditorBase
       {
         let moveres = newpos.moveLeft(this.getContentBodyNode(), { checkblock });
         if (moveres)
+        {
+          // See if the previous block is empty. If so, remove it.
+          let block = this.getBlockAtNode(newpos.getNearestNode());
+          if (this._isEmptyBlock(block.contentnode))
+          {
+            block.contentnode.remove();
+            if (block.node !== block.contentnode && this._isEmptyBlock(block.node)) // removed last li in list node?
+              block.node.remove();
+            undolock.close();
+            return true;
+          }
+
           range.start.assign(newpos);
+        }
         else
         {
           undolock.close();

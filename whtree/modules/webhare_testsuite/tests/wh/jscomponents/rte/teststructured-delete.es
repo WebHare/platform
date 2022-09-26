@@ -165,6 +165,24 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         test.eq(0, rte.getContentBodyNode().querySelectorAll("p div").length); // should not merge the contents of the embedded object
-     }
+
+        // Backspace in at start of block after empty paragraph should just delete the previous paragraph
+        test.subtest("Backspace in list after empty paragraph");
+        rtetest.setStructuredContent(win, `<p class="normal">"a"</p><p class="normal"><br data-wh-rte="bogus"></p><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
+        rtetest.testEqSelHTMLEx(win, `<p class="normal">"a"</p><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+
+        // Backspace in at start of block after list ending in empty li should just delete the empty li
+        test.subtest("Backspace in list after empty li");
+        rtetest.setStructuredContent(win, `<p class="normal">"a"</p><ul class="unordered"><li>"aaa"</li><li><br data-wh-rte="bogus"></li></ul><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
+        rtetest.testEqSelHTMLEx(win, `<p class="normal">"a"</p><ul class="unordered"><li>"aaa"</li></ul><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+
+        // Backspace in at start of block after list with only one empty li should delete the whole list
+        test.subtest("Backspace in single-item list after empty li");
+        rtetest.setStructuredContent(win, `<p class="normal">"a"</p><ul class="unordered"><li><br data-wh-rte="bogus"></li></ul><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
+        rtetest.testEqSelHTMLEx(win, `<p class="normal">"a"</p><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+      }
     }
   ]);
