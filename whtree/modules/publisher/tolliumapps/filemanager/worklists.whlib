@@ -183,10 +183,13 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
       }
 
       INTEGER ARRAY objectids;
+      BOOLEAN skipaccesscheck;
       IF(RecordExists(options.filterresults))
       {
         //Then we can just show those items  TODO save the custom_itemids !
         objectids := SELECT AS INTEGER ARRAY id FROM options.filterresults.showresults;
+        IF(CellExists(options.filterresults,'skipaccesscheck'))
+          skipaccesscheck := options.filterresults.skipaccesscheck;
       }
       ELSE
       {
@@ -198,7 +201,8 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
       }
 
       //TODO is there a way to move responsibility for this to the search result filtering too ?
-      objectids := this->tolliumuser->HasRightOnMultiple("system:fs_fullaccess", objectids);
+      IF(NOT skipaccesscheck)
+        objectids := this->tolliumuser->HasRightOnMultiple("system:fs_fullaccess", objectids);
 
       RETURN ToRecordArray(objectids,"id");
     }

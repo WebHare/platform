@@ -72,10 +72,12 @@ MACRO Setup()
   api_sysop->AddToWorkList(testworklistid2,
       [ [ objectid := workfile1->id, comments := "W1", metadata := [ str := "OnSite1", int := 42 ] ]
       , [ objectid := workfile2->id, comments := "W2" ]
+      , [ objectid := workfile4->id, metadata := [ str := "bla" ] ]
       ]);
   TestEq("webhare_testsuite:filteredlist", DescribeWorklist(testworklistid2).type);
   TestEqMembers([[ objectid := workfile1->id, metadata := [ str := "OnSite1", int := 42 ] ]
                 ,[ objectid := workfile2->id, metadata := DEFAULT RECORD ]
+                ,[ objectid := workfile4->id ]
                 ], (SELECT * FROM api_sysop->GetWorkListItems(testworklistid2) ORDER BY objectid), "*");
   TestEq([ dummy := 43], DescribeWorklist(testworklistid2).metadata);
 
@@ -147,6 +149,25 @@ ASYNC MACRO TestResolveAsLisa()
   TestEq(lisaresolveroot->id, TT("foldertree")->value);
   TestEq("workfolder5", TT("filelist")->selection.name);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  // Grant lisa access to the other worklist
+  testfw->BeginWork();
+  api_sysop->AddWorkListUsers(testworklistid2, OBJECT[ testfw->GetUserObject("lisa") ]);
+  testfw->CommitWork();
+
+  // Open the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING["Work lists/TESTFW - Second Work List"]]));
+
+  OBJECT filterscreen := TT("filelist")->folderfilter->contents;
+  filterscreen->^toshow->value := "some";
+  TTClick(":Filter");
+  TestEq([[ name := "workfile1" ] ], SELECT name FROM TT("filelist")->rows ORDER BY name);
+
+  filterscreen->^toshow->value := "some-skipaccesscheck";
+  TTClick(":Filter");
+  TestEq([[ name := "workfile1" ], [ name := "workfile4" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 }
@@ -326,7 +347,7 @@ ASYNC MACRO TestWorkListMgmt()
 
   filterscreen->^toshow->value := "some";
   TTClick(":Filter");
-  TestEq([[ name := "workfile1" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
+  TestEq([[ name := "workfile1" ], [ name := "workfile4" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
 
   //Switch away (out of all the worklists) and back. triggered a crash ? but can't reproduce it anymore
   TT("foldertree")->value := lisaresolveroot->id;
@@ -342,7 +363,7 @@ ASYNC MACRO TestWorkListMgmt()
 
   filterscreen->^toshow->value := "all";
   TTClick(":Filter");
-  TestEq([ "workfile1", "workfile2" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
+  TestEq([ "workfile1", "workfile2", "workfile4" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
