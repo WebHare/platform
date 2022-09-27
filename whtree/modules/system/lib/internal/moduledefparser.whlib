@@ -1392,6 +1392,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           RECORD app := CELL[ ...this->ParseApp(subchild)
                             , documenteditor := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("documenteditor"))
                             , supportsreadonly := ParseXSBoolean(subchild->GetAttribute("supportsreadonly"))
+                            , supportsnoaccess := ParseXSBoolean(subchild->GetAttribute("supportsnoaccess"))
                             ];
 
           IF(app.documenteditor != "")
