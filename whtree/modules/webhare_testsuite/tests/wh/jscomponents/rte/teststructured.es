@@ -572,6 +572,8 @@ test.registerTests(
         rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)b"</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         // At start of paragraph
+        // Undo barrier to make sure sfari doesn't coalesce updates into one undo
+        await rtetest.undoBarrier();
         rte.setContentsHTML('<p class="normal">ab</p>');
         locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
         rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);

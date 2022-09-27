@@ -326,6 +326,17 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {})
   }
 }
 
+/** Undo barrier to make sure multiple items aren't coalesced */
+export async function undoBarrier()
+{
+  // Wait for undo stack to update
+  await test.sleep(1);
+  test.getDoc().execCommand("undo");
+  await test.sleep(1);
+  test.getDoc().execCommand("redo");
+  await test.sleep(1);
+}
+
 export async function runWithUndo(rte, func, options = {})
 {
   let prestate = getPreActionState(rte);
