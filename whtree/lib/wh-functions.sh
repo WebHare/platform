@@ -162,9 +162,9 @@ get_installable_moduledirs()
 setup_node()
 {
   getwhparameters
-  mkdir -p $WEBHARE_DATAROOT/nodejs
-  export NODE_PATH=$WEBHARE_DIR/node_modules:$WEBHARE_DATAROOT/nodejs/node_modules
-  export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/nodejs/.repl-history
+  mkdir -p "$WEBHARE_DATAROOT/nodejs"
+  export NODE_PATH=$WEBHARE_DIR/node_modules:$WEBHARE_DATAROOT/node_modules
+  export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
   export WEBHARE_LOOPBACKPORT
 }
 

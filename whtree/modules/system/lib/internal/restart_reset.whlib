@@ -230,6 +230,11 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   EnsureCreatedMagicSysop("<overrideuser>");
   GetPrimary()->CommitWork();
 
+  IF (debug) //set up symlinks before starting modules so thta any JS code can find its configuration
+    Print("Fixing module symlinks and server configuration JS\n");
+  FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
+  UpdatePublicConfig();
+
   //then the rest
   STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;
   IF(Length(modules) > 0)
@@ -238,11 +243,6 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
       Print("WebHare startup other modules\n");
     WebHareStartup(modules, debug);
   }
-
-  IF (debug)
-    Print("Fixing module symlinks and server configuration JS\n");
-  FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
-  UpdatePublicConfig();
 
   IF (debug)
     Print("WRD schemas, siteprofiles\n");
