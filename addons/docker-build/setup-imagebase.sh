@@ -142,7 +142,7 @@ fi
 rm /etc/java-8-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
-mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache /opt/wh/whtree/currentinstall/babelcache
+mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
 
 # Marker file to detect that we're in Docker
 true > /opt/wh/whtree/etc/is-webhare-in-docker
