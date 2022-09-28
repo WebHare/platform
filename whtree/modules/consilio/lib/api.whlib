@@ -234,6 +234,9 @@ PUBLIC RECORD FUNCTION CQOr(RECORD ARRAY inputqueries)
 
 RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required)
 {
+  IF(Length(subqueries) = 0)
+    RETURN CQNothing();
+
   RECORD resultquery :=
       [ _type := "boolean"
       , subqueries := RECORD[]
