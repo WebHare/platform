@@ -107,7 +107,7 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
 
   MACRO ShowInfoForModule(RECORD row)
   {
-    this->RunScreen("moduleinfo.xml#moduleinfo", [ modulename := row.name, path := row.path ]);
+    this->RunScreen("#moduleinfo", [ modulename := row.name, path := row.path ]);
   }
 
   MACRO DoShowModuleInfo()
@@ -117,7 +117,7 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
 
   MACRO DoVersions()
   {
-    this->RunScreen("moduleinfo.xml#moduleversions", [ modulename := ^modules->value ]);
+    this->RunScreen("#moduleversions", [ modulename := ^modules->value ]);
   }
 
   MACRO DoConfigModule()
