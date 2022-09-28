@@ -1,9 +1,11 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::publisher/lib/worklists.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -12,24 +14,33 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-OBJECT linksrtdfile;
+OBJECT linksrtdfile, lisartdfile, sysoptestfolder, lisatestfolder;
+STRING todaysuniqueword := GeneratePassword("Grosse", 22);
 
 MACRO PrepIt()
 {
   testfw->BeginWork();
 
-  OBJECT testroot := GetTestsuiteTempFolder();
-
-  OBJECT myrichdoc := NEW EditableRichDocument;
-  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
-                                 || '<p class="normal"><a href="http://www.example.net/link42/">Link 42</a></p>'
-                                 || '</body></html>')
-                              ]);
+  sysoptestfolder := GetTestsuiteTempFolder()->EnsureFolder([name:="forsysop"]);
+  lisatestfolder := GetTestsuiteTempFolder()->EnsureFolder([name:="forlisa"]);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  linksrtdfile := testroot->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
 
-  richdoctype->SetInstanceData(linksrtdfile->id, [data := myrichdoc->ExportAsRecord()]);
+  linksrtdfile := sysoptestfolder->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
+  richdoctype->SetInstanceData(linksrtdfile->id,
+      [ data := [ htmltext := StringToBlob('<html><head></head><body>'
+                                     || `<p class="normal"><a href="http://www.example.net/link42/">Link 42</a> XX${todaysuniqueword} ZZ${todaysuniqueword}</p>`
+                                     || '</body></html>')
+                ]
+      ]);
+
+  lisartdfile := lisatestfolder->CreateFile([name := "links-for-lisa.rtd", type := richdoctype->id, publish:=FALSE]);
+  richdoctype->SetInstanceData(lisartdfile->id,
+      [ data := [ htmltext := StringToBlob('<html><head></head><body>'
+                                     || `<p class="normal"><a href="http://www.example.net/link42/">Link 42</a> YY${todaysuniqueword} ZZ${todaysuniqueword}</p>`
+                                     || '</body></html>')
+                ]
+      ]);
 
   OBJECT indexpromise := MakeChangesIndexedPromise();
   testfw->CommitWork();
@@ -56,6 +67,19 @@ ASYNC MACRO Search()
           ]
       ], searchscreen->GetFilterData());
   
+  searchscreen->SetFilterData(
+      [ filters :=
+          [ [ type := "publisher:text"
+            , value := [ textquery := "XX" || todaysuniqueword ]
+            ]
+          ]
+      ]);
+
+  TT("filelist")->filter->TolliumClick();
+  RECORD ARRAY rows := TT("filelist")->rows;
+  TestEq(1,Length(rows));
+  TestEq(linksrtdfile->id, rows[0].rowkey);
+
   //=== Search by filetype
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";
   //Open the screen, ensure the list doesn't crash on eg tolliumicon...
@@ -72,9 +96,11 @@ ASYNC MACRO Search()
 
   TT("filelist")->filter->TolliumClick();
 
-  RECORD ARRAY rows := TT("filelist")->rows;
-  TestEq(1,Length(rows));
-  TestEq(linksrtdfile->id, rows[0].rowkey);
+  rows := TT("filelist")->rows;
+  //TODO 'and' queries to hit only one of the two
+  TestEq(2,Length(rows));
+  TestAssert(linksrtdfile->id IN SELECT AS INTEGER ARRAY rowkey FROM rows);
+  TestAssert(lisartdfile->id IN SELECT AS INTEGER ARRAY rowkey FROM rows);
 
   //=== Search by widget type
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:widgettype";
@@ -98,8 +124,76 @@ ASYNC MACRO Search()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO SearchAsLisa()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", lisatestfolder->id, testfw->GetUserObject("lisa"));
+  testfw->CommitWork();
+
+  testfw->SetTestUser("lisa");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Search", TT("foldertree")->selection.name);
+
+  OBJECT searchscreen := TT("filelist")->folderfilter->contents;
+  searchscreen->SetFilterData(
+      [ filters :=
+          [ [ type := "publisher:text"
+            , value := [ textquery := "ZZ" || todaysuniqueword ]
+            ]
+          ]
+      ]);
+
+  TT("filelist")->filter->TolliumClick();
+  RECORD ARRAY rows := TT("filelist")->rows;
+  TestEq(1,Length(rows));
+  TestEq(lisartdfile->id, rows[0].rowkey);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO SearchAsBart()
+{
+  //STORY: having worklists makes publisher & search visible ... but we saw publisher search returing results even without any browser access!
+  testfw->BeginWork();
+  OBJECT api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
+  INTEGER testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);
+  api_sysop->AddToWorkList(testworklistid,
+      [ [ objectid := linksrtdfile->id, comments := "Work list item 1" ]
+      , [ objectid := lisartdfile->id, comments := "Do some stuff for item 2" ]
+      ]);
+  api_sysop->AddWorkListUsers(testworklistid, OBJECT[ testfw->GetUserObject("bart") ]);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("bart");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Search"], target := DEFAULT RECORD ]));
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+  TestEq("Search", TT("foldertree")->selection.name);
+
+  OBJECT searchscreen := TT("filelist")->folderfilter->contents;
+  searchscreen->SetFilterData(
+      [ filters :=
+          [ [ type := "publisher:text"
+            , value := [ textquery := "ZZ" || todaysuniqueword ]
+            ]
+          ]
+      ]);
+
+  //we should have no matches at all!
+  TT("filelist")->filter->TolliumClick();
+  TestEq(RECORD[], TT("filelist")->rows);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
 RunTestframework([ PTR PrepIt
                  , PTR Search
+                 , PTR SearchAsLisa
+                 , PTR SearchAsBart
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
+                                   ,[ login := "bart" ]
                                    ]]);
