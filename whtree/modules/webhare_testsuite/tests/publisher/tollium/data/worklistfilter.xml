@@ -7,6 +7,7 @@
       <select name="toshow" type="pulldown" title="To show">
         <option rowkey="none" title="None"/>
         <option rowkey="some" title="Some"/>
+        <option rowkey="some-skipaccesscheck" title="Some, skip access checks"/>
         <option rowkey="all" title="All"/>
       </select>
     </body>

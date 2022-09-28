@@ -473,7 +473,7 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
     haswriteaccess := TRUE;
   }
 
-  IF(NOT haswriteaccess AND NOT options.assumereadaccess)
+  IF(NOT haswriteaccess AND NOT options.assumereadaccess AND (NOT RecordExists(objeditor) OR NOT objeditor.supportsnoaccess))
   {
     IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
     {

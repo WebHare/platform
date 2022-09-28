@@ -24,7 +24,7 @@ PUBLIC STATIC OBJECTTYPE FilteredListPanel EXTEND WHFSFilterScreenBase
     IF(^toshow->value != "none")
     {
       RECORD ARRAY allentries := NEW WorkListAPI(this->contexts->user)->GetWorkListItems(this->filtersettings.worklist);
-      IF(^toshow->value = "some")
+      IF(^toshow->value = "some" OR ^toshow->value = "some-skipaccesscheck" )
         DELETE FROM allentries WHERE NOT RecordExists(metadata);
 
       results := SELECT id := objectid, custom_itemid := id FROM allentries;
@@ -34,6 +34,7 @@ PUBLIC STATIC OBJECTTYPE FilteredListPanel EXTEND WHFSFilterScreenBase
            , numresults := Length(results) //publisher currently just wants a >0 value to give control back to us..
            , showresults := results
            , staticresults := TRUE
+           , skipaccesscheck := ^toshow->value = "some-skipaccesscheck"
            ];
   }
 >;
