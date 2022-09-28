@@ -15,17 +15,22 @@ function reportIssue(event, addElement)
   runFeedbackReport(event, addElement);
 }
 
+function focusFirstAction()
+{
+  document.querySelector("wh-authorbar a").focus();
+}
+
 function setupAuthorMode()
 {
   console.log("[authormode] activating");
 
   document.body.append(
     <wh-authorbar>
-      <div class="wh-authorbar__title">{ getTid("publisher:site.authormode.title") }</div>
+      <div class="wh-authorbar__title" onClick={focusFirstAction}>{ getTid("publisher:site.authormode.title") }</div>
       <div class="wh-authorbar__actions">
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
-            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} target="_blank">{ getTid("publisher:site.authormode.openinwebhare") }</a>
+            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{ getTid("publisher:site.authormode.openinwebhare") }</a>
           </li>
         </ul>
         <ul class="wh-authorbar__actiongroup">
@@ -37,7 +42,11 @@ function setupAuthorMode()
           </li>
         </ul>
       </div>
-    </wh-authorbar>)
+    </wh-authorbar>);
+
+  //no positioning selected?
+  if(!document.documentElement.matches('.wh-authorbar--left,.wh-authorbar--right'))
+    document.documentElement.classList.add('wh-authorbar--right');
 }
 
 dialogapi.setupDialogs(options => dialog.createDialog('wh-authormode__dialog', options), { messageboxclassbase: "wh-authormode__message__" });

@@ -43,7 +43,6 @@ wh-authorbar
   font-size: 14px;
   height: var(--wh-authorbar-height);
   position: fixed;
-  right: 0;
   top: 65%;
   width: var(--wh-authorbar-width);
   z-index: 99999;
@@ -51,8 +50,6 @@ wh-authorbar
   &::before
   {
     background: var(--wh-authorbar-blue) url(web/img/webhare.svg) center 8px/20px 20px no-repeat;
-    border-bottom-left-radius: 3px;
-    border-top-left-radius: 3px;
     bottom: 0;
     content: "";
     display: block;
@@ -72,6 +69,28 @@ wh-authorbar
   {
     display: none;
   }
+
+  html.wh-authorbar--left &
+  {
+    left:0;
+
+    &::before
+    {
+      border-bottom-right-radius: 3px;
+      border-top-right-radius: 3px;
+    }
+  }
+
+  html.wh-authorbar--right &
+  {
+    right:0;
+
+    &::before
+    {
+      border-bottom-left-radius: 3px;
+      border-top-left-radius: 3px;
+    }
+  }
 }
 
 .wh-authorbar__title
@@ -81,8 +100,16 @@ wh-authorbar
   display: flex;
   height: var(--wh-authorbar-width);
   padding-left: 10px;
-  transform: rotate(-90deg) translateX(calc(var(--wh-authorbar-width) - var(--wh-authorbar-height)));
   white-space: nowrap;
+
+  html.wh-authorbar--left &
+  {
+    transform: rotate(90deg) translateX(30px);
+  }
+  html.wh-authorbar--right &
+  {
+    transform: rotate(-90deg) translateX(calc(var(--wh-authorbar-width) - var(--wh-authorbar-height)));
+  }
 }
 
 .wh-authorbar__actions
@@ -95,9 +122,7 @@ wh-authorbar
   pointer-events: none;
   position: absolute;
   top: 0;
-  transform: translateX(-50%);
   transition: opacity var(--wh-authorbar-effect), transform var(--wh-authorbar-effect);
-  left: 0;
   z-index: -1;
 
   // The after pseudo element fills the gap between the blue bar and the actions popup, to keep it visible when the mouse
@@ -109,16 +134,44 @@ wh-authorbar
     content: "";
     display: block;
     position: absolute;
-    right: -4px;
     top: 0;
     width: 4px;
   }
 
-  wh-authorbar:hover &
+  html.wh-authorbar--left &
+  {
+    right: 0;
+    transform: translateX(-50%);
+
+    &::after
+    {
+      left: -4px;
+    }
+  }
+  html.wh-authorbar--right &
+  {
+    transform: translateX(50%);
+    left: 0;
+
+    &::after
+    {
+      right: -4px;
+    }
+  }
+
+  wh-authorbar:hover &, wh-authorbar:focus-within &
   {
     opacity: 1;
     pointer-events: auto;
-    transform: translateX(calc(-100% - 4px));
+
+    html.wh-authorbar--left &
+    {
+      transform: translateX(calc(100% + 4px));
+    }
+    html.wh-authorbar--right &
+    {
+      transform: translateX(calc(-100% - 4px));
+    }
   }
 }
 

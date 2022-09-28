@@ -1618,7 +1618,16 @@
         <xs:element name="objecteditor">
           <xs:complexType>
             <xs:attribute name="documenteditor" />
-            <xs:attribute name="supportsreadonly" type="xs:boolean" />
+            <xs:attribute name="supportsreadonly" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>This objecteditor will implement the full access check itself and does not require the publisher module to verify system:fs_fullaccess</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="supportsnoaccess" type="xs:boolean">
+              <xs:annotation>
+                <xs:documentation>This objecteditor will implement the read access check itself and does not require the publisher module to verify system:fs_browse</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
             <xs:attributeGroup ref="AppAttributes" />
           </xs:complexType>
         </xs:element>
