@@ -1114,8 +1114,9 @@ anything else
 Append the current input code point to the <string-token>’s value.
     */
     this->type := "string";
-    WHILE(TRUE)
+    WHILE(NOT this->strp->eof)
     {
+      this->value := this->value || this->strp->ParseWhileNotInSet("\\\n\r" || delimiter);
       IF(this->strp->eof)
         RETURN;
 
