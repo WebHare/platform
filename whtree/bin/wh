@@ -52,9 +52,7 @@ fi
 # If we haven't found WEBHARE_DATAROOT that way, discover it
 if [ -z "$WEBHARE_DATAROOT" ] ; then
   WEBHARE_DATAROOT="$WEBHARE_DIR/whdata"
-  echo "WEBHARE_DATAROOT is not set and inferring WEBHARE_DATAROOT has been deprecated" 2>&1
-  echo "Make sure WEBHARE_DATAROOT is set and exported or use 'runkit' to manage your WebHare intallation(s)" 2>&1
-  sleep .5
+  INFERRED_DATAROOT=1
 fi
 
 if [ -f $WEBHARE_DATAROOT/dbase/translog.whdb ]; then
@@ -327,6 +325,12 @@ getscripttorun()
 
 setup_for_console() #setup_for_console is invoked when we're starting a major subprocess (console or exec)
 {
+  if [ -n "$INFERRED_DATAROOT" ]; then
+    echo "WEBHARE_DATAROOT is not set and inferring WEBHARE_DATAROOT has been deprecated" 2>&1
+    echo "Make sure WEBHARE_DATAROOT is set and exported or use 'runkit' to manage your WebHare intallation(s)" 2>&1
+    sleep 3
+  fi
+
   mkdir -p "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
 

@@ -165,9 +165,6 @@ setup_node()
   mkdir -p $WEBHARE_DATAROOT/nodejs
   export NODE_PATH=$WEBHARE_DIR/node_modules:$WEBHARE_DATAROOT/nodejs/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/nodejs/.repl-history
-  # workaround openssl/nodegit issues by using the homebrew version if available. FIXME removethis when setupdev branch is merged
-  export LDFLAGS=-L/usr/local/opt/openssl/lib/
-  export CFLAGS=-I/usr/local/opt/openssl/include
   export WEBHARE_LOOPBACKPORT
 }
 

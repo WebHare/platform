@@ -392,6 +392,20 @@ MACRO TestESBulkInsertion()
       ]);
   TestEq(0, res.totalcount);
 
+  //Empty CQOr should not return anything - this regressed and triggers a 'fail open' if a list of clauses is empty (eg publisher search with no access at all)
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQOr(RECORD[]),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount);
+
+  //CQAnd with an empty CQOr should not return anything - this regressed and triggers a 'fail open' if a list of clauses is empty (eg publisher search with no access at all)
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAnd([CQMatch("no.such.field.yet", "=", 42), CQOr(RECORD[])]),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount);
+
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQOr([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""

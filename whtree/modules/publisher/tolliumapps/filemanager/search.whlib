@@ -94,9 +94,9 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     IF (Length(subqueries) = 0 AND Length(filterqueries) = 0)
       RETURN DEFAULT RECORD;
 
-    RECORD query := CQAnd(RECORD[]);
+    RECORD ARRAY queries;
     IF (Length(subqueries) > 0)
-      query := CQAnd([ this->and_search ? CQAnd(subqueries) : CQOr(subqueries) ]);
+      INSERT this->and_search ? CQAnd(subqueries) : CQOr(subqueries) INTO queries AT END;
 
     // Only search for objects within one of the accessible root objects
     INTEGER ARRAY accessible_objects := this->tolliumuser->GetRootObjectsForRights([ "system:fs_browse" ]);
@@ -105,7 +105,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
       RECORD ARRAY rightsqueries :=
           SELECT AS RECORD ARRAY CQMatch("whfstree", "CONTAINS", id)
             FROM ToRecordArray(accessible_objects, "id");
-      query := CQAnd([ query, CQOR(rightsqueries) ]);
+      INSERT CQOR(rightsqueries) INTO queries AT END;
     }
 
     // Hide objects that should not be shown
@@ -113,30 +113,26 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     IF (Length(objects_to_hide) > 0)
     {
       RECORD ARRAY hidequeries :=
-          SELECT AS RECORD ARRAY CQNot(CQMatch("whfstree", "CONTAINS", id)).subqueries[0]
+          SELECT AS RECORD ARRAY CQNot(CQMatch("whfstree", "CONTAINS", id))
             FROM ToRecordArray(objects_to_hide, "id");
-      IF (NOT RecordExists(query))
-      query.subqueries := query.subqueries CONCAT hidequeries;
+
+      queries := queries CONCAT hidequeries;
     }
     IF (NOT this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE))
-      query.subqueries := query.subqueries CONCAT CQNot(CQMatch("whfstype", "=", 1)).subqueries;
+      queries := [ ...queries, CQNot(CQMatch("whfstype", "=", 1)) ];
 
     // Never return items from webhare-private
-    query.subqueries := query.subqueries CONCAT CQNot(CQMatch("whfstree", "CONTAINS", 10)).subqueries;
+    queries := [ ...queries, CQNot(CQMatch("whfstree", "CONTAINS", 10)) ];
 
-    // There must at least be one positive query to search for
-    IF (NOT RecordExists(SELECT FROM query.subqueries WHERE NOT prohibited))
-      query.subqueries := query.subqueries CONCAT CQAnd([ CQMatch("whfsobject", "IN", [ "file", "folder" ]) ]).subqueries;
-
-    //ADDME: Date queries are added separately, as Consilio only supports date range filters
+    //ADDME: Date queries are added separately, as Consilio only supports date range filters (FIXME and with opensearch now?)
     IF (Length(filterqueries) > 0)
-      query.subqueries := query.subqueries CONCAT (this->and_search ? CQAnd(filterqueries) : CQOr(filterqueries)).subqueries;
+      INSERT this->and_search ? CQAnd(filterqueries) : CQOr(filterqueries) INTO queries AT END;
 
     // Run the query
     RECORD res;
     TRY
     {
-      res := RunConsilioSearch(whconstant_consilio_catalog_whfs, query,
+      res := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd(queries),
           [ summary_length := 0
           , count := options.allresults ? -1 : this->results_limit
           ]);

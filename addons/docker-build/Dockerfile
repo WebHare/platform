@@ -13,7 +13,6 @@ ENV LC_ALL=C \
   WEBHARE_DIR=/opt/wh/whtree \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \
   WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
-  WEBHARE_BABELCACHE=/opt/wh/whtree/currentinstall/babelcache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
