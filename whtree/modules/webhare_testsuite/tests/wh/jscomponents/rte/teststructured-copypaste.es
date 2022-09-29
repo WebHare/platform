@@ -43,4 +43,38 @@ test.registerTests(
         test.eq("paste_2", body.firstElementChild.textContent);
       }
     }
+  , "Empty paragraph handling"
+  , async function()
+    {
+      let rte = test.getWin().rte.getEditor();
+      rtetest.setStructuredContent(test.getWin(),
+          `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>` +
+          `<p class="normal">"a"</p>`);
+
+      await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+        { typesdata: { "text/html": `<meta charset='utf-8'><p class="normal" style="box-sizing: border-box; padding: 0px; margin: 0px; font-weight: 400; color: rgb(0, 0, 0); font-family: Arial, sans-serif; font-size: 13.3333px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-left; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;"><br class="Apple-interchange-newline"><br data-wh-rte="bogus" style="box-sizing: border-box;"></p><br class="Apple-interchange-newline">` }
+        , files: []
+        , items: []
+        }), { waits: 1 });
+
+      rtetest.testEqSelHTMLEx(test.getWin(),
+        `<p class="normal"><br data-wh-rte="bogus"></p>` +
+        `<p class="normal">"(*0*)(*1*)a"</p>`);
+
+        rtetest.setStructuredContent(test.getWin(),
+        `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>` +
+        `<p class="normal">"a"</p>`);
+
+      await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+        { typesdata: { "text/html": `<meta charset="utf-8"><p class="normal" style="box-sizing: border-box; padding: 0px; margin: 0px; font-weight: 400; color: rgb(0, 0, 0); font-family: Arial, sans-serif; font-size: 13.3333px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-left; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;">1</p><p class="normal" style="box-sizing: border-box; padding: 0px; margin: 0px; font-weight: 400; color: rgb(0, 0, 0); font-family: Arial, sans-serif; font-size: 13.3333px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-left; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;"><br data-wh-rte="bogus" style="box-sizing: border-box;"></p><p class="normal" style="box-sizing: border-box; padding: 0px; margin: 0px; font-weight: 400; color: rgb(0, 0, 0); font-family: Arial, sans-serif; font-size: 13.3333px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; letter-spacing: normal; orphans: 2; text-align: -webkit-left; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial;">2</p><br class="Apple-interchange-newline">` }
+        , files: []
+        , items: []
+        }), { waits: 1 });
+
+      rtetest.testEqSelHTMLEx(test.getWin(),
+        `<p class="normal">"1"</p>` +
+        `<p class="normal"><br data-wh-rte="bogus"></p>` +
+        `<p class="normal">"2(*0*)(*1*)"</p>` +
+        `<p class="normal">"a"</p>`);
+    }
   ]);

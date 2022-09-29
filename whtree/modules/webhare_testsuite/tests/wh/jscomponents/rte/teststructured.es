@@ -572,6 +572,8 @@ test.registerTests(
         rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)b"</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         // At start of paragraph
+        // Undo barrier to make sure sfari doesn't coalesce updates into one undo
+        await rtetest.undoBarrier();
         rte.setContentsHTML('<p class="normal">ab</p>');
         locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
         rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
@@ -1026,21 +1028,21 @@ test.registerTests(
         topaste = dompack.create("div", { innerHTML: '<h2 class="tab">You were a tab</h2>'});
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><p class="contenttab">"You were a tab(*0*)(*1*)"</p><p class="normal">""<br data-wh-rte="bogus"></p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><p class="contenttab">"You were a tab(*0*)(*1*)"</p>');
 
         //Test import by class
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test"</p><p class="normal">"(*0*)"<br data-wh-rte="bogus"></p>');
         topaste = dompack.create("div", { innerHTML: '<h2 class="heading1">You were a tab</h2>'});
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><h1 class="heading1">"You were a tab(*0*)(*1*)"</h1><p class="normal">""<br data-wh-rte="bogus"></p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><h1 class="heading1">"You were a tab(*0*)(*1*)"</h1>');
 
         //Test import by tagname
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test"</p><p class="normal">"(*0*)"<br data-wh-rte="bogus"></p>');
         topaste = dompack.create("div", { innerHTML: '<h2>You were a tab</h2>'});
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><h2 class="heading2">"You were a tab(*0*)(*1*)"</h2><p class="normal">""<br data-wh-rte="bogus"></p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><h2 class="heading2">"You were a tab(*0*)(*1*)"</h2>');
 
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)ing"</p>');
         topaste = dompack.create("div", { innerHTML: '<br><br> '}); // Need space after last <br>, or it will be ignored
