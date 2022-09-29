@@ -1615,7 +1615,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   IF (NOT ObjectExists(root))
     RETURN OBJECT[];
 
-  IF (IsDebugTagEnabled("newcssengine"))
+  IF (NOT IsDebugTagEnabled("oldcssengine"))
     RETURN SELECT AS OBJECT ARRAY node FROM __EvaluateCSSSelectors(selectorparts, root, scope, mode);
 
   RECORD context :=
@@ -1675,7 +1675,7 @@ PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECOR
   IF (NOT ObjectExists(root))
     RETURN retval;
 
-  IF (IsDebugTagEnabled("newcssengine"))
+  IF (NOT IsDebugTagEnabled("oldcssengine"))
   {
     retval.matches := __EvaluateCSSSelectors(selectorparts, root, scope, mode);
     RETURN retval;
