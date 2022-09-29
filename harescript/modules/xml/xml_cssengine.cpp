@@ -22,7 +22,7 @@ namespace
 
 bool IsCSSWhitespace(char c)
 {
-        return c == 9 || c == 0x0a || c == 0x0d || c == 0x0d || c == ' ';
+        return c == 9 || c == 0x0a || c == 0x0c || c == 0x0d || c == ' ';
 }
 
 // Search for a case-sensitive whole word in a whitespace-separated list
@@ -411,7 +411,7 @@ xmlNodePtr nextElementSibling(xmlNodePtr node)
         return node;
 }
 
-/// Returns first previous sibling node that has type 1 (element)
+/// Returns first child node that has type 1 (element)
 xmlNodePtr firstElementChild(xmlNodePtr node)
 {
         node = node->children;
