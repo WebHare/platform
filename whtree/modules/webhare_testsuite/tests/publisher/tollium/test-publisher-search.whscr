@@ -155,7 +155,7 @@ ASYNC MACRO SearchAsLisa()
 
 ASYNC MACRO SearchAsBart()
 {
-  //STORY: having worklists makes publisher & search visible ... but we saw publisher search returing results even without any browser access!
+  //STORY: having worklists makes publisher & search visible ... but we saw publisher search returning results even without any browser access!
   testfw->BeginWork();
   OBJECT api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
   INTEGER testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);
