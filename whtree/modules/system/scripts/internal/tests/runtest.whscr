@@ -167,13 +167,17 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           runner := GetWebHareResourceDiskPath(script);
           arguments := testinfo.arguments;
         }
+        ELSE IF(script LIKE "*.js")
+        {
+          runner := GetInstallationRoot() || "bin/wh";
+          arguments := [ "run", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
+        }
         ELSE
         {
           runner := GetInstallationRoot() || "bin/runscript";
           arguments := testinfo.runscriptarguments CONCAT [ script ] CONCAT testinfo.arguments;
 
-          run_in_job := testinfo.runmode = "process"
-              ? FALSE
+          run_in_job := testinfo.runmode = "process" ? FALSE
               : testinfo.runmode = "job"
                     ? TRUE
                     : use_jobs;
@@ -352,12 +356,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   BOOLEAN success := TRUE;
 
   IF (testrunner->print_debug)
-  {
-    Print("; Using command: " || runner);
-    FOREVERY (STRING argument FROM arguments)
-      Print(" " || argument);
-    Print("\n");
-  }
+    Print(`; Using command: ${runner} ${script} ${Detokenize(arguments,' ')}\n`);
 
   IF (profiling != "") //TODO how useful is this, as we'd be clearing out any other debug settings for our child process
   {
@@ -519,12 +518,7 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   BOOLEAN success := TRUE;
 
   IF (testrunner->print_debug)
-  {
-    Print("; Using command: " || runner);
-    FOREVERY (STRING argument FROM arguments)
-      Print(" " || argument);
-    Print("\n");
-  }
+    Print(`; Simulating as job: ${runner} ${script} ${Detokenize(arguments,' ')}\n`);
 
   RECORD jobrec := CreateJob(script);
 

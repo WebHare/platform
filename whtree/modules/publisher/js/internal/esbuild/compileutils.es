@@ -16,7 +16,7 @@ function resolveWebHareAssetPath(startingpoint, inpath)
     if(startingpoint)
       paths.push(startingpoint);
 
-    /* If the path starts with @mod-, we know it must be loaded from $DATAROOT/nodejs/node_modules.
+    /* If the path starts with @mod-, we know it must be loaded from $DATAROOT/node_modules.
        Replace the inpath with the full path, and resolve the symlinks (because we can't reset the symlink
        resolve cache in the nodejs module loader). No need for startingpoint paths anymore, the inpath
        is absolute after this.
@@ -24,7 +24,7 @@ function resolveWebHareAssetPath(startingpoint, inpath)
     if (inpath.startsWith('@mod-'))
     {
       // The directory should exist, so we can realpath that part
-      let inpathdir = path.join(bridge.getBaseDataRoot(), "nodejs/node_modules/", path.dirname(inpath));
+      let inpathdir = path.join(bridge.getBaseDataRoot(), "node_modules/", path.dirname(inpath));
       inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
       paths = [];
     }

@@ -15,7 +15,7 @@
     <runonce tag="initdb_20220921" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_2022_09_02" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce tag="poststartcleanup_2022_09_28" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />

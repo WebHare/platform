@@ -638,7 +638,7 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
 
 PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 {
-  STRING whdatamods := GetWebhareConfiguration().basedataroot || "nodejs/node_modules/";
+  STRING whdatamods := GetWebhareConfiguration().basedataroot || "node_modules/";
   STRING storageroot := GetWebhareConfiguration().basedataroot || "storage/";
   CreateDiskDirectoryRecursive(whdatamods, TRUE);
 

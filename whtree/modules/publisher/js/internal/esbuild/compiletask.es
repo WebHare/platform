@@ -184,8 +184,8 @@ async function runTask(taskcontext, data)
       // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
       // , metafile:true
 
-      , nodePaths: [ path.join(bridge.getBaseDataRoot(),"nodejs/node_modules/")
-                   , path.join(bridge.getInstallationRoot(), "modules/system/js/") //TODO workaround for dompack resolution. we should probably move dompack to nodejs/node_modules and avoid further special dompack hacks
+      , nodePaths: [ path.join(bridge.getBaseDataRoot(),"node_modules/")
+                   , path.join(bridge.getInstallationRoot(), "modules/system/js/") //TODO workaround for dompack resolution. we should probably move dompack to node_modules and avoid further special dompack hacks
                    ]
       , resolveExtensions: [".js",".es",".ts",".tsx"]
       , logLevel: 'silent'

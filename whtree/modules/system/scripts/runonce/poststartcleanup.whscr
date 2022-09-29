@@ -37,3 +37,7 @@ DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "log");
 DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "output");
 DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "var");
 DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "tmp");
+
+//5.1 moved nodejs/node_modules, delete old version
+STRING oldwhdatamods := GetWebhareConfiguration().basedataroot || "nodejs/node_modules/";
+DeleteDiskDirectoryRecursive(oldwhdatamods);
