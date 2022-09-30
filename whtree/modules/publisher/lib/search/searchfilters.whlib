@@ -458,25 +458,25 @@ PUBLIC OBJECTTYPE CreationDateFilter EXTEND BaseSearchFilter
     IF (RecordExists(value.datequery))
     {
       IF (value.matchtype = "past")
-        RETURN CQMatch("creation", ">=", GetDateQueryRefDate(value.datequery));
+        RETURN CQMatch("creationdate", ">=", GetDateQueryRefDate(value.datequery));
       ELSE IF (value.matchtype = "after")
       {
         // 'after' search doesn't include the chosen date itself, so start at next day
         DATETIME day := AddDaysToDate(1, GetRoundedDateTime(value.datequery.date, 24*60*60*1000));
-        RETURN CQMatch("creation", ">=", day);
+        RETURN CQMatch("creationdate", ">=", day);
       }
       ELSE IF (value.matchtype = "before")
       {
         // 'before' search doesn't include the chosen date itself, so stop just before the chosen day
         DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
-        RETURN CQMatch("creation", "<", value.datequery.date);
+        RETURN CQMatch("creationdate", "<", value.datequery.date);
       }
       ELSE IF (value.matchtype = "exact")
       {
         // Search for all times between 0:00 (inclusive) and 24:00 (exclusive) on the chosen day
         DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
-        RETURN CQAnd([ CQMatch("creation", ">=", day)
-                     , CQMatch("creation", "<", AddDaysToDate(1, day))
+        RETURN CQAnd([ CQMatch("creationdate", ">=", day)
+                     , CQMatch("creationdate", "<", AddDaysToDate(1, day))
                      ]);
       }
     }
@@ -500,25 +500,25 @@ PUBLIC OBJECTTYPE ModificationDateFilter EXTEND BaseSearchFilter
     IF (RecordExists(value.datequery))
     {
       IF (value.matchtype = "past")
-        RETURN CQMatch("modification", ">=", GetDateQueryRefDate(value.datequery));
+        RETURN CQMatch("modificationdate", ">=", GetDateQueryRefDate(value.datequery));
       ELSE IF (value.matchtype = "after")
       {
         // 'after' search doesn't include the chosen date itself, so start at next day
         DATETIME day := AddDaysToDate(1, GetRoundedDateTime(value.datequery.date, 24*60*60*1000));
-        RETURN CQMatch("modification", ">=", day);
+        RETURN CQMatch("modificationdate", ">=", day);
       }
       ELSE IF (value.matchtype = "before")
       {
         // 'before' search doesn't include the chosen date itself, so stop just before the chosen day
         DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
-        RETURN CQMatch("modification", "<", value.datequery.date);
+        RETURN CQMatch("modificationdate", "<", value.datequery.date);
       }
       ELSE IF (value.matchtype = "exact")
       {
         // Search for all times between 0:00 (inclusive) and 24:00 (exclusive) on the chosen day
         DATETIME day := GetRoundedDateTime(value.datequery.date, 24*60*60*1000);
-        RETURN CQAnd([ CQMatch("modification", ">=", day)
-                     , CQMatch("modification", "<", AddDaysToDate(1, day))
+        RETURN CQAnd([ CQMatch("modificationdate", ">=", day)
+                     , CQMatch("modificationdate", "<", AddDaysToDate(1, day))
                      ]);
       }
     }

@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -69,29 +70,9 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.lastsearchquery", this->GetFilterData());
 
     // Construct the user query
-    RECORD ARRAY subqueries;
-    RECORD ARRAY filterqueries;
-    FOREVERY (OBJECT comp FROM this->filtercomps)
-    {
-      RECORD filterquery := comp->query;
-      IF (RecordExists(filterquery))
-      {
-        //ADDME: Date and range queries are added separately, as Consilio only supports date range filters. We'll support a
-        //       single date/range query or a boolean AND query with date/range queries
-        IF (filterquery._type IN [ "date", "range" ])
-          INSERT filterquery INTO filterqueries AT END;
-        ELSE
-        {
-          IF (filterquery._type = "boolean")
-          {
-            filterqueries := filterqueries CONCAT SELECT AS RECORD ARRAY query FROM filterquery.subqueries WHERE query._type IN [ "date", "range" ];
-            filterquery.subqueries := SELECT * FROM filterquery.subqueries WHERE query._type NOT IN [ "date", "range" ];
-          }
-          INSERT filterquery INTO subqueries AT END;
-        }
-      }
-    }
-    IF (Length(subqueries) = 0 AND Length(filterqueries) = 0)
+    RECORD ARRAY subqueries := SELECT AS RECORD ARRAY comp->query FROM ToRecordArray(this->filtercomps, "comp");
+    DELETE FROM subqueries WHERE NOT RecordExists(subqueries);
+    IF (Length(subqueries) = 0)
       RETURN DEFAULT RECORD;
 
     RECORD ARRAY queries;
@@ -124,10 +105,6 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     // Never return items from webhare-private
     queries := [ ...queries, CQNot(CQMatch("whfstree", "CONTAINS", 10)) ];
 
-    //ADDME: Date queries are added separately, as Consilio only supports date range filters (FIXME and with opensearch now?)
-    IF (Length(filterqueries) > 0)
-      INSERT this->and_search ? CQAnd(filterqueries) : CQOr(filterqueries) INTO queries AT END;
-
     // Run the query
     RECORD res;
     TRY
@@ -139,11 +116,13 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     }
     CATCH (OBJECT<SearchException> e)
     {
+      LogHareScriptException(e);
       this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searchexception", e->what));
       RETURN DEFAULT RECORD;
     }
     CATCH (OBJECT e)
     {
+      LogHareScriptException(e);
       this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searcherror", e->what));
       RETURN DEFAULT RECORD;
     }
