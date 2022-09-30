@@ -67,13 +67,12 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "execlimit", type := "stringopt" ]
                               , [ name := "dryrun", type := "switch" ]
                               , [ name := "checkgroupbytag", type := "stringopt" ]
-                              , [ name := "updategroupbytag", type := "stringopt" ]
                               , [ name := "groupid", type := "stringopt" ]
                               ]);
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: fetcher [--exec <command>] [--checkgroupbytag/--updategroupbytag <contentsourcetag> --groupid <groupid>]\n");
+  Print("Syntax: fetcher [--exec <command>] [--checkgroupbytag <contentsourcetag> --groupid <groupid>]\n");
   SetConsoleExitCode(10);
   RETURN;
 }
@@ -87,13 +86,6 @@ IF(args.checkgroupbytag != "")
 {
   FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.checkgroupbytag))
     args.exec := "FASTCHECKGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
-  IF(args.exec="")
-    THROW NEW Exception("Didn't find contentsource");
-}
-IF(args.updategroupbytag != "")
-{
-  FOREVERY (RECORD contentsource FROM GetContentSourcesByTag(args.updategroupbytag))
-    args.exec := "UPDATEGROUP " || contentsource.catalogid || " " || contentsource.id || " \"" || EncodeJava(args.groupid) || "\"";
   IF(args.exec="")
     THROW NEW Exception("Didn't find contentsource");
 }
@@ -216,18 +208,16 @@ MACRO ExecuteDecodedCommand(RECORD data)
       {
         FOREVERY (RECORD indexrec FROM result.tocheck)
         {
-          STRING command := (indexrec.status = 2 ? "CHECKINDEX " : "UPDATEINDEX ") || indexrec.indexid || " " || indexrec.id || " " || (indexrec.last_indexed != DEFAULT DATETIME ? " " || DateTimeToString(indexrec.last_indexed) : "");
+          STRING command := "CHECKINDEX " || indexrec.indexid || " " || indexrec.id || " " || (indexrec.last_indexed != DEFAULT DATETIME ? " " || DateTimeToString(indexrec.last_indexed) : "");
           //LogDebug("consilio", "ContentSourceStatus", "ExecuteDecodedCommand", data, command);
           SendToQueueManager(GetQueueDataFromCommand(command));
         }
       }
     }
-    CASE "CHECKINDEX", "UPDATEINDEX"
+    CASE "CHECKINDEX"
     {
-      BOOLEAN rebuild := data.action = "CHECKINDEX";
       RECORD result := CheckIndex(data,
-          [ rebuild := rebuild
-          , noindexmodify := noindexmodify
+          [ noindexmodify := noindexmodify
           ]);
 
       IF (RecordExists(result.error))
@@ -235,7 +225,7 @@ MACRO ExecuteDecodedCommand(RECORD data)
 
       FOREVERY (RECORD source FROM result.tocheck_sources) //this is triggered if we got contentsourceid 0, and we're expanding ourselves to all sources
       {
-        STRING command := (rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || source.indexid || " " || source.id || "  " || DateTimeToString(data.commanddate);
+        STRING command := "CHECKINDEX " || source.indexid || " " || source.id || "  " || DateTimeToString(data.commanddate);
         //LogDebug("consilio", "ContentSourceStatus", "ExecuteDecodedCommand", data, command);
         AddToCommandQueue(command);
       }
@@ -256,7 +246,7 @@ MACRO ExecuteDecodedCommand(RECORD data)
       {
         // Queue internally
         FOREVERY (RECORD grouprec FROM ShuffleArray(result.tocheck_groups))
-          AddToCommandQueue((rebuild ? "CHECKGROUP " : "UPDATEGROUP ") || result.source.indexid || " " || result.source.id || " \"" || EncodeJava(grouprec.id) || "\" " || DateTimeToString(data.commanddate));
+          AddToCommandQueue("CHECKGROUP " || result.source.indexid || " " || result.source.id || " \"" || EncodeJava(grouprec.id) || "\" " || DateTimeToString(data.commanddate));
       }
       ELSE
       {
@@ -269,7 +259,7 @@ MACRO ExecuteDecodedCommand(RECORD data)
           STRING ARRAY groupids;
           FOREVERY (STRING groupid FROM part.groupids)
             INSERT Left(groupid, 1024) INTO groupids AT END;
-          RECORD res := SendToQueueManager([ action := (rebuild ? "CHECKGROUPS" : "UPDATEGROUPS")
+          RECORD res := SendToQueueManager([ action := "CHECKGROUPS"
                                            , indexid := result.source.indexid
                                            , contentsourceid := result.source.id
                                            , groupids := groupids
@@ -284,11 +274,10 @@ MACRO ExecuteDecodedCommand(RECORD data)
         }
       }
     }
-    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    CASE "FASTCHECKGROUP", "CHECKGROUP"
     {
       RECORD result := CheckGroup(data,
-          [ rebuild := data.action != "UPDATEGROUP"
-          , printprogress := TRUE
+          [ printprogress := TRUE
           , debugobjects := fetcherdebuglevel >= 9
           , noindexmodify := noindexmodify
           , nocleaning := nocleaning
@@ -301,7 +290,6 @@ MACRO ExecuteDecodedCommand(RECORD data)
     {
       RECORD result := CheckGroup(data,
           [ deactivate := TRUE
-          , rebuild := TRUE
           , printprogress := TRUE
           , debugobjects := fetcherdebuglevel >= 9
           , noindexmodify := noindexmodify

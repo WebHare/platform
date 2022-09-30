@@ -163,7 +163,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
           CONTINUE;
       }
 
-      csource->ReindexGroup(ToString(page), [ rebuild := TRUE ]);
+      csource->ReindexGroup(ToString(page));
     }
   }
 

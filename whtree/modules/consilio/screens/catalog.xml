@@ -58,10 +58,6 @@
         <enableon source="catalogs" min="1" max="1" checkflags="catalog hascontents !inactive manageable" />
         <enableon source="catalogs" min="1" max="1" checkflags="contentsource !inactive manageable" />
       </action>
-      <action name="updatecatalog" onexecute="doupdatecatalog" shortcut="ctrl+shift+u">
-        <enableon source="catalogs" min="1" max="1" checkflags="catalog hascontents !inactive manageable" />
-        <enableon source="catalogs" min="1" max="1" checkflags="contentsource !inactive manageable" />
-      </action>
       <action name="markcatalogascomplete" onexecute="domarkcatalogascomplete">
         <enableon source="catalogs" min="1" max="1" checkflags="isupdateorrebuild" />
       </action>
@@ -79,7 +75,6 @@
           <item action="delete" name="deleteitem_menu" tid="~delete" />
           <divider />
           <item action="previewcatalog" />
-          <item action="updatecatalog" name="updatecatalog_menu" tid=".updatecatalog" />
           <item action="rebuildcatalog" name="rebuildcatalog_menu" tid=".rebuildcatalog" />
           <item action="showerrors" name="showerrors_menu" tid=".showerrors" />
           <item action="markcatalogascomplete" />
@@ -100,7 +95,6 @@
       </menu>
       <menu name="contextmenu">
         <item action="edititem" name="edititem_contextmenu" tid=".edititem" />
-        <item action="updatecatalog" name="updatecatalog_contextmenu" tid=".updatecatalog" />
         <item action="rebuildcatalog" name="rebuildcatalog_contextmenu" tid=".rebuildcatalog" />
         <item action="showerrors" name="showerrors_contextmenu" tid=".showerrors" />
         <item action="catalogthesaurus" name="catalogthesaurus_contextmenu" tid=".catalogthesaurus" />
@@ -110,7 +104,6 @@
         <item action="delete" />
       </menu>
       <menu name="checkmenu">
-        <item action="updatecatalog" />
         <item action="rebuildcatalog" />
       </menu>
     </menus>

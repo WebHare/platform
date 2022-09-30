@@ -332,13 +332,11 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid)
   {
     RECORD res := this->DoJobRequest([ command :=     "listobjects3"
                                      , commanddate := commanddate
                                      , groupid :=     groupid
-                                     , current_objects := current_objects
-                                     , options :=     options
                                      ]);
 
     IF (res.status = "ok" AND res.msg.status = "result")
@@ -348,13 +346,12 @@ PUBLIC STATIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
   {
     RECORD res := this->DoJobRequest([ command := "fetchobject"
                                      , commanddate := commanddate
                                      , groupid := groupid
                                      , objectid := objectid
-                                     , options := options
                                      ]);
 
     // No need to check for validity of the returned object; that's already done by customcontent.whscr

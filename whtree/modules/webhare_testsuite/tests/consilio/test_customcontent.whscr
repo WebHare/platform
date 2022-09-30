@@ -402,10 +402,10 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  TestEQ(
+  TestEq(   //This test was sensitive to the difference between update and rebuild
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c2",     indexdate := MakeDate(1970, 1, 10) ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",     indexdate := MakeDate(1970, 1, 11) ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c2",     indexdate := MakeDate(1970, 1, 11) ]
       , [ groupid := idprefix||"c",   objectid := idprefix||"c3",     indexdate := MakeDate(1970, 1, 11) ]
       , [ groupid := idprefix||"f",   objectid := idprefix||"f1",     indexdate := MakeDate(1970, 1, 10) ]
       , [ groupid := idprefix||"f",   objectid := idprefix||"f2",     indexdate := MakeDate(1970, 1, 10) ]

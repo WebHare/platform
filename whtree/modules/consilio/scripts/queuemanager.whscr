@@ -1354,7 +1354,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
             ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
           }
         }
-        CASE "CHECKGROUPS", "UPDATEGROUPS"
+        CASE "CHECKGROUPS"
         {
           IF (ObjectExists(ipc_conn))
           {
@@ -1362,7 +1362,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
             RECORD queueitem := RecordExists(worker) ? this->GetCurrentQueueItemFromItem(worker.curitem) : DEFAULT RECORD;
 
             RECORD groupdata := [ success := TRUE
-                                , action := data.action = "CHECKGROUPS" ? "CHECKGROUP" : "UPDATEGROUP"
+                                , action := "CHECKGROUP"
                                 , indexid := data.indexid
                                 , contentsourceid := data.contentsourceid
                                 , groupid := ""
@@ -1495,7 +1495,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
         this->DebugLog("Worker #" || worker.idx || " finished queue item " || (RecordExists(queueitem) ? ToString(queueitem.id) : "<unknown>"), ConsilioDebugInfo);
 
         // If the worker successfully finished a CheckIndex task for a content source, activate the CleanupIndex task
-        IF (RecordExists(queueitem) AND queueitem.data.action IN [ "CHECKINDEX", "UPDATEINDEX" ] AND queueitem.data.indexid != 0 AND queueitem.data.contentsourceid != 0)
+        IF (RecordExists(queueitem) AND queueitem.data.action = "CHECKINDEX" AND queueitem.data.indexid != 0 AND queueitem.data.contentsourceid != 0)
         {
           RECORD cleanupitem := SELECT * FROM this->queuemap
                                  WHERE data.action = "CLEANUPINDEX"
@@ -1844,7 +1844,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
 
         this->cleanups_map->SetVal(CELL[ data.contentsourceid ], cleanupslist);
       }
-      ELSE IF (data.action IN [ "CHECKGROUP", "CHECKOBJECT", "UPDATEGROUP" ])
+      ELSE IF (data.action IN [ "CHECKGROUP", "CHECKOBJECT" ])
       {
         RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ data.contentsourceid ]);
         IF (RecordExists(cleanupslist))
@@ -1926,7 +1926,7 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
       ELSE
         this->cleanups_map->EraseVal(CELL[ queueitem.data.contentsourceid ]);
     }
-    ELSE IF (queueitem.data.action IN [ "UPDATEINDEX", "UPDATEGROUP", "CHECKINDEX", "CHECKGROUP", "CHECKOBJECT" ] AND queueitem.data.contentsourceid > 0)
+    ELSE IF (queueitem.data.action IN [ "CHECKINDEX", "CHECKGROUP", "CHECKOBJECT" ] AND queueitem.data.contentsourceid > 0)
     {
       RECORD ARRAY cleanupslist := this->cleanups_map->GetVal(CELL[ queueitem.data.contentsourceid ]);
       IF (RecordExists(cleanupslist))

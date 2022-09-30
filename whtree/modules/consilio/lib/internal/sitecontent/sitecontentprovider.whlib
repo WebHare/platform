@@ -346,7 +346,7 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     RETURN RECORD[ cachedfile.file ];
   }
 
-  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
   {
     RECORD cachedfile := this->GetCachedFile(groupid);
     IF (NOT RecordExists(cachedfile))

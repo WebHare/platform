@@ -226,7 +226,7 @@
       </d:varchar>
       <d:integer name="status">
         <d:documentation>
-          -1 disabled, 0 idle, 1 being updated, 2 being rebuild, 3 unavailable, 4 error
+          -1 disabled, 0 idle, 1 being updated (obsolete), 2 being rebuild, 3 unavailable, 4 error
         </d:documentation>
       </d:integer>
       <d:datetime name="last_indexed">

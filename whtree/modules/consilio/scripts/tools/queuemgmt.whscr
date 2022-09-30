@@ -23,8 +23,6 @@ WHILE (command != "")
     Print("CONFIGURE numworkers n\n");
     Print("SHUTDOWN\n");
     Print("STATUS\n");
-    Print("UPDATEGROUP (indexid|0) (contentsourceid|0) groupid [commanddate]\n");
-    Print("UPDATEINDEX [indexid]\n");
     Print("GETERRORS\n");
     Print("CLEARERRORS contentsourceid\n");
     Print("\n");

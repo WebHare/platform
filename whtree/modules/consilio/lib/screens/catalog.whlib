@@ -192,10 +192,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                 AND ^catalogs->selection[0].contentsource)
               this->DoShowErrors();
           }
-          CASE "update"
-          {
-            this->DoUpdateCatalog(); // Will update content source if selected
-          }
           CASE "rebuild"
           {
             this->DoRebuildCatalog(); // Will rebuild content source if selected
@@ -317,27 +313,16 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     //TODO remove from queue, but for now you'll just have to restart the queue
   }
 
-  MACRO DoUpdateCatalog()
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmupdatecatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
-      RETURN;
-    this->ReindexSelection(FALSE);
-  }
-
   MACRO DoRebuildCatalog()
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmrebuildcatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
       RETURN;
-    this->ReindexSelection(TRUE);
-  }
 
-  MACRO ReindexSelection(BOOLEAN rebuild)
-  {
     OBJECT catalog := OpenConsilioCatalogById(^catalogs->selection.catalogid);
     IF (^catalogs->selection.contentsource)
-      catalog->OpenContentSourceById(^catalogs->selection.id)->ReindexContentSource(CELL[rebuild]);
+      catalog->OpenContentSourceById(^catalogs->selection.id)->ReindexContentSource();
     ELSE FOREVERY(RECORD csource FROM catalog->ListContentSources())
-      catalog->OpenContentSourceById(csource.id)->ReindexContentSource(CELL[rebuild]);
+      catalog->OpenContentSourceById(csource.id)->ReindexContentSource();
   }
 
   MACRO DoCatalogThesaurus()
@@ -381,12 +366,10 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     ^addcontentsource_menu->visible := this->frame->flags.ismanager;
     ^edititem_menu->visible := this->frame->flags.ismanager;
     ^deleteitem_menu->visible := this->frame->flags.ismanager;
-    ^updatecatalog_menu->visible := this->frame->flags.ismanager;
     ^rebuildcatalog_menu->visible := this->frame->flags.ismanager;
     ^showerrors_menu->visible := this->frame->flags.ismanager;
 
     ^edititem_contextmenu->visible := this->frame->flags.ismanager;
-    ^updatecatalog_contextmenu->visible := this->frame->flags.ismanager;
     ^rebuildcatalog_contextmenu->visible := this->frame->flags.ismanager;
     ^showerrors_contextmenu->visible := this->frame->flags.ismanager;
 
@@ -452,7 +435,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , parent := catalogid
                                           , contentsource := TRUE
                                           , hascontents := FALSE
-                                          , isupdateorrebuild := status IN [ 1, 2 ]
+                                          , isupdateorrebuild := status = contentsourcestatus_rebuilding
                                           , level := 1
                                           , srcinactive := status < 0
                                           , errorrec := GetErrorIconAndHint(RecordExists(SELECT FROM lasterrors WHERE contentsourceid = sources.id))
@@ -1224,7 +1207,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     IF(ObjectExists(this->contentsource)) //we were editing
-      finalsource->ReindexContentSource([ rebuild := TRUE ]); //FIXME postpone until after commit! an update API should do that for us
+      finalsource->ReindexContentSource(); //FIXME postpone until after commit! an update API should do that for us
 
     RETURN work->Finish() ? finalsource->id : 0;
   }
