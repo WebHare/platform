@@ -91,7 +91,7 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
 
   FOREVERY (INTEGER objid FROM to_update)
   {
-    publisher_fsobjects_source->ReindexGroup("fsobj_" || objid, [ rebuild := TRUE, foreground := TRUE ]);
+    publisher_fsobjects_source->ReindexGroup("fsobj_" || objid, [ foreground := TRUE ]);
     IF(options.__progress)
       Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
   }

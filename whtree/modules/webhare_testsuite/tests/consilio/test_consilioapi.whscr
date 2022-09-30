@@ -34,7 +34,7 @@ MACRO TestConsilioAPI()
 
   //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
   //FIXME we're ignoring _score and _summary but those shouldn't exist in the database at all
-  STRING ARRAY expectedfields := [ "description", "filetype", "keywords", "lastmodified", "modificationdate", "size" , "title", "whfspath" ];
+  STRING ARRAY expectedfields := [ "description", "filetype", "keywords", "modificationdate", "size" , "title", "whfspath" ];
   TestEq(expectedfields, SELECT AS STRING ARRAY name FROM testcatalog1->GetExpectedMapping() WHERE name IN expectedfields ORDER BY name);
 
   TestEq(FALSE, newsource->enabled);

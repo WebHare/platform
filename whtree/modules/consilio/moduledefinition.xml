@@ -226,7 +226,7 @@
       </d:varchar>
       <d:integer name="status">
         <d:documentation>
-          -1 disabled, 0 idle, 1 being updated, 2 being rebuild, 3 unavailable, 4 error
+          -1 disabled, 0 idle, 1 being updated (obsolete), 2 being rebuild, 3 unavailable, 4 error
         </d:documentation>
       </d:integer>
       <d:datetime name="last_indexed">
@@ -503,6 +503,23 @@
       <keyword name="ds_*" />
       <float name="dn_*" />
       <boolean name="db_*" />
+    </fieldgroup>
+
+    <!-- TODO ?
+         Originally there was a 'lastmodified' field but it was inconstently set
+         'size' should have been a 64bit field
+         'whfspath' should have been a keyword field
+         'keywords'... perhaps too? or is stemming relevant then
+
+         perhaps a next-gen sitecontent would fix this -->
+    <fieldgroup tag="sitecontent">
+      <text name="title" suggested="true" />
+      <keyword name="filetype" />
+      <datetime name="modificationdate" />
+      <integer name="size" />
+      <text name="whfspath" />
+      <text name="keywords" suggested="true" />
+      <text name="description" suggested="true" />
     </fieldgroup>
 
     <!-- Fieldgroups used in reference test -->

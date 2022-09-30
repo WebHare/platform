@@ -54,8 +54,7 @@ PUBLIC RECORD FUNCTION CheckIndexState()
 PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ rebuild := FALSE
-      , noindexmodify := FALSE
+      [ noindexmodify := FALSE
       ], options);
 
   RECORD result :=
@@ -91,14 +90,14 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   {
     GetPrimary()->BeginWork();
     UPDATE consilio.contentsources
-       SET status := (options.rebuild OR status = contentsourcestatus_rebuilding) ? contentsourcestatus_rebuilding : contentsourcestatus_updating
+       SET status := contentsourcestatus_rebuilding
          , last_indexed := VAR data.commanddate
      WHERE status >= contentsourcestatus_idle
            AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     GetPrimary()->CommitWork();
-    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting ${data.indexid != 0 ? `contentsources in index ${data.indexid}` : `all contentsources`} to update/rebuild`);
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting ${data.indexid != 0 ? `contentsources in index ${data.indexid}` : `all contentsources`} to rebuild`);
 
     RECORD ARRAY sources := SELECT DISTINCT contentsources.id
                                  , indexid := catalogs.id
@@ -121,7 +120,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     }
 
     // When rebuilding an index, clean out all documents from removed contentsources
-    IF (data.indexid != 0 AND options.rebuild)
+    IF (data.indexid != 0)
       RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);
 
     result.tocheck_sources := sources;
@@ -176,13 +175,13 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     GetPrimary()->BeginWork();
 
     UPDATE consilio.contentsources
-       SET status := (options.rebuild OR status = contentsourcestatus_rebuilding) ? contentsourcestatus_rebuilding : contentsourcestatus_updating
+       SET status := contentsourcestatus_rebuilding
          , last_indexed := VAR data.commanddate
      WHERE id = source.id
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     GetPrimary()->CommitWork();
-    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to update/rebuild`);
+    LogDebug("consilio:fetcher","CheckIndexState", `Committed setting contentsource #${data.contentsourceid} to rebuild`);
   }
 
   // Broadcast event that the status has changed
@@ -321,7 +320,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
 /** @short Check a given group
     @param data The command data
-    @cell(string) data.action "CHECKGROUP", "UPDATEGROUP", "FASTCHECKGROUP", "DEACTIVATEGROUP" (for debugging purposes only)
+    @cell(string) data.action "CHECKGROUP", "FASTCHECKGROUP", "DEACTIVATEGROUP" (for debugging purposes only)
     @cell(datetime) data.commanddate The timestamp of the command
     @cell(integer) data.indexid The index to check the group in, 0 for all indices or deactivation
     @cell(integer) data.contentsourceid The content source to check the group in, 0 for all relevant sources (publisher
@@ -345,7 +344,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
 {
   options := ValidateOptions(
       [ deactivate := FALSE
-      , rebuild := FALSE
       , refresh := FALSE
       , noindexmodify := FALSE
       , nocleaning := FALSE
@@ -419,7 +417,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
       /* Current objects (not needed for deactivation, but we'll provided them to ListObjects3/ListObjects2)
          @cell id Object id
-         @cell _indexdate Indexdate for this object
          @cell _indexed Commanddate of command that added this object
       */
       RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields, CELL[ options.refresh ]);
@@ -428,10 +425,9 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
       // This is the initial list of objects to fetch; new objects will be added as they are encountered while fetching
       RECORD ARRAY objects :=
           SELECT *
-               , requiredindexdate :=      CellExists(obj, "REQUIREDINDEXDATE") ? obj.requiredindexdate : DEFAULT DATETIME
                , existing_pos :=           RecordLowerBound(existing_objects, [ id := id ], [ "ID" ])
                , data :=                   CellExists(obj, "DATA") ? obj.data : DEFAULT RECORD
-            FROM provider->ListObjects3(data.commanddate, data.groupid, options.rebuild ? DEFAULT RECORD ARRAY : existing_objects, CELL[ options.rebuild ]) AS obj;
+            FROM provider->ListObjects3(data.commanddate, data.groupid) AS obj;
 
       // For deactivation, we only need to know if ListObjects throws, no more action needed (or wanted)
       IF (NOT options.deactivate)
@@ -458,28 +454,14 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
           {
             // Mark the existing object as referenced (it may not be deleted)
             existing_objects[obj.existing_pos.position].referenced := TRUE;
-            IF (NOT options.rebuild)
-            {
-              // When rebuilding, existing_indexdate must remain default, and no check for required indexdate
-              existing_indexdate := existing_objects[obj.existing_pos.position].indexdate;
-              IF (existing_indexdate != DEFAULT DATETIME
-                  AND obj.requiredindexdate != DEFAULT DATETIME
-                  AND existing_indexdate >= obj.requiredindexdate)
-              {
-                // The document does not need to be updated. Fast loop, no need to inform the queuemanager.
-                cur := cur + 1;
-                CONTINUE;
-              }
-            }
-            ELSE
-              existing_commanddate := existing_objects[obj.existing_pos.position].commanddate;
+            existing_commanddate := existing_objects[obj.existing_pos.position].commanddate;
           }
 
           IF(options.debugobjects)
             Print(`Fetching object, group: ${data.groupid}, object: ${objects[cur].id} (${cur}/${Length(objects)})\n`);
 
           // Fetch and index the object, new objects within the group are returned
-          RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate, options.rebuild);
+          RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate);
 
           IF (cmdresult.success)
           {
@@ -503,7 +485,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                 // Insert new object (with default requiredindexdate, so it won't be skipped)
                 INSERT
                     [ id :=                 newobjectrec.id
-                    , requiredindexdate :=  DEFAULT DATETIME
                     , existing_pos :=       RecordLowerBound(existing_objects, [ id := newobjectrec.id ], [ "ID" ])
                     , data :=               CellExists(newobjectrec, "DATA") ? newobjectrec.data : DEFAULT RECORD
                     ] INTO objects AT END;
@@ -753,7 +734,7 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
   }
 
   // Fetch and index the object unconditionally
-  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate, DEFAULT DATETIME, DEFAULT DATETIME, TRUE);
+  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate, DEFAULT DATETIME, DEFAULT DATETIME);
   IF (NOT cmdresult.success)
   {
     IF (cmdresult.error IN [ "exception", "abort" ])
@@ -1218,8 +1199,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
       ]);
 
   RECORD mapping :=
-      [ _indexdate := DEFAULT DATETIME
-      , _indexed := DEFAULT DATETIME
+      [ _indexed := DEFAULT DATETIME
       ];
   FOREVERY (STRING field FROM extrafields)
     mapping := CellInsert(mapping, field, "");
@@ -1246,7 +1226,6 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
 
     results := results CONCAT
         SELECT id :=            objectid
-             , indexdate :=     Min(_indexdate)
              , commanddate :=   Min(_indexed)
           FROM result.results
       GROUP BY objectid;
@@ -1260,7 +1239,6 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
     results :=
         SELECT TEMPORARY in_all_indexmgrs := Count(*) = LENGTH(indexmanagers)
              , id
-             , indexdate :=     in_all_indexmgrs ? Min(indexdate) : DEFAULT DATETIME
              // If two attached indices disagree about commanddate we need the highest 'old' commanddate
              , commanddate :=   Max(commanddate)
           FROM results
@@ -1300,12 +1278,12 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
     @param existing_indexdate Indexdate of current object in index (DEFAULT DATETIME for unconditional add)
     @param existing_commanddate Commanddate of current object in index (DEFAULT DATETIME for unconditional add), otherwise added only when older than commanddate
 */
-RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING groupid, STRING objectid, RECORD objectdata, DATETIME commanddate, DATETIME existing_indexdate, DATETIME existing_commanddate, BOOLEAN force)
+RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING groupid, STRING objectid, RECORD objectdata, DATETIME commanddate, DATETIME existing_indexdate, DATETIME existing_commanddate)
 {
   TRY
   {
     // Let the content provider fetch the object. Errors will be thrown, not found returns an empty record.
-    RECORD objectrec := objectdata ?? contentprovider->FetchObject(commanddate, groupid, objectid, [ force := force ] );
+    RECORD objectrec := objectdata ?? contentprovider->FetchObject(commanddate, groupid, objectid);
 
     IF (NOT RecordExists(objectrec))
     {
@@ -1318,22 +1296,13 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           ];
     }
 
-    DATETIME object_indexdate := CellExists(objectrec, "INDEXDATE") ? objectrec.indexdate : DEFAULT DATETIME;
-    DATETIME requiredindexdate := CellExists(objectrec, "REQUIREDINDEXDATE") ? objectrec.requiredindexdate : object_indexdate;
-
     // Check if document hasn't been modified, or that the current command has already been run on this object
-    IF ((requiredindexdate != DEFAULT DATETIME
-         AND object_indexdate != DEFAULT DATETIME
-         AND existing_indexdate != DEFAULT DATETIME
-         AND requiredindexdate <= existing_indexdate)
-      OR (existing_commanddate != DEFAULT DATETIME
-          AND commanddate = existing_commanddate))
+    IF (existing_commanddate != DEFAULT DATETIME AND commanddate = existing_commanddate)
     {
       // Don't want to modify the data in the index.
       FetcherDebug(ConsilioDebugInfo,
           "Not replacing unmodified object \"" || EncodeJava(objectid) || "\": " ||
           "current indexdate " || FormatISO8601DateTime(existing_indexdate) ||
-          ", required: " || FormatISO8601DateTime(requiredindexdate) ||
           ", existing commanddate: " || FormatISO8601DateTime(existing_commanddate) ||
           ", current commanddate: " || FormatISO8601DateTime(commanddate), contentsource.loglevel);
 
@@ -1346,7 +1315,7 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           ];
     }
 
-    FetcherDebug(ConsilioDebugInfo, "Replacing object \"" || EncodeJava(objectid) || "\", current indexdate: " || FormatISO8601DateTime(existing_indexdate) || ", requiredindexdate: " || FormatISO8601DateTime(requiredindexdate) || ", new indexdate: " || FormatISO8601DateTime(object_indexdate), contentsource.loglevel);
+    FetcherDebug(ConsilioDebugInfo, "Replacing object \"" || EncodeJava(objectid) || "\", current indexdate: " || FormatISO8601DateTime(existing_indexdate), contentsource.loglevel);
 
     RECORD document_fields := CellExists(objectrec, "document_fields") ? objectrec.document_fields : DEFAULT RECORD;
     STRING body := CellExists(objectrec, "document_body") ? objectrec.document_body : "";
@@ -1362,7 +1331,7 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
 
     // Remove reserved fields from the document fields
     FOREVERY (STRING field FROM [ "groupid", "objectid"
-                                , "_contentsource", "_indexed", "_indexdate"
+                                , "_contentsource", "_indexed", "_indexdate" //NOTE _indexdate is removed for new ones but may still appear in existing indices
                                 , "suggestfields", "suggestprefix"
                                 , "body" ])
       IF (CellExists(document_fields, field))
@@ -1373,7 +1342,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
     {
       RECORD document :=
           [ _indexed := commanddate
-          , _indexdate := object_indexdate
           ];
 
       // Add special field "body"

@@ -248,15 +248,14 @@ STATIC OBJECTTYPE ContentSource
 
   /** Reindex this entire content source
       @long Reindex all groups. The reindexing takes place in the background
-      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
   */
   PUBLIC MACRO ReindexContentSource(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ rebuild := FALSE ], options);
 
-    STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->catalog->id || " " || this->id;
+    STRING command := "CHECKINDEX "|| this->catalog->id || " " || this->id;
     IF(IsDebugTagEnabled("consilio:queues"))
-      LogDebug("consilio", "ContentSource::ReindexContentSource", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
+      LogDebug("consilio", "ContentSource::ReindexContentSource", CELL[...this->GetBaseDebugInfo() ]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 
@@ -285,7 +284,6 @@ STATIC OBJECTTYPE ContentSource
   /** Reindex a group
       @long Reindex a specific group
       @param groupid Group to reindex
-      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
       @cell(boolean) options.foreground Reindex in the foreground
       @cell(boolean) options.refresh Refresh after indexing (if not set refreshes only if indexing in the foreground)
   */
@@ -302,7 +300,7 @@ STATIC OBJECTTYPE ContentSource
     IF(options.foreground)
     {
       RECORD data :=
-          CELL[ action := options.rebuild ? "CHECKGROUP" : "UPDATEGROUP"
+          CELL[ action := "CHECKGROUP"
               , commanddate := GetCurrentDateTime()
               , contentsourceid := this->id
               , groupid
@@ -311,17 +309,16 @@ STATIC OBJECTTYPE ContentSource
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
       RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data,
-                                        [ rebuild := data.action != "UPDATEGROUP"
-                                        , refresh := refresh
+                                        [ refresh := refresh
                                         ]);
       IF (Length(result.errors) > 0)
         THROW NEW Exception(result.errors[0].message);
     }
     ELSE
     {
-      STRING command := (options.rebuild ? "FASTCHECKGROUP " : "UPDATEGROUP ") || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+      STRING command := "FASTCHECKGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
       IF(IsDebugTagEnabled("consilio:queues"))
-        LogDebug("consilio", "ContentSource::ReindexGroup", CELL[ ...this->GetBaseDebugInfo(), options.rebuild, groupid ]);
+        LogDebug("consilio", "ContentSource::ReindexGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
       SendQueueManagerData(GetQueueDataFromCommand(command));
     }
   }
@@ -397,7 +394,7 @@ STATIC OBJECTTYPE ContentSource
     {
       STRING command := ("CHECKOBJECT ") || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid) || " " || EncodeJSON(objectid);
       IF(IsDebugTagEnabled("consilio:queues"))
-        LogDebug("consilio", "ContentSource::ReindexObject", CELL[ ...this->GetBaseDebugInfo(), options.rebuild, groupid, objectid ]);
+        LogDebug("consilio", "ContentSource::ReindexObject", CELL[ ...this->GetBaseDebugInfo(), groupid, objectid ]);
       SendQueueManagerData(GetQueueDataFromCommand(command));
     }
   }
@@ -443,7 +440,6 @@ STATIC OBJECTTYPE ContentSource
       @cell(string) actions.action Action to take. Either `reindex` or `delete`
       @cell(string) actions.groupid Group ID. Required unless deleting a specific object
       @cell(string) actions.objectid Explicit object ID, leave empty to reindex/delete the whole group
-      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
       @cell(boolean) options.foreground Run in the foreground, wait for index to be refreshed
       @cell(boolean) options.refresh Refresh after the actions (if not set refreshes only if running in the foreground)
   */
@@ -1240,9 +1236,9 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     options := ValidateOptions([ rebuild := FALSE ], options);
 
-    STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->id;
+    STRING command := "CHECKINDEX " || this->id;
     IF(IsDebugTagEnabled("consilio:queues"))
-      LogDebug("consilio", "ManagedCatalog::ReindexCatalog", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
+      LogDebug("consilio", "ManagedCatalog::ReindexCatalog", CELL[...this->GetBaseDebugInfo() ]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 >;

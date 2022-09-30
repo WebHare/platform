@@ -72,11 +72,11 @@ WHILE (TRUE)
     }
     CASE "listobjects3"
     {
-      iochan->SendReply(ListObjects3(rec.msg.commanddate, rec.msg.groupid, rec.msg.current_objects, rec.msg.options), rec.msgid);
+      iochan->SendReply(ListObjects3(rec.msg.commanddate, rec.msg.groupid, RECORD[], DEFAULT RECORD), rec.msgid);
     }
     CASE "fetchobject"
     {
-      iochan->SendReply(FetchObject(rec.msg.commanddate, rec.msg.groupid, rec.msg.objectid, rec.msg.options), rec.msgid);
+      iochan->SendReply(FetchObject(rec.msg.commanddate, rec.msg.groupid, rec.msg.objectid, DEFAULT RECORD), rec.msgid);
     }
     DEFAULT
     {
@@ -183,7 +183,7 @@ RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY 
                                           ? objects.requiredindexdate
                                           : DEFAULT DATETIME
                , data :=              CellExists(objects, "DATA") AND RecordExists(data)
-                                          ? PickCells(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ])
+                                          ? PickCells(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "REQUIREDINDEXDATE" ])
                                           : DEFAULT RECORD
             FROM result.objects;
     }
@@ -222,7 +222,7 @@ RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objecti
   IF (result.status = "result")
   {
     // Remove unwanted cells from the result record
-    result := PickCells(result, [ "STATUS", "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ]);
+    result := PickCells(result, [ "STATUS", "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "REQUIREDINDEXDATE" ]);
   }
   ELSE IF (result.status = "error")
   {

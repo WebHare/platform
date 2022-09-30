@@ -24,7 +24,6 @@ MACRO RunCleanupTest()
   search_obj->empty_result_record :=
       [ groupid :=        ""
       , objectid :=       ""
-      , _indexdate := DEFAULT DATETIME
       , _contentsource :=  0
       ];
 
@@ -58,8 +57,8 @@ MACRO RunCleanupTest()
   catalog->ReindexCatalog();
   contentsource_1->WaitForIndexingDone();
 
-  TestEQ((SELECT groupid, objectid, _indexdate := indexdate, _contentsource := contentsource_1->id FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid),
-         (SELECT groupid, objectid, _indexdate, _contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Initial index build didn't work");
+  TestEQ((SELECT groupid, objectid, _contentsource := contentsource_1->id FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid),
+         (SELECT groupid, objectid, _contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Initial index build didn't work");
 
   // Clean the contentsource from the DB without cleaning the index, add another contentsource
   // clean the list of index stuff
@@ -80,7 +79,7 @@ MACRO RunCleanupTest()
   contentsource_2->WaitForIndexingDone();
 
   TestEQ(RECORD[],
-         (SELECT groupid, objectid, _indexdate, _contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Cleanup wasn't executed");
+         (SELECT groupid, objectid, _contentsource FROM search_obj->SearchQuery(CQAll(), 0, 1000).results ORDER BY groupid, objectid), "Cleanup wasn't executed");
 }
 
 RunTestframework([ PTR RunCleanupTest

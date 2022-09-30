@@ -133,8 +133,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   /** @short Return a list of objects within the given group
       @param commanddate Date when this command was issued
       @param groupid Id of the group to list, as returned by ListGroups
-      @param current_objects Current objects present within consilio (only filled in update mode, not in rebuild mode)
-      @cell(boolean) options.rebuild If this is a rebuild action or just a check
       @return Result of the call
       @cell return The objects
       @cell return.id Id of the object
@@ -142,9 +140,9 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
                is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
                other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
   */
-  PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
+  PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid)
   {
-    RETURN this->ListObjects2(commanddate, groupid, current_objects);
+    RETURN this->ListObjects2(commanddate, groupid);
   }
 
   /** @short Return a list of objects within the given group
@@ -158,7 +156,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
                is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
                other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
   */
-  PUBLIC RECORD ARRAY FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+  PUBLIC RECORD ARRAY FUNCTION ListObjects2(DATETIME commanddate, STRING groupid)
   {
     RETURN this->ListObjects(commanddate, groupid);
   }
@@ -201,7 +199,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
                is at least this value, it is kept as-is and not re-fetched (optional). If this value is not present and the modificationdate
                has been specified, the object will only be replaced if the modificationdate has increased.
   */
-  PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
   {
     THROW NEW Exception("FetchObject function not updated");
   }

@@ -34,7 +34,6 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
       , mapping :=
           [ groupid :=        ""
           , objectid :=       ""
-          , _indexdate := DEFAULT DATETIME
           , ...options.extrafields
           ]
       , validatemapping := FALSE
@@ -43,7 +42,6 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
   RETURN
       SELECT groupid
            , objectid
-           , indexdate :=     _indexdate
            , ...MakeReplacedRecord(options.extrafields, results)
         FROM res.results
     ORDER BY groupid, objectid;
@@ -53,7 +51,7 @@ RECORD ARRAY FUNCTION SearchAll(STRING searchquery, RECORD options DEFAULTSTO DE
 MACRO TestCompleteSyncAfterCommand()
 {
   contentsource->WaitForIndexingDone();
-  TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
+  TestEq((SELECT groupid, objectid FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
 }
 
 RECORD ARRAY FUNCTION GetLogItems(DATETIME fromtime, DATETIME totime)
@@ -160,7 +158,7 @@ MACRO TestCustomContent()
   TestEq(0, Length(SELECT FROM items WHERE catalogid = catalog->id));
   start := GetCurrentDatetime();
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
-  TestEQ((SELECT groupid, objectid, indexdate FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
+  TestEQ((SELECT groupid, objectid FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
   DATETIME stop := GetCurrentDateTime();
   items := GetLogItems(start, stop);
   RECORD ARRAY queries := SELECT * FROM items WHERE catalogid = catalog->id;
@@ -402,13 +400,13 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  TestEQ(
-      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c2",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c3",     indexdate := MakeDate(1970, 1, 11) ]
-      , [ groupid := idprefix||"f",   objectid := idprefix||"f1",     indexdate := MakeDate(1970, 1, 10) ]
-      , [ groupid := idprefix||"f",   objectid := idprefix||"f2",     indexdate := MakeDate(1970, 1, 10) ]
+  TestEq(   //This test was sensitive to the difference between update and rebuild
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c2" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c3" ]
+      , [ groupid := idprefix||"f",   objectid := idprefix||"f1" ]
+      , [ groupid := idprefix||"f",   objectid := idprefix||"f2" ]
       ], SearchAll(""));
 
   // Prepare for data in list tests
@@ -418,12 +416,12 @@ MACRO TestCustomContent()
   {
     INTEGER b1_id := MakeAutonumber(webhare_testsuite.consilio_index, "id");
     FOREVERY (RECORD rec FROM
-        [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10) ]
-        , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), id := b1_id ]
-        , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), spiderfrom := b1_id ]
-        , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), spiderfrom := b1_id ]
-        , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14) ]
-        , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15) ]
+        [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata" ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata", id := b1_id ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata", spiderfrom := b1_id ]
+        , [ groupid := idprefix||"b",   objectid := idprefix||"b3", spiderfrom := b1_id ]
+        , [ groupid := idprefix||"c",   objectid := idprefix||"c1" ]
+        , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist" ]
         ])
     {
       INSERT rec INTO webhare_testsuite.consilio_index;
@@ -435,12 +433,12 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   TestEQ(
-      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), datafrom := "list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), datafrom := "fetch-list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), datafrom := "fetch" ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14), datafrom := "fetch" ]
-      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15), datafrom := "list" ]
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          datafrom := "fetch-list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   datafrom := "fetch" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   datafrom := "fetch" ]
+      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", datafrom := "list" ]
       ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
 
   contentsource->ReindexObject(idprefix||"a", idprefix||"a1_withdata");
@@ -449,12 +447,12 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   TestEQ(
-      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          indexdate := MakeDate(1970, 1, 10), datafrom := "fetch" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          indexdate := MakeDate(1970, 1, 11), datafrom := "list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          indexdate := MakeDate(1970, 1, 12), datafrom := "fetch" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   indexdate := MakeDate(1970, 1, 13), datafrom := "fetch" ]
-      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   indexdate := MakeDate(1970, 1, 14), datafrom := "fetch" ]
-      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", indexdate := MakeDate(1970, 1, 15), datafrom := "fetchfromlist-list" ]
+      [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          datafrom := "fetch" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          datafrom := "list" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          datafrom := "fetch" ]
+      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   datafrom := "fetch" ]
+      , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   datafrom := "fetch" ]
+      , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", datafrom := "fetchfromlist-list" ]
       ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
 
   // Clear for error tests
@@ -486,7 +484,7 @@ MACRO TestCustomContent()
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
   TestEq("Exception: THROWN", relevanterrors[0].data.errors[0].message);
   TestEQ(
-      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
       ], SearchAll(""));
 
   // Abort in fetchobject; old content must remain & error must be reported
@@ -506,7 +504,7 @@ MACRO TestCustomContent()
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].data.errors[0].message);
   TestEQ(
-      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
       ], SearchAll(""));
 
   // Abort in fetchobject; old content must remain & error must be reported
@@ -523,7 +521,7 @@ MACRO TestCustomContent()
 
   TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource->id) LIKE "*process exited with exit code 1*");
   TestEQ(
-      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 10) ]
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
       ], SearchAll(""));
 
   testfw->BeginWork();
@@ -536,7 +534,7 @@ MACRO TestCustomContent()
   contentsource->ReindexGroup(idprefix||"b", [ foreground := TRUE ]);
 
   TestEQ(
-      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1",     indexdate := MakeDate(1970, 1, 11) ]
+      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
       ], SearchAll(""));
 
 
@@ -557,10 +555,10 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   TestEQ(
-      [ [ groupid := idprefix||"a", objectid := idprefix||"a1", indexdate := MakeDate(1970, 1, 10), date_adate := MakeDate(2010, 1, 1) ]
-      , [ groupid := idprefix||"b", objectid := idprefix||"b1", indexdate := MakeDate(1970, 1, 10), date_adate := MakeDate(2010, 2, 2) ]
-      , [ groupid := idprefix||"c", objectid := idprefix||"c1", indexdate := MakeDate(1970, 1, 10), date_adate := DEFAULT DATETIME ]
-      , [ groupid := idprefix||"d", objectid := idprefix||"d1", indexdate := MakeDate(1970, 1, 10), date_adate := DEFAULT DATETIME ]
+      [ [ groupid := idprefix||"a", objectid := idprefix||"a1", date_adate := MakeDate(2010, 1, 1) ]
+      , [ groupid := idprefix||"b", objectid := idprefix||"b1", date_adate := MakeDate(2010, 2, 2) ]
+      , [ groupid := idprefix||"c", objectid := idprefix||"c1", date_adate := DEFAULT DATETIME ]
+      , [ groupid := idprefix||"d", objectid := idprefix||"d1", date_adate := DEFAULT DATETIME ]
       ], SearchAll("", [ extrafields := [ date_adate := DEFAULT DATETIME ] ]));
 
   // Test exists queries
@@ -811,7 +809,6 @@ MACRO TestTypes()
       , fieldgroup_datetime := MakeDate(2038, 1, 19)
       , myfield1 := ""
 
-      , lastmodified := DEFAULT DATETIME
       , modificationdate := DEFAULT DATETIME
       , date_test := DEFAULT DATETIME
       , description := ""

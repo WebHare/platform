@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/pagelists.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -298,21 +299,6 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     RETURN "webhare:" || ToString(this->rootfolder);
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
-  {
-   RETURN
-        [ [ name := "title",               value := "",               tokenized := TRUE, suggested := TRUE ]
-        , [ name := "filetype",            value := "",               tokenized := FALSE ]
-        , [ name := "lastmodified",        value := DEFAULT DATETIME, tokenized := FALSE ]
-        , [ name := "modificationdate",    value := DEFAULT DATETIME, tokenized := FALSE ]
-        , [ name := "size",                value := 0,                tokenized := FALSE ]
-        , [ name := "whfspath",            value := "",               tokenized := TRUE ]
-        , [ name := "keywords",            value := "",               tokenized := TRUE, suggested := TRUE ]
-        , [ name := "description",         value := "",               tokenized := TRUE, suggested := TRUE ]
-        , [ name := "_body",               tokenized := TRUE, suggested := TRUE ]
-        ];
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)
   {
     IF (this->rootfolder = 0)
@@ -346,7 +332,7 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     RETURN RECORD[ cachedfile.file ];
   }
 
-  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid)
   {
     RECORD cachedfile := this->GetCachedFile(groupid);
     IF (NOT RecordExists(cachedfile))
@@ -408,26 +394,15 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
       // Modification date/time
       DATETIME filemodificationdate;
-      DATETIME lastmodified := commanddate;
       RECORD lastmodheader := SELECT * FROM page.fetched_page.headers WHERE ToUppercase(field) = "LAST-MODIFIED";
       IF (RecordExists(lastmodheader)) // This might be static content, see if we have a timestamp
       {
         filemodificationdate := MakeDateFromText(lastmodheader.value);
-        IF (filemodificationdate != DEFAULT DATETIME)
-          lastmodified := filemodificationdate;
-
         IF (cachedfile.file.type != 7) // HareScript files are semi-dynamic content, don't store a moddate
-        {
           filemodificationdate := cachedfile.file.modificationdate;
-          object_indexdate := cachedfile.file.lastpublishdate;
-        }
       }
       IF (filemodificationdate != DEFAULT DATETIME)
         INSERT CELL modificationdate := filemodificationdate INTO fields;
-      IF (NOT page.fetched_page.nocache OR page.parsed_page.isdynamic) // Don't remember modification date for dynamic pages, forces Fetcher to refetch them
-        INSERT CELL lastmodified := lastmodified INTO fields;
-      ELSE
-        object_indexdate := DEFAULT DATETIME;
 
       // Generate suggest terms for body, title, keywords and description
       INSERT CELL suggestfields := "body title keywords description" INTO fields;
@@ -478,7 +453,6 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
            , objects := cachedfile.havesetsubfiles ? RECORD[]
                                                    : this->FilterObjects(page.parsed_page.links, objectid, cachedfile.file.id, cachedfile.filterurl)
            , links := page.parsed_page.links //TODO probably obsolete? the linkchecker should be using RTD links directly says Kris
-           , indexdate := object_indexdate
            ];
   }
 >;

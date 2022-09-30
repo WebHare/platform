@@ -22,7 +22,7 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource, STRING groupmask)
   RECORD res := CheckIndex([ indexid := catalog->id
                            , contentsourceid := contentsource->id
                            , commanddate := commanddate
-                           ], [ rebuild := TRUE ]);
+                           ]);
   IF(RecordExists(res.error) AND res.error.message != "")
     ABORT(res.error.message);
 
@@ -45,8 +45,7 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource, STRING groupmask)
     Print((csource.tag ?? "#" || csource.id) || ": " || #grouptocheck || "/" || Length(groups) || (args.debug ? "\n" : "\r"));
 
     res := CheckGroup([ groupid := grouptocheck.id, contentsourceid := contentsource->id, indexid := catalog->id, commanddate := commanddate],
-          [ rebuild := TRUE
-          , printprogress := FALSE
+          [ printprogress := FALSE
           , debugobjects := args.debug
           , noindexmodify := FALSE
           , nocleaning := FALSE

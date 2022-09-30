@@ -2248,6 +2248,7 @@
               </xs:restriction>
             </xs:simpleType>
           </xs:attribute>
+          <xs:attribute name="suggested" type="xs:boolean" />
         </xs:complexType>
       </xs:element>
 
@@ -2269,6 +2270,7 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="suggested" type="xs:boolean" />
         </xs:complexType>
       </xs:element>
 

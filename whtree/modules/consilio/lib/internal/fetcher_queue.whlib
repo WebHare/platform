@@ -75,7 +75,7 @@ PUBLIC INTEGER FUNCTION CalculateQueueItemPriority(RECORD data)
       priority := priority_checkindexstate;
     }
 
-    CASE "CHECKINDEX", "UPDATEINDEX"
+    CASE "CHECKINDEX"
     {
       priority := priority_checkindex;
     }
@@ -90,7 +90,7 @@ PUBLIC INTEGER FUNCTION CalculateQueueItemPriority(RECORD data)
       priority := priority_fastcheckgroup;
     }
 
-    CASE "CHECKGROUP", "UPDATEGROUP"
+    CASE "CHECKGROUP"
     {
       priority := priority_checkgroup;
     }
@@ -204,7 +204,7 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
     {
       RETURN MakeQueueCmdCheckIndexState();
     }
-    CASE "CHECKINDEX", "UPDATEINDEX"
+    CASE "CHECKINDEX"
     {
       INTEGER indexid := Length(arguments) >= 1 ? ToInteger(arguments[0], 0) : 0;
       INTEGER contentsourceid := Length(arguments) >= 2 ? ToInteger(arguments[1], 0) : 0;
@@ -234,7 +234,7 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
         }
       }
     }
-    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    CASE "FASTCHECKGROUP", "CHECKGROUP"
     {
       IF (Length(arguments) >= 3)
       {
@@ -472,7 +472,7 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
     {
       RETURN data.action;
     }
-    CASE "CHECKINDEX", "UPDATEINDEX"
+    CASE "CHECKINDEX"
     {
       RETURN data.action || " "
           || data.indexid || " "
@@ -486,7 +486,7 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
           || data.indexid || " "
           || data.contentsourceid;
     }
-    CASE "FASTCHECKGROUP", "CHECKGROUP", "UPDATEGROUP"
+    CASE "FASTCHECKGROUP", "CHECKGROUP"
     {
       RETURN data.action || " "
           || data.indexid || " "

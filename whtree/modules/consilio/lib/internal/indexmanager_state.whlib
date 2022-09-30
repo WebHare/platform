@@ -26,7 +26,6 @@ PUBLIC CONSTANT RECORD ARRAY defaultmappingfields :=
     , [ name := "objectid",        defaultvalue := "", type := "keyword" ]
     , [ name := "body",            defaultvalue := "", tokenized := TRUE ]
     , [ name := "objecturl",       defaultvalue := "", type := "keyword" ]
-    , [ name := "_indexdate",      defaultvalue := DEFAULT DATETIME ]
     , [ name := "_indexed",        defaultvalue := DEFAULT DATETIME ]
     , [ name := "_contentsource",  defaultvalue := "", type := "keyword" ]
     ];
