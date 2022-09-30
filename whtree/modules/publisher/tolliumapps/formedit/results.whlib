@@ -342,8 +342,8 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
 
     IF(Length(attachments)>0)
     {
-      RECORD meta := DecodeHSON(attachments[0].metadata);
-      filereceiver->SendFile(attachments[0].file, meta.m, meta.f);
+      RECORD meta := DecodeScanData(attachments[0].metadata);
+      filereceiver->SendFile(attachments[0].file, meta.mimetype, meta.filename);
     }
   }
 >;
