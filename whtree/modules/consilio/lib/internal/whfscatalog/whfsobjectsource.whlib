@@ -348,12 +348,10 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
         INSERT
             [ id := "fsobj_" || fsobj->id
-            , requiredindexdate := fsobj->modificationdate
             , data := CELL
                 [ status := "result"
                 , document_body := Length(searchres.subfiles) > 0 AND RecordExists(searchres.subfiles[0]) ? BlobToString(searchres.subfiles[0].data) : ""
                 , document_fields := firstdocfields
-                , indexdate := fsobj->modificationdate
                 ]
             ] INTO objects AT END;
 
@@ -363,12 +361,10 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             CONTINUE;
           INSERT
               [ id := "fsobj_" || fsobj->id || "_" || #subfile
-              , requiredindexdate := fsobj->modificationdate
               , data := CELL
                   [ status := "result"
                   , document_body := RecordExists(subfile) ? BlobToString(subfile.data) : ""
                   , document_fields := CELL[...basefields, ...GetParsedIndexFields(fsobj, #subfile) ]
-                  , indexdate := fsobj->modificationdate
                   ]
               ] INTO objects AT END;
         }

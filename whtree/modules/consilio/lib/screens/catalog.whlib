@@ -889,7 +889,6 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
   RECORD idxoptions := __GetIndexManagerOptions(catalogid);
   RECORD options := [ count := maxresults
                     , mapping := CELL[ ...idxoptions.defaultmapping
-                                     , _indexdate := DEFAULT DATETIME
                                      , _indexed := DEFAULT DATETIME
                                      , _contentsource := 0
                                      , _score := "_score"

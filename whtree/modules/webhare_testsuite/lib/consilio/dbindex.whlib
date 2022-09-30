@@ -92,7 +92,6 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
           [ status := "result"
           , objects :=
                 SELECT id :=                  objectid
-                     , requiredindexdate :=   grouprequiredindexdate
                      , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
                   FROM objects
           ];
@@ -169,8 +168,6 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
               , datafrom :=      datafrom
               , ...extradata
               ]
-        , indexdate :=           rec.indexdate
-        , requiredindexdate :=   rec.objectrequiredindexdate
         , objects :=             (SELECT id := consilio_index.objectid
                                        , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(consilio_index, "fetch-list") ] : CELL[])
                                     FROM webhare_testsuite.consilio_index
