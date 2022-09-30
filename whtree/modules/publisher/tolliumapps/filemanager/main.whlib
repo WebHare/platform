@@ -23,6 +23,7 @@ LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/reports/seoreport.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -2275,8 +2276,10 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    // Add feedback token to activate authormode data
-    openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(EncodeBase64(EncodeJSON(GetFeedbackWebToken(this->contexts->user))))}`);
+    IF(GetDtapStage() = "development") // Add feedback token to activate authormode data
+      openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(EncodeBase64(EncodeJSON(GetFeedbackWebToken(this->contexts->user))))}`);
+    ELSE
+      openhandler->SendURL(obj->url);
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)
