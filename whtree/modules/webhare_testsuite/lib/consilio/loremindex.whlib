@@ -57,8 +57,8 @@ PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
         [ [ name := "date_test", value := DEFAULT DATETIME ]
         , [ name := "validuser", value := "", tokenized := FALSE ]
         , [ name := "url",       value := "", tokenized := FALSE ]
-        , [ name := "title",     value := "", tokenized := TRUE ]
-        , [ name := "_body",     tokenized := TRUE, suggested := TRUE ]
+        //, [ name := "title",     value := "", tokenized := TRUE ]  //already defined by consilio:sitecontent
+        //, [ name := "_body",     tokenized := TRUE, suggested := TRUE ] //implied
         ];
     RETURN mapping;
   }
