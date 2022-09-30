@@ -140,9 +140,9 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
                is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
                other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
   */
-  PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupids)
+  PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid)
   {
-    RETURN this->ListObjects2(commanddate, groupids);
+    RETURN this->ListObjects2(commanddate, groupid);
   }
 
   /** @short Return a list of objects within the given group
