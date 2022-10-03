@@ -13,17 +13,16 @@ LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
 
 PUBLIC CONSTANT RECORD ARRAY wrd_payments_idealbanks
  := [[ rowkey := "ABNANL2A", title := "ABN AMRO" ]
-    ,[ rowkey := "RABONL2U", title := "Rabobank" ]
-    ,[ rowkey := "INGBNL2A", title := "ING" ]
-    ,[ rowkey := "SNSBNL2A", title := "SNS Bank" ]
     ,[ rowkey := "ASNBNL21", title := "ASN Bank" ]
+    ,[ rowkey := "BUNQNL2A", title := "bunq" ]
+    ,[ rowkey := "INGBNL2A", title := "ING" ]
+    ,[ rowkey := "KNABNL2H", title := "Knab" ]
+    ,[ rowkey := "RABONL2U", title := "Rabobank" ]
     ,[ rowkey := "RBRBNL21", title := "Regio Bank" ]
+    ,[ rowkey := "REVOLT21", title := "Revolut" ]
+    ,[ rowkey := "SNSBNL2A", title := "SNS Bank" ]
     ,[ rowkey := "TRIONL2U", title := "Triodos bank" ]
     ,[ rowkey := "FVLBNL22", title := "Van Landschot Bankiers" ]
-    ,[ rowkey := "KNABNL2H", title := "Knab" ]
-    ,[ rowkey := "BUNQNL2A", title := "Bunq" ]
-    ,[ rowkey := "HANDNL2A", title := "Handelsbanken" ]
-    ,[ rowkey := "REVOLT21", title := "Revolut" ]
     ];
 
 
