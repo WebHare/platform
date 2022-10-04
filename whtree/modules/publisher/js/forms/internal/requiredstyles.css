@@ -1,11 +1,13 @@
 /* Required form rules */
 
 /* Hide explicitly hidden pages and groups
-   Initially hide second and further pages, unless explicitly marked as visible (better for initial rendering  */
-  .wh-form__page ~ .wh-form__page:not(.wh-form__page--visible)
-, .wh-form__page--hidden
-, .wh-form__fieldgroup--hidden
-, .wh-form__fieldline--hidden
+   Initially hide second and further pages, unless explicitly marked as visible (better for initial rendering
+   fhn debugflag should show eveything but we shouldn't increase specificity over what it once was */
+
+  :is(html:not(.dompack--debug-fnh)) .wh-form__page ~ .wh-form__page:not(.wh-form__page--visible)
+, :is(html:not(.dompack--debug-fnh)) .wh-form__page--hidden
+, :is(html:not(.dompack--debug-fnh)) .wh-form__fieldgroup--hidden
+, :is(html:not(.dompack--debug-fnh)) .wh-form__fieldline--hidden
 {
   display:none;
 }
@@ -15,12 +17,6 @@
 , .wh-form:not(.wh-form--allowsubmit) .wh-form__button--submit
 {
   display:none;
-}
-
-/* Temp workaround for formsapi/forms prefill clash */
-.wh-form__prefillarea + .wh-form-prefill
-{
-  display: none;
 }
 
 /* Required so image styling (Eg neutral.css) doesn't blow up the styling if you didn't include imgedit itself */
