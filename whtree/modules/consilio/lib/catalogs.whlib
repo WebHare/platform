@@ -1007,6 +1007,9 @@ STATIC OBJECTTYPE ConsilioCatalog
     // @cell objects.suggestfields
     // @cell objects.suggestprefixes
 
+    IF(options.suffix != "" AND NOT this->suffixed)
+      THROW NEW Exception(`Cannot AddObjects to a suffix on a non-suffixed catalog`);
+
     IF(options.suffix != "" AND options.suffix NOT IN this->ensuredsuffixes)
       this->EnsureSuffixCreated(options.suffix);
 

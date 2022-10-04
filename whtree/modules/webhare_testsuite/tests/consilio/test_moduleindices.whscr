@@ -169,6 +169,12 @@ MACRO TestMappingUpdates()
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEQ(RECORD[], diff);
 
+  //Cannot add objects with a suffix to an unsuffixed index
+  TestThrowsLike("Cannot AddObjects*to a suffix*", PTR catalog->AddObjects(
+                    [[ objectid := "fieldtest1"
+                     , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
+                    ]],[ suffix := "sub1", synchronous := TRUE ]));
+
   //Now undo the fieldgroup change...
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := STRING[]
