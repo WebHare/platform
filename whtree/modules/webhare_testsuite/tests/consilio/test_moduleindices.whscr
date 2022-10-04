@@ -763,6 +763,11 @@ MACRO TestESLangFeatures()
   testfw->BeginWork();
   catalog->UpdateCatalog([ lang := "nl" ]);
   testfw->CommitWork();
+
+  // Verify multiple languages don't cause unneeded close/reopens
+  __did_opensearch_close_and_reopen := FALSE;
+  catalog->ApplyConfiguration();
+  TestEq(FALSE,__did_opensearch_close_and_reopen);
 }
 
 MACRO TestESDeletion()

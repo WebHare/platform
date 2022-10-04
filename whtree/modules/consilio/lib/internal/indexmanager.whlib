@@ -120,6 +120,17 @@ BOOLEAN FUNCTION IsOutofdateAnalysis(RECORD currentanalysis, RECORD newanalysis)
   CONSTANT RECORD structure := [ filter := [ synonym := [ synonyms := STRING[] ]]];
   currentanalysis := EnforceStructure(structure, currentanalysis);
   newanalysis := EnforceStructure(structure, newanalysis);
+
+  //There's no way to delete existing filters, so really all we can do is check if any filter is missing
+  FOREVERY(RECORD filter FROM UnpackRecord(newanalysis.filter))
+    IF(NOT CellExists(currentanalysis.filter, filter.name))
+      RETURN TRUE; //filter is missing, go through close+reopen
+
+  //Delete all the filters except synonym, it needs a deeper compare
+  currentanalysis.filter := CELL[ currentanalysis.filter.synonym ];
+  newanalysis.filter := CELL[ newanalysis.filter.synonym ];
+
+  //We've handled most of the filters, let raw compare handle the rest (until more open/close issues or missed comparions are found)
   RETURN EncodeHSON(currentanalysis) != EncodeHSON(newanalysis);
 }
 
