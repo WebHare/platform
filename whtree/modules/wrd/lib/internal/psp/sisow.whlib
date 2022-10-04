@@ -34,7 +34,7 @@ PUBLIC RECORD ARRAY paymentsubmethods :=
     , [ rowkey := "kbc"         , title := "KBC" ]
     , [ rowkey := "cbc"         , title := "CBC" ]
     , [ rowkey := "paypalec"    , title := "PayPal Express Checkout" ]
-    , [ rowkey := "afterpay"    , title := "Afterpay" ]
+    , [ rowkey := "afterpay"    , title := "Riverty" ]
     , [ rowkey := "billink"     , title := "Billink achteraf betalen" ]
     , [ rowkey := "capayable"   , title := "Capayable gespreid betalen" ]
     , [ rowkey := "focum"       , title := "Focum AchterafBetalen" ]

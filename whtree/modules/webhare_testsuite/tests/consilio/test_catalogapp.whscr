@@ -58,6 +58,7 @@ ASYNC MACRO TestCatalogApp()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Show field mapping", [ menuitem := TRUE ]));
   TestEqMembers([[ name := "nosuchfieldyet_extra", type := "keyword", valuetype := "STRING" ]
+                ,[ name := "nosuchfieldyet_extra2", type := "keyword", valuetype := "STRING" ]
                 ,[ name := "no", type := "record", level := 0, valuetype := "RECORD" ]
                 ,[ name := "such", type := "record", level := 1 ]
                 ,[ name := "field", type := "record", level := 2 ]

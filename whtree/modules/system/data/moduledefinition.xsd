@@ -43,6 +43,12 @@
     <xs:list itemType="ScopedName" />
   </xs:simpleType>
 
+  <xs:simpleType name="ConsilioFieldName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\p{L}_@][\p{L}\p{N}_@]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="ConsilioWildcardedName">
     <xs:restriction base="xs:string">
       <xs:pattern value="[\p{L}_@\*][\p{L}\p{N}_@\*]*"/>
@@ -2391,6 +2397,17 @@
           <xs:attributeGroup ref="FieldAttributes" />
         </xs:complexType>
       </xs:element>
+
+      <xs:element name="ignore">
+        <xs:complexType>
+          <xs:attribute name="name" type="ConsilioFieldName" use="required">
+            <xs:annotation>
+              <xs:documentation>Name of the field to ignore</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
     </xs:choice>
   </xs:group>
 

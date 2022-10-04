@@ -457,11 +457,21 @@
 
     <fieldgroup tag="nosuchfieldyet">
       <keyword name="nosuchfieldyet_extra" />
+      <keyword name="nosuchfieldyet_extra2" />
       <record name="no">
         <record name="such">
           <record name="field">
             <integer name="yet"/>
           </record>
+        </record>
+      </record>
+    </fieldgroup>
+
+    <fieldgroup tag="ignore_nosuchfieldyet">
+      <keyword name="nosuchfieldyet_extra" />
+      <record name="no">
+        <record name="such">
+          <ignore name="field" />
         </record>
       </record>
     </fieldgroup>
