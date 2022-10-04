@@ -287,6 +287,9 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
 
   FOREVERY(RECORD prop FROM input_properties)
   {
+    IF(prop.type = "ignore")
+      CONTINUE;
+
     RECORD esfielddata := [ type := prop.type
                           , ...prop.settings
                           ];
@@ -415,6 +418,12 @@ PUBLIC RECORD ARRAY FUNCTION CompareMappings(RECORD res, RECORD ARRAY exp, STRIN
       DELETE FROM current WHERE ToUppercase(current.name) LIKE ToUppercase(row.name);
       //TODO we should probably be checking the dynamic templates whether they agree with the field definition(s)
       CONTINUE;
+    }
+
+    IF(row.type = "ignore")
+    {
+      DELETE FROM current WHERE ToUppercase(current.name) LIKE ToUppercase(row.name);
+      CONTINUE; //we won't report it as superfluous but will otherwise ignore it
     }
 
     RECORD match := SELECT * FROM current WHERE Touppercase(current.name) = ToUppercase(row.name);
