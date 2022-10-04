@@ -59,7 +59,7 @@ STRING FUNCTION MapField(STRING inname)
     CASE "billto.phonenumber2"       { RETURN "WRD_CONTACT_PHONE2"; }
     DEFAULT
     {
-      LogError("wrd:payments.afterpay", "Unable to find mapping for Afterpay field '" || inname || "'", [ unmappedfield := inname ]);
+      LogError("wrd:payments.afterpay", "Unable to find mapping for Riverty field '" || inname || "'", [ unmappedfield := inname ]);
       RETURN "";
     }
   }
@@ -241,7 +241,7 @@ afterPayOrderReference>c457e6764ddcfb045914e81083db61</afterPayOrderReference><c
     }
 
     IF(this->result.resultid IN [1,2])  //technical level error
-      THROW NEW Exception("Error communicating with Afterpay: " || this->result.rejectdescription);
+      THROW NEW Exception("Error communicating with Riverty: " || this->result.rejectdescription);
 
     this->pvt_status := this->GetStatusFromResult(this->result);
     result.processnow := TRUE;
@@ -268,7 +268,7 @@ afterPayOrderReference>c457e6764ddcfb045914e81083db61</afterPayOrderReference><c
     }
 
     RETURN [[ paymentoptiontag := ""
-            , title := this->settings.methodtitle ?? "Afterpay"
+            , title := this->settings.methodtitle ?? "Riverty"
             , issuers := RECORD[]
             , requirements := afterpay_requirements
             , htmlagreeterms := GetHTMLTidForLanguage(options.language, "wrd:site.forms.payments.afterpay.agreeterms", link)

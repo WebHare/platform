@@ -94,7 +94,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:afterpay"
-          , title := ":Afterpay"
+          , title := ":Riverty"
           , objectname := "mod::wrd/lib/internal/psp/afterpay.whlib#AfterpayPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/afterpay.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/afterpay.xml#configafterpay"

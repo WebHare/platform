@@ -2,7 +2,7 @@
 
 Payment providers (and known limitiations) currently supported by WebHare
 
-## Afterpay
+## Riverty (formerly Afterpay)
 - Only B2C payments for NL is implemented
 - Requires passing a lot more data (IP, billing address, customer information to StartPayment
 - Orderids are max. 36 characters, min. 2 characters. Only A-Z,a-z,0-9,`_` and `-` are allowed
