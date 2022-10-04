@@ -212,27 +212,32 @@ else
 fi
 
 if [ "$NOPULL" != "1" ]; then
-  echo "`date` Pulling image $WEBHAREIMAGE"
-  if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
-    echo "Failed to pull image"
+  # If an alternate registry is set, prefer to use that one. Try to avoid dockerhub, it seems slower and is rate limited
+  if [[ $WEBHAREIMAGE =~ docker.io/webhare/platform:.* ]] && [ -n "$WH_CI_ALTERNATEREGISTRY" ] ; then
+    if [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] ; then
+      echo $WH_CI_ALTERNATEREGISTRY_PASSWORD | docker login -u $WH_CI_ALTERNATEREGISTRY_LOGIN --password-stdin $WH_CI_ALTERNATEREGISTRY
+    fi
 
-    # All registry.gitlab.com/webhare/platform: images should also be on dockerhub. But we generally avoid dockerhub, it seems slower and is rate limited
-    if [[ $WEBHAREIMAGE =~ registry.gitlab.com/webhare/platform:.* ]]; then
+    ALTERNATEIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:27}  # 27 is the length of 'docker.io/webhare/platform:'
 
-      # Which alternative registry to use?
-      [ -n "$WH_CI_ALTERNATEREGISTRY" ] || WH_CI_ALTERNATEREGISTRY=webhare/platform
-      if [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] ; then
-        echo $WH_CI_ALTERNATEREGISTRY_PASSWORD | docker login -u $WH_CI_ALTERNATEREGISTRY_LOGIN --password-stdin $WH_CI_ALTERNATEREGISTRY
-      fi
+    echo "`date` Pulling image $ALTERNATEIMAGE"
+    if $SUDO docker pull "$ALTERNATEIMAGE" ; then
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+      WEBHAREIMAGE="$ALTERNATEIMAGE"
+    else
+      echo "Failed to pull image from alternate registry"
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
 
-      WEBHAREIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:37}  # 37 is the length of 'registry.gitlab.com/webhare/platform:'
+      echo "`date` Pulling image $WEBHAREIMAGE"
       if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
-        echo "Failed to pull fallback image"
-        [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+        echo "Failed to pull image"
         exit 1
       fi
-      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
-    else
+    fi
+  else
+    echo "`date` Pulling image $WEBHAREIMAGE"
+    if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
+      echo "Failed to pull image"
       exit 1
     fi
   fi
