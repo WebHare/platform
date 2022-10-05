@@ -43,6 +43,10 @@
       <impliedby right="system:supervisor"/>
     </right>
 
+    <right name="advanced" rightsgroup="system:fs" tid="rights.advanced" descriptiontid="rights.advanced-descr">
+      <impliedby right="system:supervisor"/>
+    </right>
+
     <objecttype name="feedbackscopes"
                 describer="lib/internal/support.whlib#feedbackscopesdescriber"
                 rightsgroup="system:default"

@@ -1389,8 +1389,8 @@
     </textgroup>
   </textgroup>
   <textgroup gid="rights">   <!-- rights -->
-    <text tid="bulkhistory">Bulk geschiendis-invoer</text>
-    <text tid="bulkhistory-descr">Dit recht stelt gebruikers in staat URL-geschiedenis URLs in bulk in te voeren middels een alternatieve interface.</text>
+    <text tid="advanced">Geavanceerde settings</text>
+    <text tid="advanced-descr">Sta gebruikers toe instellingen op de 'geavanceerd' tabs in de Publisher en Formuliereditor te wijzigen</text>
     <text tid="feedbackscopes">Feedback-scopes</text>
     <text tid="managefeedback">Feedback beheren</text>
     <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>

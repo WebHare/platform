@@ -97,7 +97,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->contexts->formcomponentapi := NEW FormComponentAPI(PRIVATE this);
-    this->contexts->formcomponentapi->showadvanced := this->contexts->user->HasRight("system:supervisor");
+    this->contexts->formcomponentapi->showadvanced := this->contexts->user->HasRight("publisher:advanced");
     this->frame->flags.showdevoptions := this->contexts->user->ShowDeveloperOptions();
 
     IF (ObjectExists(this->contexts->applytester))

@@ -1389,8 +1389,8 @@
     </textgroup>
   </textgroup>
   <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
-    <text tid="bulkhistory">Bulk history entry</text>
-    <text tid="bulkhistory-descr">This right allows users to enter URL history entries in bulk using an alternative interface.</text>
+    <text tid="advanced">Advanced settings</text>
+    <text tid="advanced-descr">Allow user to modify settings on 'advanced' tabs in Publisher and Form editor</text>
     <text tid="feedbackscopes">Feedback scopes</text>
     <text tid="managefeedback">Manage feedback</text>
     <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
