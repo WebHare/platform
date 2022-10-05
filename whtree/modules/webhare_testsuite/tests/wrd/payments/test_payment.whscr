@@ -259,6 +259,15 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   paymentapi->CancelPendingPayment(pd2d->id);
   TestEq("failed", pd2d->GetField("DATA").status);
   TestEq([ x := 43 ], pd2d->GetField("DATA").userdata);
+
+  // Create an empty (never started) payment and cancel that
+  testfw->BeginWork();
+  OBJECT pd2e := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2E"]);
+  testfw->CommitWork();
+
+  TestEq("pending", pd2e->GetField("DATA").status);
+  paymentapi->CancelPendingPayment(pd2e->id);
+  TestEq("failed", pd2e->GetField("DATA").status);
 }
 
 MACRO TestPaymentBrokenMethodTest()
@@ -400,7 +409,7 @@ MACRO TestPaymentOverview()
   RECORD ARRAY payments := wrdschema->^paydata->RunQuery([ outputcolumns := [ id := "WRD_ID", data := "DATA", creationdate := "WRD_CREATIONDATE" ]]);
   payments := SELECT * FROM payments ORDER BY creationdate;
 
-  TestEq(9, Length(payments));
+  TestEq(10, Length(payments));
   TestEq("pending", payments[0].data.status);
   TestEq(0m, payments[0].data.amountpayable);
   TestEq(DEFAULT DATETIME, payments[0].data.paymentdate);

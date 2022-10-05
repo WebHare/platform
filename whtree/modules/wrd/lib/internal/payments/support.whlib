@@ -95,11 +95,24 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
   }
 
   RECORD setstatus := paymentobject->MakePaymentValue();
-  INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM currentstatus.payments WHERE __paymentdata.u = paymentobject->paymentuuid)-1;
-  IF(pos<0)
-    THROW NEW Exception(`Cannot find payment status '${paymentobject->paymentuuid}' in entity #${paymententity->id}`);
+  IF(Length(currentstatus.payments) = 0)
+  {
+    IF(setstatus.status != "failed") //we *can* do cancellations of a never-started payment. just create a fake' status record
+      THROW NEW Exception(`Cannot set a payment status other than 'failed' for a payment that was never started (payment #${paymententity->id})`);
+    IF(paymentobject->paymentuuid != "")
+      THROW NEW Exception(`Trying to fail payment #${paymententity->id}) uuid ${paymentobject->paymentuuid} but we shouldn't have an uuid if no payment attempt was ever committed`);
 
-  currentstatus.payments[pos] := setstatus.payments[0];
+    currentstatus.payments := setstatus.payments;
+  }
+  ELSE
+  {
+    INTEGER pos := (SELECT AS INTEGER #payments + 1 FROM currentstatus.payments WHERE __paymentdata.u = paymentobject->paymentuuid)-1;
+    IF(pos<0)
+      THROW NEW Exception(`Cannot find payment status '${paymentobject->paymentuuid}' in entity #${paymententity->id}`);
+
+    currentstatus.payments[pos] := setstatus.payments[0];
+  }
+
   RECORD upd := CellInsert(DEFAULT RECORD, paymentattribute, currentstatus);
   paymententity->UpdateEntity(upd);
 

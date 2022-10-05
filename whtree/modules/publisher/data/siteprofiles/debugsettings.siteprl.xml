@@ -30,6 +30,7 @@
     <debugsettings title="Formsapi">
       <option tag="fhv" title="Validation" />
       <option tag="fdv" title="Disable client-side validation" />
+      <option tag="fnh" title="Never hide" />
     </debugsettings>
     <debugsettings title="Designfiles components">
       <option tag="men" title="wh.menu debugging" />

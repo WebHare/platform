@@ -510,7 +510,7 @@ STATIC OBJECTTYPE PaymentAPI
         THROW NEW Exception("Payment must still be pending to be cancellable");
 
       IF(options.iscancel)
-        paymentobject->CancelPayment(); //FIXME note explicit cancellation in the object
+        paymentobject->CancelPayment(); //FIXME note explicit cancellation in the object so we know it came from the server-side. audit log?
       ELSE
         paymentobject->SetStatus(newstatus, options.paymentref);
 
