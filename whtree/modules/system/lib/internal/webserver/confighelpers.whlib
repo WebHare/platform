@@ -6,7 +6,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 //an interface server generally running on http://127.0.0.1:13678/
-PUBLIC CONSTANT INTEGER whwebserverconfig_rescueportoffset := 9;
+PUBLIC CONSTANT INTEGER whwebserverconfig_rescueportoffset := 0;
 PUBLIC CONSTANT INTEGER whwebserverconfig_rescueportid := -4;
 PUBLIC CONSTANT INTEGER whwebserverconfig_rescuewebserverid := -5;
 
