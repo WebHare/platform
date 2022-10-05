@@ -2340,7 +2340,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
-    ^headertitle->visible := needstemplate AND this->basesettings.headertitle;
 
     //we delayed setting the title so other extending tabs don't merge into us
     IF(NOT this->sidetabs)

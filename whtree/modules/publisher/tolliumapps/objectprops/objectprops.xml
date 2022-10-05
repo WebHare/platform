@@ -57,12 +57,6 @@
           <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
           <textedit name="title" width="1pr" maxlength="256" tid="~title" />
           <textedit composition="seosettings"
-                    cellname="headertitle"
-                    name="headertitle"
-                    width="1pr"
-                    maxlength="256"
-                    tid="common.seosettings.headertitle" />
-          <textedit composition="seosettings"
                     cellname="seotitle"
                     name="seotitle"
                     width="1pr"

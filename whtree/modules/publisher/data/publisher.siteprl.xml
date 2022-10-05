@@ -535,7 +535,6 @@
     <whfsref name="canonical" />
     <string name="comments" />
     <string name="seotitle" />
-    <string name="headertitle" />
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/sitesettings">

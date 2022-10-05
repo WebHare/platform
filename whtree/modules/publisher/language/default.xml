@@ -51,7 +51,6 @@
       <text tid="canonical">Canonical URL</text>
       <text tid="customrobots">Additional robot tags</text>
       <text tid="customrobots-placeholder">Example: "nosnippet, notranslate" (comma separated).</text>
-      <text tid="headertitle">Header title</text>
       <text tid="navigationtitle">Navigation title</text>
       <text tid="seotitle">SEO title</text>
     </textgroup>
