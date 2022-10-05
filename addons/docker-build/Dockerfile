@@ -19,7 +19,7 @@ ENV LC_ALL=C \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/mssql-tools/bin
 
 # Expose usual WebHare hostingports
-EXPOSE 80 443 8000 8443 13684
+EXPOSE 13684
 
 # Set the run command
 CMD [ "/opt/container/launch.sh" ]
