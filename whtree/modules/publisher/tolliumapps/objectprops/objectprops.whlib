@@ -293,12 +293,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     this->autotitles := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
     this->showdeveloperoptions := this->tolliumuser->HasRight("system:supervisor");
     this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
-    this->sidetabs := this->tolliumuser->GetRegistryKey("publisher.prefs.sidetabs", FALSE);
   }
 
   MACRO Init(RECORD data)
   {
     this->startdata := data;
+    this->sidetabs := data.sidetabs;
     this->isduplicate := this->startdata.why = "duplicate";
     this->pending_errors := SELECT AS STRING ARRAY `Extension '${extension}' is not loaded, because it caused an error while loading:\n${error}`
                               FROM data.faultypropeditors;
@@ -471,30 +471,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     IF(this->sidetabs)
     {
       ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
+      ^tablist->selection := ^tablist->rows[0];
       FOREVERY(OBJECT page FROM ^maintabs->pages)
       {
         page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
         page->vscroll := TRUE;
-      }
-    }
-    ELSE
-    {
-      ^maintab_heading->visible := FALSE;
-      ^seotab_heading->visible := FALSE;
-      ^typeh->doclink := "";
-      ^tasksettings_heading->visible := FALSE;
-      ^linkcheck_heading->visible := FALSE;
-      ^tablistgrid->visible := FALSE;
-      ^maintabs->RemoveFromParent();
-      ^tablistgrid->parent->InsertComponentBefore(^maintabs,^tablistgrid,TRUE);
-      ^tablistcell->visible := FALSE;
-      ^maintabs->type := "regular";
-      ^publicationsettings_heading->doclink := "";
-      ^restrictions->doclink := "";
-
-      FOREVERY(OBJECT page FROM ^maintabs->pages)
-      {
-        page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
       }
     }
   }
@@ -1236,17 +1217,35 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors, INTEGER tab_insert_pos)
   {
-    ^maintabs->insertpoints := [ [ name := "name", component := ^name ]
-                               , [ name := "title", component := ^title ]
-                               , [ name := "description", component := ^description ]
-                               , [ name := "keywords", component := ^keywords ]
-                               , [ name := "publicationsettings", component := ^publicationsettings ]
-                               , [ name := "tasksettings", component := ^tasksettings ]
-                               , [ name := "settings", component := ^settings ]
-                               , [ name := "properties", component := ^properties ]
-                               , [ name := "seosettings", component := ^seotabinsertpoint ]
-                               ];
-
+    IF(this->sidetabs)
+    {
+      //we'll point all settings to the end of their tab (for 'General' tab we ignore the readonly properties)
+      ^maintabs->insertpoints := [ [ name := "name", component := ^insertpoint_generalsettings ]
+                                 , [ name := "title", component := ^insertpoint_generalsettings ]
+                                 , [ name := "description", component := ^insertpoint_generalsettings ]
+                                 , [ name := "keywords", component := ^insertpoint_generalsettings ]
+                                 , [ name := "publicationsettings", component := ^insertpoint_generalsettings ]
+                                 , [ name := "tasksettings", component := ^insertpoint_tasksettings ]
+                                 , [ name := "settings", component := ^insertpoint_generalsettings ]
+                                 , [ name := "properties", component := ^insertpoint_generalsettings ]
+                                 , [ name := "seosettings", component := ^insertpoint_generalsettings ]
+                                 , [ name := "advancedsettings", component := ^insertpoint_advancedsettings ]
+                                 ];
+    }
+    ELSE
+    {
+      ^maintabs->insertpoints := [ [ name := "name", component := ^name ]
+                                 , [ name := "title", component := ^title ]
+                                 , [ name := "description", component := ^description ]
+                                 , [ name := "keywords", component := ^keywords ]
+                                 , [ name := "publicationsettings", component := ^publicationsettings ]
+                                 , [ name := "tasksettings", component := ^insertpoint_tasksettings ]
+                                 , [ name := "settings", component := ^insertpoint_generalsettings ]
+                                 , [ name := "properties", component := ^properties ]
+                                 , [ name := "seosettings", component := ^seotabinsertpoint ]
+                                 , [ name := "advancedsettings", component := ^insertpoint_generalsettings ]
+                                 ];
+    }
     ^maintabs->extendposition := tab_insert_pos;
 
     IF (ObjectExists(this->webcontext))
@@ -2343,16 +2342,23 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
     ^headertitle->visible := needstemplate AND this->basesettings.headertitle;
 
-    IF(NOT (this->basesettings.seotab
-             AND (this->isfolder OR needstemplate)
-             AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
-    {
-      ^seotab->visible := FALSE;
-      RETURN;
-    }
-
     //we delayed setting the title so other extending tabs don't merge into us
-    ^seotab->title := this->GetTid(".seotab");
+    IF(NOT this->sidetabs)
+    {
+      IF(NOT (this->basesettings.seotab
+               AND (this->isfolder OR needstemplate)
+               AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
+      {
+        ^seotab->visible := FALSE;
+        RETURN;
+      }
+
+      ^seotab->title := this->GetTid(".seotab");
+    }
+    ELSE
+    {
+      ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
+    }
 
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
     {

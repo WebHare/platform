@@ -675,11 +675,23 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
 {
   OBJECT dialog;
   RECORD ARRAY faultypropeditors;
+  BOOLEAN sidetabs;
+
+  IF(dialogname = "site")
+  {
+    dialogname := "mod::publisher/screens/commondialogs/siteprops.xml";
+  }
+  ELSE IF (dialogname = "objectprops")
+  {
+    sidetabs := parent->contexts->user->GetRegistryKey("publisher.prefs.sidetabs", FALSE);
+    dialogname := sidetabs ? "mod::publisher/tolliumapps/objectprops/objectprops-v2.xml" : "mod::publisher/tolliumapps/objectprops/objectprops.xml";
+  }
+
   WHILE (TRUE)
   {
     TRY
     {
-      dialog := parent->LoadScreen(dialogname, CELL[...data, faultypropeditors ]);
+      dialog := parent->LoadScreen(dialogname, CELL[...data, faultypropeditors, sidetabs ]);
       BREAK;
     }
     CATCH (OBJECT<PropertyEditorException> e)

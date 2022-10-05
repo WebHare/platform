@@ -2234,6 +2234,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="advancedtab">Geavanceerd</text>
         <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
         <text tid="created">(Aangemaakt <param p="1"/>)</text>
         <text tid="deleted">Verwijderd</text>
@@ -2265,6 +2266,7 @@
         <text tid="requestapproval">Indienen</text>
         <text tid="restrictions">Beperkingen</text>
         <text tid="robottags">Robot-tags</text>
+        <text tid="seocustomization">SEO detailinstellingen</text>
         <text tid="seotab">SEO</text>
         <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
         <text tid="tasksettings">Taken</text>

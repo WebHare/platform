@@ -2235,6 +2235,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="advancedtab">Advanced</text>
         <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
         <text tid="created">(Created <param p="1"/>)</text>
         <text tid="deleted">Deleted</text>
@@ -2266,6 +2267,7 @@
         <text tid="requestapproval">Submit for approval</text>
         <text tid="restrictions">Restrictions</text>
         <text tid="robottags">Robot tags</text>
+        <text tid="seocustomization">SEO customization</text>
         <text tid="seotab">SEO</text>
         <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
         <text tid="tasksettings">Tasks</text>

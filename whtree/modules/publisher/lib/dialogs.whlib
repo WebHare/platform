@@ -213,8 +213,8 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
       , parentfolder := parentfolder
       , type := options.issite ? 0 : createres.createtype
       , fsobj := options.issite ? 0 : createres.template
-      ], options.issite ? "mod::publisher/screens/commondialogs/siteprops.xml"
-                        : "mod::publisher/tolliumapps/objectprops/objectprops.xml");
+      ], options.issite ? "site"
+                        : "objectprops");
 
   IF(creationdialog->RunModal() != "ok")
     RETURN 0;
@@ -395,7 +395,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   TRY
   {
-    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], "mod::publisher/tolliumapps/objectprops/objectprops.xml")->RunModal();
+    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], "objectprops")->RunModal();
   }
   CATCH(OBJECT err)
   {
