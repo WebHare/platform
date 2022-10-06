@@ -140,8 +140,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING pagetitle;
   ///The navigation title (fs_objects.title)
   PUBLIC STRING navigationtitle;
-  ///The header title
-  PUBLIC STRING headertitle;
   ///The page description
   PUBLIC STRING pagedescription;
   ///The page keywords
@@ -258,12 +256,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       this->navigationtitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
       IF(NOT this->pvt_targetobject->isfolder)
       {
-        this->headertitle := this->_seosettings.headertitle ?? this->navigationtitle;
         this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;
       }
       ELSE //SEO settings are only offered for files, so don't even read them for folders to avoid confusion
       {
-        this->headertitle := this->navigationtitle;
         this->pagetitle := this->navigationtitle;
       }
       IF(this->pagetitle = "" AND this->pvt_targetfolder->id != this->pvt_targetfolder->parentsite) // try the site root folder's title
@@ -649,7 +645,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , languagecountry := this->languagecountry
                    , pagetitle       := this->pagetitle
                    , navigationtitle := this->navigationtitle
-                   , headertitle     := this->headertitle
                    , pagedescription := this->pagedescription
                    , pagekeywords := this->pagekeywords
                    , canonicalurl := this->canonicalurl

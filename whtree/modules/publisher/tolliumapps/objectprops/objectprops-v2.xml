@@ -1,0 +1,199 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.objectprops.objectprops"
+         library="objectprops.whlib">
+
+  <screen name="objectprops"
+          width="120x"
+          height="30x"
+          minwidth="70x"
+          allowresize="true"
+          defaultbutton="ok_button"
+          flags="ispinned"
+          savestate="size"
+          title="">
+    <actions>
+      <action name="addtask" frameflags="!ispinned" onexecute="doaddtask" tid="~add" />
+      <action name="edittask" frameflags="!ispinned" onexecute="doedittask" tid="~edit">
+        <enableon source="tasks" min="1" max="1" />
+      </action>
+      <action name="deletetask" frameflags="!ispinned" onexecute="dodeletetask" tid="~delete">
+        <enableon source="tasks" min="1" max="1" />
+      </action>
+      <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
+      <action name="requestapproval" onexecute="dorequestapproval" />
+      <action name="canceldraft" onexecute="docanceldraft" title="" />
+      <action name="cancelrequest" onexecute="docancelrequest" title="" />
+      <action name="restore" onexecute="dorestore" title="" />
+    </actions>
+
+    <compositions>
+      <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+    </compositions>
+
+    <body height="1pr" layout="form" spacers="none">
+      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
+        <panel name="versioningmessagepanel" width="1pr" height="1pr" layout="left">
+          <line>
+            <text name="versioningmessage" width="1pr" title="" value="" wordwrap="true" />
+            <text name="revertdraft" action="canceldraft" title="" valuetid="versioning.revertdraft" visible="false" />
+            <text name="withdrawrequest"
+                  action="cancelrequest"
+                  title=""
+                  valuetid="versioning.withdrawrequest"
+                  visible="false" />
+            <text name="restoreitem" action="restore" title="" valuetid="versioning.restore" visible="false" />
+          </line>
+        </panel>
+        <text name="versioningmovemessage" title="" value="" />
+      </panel>
+      <grid name="tablistgrid" height="1pr">
+        <cell name="tablistcell" width="25x">
+          <list name="tablist"
+                height="1pr"
+                borders="right"
+                columnheaders="false"
+                onselect="ontabchange"
+                selectmode="single"
+                sortable="false">
+            <column name="tab" type="text" title="" />
+          </list>
+        </cell>
+        <cell width="1pr" spacers="none">
+          <tabs name="maintabs" type="server" height="1pr">
+            <tab name="maintab" tid=".maintab">
+              <heading name="maintab_heading" doclink="publisher:objectprops/general" tid=".maintab" />
+              <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
+              <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+              <heading name="seotab_heading"
+                       doclink="publisher:objectprops/seotab"
+                       tid=".seotab"
+                       title="Search engine optimization (SEO)" />
+              <textedit composition="seosettings"
+                        cellname="seotitle"
+                        name="seotitle"
+                        width="1pr"
+                        maxlength="256"
+                        showcounter="true"
+                        tid="common.seosettings.seotitle"
+                        title="SEO Descripton" />
+              <textarea name="description" height="3gr" maxlength="2048" showcounter="true" tid="~description" />
+              <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
+
+              <!-- link-type specific fields -->
+              <publisher:intextlink name="link" width="1pr" visible="false" />
+              <publisher:browseforobject name="path"
+                                         width="1pr"
+                                         acceptfolders="false"
+                                         onchange="onpathchange"
+                                         visible="false" />
+
+              <!-- Site-specific fields -->
+              <panel name="publishpanel">
+                <!-- Actually a bit of a hack to center the text both horizontally and vertically -->
+                <panel name="notpublished" visible="false">
+                  <text name="notpublishedtext" title="" value="" />
+                </panel>
+                <panel name="publicationsettings">
+                  <heading name="publicationsettings_heading"
+                           doclink="publisher:objectprops/general-publication"
+                           tid=".publicationsettings" />
+                  <line layout="left">
+                    <checkbox name="publish" labeltid=".publish" title="" />
+                  </line>
+                  <line layout="left">
+                    <checkbox name="makeindex" labeltid=".makeindex" title="" />
+                  </line>
+                </panel>
+              </panel>
+              <spacer name="insertpoint_generalsettings" visible="false" />
+              <heading name="typeh" doclink="publisher:objectprops/general-properties" tid=".info" />
+              <line>
+                <text name="type" />
+                <text name="size" title="" />  <!-- tid=".size" -->
+              </line>
+              <text name="modified" title="" />
+              <text name="deleted" tid=".deleted" visible="false" />
+              <text name="originallocation" visible="false" />
+            </tab>
+            <tab name="advancedtab">
+              <heading name="seocustomization" doclink="publisher:objectprops/seocustomization" tid=".seocustomization" />
+              <publisher:browseforobject composition="seosettings"
+                                         cellname="canonical"
+                                         name="canonical"
+                                         width="1pr"
+                                         acceptfolders="false"
+                                         tid="common.seosettings.canonical" />
+              <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
+              <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
+              <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
+              <textedit composition="seosettings"
+                        cellname="customrobots"
+                        name="customrobots"
+                        width="1pr"
+                        placeholdertid="common.seosettings.customrobots-placeholder"
+                        tid="common.seosettings.customrobots" />
+              <textarea composition="seosettings"
+                        cellname="comments"
+                        width="1pr"
+                        height="3gr"
+                        placeholdertid=".comments-placeholder"
+                        tid="~comments" />
+              <heading name="restrictions" doclink="publisher:objectprops/general-restrictions" />
+              <line layout="left">
+                <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
+                <text name="objectpinned" title="" visible="false" />
+              </line>
+              <spacer name="insertpoint_advancedsettings" visible="false" />
+            </tab>
+            <tab name="tasksettings" height="1pr">
+              <heading name="tasksettings_heading" doclink="publisher:objectprops/tasks" tid=".tasksettings" />
+              <grid>
+                <col width="1pr" />
+                <col />
+                <row height="1pr">
+                  <cell>
+                    <list name="tasks"
+                          width="1pr"
+                          height="8gr"
+                          minwidth="60x"
+                          minheight="6x"
+                          emptytid=".notasks"
+                          gid=".tasks"
+                          selectmode="single"
+                          sortable="false"
+                          sortcolumn="when">
+                      <column name="task" type="text" />
+                      <column name="when" type="datetime" width="16x" precision="minutes" storeutc="true" />
+                    </list>
+                  </cell>
+                  <cell>
+                    <panel name="tasksactions">
+                      <button width="1pr" action="addtask" />
+                      <button width="1pr" action="edittask" />
+                      <button width="1pr" action="deletetask" />
+                    </panel>
+                  </cell>
+                </row>
+              </grid>
+              <spacer name="insertpoint_tasksettings" visible="false" />
+            </tab>
+            <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
+              <heading name="linkcheck_heading" doclink="publisher:objectprops/linkcheck" tid=".linkcheck" />
+              <includefragment name="objectreport" fragment="consilio:report.objectreport" />
+            </tab>
+          </tabs>
+        </cell>
+      </grid>
+    </body>
+
+    <footer layout="right">
+      <line>
+        <button name="requestapproval_button" action="requestapproval" tid=".requestapproval" visible="false" />
+        <button name="ok_button" tid="~ok" tolliumresult="ok" />
+        <button name="cancel_button" tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

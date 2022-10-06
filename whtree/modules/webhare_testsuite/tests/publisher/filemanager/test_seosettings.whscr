@@ -35,7 +35,6 @@ ASYNC MACRO TestSeoSettings()
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
   OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := rtdtype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
-  OBJECT headertitlefile := seotestroot->CreateFile([name := "headertitlefile", type := rtdtype->id, publish := TRUE, title := "navtitle headertitlefile" ]);
   OBJECT seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
   OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
@@ -75,7 +74,6 @@ ASYNC MACRO TestSeoSettings()
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
   TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
-  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -85,17 +83,6 @@ ASYNC MACRO TestSeoSettings()
 
   TestEq(TRUE, TT("seotitle", [ findinvisible := TRUE ])->visible);
   TT("seotitle")->value := "The Seo Title";
-  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
-
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
-
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ headertitlefile->whfspath ] ]));
-  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
-
-  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
-  TestEq(TRUE, TT("headertitle", [ findinvisible := TRUE ])->visible);
-  TT("headertitle")->value := "The Heading Title";
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -104,7 +91,6 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
-  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -231,10 +217,10 @@ ASYNC MACRO TestSeoSettings()
   TestEq("Is set", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
-  TestEqStructure([[ seotitle := "The Seo Title", navigationtitle := "navtitle seotitlefile", headertitle := "" ]]
+  TestEqStructure([[ seotitle := "The Seo Title", navigationtitle := "navtitle seotitlefile" ]]
                   , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/seotitlefile"
                   , "*");
-  TestEqStructure([[ seotitle := "", navigationtitle := "navtitle headertitlefile", headertitle := "The Heading Title" ]]
+  TestEqStructure([[ seotitle := "", navigationtitle := "navtitle headertitlefile" ]]
                   , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/headertitlefile"
                   , "*");
   TestEq("> ", SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/noindex/noindexsub/noindexsubfile");
@@ -292,10 +278,6 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, testfw->browser->GotoWebPage(seotitlefile->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
   TestEq("The Seo Title", testfw->browser->document->QuerySelector("title")->textcontent);
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(headertitlefile->link));
-  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
-  TestEq("The Heading Title", testfw->browser->document->QuerySelector("h1")->textcontent);
 }
 
 RunTestframework([ PTR PrepIt

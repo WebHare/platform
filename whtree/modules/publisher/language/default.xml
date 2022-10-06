@@ -51,7 +51,6 @@
       <text tid="canonical">Canonical URL</text>
       <text tid="customrobots">Additional robot tags</text>
       <text tid="customrobots-placeholder">Example: "nosnippet, notranslate" (comma separated).</text>
-      <text tid="headertitle">Header title</text>
       <text tid="navigationtitle">Navigation title</text>
       <text tid="seotitle">SEO title</text>
     </textgroup>
@@ -1389,8 +1388,8 @@
     </textgroup>
   </textgroup>
   <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
-    <text tid="bulkhistory">Bulk history entry</text>
-    <text tid="bulkhistory-descr">This right allows users to enter URL history entries in bulk using an alternative interface.</text>
+    <text tid="advanced">Advanced settings</text>
+    <text tid="advanced-descr">Allow user to modify settings on 'advanced' tabs in Publisher and Form editor</text>
     <text tid="feedbackscopes">Feedback scopes</text>
     <text tid="managefeedback">Manage feedback</text>
     <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
@@ -2235,6 +2234,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="advancedtab">Advanced</text>
         <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
         <text tid="created">(Created <param p="1"/>)</text>
         <text tid="deleted">Deleted</text>
@@ -2266,6 +2266,7 @@
         <text tid="requestapproval">Submit for approval</text>
         <text tid="restrictions">Restrictions</text>
         <text tid="robottags">Robot tags</text>
+        <text tid="seocustomization">SEO customization</text>
         <text tid="seotab">SEO</text>
         <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
         <text tid="tasksettings">Tasks</text>

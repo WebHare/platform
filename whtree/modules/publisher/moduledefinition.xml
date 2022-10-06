@@ -43,6 +43,10 @@
       <impliedby right="system:supervisor"/>
     </right>
 
+    <right name="advanced" rightsgroup="system:fs" tid="rights.advanced" descriptiontid="rights.advanced-descr">
+      <impliedby right="system:supervisor"/>
+    </right>
+
     <objecttype name="feedbackscopes"
                 describer="lib/internal/support.whlib#feedbackscopesdescriber"
                 rightsgroup="system:default"
@@ -74,10 +78,11 @@
     <objecttype name="worklists"
                 table=".worklists"
                 tid="rights.worklists"
+                rightsgroup="system:fs"
                 describer="lib/internal/support.whlib#worklistsdescriber" />
 
-    <right name="worklist_owner" objecttype="worklists" tid="rights.worklist_owner" isrootright="true">
-      <impliedby right="worklist_owner" />
+    <right name="worklist_owner" objecttype="worklists" tid="rights.worklist_owner">
+      <impliedby right="system:sysop" />
     </right>
 
     <right name="worklist_resolve" objecttype="worklists" tid="rights.worklist_resolve">
