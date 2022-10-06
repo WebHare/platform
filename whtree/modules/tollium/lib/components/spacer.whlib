@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 
-PUBLIC OBJECTTYPE TolliumSpacer EXTEND TolliumComponentBase
+PUBLIC STATIC OBJECTTYPE TolliumSpacer EXTEND TolliumComponentBase
 <
   MACRO NEW()
   {

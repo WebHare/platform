@@ -4,6 +4,7 @@
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/components/spacer.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
@@ -558,6 +559,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
       STRING loc := ins."where";
       IF(loc NOT IN ["before","after","atend"])
         THROW NEW TolliumException(this, "Invalid insert location '" || loc || "'");
+
+      IF(positioncomp EXTENDSFROM TolliumSpacer)
+        loc := "before"; //a <spacer> is now the recommended type of insertion point... and using after ensures sequential insertion
 
       IF(loc = "before")
         positioncomp->parent->InsertLinesBefore(ins.lines, positioncomp);

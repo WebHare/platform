@@ -888,6 +888,15 @@
   </contenttype>
 
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="testeditor">
+    <insert position="settings">
+      <text name="text1" title="Text #1" value="Added setting #1"/>
+    </insert>
+    <insert position="settings" where="atend">
+      <text name="text2" title="Text #2" value="Added setting #2"/>
+    </insert>
+    <insert position="settings">
+      <text name="text3" title="Text #3" value="Added setting #3"/>
+    </insert>
     <newtab gid="editors" tid=".betatest">
       <textedit composition="contentdata" cellname="stringtest" />
       <select composition="contentdata" cellname="_whfsarray" type="checkboxlist" height="8x" title="_whfsarray">
