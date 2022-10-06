@@ -62,22 +62,24 @@
         <cell width="1pr" spacers="none">
           <tabs name="maintabs" type="server" height="1pr">
             <tab name="maintab" tid=".maintab">
-              <heading name="maintab_heading" doclink="publisher:objectprops/general" tid=".maintab" />
+              <heading name="maintab_heading" doclink="publisher:objectprops/nametitle" tid=".nametitle" />
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <textedit name="title" width="1pr" maxlength="256" tid="~title" />
-              <heading name="seotab_heading"
-                       doclink="publisher:objectprops/seotab"
-                       tid=".seotab"
-                       title="Search engine optimization (SEO)" />
+              <heading name="seotab_heading" doclink="publisher:objectprops/seo"  />
               <textedit composition="seosettings"
                         cellname="seotitle"
                         name="seotitle"
                         width="1pr"
                         maxlength="256"
+                        placeholdertid=".meta-title-placeholder"
                         showcounter="true"
-                        tid="common.seosettings.seotitle"
-                        title="SEO Descripton" />
-              <textarea name="description" height="3gr" maxlength="2048" showcounter="true" tid="~description" />
+                        tid=".meta-title" />
+              <textarea name="description"
+                        height="3gr"
+                        maxlength="2048"
+                        placeholdertid=".description-placeholder"
+                        showcounter="true"
+                        tid="~description" />
               <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
 
               <!-- link-type specific fields -->
@@ -96,7 +98,7 @@
                 </panel>
                 <panel name="publicationsettings">
                   <heading name="publicationsettings_heading"
-                           doclink="publisher:objectprops/general-publication"
+                           doclink="publisher:objectprops/publicationsettings"
                            tid=".publicationsettings" />
                   <line layout="left">
                     <checkbox name="publish" labeltid=".publish" title="" />
@@ -107,7 +109,7 @@
                 </panel>
               </panel>
               <spacer name="insertpoint_generalsettings" visible="false" />
-              <heading name="typeh" doclink="publisher:objectprops/general-properties" tid=".info" />
+              <heading name="typeh" doclink="publisher:objectprops/properties" tid=".info" />
               <line>
                 <text name="type" />
                 <text name="size" title="" />  <!-- tid=".size" -->
@@ -115,36 +117,6 @@
               <text name="modified" title="" />
               <text name="deleted" tid=".deleted" visible="false" />
               <text name="originallocation" visible="false" />
-            </tab>
-            <tab name="advancedtab">
-              <heading name="seocustomization" doclink="publisher:objectprops/seocustomization" tid=".seocustomization" />
-              <publisher:browseforobject composition="seosettings"
-                                         cellname="canonical"
-                                         name="canonical"
-                                         width="1pr"
-                                         acceptfolders="false"
-                                         tid="common.seosettings.canonical" />
-              <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
-              <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
-              <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
-              <textedit composition="seosettings"
-                        cellname="customrobots"
-                        name="customrobots"
-                        width="1pr"
-                        placeholdertid="common.seosettings.customrobots-placeholder"
-                        tid="common.seosettings.customrobots" />
-              <textarea composition="seosettings"
-                        cellname="comments"
-                        width="1pr"
-                        height="3gr"
-                        placeholdertid=".comments-placeholder"
-                        tid="~comments" />
-              <heading name="restrictions" doclink="publisher:objectprops/general-restrictions" />
-              <line layout="left">
-                <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
-                <text name="objectpinned" title="" visible="false" />
-              </line>
-              <spacer name="insertpoint_advancedsettings" visible="false" />
             </tab>
             <tab name="tasksettings" height="1pr">
               <heading name="tasksettings_heading" doclink="publisher:objectprops/tasks" tid=".tasksettings" />
@@ -181,6 +153,43 @@
             <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
               <heading name="linkcheck_heading" doclink="publisher:objectprops/linkcheck" tid=".linkcheck" />
               <includefragment name="objectreport" fragment="consilio:report.objectreport" />
+            </tab>
+            <tab name="advancedtab">
+              <heading name="advancedsettings" doclink="publisher:objectprops/advanced" />
+              <line layout="left">
+                <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
+                <text name="objectpinned" title="" visible="false" />
+              </line>
+              <heading name="seocustomization" doclink="publisher:objectprops/seocustomization" tid=".seocustomization" />
+              <publisher:browseforobject composition="seosettings"
+                                         cellname="canonical"
+                                         name="canonical"
+                                         width="1pr"
+                                         acceptfolders="false"
+                                         tid="common.seosettings.canonical" />
+              <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
+              <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
+              <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
+              <textedit composition="seosettings"
+                        cellname="customrobots"
+                        name="customrobots"
+                        width="1pr"
+                        placeholdertid="common.seosettings.customrobots-placeholder"
+                        tid="common.seosettings.customrobots" />
+              <spacer name="insertpoint_advancedsettings" visible="false" />
+              <heading doclink="publisher:objectprops/comments" tid=".comments" />
+              <line layout="left">
+                <textarea composition="seosettings"
+                          cellname="comments"
+                          width="1pr"
+                          height="1pr"
+                          minheight="3gr"
+                          errorlabeltid="~comments"
+                          maxlength="4096"
+                          placeholdertid=".comments-placeholder"
+                          showcounter="true"
+                          title="" />
+              </line>
             </tab>
           </tabs>
         </cell>

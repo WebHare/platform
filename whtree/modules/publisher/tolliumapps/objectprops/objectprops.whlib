@@ -1074,7 +1074,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
       this->sp_customfields := this->contexts->applytester->GetCustomFields(this->tolliumuser, this->tolliumuser->language);
       this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
-      this->SetupSiteProfileExtensions(this->startdata.faultypropeditors, /* starttab=*/2);
+      this->SetupSiteProfileExtensions(this->startdata.faultypropeditors);
       IF(this->isnew = FALSE AND this->isinrecyclebin)
         this->MarkSiteProfileExtensionsReadonly();
 
@@ -1215,7 +1215,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
   }
 
-  MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors, INTEGER tab_insert_pos)
+  MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors)
   {
     IF(this->sidetabs)
     {
@@ -1231,6 +1231,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                  , [ name := "seosettings", component := ^insertpoint_generalsettings ]
                                  , [ name := "advancedsettings", component := ^insertpoint_advancedsettings ]
                                  ];
+      ^maintabs->extendposition := 1; //site tabs come after "general"
     }
     ELSE
     {
@@ -1245,8 +1246,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                  , [ name := "seosettings", component := ^seotabinsertpoint ]
                                  , [ name := "advancedsettings", component := ^insertpoint_generalsettings ]
                                  ];
+      ^maintabs->extendposition := 2; //site tabs come after "general" and "seo"
     }
-    ^maintabs->extendposition := tab_insert_pos;
 
     IF (ObjectExists(this->webcontext))
     {
@@ -2357,6 +2358,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     ELSE
     {
       ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
+      ^seocustomization->visible := this->basesettings.seotab;
+      ^canonical->visible := this->basesettings.seotab;
+      ^noindex->visible := this->basesettings.seotab;
+      ^nofollow->visible := this->basesettings.seotab;
+      ^noarchive->visible := this->basesettings.seotab;
+      ^customrobots->visible := this->basesettings.seotab;
     }
 
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
