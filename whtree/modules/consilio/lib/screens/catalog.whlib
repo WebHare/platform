@@ -503,10 +503,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     work->Cancel();
 
     RETURN rows;
-
-
-    //IF (connectionfailed) //FIXME there may be multiple indexmanagers ?, and make a yellow bar out of this. Or just show me the status per index manager
-    //  this->RunSimpleScreen("error", GetTid("consilio:catalog.messages.indexmanagerconnectionfailed"));
   }
 >;
 
@@ -1089,12 +1085,6 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
     {
       IF (value = "")
         RETURN RECORD[];
-
-      // Replace leading and trailing "..." with ellipsis characters in the summary
-      IF (UCLeft(value, 3) = "...")
-        value := "…" || UCRight(value, UCLength(value) - 3);
-      IF (UCRight(value, 3) = "...")
-        value := UCLeft(value, UCLength(value) - 3) || "…";
     }
     ELSE IF (field.name = "GROUPID")
     {
