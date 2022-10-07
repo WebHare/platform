@@ -1,18 +1,12 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
 LOADLIB "mod::system/lib/screenbase.whlib";
-LOADLIB "mod::system/lib/internal/modules/json.whlib";
-
-LOADLIB "mod::tollium/lib/dialogs.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
-
 
 PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 <
@@ -20,6 +14,7 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 
   MACRO Init(RECORD data)
   {
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
                             ORDER BY ToUppercase(name);
@@ -28,7 +23,10 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
   {
     this->RefreshIndices();
   }
-
+  MACRO DoManageMgrs()
+  {
+    this->RunScreen(Resolve("managemanagers.xml"));
+  }
   MACRO OnIndexManagerChange()
   {
     this->RefreshIndices();
@@ -84,4 +82,3 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
     RETURN 0;
   }
 >;
-

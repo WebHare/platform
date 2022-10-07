@@ -1,13 +1,12 @@
 <?wh
 
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
-
-LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 CONSTANT STRING
     default_watermark_low := "85%",

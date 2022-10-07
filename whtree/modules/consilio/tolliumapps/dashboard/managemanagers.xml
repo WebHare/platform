@@ -1,4 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="indexmanagers.whlib" gid="tolliumapps.indexmanagers">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.managemanagers" library="managemanagers.whlib">
 
   <screen name="indexmanagers" width="120x">
     <body>
@@ -41,5 +41,5 @@
       <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
-</screens>
 
+</screens>
