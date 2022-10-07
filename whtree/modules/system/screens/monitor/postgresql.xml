@@ -152,7 +152,7 @@
       <action name="schedulecleanup" onexecute="DoScheduleCleanup" />
     </actions>
 
-    <body spacers="all">
+    <body>
       <heading tid=".unreferencedblobsheading" />
       <textedit name="unreferencedblobs" readonly="true" valuetype="integer" />
       <datetime name="unreferencednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />

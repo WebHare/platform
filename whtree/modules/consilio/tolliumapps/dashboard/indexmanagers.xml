@@ -12,7 +12,7 @@
       </action>
     </actions>
 
-    <body spacers="all">
+    <body>
       <select name="indexmanager" type="pulldown" onchange="onindexmanagerchange" />
       <grid height="1pr">
         <cell width="1pr">
