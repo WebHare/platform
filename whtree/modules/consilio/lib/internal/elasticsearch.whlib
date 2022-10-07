@@ -169,6 +169,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
 {
   options := ValidateOptions( [ ndjson := FALSE
                               , timeout := ToUppercase(method) IN ["HEAD","GET"] ? opensearch_read_timeout : opensearch_write_timeout
+                              , firstconnect_timeout := opensearch_firstconnect_timeout
                               , enforce := ""
                               , expectstatus := [ 200 ]
                               , explain := FALSE
@@ -185,7 +186,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
   }
 
-  WaitForElasticsearch(indexmgrid, AddTimeToDate(opensearch_firstconnect_timeout, GetCurrentDateTime()));
+  WaitForElasticsearch(indexmgrid, AddTimeToDate(options.firstconnect_timeout, GetCurrentDateTime()));
 
   INTEGER statuscode;
   RECORD indexmanager;
@@ -329,12 +330,14 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
 
 PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ timeout := opensearch_read_timeout ], options);
+  options := ValidateOptions([ timeout := opensearch_read_timeout
+                             , firstconnect_timeout := opensearch_read_timeout //let's not be too patient
+                             ], options);
   STRING command := "/_cluster/settings?flat_settings=true";
   IF (include_defaults)
     command := command || "&include_defaults=true";
 
-  RECORD settings := SendRawJSONToElasticsearch(indexmgrid, "GET", command, DEFAULT RECORD);
+  RECORD settings := SendRawJSONToElasticsearch(indexmgrid, "GET", command, CELL[ options.timeout, options.firstconnect_timeout ]);
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 

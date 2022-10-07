@@ -15,7 +15,7 @@
 
     <body>
       <line>
-        <select name="indexmanager" type="pulldown" onchange="onindexmanagerchange" />
+        <select name="indexmanager" type="pulldown" />
         <button action="managemanagers" />
       </line>
       <grid height="1pr">

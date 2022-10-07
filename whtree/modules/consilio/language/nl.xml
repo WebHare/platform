@@ -381,8 +381,10 @@
         <text tid="getmapping">Mappings</text>
         <text tid="indexmanager">OpenSearch server</text>
         <text tid="managemanagers">Beheer indexmanagers</text>
+        <text tid="noindices">Geen indices</text>
         <text tid="size">Grootte</text>
         <text tid="title">Index managers</text>
+        <text tid="waitingforstatus">Wacht op indexlijst…</text>
       </textgroup>
       <textgroup gid="managemanagers">   <!-- tolliumapps.dashboard.managemanagers -->
         <text tid="address">Adres</text>
@@ -392,6 +394,7 @@
         <text tid="editindexmanager">Index manager</text>
         <text tid="indexmanagers">Beheer index managers</text>
         <text tid="name">Naam</text>
+        <text tid="runtimesettings">Instellingen</text>
         <text tid="threshold_enabled">Controle schijfgebruik actief</text>
         <text tid="watermark_flood">Alleen-lezen-modus</text>
         <text tid="watermark_high">Erg weinig schijfruimte</text>

@@ -381,8 +381,10 @@
         <text tid="getmapping">Mappings</text>
         <text tid="indexmanager">OpenSearch server</text>
         <text tid="managemanagers">Manage index managers</text>
+        <text tid="noindices">No indices</text>
         <text tid="size">Size</text>
         <text tid="title">Index managers</text>
+        <text tid="waitingforstatus">Waiting for index list…</text>
       </textgroup>
       <textgroup gid="managemanagers">   <!-- tolliumapps.dashboard.managemanagers -->
         <text tid="address">Address</text>
@@ -392,6 +394,7 @@
         <text tid="editindexmanager">Index manager</text>
         <text tid="indexmanagers">Manage index managers</text>
         <text tid="name">Name</text>
+        <text tid="runtimesettings">Run-time settings</text>
         <text tid="threshold_enabled">Disk usage checks enabled</text>
         <text tid="watermark_flood">Read-only mode</text>
         <text tid="watermark_high">Very low disk space</text>

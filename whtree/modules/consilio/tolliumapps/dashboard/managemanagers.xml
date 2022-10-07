@@ -19,6 +19,11 @@
     <body>
       <textedit composition="indexmgr" cellname="name" required="true" />
       <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
+    </body>
+  </screen>
+
+  <screen name="runtimesettings" footerbuttons="ok cancel">
+    <body>
       <heading name="threshold_enabled" checkbox="true" enablecomponents="watermark_low watermark_high watermark_flood" />
       <textedit name="watermark_low" width="10x" />
       <textedit name="watermark_high" width="10x" />
