@@ -17,7 +17,7 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
 
       <split type="horizontal">
         <part width="1pr" spacers="right">

@@ -33,7 +33,7 @@
       <eventlistener name="listener" masks="system:managedtasks.any.*" onevents="onmanagedtaskevent" groupinterval="250"/>
     </compositions>
 
-    <body height="1pr">
+    <body spacers="none">
       <grid height="1pr">
         <col width="1pr" />
         <col />
@@ -51,7 +51,7 @@
                     height="1pr"
                     sortascending="false"
                     flags="canreschedule hasfailed"
-                    borders="right bottom"
+                    borders="right"
                     >
                 <column type="datetime" name="creationdate" storeutc="true" width="18x" precision="seconds" />
                 <column type="text"     name="tasktype" />

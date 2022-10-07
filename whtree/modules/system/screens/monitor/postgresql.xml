@@ -20,7 +20,7 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <split type="vertical">
         <part height="2pr">
           <list name="transactions"
@@ -92,7 +92,7 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <split type="vertical">
         <part height="2pr">
           <list name="blockedlocks"
@@ -152,26 +152,24 @@
       <action name="schedulecleanup" onexecute="DoScheduleCleanup" />
     </actions>
 
-    <body height="1pr" spacers="all">
-      <panel spacers="all">
-        <heading tid=".unreferencedblobsheading" />
-        <textedit name="unreferencedblobs" readonly="true" valuetype="integer" />
-        <datetime name="unreferencednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
-        <heading tid=".unlinkedblobsheading" />
-        <textedit name="unlinkedblobparts" readonly="true" valuetype="integer" />
-        <datetime name="unlinkednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
-        <heading tid=".blobcleanup" />
-        <text name="cleanupstatus" readonly="true" />
-        <line layout="left">
-          <button action="schedulecleanup" />
-        </line>
-      </panel>
+    <body spacers="all">
+      <heading tid=".unreferencedblobsheading" />
+      <textedit name="unreferencedblobs" readonly="true" valuetype="integer" />
+      <datetime name="unreferencednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+      <heading tid=".unlinkedblobsheading" />
+      <textedit name="unlinkedblobparts" readonly="true" valuetype="integer" />
+      <datetime name="unlinkednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+      <heading tid=".blobcleanup" />
+      <text name="cleanupstatus" readonly="true" />
+      <line layout="left">
+        <button action="schedulecleanup" />
+      </line>
     </body>
   </screen>
 
   <screen name="postgresqlsettings" gid=".postgresql" title="">
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <panel spacers="all">
         <heading tid="~settings" />
         <checkbox name="readonly" title="" labeltid=".readonly" enabled="false"/>

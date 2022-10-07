@@ -12,16 +12,16 @@
     <compositions>
       <eventlistener name="consiliolistener" onevents="onconsilioevents" />
     </compositions>
-    <body>
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="top">
+          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="right">
             <column name="when" type="datetime" storeutc="true" width="15x" />
             <column name="catalog" type="text" width="20x" />
             <column name="query" type="text" width="1pr" />
           </list>
         </cell>
-        <cell>
+        <cell spacers="top right">
           <button action="openquery" />
           <button action="clearqueries" />
         </cell>

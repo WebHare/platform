@@ -19,7 +19,7 @@
       </menu>
     </menus>
 
-    <body>
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
           <list name="services"

@@ -54,7 +54,7 @@
 
     <compositions />
 
-    <body>
+    <body spacers="none">
       <panel spacers="all">
         <line>
           <select name="linkedtotype" type="pulldown" onchange="onlinkedtotypechange">

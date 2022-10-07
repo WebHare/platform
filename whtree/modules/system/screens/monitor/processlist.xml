@@ -136,7 +136,7 @@
       <eventlistener name="prefslistener" onevents="onprefschange" />
     </compositions>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <tabs height="1pr">
         <tab name="running" spacers="left right bottom">
           <checkbox name="hidetolliuminternals" title="" labeltid=".hidetolliuminternals" />

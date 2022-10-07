@@ -8,10 +8,10 @@
         <enableon source="cacheentries" min="1" onexecute="ondelete"/>
       </action>
     </actions>
-    <body height="1pr">
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="cacheentries" ongetrows="ongetcacheentries" height="1pr" borders="top right bottom" selectmode="multiple" eventmasks="system:precalccache.updated">
+          <list name="cacheentries" ongetrows="ongetcacheentries" height="1pr" borders="right" selectmode="multiple" eventmasks="system:precalccache.updated">
             <column name="rowkey" type="integer" tid=".id" width="10x"/>
             <column name="hash" type="text" width="34x" />
             <column name="func" type="text" />

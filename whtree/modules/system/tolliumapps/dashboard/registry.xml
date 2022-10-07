@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.registry" library="registry.whlib">
 
-  <screen name="registrypanel" allowresize="true" footerbuttons="close" title="">
+  <screen name="registrypanel" title="">
     <actions>
       <action name="editkey" onexecute="doeditkey">
         <enableon source="registry" min="1" max="1" />
@@ -22,7 +22,7 @@
       <eventlistener masks="system:registry.*" onevents="onevents" />
     </compositions>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <panel spacers="all">
         <textedit name="filter" width="1pr" onchange="RefreshDashboardPanel" tid="common.filter" trimwhitespace="false" />
       </panel>
@@ -39,7 +39,7 @@
             <column name="modificationdate" type="datetime" width="20x" storeutc="true" tid="common.modificationdate" />
           </list>
         </cell>
-        <cell>
+        <cell spacers="left right">
           <button width="1pr" action="editkey" />
           <button width="1pr" action="delete" />
         </cell>

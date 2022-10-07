@@ -22,6 +22,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   RECORD ARRAY allgroups;
   RECORD ARRAY allpanels;
+  RECORD originalspacers;
 
   MACRO NEW()
   {
@@ -38,6 +39,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
+    this->originalspacers := ^currentmonitor->spacers;
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->frame->flags.refreshcontents := FALSE;
@@ -110,6 +112,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF(ObjectExists(^currentmonitor->contents))
         ^currentmonitor->contents->DisableRefresh();
       ^currentmonitor->contents := DEFAULT OBJECT;
+      ^currentmonitor->spacers := this->originalspacers;
     }
     ELSE
     {
@@ -132,6 +135,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF (ObjectExists(sel.panel))
       {
         ^currentmonitor->contents := sel.panel;
+        ^currentmonitor->spacers := sel.panel->frame->bodynode->spacers;
         ^currentmonitor->contents->EnableRefresh();
         ^currentmonitor->contents->RefreshDashboardPanel();
       }

@@ -27,7 +27,7 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <split type="vertical">
         <part height="3pr">
           <grid height="1pr">

@@ -22,10 +22,10 @@
       </menu>
     </menus>
 
-    <body>
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <panel backgroundcolor="#f0f0f0" borders="top right" spacers="right">
+          <panel backgroundcolor="#f0f0f0" borders="right" spacers="right">
             <line layout="tabs-space">
               <spacer />
               <textedit name="filter" onchange="gotfilterchange" />

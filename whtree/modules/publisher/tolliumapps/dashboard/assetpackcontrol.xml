@@ -30,7 +30,7 @@
       <eventlistener name="configlistener" masks="system:registry.publisher.bundledassets" onevents="onconfigevent" />
     </compositions>
 
-    <body>
+    <body spacers="none">
       <split type="vertical">
         <part height="2pr">
           <grid height="1pr">

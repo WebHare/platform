@@ -3,7 +3,7 @@
          gid="monitor">
 
   <screen name="queues" gid=".queues" title="">
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <panel spacers="left">
         <heading tid=".workers"/>
       </panel>

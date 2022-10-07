@@ -18,7 +18,7 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body spacers="none">
       <split type="vertical">
         <part height="3pr">
           <split type="horizontal">
@@ -66,7 +66,7 @@
                 emptytid=".nostacktrace"
                 selectmode="single"
                 sortable="false"
-                borders="top bottom"
+                borders="top "
                 openaction="opentracerow"
                 >
             <column name="filename" type="text" />
