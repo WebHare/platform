@@ -2237,11 +2237,11 @@
         <text tid="advancedsettings">Advanced settings</text>
         <text tid="advancedtab">Advanced</text>
         <text tid="comments">Internal comments</text>
-        <text tid="comments-placeholder">Leave your internal comments about the settings on this page. These will not be published.</text>
+        <text tid="comments-placeholder">Leave your internal comments about the settings for this object. These will not be published.</text>
         <text tid="created">(Created <param p="1"/>)</text>
         <text tid="deleted">Deleted</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
-        <text tid="description-placeholder">Excerpt intended for (among other) search results.</text>
+        <text tid="description-placeholder">Excerpt intended for search results, among other things.</text>
         <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
         <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
         <text tid="editsite-title">Settings for site '<param p="1"/>'</text>

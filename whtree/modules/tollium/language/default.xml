@@ -72,9 +72,6 @@
       <text tid="yes">Yes</text>
       <text tid="yestoall">Yes to all</text>
     </textgroup>
-    <textgroup gid="buttons">   <!-- common.buttons -->
-      <text tid="close">Close</text>
-    </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="databasereadonly">The database is currently read-only and changes cannot be made. Please try again later.</text>
       <text tid="field_required">Field '<param p="1"/>' is a required field</text>

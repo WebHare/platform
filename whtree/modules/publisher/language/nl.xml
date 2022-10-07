@@ -2236,7 +2236,7 @@
         <text tid="advancedsettings">Geavanceerde instellingen</text>
         <text tid="advancedtab">Geavanceerd</text>
         <text tid="comments">Interne opmerkingen</text>
-        <text tid="comments-placeholder">Interne opmerkingen over de gekozen instellingen. Deze zullen niet gepubliceerd worden.</text>
+        <text tid="comments-placeholder">Interne opmerkingen over de instellingen voor dit object. Deze zullen niet gepubliceerd worden.</text>
         <text tid="created">(Aangemaakt <param p="1"/>)</text>
         <text tid="deleted">Verwijderd</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
@@ -2273,7 +2273,7 @@
         <text tid="robottags">Robot-tags</text>
         <text tid="seocustomization">SEO detailinstellingen</text>
         <text tid="seotab">SEO</text>
-        <text tid="seotab_heading">SEO / Meta tags</text>
+        <text tid="seotab_heading">SEO / Meta-tags</text>
         <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
         <text tid="tasksettings">Taken</text>
         <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
