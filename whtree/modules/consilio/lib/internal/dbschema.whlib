@@ -77,9 +77,7 @@ PUBLIC SCHEMA
     < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "address"
-    , BOOLEAN "secure"
-    , BOOLEAN "enablestemming"
-    , INTEGER "loglevel"
+    , STRING "configuration"
     ; KEY id
     > indexmanagers
   , TABLE

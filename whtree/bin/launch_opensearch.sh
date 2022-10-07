@@ -28,7 +28,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
 fi
 
-if [ -x  /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86
+if [ -x /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86
   OPENSEARCHBINARY=/usr/local/opt/opensearch/bin/opensearch
 elif [ -x /opt/opensearch/bin/opensearch ]; then  #linux docker build
   OPENSEARCHBINARY=/opt/opensearch/bin/opensearch
@@ -40,18 +40,15 @@ else
   OPENSEARCHBINARY=opensearch #assume path lookup will find it
 fi
 
-INITIALMEMORY=$(wh registry get consilio.builtinelasticsearch.initialmemorypool)
-if [ "$INITIALMEMORY" == "0" ]; then
-  INITIALMEMORY=300
+INITIALMEMORY="$1"
+MAXIMUMMEMORY="$2"
+
+if [ -z "$MAXIMUMMEMORY" ]; then
+  echo "No configuration parameters received"
+  exit 1
 fi
 
-MAXIMUMMEMORY=$(wh registry get consilio.builtinelasticsearch.maximummemorypool)
-if [ "$MAXIMUMMEMORY" == "0" ]; then
-  MAXIMUMMEMORY=2000
-fi
-
-#Workaround JDK 18 requiring this option for opensearch right now..
-export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
+export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
