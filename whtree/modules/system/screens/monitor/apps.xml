@@ -26,13 +26,13 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <split type="horizontal" height="1pr">
         <part width="2pr" spacers="none">
           <panel height="1pr">
             <list name="runningapps"
                   gid=".runningapps"
-                  borders="top  bottom"
+                  borders="none"
                   selectmode="single"
                   onselect="refreshappuserslist"
                   selectcontextmenu="appcontextmenu"
@@ -51,7 +51,7 @@
           <panel height="1pr">
             <list name="appusers"
                   gid=".appusers"
-                  borders="top right bottom"
+                  borders="top"
                   selectmode="multiple"
                   selectcontextmenu="userscontextmenu"
                   >

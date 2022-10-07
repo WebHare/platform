@@ -25,7 +25,7 @@
     <compositions>
       <eventlistener name="listener" masks="system:internal.apprunner.refresh" onevents="onapprunnerrefreshevent" />
     </compositions>
-    <body layout="form" height="1pr">
+    <body layout="form" height="1pr" spacers="none">
       <grid height="1pr">
         <col width="1pr" />
         <col />
@@ -46,7 +46,7 @@
               <column name="lasterror" type="text" />
             </list>
           </cell>
-          <cell spacers="left right">
+          <cell spacers="left right top">
             <button width="1pr" action="enable" />
             <button width="1pr" action="disable" />
             <button width="1pr" action="restart" />

@@ -40,7 +40,7 @@
       <eventlistener name="listener" masks="system:managedtasks.system:outgoingmail.*" onevents="onmanagedtaskevent" />
     </compositions>
 
-    <body height="1pr">
+    <body spacers="none">
       <grid height="1pr">
         <col width="1pr" />
         <col />
@@ -50,7 +50,7 @@
               <list name="mailqueue"
                     width="1pr"
                     height="1pr"
-                    borders="right bottom"
+                    borders="right"
                     flags="isfinished hasresult"
                     icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available"
                     newcontextmenu="queue_menu"

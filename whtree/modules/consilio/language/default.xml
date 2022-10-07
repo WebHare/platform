@@ -222,19 +222,21 @@
       </textgroup>
     </textgroup>
   </textgroup>
-  <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="catalog">Catalog</text>
-      <text tid="enableintercept">Enable</text>
-      <text tid="openquery">Open</text>
-      <text tid="query">Query</text>
-      <text tid="title">Consilio queries</text>
-      <text tid="when">Date</text>
+  <textgroup gid="module">   <!-- module -->
+    <text tid="name">Consilio</text>
+    <textgroup gid="notifications">   <!-- module.notifications -->
+      <text tid="catalog_uptodate">Consilio Catalog <ifparam p="1" value="2">Rebuilt<else/>Updated</ifparam></text>
+      <text tid="catalog_uptodate-desc">The catalog '<param p="1"/>' has been <ifparam p="2" value="2">rebuilt<else/>updated</ifparam></text>
     </textgroup>
-  </textgroup>
-  <textgroup gid="notifications">   <!-- notifications -->
-    <text tid="catalog_uptodate">Consilio Catalog <ifparam p="1" value="2">Rebuilt<else/>Updated</ifparam></text>
-    <text tid="catalog_uptodate-desc">The catalog '<param p="1"/>' has been <ifparam p="2" value="2">rebuilt<else/>updated</ifparam></text>
+    <textgroup gid="rights">   <!-- module.rights -->
+      <text tid="catalogs">Catalogs</text>
+      <text tid="manage">Manage catalogs</text>
+      <text tid="manage_descr">Edit catalogs and content sources</text>
+      <text tid="metadata">Edit catalog properties</text>
+      <text tid="metadata_descr">View catalogs (but not content sources) and edit catalog properties</text>
+      <text tid="read">View catalogs</text>
+      <text tid="read_descr">View and preview catalogs, but not content sources</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
     <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
@@ -358,15 +360,6 @@
       <text tid="when">When</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="rights">   <!-- rights -->
-    <text tid="catalogs">Catalogs</text>
-    <text tid="manage">Manage catalogs</text>
-    <text tid="manage_descr">Edit catalogs and content sources</text>
-    <text tid="metadata">Edit catalog properties</text>
-    <text tid="metadata_descr">View catalogs (but not content sources) and edit catalog properties</text>
-    <text tid="read">View catalogs</text>
-    <text tid="read_descr">View and preview catalogs, but not content sources</text>
-  </textgroup>
   <textgroup gid="searcherrors">   <!-- searcherrors -->
     <text tid="connecterror">Could not connect to the search engine</text>
     <text tid="error">An unknown error occurred</text>
@@ -381,15 +374,24 @@
     <text tid="unavailable">The requested catalog is not available at the moment</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
-    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
-      <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
-      <text tid="docs">Documents</text>
-      <text tid="esmgr">ElasticSearch manager</text>
-      <text tid="getmapping">Mappings</text>
-      <text tid="indexmanager">Elasticsearch server</text>
-      <text tid="inspectquery">Inspect query</text>
-      <text tid="runquery">Run query</text>
-      <text tid="size">Size</text>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="indexmanagers">   <!-- tolliumapps.dashboard.indexmanagers -->
+        <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
+        <text tid="docs">Documents</text>
+        <text tid="getmapping">Mappings</text>
+        <text tid="indexmanager">OpenSearch server</text>
+        <text tid="size">Size</text>
+        <text tid="title">Index managers</text>
+      </textgroup>
+      <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
+        <text tid="catalog">Catalog</text>
+        <text tid="indexmanager">Index manager</text>
+        <text tid="inspectquery">Inspect query</text>
+        <text tid="query">Query</text>
+        <text tid="runquery">Run query</text>
+        <text tid="title">Queries</text>
+        <text tid="when">Date</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
       <text tid="address">Address</text>

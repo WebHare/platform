@@ -5,7 +5,6 @@
   <screen name="webserverscripts" title=""
           tid=".title"
           gid=".manager"
-          allowresize="true"
           >
     <actions gid=".actions">
       <action name="details" onexecute="dodetails"  shortcut="enter">
@@ -24,7 +23,7 @@
     <compositions>
       <eventlistener name="listener" masks="system:internal.scriptmanager.statechange" onevents="onscriptevent" />
     </compositions>
-    <body layout="form" height="1pr">
+    <body layout="form" height="1pr" spacers="none">
       <split type="vertical">
         <part height="2pr">
           <grid height="1pr">
@@ -47,7 +46,7 @@
                   <column name="lasterror" type="text" />
                 </list>
               </cell>
-              <cell>
+              <cell spacers="left top right">
                 <button action="details" />
                 <button action="terminate" />
               </cell>

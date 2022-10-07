@@ -6,7 +6,7 @@
     <actions>
       <action name="runlogsscreen" onexecute="dorunlogsscreen" />
     </actions>
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <grid width="1pr">
         <col width="1pr"/>
         <col/>
@@ -14,7 +14,7 @@
           <cell spacers="left">
             <heading name="errorlogbox" tid=".errorlogbox" title="" />
           </cell>
-          <cell>
+          <cell spacers="right">
             <button action="runlogsscreen" />
           </cell>
         </row>
@@ -28,7 +28,7 @@
         <column name="date"    type="text" width="30x" />
         <column name="message" type="text" />
       </list>
-      <panel spacers="left">
+      <panel spacers="left right">
         <heading name="servicemanagerlogbox"/>
       </panel>
       <list name="servicemanagerlog"

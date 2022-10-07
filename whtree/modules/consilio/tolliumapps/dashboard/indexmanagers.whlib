@@ -7,13 +7,14 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
+LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/modules/json.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 <
   INTEGER freshcallback;
 
@@ -22,8 +23,12 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
                             ORDER BY ToUppercase(name);
+  }
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
     this->RefreshIndices();
   }
+
   MACRO OnIndexManagerChange()
   {
     this->RefreshIndices();

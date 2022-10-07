@@ -1,30 +1,29 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.elasticesearch" library="elasticsearch.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="queries.whlib"
+         gid="tolliumapps.dashboard.queries">
 
-  <screen name="esmgr" allowresize="true" savestate="size">
+  <screen name="queries" title="">
     <actions>
-      <action name="getmapping" onexecute="dogetmapping">
-        <enableon source="indices" min="1" max="1" />
+      <action name="openquery" onexecute="doopenquery" tid="~open">
+        <enableon source="queries" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="~delete">
-        <enableon source="indices" min="1" />
-      </action>
+      <action name="clearqueries" onexecute="doclearqueries" tid="~clear" />
     </actions>
-
-    <body>
-      <select name="indexmanager" type="pulldown" onchange="onindexmanagerchange" />
+    <compositions>
+      <eventlistener name="consiliolistener" onevents="onconsilioevents" />
+    </compositions>
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
-          <list name="indices" selectmode="multiple">
-            <column name="name" iconname="health" type="text" width="1pr" tid="~name" />
-            <column name="docs" type="integer" width="12x" align="right" />
-            <column name="size" type="integer64" width="16x" align="right" />
+          <list name="queries" height="1pr" selectmode="single" openaction="openquery" borders="right">
+            <column name="when" type="datetime" storeutc="true" width="15x" />
+            <column name="catalog" type="text" width="20x" />
+            <column name="query" type="text" width="1pr" />
           </list>
         </cell>
-        <cell>
-          <button action="getmapping" />
-          <spacer height="1gr" />
-          <button action="delete" />
+        <cell spacers="top right">
+          <button action="openquery" />
+          <button action="clearqueries" />
         </cell>
       </grid>
     </body>

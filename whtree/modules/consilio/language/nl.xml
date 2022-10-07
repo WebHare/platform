@@ -222,19 +222,21 @@
       </textgroup>
     </textgroup>
   </textgroup>
-  <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="catalog">Catalogus</text>
-      <text tid="enableintercept">Aanzetten</text>
-      <text tid="openquery">Openen</text>
-      <text tid="query">Aanvraag</text>
-      <text tid="title">Consilio queries</text>
-      <text tid="when">Datum</text>
+  <textgroup gid="module">   <!-- module -->
+    <text tid="name">Consilio</text>
+    <textgroup gid="notifications">   <!-- module.notifications -->
+      <text tid="catalog_uptodate">Consilio catalogus <ifparam p="1" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
+      <text tid="catalog_uptodate-desc">De catalogus '<param p="1"/>' is <ifparam p="2" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
     </textgroup>
-  </textgroup>
-  <textgroup gid="notifications">   <!-- notifications -->
-    <text tid="catalog_uptodate">Consilio catalogus <ifparam p="1" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
-    <text tid="catalog_uptodate-desc">De catalogus '<param p="1"/>' is <ifparam p="2" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
+    <textgroup gid="rights">   <!-- module.rights -->
+      <text tid="catalogs">Catalogi</text>
+      <text tid="manage">Catalogi beheren</text>
+      <text tid="manage_descr">Catalogi en contentbronnen bewerken</text>
+      <text tid="metadata">Cataloguseigenschappen bewerken</text>
+      <text tid="metadata_descr">Catalogi (maar niet contentbronnen) bekijken en cataloguseigenschappen bewerken</text>
+      <text tid="read">Catalogi bekijken</text>
+      <text tid="read_descr">Catalogi, maar geen contentbronnen, en voorbeeld bekijken</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
     <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
@@ -358,15 +360,6 @@
       <text tid="when">Wanneer</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="rights">   <!-- rights -->
-    <text tid="catalogs">Catalogi</text>
-    <text tid="manage">Catalogi beheren</text>
-    <text tid="manage_descr">Catalogi en contentbronnen bewerken</text>
-    <text tid="metadata">Cataloguseigenschappen bewerken</text>
-    <text tid="metadata_descr">Catalogi (maar niet contentbronnen) bekijken en cataloguseigenschappen bewerken</text>
-    <text tid="read">Catalogi bekijken</text>
-    <text tid="read_descr">Catalogi, maar geen contentbronnen, en voorbeeld bekijken</text>
-  </textgroup>
   <textgroup gid="searcherrors">   <!-- searcherrors -->
     <text tid="connecterror">Er kon geen verbinding worden gemaakt met de zoekmachine</text>
     <text tid="error">Er is een onbekende fout opgetreden</text>
@@ -381,15 +374,24 @@
     <text tid="unavailable">De gevraagde catalogus is op het moment niet beschikbaar</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
-    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
-      <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
-      <text tid="docs">Documenten</text>
-      <text tid="esmgr">ElasticSearch beheer</text>
-      <text tid="getmapping">Mappings</text>
-      <text tid="indexmanager">Elasticsearch server</text>
-      <text tid="inspectquery">Inspecteer query</text>
-      <text tid="runquery">Voer query uit</text>
-      <text tid="size">Grootte</text>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="indexmanagers">   <!-- tolliumapps.dashboard.indexmanagers -->
+        <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
+        <text tid="docs">Documenten</text>
+        <text tid="getmapping">Mappings</text>
+        <text tid="indexmanager">OpenSearch server</text>
+        <text tid="size">Grootte</text>
+        <text tid="title">Index managers</text>
+      </textgroup>
+      <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
+        <text tid="catalog">Catalogus</text>
+        <text tid="indexmanager">Index manager</text>
+        <text tid="inspectquery">Inspecteer query</text>
+        <text tid="query">Aanvraag</text>
+        <text tid="runquery">Voer query uit</text>
+        <text tid="title">Zoekopdrachten</text>
+        <text tid="when">Datum</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
       <text tid="address">Adres</text>

@@ -11,7 +11,7 @@
     <compositions>
       <eventlistener masks="system:registry.system.logging.rpc" onevents="gotregistryevents" />
     </compositions>
-    <body height="1pr">
+    <body height="1pr" spacers="none">
       <grid height="1pr" width="80x">
         <col width="1pr"/>
         <col/>
@@ -28,7 +28,7 @@
               <column name="until" type="text" iconname="untilicon" />
             </list>
           </cell>
-          <cell>
+          <cell spacers="left top">
             <button action="properties" />
           </cell>
         </row>

@@ -3,7 +3,7 @@
          library="systemnews.whlib"
          gid="tolliumapps.dashboard.systemnews">
 
-  <screen name="overview" width="120x" height="30x" allowresize="true" savestate="position size" icon="tollium:applications/systemnews" title="">
+  <screen name="overview" title="">
     <actions>
       <action name="add" onexecute="doadd" tid="tollium:common.actions.add" shortcut="ctrl+n"/>
       <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit" shortcut="enter">
@@ -27,7 +27,7 @@
       <button action="edit" icon="tollium:actions/edit"/>
       <button action="delete" icon="tollium:actions/delete"/>
     </toolbar>
-    <body>
+    <body spacers="none">
       <grid height="1pr">
         <cell width="1pr">
           <list name="newslist"

@@ -19,11 +19,11 @@
       </menu>
     </menus>
 
-    <body height="1pr">
+    <body spacers="none">
       <split type="vertical">
         <part height="1pr">
           <list name="tasks"
-                borders="top right"
+                borders="none"
                 flags="isenabled"
                 openaction="taskproperties"
                 selectcontextmenu="taskmenu"
