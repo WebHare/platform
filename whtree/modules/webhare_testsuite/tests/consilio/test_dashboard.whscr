@@ -17,6 +17,12 @@ ASYNC MACRO TestDashboardApp()
   //Lets at least ensure the screen loads
   TT("monitorpanels")->selection := queriesentry;
 
+  //Let's go to index managers!
+  RECORD indexmanagersentry := SELECT * FROM TT("monitorpanels")->rows WHERE ToUppercase(title) = "INDEX MANAGERS";
+  TestAssert(RecordExists(indexmanagersentry));
+
+  TT("monitorpanels")->selection := indexmanagersentry;
+
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }
 

@@ -238,12 +238,6 @@
       <text tid="read_descr">View and preview catalogs, but not content sources</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="enableintercept">Enable</text>
-      <text tid="openquery">Open</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
     <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
       <text tid="words">Additional keywords</text>
@@ -381,6 +375,14 @@
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="indexmanagers">   <!-- tolliumapps.dashboard.indexmanagers -->
+        <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
+        <text tid="docs">Documents</text>
+        <text tid="getmapping">Mappings</text>
+        <text tid="indexmanager">OpenSearch server</text>
+        <text tid="size">Size</text>
+        <text tid="title">Index managers</text>
+      </textgroup>
       <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
         <text tid="catalog">Catalog</text>
         <text tid="indexmanager">Index manager</text>
@@ -390,16 +392,6 @@
         <text tid="title">Queries</text>
         <text tid="when">Date</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
-      <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
-      <text tid="docs">Documents</text>
-      <text tid="esmgr">ElasticSearch manager</text>
-      <text tid="getmapping">Mappings</text>
-      <text tid="indexmanager">Elasticsearch server</text>
-      <text tid="inspectquery">Inspect query</text>
-      <text tid="runquery">Run query</text>
-      <text tid="size">Size</text>
     </textgroup>
     <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
       <text tid="address">Address</text>

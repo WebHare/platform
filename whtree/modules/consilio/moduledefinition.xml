@@ -91,15 +91,12 @@
       </accesscheck>
     </application>
 
-    <!-- elastic search mgr. under development so not in the menus yet -->
-    <application name="esmgr" icon="consilio:consilio" screen="tolliumapps/elasticsearch.xml#esmgr">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
-    </application>
-
     <dashboardgroup name="consilio" orderafter="system:ap system:tasks" tid="module.name" />
 
+    <dashboardpanel name="indexmanagers"
+                    group="consilio"
+                    screen="tolliumapps/dashboard/indexmanagers.xml"
+                    tid="tolliumapps.dashboard.indexmanagers.title" />
     <dashboardpanel name="queries"
                     group="consilio"
                     screen="tolliumapps/dashboard/queries.xml"

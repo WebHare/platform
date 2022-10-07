@@ -238,12 +238,6 @@
       <text tid="read_descr">Catalogi, maar geen contentbronnen, en voorbeeld bekijken</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="enableintercept">Aanzetten</text>
-      <text tid="openquery">Openen</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
     <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
       <text tid="words">Aanvullende sleutelwoorden</text>
@@ -381,6 +375,14 @@
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="indexmanagers">   <!-- tolliumapps.dashboard.indexmanagers -->
+        <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
+        <text tid="docs">Documenten</text>
+        <text tid="getmapping">Mappings</text>
+        <text tid="indexmanager">OpenSearch server</text>
+        <text tid="size">Grootte</text>
+        <text tid="title">Index managers</text>
+      </textgroup>
       <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
         <text tid="catalog">Catalogus</text>
         <text tid="indexmanager">Index manager</text>
@@ -390,16 +392,6 @@
         <text tid="title">Zoekopdrachten</text>
         <text tid="when">Datum</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
-      <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
-      <text tid="docs">Documenten</text>
-      <text tid="esmgr">ElasticSearch beheer</text>
-      <text tid="getmapping">Mappings</text>
-      <text tid="indexmanager">Elasticsearch server</text>
-      <text tid="inspectquery">Inspecteer query</text>
-      <text tid="runquery">Voer query uit</text>
-      <text tid="size">Grootte</text>
     </textgroup>
     <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
       <text tid="address">Adres</text>
