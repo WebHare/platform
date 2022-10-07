@@ -390,8 +390,6 @@
         <text tid="cannotretrievesettings">Kan huidige instellingen niet ophalen:<br/><param p="1"/></text>
         <text tid="confirmdeleteindexmanager">Weet u zeker dat de u de geselecteerde indexmanager wil verwijderen?</text>
         <text tid="editindexmanager">Index manager</text>
-        <text tid="elasticsearch">Elasticsearch</text>
-        <text tid="general">Algemeen</text>
         <text tid="indexmanagers">Beheer index managers</text>
         <text tid="name">Naam</text>
         <text tid="threshold_enabled">Controle schijfgebruik actief</text>

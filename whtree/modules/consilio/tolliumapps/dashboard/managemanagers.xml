@@ -1,45 +1,29 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.managemanagers" library="managemanagers.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.dashboard.managemanagers"
+         library="managemanagers.whlib">
 
-  <screen name="indexmanagers" width="120x">
+  <screen name="indexmanagers" width="120x" footerbuttons="close">
     <body>
-      <listedit name="mgrs" ongetrows="ongetmgrs" onrowedit="oneditmgr" onrowdelete="ondeletemgr" minwidth="50x" minheight="8gr">
+      <listedit name="mgrs" height="1pr" ongetrows="ongetmgrs" onrowdelete="ondeletemgr" onrowedit="oneditmgr">
         <column name="name" type="text" width="1pr" />
         <column name="address" type="text" width="2pr" />
       </listedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="editindexmanager">
+  <screen name="editindexmanager" footerbuttons="ok cancel">
     <compositions>
       <record name="indexmgr" />
     </compositions>
-    <body spacers="none">
-      <tabs name="settings">
-        <tab tid=".general" spacers="top left right bottom">
-          <textedit composition="indexmgr" cellname="name" required="true" />
-          <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
-        </tab>
-        <tab tid=".elasticsearch" spacers="top left right bottom">
-          <line layout="left">
-            <checkbox
-                name="threshold_enabled"
-                title=""
-                labeltid=".threshold_enabled"
-                value="true"
-                enablecomponents="watermark_low watermark_high watermark_flood" />
-          </line>
-          <textedit name="watermark_low" width="10x" />
-          <textedit name="watermark_high" width="10x" />
-          <textedit name="watermark_flood" width="10x" />
-        </tab>
-      </tabs>
+
+    <body>
+      <textedit composition="indexmgr" cellname="name" required="true" />
+      <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
+      <heading name="threshold_enabled" checkbox="true" enablecomponents="watermark_low watermark_high watermark_flood" />
+      <textedit name="watermark_low" width="10x" />
+      <textedit name="watermark_high" width="10x" />
+      <textedit name="watermark_flood" width="10x" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

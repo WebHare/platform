@@ -390,8 +390,6 @@
         <text tid="cannotretrievesettings">Cannot retrieve current settings:<br/><param p="1"/></text>
         <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
         <text tid="editindexmanager">Index manager</text>
-        <text tid="elasticsearch">Elasticsearch</text>
-        <text tid="general">General</text>
         <text tid="indexmanagers">Manage index managers</text>
         <text tid="name">Name</text>
         <text tid="threshold_enabled">Disk usage checks enabled</text>
