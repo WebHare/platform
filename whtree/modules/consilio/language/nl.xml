@@ -62,7 +62,9 @@
       <text tid="url">URL</text>
     </textgroup>
     <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
+      <text tid="arrayvalue">Array, <param p="1"/> <ifparam p="1" value="1">onderdeel<else/>onderdelen</ifparam></text>
       <text tid="otherfields">Geïndexeerde velden</text>
+      <text tid="recordvalue">Record, <param p="1"/> veld<ifparam p="1" value="1"><else/>en</ifparam></text>
       <text tid="resultfields">Gegenereerde resultaatvelden</text>
       <text tid="showempty">Toon lege velden</text>
       <text tid="title">Resultaat bekijken</text>

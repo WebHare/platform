@@ -62,7 +62,9 @@
       <text tid="url">URL</text>
     </textgroup>
     <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
+      <text tid="arrayvalue">Array, <param p="1"/> item<ifparam p="1" value="1"><else/>s</ifparam></text>
       <text tid="otherfields">Indexed fields</text>
+      <text tid="recordvalue">Record, <param p="1"/> cell<ifparam p="1" value="1"><else/>s</ifparam></text>
       <text tid="resultfields">Generated result fields</text>
       <text tid="showempty">Show empty fields</text>
       <text tid="title">View result</text>

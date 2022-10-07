@@ -33,7 +33,7 @@ INTEGER maxfieldlength := 80;
 INTEGER searchlimit := 100;
 
 // Fields that are not indexed, but do get returned with search results
-STRING ARRAY resultfieldnames := [ "ID", "_SCORE", "_SUMMARY" ];
+STRING ARRAY resultfieldnames := [ "id", "_score", "_summary" ];
 
 CONSTANT RECORD baserow := [ catalog := FALSE
                            , standardcatalog := FALSE
@@ -999,140 +999,176 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
 <
-  OBJECT ARRAY emptyfields;
+  RECORD ARRAY allfieldrows;
 
   MACRO Init(RECORD result)
   {
-    RECORD ARRAY otherlines;
-    RECORD ARRAY resultlines;
+    RECORD ARRAY allfieldrows;
+    RECORD ARRAY allresultrows;
 
     // Show all Consilio fields
     FOREVERY (RECORD field FROM SELECT * FROM UnpackRecord(result) ORDER BY name)
     {
-      STRING fieldname := field.name;
-      STRING fieldvalue;
-      SWITCH (TypeID(field.value))
-      {
-        CASE TypeID(INTEGER), TypeID(INTEGER64)
-        {
-          fieldvalue := ToString(field.value);
-        }
-        CASE TypeID(DATETIME)
-        {
-          fieldvalue := field.value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(field.value, "milliseconds", FALSE, TRUE) || " UTC (" || FormatISO8601DateTime(field.value) || ")" : "";
-        }
-        CASE TypeID(MONEY)
-        {
-          fieldvalue := this->tolliumuser->FormatMoney(field.value, 5, FALSE);
-        }
-        CASE TypeID(FLOAT)
-        {
-          fieldvalue := this->tolliumuser->FormatFloat(field.value, -1);
-        }
-        CASE TypeID(STRING)
-        {
-          fieldvalue := field.value;
-        }
-        CASE TypeID(BOOLEAN)
-        {
-          fieldvalue := field.value ? "true" : "false";
-        }
-        DEFAULT
-        {
-          fieldvalue := EncodeJSON(field.value);
-        }
-      }
-      STRING fieldhint;
-      FUNCTION PTR fieldlink;
-
-      IF (fieldname = "SUMMARY")
-      {
-        IF (fieldvalue = "")
-          CONTINUE;
-
-        // Replace leading and trailing "..." with ellipsis characters in the summary
-        IF (UCLeft(fieldvalue, 3) = "...")
-          fieldvalue := "&#8230;" || UCRight(fieldvalue, UCLength(fieldvalue) - 3);
-        IF (UCRight(fieldvalue, 3) = "...")
-          fieldvalue := UCLeft(fieldvalue, UCLength(fieldvalue) - 3) || "&#8230;";
-      }
-      ELSE IF (fieldname = "GROUPID")
-      {
-        // If the groupid value is a positive integer, it is a WebHare file id, link it to the publisher
-        INTEGER groupid := ToInteger(fieldvalue, 0);
-        IF (groupid > 0)
-          fieldlink := PTR RunPublisherFileManager(this, groupid);
-      }
-      ELSE IF (fieldname = "SIZE")
-      {
-        // If the field name is "size", assume the value contains a number of bytes, format it
-        fieldvalue := this->tolliumuser->FormatFileSize(ToInteger(fieldvalue, 0), 2, TRUE);
-      }
-      ELSE IF (fieldvalue LIKE "http://*" OR fieldvalue LIKE "https://*")
-      {
-        // If the field value contains a URL, make it clickable
-        fieldlink := PTR this->frame->OpenBrowserWindow(fieldvalue, "WebHareConsilioPreview");
-      }
-
-      // Create a new text component and add it to the appropriate fields group
-      OBJECT text := this->CreateTolliumComponent("text");
-      text->selectable := TRUE;
-
-      IF (fieldname IN resultfieldnames)
-        INSERT [ items := [ text ], layout := "form" ] INTO resultlines AT END;
+      RECORD ARRAY fieldrows := this->GenerateFieldRows(field, 0);
+      IF (NOT RecordExists(fieldrows))
+        CONTINUE;
+      IF (fieldrows[0].name IN resultfieldnames)
+        allresultrows := allresultrows CONCAT fieldrows;
       ELSE
-        INSERT [ items := [ text ], layout := "form" ] INTO otherlines AT END;
-
-      // If maximum field value length is exceeded, truncate url's and word-wrap other fields
-      IF (UCLength(fieldvalue) > maxfieldlength)
-      {
-        IF (fieldlink != DEFAULT FUNCTION PTR)
-        {
-          fieldhint := fieldvalue;
-          INTEGER numchars := (maxfieldlength - 3) / 2;
-          fieldvalue := UCLeft(fieldvalue, numchars) || "..." || UCRight(fieldvalue, numchars);
-        }
-        ELSE
-        {
-          text->width := "1pr";
-          text->wordwrap := TRUE;
-        }
-      }
-
-      text->title := ToLowercase(fieldname);
-      IF(IsDefaultValue(field.value))
-        INSERT text INTO this->emptyfields AT END;
-      ELSE
-        text->htmlvalue := '<span>' || this->HighlightSearchWords(EncodeHTML(fieldvalue)) || '</span>';
-      text->hint := fieldhint;
-      IF (fieldlink != DEFAULT FUNCTION PTR)
-      {
-        OBJECT action := this->CreateTolliumComponent("action");
-        action->onexecute := fieldlink;
-        text->action := action;
-      }
+        allfieldrows := allfieldrows CONCAT fieldrows;
     }
 
-    this->^otherfields->visible := Length(otherlines) > 0;
-    this->^body->InsertLinesAfter(otherlines, this->^otherfields);
-    this->^resultfields->visible := Length(resultlines) > 0;
-    this->^body->InsertLinesAfter(resultlines, this->^resultfields);
+    IF (Length(allfieldrows) > 0)
+    {
+      BOOLEAN isempty := NOT RecordExists(SELECT FROM allfieldrows WHERE NOT COLUMN isempty);
+      this->allfieldrows := this->allfieldrows CONCAT
+          [ CELL[ name := "", collapsedvalue := "", value := "", link := "", isempty ]
+          , CELL[ name := this->GetTid(".otherfields"), collapsedvalue := "", value := "", link := "", isempty, style := "heading" ]
+          , ...allfieldrows
+          ];
+    }
+    IF (Length(allresultrows) > 0)
+    {
+      BOOLEAN isempty := NOT RecordExists(SELECT FROM allresultrows WHERE NOT COLUMN isempty);
+      this->allfieldrows := this->allfieldrows CONCAT
+          [ CELL[ name := "", collapsedvalue := "", value := "", link := "", isempty ]
+          , CELL[ name := this->GetTid(".resultfields"), collapsedvalue := "", value := "", link := "", isempty, style := "heading" ]
+          , ...allresultrows
+          ];
+    }
+    IF (RecordExists(this->allfieldrows))
+      DELETE FROM this->allfieldrows AT 0;
+    this->allfieldrows := SELECT *, rowkey := #allfieldrows + 1 FROM this->allfieldrows;
 
     this->OnShowEmptyChange();
   }
 
-  STRING FUNCTION HighlightSearchWords(STRING text)
+  RECORD ARRAY FUNCTION GenerateFieldRows(RECORD field, INTEGER level)
   {
-    text := Substitute(text, "\x1D", '<b>');
-    text := Substitute(text, "\x1C", '</b>');
+    STRING value;
+    STRING collapsedvalue;
+    RECORD ARRAY subnodes;
+    IF (TypeID(field.value) = TypeID(RECORD))
+    {
+      RECORD ARRAY subfields := UnpackRecord(field.value);
+      value := this->GetTid(".recordvalue", ToString(Length(subfields)));
+      FOREVERY (RECORD subfield FROM subfields)
+        subnodes := subnodes CONCAT this->GenerateFieldRows(subfield, level + 1);
+    }
+    ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+    {
+      value := this->GetTid(".arrayvalue", ToString(Length(field.value)));
+      FOREVERY (RECORD subvalue FROM field.value)
+        subnodes := subnodes CONCAT this->GenerateFieldRows(subvalue, level + 1);
+    }
+    ELSE IF (IsTypeIDArray(TypeID(field.value)))
+    {
+      value := this->GetTid(".arrayvalue", ToString(Length(field.value)));
+      subnodes :=
+          SELECT TEMPORARY formattedvalue := this->FormatFieldValue(subvalue)
+               , name := `#${#subvalues}`
+               , collapsedvalue := ""
+               , value := formattedvalue
+               , link := formattedvalue LIKE "http://*" OR formattedvalue LIKE "https://*" ? formattedvalue : ""
+               , isempty := FALSE
+               , level := level + 1
+            FROM ToRecordArray(field.value, "subvalue") AS subvalues;
+      collapsedvalue := value;
+      IF (Length(field.value) > 0 AND TypeID(field.value) != TypeID(RECORD ARRAY))
+      {
+        collapsedvalue := collapsedvalue || ": " || Detokenize((SELECT AS STRING ARRAY COLUMN value FROM subnodes WHERE #subnodes < 5), "; ");
+        IF (Length(subnodes) > 5)
+          collapsedvalue := collapsedvalue || ", …";
+      }
+    }
+    ELSE
+      value := this->FormatFieldValue(field.value);
+
+    STRING link;
+    IF (field.name = "SUMMARY")
+    {
+      IF (value = "")
+        RETURN RECORD[];
+
+      // Replace leading and trailing "..." with ellipsis characters in the summary
+      IF (UCLeft(value, 3) = "...")
+        value := "…" || UCRight(value, UCLength(value) - 3);
+      IF (UCRight(value, 3) = "...")
+        value := UCLeft(value, UCLength(value) - 3) || "…";
+    }
+    ELSE IF (field.name = "GROUPID")
+    {
+      // If the groupid value is a positive integer, it is a WebHare file id, link it to the publisher
+      // INTEGER groupid := ToInteger(value, 0);
+      // IF (groupid > 0)
+      //   link := PTR RunPublisherFileManager(this, groupid);
+    }
+    ELSE IF (field.name = "SIZE" AND CanCastTypeTo(TypeID(field.value), TypeID(INTEGER64)))
+    {
+      // If the field name is "size", assume the value contains a number of bytes, format it
+      value := this->tolliumuser->FormatFileSize(field.value, 2, TRUE);
+    }
+    ELSE IF (value LIKE "http://*" OR value LIKE "https://*")
+    {
+      // If the field value contains a URL, make it clickable
+      link := value;
+    }
+
+    RETURN [ CELL
+        [ name := ToLowercase(field.name)
+        , collapsedvalue := collapsedvalue ?? value
+        , value
+        , link
+        , isempty := IsDefaultValue(field.value) OR (RecordExists(subnodes) AND NOT RecordExists(SELECT FROM subnodes WHERE NOT isempty))
+        , expandable := RecordExists(subnodes)
+        , expanded := TypeID(field.value) = TypeID(RECORD) AND RecordExists(subnodes)
+        , level
+        ] ] CONCAT subnodes;
+  }
+
+  STRING FUNCTION FormatFieldValue(VARIANT value)
+  {
+    SWITCH (TypeID(value))
+    {
+      CASE TypeID(INTEGER), TypeID(INTEGER64)
+      {
+        RETURN ToString(value);
+      }
+      CASE TypeID(DATETIME)
+      {
+        RETURN value != DEFAULT DATETIME ? this->tolliumuser->FormatDateTime(value, "milliseconds", FALSE, TRUE) || " UTC" : "";
+      }
+      CASE TypeID(MONEY)
+      {
+        RETURN this->tolliumuser->FormatMoney(value, 5, FALSE);
+      }
+      CASE TypeID(FLOAT)
+      {
+        RETURN this->tolliumuser->FormatFloat(value, -1);
+      }
+      CASE TypeID(STRING)
+      {
+        RETURN value;
+      }
+      CASE TypeID(BOOLEAN)
+      {
+        RETURN value ? "true" : "false";
+      }
+    }
+    RETURN EncodeJSON(value);
+  }
+
+  STRING FUNCTION RemoveHighlighting(STRING text)
+  {
+    text := Substitute(text, "\x1D", '');
+    text := Substitute(text, "\x1C", '');
 
     RETURN text;
   }
 
   MACRO OnShowEmptyChange()
   {
-    FOREVERY(OBJECT field FROM this->emptyfields)
-      field->visible := this->^showempty->value;
+    ^fields->rows := SELECT * FROM this->allfieldrows WHERE this->^showempty->value OR NOT isempty;
   }
 >;
 

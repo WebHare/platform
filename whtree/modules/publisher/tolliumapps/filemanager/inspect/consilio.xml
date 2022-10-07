@@ -31,9 +31,7 @@
           <grid height="1pr">
             <cell width="1pr">
               <select name="subfile" type="pulldown" onchange="onsubfilechange" />
-              <panel borders="top bottom left right" width="1pr" height="1pr">
-                <iframe height="1pr" width="1pr" name="subfilecontent"></iframe>
-              </panel>
+              <richarea name="subfilecontent" width="1pr" height="1pr" readonly="true" />
             </cell>
             <cell>
               <button width="1pr" action="reindex" />
