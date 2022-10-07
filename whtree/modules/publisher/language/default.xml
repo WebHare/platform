@@ -393,57 +393,57 @@
         <text tid="zoomresethint">Actual size</text>
         <textgroup gid="actions">   <!-- filemanager.main.app.actions -->
           <text tid="baseorderingon">Base on</text>
-          <text tid="contentlinkto">Copy as Content Link to</text>
+          <text tid="contentlinkto">Copy as content Link to</text>
           <text tid="converttofolder">Revert to folder</text>
-          <text tid="converttosite">Convert to Website</text>
+          <text tid="converttosite">Convert to website</text>
           <text tid="createarchive">Create archive</text>
-          <text tid="ctypes">Manage Content Types</text>
+          <text tid="ctypes">Manage content types</text>
           <text tid="download">Download</text>
           <text tid="duplicate">Duplicate</text>
-          <text tid="duplicatesite">Duplicate Site</text>
-          <text tid="editfileorfoldertype">Edit Type</text>
-          <text tid="editsite">Site Settings</text>
-          <text tid="emptytrash">Empty Trash</text>
-          <text tid="emptytrash_menuaction">Empty Trash</text>
+          <text tid="duplicatesite">Duplicate site</text>
+          <text tid="editfileorfoldertype">Edit type</text>
+          <text tid="editsite">Site settings</text>
+          <text tid="emptytrash">Empty trash</text>
+          <text tid="emptytrash_menuaction">Empty trash</text>
           <text tid="exportseoreport">SEO settings report</text>
           <text tid="extract">Extract</text>
           <text tid="gotoanything">Go to site or URL</text>
-          <text tid="gotoid">Object With ID</text>
-          <text tid="gotopath">Object With Path</text>
+          <text tid="gotoid">Object with ID</text>
+          <text tid="gotopath">Object with path</text>
           <text tid="gotorepository">Repository</text>
           <text tid="gotoroot">Publisher root</text>
           <text tid="gotosite">Website</text>
           <text tid="gototrash">Trash</text>
           <text tid="gotourl">URL</text>
           <text tid="goup">Up</text>
-          <text tid="hidefoldertree">Hide Folder Tree</text>
+          <text tid="hidefoldertree">Hide folder tree</text>
           <text tid="history">History</text>
-          <text tid="internallinkto">Copy as Internal Link to</text>
+          <text tid="internallinkto">Copy as internal link to</text>
           <text tid="linkcheck">Link check</text>
           <text tid="managefoldersync">Manage synchronized folders</text>
-          <text tid="managerights">Manage Rights</text>
+          <text tid="managerights">Manage rights</text>
           <text tid="managewhfsregister">Manage WHFS register</text>
           <text tid="movedown">Move down</text>
           <text tid="movetobottom">Move to bottom</text>
           <text tid="movetotop">Move to top</text>
           <text tid="moveup">Move up</text>
-          <text tid="newfile">New File</text>
-          <text tid="newfilefromcontext">New Empty File</text>
-          <text tid="newfolder">New Folder</text>
-          <text tid="newfolderfromcontext">New Folder</text>
-          <text tid="newinstance">Open in new Tab</text>
+          <text tid="newfile">New file</text>
+          <text tid="newfilefromcontext">New empty file</text>
+          <text tid="newfolder">New folder</text>
+          <text tid="newfolderfromcontext">New dolder</text>
+          <text tid="newinstance">Open in new tab</text>
           <text tid="objecthistory">History</text>
           <text tid="openeditinseparatetab">Open editor in separate tab</text>
           <text tid="openineditor">Open editor</text>
           <text tid="openinoffice">Open in MS Office</text>
           <text tid="openinseparatetab">Open in separate tab</text>
-          <text tid="ordering">Set Up Ordering</text>
+          <text tid="ordering">Set up ordering</text>
           <text tid="outputslaves">Secondary outputs</text>
           <text tid="pinitems">Protect</text>
-          <text tid="previewrefresh">Refresh Preview</text>
-          <text tid="previewresetzoom">Reset Zoom Level</text>
-          <text tid="previewzoomin">Zoom In</text>
-          <text tid="previewzoomout">Zoom Out</text>
+          <text tid="previewrefresh">Refresh preview</text>
+          <text tid="previewresetzoom">Reset zoom level</text>
+          <text tid="previewzoomin">Zoom in</text>
+          <text tid="previewzoomout">Zoom out</text>
           <text tid="previewzoomreset">Reset zoom level</text>
           <text tid="queries">Search queries</text>
           <text tid="replace">Replace</text>
@@ -451,33 +451,33 @@
           <text tid="reportsitesummary">Site summary</text>
           <text tid="repubfile">Republish</text>
           <text tid="repubfolder">Selected folders (not including subfolders)</text>
-          <text tid="repubfolderrecurse">Selected Files and Folders (including Subfolders)</text>
-          <text tid="republish_nonrecursive">Selected Files and Folders (excluding Subfolders)</text>
-          <text tid="republish_recursive">Selected Files and Folders (including subfolders)</text>
+          <text tid="repubfolderrecurse">Selected files and folders (including subfolders)</text>
+          <text tid="republish_nonrecursive">Selected files and folders (excluding subfolders)</text>
+          <text tid="republish_recursive">Selected files and folders (including subfolders)</text>
           <text tid="repubmask">Using a wildcard mask</text>
-          <text tid="repubsite">Current Site</text>
-          <text tid="repubsiteall">Current Site including files without template</text>
-          <text tid="resetordering">Reset Ordering</text>
+          <text tid="repubsite">Current site</text>
+          <text tid="repubsiteall">Current site including files without template</text>
+          <text tid="resetordering">Reset ordering</text>
           <text tid="resetprops">Cancel</text>
           <text tid="restore">Restore</text>
           <text tid="reveal">Reveal in Finder</text>
           <text tid="reverseordering">Reverse ordering</text>
           <text tid="saveprops">Save</text>
           <text tid="setdebugsettings">Set website debug settings</text>
-          <text tid="setfilelistmulti">Multiple Line Layout</text>
-          <text tid="setfilelistsingle">Single Row Layout</text>
+          <text tid="setfilelistmulti">Multiple line layout</text>
+          <text tid="setfilelistsingle">Single row layout</text>
           <text tid="setorderingby">Quick ordering</text>
-          <text tid="showfoldertree">Show Folder Tree</text>
+          <text tid="showfoldertree">Show folder tree</text>
           <text tid="showmodifications">Show modifications</text>
           <text tid="siteproperties">Website settings</text>
           <text tid="syncfolder">Synchronize folder</text>
-          <text tid="togglefoldertree">Folder Tree</text>
+          <text tid="togglefoldertree">Folder tree</text>
           <text tid="toggleordering">Toggle ordering</text>
           <text tid="togglepreview">Show preview</text>
-          <text tid="unpinitems">Remove Protection</text>
+          <text tid="unpinitems">Remove protection</text>
           <text tid="upload">Upload</text>
           <text tid="viewbrowser">View</text>
-          <text tid="viewbrowserlive">View Published version in browser</text>
+          <text tid="viewbrowserlive">View published version in browser</text>
         </textgroup>
         <textgroup gid="copymove">   <!-- filemanager.main.app.copymove -->
           <text tid="contentlinkdescr">Choose the folder you want to create the content links in:</text>
@@ -499,14 +499,14 @@
           <text tid="developersmenu">Developers</text>
           <text tid="download">Download</text>
           <text tid="duplicate">Duplicate</text>
-          <text tid="goto">Go To</text>
-          <text tid="goup">Parent Folder</text>
+          <text tid="goto">Go to</text>
+          <text tid="goup">Parent folder</text>
           <text tid="issues">Issues</text>
           <text tid="linkcheck">Link check</text>
           <text tid="modified">Modified date</text>
           <text tid="name">Filename</text>
           <text tid="new">New</text>
-          <text tid="newfile">Empty File</text>
+          <text tid="newfile">Empty file</text>
           <text tid="newfolder">Folder</text>
           <text tid="newsite">Website</text>
           <text tid="ordering">Change order</text>
@@ -514,7 +514,7 @@
           <text tid="queries">Search queries</text>
           <text tid="replace">Replace</text>
           <text tid="report">Report</text>
-          <text tid="repubfile">Selected Files</text>
+          <text tid="repubfile">Selected files</text>
           <text tid="republish">Republish</text>
           <text tid="showmodifications">Modifications</text>
           <text tid="siteproperties">Website settings</text>
@@ -523,10 +523,10 @@
           <text tid="title">Title</text>
           <text tid="toolsmenu">Tools</text>
           <text tid="upload">Upload</text>
-          <text tid="urlhistory">URL History</text>
+          <text tid="urlhistory">URL history</text>
           <text tid="utilitiesmenu">Tools</text>
           <text tid="versioningmenu">Blit</text>
-          <text tid="viewbrowser">View In Browser</text>
+          <text tid="viewbrowser">View in browser</text>
         </textgroup>
         <textgroup gid="messageboxes">   <!-- filemanager.main.app.messageboxes -->
           <text tid="remainingpublishtime">Remaining time until publication: <param p="1"/></text>
@@ -1087,18 +1087,18 @@
     <text tid="filemanager">Publisher</text>
     <text tid="filemanager_folder"><param p="1"/> - Publisher</text>
     <textgroup gid="actions">   <!-- main.actions -->
-      <text tid="assignsiteprofiles">Assign Site Profiles</text>
+      <text tid="assignsiteprofiles">Assign site profiles</text>
       <text tid="contentlinkto">Create content links in</text>
       <text tid="converttofolder">Revert to folder</text>
       <text tid="converttosite">Convert to site</text>
       <text tid="createarchive">Archive this folder</text>
       <text tid="ctypes">Manage content types</text>
       <text tid="download">Download</text>
-      <text tid="duplicatesite">Duplicate Site</text>
-      <text tid="editfileorfoldertype">Edit Type</text>
-      <text tid="editsite">Site Settings</text>
-      <text tid="emptytrash">Empty Trash</text>
-      <text tid="emptytrash_menuaction">Empty Trash</text>
+      <text tid="duplicatesite">Duplicate site</text>
+      <text tid="editfileorfoldertype">Edit type</text>
+      <text tid="editsite">Site settings</text>
+      <text tid="emptytrash">Empty trash</text>
+      <text tid="emptytrash_menuaction">Empty trash</text>
       <text tid="extract">Extract</text>
       <text tid="gotoid">Object With ID</text>
       <text tid="gotorepository">Repository</text>
@@ -1162,7 +1162,7 @@
       <text tid="repubfile">Selected Files</text>
       <text tid="republish">Republish</text>
       <text tid="showmodifications">Modifications</text>
-      <text tid="upload">Upload from Computer</text>
+      <text tid="upload">Upload from computer</text>
       <text tid="viewbrowser">View In Browser</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- main.messageboxes -->
@@ -2234,11 +2234,14 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="advancedsettings">Advanced settings</text>
         <text tid="advancedtab">Advanced</text>
-        <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
+        <text tid="comments">Internal comments</text>
+        <text tid="comments-placeholder">Leave your internal comments about the settings for this object. These will not be published.</text>
         <text tid="created">(Created <param p="1"/>)</text>
         <text tid="deleted">Deleted</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
+        <text tid="description-placeholder">Excerpt intended for search results, among other things.</text>
         <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
         <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
         <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
@@ -2246,11 +2249,14 @@
         <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
         <text tid="info">Properties</text>
         <text tid="link">Link</text>
-        <text tid="linkcheck">Link Check</text>
+        <text tid="linkcheck">Link check</text>
         <text tid="maintab">General</text>
         <text tid="makeindex">Use this file as the index document for this folder</text>
+        <text tid="meta-title">Meta title</text>
+        <text tid="meta-title-placeholder">Overwrite title used in search results/browser title</text>
         <text tid="modified">Modified</text>
         <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
+        <text tid="nametitle">Name and title</text>
         <text tid="newfile-name">New <param p="1"/></text>
         <text tid="newfile-title">New file</text>
         <text tid="newfolder-title">New folder</text>
@@ -2268,6 +2274,7 @@
         <text tid="robottags">Robot tags</text>
         <text tid="seocustomization">SEO customization</text>
         <text tid="seotab">SEO</text>
+        <text tid="seotab_heading">SEO / Meta tags</text>
         <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
         <text tid="tasksettings">Tasks</text>
         <text tid="trashnotpublished">Deleted files cannot be published</text>

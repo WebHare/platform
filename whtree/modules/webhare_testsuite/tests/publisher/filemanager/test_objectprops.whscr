@@ -44,6 +44,19 @@ ASYNC MACRO ObjectProps()
     OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
     TestEq(1, Length(arrayedit->value));
 
+    //Verify that Text 1 appears *before* Text 2 (inserts targetting a spacer should always be 'after') and Text 2 *before* Text 3 (atend converted to after)
+    OBJECT t1 := TT(":Text #1");
+    OBJECT t2 := TT(":Text #2");
+    OBJECT t3 := TT(":Text #3");
+    TestEq(t2->parent, t1->parent);
+    TestEq(t3->parent, t1->parent);
+
+    INTEGER t1_position := SearchElement(t1->parent->GetChildComponents(), t1);
+    INTEGER t2_position := SearchElement(t2->parent->GetChildComponents(), t2);
+    INTEGER t3_position := SearchElement(t3->parent->GetChildComponents(), t3);
+    TestAssert(t1_position < t2_position, "T1 should appear before T2");
+    TestAssert(t2_position < t3_position, "T2 should appear before T3");
+
     AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
     TT("textcell")->value := "New row";
     INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";

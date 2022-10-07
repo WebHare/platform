@@ -523,7 +523,7 @@
           <text tid="title">Titel</text>
           <text tid="toolsmenu">Extras</text>
           <text tid="upload">Uploaden</text>
-          <text tid="urlhistory">URL Geschiedenis</text>
+          <text tid="urlhistory">URL-geschiedenis</text>
           <text tid="utilitiesmenu">Hulpmiddelen</text>
           <text tid="versioningmenu">Blit</text>
           <text tid="viewbrowser">Bekijken in browser</text>
@@ -2233,11 +2233,14 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="advancedsettings">Geavanceerde instellingen</text>
         <text tid="advancedtab">Geavanceerd</text>
-        <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
+        <text tid="comments">Interne opmerkingen</text>
+        <text tid="comments-placeholder">Interne opmerkingen over de instellingen voor dit object. Deze zullen niet gepubliceerd worden.</text>
         <text tid="created">(Aangemaakt <param p="1"/>)</text>
         <text tid="deleted">Verwijderd</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
+        <text tid="description-placeholder">Samenvattende beschrijving voor onder andere zoekresultaten.</text>
         <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
         <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
         <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
@@ -2248,8 +2251,11 @@
         <text tid="linkcheck">Linkcontrole</text>
         <text tid="maintab">Algemeen</text>
         <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
+        <text tid="meta-title">Meta titel</text>
+        <text tid="meta-title-placeholder">Overwrite title used in search results/browser title</text>
         <text tid="modified">Gewijzigd</text>
         <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
+        <text tid="nametitle">Naam en titel</text>
         <text tid="newfile-name">Nieuw <param p="1"/></text>
         <text tid="newfile-title">Nieuw bestand</text>
         <text tid="newfolder-title">Nieuwe map</text>
@@ -2267,6 +2273,7 @@
         <text tid="robottags">Robot-tags</text>
         <text tid="seocustomization">SEO detailinstellingen</text>
         <text tid="seotab">SEO</text>
+        <text tid="seotab_heading">SEO / Meta-tags</text>
         <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
         <text tid="tasksettings">Taken</text>
         <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
