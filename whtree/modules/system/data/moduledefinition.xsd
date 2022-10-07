@@ -824,11 +824,7 @@
                 </xs:documentation>
               </xs:annotation>
             </xs:attribute>
-            <xs:attribute name="openmultipleinstances" type="xs:boolean">
-              <xs:annotation>
-                <xs:documentation>Allow multiple instances to be opened</xs:documentation>
-              </xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="openmultipleinstances" type="xs:boolean" /> <!-- deprecated, ignored since 5.01 -->
             <xs:attribute name="isdeveloperapp" type="xs:boolean">
               <xs:annotation>
                 <xs:documentation>This application should only be offered to developers</xs:documentation>

@@ -26,7 +26,6 @@ RECORD FUNCTION GetCacheableAllApplications()
                          , title
                          , icon
                          , appgroup
-                         , openmultipleinstances
                          , apprec := apps
                          , shortcut
                       FROM mod.portal.applications AS apps;

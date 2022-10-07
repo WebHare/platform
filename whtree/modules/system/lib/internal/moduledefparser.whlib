@@ -930,7 +930,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                                , description :=    this->ParseXMLTidTitle(subchild, "description", subchildgid)
                                , appgroup :=       ParseXMLModuleNamed(modulename, subchild, "group")
                                , icon :=           ParseXMLModuleNamed(modulename, subchild, "icon")
-                               , openmultipleinstances := ParseXSBoolean(subchild->GetAttribute("openmultipleinstances"))
                                , iswindowopen :=   subchild->localname = "linkapp"
                                , ismanual :=       subchild->localname = "manualapp"
                                , isdeveloperapp := ParseXSBoolean(subchild->GetAttribute("isdeveloperapp"))
