@@ -91,7 +91,7 @@
   </rights>
 
   <portal>
-    <application name="app" group="system:cms" screen="/tolliumapps/filemanager/main.xml" tid="filemanager.main.app.apptitle" icon="tollium:filemgr/mydocuments" openmultipleinstances="true" shortcut="ctrl+shift+p" allowuntrustedparams="true">
+    <application name="app" group="system:cms" screen="/tolliumapps/filemanager/main.xml" tid="filemanager.main.app.apptitle" icon="tollium:filemgr/mydocuments" shortcut="ctrl+shift+p" allowuntrustedparams="true">
       <accesscheck combine="or">
         <requireright right="system:fs_browse"/>
         <requireright right="worklist_resolve"/>
