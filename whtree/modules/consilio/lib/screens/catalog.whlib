@@ -228,9 +228,9 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
   MACRO DoRestart()
   {
-    IF (this->RunMessageBox(".confirmrestart") = "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmrestart")) = "yes")
       IF (NOT __ConsilioRestartQueueManager())
-        this->RunMessageBox(".sendingcommandfailed");
+        this->RunSimpleScreen("warning", GetTid("consilio:catalog.messages.sendingcommandfailed"));
   }
 
   MACRO DoAddContentSource()
@@ -506,7 +506,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
 
     //IF (connectionfailed) //FIXME there may be multiple indexmanagers ?, and make a yellow bar out of this. Or just show me the status per index manager
-    //  this->RunMessageBox(".indexmanagerconnectionfailed");
+    //  this->RunSimpleScreen("error", GetTid("consilio:catalog.messages.indexmanagerconnectionfailed"));
   }
 >;
 
@@ -568,7 +568,7 @@ PUBLIC OBJECTTYPE Blacklist EXTEND TolliumScreenBase
   {
     IF (RecordExists(this->blacklist->selection))
     {
-      IF (this->RunMessageBox(".confirmpatterndelete", this->blacklist->selection.pattern) = "yes")
+      IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmpatterndelete", this->blacklist->selection.pattern)) = "yes")
       {
         OBJECT work := this->BeginWork();
         DELETE FROM consilio.blacklist WHERE id = this->blacklist->value;
@@ -939,7 +939,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
     CATCH (OBJECT<SearchException> error)
     {
       Print("Search exception: " || error->what || "\n");
-      this->RunMessageBox(".searcherror", GetErrorMessage(error->errorcode));
+      this->RunSimpleScreen("warning", GetTid("consilio:catalog.messages.searcherror", GetErrorMessage(error->errorcode)));
       this->^status->value := GetTid("consilio:catalog.catalogpreview.error");
       this->^results->rows := DEFAULT RECORD ARRAY;
       RETURN;
@@ -947,7 +947,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
     CATCH (OBJECT e)
     {
       Print("Search exception: " || e->what || "\n");
-      this->RunMessageBox(".searcherror", e->what);
+      this->RunSimpleScreen("warning", GetTid("consilio:catalog.messages.searcherror", e->what));
       this->^status->value := GetTid("consilio:catalog.catalogpreview.error");
       this->^results->rows := DEFAULT RECORD ARRAY;
       RETURN;
@@ -1275,7 +1275,7 @@ PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
       RETURN;
 
     IF (match <= 0)
-      this->RunMessageBox(".wordnotfound", ^search->value);
+      this->RunSimpleScreen("warning", GetTid("consilio:catalog.messages.wordnotfound", ^search->value));
     */
   }
 
@@ -1430,7 +1430,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceErrors EXTEND TolliumScreenBase
 
   MACRO DoClear()
   {
-    IF (this->RunMessageBox(".confirmclearerrors") = "yes")
+    IF (this->RunSimpleScreen("verify", GetTid("consilio:catalog.messages.confirmclearerrors")) = "yes")
     {
       __ConsilioClearErrors(this->contentsourceid);
       this->tolliumresult := "cancel";

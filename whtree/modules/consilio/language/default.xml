@@ -145,7 +145,6 @@
       <text tid="valuetype">HareScript type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
-      <text tid="cannotloadsettings">Cannot load the settings screen for '<param p="1"/>'.</text>
       <text tid="catalognameexists">A catalog with the name '<param p="1"/>' already exists</text>
       <text tid="confirmclearerrors">Are you sure you want to clear these errors?</text>
       <text tid="confirmdeletecatalog">Are you sure you want to delete catalog '<param p="1"/>'?</text>
@@ -153,8 +152,6 @@
       <text tid="confirmdeleteselection">Are you sure you want to delete the selected catalogs and sources?</text>
       <text tid="confirmpatterndelete">Are you sure you want to delete URL pattern '<param p="1"/>'?</text>
       <text tid="confirmrestart">Are you sure you want to restart the Queue Manager?</text>
-      <text tid="confirmworddelete">Are you sure you want to delete <ifparam p="1" value="">these words<else/>the word '<param p="1"/>'</ifparam>?</text>
-      <text tid="confirmwordgroupdelete">Are you sure you want to delete the selected word group?</text>
       <text tid="indexmanagerconnectionfailed">No connection to Consilio could be made.</text>
       <text tid="notenoughwordsingroup">A word group should contain at least 2 words.</text>
       <text tid="primarycatalogindexrequired">One of the index managers should be set as primary</text>

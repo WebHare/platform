@@ -145,7 +145,6 @@
       <text tid="valuetype">HareScript type</text>
     </textgroup>
     <textgroup gid="messages">   <!-- catalog.messages -->
-      <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>
       <text tid="catalognameexists">Er bestaat al een catalogus met de naam '<param p="1"/>'</text>
       <text tid="confirmclearerrors">Weet u zeker dat u deze fouten wilt verwijderen?</text>
       <text tid="confirmdeletecatalog">Weet u zeker dat u catalogus '<param p="1"/>' wilt verwijderen?</text>
@@ -153,8 +152,6 @@
       <text tid="confirmdeleteselection">Weet u zeker dat u de geselecteerde catalogi en bronnen wilt verwijderen?</text>
       <text tid="confirmpatterndelete">Weet u zeker dat u URL-patroon '<param p="1"/>' wilt verwijderen?</text>
       <text tid="confirmrestart">Weet u zeker dat u de Queuemanager wilt herstarten?</text>
-      <text tid="confirmworddelete">Weet u zeker dat u <ifparam p="1" value="">deze woorden<else/>het woord '<param p="1"/>'</ifparam> wilt verwijderen?</text>
-      <text tid="confirmwordgroupdelete">Weet u zeker dat u de geselecteerde woordgroep wilt verwijderen?</text>
       <text tid="indexmanagerconnectionfailed">Er kan geen verbinding worden gemaakt met Consilio.</text>
       <text tid="notenoughwordsingroup">Een woordgroep dient minimaal 2 woorden te bevatten.</text>
       <text tid="primarycatalogindexrequired">Eén van de indexmanagers moet als primair worden aangeduid</text>

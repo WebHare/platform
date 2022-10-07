@@ -1,59 +1,48 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          xmlns:consilio="http://www.webhare.net/xmlns/consilio/components"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          xmlns:system="http://www.webhare.net/xmlns/system/components"
-         lib="screens/catalog.whlib"
-         gid="catalog">
+         gid="catalog"
+         library="/lib/screens/catalog.whlib">
 
-  <messageboxes gid=".messages">
-    <messagebox name="cannotloadsettings" buttons="ok" icon="error" />
-    <messagebox name="confirmdeletecatalog" buttons="yes no" icon="warning" />
-    <messagebox name="confirmdeletecontentsource" buttons="yes no" icon="warning" />
-    <messagebox name="sendingcommandfailed" buttons="ok" icon="warning" />
-    <messagebox name="confirmpatterndelete" buttons="yes no" icon="warning" />
-    <messagebox name="searcherror" buttons="ok" icon="warning" />
-    <messagebox name="indexmanagerconnectionfailed" buttons="ok" icon="error" />
-    <messagebox name="wordnotfound" buttons="ok" icon="warning" />
-    <messagebox name="confirmwordgroupdelete" buttons="yes no" icon="warning" />
-    <messagebox name="confirmworddelete" buttons="yes no" icon="warning" />
-    <messagebox name="confirmrestart" buttons="yes no" icon="warning" />
-    <messagebox name="confirmclearerrors" buttons="yes no" icon="warning" />
-  </messageboxes>
-
-  <screen name="catalogs" gid=".catalogs" tid=".title"
-          menubar="mainmenu" icon="consilio:consilio"
+  <screen name="catalogs"
+          allowresize="true"
           flags="issysop ismanager iseditor"
-          oninterval="dorefresh" interval="60000"
-          allowresize="true" savestate="size">
+          gid=".catalogs"
+          icon="consilio:consilio"
+          interval="60000"
+          menubar="mainmenu"
+          oninterval="dorefresh"
+          savestate="size"
+          tid=".title">
     <actions>
-      <action name="options" onexecute="dooptions" shortcut="ctrl+," frameflags="issysop" />
-      <action name="blacklist" onexecute="doblacklist" frameflags="issysop" />
-      <action name="restart" onexecute="dorestart" frameflags="issysop" />
-      <action name="manageindexmanagers" onexecute="domanageindexmanagers" frameflags="issysop" />
-
+      <action name="options" frameflags="issysop" onexecute="dooptions" shortcut="ctrl+," />
+      <action name="blacklist" frameflags="issysop" onexecute="doblacklist" />
+      <action name="restart" frameflags="issysop" onexecute="dorestart" />
+      <action name="manageindexmanagers" frameflags="issysop" onexecute="domanageindexmanagers" />
       <action name="showerrors" onexecute="doshowerrors">
         <enableon source="catalogs" min="1" max="1" checkflags="haserrors" />
       </action>
       <action name="addcontentsource" onexecute="doaddcontentsource" shortcut="ctrl+alt+n">
         <enableon source="catalogs" min="1" max="1" checkflags="standardcatalog !readonly manageable" />
       </action>
-
       <action name="edititem">
-        <enableon source="catalogs" min="1" max="1" checkflags="catalog !readonly manageable" onexecute="doeditcatalog"/>
-        <enableon source="catalogs" min="1" max="1" checkflags="contentsource !readonly manageable" onexecute="doeditcontentsource"/>
+        <enableon source="catalogs" min="1" max="1" checkflags="catalog !readonly manageable" onexecute="doeditcatalog" />
+        <enableon source="catalogs"
+                  min="1"
+                  max="1"
+                  checkflags="contentsource !readonly manageable"
+                  onexecute="doeditcontentsource" />
       </action>
       <action name="delete" shortcut="del" tid="~delete">
         <enableon source="catalogs" min="1" checkflags="!readonly manageable" onexecute="dodelete" />
       </action>
-
       <action name="showfieldmapping">
-        <enableon source="catalogs" min="1" max="1" checkflags="catalog" onexecute="doshowfieldmapping"/>
+        <enableon source="catalogs" min="1" max="1" checkflags="catalog" onexecute="doshowfieldmapping" />
       </action>
-
       <action name="previewcatalog" onexecute="dopreviewcatalog" shortcut="ctrl+shift+p">
         <enableon source="catalogs" min="1" max="1" checkflags="previewable" />
       </action>
-
       <action name="rebuildcatalog" onexecute="dorebuildcatalog" shortcut="ctrl+shift+c">
         <enableon source="catalogs" min="1" max="1" checkflags="catalog hascontents !inactive manageable" />
         <enableon source="catalogs" min="1" max="1" checkflags="contentsource !inactive manageable" />
@@ -64,22 +53,23 @@
       <action name="catalogthesaurus" onexecute="docatalogthesaurus">
         <enableon source="catalogs" min="1" max="1" checkflags="catalog !readonly editable" />
       </action>
-      <action name="exit" onexecute="doexit" tid="tollium:common.actions.exit" />
+      <action name="exit" onexecute="doexit" tid="~exit" />
     </actions>
+
     <menus>
       <menu name="mainmenu">
         <item tid=".catalog">
-          <item action="addcontentsource" name="addcontentsource_menu" tid=".addcontentsource" />
+          <item name="addcontentsource_menu" action="addcontentsource" tid=".addcontentsource" />
           <divider />
-          <item action="edititem" name="edititem_menu" tid=".edititem" />
-          <item action="delete" name="deleteitem_menu" tid="~delete" />
+          <item name="edititem_menu" action="edititem" tid=".edititem" />
+          <item name="deleteitem_menu" action="delete" tid="~delete" />
           <divider />
           <item action="previewcatalog" />
-          <item action="rebuildcatalog" name="rebuildcatalog_menu" tid=".rebuildcatalog" />
-          <item action="showerrors" name="showerrors_menu" tid=".showerrors" />
+          <item name="rebuildcatalog_menu" action="rebuildcatalog" tid=".rebuildcatalog" />
+          <item name="showerrors_menu" action="showerrors" tid=".showerrors" />
           <item action="markcatalogascomplete" />
           <divider />
-          <item action="catalogthesaurus" name="catalogthesaurus_menu" tid=".catalogthesaurus" />
+          <item name="catalogthesaurus_menu" action="catalogthesaurus" tid=".catalogthesaurus" />
           <item action="showfieldmapping" />
         </item>
         <item action="manageindexmanagers" disablemode="hidden" />
@@ -94,10 +84,10 @@
         <item action="addcontentsource" />
       </menu>
       <menu name="contextmenu">
-        <item action="edititem" name="edititem_contextmenu" tid=".edititem" />
-        <item action="rebuildcatalog" name="rebuildcatalog_contextmenu" tid=".rebuildcatalog" />
-        <item action="showerrors" name="showerrors_contextmenu" tid=".showerrors" />
-        <item action="catalogthesaurus" name="catalogthesaurus_contextmenu" tid=".catalogthesaurus" />
+        <item name="edititem_contextmenu" action="edititem" tid=".edititem" />
+        <item name="rebuildcatalog_contextmenu" action="rebuildcatalog" tid=".rebuildcatalog" />
+        <item name="showerrors_contextmenu" action="showerrors" tid=".showerrors" />
+        <item name="catalogthesaurus_contextmenu" action="catalogthesaurus" tid=".catalogthesaurus" />
         <divider />
         <item action="showfieldmapping" />
         <item action="markcatalogascomplete" disablemode="hidden" />
@@ -107,72 +97,90 @@
         <item action="rebuildcatalog" />
       </menu>
     </menus>
+
     <toolbar>
-      <button name="addmenu_button" menu="addmenu" tid="tollium:common.actions.add" icon="tollium:actions/add" />
-      <button name="edititem_button" action="edititem" tid="tollium:common.actions.edit" icon="tollium:actions/edit" />
+      <button name="addmenu_button" icon="tollium:actions/add" menu="addmenu" tid="~add" />
+      <button name="edititem_button" action="edititem" icon="tollium:actions/edit" tid="~edit" />
       <button name="deleteitem_button" action="delete" icon="tollium:actions/delete" tid="~delete" />
       <divider type="line" />
-      <button name="checkcatalog_button" tid=".checkcatalog" icon="tollium:agenda/tasks" menu="checkmenu" />
-      <button action="previewcatalog" tid=".preview" icon="tollium:actions/search" />
+      <button name="checkcatalog_button" icon="tollium:agenda/tasks" menu="checkmenu" tid=".checkcatalog" />
+      <button action="previewcatalog" icon="tollium:actions/search" tid=".preview" />
     </toolbar>
+
     <body>
       <panel height="1pr">
         <list name="catalogs"
-              selectmode="multiple"
-              openaction="edititem"
-              flags="catalog contentsource hascontents previewable editable manageable inactive readonly haserrors standardcatalog isupdateorrebuild"
+              height="1pr"
+              minwidth="75x"
+              minheight="20x"
               emptytid=".nocatalogs"
-              selectcontextmenu="contextmenu"
-              minwidth="75x" minheight="20x" height="1pr"
-              savestate="selection expanded"
+              eventmasks="consilio:contentsourceschanged"
+              flags="catalog contentsource hascontents previewable editable manageable inactive readonly haserrors standardcatalog isupdateorrebuild"
               ongetrows="ongetcatalogs"
-              eventmasks="consilio:contentsourceschanged">
+              openaction="edititem"
+              savestate="selection expanded"
+              selectcontextmenu="contextmenu"
+              selectmode="multiple">
           <column name="tag" type="text" width="1pr" tid="~tag" tree="true" />
           <column name="title" type="text" width="2pr" tid="~title" />
           <column name="lang" type="text" width="8x" />
           <column name="definedby" type="text" width="1pr" />
           <column name="size" type="integer" width="10x" align="right" emptyvalue="-1" />
-          <column name="status" hintname="statushint" type="icon" />
-          <column name="error" hintname="errorhint" type="icon" />
+          <column name="status" type="icon" hintname="statushint" />
+          <column name="error" type="icon" hintname="errorhint" />
           <style name="inactive" textcolor="#666666" />
           <style name="readonly" textcolor="#000000" />
         </list>
       </panel>
     </body>
+
     <footer name="buttons">
-      <defaultformbuttons buttons="close"/>
+      <defaultformbuttons buttons="close" />
     </footer>
   </screen>
 
-  <screen name="options" gid=".options">
+  <screen name="options" footerbuttons="ok cancel" gid=".options">
     <compositions>
       <system:registrynode name="queuemanager" node="consilio.queuemanager" />
     </compositions>
+
     <body>
-      <textedit name="numworkers" composition="queuemanager" cellname="workers" tid=".numworkers" valuetype="integer" width="5x" />
+      <textedit composition="queuemanager"
+                cellname="workers"
+                name="numworkers"
+                width="5x"
+                tid=".numworkers"
+                valuetype="integer" />
       <line>
-        <textedit name="maxtasktime" valuetype="integer" width="5x" tid=".maxtasktime" composition="queuemanager" cellname="maxfetchtime" />
+        <textedit composition="queuemanager"
+                  cellname="maxfetchtime"
+                  name="maxtasktime"
+                  width="5x"
+                  tid=".maxtasktime"
+                  valuetype="integer" />
         <text title="" valuetid=".seconds" />
       </line>
       <line>
-        <select name="debuglevel_queuemanager" tid=".debuglevel_queuemanager" composition="queuemanager" cellname="loglevel" type="radio" rowkeytype="integer">
-          <option rowkey="0" /><!-- Errors only -->
-          <!--option rowkey="1" /><!- - Skipped documents -->
-          <option rowkey="2" /><!-- General information -->
-          <option rowkey="3" /><!-- All debugging information -->
+        <select composition="queuemanager"
+                cellname="loglevel"
+                name="debuglevel_queuemanager"
+                type="radio"
+                rowkeytype="integer"
+                tid=".debuglevel_queuemanager">
+          <option rowkey="0" />  <!-- Errors only -->
+
+          <!-- option rowkey="1" /><!- - Skipped documents -->
+          <option rowkey="2" />  <!-- General information -->
+          <option rowkey="3" />  <!-- All debugging information -->
         </select>
       </line>
       <line layout="left">
-        <checkbox name="enablelinkchecker" title="" labeltid=".enablelinkchecker" />
+        <checkbox name="enablelinkchecker" labeltid=".enablelinkchecker" title="" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="blacklist" gid=".blacklist"
-          height="25x" allowresize="true" savestate="size">
+  <screen name="blacklist" height="25x" allowresize="true" gid=".blacklist" savestate="size">
     <actions>
       <action name="addpattern" onexecute="doaddpattern" />
       <action name="editpattern" onexecute="doeditpattern">
@@ -182,12 +190,18 @@
         <enableon source="blacklist" min="1" max="1" />
       </action>
     </actions>
+
     <body>
       <panel height="1pr">
         <list name="blacklist"
-              emptytid=".nopatterns" icons="tollium:status/positive"
-              selectmode="single" openaction="editpattern"
-              width="1pr" height="1pr" minwidth="60x" minheight="10x">
+              width="1pr"
+              height="1pr"
+              minwidth="60x"
+              minheight="10x"
+              emptytid=".nopatterns"
+              icons="tollium:status/positive"
+              openaction="editpattern"
+              selectmode="single">
           <column name="pattern" type="text" />
           <column name="noindex_icon" type="icon" />
           <column name="nofollow_icon" type="icon" />
@@ -196,6 +210,7 @@
         </list>
       </panel>
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
@@ -203,9 +218,9 @@
         <row>
           <cell layout="left">
             <line>
-              <button icon="tollium:actions/add" type="icon" action="addpattern" hinttid=".addpattern" />
-              <button icon="tollium:actions/edit" type="icon" action="editpattern" hinttid=".editpattern" />
-              <button icon="tollium:actions/delete" type="icon" action="deletepattern" hinttid=".deletepattern" />
+              <button type="icon" action="addpattern" hinttid=".addpattern" icon="tollium:actions/add" />
+              <button type="icon" action="editpattern" hinttid=".editpattern" icon="tollium:actions/edit" />
+              <button type="icon" action="deletepattern" hinttid=".deletepattern" icon="tollium:actions/delete" />
             </line>
           </cell>
           <cell layout="right">
@@ -216,9 +231,9 @@
     </footer>
   </screen>
 
-  <screen name="blacklistpattern" gid=".blacklistpattern" title="">
+  <screen name="blacklistpattern" footerbuttons="ok cancel" gid=".blacklistpattern" title="">
     <body>
-      <textedit name="pattern" required="true" width="1pr" />
+      <textedit name="pattern" width="1pr" required="true" />
       <select name="options" type="checkbox">
         <option rowkey="noindex" />
         <option rowkey="nofollow" />
@@ -226,87 +241,91 @@
         <option rowkey="nolinkcheck_to" />
       </select>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="catalogeditor" gid=".catalogeditor" title="" width="120x" allowresize="true"
-          oninterval="GotInterval" interval="60000">
+  <screen name="catalogeditor"
+          width="120x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".catalogeditor"
+          interval="60000"
+          oninterval="GotInterval"
+          title="">
     <body>
       <text name="id" tid=".id" />
-      <textedit name="name" tid="tollium:common.labels.name" required="true" width="1pr" />
-      <textarea name="description" tid="tollium:common.labels.description" width="1pr" height="4x" />
+      <textedit name="name" width="1pr" required="true" tid="~name" />
+      <textarea name="description" width="1pr" height="4x" tid="~description" />
       <line>
         <select name="debuglevel" type="radio" rowkeytype="integer">
-          <option rowkey="0" /><!-- Errors only -->
-          <option rowkey="1" /><!-- Skipped documents -->
-          <option rowkey="2" /><!-- General information -->
-          <option rowkey="3" /><!-- All debugging information -->
+          <option rowkey="0" />  <!-- Errors only -->
+          <option rowkey="1" />  <!-- Skipped documents -->
+          <option rowkey="2" />  <!-- General information -->
+          <option rowkey="3" />  <!-- All debugging information -->
         </select>
       </line>
       <line>
-        <textedit name="priority" minvalue="-9" maxvalue="9" valuetype="integer" maxlength="2"/>
+        <textedit name="priority" maxlength="2" minvalue="-9" maxvalue="9" valuetype="integer" />
         <text valuetid=".prorityexplain" />
       </line>
-      <select name="type" type="pulldown" rowkeytype="integer" readonly="true">
+      <select name="type" type="pulldown" readonly="true" rowkeytype="integer">
         <option rowkey="0" tid=".type-standard" />
         <option rowkey="1" tid=".type-module" />
       </select>
       <heading tid=".indexmanagers" />
       <listedit name="attachedindices"
-                 onrowedit="GotIndexManagerRowEdit"
-                 onrowdelete="GotIndexManagerRowDelete"
-                 ongetrows="GetAttachedIndices"
-                 highlightname="primary"
-                 height="1pr"
-                 >
+                height="1pr"
+                highlightname="primary"
+                ongetrows="GetAttachedIndices"
+                onrowdelete="GotIndexManagerRowDelete"
+                onrowedit="GotIndexManagerRowEdit">
         <column name="indexmanager_name" type="text" />
         <column name="indexname" type="text" />
-        <column name="size" type="integer" align="right" width="10x" emptyvalue="-1"/>
+        <column name="size" type="integer" width="10x" align="right" emptyvalue="-1" />
       </listedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="editcatalogindex" gid=".editcatalogindex" footerbuttons="ok cancel">
+  <screen name="editcatalogindex" footerbuttons="ok cancel" gid=".editcatalogindex">
     <body>
-      <select name="indexmanager" type="pulldown" required="true" rowkeytype="integer" onchange="OnGotIndexManagerChange"/>
-      <textedit name="indexname" minwidth="40x" width="1pr" />
-      <textedit name="searchpriority" maxlength="6" maxvalue="1000" minvalue="0" emptyvalue="0" valuetype="integer" />
+      <select name="indexmanager" type="pulldown" onchange="OnGotIndexManagerChange" required="true" rowkeytype="integer" />
+      <textedit name="indexname" width="1pr" minwidth="40x" />
+      <textedit name="searchpriority" maxlength="6" minvalue="0" maxvalue="1000" emptyvalue="0" valuetype="integer" />
     </body>
   </screen>
 
-  <screen name="catalogpreview" gid=".catalogpreview" tid=".title"
-          width="100x" height="30x" allowresize="true" savestate="size">
+  <screen name="catalogpreview"
+          width="100x"
+          height="30x"
+          allowresize="true"
+          gid=".catalogpreview"
+          savestate="size"
+          tid=".title">
     <actions>
       <action name="search" onexecute="dosearch" />
-      <action name="viewitem" title="" onexecute="doviewitem" />
+      <action name="viewitem" onexecute="doviewitem" title="" />
     </actions>
-    <body >
+
+    <body>
       <line>
-        <textedit name="query" defaultbutton="searchbutton" width="1pr">
+        <textedit name="query" width="1pr" defaultbutton="searchbutton">
           <consilio:autosuggest name="consilio_autosuggest" />
         </textedit>
-        <button name="searchbutton" tid=".search" action="search" />
+        <button name="searchbutton" action="search" tid=".search" />
       </line>
       <panel height="1pr">
         <panel name="resultsinfo" backgroundcolor="#FEFFDE" visible="false">
           <panel layout="left">
-            <text name="resultsmessage" title="" value="" onclicklink="onmessageclick" wordwrap="true" width="1pr" />
+            <text name="resultsmessage" width="1pr" onclicklink="onmessageclick" title="" value="" wordwrap="true" />
           </panel>
         </panel>
-        <list name="results"
-              selectmode="single" openaction="viewitem"
-              sortable="true">
+        <list name="results" openaction="viewitem" selectmode="single" sortable="true">
           <column name="id" type="integer" width="5x" align="right" />
           <column name="url" type="text" width="1pr" />
           <column name="score" type="text" width="10x" align="right" />
         </list>
       </panel>
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
@@ -350,115 +369,96 @@
     </footer>
   </screen>
 
-  <screen name="contentsourceeditor" gid=".contentsourceeditor" title="" footerbuttons="ok cancel">
+  <screen name="contentsourceeditor" footerbuttons="ok cancel" gid=".contentsourceeditor" title="">
     <body>
       <text name="contentsourcetype" />
-      <publisher:browseforobject name="folder" required="true" acceptfiles="false" width="1pr" />
+      <publisher:browseforobject name="folder" width="1pr" acceptfiles="false" required="true" />
       <text name="lastcontentscheck" />
       <text name="id" tid="~id" />
-      <text name="tag" tid="~tag"/>
+      <text name="tag" tid="~tag" />
       <heading tid=".generalsettings" />
-      <textedit name="contentcheckinterval" valuetype="integer" emptyvalue="0" maxlength="5" suffixtid="~units.minutes"/>
-      <textedit name="maxgroupobjects" valuetype="integer" emptyvalue="0" maxlength="7" />
+      <textedit name="contentcheckinterval" maxlength="5" emptyvalue="0" suffixtid="~units.minutes" valuetype="integer" />
+      <textedit name="maxgroupobjects" maxlength="7" emptyvalue="0" valuetype="integer" />
       <lines layout="left">
-        <checkbox name="disablesource" title="" labeltid=".disablesource-description" />
+        <checkbox name="disablesource" labeltid=".disablesource-description" title="" />
       </lines>
     </body>
   </screen>
 
-  <screen
-      name="thesaurus"
-      gid=".thesaurus"
-      title=""
-      allowresize="true"
-      savestate="size">
+  <screen name="thesaurus" allowresize="true" footerbuttons="ok cancel" gid=".thesaurus" savestate="size" title="">
     <body>
-      <!--ADDME: How to filter an arrayedit?
+      <!-- ADDME: How to filter an arrayedit?
       <textedit name="search" title="" placeholdertid="~search" onchange="dosearchwords" width="1pr" />
        -->
-      <arrayedit
-          name="words"
-          emptytid=".nowords"
-          onmaprows="mapwordgroups"
-          roweditscreen="#thesauruswords"
-          width="1pr"
-          height="1pr"
-          minwidth="60x"
-          minheight="15x">
+      <arrayedit name="words"
+                 width="1pr"
+                 height="1pr"
+                 minwidth="60x"
+                 minheight="15x"
+                 emptytid=".nowords"
+                 onmaprows="mapwordgroups"
+                 roweditscreen="#thesauruswords">
         <column name="wordgroup" type="text" />
       </arrayedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen
-      name="thesauruswords"
-      gid=".thesaurus"
-      allowresize="true"
-      savestate="size">
+  <screen name="thesauruswords" allowresize="true" footerbuttons="ok cancel" gid=".thesaurus" savestate="size">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
-      <arrayedit
-          name="words"
-          columnheaders="false"
-          sortable="false"
-          onmaprows="mapwords"
-          roweditscreen="#thesaurusword"
-          onchange="onwordschange"
-          minrows="2"
-          width="1pr"
-          height="1pr"
-          minwidth="20x"
-          minheight="5x"
-          errorlabeltid=".words">
-        <column name="word" title="" type="text" />
+      <arrayedit name="words"
+                 width="1pr"
+                 height="1pr"
+                 minwidth="20x"
+                 minheight="5x"
+                 columnheaders="false"
+                 errorlabeltid=".words"
+                 minrows="2"
+                 onchange="onwordschange"
+                 onmaprows="mapwords"
+                 roweditscreen="#thesaurusword"
+                 sortable="false">
+        <column name="word" type="text" title="" />
       </arrayedit>
       <select composition="row" cellname="words" name="wordgroup" type="checkbox" rowkeytype="string" visible="false" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen name="thesaurusword" gid=".thesaurus">
+  <screen name="thesaurusword" footerbuttons="ok cancel" gid=".thesaurus">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
       <panel height="1pr">
-        <textedit composition="row" cellname="word" name="word" required="true" width="20x" />
+        <textedit composition="row" cellname="word" name="word" width="20x" required="true" />
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
   <screen name="contentsourceerrors"
-          gid=".contentsourceerrors"
           width="130x"
           height="40x"
           allowresize="true"
-          savestate="position size"
-          >
+          gid=".contentsourceerrors"
+          savestate="position size">
     <actions>
       <action name="close" onexecute="cancel" />
       <action name="clear" onexecute="doclear" />
     </actions>
+
     <body>
-      <list name="errors"
-            selectmode="single"
-            sortable="false">
+      <list name="errors" selectmode="single" sortable="false">
         <column name="error" type="text" tree="true" />
         <column name="func" type="text" />
         <column name="linetext" type="text" width="7x" />
         <column name="coltext" type="text" width="7x" />
       </list>
     </body>
+
     <footer>
       <line layout="right">
         <button action="clear" />
@@ -467,10 +467,16 @@
     </footer>
   </screen>
 
-  <screen name="fieldmapping" width="120x" height="18gr" allowresize="true" footerbuttons="close" gid=".fieldmapping" savestate="size">
+  <screen name="fieldmapping"
+          width="120x"
+          height="18gr"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".fieldmapping"
+          savestate="size">
     <body>
       <list name="fieldmapping" height="1pr">
-        <column name="name" type="text" tree="true" width="2pr" />
+        <column name="name" type="text" width="2pr" tree="true" />
         <column name="type" type="text" />
         <column name="valuetype" type="text" />
         <column name="definedby" type="text" width="3pr" />

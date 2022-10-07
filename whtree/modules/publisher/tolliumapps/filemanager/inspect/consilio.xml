@@ -1,13 +1,10 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="consilio.whlib"
-         gid="filemanager.inspect.consilio">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="filemanager.inspect.consilio" library="consilio.whlib">
 
   <fragment name="consiliotab">
     <actions>
       <action name="reindex" onexecute="doreindex" />
       <action name="inspectconsilio" onexecute="doinspectconsilio" />
-      <action name="refreshpagelist" tid="~refresh" onexecute="dorefreshpagelist" />
+      <action name="refreshpagelist" onexecute="dorefreshpagelist" tid="~refresh" />
     </actions>
     <contents>
       <split type="vertical" splitter="transparent">
@@ -15,10 +12,10 @@
           <heading tid=".pagelist" />
           <grid height="1pr">
             <cell width="1pr">
-              <list height="1pr" name="pagelist">
-                <column name="url" type="url" width="1pr"/>
-                <column name="title" type="text" width="1pr" tid="~title"/>
-                <column name="modificationdate" type="datetime" storeutc="true" width="20x" tid="~modificationdate" />
+              <list name="pagelist" height="1pr">
+                <column name="url" type="url" width="1pr" />
+                <column name="title" type="text" width="1pr" tid="~title" />
+                <column name="modificationdate" type="datetime" width="20x" storeutc="true" tid="~modificationdate" />
               </list>
             </cell>
             <cell>
@@ -42,4 +39,5 @@
       </split>
     </contents>
   </fragment>
+
 </screens>
