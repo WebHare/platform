@@ -40,12 +40,12 @@ MACRO ValidateFieldName(STRING field)
     @param field The field to search
     @param matchtype How to match (possible values: 'IN', 'CONTAINS', '<', '<=', '=', '>=', '>')
     @param value The value to match
-    @param options @private
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return The match query
 */
 PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions([ boost := 1f ], options);
 
   ValidateFieldName(field);
 
@@ -89,37 +89,38 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
   {
     IF (Length(value) = 0)
       RETURN CQNothing();
-    RETURN [ _type := "boolean"
-           , subqueries :=
-               (SELECT query :=
-                         CELL[ _type := matchtype = "IN" ? "literal" : "term"
-                             , field
-                             , term
-                             , boost := 1f
-                             ]
-                     , required := (matchtype = "CONTAINS")
-                     , prohibited := FALSE
-                  FROM ToRecordArray(value, "term"))
-           , boost := 1f
-           ];
+    RETURN CELL
+        [ _type := "boolean"
+        , subqueries :=
+            (SELECT query := CELL
+                        [ _type := matchtype = "IN" ? "literal" : "term"
+                        , field
+                        , term
+                        , boost := 1f
+                        ]
+                  , required := (matchtype = "CONTAINS")
+                  , prohibited := FALSE
+               FROM ToRecordArray(value, "term"))
+        , options.boost
+        ];
   }
   ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
   {
-    RETURN
-        CELL[ _type := "range"
-            , field
-            , matchtype
-            , term := value
-            , boost := 1f
-            ];
+    RETURN CELL
+        [ _type := "range"
+        , field
+        , matchtype
+        , term := value
+        , options.boost
+        ];
   }
 
-  RETURN
-      CELL[ _type := matchtype = "=" ? "literal" : "term"
-          , field
-          , term := value
-          , boost := 1f
-          ];
+  RETURN CELL
+      [ _type := matchtype = "=" ? "literal" : "term"
+      , field
+      , term := value
+      , options.boost
+      ];
 }
 
 /** Returns a query record that will match results in which a field values lies between the specified range
@@ -128,12 +129,12 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RE
     @param includelower Whether to include exact matches of the lower range value
     @param upperterm Upper range value
     @param includeupper Whether to include exact matches of the upper range value
-    @param options @private
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
 PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions([ boost := 1f ], options);
 
   ValidateFieldName(field);
 
@@ -159,13 +160,14 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
   ELSE
     THROW NEW Exception(`Invalid term type '${GetTypeName(TypeID(lowerterm))}' for range query`);
 
-  RETURN [ _type := "range"
-         , field := field
-         , matchtype := (includelower ? "[" : "{") || (includeupper ? "]" : "}")
-         , lowerterm := lowersearchterm
-         , upperterm := uppersearchterm
-         , boost := 1f
-         ];
+  RETURN CELL
+      [ _type := "range"
+      , field
+      , matchtype := (includelower ? "[" : "{") || (includeupper ? "]" : "}")
+      , lowerterm := lowersearchterm
+      , options.boost
+      , upperterm := uppersearchterm
+      ];
 }
 
 /** Returns a query record that will never match anything
@@ -174,41 +176,44 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
 */
 PUBLIC RECORD FUNCTION CQNothing()
 {
-  RETURN [ _type := "nothing"
-         , boost := 1f
-         ];
+  RETURN
+      [ _type := "nothing"
+      , boost := 0f
+      ];
 }
 
 /** @short Returns a query record that matches all results that have a value for the specified field
     @param field Field to look at
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQHas(STRING field)
+PUBLIC RECORD FUNCTION CQHas(STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL[ boost := 1f ], options);
   ValidateFieldName(field);
 
-  RETURN [ _type := "exists"
-         , field := field
-         , boost := 1f
-         ];
+  RETURN CELL
+      [ _type := "exists"
+      , field := field
+      , options.boost
+      ];
 }
 
 /** @short Returns a query record that matches all results
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQAll()
+PUBLIC RECORD FUNCTION CQAll(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN [ _type := "all"
-         , boost := 1f
-         ];
+  options := ValidateOptions(CELL[ boost := 1f ], options);
+  RETURN CELL
+      [ _type := "all"
+      , options.boost
+      ];
 }
 
-/** @short Overwrites the boost factor of a query (which defaults to 1.0)
-    @param query Query to adjust the boost factor of
-    @param boost Boost factor
-    @return Consilio query record
-*/
-PUBLIC RECORD FUNCTION CQBoost(RECORD query, FLOAT boost)
+/// @private
+PUBLIC RECORD FUNCTION CQBoost(RECORD query, FLOAT boost) __ATTRIBUTES__(DEPRECATED "Use the 'boost' option when creating a query")
 {
   query.boost := boost;
   RETURN query;
@@ -216,31 +221,35 @@ PUBLIC RECORD FUNCTION CQBoost(RECORD query, FLOAT boost)
 
 /** @short Combine queries using AND
     @param inputqueries Consilio queries to combine
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQAnd(RECORD ARRAY inputqueries)
+PUBLIC RECORD FUNCTION CQAnd(RECORD ARRAY inputqueries, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN CombineSubqueries(inputqueries, TRUE);
+  options := ValidateOptions(CELL[ boost := 1f ], options);
+  RETURN CombineSubqueries(inputqueries, TRUE, options.boost);
 }
 
 /** @short Combine queries using OR
     @param inputqueries Consilio queries to combine
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQOr(RECORD ARRAY inputqueries)
+PUBLIC RECORD FUNCTION CQOr(RECORD ARRAY inputqueries, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN CombineSubqueries(inputqueries, FALSE);
+  options := ValidateOptions(CELL[ boost := 1f ], options);
+  RETURN CombineSubqueries(inputqueries, FALSE, options.boost);
 }
 
-RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required)
+RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required, FLOAT boost)
 {
   IF(Length(subqueries) = 0)
     RETURN CQNothing();
 
-  RECORD resultquery :=
+  RECORD resultquery := CELL
       [ _type := "boolean"
       , subqueries := RECORD[]
-      , boost := 1f
+      , boost
       ];
   FOREVERY (RECORD query FROM subqueries)
   {
@@ -283,22 +292,26 @@ RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required)
 
 /** @short Negate query
     @param inputquery Consilio query to negate
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
+PUBLIC RECORD FUNCTION CQNot(RECORD inputquery, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL[ boost := 1f ], options);
   IF(inputquery._type = "nothing")
-    RETURN CQAll();
+    RETURN CQAll(options);
   ELSE IF(inputquery._type = "all")
     RETURN CQNothing();
-  RETURN [ _type := "boolean"
-         , subqueries := [ [ query := inputquery
-                           , required := FALSE
-                           , prohibited := TRUE
-                           ]
-                         ]
-         , boost := 1f
-         ];
+  RETURN CELL
+      [ _type := "boolean"
+      , subqueries :=
+          [ [ query := inputquery
+            , required := FALSE
+            , prohibited := TRUE
+            ]
+          ]
+      , options.boost
+      ];
 }
 
 /** @short Parse a user query
@@ -306,10 +319,11 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
     @cell(string) options.querymode How to combine the toplevel terms, either 'AND' or 'OR' (defaults to 'AND')
     @cell(record array) options.defaultfields Fields to search for terms without explicit field specification
     @cell(string) options.defaultfields.field Field name
-    @cell(float) options.defaultfields.boost Boost factor applied when a match is found in this field (defaults to 1.0)
+    @cell(float) options.defaultfields.boost Factor to increase or decrease the score for this field (defaults to 1f)
     @cell(boolean) options.defaultfields.stemmed_field Set to true to also use stemming when searching for terms in this field
     @cell(integer) options.thesaurusid If set, use the thesaurus of this index id (legacy Consilio only)
     @cell(boolean) options.synonyms If the catalog synonyms list should be used (defaults to TRUE, Opensearch only)
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
 */
 PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -320,6 +334,7 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
       , thesaurusid := 0
       , synonyms := TRUE
       , defaultrequire := 0
+      , boost := 1f
       ],
       options,
       [ enums := [ querymode := [ "AND", "OR" ] ]
@@ -337,13 +352,14 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
   IF(userquery = "") //FIXME validate for other weird stuff that should require us to just discard this
     RETURN CQNothing();
 
-  RETURN CELL[ _type := "user"
-             , userquery
-             , options.querymode
-             , options.defaultfields
-             , options.synonyms
-             , boost := 1f
-             ];
+  RETURN CELL
+      [ _type := "user"
+      , userquery
+      , options.querymode
+      , options.defaultfields
+      , options.synonyms
+      , options.boost
+      ];
 }
 
 /** @short Builds an aggregation query
@@ -410,6 +426,7 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
     @cell(string) options.summaryfield The name of the field to return the summary for the nested result in
     @cell(string) options.scorefield The name of the field to return the nested result's score in
     @cell(string) options.totalcountfield The name of the field to return the total number of nested results in
+    @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
 */
 PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -420,6 +437,7 @@ PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAU
       , summaryfield := ""
       , scorefield := ""
       , totalcountfield := ""
+      , boost := 1f
       ], options);
 
   RETURN CELL
@@ -427,7 +445,6 @@ PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAU
       , field
       , subquery := query
       , ...options
-      , boost := 1f
       ];
 }
 

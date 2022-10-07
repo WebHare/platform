@@ -1,13 +1,13 @@
 <?wh
 
 LOADLIB "wh::devsupport.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
 
 STRING ARRAY FUNCTION ExecTestQuery(RECORD inquery)
 {
@@ -331,6 +331,32 @@ MACRO RunTotalTrackTest()
   TestEq(TRUE, searchres.totalexact);
 }
 
+MACRO RunQueryBoostTest()
+{
+  // Search for a term
+  RECORD searchres := RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC2"), [ mapping := CELL[ groupid := "" ], scorefield := "score" ]);
+  TestEq(2, Length(searchres.results));
+  FLOAT score := searchres.results[0].score;
+  // The two scores should be the same
+  TestEq(score, searchres.results[1].score);
+  // Boost the term query by a factor 2, the scores should double as well
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC2", [ boost := 2 ]), [ mapping := CELL[ groupid := "" ], scorefield := "score" ]);
+  TestEq(score * 2, searchres.results[0].score);
+  // Boost the term query by a factor .5, the scores should be halved
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQMatch("groupid", "=", "QC2", [ boost := .5 ]), [ mapping := CELL[ groupid := "" ], scorefield := "score" ]);
+  TestEq(score / 2, searchres.results[0].score);
+
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll(), [ mapping := CELL[ groupid := "" ], scorefield := "score" ]);
+  TestEq(4, Length(searchres.results));
+  // For an 'all' query, the score of each result is 1
+  TestEq(1f, searchres.results[0].score);
+  TestEq(1f, searchres.results[3].score);
+  // Boost the query by a factor 3.14, so the scores will be 3.14 as well
+  searchres := RunConsilioSearch("consilio:testfw_queries", CQAll([ boost := 3.14 ]), [ mapping := CELL[ groupid := "" ], scorefield := "score" ]);
+  TestEq(3.14f, searchres.results[0].score);
+  TestEq(3.14f, searchres.results[3].score);
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
     , PTR RunTheMatchQueries
@@ -338,4 +364,5 @@ RunTestframework(
     , PTR RunTheNestedQueries
     , PTR RunExplainQuery
     , PTR RunTotalTrackTest
+    , PTR RunQueryBoostTest
     ]);
