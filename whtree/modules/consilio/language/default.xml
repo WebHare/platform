@@ -390,15 +390,19 @@
         <text tid="address">Address</text>
         <text tid="address-builtin">Internal WebHare connection</text>
         <text tid="cannotretrievesettings">Cannot retrieve current settings:<br/><param p="1"/></text>
+        <text tid="configuration">Configuration</text>
         <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
         <text tid="editindexmanager">Index manager</text>
         <text tid="indexmanagers">Manage index managers</text>
+        <text tid="initialmemorypool">Initial memorypool size</text>
+        <text tid="maximummemorypool">Maximum memorypool size</text>
         <text tid="name">Name</text>
         <text tid="runtimesettings">Run-time settings</text>
         <text tid="threshold_enabled">Disk usage checks enabled</text>
         <text tid="watermark_flood">Read-only mode</text>
         <text tid="watermark_high">Very low disk space</text>
         <text tid="watermark_low">Low disk space</text>
+        <text tid="willrestart">Changing these settings may cause the OpenSearch server to restart immediately. It may be unreachable while it restarts.<br/><br/>Are you sure you want to change these settings?</text>
         <textgroup gid="messages">   <!-- tolliumapps.dashboard.managemanagers.messages -->
           <text tid="inconsistentwatermarks">All threshold values should be either percentages or absolute byte values</text>
           <text tid="invalidbytevalue">Field '<param p="1"/>' contains an invalid absolute byte value '<param p="2"/>'</text>

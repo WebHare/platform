@@ -19,6 +19,9 @@
     <body>
       <textedit composition="indexmgr" cellname="name" required="true" />
       <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
+      <heading name="configuration" />
+      <textedit name="initialmemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
+      <textedit name="maximummemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
     </body>
   </screen>
 

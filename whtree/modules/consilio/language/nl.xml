@@ -390,15 +390,19 @@
         <text tid="address">Adres</text>
         <text tid="address-builtin">Interne WebHare-verbinding</text>
         <text tid="cannotretrievesettings">Kan huidige instellingen niet ophalen:<br/><param p="1"/></text>
+        <text tid="configuration">Configuratie</text>
         <text tid="confirmdeleteindexmanager">Weet u zeker dat de u de geselecteerde indexmanager wil verwijderen?</text>
         <text tid="editindexmanager">Index manager</text>
         <text tid="indexmanagers">Beheer index managers</text>
+        <text tid="initialmemorypool">Initiele grootte memorypool</text>
+        <text tid="maximummemorypool">Maximale grootte memorypool</text>
         <text tid="name">Naam</text>
         <text tid="runtimesettings">Instellingen</text>
         <text tid="threshold_enabled">Controle schijfgebruik actief</text>
         <text tid="watermark_flood">Alleen-lezen-modus</text>
         <text tid="watermark_high">Erg weinig schijfruimte</text>
         <text tid="watermark_low">Weinig schijfruimte</text>
+        <text tid="willrestart">Het wijzigen van deze instellingen kan ervoor zorgen dat de OpenSearch server direct herstart en daardoor tijdelijk onbereikbaar is.<br/><br/>Weet u zeker dat u deze wijzigingen wil maken?</text>
         <textgroup gid="messages">   <!-- tolliumapps.dashboard.managemanagers.messages -->
           <text tid="inconsistentwatermarks">Alle drempelwaarden moeten ofwel percentages ofwel absolute byte-waarden zijn</text>
           <text tid="invalidbytevalue">Het veld '<param p="1"/>' bevat een ongeldige absolute byte-waarde '<param p="2"/>'</text>
