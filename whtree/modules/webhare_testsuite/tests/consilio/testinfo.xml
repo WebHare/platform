@@ -9,6 +9,7 @@
   <test script="test_multiindex.whscr" />
   <test script="test_multiindex_suffixes.whscr" />
   <test script="test_catalogapp.whscr" />
+  <test script="test_dashboard.whscr" />
 
   <test script="test_siteprofile_indices.whscr" />
   <test script="test_consilioapi.whscr" />

@@ -1,5 +1,14 @@
 <?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+
 LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/modules/json.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC STATIC OBJECTTYPE Queries EXTEND DashboardPanelBase
 <
@@ -66,22 +75,37 @@ PUBLIC STATIC OBJECTTYPE Queries EXTEND DashboardPanelBase
   MACRO DoOpenQuery()
   {
     RECORD query := ^queries->selection;
-    IF(query.iselastic)
-    {
-      this->LoadScreen("mod::consilio/tolliumapps/elasticsearch.xml#inspectquery",
+    this->RunScreen(Resolve("queries.xml#inspectquery"),
         [ indexmanager := query.catalog
         , query := query.searchquery
-        ])->RunModal();
-    }
-    ELSE
-    {
-      OBJECT scr := this->LoadScreen("consilio:catalog.catalogpreview",
-        [ catalog := TRUE
-        , tag := query.catalog
-        , id := 0
-        , query := query.query
         ]);
-      scr->RunModal();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^indexmanager->options := SELECT rowkey := id, title := name, address
+                                FROM consilio.indexmanagers
+                            ORDER BY ToUppercase(name);
+    ^indexmanager->SetValueIfValid(data.indexmanager);
+    ^query->value := PrettifyJSON(EncodeJSON(data.query));
+  }
+  MACRO DoRunQuery()
+  {
+    TRY
+    {
+      RECORD query := DecodeJSON(^query->value);
+      IF(NOT RecordExists(query))
+        THROW NEW Exception("Invalid JSON format");
+
+      RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
+      ^result->value := PrettifyJSON(BlobToString(res.content));
+    }
+    CATCH(OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
     }
   }
 >;

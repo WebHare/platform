@@ -30,33 +30,4 @@
     </body>
   </screen>
 
-  <screen name="inspectquery" width="120x" height="35x" allowresize="true">
-    <actions>
-      <action name="runquery" onexecute="dorunquery" />
-    </actions>
-
-    <body>
-      <select name="indexmanager" type="pulldown" />
-      <split type="vertical" height="1pr">
-        <part>
-          <grid height="1pr">
-            <cell width="1pr" borders="all">
-              <codeedit name="query" width="1pr" height="1pr" minwidth="30x" minheight="4x" />
-            </cell>
-            <cell>
-              <button action="runquery" />
-            </cell>
-          </grid>
-        </part>
-        <part borders="all">
-          <codeedit name="result" width="1pr" height="1pr" minwidth="30x" minheight="4x" />
-        </part>
-      </split>
-    </body>
-
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
-  </screen>
-
 </screens>

@@ -100,7 +100,10 @@
 
     <dashboardgroup name="consilio" orderafter="system:ap system:tasks" tid="module.name" />
 
-    <dashboardpanel name="queries" group="consilio" screen="monitor.queries" tid="monitor.queries.title" />
+    <dashboardpanel name="queries"
+                    group="consilio"
+                    screen="tolliumapps/dashboard/queries.xml"
+                    tid="tolliumapps.dashboard.queries.title" />
 
     <notification name="notifications.catalog_uptodate"
                   descriptiontid="module.notifications.catalog_uptodate-desc"

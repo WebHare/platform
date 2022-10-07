@@ -240,12 +240,8 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="catalog">Catalog</text>
       <text tid="enableintercept">Enable</text>
       <text tid="openquery">Open</text>
-      <text tid="query">Query</text>
-      <text tid="title">Consilio queries</text>
-      <text tid="when">Date</text>
     </textgroup>
   </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
@@ -384,6 +380,17 @@
     <text tid="unavailable">The requested catalog is not available at the moment</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
+        <text tid="catalog">Catalog</text>
+        <text tid="indexmanager">Index manager</text>
+        <text tid="inspectquery">Inspect query</text>
+        <text tid="query">Query</text>
+        <text tid="runquery">Run query</text>
+        <text tid="title">Queries</text>
+        <text tid="when">Date</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
       <text tid="confirmdeleteindices">Are you sure you want to delete the selected indices? This cannot be undone!</text>
       <text tid="docs">Documents</text>

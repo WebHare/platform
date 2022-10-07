@@ -240,12 +240,8 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->
-      <text tid="catalog">Catalogus</text>
       <text tid="enableintercept">Aanzetten</text>
       <text tid="openquery">Openen</text>
-      <text tid="query">Aanvraag</text>
-      <text tid="title">Consilio queries</text>
-      <text tid="when">Datum</text>
     </textgroup>
   </textgroup>
   <textgroup gid="objectprops">   <!-- objectprops -->
@@ -384,6 +380,17 @@
     <text tid="unavailable">De gevraagde catalogus is op het moment niet beschikbaar</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
+        <text tid="catalog">Catalogus</text>
+        <text tid="indexmanager">Index manager</text>
+        <text tid="inspectquery">Inspecteer query</text>
+        <text tid="query">Aanvraag</text>
+        <text tid="runquery">Voer query uit</text>
+        <text tid="title">Zoekopdrachten</text>
+        <text tid="when">Datum</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
       <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
       <text tid="docs">Documenten</text>

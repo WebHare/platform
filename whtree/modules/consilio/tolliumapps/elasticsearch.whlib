@@ -79,31 +79,3 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
     RETURN 0;
   }
 >;
-
-PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    ^indexmanager->options := SELECT rowkey := id, title := name, address
-                                FROM consilio.indexmanagers
-                            ORDER BY ToUppercase(name);
-    ^indexmanager->SetValueIfValid(data.indexmanager);
-    ^query->value := PrettifyJSON(EncodeJSON(data.query));
-  }
-  MACRO DoRunQuery()
-  {
-    TRY
-    {
-      RECORD query := DecodeJSON(^query->value);
-      IF(NOT RecordExists(query))
-        THROW NEW Exception("Invalid JSON format");
-
-      RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
-      ^result->value := PrettifyJSON(BlobToString(res.content));
-    }
-    CATCH(OBJECT e)
-    {
-      RunExceptionReportDialog(this, e);
-    }
-  }
->;

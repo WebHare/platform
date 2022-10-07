@@ -1,0 +1,26 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestDashboardApp()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dashboard"));
+  RECORD consiliogroup := SELECT * FROM TT("monitorpanels")->rows WHERE ToUppercase(title) = "CONSILIO";
+  TestAssert(RecordExists(consiliogroup));
+
+  RECORD queriesentry := SELECT * FROM TT("monitorpanels")->rows WHERE ToUppercase(title) = "QUERIES";
+  TestAssert(RecordExists(queriesentry));
+
+  //Lets at least ensure the screen loads
+  TT("monitorpanels")->selection := queriesentry;
+
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+RunTestframework([ PTR TestDashboardApp
+                 ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
