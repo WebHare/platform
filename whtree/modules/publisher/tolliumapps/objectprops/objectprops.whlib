@@ -772,7 +772,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       // Read-only dialog only has an 'OK' button, which just closes the window
       ^requestapproval_button->visible := FALSE;
       ^ok_button->visible := FALSE;
-      ^cancel_button->title := GetTid("tollium:common.actions.ok");
+      ^cancel_button->title := GetTid("~ok");
     }
     ^publicationsettings->visible := ^publish->visible OR ^makeindex->visible;
     ^publishpanel->visible := ^notpublished->visible OR ^publicationsettings->visible OR ^tasksettings->visible;
@@ -920,7 +920,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
     // Request approval button becomes visible
     ^requestapproval_button->visible := ^ok_button->visible;
-    ^ok_button->title := GetTid("tollium:common.actions.save");
+    ^ok_button->title := GetTid("~save");
 
     RECORD fieldspec := this->objectpolicy->GetFields();
 

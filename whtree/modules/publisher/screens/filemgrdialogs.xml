@@ -67,8 +67,8 @@
           </cell>
           <cell layout="right">
             <line>
-              <button action="submitscreen" name="submitscreenbutton" tid="tollium:common.actions.ok" />
-              <button action="cancelscreen" tid="tollium:common.actions.cancel" />
+              <button action="submitscreen" name="submitscreenbutton" tid="~ok" />
+              <button action="cancelscreen" tid="~cancel" />
             </line>
           </cell>
         </row>
@@ -138,7 +138,7 @@
       </action>
       <action name="refresh" onexecute="dorefresh" />
       <action name="export" onexecute="doexport" />
-      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="tollium:common.actions.close"/>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close"/>
     </actions>
     <menus>
       <menu name="selection">

@@ -49,17 +49,17 @@
         <enableon source="foldertreeproxy" checkflags="!isvirtual" min="1" max="1" />
       </action>
       <action name="prefs"
-              tid="tollium:common.actions.preferences"
+              tid="~preferences"
               shortcut="ctrl+,"
               onexecute="doprefs" />
       <action name="addtostartmenu"
-              tid="tollium:common.actions.addtostartmenu"
+              tid="~addtostartmenu"
               frameflags="outsiderecyclebin" >
         <enableon source="foldertreeproxy" checkflags="!isvirtual isfolder" min="1" max="1" onexecute="doaddtostartmenufoldertree" />
         <enableon source="filelist" checkflags="!isvirtual isfolder" min="1" max="1" onexecute="doaddtostartmenufilelist" />
       </action>
       <action name="exit"
-              tid="tollium:common.actions.exit"
+              tid="~exit"
               shortcut="ctrl+q"
               onexecute="doexit" />
 
@@ -110,7 +110,7 @@
       <!-- This action is always enabled, and doesn't appear in menu's as an action. As such, it's usable for both
            the 'open' action and the 'extract' action' -->
       <action name="open"
-              tid="tollium:common.actions.open"
+              tid="~open"
               onexecute="doopen">
         <enableon source="filelist" checkflags="canopen" min="1" max="1" />
       </action>
@@ -161,17 +161,17 @@
 
       <!-- Edit menu -->
       <action name="copyto"
-              tid="tollium:common.actions.copyto"
+              tid="~copyto"
               ellipsis="true">
         <enableon source="foldertree" min="1" onexecute="docopytotree" checkflags="!isroot !isvirtual" />
         <enableon source="filelist" min="1" onexecute="docopytolist" checkflags="!isvirtual" />
       </action>
-      <action name="moveto" tid="tollium:common.actions.moveto" ellipsis="true">
+      <action name="moveto" tid="~moveto" ellipsis="true">
         <enableon source="foldertree" min="1" checkflags="!isvirtual candelete" onexecute="domovetotree" />
         <enableon source="filelist" min="1" checkflags="!isvirtual candelete" onexecute="domovetolist" />
       </action>
       <action name="delete"
-              tid="tollium:common.actions.delete"
+              tid="~delete"
               shortcut="del">
         <enableon source="foldertree" min="1" checkflags="candelete" onexecute="dodeletetree" />
         <enableon source="filelist" min="1" checkflags="candelete" selectionmatch="any" onexecute="dodeletelist" />
@@ -181,25 +181,25 @@
         <enableon source="filelist" min="1" max="1" checkflags="canrestore isversioned !issubmittedforapproval" onexecute="doversionedrestorelist" requirefocus="true" />
       </action>
       <action name="selectall"
-              tid="tollium:common.actions.selectall"
+              tid="~selectall"
               onexecute="doselectall">
         <enableon source="foldertreeproxy" checkflags="!islockedsite" min="1" />
       </action>
       <action name="invertselection"
-              tid="tollium:common.actions.invertselection"
+              tid="~invertselection"
               onexecute="doinvertselection">
         <enableon source="foldertreeproxy" checkflags="!islockedsite" min="1" />
       </action>
       <action name="rename"
-              tid="tollium:common.actions.rename" />
+              tid="~rename" />
       <action name="props"
-              tid="tollium:common.actions.properties"
+              tid="~properties"
               shortcut="ctrl+i">
         <enableon source="foldertree" min="1" checkflags="!isvirtual" onexecute="dopropstree" />
         <enableon source="filelist" min="1" max="1" checkflags="!isvirtual" onexecute="dopropslist" />
       </action>
       <action name="inspect"
-              tid="tollium:common.actions.inspect"
+              tid="~inspect"
               shortcut="ctrl+shift+i"
               onexecute="doinspect">
         <enableon source="foldertree" min="1" checkflags="!isvirtual" frameflags="issupervisor" />
@@ -224,7 +224,7 @@
       <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g"  />
 
       <action name="search"
-              tid="tollium:common.actions.search"
+              tid="~search"
               onexecute="dosearch" />
               <!-- shortcut="ctrl+f" -->
 
@@ -253,7 +253,7 @@
         <enableon source="filelist" min="1" checkflags="canwrite isactive ispinned" selectionmatch="any" />
       </action>
 
-      <action name="propsnoselection" onexecute="dopropstree" tid="tollium:common.actions.properties">
+      <action name="propsnoselection" onexecute="dopropstree" tid="~properties">
         <enableon source="foldertreeproxy" checkflags="canadd isactive !isroot" min="1" />
       </action>
 
@@ -321,7 +321,7 @@
         <enableon source="filelist" min="1" checkflags="isfolder canwrite" onexecute="dosyncfoldersubs" />
       </action>
 
-      <helpaction name="help" manual="publisher/filemanager" tid="tollium:common.actions.help" languages="nl"/>
+      <helpaction name="help" manual="publisher/filemanager" tid="~help" languages="nl"/>
     </actions>
 
     <menus gid=".menus">
@@ -545,7 +545,7 @@
               icon="tollium:filemgr/uploadfile" />
       <button action="replace"
               name="replacebutton"
-              tid="tollium:common.actions.replace"
+              tid="~replace"
               icon="tollium:actions/replace" />
       <button action="download"
               icon="tollium:actions/download" />
@@ -559,7 +559,7 @@
 
       <button action="delete"
               name="deletebutton"
-              tid="tollium:common.actions.delete"
+              tid="~delete"
               icon="tollium:actions/trash" />
       <button action="props"
               icon="tollium:actions/properties" />

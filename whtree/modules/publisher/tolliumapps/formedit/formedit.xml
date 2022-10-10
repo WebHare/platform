@@ -28,12 +28,12 @@
         <enableon source="questions" min="1" max="1" checkflags="canaddtexts" />
       </action>
       <action name="addhandler" onexecute="doaddhandler" frameflags="canedit" />
-      <action name="edititem" tid="tollium:common.actions.edit" frameflags="canedit">
+      <action name="edititem" tid="~edit" frameflags="canedit">
         <enableon source="questions" min="1" max="1" checkflags="caneditrow ispage" onexecute="doeditpage" />
         <enableon source="questions" min="1" max="1" checkflags="caneditrow isquestion" onexecute="doeditquestion" />
         <enableon source="questions" min="1" max="1" checkflags="caneditrow ishandler" onexecute="doedithandler" />
       </action>
-      <action name="deleteitem" tid="tollium:common.actions.delete" onexecute="dodeleteitem" frameflags="canedit">
+      <action name="deleteitem" tid="~delete" onexecute="dodeleteitem" frameflags="canedit">
         <enableon source="questions" min="1" checkflags="candelete" />
       </action>
       <action name="movetotop" frameflags="canedit" tid="~totop">
@@ -54,7 +54,7 @@
     </actions>
     <menus>
       <menu name="menubar">
-        <item name="additem" tid="tollium:common.actions.add">
+        <item name="additem" tid="~add">
           <item action="addpage" />
           <item action="addgroup" />
           <divider/>
@@ -65,7 +65,7 @@
         </item>
         <item action="edititem" />
         <item action="duplicate" />
-        <item action="deleteitem" name="deletemenu" tid="tollium:common.actions.delete" />
+        <item action="deleteitem" name="deletemenu" tid="~delete" />
         <divider />
         <item name="settingsitem" action="settings" tid=".settings" />
         <item action="showresults" name="showresultsbutton" tid=".showresults" />
@@ -91,7 +91,7 @@
         <item action="deleteitem" disablemode="hidden"/>
       </menu>
       <menu name="questioncontextnew">
-        <item tid="tollium:common.actions.add">
+        <item tid="~add">
           <item action="addpage" disablemode="hidden"/>
           <item action="addquestion" disablemode="hidden"/>
           <item action="addtext" disablemode="hidden" />
@@ -100,9 +100,9 @@
       </menu>
     </menus>
     <toolbar name="toolbar">
-      <button name="addbutton" tid="tollium:common.actions.add" menu="additem" icon="tollium:actions/add" />
-      <button name="editbutton" action="edititem" tid="tollium:common.actions.edit" icon="tollium:actions/edit" />
-      <button name="deletebutton" tid="tollium:common.actions.delete" action="deleteitem" icon="tollium:actions/trash" />
+      <button name="addbutton" tid="~add" menu="additem" icon="tollium:actions/add" />
+      <button name="editbutton" action="edititem" tid="~edit" icon="tollium:actions/edit" />
+      <button name="deletebutton" tid="~delete" action="deleteitem" icon="tollium:actions/trash" />
       <divider />
       <button name="settingsbutton" tid=".settings" action="settings" icon="tollium:tools/tools" />
       <divider />

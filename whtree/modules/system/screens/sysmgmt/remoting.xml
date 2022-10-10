@@ -9,10 +9,10 @@
           savestate="size"
           >
     <actions gid=".actions">
-      <action name="edit" onexecute="doedit"  shortcut="ctrl+q" tid="tollium:common.actions.edit">
+      <action name="edit" onexecute="doedit"  shortcut="ctrl+q" tid="~edit">
         <enableon source="services" min="1" />
       </action>
-      <action name="close" onexecute="cancel"  shortcut="ctrl+q" tid="tollium:common.actions.close"/>
+      <action name="close" onexecute="cancel"  shortcut="ctrl+q" tid="~close"/>
     </actions>
 
     <body layout="form" height="1pr">

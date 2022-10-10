@@ -201,7 +201,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     this->currentmenubutton := this->owner->CreateTolliumComponent("button");
     this->currentmenubutton->icon := "tollium:actions/menu";
     this->currentmenubutton->menu := this->menubar;
-    this->currentmenubutton->title := GetTid("tollium:common.actions.menu");
+    this->currentmenubutton->title := GetTid("~menu");
     this->currentmenubutton->ismenubutton := TRUE;
     this->toolbars[0]->menubutton := this->currentmenubutton;
 

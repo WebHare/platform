@@ -9,10 +9,10 @@
       <action name="reschedule" onexecute="doreschedule">
         <enableon source="managedtasks" min="1" checkflags="canreschedule" />
       </action>
-      <action name="view" onexecute="doview"  tid="tollium:common.actions.view">
+      <action name="view" onexecute="doview"  tid="~view">
         <enableon source="managedtasks" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" shortcut="del"  tid="tollium:common.actions.delete">
+      <action name="delete" onexecute="dodelete" shortcut="del"  tid="~delete">
         <enableon source="managedtasks" min="1" />
       </action>
     </actions>
@@ -55,8 +55,8 @@
                     >
                 <column type="datetime" name="creationdate" storeutc="true" width="18x" precision="seconds" />
                 <column type="text"     name="tasktype" />
-                <column type="integer"  name="rowkey" tid="tollium:common.labels.id" />
-                <column type="icon"     name="status" align="center" width="7x" tid="tollium:common.labels.status" />
+                <column type="integer"  name="rowkey" tid="~id" />
+                <column type="icon"     name="status" align="center" width="7x" tid="~status" />
                 <column type="datetime" name="nextattempt" storeutc="true" precision="seconds" />
               </list>
             </panel>

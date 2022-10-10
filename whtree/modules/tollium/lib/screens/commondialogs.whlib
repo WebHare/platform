@@ -133,7 +133,7 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
       }
 
       OBJECT button := this->CreateTolliumComponent("button");
-      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("tollium:common.actions." || def.name);
+      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("~" || def.name);
       IF (def.isdefault)
         this->frame->defaultbutton := button;
       button->tolliumresult := def.tolliumresult;
@@ -257,7 +257,7 @@ PUBLIC OBJECTTYPE MessageBox EXTEND TolliumScreenBase
         this->savedresult := modalresult;
 
       OBJECT button := this->CreateTolliumComponent("button");
-      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("tollium:common.actions." || def.name);
+      button->title := def.tp != "" ? GetTid(def.tp) : GetTid("~" || def.name);
       IF (def.isdefault)
         this->frame->defaultbutton := button;
       button->tolliumresult := def.tolliumresult;

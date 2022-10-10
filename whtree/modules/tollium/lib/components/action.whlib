@@ -165,55 +165,55 @@ PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
       {
         CASE 'ESC'
         {
-          RETURN GetTid("tollium:common.labels.esc");
+          RETURN GetTid("~esc");
         }
         CASE 'ENTER'
         {
-          RETURN GetTid("tollium:common.labels.enter");
+          RETURN GetTid("~enter");
         }
         CASE 'LEFT'
         {
-          RETURN GetTid("tollium:common.labels.left");
+          RETURN GetTid("~left");
         }
         CASE 'UP'
         {
-          RETURN GetTid("tollium:common.labels.up");
+          RETURN GetTid("~up");
         }
         CASE 'RIGHT'
         {
-          RETURN GetTid("tollium:common.labels.right");
+          RETURN GetTid("~right");
         }
         CASE 'DOWN'
         {
-          RETURN GetTid("tollium:common.labels.down");
+          RETURN GetTid("~down");
         }
         CASE 'TAB'
         {
-          RETURN GetTid("tollium:common.labels.tab");
+          RETURN GetTid("~tab");
         }
         CASE 'BKSP'
         {
-          RETURN GetTid("tollium:common.labels.bksp");
+          RETURN GetTid("~bksp");
         }
         CASE 'DEL'
         {
-          RETURN GetTid("tollium:common.labels.del");
+          RETURN GetTid("~del");
         }
         CASE 'HOME'
         {
-          RETURN GetTid("tollium:common.labels.home");
+          RETURN GetTid("~home");
         }
         CASE 'END'
         {
-          RETURN GetTid("tollium:common.labels.end");
+          RETURN GetTid("~end");
         }
         CASE 'PGUP'
         {
-          RETURN GetTid("tollium:common.labels.pgup");
+          RETURN GetTid("~pgup");
         }
         CASE 'PGDN'
         {
-          RETURN GetTid("tollium:common.labels.pgdn");
+          RETURN GetTid("~pgdn");
         }
         DEFAULT
         {

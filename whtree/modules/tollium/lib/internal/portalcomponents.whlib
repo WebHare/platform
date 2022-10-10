@@ -85,7 +85,7 @@ PUBLIC OBJECTTYPE AddToStartMenu EXTEND TolliumMenuItem
   {
     this->TolliumComponentBase_StaticInit(definition);
     IF(this->title="")
-      this->title := GetTid("tollium:common.actions.addtostartmenu");
+      this->title := GetTid("~addtostartmenu");
 
     // ADDME hint? this->hint := "Add application to the start menu";
     this->pvt_application := definition.application;

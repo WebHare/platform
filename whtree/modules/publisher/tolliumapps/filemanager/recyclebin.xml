@@ -35,7 +35,7 @@
             <!--
             <line>
               <textedit name="searchuser" title="" enabled="false" />
-              <button action="selectsearchuser" name="selectsearchuserbtn" tid="tollium:common.actions.select" />
+              <button action="selectsearchuser" name="selectsearchuserbtn" tid="~select" />
             </line>
             -->
           </cell>

@@ -435,8 +435,8 @@ PUBLIC OBJECTTYPE ProcessList EXTEND DashboardPanelBase
       this->lockslist->rows := DEFAULT RECORD ARRAY;
     ELSE
     {
-      STRING str_yes := GetTid("tollium:common.labels.yes");
-      STRING str_no := GetTid("tollium:common.labels.no");
+      STRING str_yes := GetTid("~yes");
+      STRING str_no := GetTid("~no");
 
       DATETIME now := this->last_status.time;
 

@@ -67,7 +67,7 @@ PUBLIC OBJECTTYPE Locks EXTEND DashboardPanelBase
                , COLUMN waituntil
                , waiting :=   waitfor = rec.rowkey
                , position :=  #takers + 1
-               , locked :=    waitfor != rec.rowkey ? GetTid("tollium:common.actions.yes") : GetTid("tollium:common.actions.no")
+               , locked :=    waitfor != rec.rowkey ? GetTid("~yes") : GetTid("~no")
             FROM takers;
     }
 

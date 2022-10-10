@@ -27,7 +27,7 @@
       <panel spacers="all" borders="bottom">
         <line>
           <textedit name="searchfor" defaultbutton="searchbutton" width="60x" title="" />
-          <button name="searchbutton" action="search" tid="tollium:common.actions.search"/>
+          <button name="searchbutton" action="search" tid="~search"/>
         </line>
       </panel>
       <panel height="1pr" name="searchresultspanel">

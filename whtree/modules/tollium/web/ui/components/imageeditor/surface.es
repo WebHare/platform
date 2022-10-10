@@ -537,7 +537,7 @@ Merge:
 ImageSurface.addUndoButton = function(toolbar, surface, options)
 {
   var button = new Toolbar.Button(toolbar,
-      { label: getTid("tollium:common.actions.undo")
+      { label: getTid("~undo")
       , icon: toddImages.createImage("tollium:actions/undo", 24, 24, "b")
       , onExecute: surface.popUndo.bind(surface)
       , enabled: false
@@ -550,7 +550,7 @@ ImageSurface.addUndoButton = function(toolbar, surface, options)
 ImageSurface.addRedoButton = function(toolbar, surface, options)
 {
   var button = new Toolbar.Button(toolbar,
-      { label: getTid("tollium:common.actions.redo")
+      { label: getTid("~redo")
       , icon: toddImages.createImage("tollium:actions/redo", 24, 24, "b")
       , onExecute: surface.popRedo.bind(surface)
       , enabled: false

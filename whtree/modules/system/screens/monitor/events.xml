@@ -29,7 +29,7 @@
           </line>
           <line>
             <checkbox name="decodeknownmessages" onchange="onenablemessagedecodingchange" />
-            <button action="clearlist" width="1pr" tid="tollium:common.actions.clear" />
+            <button action="clearlist" width="1pr" tid="~clear" />
           </line>
 
           <list name="events"

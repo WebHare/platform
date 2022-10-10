@@ -60,12 +60,12 @@
               </panel>
             </cell>
             <cell>
-              <button action="addfilter" width="1pr" tid="tollium:common.actions.add"/>
+              <button action="addfilter" width="1pr" tid="~add"/>
               <button action="addalternative" width="1pr" />
               <line>
-                <button action="editfilter" width="1pr" tid="tollium:common.actions.edit" />
+                <button action="editfilter" width="1pr" tid="~edit" />
               </line>
-              <button action="deletefilter" width="1pr"  tid="tollium:common.actions.delete"/>
+              <button action="deletefilter" width="1pr"  tid="~delete"/>
             </cell>
           </row>
         </grid>

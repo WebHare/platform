@@ -41,17 +41,17 @@
 
       <downloadaction name="downloadimagemap"
                       ondownload="dodownloadimagemap"
-                      tid="tollium:common.actions.download"
+                      tid="~download"
                       />
 
       <downloadaction name="downloadimagemaparchive"
                       ondownload="dodownloadimagemaparchive"
-                      tid="tollium:common.actions.download"
+                      tid="~download"
                       />
 
       <downloadaction name="downloadjson"
                       ondownload="dodownloadjson"
-                      tid="tollium:common.actions.download"
+                      tid="~download"
                       />
 
       <windowopenaction name="previewurl" onwindowopen="dopreviewurl" title="Preview link">

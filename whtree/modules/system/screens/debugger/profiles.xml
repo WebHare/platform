@@ -19,7 +19,7 @@
         <enableon source="parentcalls" min="1" />
       </action>
       <action name="clearlist" onexecute="doclearlist" />
-      <action name="closeapp" onexecute="cancel" shortcut="ctrl+q" tid="tollium:common.actions.close" />
+      <action name="closeapp" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
       <action name="webserveradhoccache" onexecute="dowebserveradhoccache" />
       <action name="clearallcaches" onexecute="doclearallcaches" />
       <action name="editsource" tid="~openineditor">

@@ -213,7 +213,7 @@ PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
     ^retval->value := task.retval;
     ^manualcall->value := "wh tasks run m" || this->taskid;
     ^metadata->value := task.metadata;
-    ^timeout->value := task.timeout = 0 ? GetTid("tollium:common.labels.none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
+    ^timeout->value := task.timeout = 0 ? GetTid("~none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
 
     ^frame->flags.canreschedule := task.finished = DEFAULT DATETIME AND task.nextattempt > GetCurrentDatetime();
   }

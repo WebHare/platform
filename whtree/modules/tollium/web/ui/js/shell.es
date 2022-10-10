@@ -691,21 +691,21 @@ $todd.handleApplicationErrors = async function(app,data)
 {
   if(data.error === "notloggedin") //StartApp error
   {
-    await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
     if(!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
       $shell.doLogoff();
     return;
   }
   if(data.error === "unexpectedprotocolversion") //StartApp error
   {
-    await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
     if(!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
       location.reload(true);
     return;
   }
   if(data.type === "expired") //StartApp error
   {
-    await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
     app.getBusyLock();
     location.reload(true);
     return;
@@ -769,7 +769,7 @@ function reportApplicationError(app,data,messages,trace)
                    , isfooter: true
                    , width:'1pr'
                    }
-    , closebutton: { type: 'button', title: getTid("tollium:common.actions.close"), action: 'closeaction' }
+    , closebutton: { type: 'button', title: getTid("~close"), action: 'closeaction' }
     , closeaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
     , debugbutton: { type: 'button', title: getTid("tollium:shell.errors.debug"), action: 'debugaction' }
     , debugaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }

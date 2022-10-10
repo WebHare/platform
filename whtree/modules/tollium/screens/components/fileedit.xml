@@ -3,9 +3,9 @@
 
   <fragment name="fileedit">
     <actions>
-      <uploadaction name="replacefile" tid="tollium:common.actions.replace" onupload="doreplacefile" />
-      <downloadaction name="savefile" tid="tollium:common.actions.save" ondownload="dosavefile" />
-      <action name="removefile" tid="tollium:common.actions.delete" onexecute="doremovefile" />
+      <uploadaction name="replacefile" tid="~replace" onupload="doreplacefile" />
+      <downloadaction name="savefile" tid="~save" ondownload="dosavefile" />
+      <action name="removefile" tid="~delete" onexecute="doremovefile" />
     </actions>
     <contents>
       <line>

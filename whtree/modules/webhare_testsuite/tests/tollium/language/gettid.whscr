@@ -47,7 +47,7 @@ MACRO TidCompilerTest()
   TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","~locale.datetimestrings"));
 
   //Common tids
-  TestEq("Close", GetTid("tollium:common.buttons.close"));
+  TestEq("Close", GetTid("~close"));
   TestEq("Add", GetTidForLanguage("en","~add"));
   TestEq("Toevoegen", GetTidForLanguage("nl","~add"));
   TestEq("Nederlands", GetTidForLanguage("nl","tollium:common.languages.nl")); //make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...

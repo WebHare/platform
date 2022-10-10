@@ -62,7 +62,7 @@
         <option rowkey="2" tid=".zwei" />
         <option rowkey="3" title="Polizei" selected="true"/>
       </select>
-      <upload name="upload" tid="tollium:common.actions.upload" />
+      <upload name="upload" tid="~upload" />
       <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" required="true" />
       <password name="password" title="Wachtwoord?" placeholder="secret" />
       <textedit name="number" title="NumberPlease" valuetype="integer" min="-2" max="2"/>

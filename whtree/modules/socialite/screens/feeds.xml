@@ -8,10 +8,10 @@
 
   <screen name="feeds" gid=".feeds" tid=".screentitle" allowresize="true" savestate="size" width="90x" height="12x">
     <actions>
-      <action name="edititem" tid="tollium:common.actions.edit" onexecute="doedititem">
+      <action name="edititem" tid="~edit" onexecute="doedititem">
         <enableon source="feeds" min="1" max="1" />
       </action>
-      <action name="deleteitem" tid="tollium:common.actions.delete" onexecute="dodeleteitem">
+      <action name="deleteitem" tid="~delete" onexecute="dodeleteitem">
         <enableon source="feeds" min="1" />
       </action>
     </actions>
@@ -36,8 +36,8 @@
             </list>
           </cell>
           <cell>
-            <button action="edititem" width="1pr" tid="tollium:common.actions.edit"/>
-            <button action="deleteitem" width="1pr" tid="tollium:common.actions.delete"/>
+            <button action="edititem" width="1pr" tid="~edit"/>
+            <button action="deleteitem" width="1pr" tid="~delete"/>
           </cell>
         </row>
       </grid>
@@ -49,7 +49,7 @@
 
   <screen name="feed" gid=".feed" tid=".screentitle">
     <actions>
-      <action name="edititem" tid="tollium:common.actions.edit" onexecute="doedititem">
+      <action name="edititem" tid="~edit" onexecute="doedititem">
         <enableon source="feedentries" min="1" max="1" />
       </action>
       <action name="hideitem" onexecute="dohideitem">
@@ -83,7 +83,7 @@
             </list>
           </cell>
           <cell>
-            <button action="edititem" width="1pr" tid="tollium:common.actions.edit"/>
+            <button action="edititem" width="1pr" tid="~edit"/>
             <button action="hideitem" width="1pr" />
             <button action="unhideitem" width="1pr" />
           </cell>

@@ -34,8 +34,8 @@
       <action name="filelistsinglerow" onexecute="dofilelistsinglerow" title="" />
       <action name="filelistmultirow" onexecute="dofilelistmultirow" title="" />
       <action name="export" onexecute="doexport" tid=".export" />
-      <action name="close" onexecute="cancel" tid="tollium:common.actions.close" />
-      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="tollium:common.actions.inspect">
+      <action name="close" onexecute="cancel" tid="~close" />
+      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="~inspect">
         <enableon source="actionlist" min="1" max="1" frameflags="issysop" />
       </action>
     </actions>
@@ -199,10 +199,10 @@
 
   <screen name="history" allowresize="true" icon="tollium:actions/history" height="700px"  width="900px" flags="issysop">
     <actions>
-      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="tollium:common.actions.inspect">
+      <action name="inspectpolicy" onexecute="doinspectpolicy" tid="~inspect">
         <enableon source="versionevents" min="1" max="1" frameflags="issysop" />
       </action>
-      <action name="createcopy" onexecute="docreatecopy" tid="tollium:common.actions.duplicate">
+      <action name="createcopy" onexecute="docreatecopy" tid="~duplicate">
         <enableon source="versionevents" min="1" max="1" />
       </action>
       <action name="restorecontent" onexecute="dorestorecontent" tid=".restore">
@@ -476,7 +476,7 @@
     <footer layout="right">
       <line>
         <button action="openinapp" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.close" />
+        <button tolliumresult="cancel" tid="~close" />
       </line>
     </footer>
   </screen>

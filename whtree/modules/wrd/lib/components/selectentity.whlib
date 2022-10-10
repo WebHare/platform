@@ -226,7 +226,7 @@ PUBLIC OBJECTTYPE TolliumWRDEntitySelectionField EXTEND TolliumComponentBase
 
         OBJECT selectcomp := this->CreateSubComponent("button");
         selectcomp->action := selectaction;
-        selectcomp->title := GetTid("tollium:common.actions.select");
+        selectcomp->title := GetTid("~select");
         selectcomp->enabled := this->enabled;
 
         this->comps := [ textcomp, selectcomp ];

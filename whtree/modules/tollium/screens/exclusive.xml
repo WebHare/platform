@@ -20,7 +20,7 @@
     <footer>
       <line layout="right">
         <button action="takeover" />
-        <button name="btn_cancel" action="abandon" tid="tollium:common.actions.cancel" />
+        <button name="btn_cancel" action="abandon" tid="~cancel" />
       </line>
     </footer>
   </screen>
@@ -48,7 +48,7 @@
     <footer>
       <line layout="right">
         <button name="btn_release" action="release" tid=".release" />
-        <button name="btn_keep" action="keep" tid="tollium:common.actions.cancel" />
+        <button name="btn_keep" action="keep" tid="~cancel" />
       </line>
     </footer>
   </screen>

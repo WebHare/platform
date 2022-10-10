@@ -27,7 +27,7 @@ class OauthApp
     await runSimpleScreen(this.app,
                             { title: getTid("tollium:shell.oauth.errortitle")
                             , text: text
-                            , buttons: [ { name: "close", title: getTid("tollium:common.buttons.close") }
+                            , buttons: [ { name: "close", title: getTid("~close") }
                                        ]
                             });
     this.app.terminateApplication();
@@ -118,9 +118,9 @@ class OauthApp
 
       // , scopes:       { type: "text", title: "", value: this.oauth_scopes.join(", ") }
 
-      , submitbutton: { type: "button", title: getTid("tollium:common.actions.yes"), action: "submitaction" }
+      , submitbutton: { type: "button", title: getTid("~yes"), action: "submitaction" }
 
-      , cancelbutton: { type: "button", title: getTid("tollium:common.actions.no"), action: "cancelaction" }
+      , cancelbutton: { type: "button", title: getTid("~no"), action: "cancelaction" }
 
       , submitaction: { type: "action", hashandler: true, onexecute: this._createAccessToken.bind(this)  }
 

@@ -88,7 +88,7 @@ PUBLIC OBJECTTYPE TolliumBrowseServerPath EXTEND TolliumComponentBase
     this->browse := this->CreateSubComponent("button");
     this->browse->visible := this->visible AND NOT this->readonly;
     this->browse->enabled := this->enabled;
-    this->browse->title := this->pvt_button != "" ? this->pvt_button : GetTid("tollium:common.actions.browse");
+    this->browse->title := this->pvt_button != "" ? this->pvt_button : GetTid("~browse");
     this->browse->action := this->CreateSubComponent("action");
     this->browse->action->onexecute := PTR this->DoBrowse;
     this->parent->InsertComponentAfter(this->browse, this->path, FALSE);

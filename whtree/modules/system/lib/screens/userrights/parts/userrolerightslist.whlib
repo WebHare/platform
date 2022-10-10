@@ -140,7 +140,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
              , icon :=            3 // role
              , objectpath :=      ""
              , canmanage :=       authobjectid IN canmanageids
-             , withgrantoption := ""//authobjectid IN withgrantoptionids ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , withgrantoption := ""//authobjectid IN withgrantoptionids ? GetTid("~yes") : GetTid("~no")
              , isrole :=          TRUE
              , subnodes :=        this->anygrantablerights ? GetDirectRightRows(this->contexts->userapi->GetRole(wrd_id), this->owner->tolliumuser, FALSE, this->rightsinfo) : DEFAULT RECORD ARRAY
              , expanded :=        FALSE
@@ -339,7 +339,7 @@ RECORD ARRAY FUNCTION GetDirectRightRows(OBJECT wrdauthuser, OBJECT browseuser, 
            , rightname
            , objectid
            , objectpath :=      rightdata.isglobal ? "" : SafeGetObjectPath(rightsinfo, rightdata, objectid, browseuser->authobject)
-           , withgrantoption := withgrantoption ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+           , withgrantoption := withgrantoption ? GetTid("~yes") : GetTid("~no")
            , expanded :=        FALSE
         FROM grants
        WHERE RecordExists(rightdata);

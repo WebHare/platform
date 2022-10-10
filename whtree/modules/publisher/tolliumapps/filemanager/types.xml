@@ -54,8 +54,8 @@
         </cell>
         <cell>
           <line>
-            <button action="submitscreen" name="submitscreenbutton" tid="tollium:common.actions.ok" />
-            <button action="cancelscreen" tid="tollium:common.actions.cancel" />
+            <button action="submitscreen" name="submitscreenbutton" tid="~ok" />
+            <button action="cancelscreen" tid="~cancel" />
           </line>
         </cell>
       </grid>

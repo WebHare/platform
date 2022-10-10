@@ -6,11 +6,11 @@
 
   <screen name="paymentproviders" height="15x" width="120x" allowresize="true" savestate="size">
     <actions>
-      <action name="addprovider" onexecute="doadd" tid="tollium:common.actions.add" />
-      <action name="editprovider" onexecute="doedit" tid="tollium:common.actions.edit" >
+      <action name="addprovider" onexecute="doadd" tid="~add" />
+      <action name="editprovider" onexecute="doedit" tid="~edit" >
         <enableon source="providers" min="1" max="1"  />
       </action>
-      <action name="deleteprovider" onexecute="dodelete" tid="tollium:common.actions.delete">
+      <action name="deleteprovider" onexecute="dodelete" tid="~delete">
         <enableon source="providers" min="1" max="1" />
       </action>
     </actions>
@@ -28,7 +28,7 @@
         <row height="1pr">
           <cell>
             <list name="providers" selectmode="single" minheight="8x" height="1pr" width="1pr" openaction="editprovider" selectcontextmenu="selectcontextmenu" ongetrows="GetProviders">
-              <column name="title" type="text" tid="tollium:common.labels.title" />
+              <column name="title" type="text" tid="~title" />
               <column name="type" type="text" />
               <column name="tag" type="text" />
             </list>
@@ -77,7 +77,7 @@
     <footer>
       <grid>
         <cell width="1pr">
-          <button action="helpaction" name="helpbutton" tid="tollium:common.actions.help" />
+          <button action="helpaction" name="helpbutton" tid="~help" />
         </cell>
         <cell>
           <defaultformbuttons buttons="ok cancel" />

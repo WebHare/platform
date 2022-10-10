@@ -20,7 +20,7 @@
           defaultbutton="openschemabutton"
           >
     <actions gid=".actions">
-      <action name="openschema" onexecute="doopenschema" tid="tollium:common.actions.open">
+      <action name="openschema" onexecute="doopenschema" tid="~open">
         <enableon source="schemas" min="1" max="1" />
       </action>
       <action name="close" onexecute="cancel" />
@@ -64,11 +64,11 @@
             </list>
           </cell>
           <cell>
-            <button action="newschema" tid="tollium:common.actions.add" width="1pr" />
-            <button action="editschema" tid="tollium:common.actions.edit" width="1pr" />
-            <button action="delschema" tid="tollium:common.actions.delete" width="1pr"  />
-            <button action="importschema" tid="tollium:common.actions.import" width="1pr" />
-            <button action="synchronize" tid="tollium:common.actions.synchronize" width="1pr" />
+            <button action="newschema" tid="~add" width="1pr" />
+            <button action="editschema" tid="~edit" width="1pr" />
+            <button action="delschema" tid="~delete" width="1pr"  />
+            <button action="importschema" tid="~import" width="1pr" />
+            <button action="synchronize" tid="~synchronize" width="1pr" />
           </cell>
         </row>
       </grid>
@@ -76,7 +76,7 @@
     <footer>
       <line layout="right">
         <button name="openschemabutton" action="openschema" tid="~open" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+        <button tolliumresult="cancel" tid="~cancel" />
       </line>
     </footer>
   </screen>

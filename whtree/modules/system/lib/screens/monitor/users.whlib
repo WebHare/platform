@@ -137,7 +137,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
              , sessionid
              , ipaddress
              , ipaddress_sort
-             , running :=       active ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , running :=       active ? GetTid("~yes") : GetTid("~no")
              , app
              , title
              , library

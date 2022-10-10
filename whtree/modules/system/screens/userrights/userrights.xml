@@ -15,7 +15,7 @@
       <action name="syncauthobjects" onexecute="dosyncauthobjects" frameflags="issysop" />
       <action name="setuserdefaults" onexecute="dosetuserdefaults" frameflags="issysop" />
       <action name="exportallgrants" onexecute="doexportallgrants" frameflags="issysop" />
-      <action name="exit" onexecute="doexit" tid="tollium:common.actions.exit" shortcut="ctrl+q" />
+      <action name="exit" onexecute="doexit" tid="~exit" shortcut="ctrl+q" />
 
       <action name="edit" hinttid=".edit-hint">
         <enableon source="unittree->unitlist" min="1" max="1" checkflags="canmanageunit !isroot" onexecute="unittree->doeditunit" />

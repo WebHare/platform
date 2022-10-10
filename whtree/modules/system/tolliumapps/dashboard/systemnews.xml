@@ -5,11 +5,11 @@
 
   <screen name="overview" title="">
     <actions>
-      <action name="add" onexecute="doadd" tid="tollium:common.actions.add" shortcut="ctrl+n"/>
-      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit" shortcut="enter">
+      <action name="add" onexecute="doadd" tid="~add" shortcut="ctrl+n"/>
+      <action name="edit" onexecute="doedit" tid="~edit" shortcut="enter">
         <enableon source="newslist" min="1" max="1"/>
       </action>
-      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete" shortcut="del">
+      <action name="delete" onexecute="dodelete" tid="~delete" shortcut="del">
         <enableon source="newslist" min="1" />
       </action>
     </actions>

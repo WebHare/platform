@@ -94,7 +94,7 @@ class UploadDialogController
         , sizestxt:     { type: 'text', value: texts.sizes }
         , speedtxt:     { type: 'text', value: texts.speed }
         , cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , cancelbutton: { type: 'button', title: getTid('tollium:common.actions.cancel'), action: 'cancelaction' }
+        , cancelbutton: { type: 'button', title: getTid('~cancel'), action: 'cancelaction' }
         });
 
     this.dialog.getComponent('progress').onMsgSetValMax({ max: 100, value: texts.progress });
@@ -146,7 +146,7 @@ class UploadDialogController
                           }
           , text:         { type: 'text', value: getTid('tollium:shell.upload.messages.unknownerror') }
           , closeaction:  { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-          , closebutton:  { type: 'button', title: getTid('tollium:common.actions.close'), action: 'closeaction' }
+          , closebutton:  { type: 'button', title: getTid('~close'), action: 'closeaction' }
           });
 
       errormessagedialog.setMessageHandler("closeaction", "execute", this.gotErrorDialogClose.bind(this, errormessagedialog));

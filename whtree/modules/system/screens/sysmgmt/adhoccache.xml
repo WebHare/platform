@@ -20,7 +20,7 @@
         <button action="settings" />
         <button action="refresh" />
         <button action="flushcache" />
-        <button tid="tollium:common.actions.close" tolliumresult="close" />
+        <button tid="~close" tolliumresult="close" />
       </line>
     </footer>
   </screen>
