@@ -96,6 +96,8 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
                   , editdefaults := DEFAULT STRING ARRAY
                   , supportedvalues := STRING[]
                   , supportedvaluesfunc := ""
+                  , hasautocomplete := compinfo->HasAttribute("autocomplete")
+                  , autocomplete := ParseXSList(compinfo->GetAttribute("autocomplete"))
                   , parserfunc := ""
                   , fieldobject := ""
                   , ordering := ParseXSInt(compinfo->GetAttribute("ordering"))

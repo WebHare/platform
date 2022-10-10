@@ -39,20 +39,25 @@ export default class ObjPulldown extends HTMLComponentBase
 
   buildHTMLNode()
   {
-    var node =
-        <select onChange={ev => this.gotControlChange(ev)} >
-          {
-            this.options.map(opt =>
-              opt.isdivider
-                ? <option disabled="disabled" class="divider">──────────</option>
-                : <option
-                    value={opt.value}
-                    selected={opt.selected ? "selected" : ""}
-                    disabled={opt.enabled ? "" : "disabled" }>{opt.title}</option>
-            )
-          }
-        </select>;
+    let node = <select onChange={ev => this.gotControlChange(ev)} />;
+    let insertdivider = false;
+    for(let opt of this.options)
+    {
+      if(opt.isdivider)
+      {
+        insertdivider = true;
+        continue;
+      }
 
+      //real item, flush any divider
+      if(insertdivider)
+      {
+        node.append(<option disabled="disabled" class="divider">──────────</option>);
+        insertdivider = false;
+      }
+
+      node.append(<option value={opt.value} selected={opt.selected} disabled={!opt.enabled}>{opt.title}</option>);
+    }
     return node;
   }
 
