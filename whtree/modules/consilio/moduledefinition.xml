@@ -277,7 +277,6 @@
       </d:varchar>
       <d:obsoletecolumn name="type" />
       <d:obsoletecolumn name="loglevel" />
-      <d:obsoletecolumn name="type" />
       <d:obsoletecolumn name="enablestemming" />
       <d:obsoletecolumn name="secure" />
     </d:table>
