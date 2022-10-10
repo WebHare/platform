@@ -380,8 +380,37 @@
         <text tid="docs">Documents</text>
         <text tid="getmapping">Mappings</text>
         <text tid="indexmanager">OpenSearch server</text>
+        <text tid="managemanagers">Manage index managers</text>
+        <text tid="noindices">No indices</text>
         <text tid="size">Size</text>
         <text tid="title">Index managers</text>
+        <text tid="waitingforstatus">Waiting for index list…</text>
+      </textgroup>
+      <textgroup gid="managemanagers">   <!-- tolliumapps.dashboard.managemanagers -->
+        <text tid="address">Address</text>
+        <text tid="address-builtin">Internal WebHare connection</text>
+        <text tid="cannotretrievesettings">Cannot retrieve current settings:<br/><param p="1"/></text>
+        <text tid="configuration">Configuration</text>
+        <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
+        <text tid="editindexmanager">Index manager</text>
+        <text tid="indexmanagers">Manage index managers</text>
+        <text tid="initialmemorypool">Initial memorypool size</text>
+        <text tid="maximummemorypool">Maximum memorypool size</text>
+        <text tid="name">Name</text>
+        <text tid="runtimesettings">Run-time settings</text>
+        <text tid="threshold_enabled">Disk usage checks enabled</text>
+        <text tid="watermark_flood">Read-only mode</text>
+        <text tid="watermark_high">Very low disk space</text>
+        <text tid="watermark_low">Low disk space</text>
+        <text tid="willrestart">Changing these settings may cause the OpenSearch server to restart immediately. It may be unreachable while it restarts.<br/><br/>Are you sure you want to change these settings?</text>
+        <textgroup gid="messages">   <!-- tolliumapps.dashboard.managemanagers.messages -->
+          <text tid="inconsistentwatermarks">All threshold values should be either percentages or absolute byte values</text>
+          <text tid="invalidbytevalue">Field '<param p="1"/>' contains an invalid absolute byte value '<param p="2"/>'</text>
+          <text tid="invalidpercentage">Field '<param p="1"/>' contains an invalid percentage value '<param p="2"/>'</text>
+          <text tid="savesettingserror">An error occurred while applying the new settings<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
+          <text tid="valuetoohigh">The value of field '<param p="1"/>' should not be higher than the value of field '<param p="2"/>'</text>
+          <text tid="valuetoolow">The value of field '<param p="1"/>' should not be lower than the value of field '<param p="2"/>'</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
         <text tid="catalog">Catalog</text>
@@ -391,33 +420,6 @@
         <text tid="runquery">Run query</text>
         <text tid="title">Queries</text>
         <text tid="when">Date</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
-      <text tid="address">Address</text>
-      <text tid="address-builtin">Internal WebHare connection</text>
-      <text tid="cannotretrievesettings">Cannot retrieve current settings:<br/><param p="1"/></text>
-      <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
-      <text tid="editindexmanager">Index manager</text>
-      <text tid="elasticsearch">Elasticsearch</text>
-      <text tid="general">General</text>
-      <text tid="indexmanagers">Index managers</text>
-      <text tid="indexmgr-builtin">Builtin (classic Consilio)</text>
-      <text tid="indexmgr-elasticsearch">Elasticsearch</text>
-      <text tid="name">Name</text>
-      <text tid="prefix">Prefix</text>
-      <text tid="threshold_enabled">Disk usage checks enabled</text>
-      <text tid="type">Type</text>
-      <text tid="watermark_flood">Read-only mode</text>
-      <text tid="watermark_high">Very low disk space</text>
-      <text tid="watermark_low">Low disk space</text>
-      <textgroup gid="messages">   <!-- tolliumapps.indexmanagers.messages -->
-        <text tid="inconsistentwatermarks">All threshold values should be either percentages or absolute byte values</text>
-        <text tid="invalidbytevalue">Field '<param p="1"/>' contains an invalid absolute byte value '<param p="2"/>'</text>
-        <text tid="invalidpercentage">Field '<param p="1"/>' contains an invalid percentage value '<param p="2"/>'</text>
-        <text tid="savesettingserror">An error occurred while applying the new settings<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
-        <text tid="valuetoohigh">The value of field '<param p="1"/>' should not be higher than the value of field '<param p="2"/>'</text>
-        <text tid="valuetoolow">The value of field '<param p="1"/>' should not be lower than the value of field '<param p="2"/>'</text>
       </textgroup>
     </textgroup>
   </textgroup>

@@ -2,18 +2,22 @@
          gid="tolliumapps.dashboard.indexmanagers"
          library="indexmanagers.whlib">
 
-  <screen name="indexmgrs" allowresize="true" savestate="size" tid=".title">
+  <screen name="indexmgrs" allowresize="true" flags="issysop" savestate="size" tid=".title">
     <actions>
+      <action name="managemanagers" frameflags="issysop" onexecute="domanagemgrs" />
       <action name="getmapping" onexecute="dogetmapping">
         <enableon source="indices" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="~delete">
+      <action name="delete" frameflags="issysop" onexecute="dodelete" tid="~delete">
         <enableon source="indices" min="1" />
       </action>
     </actions>
 
     <body>
-      <select name="indexmanager" type="pulldown" onchange="onindexmanagerchange" />
+      <line>
+        <select name="indexmanager" type="pulldown" />
+        <button action="managemanagers" />
+      </line>
       <grid height="1pr">
         <cell width="1pr">
           <list name="indices" selectmode="multiple">

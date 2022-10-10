@@ -221,11 +221,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     this->LoadScreen(".blacklist")->RunModal();
   }
 
-  MACRO DoManageIndexmanagers()
-  {
-    this->RunScreen("/tolliumapps/indexmanagers.xml#indexmanagers");
-  }
-
   MACRO DoRestart()
   {
     IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmrestart")) = "yes")

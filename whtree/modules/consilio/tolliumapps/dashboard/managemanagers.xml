@@ -1,0 +1,37 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.dashboard.managemanagers"
+         library="managemanagers.whlib">
+
+  <screen name="indexmanagers" width="120x" footerbuttons="close">
+    <body>
+      <listedit name="mgrs" height="1pr" ongetrows="ongetmgrs" onrowdelete="ondeletemgr" onrowedit="oneditmgr">
+        <column name="name" type="text" width="1pr" />
+        <column name="address" type="text" width="2pr" />
+      </listedit>
+    </body>
+  </screen>
+
+  <screen name="editindexmanager" footerbuttons="ok cancel">
+    <compositions>
+      <record name="indexmgr" />
+    </compositions>
+
+    <body>
+      <textedit composition="indexmgr" cellname="name" required="true" />
+      <textedit composition="indexmgr" cellname="address" name="address" validationchecks="http-url" />
+      <heading name="configuration" />
+      <textedit name="initialmemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
+      <textedit name="maximummemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
+    </body>
+  </screen>
+
+  <screen name="runtimesettings" footerbuttons="ok cancel">
+    <body>
+      <heading name="threshold_enabled" checkbox="true" enablecomponents="watermark_low watermark_high watermark_flood" />
+      <textedit name="watermark_low" width="10x" />
+      <textedit name="watermark_high" width="10x" />
+      <textedit name="watermark_flood" width="10x" />
+    </body>
+  </screen>
+
+</screens>

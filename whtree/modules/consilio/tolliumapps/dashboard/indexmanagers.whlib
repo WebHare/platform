@@ -1,62 +1,83 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
-LOADLIB "mod::system/lib/internal/modules/json.whlib";
 
-LOADLIB "mod::tollium/lib/dialogs.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
+PUBLIC RECORD ARRAY FUNCTION GetIndexManagerStatus(INTEGER indexid)
+{
+  IF(indexid = 0)
+    RETURN RECORD[];
+
+  OpenPrimary();
+  RETURN SELECT rowkey := uuid
+              , docs
+              , size
+              , name := indexname
+              , health
+           FROM ListOpenSearchIndices(indexid);
+}
 
 
 PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 <
   INTEGER freshcallback;
+  OBJECT statuspromise;
 
   MACRO Init(RECORD data)
   {
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
                             ORDER BY ToUppercase(name);
+    ^indexmanager->onchange := PTR this->PollIndexmanagerStatus; //not running initally, we'll wait for RefreshDashboardPanel to come in
   }
   UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
-    this->RefreshIndices();
+    this->PollIndexmanagerStatus();
   }
-
+  MACRO DoManageMgrs()
+  {
+    this->RunScreen(Resolve("managemanagers.xml"));
+  }
   MACRO OnIndexManagerChange()
   {
-    this->RefreshIndices();
+    this->PollIndexmanagerStatus();
   }
-  MACRO RefreshIndices()
+  ASYNC MACRO PollIndexmanagerStatus()
   {
-    //FIXME async but deal with invalidation of earlier answer. cant list support async ongetrows ?
-    //FIXME and list should do auto-refresh in the background on a given interval, or at least make that easy
-
-    ^indices->rows := SELECT rowkey := uuid
-                           , docs
-                           , size
-                           , name := indexname
-                           , health := this->GetHealthIcon(health, ^indices)
-                        FROM ListOpenSearchIndices(^indexmanager->value);
-
-    IF(this->freshcallback != 0)
+    IF(ObjectExists(this->statuspromise))
     {
-      UnregisterCallback(this->freshcallback);
-      this->freshcallback := 0;
+      this->statuspromise->Cancel();
+      this->statuspromise := DEFAULT OBJECT;
     }
-    RegisterTimedCallback(AddTimeToDate(5000, GetCurrentDatetime()), PTR this->TimedRefresh);
+
+    ^indices->empty := this->GetTid(".waitingforstatus");
+    this->statuspromise := AsyncCallFunctionFromJob(Resolve("#GetIndexManagerStatus"), ^indexmanager->value);
+
+    TRY
+    {
+      RECORD ARRAY result := AWAIT this->statuspromise;
+      ^indices->rows := SELECT *
+                             , health := this->GetHealthIcon(health, ^indices)
+                          FROM result;
+      ^indices->empty := this->GetTid(".noindices");
+    }
+    CATCH(OBJECT<OPERATIONCANCELLEDEXCEPTION> e)
+    {
+      RETURN;
+    }
+    CATCH(OBJECT e)
+    {
+      ABORT(e);
+    }
   }
-  MACRO TimedRefresh()
-  {
-    this->freshcallback := 0;
-    this->RefreshIndices();
-  }
+
   MACRO DoGetMapping()
   {
     RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_mapping`, DEFAULT RECORD);
@@ -71,7 +92,7 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
     FOREVERY(RECORD tokill FROM ^indices->selection)
       SendRawJSONToElasticsearch(^indexmanager->value, "DELETE", `/${EncodeURL(tokill.name)}/`, DEFAULT RECORD);
 
-    this->RefreshIndices();
+    this->PollIndexmanagerStatus();
   }
   INTEGER FUNCTION GetHealthIcon(STRING health, OBJECT list)
   {
@@ -82,33 +103,5 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
       CASE "red"    { RETURN list->GetIcon("tollium:status/error"); }
     }
     RETURN 0;
-  }
->;
-
-PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    ^indexmanager->options := SELECT rowkey := id, title := name, address
-                                FROM consilio.indexmanagers
-                            ORDER BY ToUppercase(name);
-    ^indexmanager->SetValueIfValid(data.indexmanager);
-    ^query->value := PrettifyJSON(EncodeJSON(data.query));
-  }
-  MACRO DoRunQuery()
-  {
-    TRY
-    {
-      RECORD query := DecodeJSON(^query->value);
-      IF(NOT RecordExists(query))
-        THROW NEW Exception("Invalid JSON format");
-
-      RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
-      ^result->value := PrettifyJSON(BlobToString(res.content));
-    }
-    CATCH(OBJECT e)
-    {
-      RunExceptionReportDialog(this, e);
-    }
   }
 >;

@@ -269,19 +269,17 @@
       <d:varchar name="name" maxlength="256" nullable="0" unique="1">
         <d:documentation>The name of the index manager</d:documentation>
       </d:varchar>
-      <d:obsoletecolumn name="type" />
       <d:varchar name="address" maxlength="512" nullable="0" unique="1">
         <d:documentation>Connect url, including username and password, if necessary (may be "builtin" for type 1)</d:documentation>
       </d:varchar>
-      <d:boolean name="enablestemming">
-        <d:documentation>Enable stemming functionality (type 1)</d:documentation>
-      </d:boolean>
-      <d:integer name="loglevel">
-        <d:documentation>0: fatal errors, 1: statistics, 2: debug (type 1)</d:documentation>
-      </d:integer>
-      <d:boolean name="secure">
-        <d:documentation>DEPRECATED in favor of using full HTTP urls</d:documentation>
-      </d:boolean>
+      <d:varchar name="configuration" maxlength="4096">
+        <d:documentation>HSON encoded server configuration</d:documentation>
+      </d:varchar>
+      <d:obsoletecolumn name="type" />
+      <d:obsoletecolumn name="loglevel" />
+      <d:obsoletecolumn name="type" />
+      <d:obsoletecolumn name="enablestemming" />
+      <d:obsoletecolumn name="secure" />
     </d:table>
 
     <d:table name="thesaurus" primarykey="id">
@@ -322,20 +320,11 @@
     <node name="options">
       <integer name="keepsearchterms" description="Number of days to keep searched terms" initialval="30" />
     </node>
-    <node name="builtinelasticsearch">
-      <integer name="initialmemorypool"
-               description="Initial size of the Java memory pool for the built-in ElasticSaerch in MB (-Xms)" />
-      <integer name="maximummemorypool"
-               description="Maximum size of the Java memory pool for the built-in ElasticSaerch in MB (-Xmx)" />
-    </node>
 
     <!-- Migrated to consilio.indexmanagers -->
-    <node name="indexmanager">
-      <obsoletenode name="enablestemming" />
-      <obsoletenode name="loglevel" />
-      <obsoletenode name="servername" />
-      <obsoletenode name="serverport" />
-    </node>
+    <obsoletenode name="indexmanager" />
+    <obsoletenode name="builtinelasticsearch" />
+
     <node name="suggest">
       <integer name="maxconcurrent" description="Maximum of concurrent suggest queries" initialval="10" />
       <integer name="maxwait" description="Maximum queue wait time for suggest queries" initialval="200" />

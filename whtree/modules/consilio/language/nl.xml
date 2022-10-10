@@ -380,8 +380,37 @@
         <text tid="docs">Documenten</text>
         <text tid="getmapping">Mappings</text>
         <text tid="indexmanager">OpenSearch server</text>
+        <text tid="managemanagers">Beheer indexmanagers</text>
+        <text tid="noindices">Geen indices</text>
         <text tid="size">Grootte</text>
         <text tid="title">Index managers</text>
+        <text tid="waitingforstatus">Wacht op indexlijst…</text>
+      </textgroup>
+      <textgroup gid="managemanagers">   <!-- tolliumapps.dashboard.managemanagers -->
+        <text tid="address">Adres</text>
+        <text tid="address-builtin">Interne WebHare-verbinding</text>
+        <text tid="cannotretrievesettings">Kan huidige instellingen niet ophalen:<br/><param p="1"/></text>
+        <text tid="configuration">Configuratie</text>
+        <text tid="confirmdeleteindexmanager">Weet u zeker dat de u de geselecteerde indexmanager wil verwijderen?</text>
+        <text tid="editindexmanager">Index manager</text>
+        <text tid="indexmanagers">Beheer index managers</text>
+        <text tid="initialmemorypool">Initiele grootte memorypool</text>
+        <text tid="maximummemorypool">Maximale grootte memorypool</text>
+        <text tid="name">Naam</text>
+        <text tid="runtimesettings">Instellingen</text>
+        <text tid="threshold_enabled">Controle schijfgebruik actief</text>
+        <text tid="watermark_flood">Alleen-lezen-modus</text>
+        <text tid="watermark_high">Erg weinig schijfruimte</text>
+        <text tid="watermark_low">Weinig schijfruimte</text>
+        <text tid="willrestart">Het wijzigen van deze instellingen kan ervoor zorgen dat de OpenSearch server direct herstart en daardoor tijdelijk onbereikbaar is.<br/><br/>Weet u zeker dat u deze wijzigingen wil maken?</text>
+        <textgroup gid="messages">   <!-- tolliumapps.dashboard.managemanagers.messages -->
+          <text tid="inconsistentwatermarks">Alle drempelwaarden moeten ofwel percentages ofwel absolute byte-waarden zijn</text>
+          <text tid="invalidbytevalue">Het veld '<param p="1"/>' bevat een ongeldige absolute byte-waarde '<param p="2"/>'</text>
+          <text tid="invalidpercentage">Het veld '<param p="1"/>' bevat een ongeldig percentage '<param p="2"/>'</text>
+          <text tid="savesettingserror">Er is een fout opgetreden bij het toepassen van de nieuwe instellingen<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
+          <text tid="valuetoohigh">De waarde van het veld '<param p="1"/>' mag niet hoger zijn dan de waarde van het veld '<param p="2"/>'</text>
+          <text tid="valuetoolow">De waarde van het veld '<param p="1"/>' mag niet lager zijn dan de waarde van het veld '<param p="2"/>'</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="queries">   <!-- tolliumapps.dashboard.queries -->
         <text tid="catalog">Catalogus</text>
@@ -391,33 +420,6 @@
         <text tid="runquery">Voer query uit</text>
         <text tid="title">Zoekopdrachten</text>
         <text tid="when">Datum</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
-      <text tid="address">Adres</text>
-      <text tid="address-builtin">Interne WebHare-verbinding</text>
-      <text tid="cannotretrievesettings">Kan huidige instellingen niet ophalen:<br/><param p="1"/></text>
-      <text tid="confirmdeleteindexmanager">Weet u zeker dat de u de geselecteerde indexmanager wil verwijderen?</text>
-      <text tid="editindexmanager">Index manager</text>
-      <text tid="elasticsearch">Elasticsearch</text>
-      <text tid="general">Algemeen</text>
-      <text tid="indexmanagers">Index managers</text>
-      <text tid="indexmgr-builtin">Ingebouwd (klassieke Consilio)</text>
-      <text tid="indexmgr-elasticsearch">Elasticsearch</text>
-      <text tid="name">Naam</text>
-      <text tid="prefix">Voorvoegsel</text>
-      <text tid="threshold_enabled">Controle schijfgebruik actief</text>
-      <text tid="type">Type</text>
-      <text tid="watermark_flood">Alleen-lezen-modus</text>
-      <text tid="watermark_high">Erg weinig schijfruimte</text>
-      <text tid="watermark_low">Weinig schijfruimte</text>
-      <textgroup gid="messages">   <!-- tolliumapps.indexmanagers.messages -->
-        <text tid="inconsistentwatermarks">Alle drempelwaarden moeten ofwel percentages ofwel absolute byte-waarden zijn</text>
-        <text tid="invalidbytevalue">Het veld '<param p="1"/>' bevat een ongeldige absolute byte-waarde '<param p="2"/>'</text>
-        <text tid="invalidpercentage">Het veld '<param p="1"/>' bevat een ongeldig percentage '<param p="2"/>'</text>
-        <text tid="savesettingserror">Er is een fout opgetreden bij het toepassen van de nieuwe instellingen<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
-        <text tid="valuetoohigh">De waarde van het veld '<param p="1"/>' mag niet hoger zijn dan de waarde van het veld '<param p="2"/>'</text>
-        <text tid="valuetoolow">De waarde van het veld '<param p="1"/>' mag niet lager zijn dan de waarde van het veld '<param p="2"/>'</text>
       </textgroup>
     </textgroup>
   </textgroup>

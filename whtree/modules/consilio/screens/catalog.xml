@@ -19,7 +19,6 @@
       <action name="options" frameflags="issysop" onexecute="dooptions" shortcut="ctrl+," />
       <action name="blacklist" frameflags="issysop" onexecute="doblacklist" />
       <action name="restart" frameflags="issysop" onexecute="dorestart" />
-      <action name="manageindexmanagers" frameflags="issysop" onexecute="domanageindexmanagers" />
       <action name="showerrors" onexecute="doshowerrors">
         <enableon source="catalogs" min="1" max="1" checkflags="haserrors" />
       </action>
@@ -72,7 +71,6 @@
           <item name="catalogthesaurus_menu" action="catalogthesaurus" tid=".catalogthesaurus" />
           <item action="showfieldmapping" />
         </item>
-        <item action="manageindexmanagers" disablemode="hidden" />
         <item action="blacklist" disablemode="hidden" />
         <divider />
         <item action="options" disablemode="hidden" />

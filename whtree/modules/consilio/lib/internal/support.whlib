@@ -59,6 +59,11 @@ PUBLIC CONSTANT INTEGER default_contentcheckinterval:= 1440;
 */
 PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
 
+PUBLIC CONSTANT RECORD default_opensearch_configuration :=
+    [ initialmemorypool := 128
+    , maximummemorypool := 350
+    ];
+
 PUBLIC CONSTANT INTEGER contentsourcestatus_disabled := -1;
 PUBLIC CONSTANT INTEGER contentsourcestatus_idle := 0;
 PUBLIC CONSTANT INTEGER contentsourcestatus_rebuilding := 2;
@@ -132,12 +137,20 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE address="builtin-opensearch"))
+  RECORD builtin_opensearch := SELECT * FROM consilio.indexmanagers WHERE address="builtin-opensearch";
+  IF(RecordExists(builtin_opensearch))
+  {
+    RECORD config;
+    IF(builtin_opensearch.configuration != "")
+      config := DecodeHSON(builtin_opensearch.configuration);
+    config := EnforceStructure(default_opensearch_configuration, config);
+
     INSERT
         [ name := "consilio:opensearch"
-        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]
+        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh", ToString(config.initialmemorypool), ToString(config.maximummemorypool) ]
         , isstandalone := TRUE
         ] INTO apps AT END;
+  }
   RETURN apps;
 }
 
