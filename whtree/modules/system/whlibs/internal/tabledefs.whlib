@@ -41,7 +41,7 @@ STRING FUNCTION GetHarescriptType(STRING schemaname, STRING tablename, STRING co
     }
     DEFAULT
     {
-      THROW NEW Exception(`Unrecognized PG data type '${dbase_type}' for ${schemaname}.${tablename}.${columnname}`);
+      RETURN "";
     }
   }
 }
@@ -89,10 +89,13 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
 
   FOREVERY (RECORD col FROM columns)
   {
-    IF(#col>0)
+    STRING hstype := GetHarescriptType(table_schema, tabledef.table_name, col.column_name, col.data_type);
+    IF(hstype = "")
+      CONTINUE;
+
+    IF(hs_tabledef != "")
       hs_tabledef := hs_tabledef || "\n" || indent || ", ";
 
-    STRING hstype := GetHarescriptType(table_schema, tabledef.table_name, col.column_name, col.data_type);
     hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
     IF (CellExists(col, "rename"))
       hs_tabledef := hs_tabledef || ` AS "${EncodeJava(col.rename)}"`;

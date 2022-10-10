@@ -132,70 +132,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->OnSelectSchema();
   }
 
-
-  PUBLIC BOOLEAN FUNCTION OnDatabasesCellEdit(RECORD row, STRING columnname, STRING newvalue)
-  {
-    RETURN FALSE;
-    /* needs PG update, but this CERTAINLY shouldn't happen without any confirmation!
-    IF(NOT row.isschema)
-      RETURN FALSE;
-
-    //FIXME if the renamed schema has rights tables pointing to it, how does this affect rights management?
-    OBJECT work := this->BeginWork();
-    __SendWHDBCommand(GetPrimaryWebhareTransaction(), 'ALTER SCHEMA "' || row.schema_name || '" RENAME TO "' || EncodeJava(newvalue) || '"');
-    RETURN work->Finish();
-    this->InvalidateAll();
-    */
-  }
-
-  PUBLIC MACRO DoImportSchema()
-  {
-    RECORD infile := this->frame->GetUserFile(-1, DEFAULT STRING ARRAY);
-    IF(NOT RecordExists(infile))
-      RETURN;
-
-    OBJECT scr := this->LoadScreen(".importwizard", [ importfile := infile ]);
-    scr->RunModal();
-    this->InvalidateAll();
-  }
-
-  PUBLIC MACRO DoExportSchema()
-  {
-    RECORD curitem := ^databases->selection;
-    OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
-    imexporter->ignore_extrefs := FALSE;
-
-    STRING modulename := ToLowercase(curitem.schema_name);
-
-    RECORD ARRAY toplevels := imexporter->GetSchemaToplevels(modulename);
-    RECORD res;
-    IF(Length(toplevels) = 0)
-    {
-      this->RunSimpleScreen("error", this->GetTid(".noschemadef"));
-      RETURN;
-    }
-    imexporter->SetupByModule(modulename, SELECT AS STRING ARRAY name FROM toplevels);
-    imexporter->SetDefaultImExports();
-
-    IF(Length(imexporter->GetOpenExternalReferences()) > 0)
-    {
-      //ADDME allow users to 'map' external references in a wizard, or at least show them the references we have issues with
-      OBJECT work := this->BeginWork();
-      work->AddError("Cannot deal yet with schemas that have external references. Please create your own export code for now.");
-      work->Finish();
-      RETURN;
-    }
-
-    BLOB result := imexporter->RunExport();
-
-    //ADDME allow users to specify output format (xml or marshal)
-    //ADDME progress
-    this->frame->SendFileToUser(result,
-                                "application/octet-stream",
-                                GetSafeFilename("dbexport_" || ToLowercase(curitem.schema_name) || "_" || FormatDatetime("%Y%m%d_%H%M%S", this->tolliumuser->UTCToLocal(GetCurrentDatetime()))) || ".tar.gz",
-                                DEFAULT DATETIME);
-  }
-
   PUBLIC MACRO OnSelectSchema()
   {
     RECORD curitem := ^databases->selection;
@@ -331,6 +267,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
                   , schema_name := schema_name
                   , listrowclasses := isclaimed ? STRING[] : ["grayedout"]
                FROM trans->GetSchemaListing()
+              WHERE NOT is_system_schema
            ORDER BY ToUppercase(schema_name); //ADDME mark 'is_system_schema' tables
     }
 
@@ -408,55 +345,5 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   PUBLIC MACRO DoRunSQLClient()
   {
     RunModuleScriptDialog(this, "mod::system/scripts/whcommands/sql.whscr", STRING[], [ inputenabled := TRUE ]);
-  }
->;
-
-PUBLIC OBJECTTYPE ImportWizard EXTEND TolliumScreenBase
-<
-  RECORD importfile;
-
-  MACRO Init(RECORD data)
-  {
-    this->importfile := data.importfile;
-  }
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    IF(work->HasFailed())
-      RETURN work->Finish();
-
-    //ADDME better interaction might be to allow an overwrite of the schema contents, but with a warning if there are outside tables referring to us who would get a cascade?
-    //ADDME warn about existing data, allow schema to be created from scratch/using metadata from the export?
-
-    OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
-    RECORD ARRAY toplevels;
-
-    IF(GetPrimary()->SchemaExists(^schemaname->value))
-    {
-      toplevels := imexporter->GetSchemaToplevels(this->schemaname->value);
-      IF(Length(toplevels) = 0)
-      {
-        this->Adderror("Module does not define any usable database schema");
-        RETURN work->Finish();
-      }
-
-      //FIXME error handling, allow export of mappings
-      imexporter->SetupByModule(this->schemaname->value, SELECT AS STRING ARRAY name FROM toplevels);
-    }
-    ELSE
-    {
-    }
-
-    imexporter->SetDefaultImExports();
-    IF(Length(imexporter->GetOpenExternalReferences()) > 0)
-    {
-      //ADDME allow users to 'map' external references in a wizard, or at least show them the references we have issues with
-      work->AddError("Cannot deal yet with schemas that have external references. Please create your own import code for now.");
-      RETURN work->Finish();
-    }
-
-
-    imexporter->RunImport(this->importfile.data);
-    RETURN work->Finish();
   }
 >;
