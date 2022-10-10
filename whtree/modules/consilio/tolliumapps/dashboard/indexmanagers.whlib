@@ -74,7 +74,8 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
     }
     CATCH(OBJECT e)
     {
-      ABORT(e);
+      ^indices->rows := RECORD[];
+      ^indices->empty := e->what;
     }
   }
 
