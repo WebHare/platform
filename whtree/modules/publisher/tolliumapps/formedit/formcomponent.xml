@@ -1,44 +1,38 @@
-<screens
-    xmlns="http://www.webhare.net/xmlns/tollium/screens"
-    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-    library="formcomponent.whlib"
-    gid="tolliumapps.formedit">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.formedit"
+         library="formcomponent.whlib">
 
-  <screen
-      name="selectcomponent"
-      title=""
-      gid=".selectcomponent"
-      width="75x"
-      height="25x"
-      allowresize="true">
+  <screen name="selectcomponent"
+          width="75x"
+          height="25x"
+          allowresize="true"
+          footerbuttons="ok cancel"
+          gid=".selectcomponent"
+          title="">
     <actions>
       <action name="selectlist" onexecute="submit" title="" />
     </actions>
+
     <body spacers="none">
-      <panel name="intropanel" spacers="all" borders="bottom">
-        <text name="intro" title="" wordwrap="true" width="1pr" />
+      <panel name="intropanel" borders="bottom" spacers="all">
+        <text name="intro" width="1pr" title="" wordwrap="true" />
       </panel>
       <tabs name="type" height="1pr">
         <tab name="builtin">
-          <list
-              name="builtincomponents"
-              selectmode="single"
-              sortable="false"
-              width="1pr"
-              height="1pr"
-              openaction="selectlist">
-            <column name="name" iconname="icon" type="text" width="1pr" />
+          <list name="builtincomponents"
+                width="1pr"
+                height="1pr"
+                openaction="selectlist"
+                selectmode="single"
+                sortable="false">
+            <column name="name" type="text" width="1pr" iconname="icon" />
             <column name="description" type="text" width="2pr" />
           </list>
         </tab>
         <tab name="custom">
-          <list
-              name="customcomponents"
-              selectmode="single"
-              width="1pr"
-              height="1pr"
-              openaction="selectlist">
-            <column name="name" iconname="icon" type="text" width="1pr" />
+          <list name="customcomponents" width="1pr" height="1pr" openaction="selectlist" selectmode="single">
+            <column name="name" type="text" width="1pr" iconname="icon" />
             <column name="description" type="text" width="2pr" />
           </list>
         </tab>
@@ -47,55 +41,49 @@
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
-  <screen
-      name="editcomponent"
-      gid=".editcomponent"
-      width="100x">
+  <screen name="editcomponent" width="100x" footerbuttons="ok cancel" gid=".editcomponent">
     <body spacers="none">
       <tabs name="tabs" type="regular" height="1pr">
         <tab name="general">
           <line>
-            <textedit name="title" width="1pr" required="true" tid=".questiontitle"/>
+            <textedit name="title" width="1pr" required="true" tid=".questiontitle" />
           </line>
-          <textedit name="label" width="1pr" placeholdertid=".labelplaceholder"/>
+          <textedit name="label" width="1pr" placeholdertid=".labelplaceholder" />
           <spacer name="titles_insertpoint" visible="false" />
+
           <!-- insert position="titles" where="after" -->
-
-          <heading name="answers"/>
-          <spacer name="answers_detectpoint" visible="false" /> <!-- we need detectpoint to find the starting point where we look for visible components which trigger showing 'answers' -->
+          <spacer name="answers_detectpoint" visible="false" />  <!-- we need detectpoint to find the starting point where we look for visible components which trigger showing 'answers' -->
           <spacer name="answers_insertpoint" visible="false" />
+
           <!-- insert position="answers" where="after" -->
-
           <line layout="left">
-            <checkbox name="required" title="" labeltid=".required" />
+            <checkbox name="required" labeltid=".required" title="" />
           </line>
-
         </tab>
         <tab name="presentation">
           <line layout="left">
-            <checkbox name="disabled" title="" labeltid=".disabled" />
+            <checkbox name="disabled" labeltid=".disabled" title="" />
           </line>
           <line>
             <textedit name="prefix" width="9x" placeholdertid=".prefixplaceholder" />
             <textedit name="suffix" width="2pr" placeholdertid=".suffixplaceholder" />
           </line>
           <textedit name="placeholder" width="1pr" placeholdertid=".placeholderplaceholder" />
-          <select type="pulldown" rowkeytype="boolean" name="hidetitle" tid=".showtitleoptions">
-            <option rowkey="false" tid=".showtitle"/>
+          <select name="hidetitle" type="pulldown" rowkeytype="boolean" tid=".showtitleoptions">
+            <option rowkey="false" tid=".showtitle" />
             <option rowkey="true" tid=".hidetitle" />
           </select>
-          <heading tid=".infotext" name="infotextheading" />
+          <heading name="infotextheading" tid=".infotext" />
           <richdocument name="infotext" width="1pr" height="1pr" minheight="6gr" errorlabeltid=".infotext" />
           <spacer name="presentation_insertpoint" visible="false" />
+
           <!-- insert position="presentation" where="after" -->
         </tab>
         <tab name="validation">
           <spacer name="validation_insertpoint" visible="false" />
+
           <!-- insert position="validation" where="after" -->
         </tab>
         <tab name="dependencies">
@@ -112,14 +100,13 @@
             <option rowkey="existence" />
           </select>
           <spacer name="advanced_insertpoint" visible="false" />
+
           <!-- insert position="advanced" where="after" -->
         </tab>
+
         <!-- newtab -->
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>
