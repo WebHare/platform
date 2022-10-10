@@ -118,6 +118,10 @@
             <xs:attribute name="legacy_writeaccessmgr"/>
             <xs:attribute name="parentlinkcolumn" />
           </xs:complexType>
+          <xs:unique name="unique_column_names">
+            <xs:selector xpath="./*" />
+            <xs:field xpath="@name" />
+          </xs:unique>
         </xs:element>
 
         <xs:element name="obsoletetable"/>
