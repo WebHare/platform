@@ -724,6 +724,7 @@
             editextension="/screens/formcomponents.xml#formdate"
             editdefaults="name title hidetitle required groupclasses placeholder infotext"
             supportedvalues="datetime"
+            autocomplete="bday"
             parserfunc="/lib/webtools/formcomponents/date.whlib#parseformdate"
             fieldobject="/lib/webtools/formcomponents/date.whlib#DateField"
             ordering="9"

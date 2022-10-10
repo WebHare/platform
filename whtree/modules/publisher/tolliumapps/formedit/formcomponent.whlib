@@ -236,8 +236,14 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
     RECORD ARRAY autocompleteoptions :=
         [ [ rowkey := "", title := this->GetTid(".autocomplete-none") ]
         , [ rowkey := " div1 ", isdivider := TRUE ]
-        , ...(SELECT rowkey, title := GetTid(tid) FROM forms_autocomplete_settings WHERE rowkey IN this->compdef.autocomplete)
+        , ...(SELECT rowkey := tid != "" ? rowkey : " div2- " || #forms_autocomplete_settings //just something unique
+                   , isdivider := tid = ""
+                   , title := tid != "" ? GetTid(tid) : ""
+                FROM forms_autocomplete_settings
+               WHERE rowkey IN this->compdef.autocomplete OR tid = "")
         ];
+
+
 
     STRING currentautocomplete := ObjectExists(this->node) ? this->node->GetAttribute("autocomplete") : "";
     BOOLEAN iscustom := currentautocomplete != "" AND NOT RecordExists(SELECT FROM autocompleteoptions WHERE rowkey = currentautocomplete);

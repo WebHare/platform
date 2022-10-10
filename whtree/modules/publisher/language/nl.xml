@@ -2028,12 +2028,15 @@
       <text tid="settings">Formulierinstellingen</text>
       <text tid="showresults">Resultaten</text>
       <textgroup gid="autocomplete">   <!-- tolliumapps.formedit.autocomplete -->
-        <text tid="email">Emailadres van gebruiker</text>
-        <text tid="family-name">Acternaam</text>
+        <text tid="bday">Geboortedatum</text>
+        <text tid="email">E-mailadres van gebruiker</text>
+        <text tid="family-name">Achternaam</text>
         <text tid="given-name">Voornaam</text>
         <text tid="name">Volledige naam</text>
+        <text tid="nickname">Bijnaam</text>
         <text tid="organization">Organisatie</text>
         <text tid="organization-title">Functie</text>
+        <text tid="tel">Telefoonnummer</text>
         <text tid="username">Gebruikersnaam</text>
       </textgroup>
       <textgroup gid="createform">   <!-- tolliumapps.formedit.createform -->

@@ -2029,12 +2029,15 @@
       <text tid="settings">Form settings</text>
       <text tid="showresults">Results</text>
       <textgroup gid="autocomplete">   <!-- tolliumapps.formedit.autocomplete -->
+        <text tid="bday">Birth date</text>
         <text tid="email">User's email address</text>
         <text tid="family-name">Family name</text>
         <text tid="given-name">Given name</text>
         <text tid="name">Full name</text>
+        <text tid="nickname">Nickname</text>
         <text tid="organization">Organization</text>
         <text tid="organization-title">Job title</text>
+        <text tid="tel">Telephone</text>
         <text tid="username">Username</text>
       </textgroup>
       <textgroup gid="createform">   <!-- tolliumapps.formedit.createform -->

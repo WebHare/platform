@@ -24,9 +24,14 @@ PUBLIC CONSTANT RECORD ARRAY forms_autocomplete_settings :=
   [[ rowkey := "given-name",         tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.given-name" ]
   ,[ rowkey := "family-name",        tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.family-name" ]
   ,[ rowkey := "name",               tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.name" ]
+  ,[ rowkey := "",                   tid := "" ]
   ,[ rowkey := "organization",       tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.organization" ]
   ,[ rowkey := "organization-title", tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.organization-title" ]
+  ,[ rowkey := "",                   tid := "" ]
+  ,[ rowkey := "bday",               tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.bday" ]
+  ,[ rowkey := "tel",                tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.tel" ]
   ,[ rowkey := "email",              tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.email" ]
+  ,[ rowkey := "nickname",           tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.nickname" ]
   ,[ rowkey := "username",           tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.username" ]
   ];
 
