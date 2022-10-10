@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT browser;
 STRING myuuid;
@@ -59,7 +60,7 @@ STRING FUNCTION CheckHost(STRING baseurl)
     DATETIME now := GetCurrentDateTime();
     IF (certdata.valid_until < now)
       RETURN `:The certificate returned by '${baseurl}' has expired`;
-    ELSE IF (certdata.valid_until < AddDaysToDate(21, now))
+    ELSE IF (certdata.valid_until < AddDaysToDate(whconstant_autorenewed_warnexpirydays, now)) //if you fell inside this window, it's getting dangerous
     {
       RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
       RETURN `:The certificate returned by '${baseurl}' will expire in ${diff.days} days`;
