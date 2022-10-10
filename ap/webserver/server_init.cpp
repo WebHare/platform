@@ -461,6 +461,15 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         webserver->SetJobManager(jobmgr.get());
         jobmgrintegrator.reset(new WHCore::JobManagerIntegrator(shtml->environment, *webhare, jobmgr.get()));
 
+        // Set the error handler for released jobs
+        jobmgr->SetJobErrorReporter([this](std::string const &groupid, std::string const &externalsessiondata, HareScript::ErrorHandler const &errorhandler, std::string const &script, std::string const &contextinfo)
+        {
+                std::map< std::string, std::string > params;
+                params["jobscript"] = Blex::AnyToJSON(script);
+                params["contextinfo"] = Blex::AnyToJSON(contextinfo);
+                WHCore::LogHarescriptError(*webhare, "webserver", groupid, externalsessiondata, errorhandler, params);
+        });
+
         if(StartManagementScript())
         {
 

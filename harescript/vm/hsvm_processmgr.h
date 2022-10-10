@@ -648,6 +648,10 @@ class BLEXLIB_PUBLIC JobManager
         */
         void SetGroupPriority(VMGroup *group, bool highpriority);
 
+        /** Enables/disables error reporting via the joberrorreporter callback
+        */
+        void SetGroupErrorReporting(VMGroup *group, bool reporterrors);
+
         HSVM * GetJobFromId(HSVM *vm, int id);
 
         /// Get main group vm, group must be locked
@@ -711,6 +715,10 @@ class BLEXLIB_PUBLIC JobManager
         */
         std::string GetGroupErrorContextInfo(VMGroup *group);
 
+        /** Set the error reporter for released jobs
+        */
+        void SetJobErrorReporter(std::function< void(std::string const &groupid, std::string const &externalsessiondata, ErrorHandler const &errorhandler, std::string const &script, std::string const &contextinfo) > func);
+
     private:
         Environment &env;
 
@@ -760,6 +768,9 @@ class BLEXLIB_PUBLIC JobManager
 
                 /// Rough estimation of current time
                 Blex::DateTime roughnow;
+
+                /// Callback to report errors for released jobs
+                std::function< void(std::string const &groupid, std::string const &externalsessiondata, ErrorHandler const &errorhandler, std::string const &script, std::string const &contextinfo) > joberrorreporter;
         };
 
         typedef Blex::InterlockedData< JobData, Blex::ConditionMutex > LockedJobData;
@@ -995,6 +1006,9 @@ struct JobManagerGroupData
 
         /// Whether this blob has been cancelled
         bool iscancelled;
+
+        /// Report errors via the joberrorreport callback
+        bool reporterrors;
 
         /// Max nr of seconds this script is allowed to run (0 for no timeout)
         unsigned run_timeout_seconds;

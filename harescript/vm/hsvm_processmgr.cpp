@@ -192,6 +192,7 @@ JobManagerGroupData::JobManagerGroupData()
 , id_set(0)
 , iscancellable(false)
 , iscancelled(false)
+, reporterrors(false)
 , run_timeout_seconds(0)
 , is_running_for_timeout(true)
 , running_timeout(Blex::DateTime::Max())
@@ -677,6 +678,9 @@ void JobManager::WorkerThreadFunction(unsigned PM_ONLY(id))
                                         if (lock->finished.empty())
                                             break;
                                 }
+
+                                if (lock->joberrorreporter && group->jmdata.reporterrors)
+                                    lock->joberrorreporter(data.info.groupid, data.info.externalsessiondata, data.errorhandler, data.info.mainscript, GetGroupErrorContextInfo(group));
                         }
                         if (pretermination_callback)
                             pretermination_callback();
@@ -1076,6 +1080,12 @@ void JobManager::SetGroupPriority(VMGroup *group, bool highpriority)
         group->jmdata.highpriority = highpriority;
 }
 
+void JobManager::SetGroupErrorReporting(VMGroup *group, bool reporterrors)
+{
+        LockedJobData::WriteRef lock(jobdata);
+        group->jmdata.reporterrors = reporterrors;
+}
+
 void JobManager::SetSimpleErrorStatus(VirtualMachine *vm, VarId id_set, const char *status)
 {
         PM_PRINT("*Set error status " << status << " in " << vm->GetVMGroup() << " (vm: " << vm << ", state: " << vm->GetVMGroup()->jmdata.state << ")");
@@ -1423,6 +1433,12 @@ void JobManager::HandleAsyncAbortBySignal()
 GlobalBlobManager & JobManager::GetBlobManager()
 {
         return env.GetBlobManager();
+}
+
+void JobManager::SetJobErrorReporter(std::function< void(std::string const &groupid, std::string const &externalsessiondata, ErrorHandler const &errorhandler, std::string const &script, std::string const &contextinfo) > func)
+{
+        LockedJobData::WriteRef lock(jobdata);
+        lock->joberrorreporter = func;
 }
 
 // -----------------------------------------------------------------------------
@@ -1821,6 +1837,8 @@ Job::~Job()
 
 void Job::Release()
 {
+        // Report errors through the job error reporter callback, HareScript isn't listening for errors anymore
+        group->GetJobManager()->SetGroupErrorReporting(group, true);
         must_delete = false;
 }
 
