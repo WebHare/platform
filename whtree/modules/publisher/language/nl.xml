@@ -2027,6 +2027,15 @@
       <text tid="required">Deze vraag is verplicht</text>
       <text tid="settings">Formulierinstellingen</text>
       <text tid="showresults">Resultaten</text>
+      <textgroup gid="autocomplete">   <!-- tolliumapps.formedit.autocomplete -->
+        <text tid="email">Emailadres van gebruiker</text>
+        <text tid="family-name">Acternaam</text>
+        <text tid="given-name">Voornaam</text>
+        <text tid="name">Volledige naam</text>
+        <text tid="organization">Organisatie</text>
+        <text tid="organization-title">Functie</text>
+        <text tid="username">Gebruikersnaam</text>
+      </textgroup>
       <textgroup gid="createform">   <!-- tolliumapps.formedit.createform -->
         <text tid="createform">Form aanmaken</text>
         <text tid="intro">Geef een naam voor het formulier</text>
@@ -2035,6 +2044,10 @@
       <textgroup gid="editcomponent">   <!-- tolliumapps.formedit.editcomponent -->
         <text tid="advanced">Geavanceerd</text>
         <text tid="answers">Antwoorden</text>
+        <text tid="autocomplete">Automatisch vullen</text>
+        <text tid="autocomplete-custom">Handmatige 'autocomplete'</text>
+        <text tid="autocomplete-none">Niet automatisch vullen</text>
+        <text tid="autocomplete_customvalue">waarde</text>
         <text tid="comment">Opmerking</text>
         <text tid="dependencies">Afhankelijkheden</text>
         <text tid="disabled">Deze vraag is uitgeschakeld</text>

@@ -170,6 +170,7 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
     ^visiblecondition->visible := "novisible" NOT IN this->compdef.editdefaults;
     ^visiblecondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "visibleconditionid");
 
+    this->SetupAutocomplete();
     ^comment->value := this->node->GetAttribute("comment");
     ^pins->value := ParseXSList(this->node->GetAttribute("pins"));
 
@@ -223,6 +224,46 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
     }
   }
 
+  MACRO SetupAutocomplete()
+  {
+    //Setup autocomplete based on having any suggested values
+    IF(NOT this->compdef.hasautocomplete)
+    {
+      ^autocomplete->visible := FALSE;
+      RETURN;
+    }
+
+    RECORD ARRAY autocompleteoptions :=
+        [ [ rowkey := "", title := this->GetTid(".autocomplete-none") ]
+        , [ rowkey := " div1 ", isdivider := TRUE ]
+        , ...(SELECT rowkey, title := GetTid(tid) FROM forms_autocomplete_settings WHERE rowkey IN this->compdef.autocomplete)
+        ];
+
+    STRING currentautocomplete := ObjectExists(this->node) ? this->node->GetAttribute("autocomplete") : "";
+    BOOLEAN iscustom := currentautocomplete != "" AND NOT RecordExists(SELECT FROM autocompleteoptions WHERE rowkey = currentautocomplete);
+    //Advanced users may set 'custom', but non-advanced users may see the custom value in that case
+    IF(iscustom OR this->contexts->formcomponentapi->showadvanced)
+    {
+      autocompleteoptions := RECORD[ ...autocompleteoptions
+                                   , [ rowkey := " div2 ", isdivider := TRUE]
+                                   , [ rowkey := " custom ", title:= this->GetTid(".autocomplete-custom") ]
+                                   ];
+    }
+
+    ^autocomplete->options := autocompleteoptions;
+    IF(iscustom)
+    {
+      ^autocomplete->value := " custom ";
+      ^autocomplete_customvalue->value := currentautocomplete;
+      IF(NOT this->contexts->formcomponentapi->showadvanced)
+        ^autocomplete->enabled := FALSE; //lock the value to 'custom' if you're not allowed to change advanced settings
+    }
+    ELSE
+    {
+      ^autocomplete->value := currentautocomplete;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -253,6 +294,12 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
   //
   // Callbacks
   //
+  MACRO OnAutocompleteChange()
+  {
+    BOOLEAN iscustom := ^autocomplete->value = " custom "; //using spaces as a spaced value is never valid due to trimwhitespace
+    ^autocomplete_customvalue->visible := iscustom;
+    ^autocomplete_customvalue->enabled := iscustom AND this->contexts->formcomponentapi->showadvanced;
+  }
   MACRO OnRequiredConditionChange()
   {
     IF(^required->enabled != RecordExists(^requiredcondition->value))
@@ -340,6 +387,11 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
             WriteFormNodeTidAttribute(this->node, GetMember(this, "^"||field), "");
         }
       }
+
+      IF(^autocomplete->value != "")
+        this->node->SetAttribute("autocomplete", ^autocomplete->value = " custom " ? ^autocomplete_customvalue->value : ^autocomplete->value);
+      ELSE
+        this->node->RemoveAttribute("autocomplete");
 
       IF (^comment->value != "")
         this->node->SetAttribute("comment", ^comment->value);

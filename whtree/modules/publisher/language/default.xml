@@ -2028,6 +2028,15 @@
       <text tid="required">This is a required question</text>
       <text tid="settings">Form settings</text>
       <text tid="showresults">Results</text>
+      <textgroup gid="autocomplete">   <!-- tolliumapps.formedit.autocomplete -->
+        <text tid="email">User's email address</text>
+        <text tid="family-name">Family name</text>
+        <text tid="given-name">Given name</text>
+        <text tid="name">Full name</text>
+        <text tid="organization">Organization</text>
+        <text tid="organization-title">Job title</text>
+        <text tid="username">Username</text>
+      </textgroup>
       <textgroup gid="createform">   <!-- tolliumapps.formedit.createform -->
         <text tid="createform">Create form</text>
         <text tid="intro">Please provide a name for the form</text>
@@ -2036,6 +2045,10 @@
       <textgroup gid="editcomponent">   <!-- tolliumapps.formedit.editcomponent -->
         <text tid="advanced">Advanced</text>
         <text tid="answers">Answers</text>
+        <text tid="autocomplete">Autofill</text>
+        <text tid="autocomplete-custom">Custom 'autocomplete'</text>
+        <text tid="autocomplete-none">No autofill</text>
+        <text tid="autocomplete_customvalue">value</text>
         <text tid="comment">Comment</text>
         <text tid="dependencies">Dependencies</text>
         <text tid="disabled">This question is disabled</text>

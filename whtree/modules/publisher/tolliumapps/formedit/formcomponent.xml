@@ -54,6 +54,11 @@
           <spacer name="titles_insertpoint" visible="false" />
 
           <!-- insert position="titles" where="after" -->
+          <heading name="answers" />
+          <line>
+            <select name="autocomplete" type="pulldown" onchange="onautocompletechange" rowkeytype="string" />
+            <textedit name="autocomplete_customvalue" enabled="false" required="true" visible="false" />
+          </line>
           <spacer name="answers_detectpoint" visible="false" />  <!-- we need detectpoint to find the starting point where we look for visible components which trigger showing 'answers' -->
           <spacer name="answers_insertpoint" visible="false" />
 

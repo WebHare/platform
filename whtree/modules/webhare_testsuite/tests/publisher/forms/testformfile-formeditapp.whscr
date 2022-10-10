@@ -69,10 +69,11 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
     Print("Preview autosave: " || openres.url || "\n");
   TestEq(TRUE, testfw->browser->GotoWebPage(openres.url));
 
-  //Add a text field
+  //Add a text field - test filing title= based on the RTD concent
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Text"));
   TT("tabs")->ListExtensions()[0].extension->^text->value := GetTestRTD();
+  TestEq(FALSE, TTIsVisible("autocomplete"), "Autosuggest should not appear here");
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEqLike("This docs opens with*",TT("doceditor->questions")->selection.title);
 
@@ -85,7 +86,8 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   //Make sure it persists during edits
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
   RECORD value := TT("tabs")->ListExtensions()[0].extension->^text->value;
-  TestEqLIke("*This docs opens with*", BlobToString(value.htmltext));
+  TestEqLike("*This docs opens with*", BlobToString(value.htmltext));
+  TestEq(FALSE, TTIsVisible("autocomplete"), "Autosuggest should still not appear here");
   value.htmltext := StringToBlob(`<html><body><p class="normal">Just another doc</p></body></html>`);
   TT("tabs")->ListExtensions()[0].extension->^text->value := value;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
@@ -101,10 +103,29 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
   TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Email");
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TestEq(TRUE, TTIsVisible("autocomplete"), "Autosuggest should still not appear here");
+  TestEq(["No autofill", "User's email address","Custom 'autocomplete'"], SELECT AS STRING ARRAY title FROM TT("autocomplete")->options WHERE NOT isdivider);
+  TestEq("", TT("autocomplete")->value, "No autofill should be initially selected");
+  TestEq(FALSE, TTIsVisible("autocomplete_customvalue"));
+  TT("autocomplete")->value := " custom ";
+  TestEq(TRUE, TTIsVisible("autocomplete_customvalue"));
+
+  TT("autocomplete_customvalue")->value := "neue_auto_complete";
   TT("title")->value := "Ëmail plz";
   TT("name")->value := "email";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEq("Ëmail plz",TT("doceditor->questions")->selection.title);
+
+  //Verify autocomplete persisted
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  TestEq(" custom ", TT("autocomplete")->value);
+  TestEq("neue_auto_complete", TT("autocomplete_customvalue")->value);
+  TT("autocomplete")->value := "email";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  TestEq("email", TT("autocomplete")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   //Add another field with the same name (tag)
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));

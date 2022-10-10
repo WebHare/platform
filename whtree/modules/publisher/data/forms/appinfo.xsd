@@ -32,6 +32,11 @@
     <xs:attribute name="editdefaults" />
     <xs:attribute name="editextension" />
     <xs:attribute name="defaultvalue" /> <!-- deprecated, use supportedvalues -->
+    <xs:attribute name="autocomplete">
+      <xs:annotation>
+        <xs:documentation>Suggested autocomplete values. See html5 autofill https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="supportedvalues">
       <xs:annotation>
         <xs:documentation>List of the interfaces the value of this component supports. This may contain

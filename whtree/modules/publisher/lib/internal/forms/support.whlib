@@ -14,6 +14,22 @@ OBJECT tag_regex; // Used for checking field name validity
 PUBLIC CONSTANT STRING ARRAY default_addressfield_options := ["nl-zip-suggest"];
 PUBLIC CONSTANT STRING ARRAY valid_addressfield_options := ["nl-zip-suggest","nl-zip-force"];
 
+/* Autocomplete values we support
+   Spec of allowed values is here https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill
+   But https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autocomplete is more detailed
+
+   The ordering here is also the ordering in the user interface
+*/
+PUBLIC CONSTANT RECORD ARRAY forms_autocomplete_settings :=
+  [[ rowkey := "given-name",         tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.given-name" ]
+  ,[ rowkey := "family-name",        tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.family-name" ]
+  ,[ rowkey := "name",               tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.name" ]
+  ,[ rowkey := "organization",       tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.organization" ]
+  ,[ rowkey := "organization-title", tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.organization-title" ]
+  ,[ rowkey := "email",              tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.email" ]
+  ,[ rowkey := "username",           tid := /*tid*/"publisher:tolliumapps.formedit.autocomplete.username" ]
+  ];
+
 PUBLIC STRING originalformrequesturl;
 
 PUBLIC MACRO ApplyWittyToComposer(OBJECT mailcomposer, RECORD wittydata)
