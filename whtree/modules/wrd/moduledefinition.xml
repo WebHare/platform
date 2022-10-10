@@ -703,7 +703,6 @@
                  validator="lib/internal/schemadef.whlib#WRDSchemaDefinitionFile" />
 
     <debugflag name="forcehistory" description="Keep WRD history for all types for at least 1 day and record stack traces" />
-    <debugflag name="incrementalsync" description="Enable the experimental incremental synchronization mode" />
   </development>
 
   <wrdschemas>

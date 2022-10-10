@@ -256,13 +256,13 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
     @param remotepeer Peer where the source schema is located (DEFAULT OBJECT to use this WebHare installation)
     @param remoteschemaname Name of the source schema
     @param options @includecelldef #SyncFromExternalSchemaBatch.options
-    @cell(boolean) options.syncmode Sync mode "batch", "incremental"
+    @cell(boolean) options.syncmode Sync mode "batch", "incremental". Default is now 'incremental', support for syncmode batch may be dropped in the future
     @return Iterator which gives back progress
 */
 PUBLIC OBJECT FUNCTION SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ syncmode :=       IsDebugTagEnabled("wrd:incrementalsync") ? "incremental" : "batch"
+      [ syncmode :=       "incremental"
       ],
       options,
       [ enums :=          [ syncmode := [ "batch", "incremental" ] ]
