@@ -94,7 +94,6 @@
       <text tid="previewcatalog">Preview Catalog</text>
       <text tid="queryreport">Search queries</text>
       <text tid="rebuildcatalog">Rebuild</text>
-      <text tid="restart">Restart Queue Manager</text>
       <text tid="showerrors">Show errors</text>
       <text tid="showfieldmapping">Show field mapping</text>
       <text tid="size">Size</text>
@@ -151,7 +150,6 @@
       <text tid="confirmdeletecontentsource">Are you sure you want to delete this content source?</text>
       <text tid="confirmdeleteselection">Are you sure you want to delete the selected catalogs and sources?</text>
       <text tid="confirmpatterndelete">Are you sure you want to delete URL pattern '<param p="1"/>'?</text>
-      <text tid="confirmrestart">Are you sure you want to restart the Queue Manager?</text>
       <text tid="indexmanagerconnectionfailed">No connection to Consilio could be made.</text>
       <text tid="notenoughwordsingroup">A word group should contain at least 2 words.</text>
       <text tid="primarycatalogindexrequired">One of the index managers should be set as primary</text>

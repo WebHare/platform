@@ -120,11 +120,6 @@ PUBLIC INTEGER FUNCTION CalculateQueueItemPriority(RECORD data)
       priority := priority_cleanupindex;
     }
 
-    CASE "SHUTDOWN"
-    {
-      priority := priority_settings;
-    }
-
     CASE "STATUS"
     {
       priority := priority_settings;
@@ -345,13 +340,6 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
         }
       }
     }
-    CASE "SHUTDOWN"
-    {
-      RETURN [ success := TRUE
-             , action := action
-             , commanddate := GetCurrentDateTime()
-             ];
-    }
     CASE "STATUS", "GETERRORS"
     {
       RETURN [ success := TRUE
@@ -529,10 +517,6 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
           || (data.active ? "active" : "") || " "
           || (data.dontdelete ? "dontdelete" : "") || " "
           || DateTimeToString(data.commanddate);
-    }
-    CASE "SHUTDOWN"
-    {
-      RETURN data.action;
     }
     CASE "GETERRORS"
     {
