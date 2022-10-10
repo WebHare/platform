@@ -1,5 +1,5 @@
 [component testpage]
-  <h1 title="This is a <h1>">Publisher forms test page</h1>
+  <h1>Publisher forms test page</h1>
   <p>
     <a href="?fsobject=[fsobject]">Full demo</a>&nbsp;&nbsp;&nbsp;
   </p>
@@ -9,7 +9,7 @@
 [component fulldemo]
   <form class="wh-form wh-styledinput" id="testpage__inputholder" [testform.formattributes]> [! Request styledinput to activate !]
 
-    <h2 title="This is a <h2>">Full demo</h2>
+    <h2>Full demo</h2>
     <p>
       Global style:
         <a href="[toggledisabledlink]" class="testpage__disabled [if alldisabled]testpage--mode-enabled[/if]">disabled</a>
@@ -20,7 +20,7 @@
         <br/>
       Current language: [languagecode] (should be used for errors)<br/>
     </p>
-    <h3 title="This is a <h3>">Core inputs</h3> [! explicitly mark whether these are supported !]
+    <h3>Core inputs</h3> [! explicitly mark whether these are supported !]
     [testform.formrender]
 
   <style>
