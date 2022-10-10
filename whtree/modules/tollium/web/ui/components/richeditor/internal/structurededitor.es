@@ -980,6 +980,9 @@ export default class StructuredEditor extends EditorBase
                };
     var align = curnode.align ? curnode.align.toLowerCase() : "";
 
+    if(curnode.classList.contains("wh-rtd__img--uploading")) //don't lose this status during upload
+      node["class"] += " wh-rtd__img--uploading";
+
     if(curnode.classList.contains("wh-rtd__img--floatleft") || curnode.classList.contains("-wh-rtd-floatleft") || curnode.classList.contains("wh-rtd-floatleft") || align == "left")
       node["class"] += " wh-rtd__img--floatleft";
     else if(curnode.classList.contains("wh-rtd__img--floatright") || curnode.classList.contains("-wh-rtd-floatright") || curnode.classList.contains("wh-rtd-floatright") || align == "right")

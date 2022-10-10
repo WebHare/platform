@@ -1538,12 +1538,12 @@ export default class EditorBase
 
   _createImageDownloadNode()
   {
-    return <img src={this._getImageDownloadURL()} />;
+    return <img class="wh-rtd__img wh-rtd__img--uploading" src={this._getImageDownloadURL()} />;
   }
 
   _isStillImageDownloadNode(img)
   {
-    return img.src == (this.options.imgloadplaceholder || defaultimgplaceholder);
+    return img.matches('.wh-rtd__img--uploading');
   }
 
   _debugDataTransfer(event)
@@ -1575,28 +1575,6 @@ export default class EditorBase
 
   async gotPaste(event)
   {
-    if(event && event.clipboardData && event.clipboardData.items)
-    {
-      //this._debugDataTransfer(event);
-
-      for(var i=0;i<event.clipboardData.items.length;++i)
-      {
-        var item = event.clipboardData.items[i];
-        if(item.type == "image/png")
-        {
-          let file = item.getAsFile();
-          if(!file)
-            return; //giving up then
-
-          var repl = this._createImageDownloadNode();
-          this.replaceSelectionWithNode(repl, true);
-          await this.uploadImageToServer(file, repl);
-          //setTimeout(() => this.handlePasteDone(), 1); why go through this when just replacing one image ?
-          return;
-        }
-      }
-    }
-
     // Wait for the paste to happen, then
     setTimeout(() => this.handlePasteDone(), 1);
   }
@@ -1619,6 +1597,7 @@ export default class EditorBase
       {
         let downloadsrc = img.src;
         img.src = this._getImageDownloadURL();
+        img.classList.add("wh-rtd__img--uploading");
 
         replacementpromises.push(formservice.getImgFromRemoteURL(downloadsrc)
           .then (result => this._handleUploadedRemoteImage(img, result) )
@@ -1634,6 +1613,7 @@ export default class EditorBase
 
   _handleUploadedRemoteImage(img, properurl)
   {
+    img.classList.remove("wh-rtd__img--uploading");
     if(!properurl)
     {
       img.remove();

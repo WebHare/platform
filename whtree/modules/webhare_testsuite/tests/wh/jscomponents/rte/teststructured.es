@@ -1113,14 +1113,14 @@ test.registerTests(
         topaste = dompack.create("div", { innerHTML: '<ul><li><b>b</b></li></ul><h1 class="heading1"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></h1><ul><li>c</li></ul>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         let imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
-        rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"test"</h1><ul class="unordered"><li>"b"</li></ul><p class="normal"><img class="wh-rtd__img" height="50" src="${imgsrc}" width="50"></p><ul class="unordered"><li>"c"</li></ul><h1 class="heading1">"(*0*)(*1*)ing"</h1>`);
+        rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"test"</h1><ul class="unordered"><li>"b"</li></ul><p class="normal"><img class="wh-rtd__img" src="${imgsrc}"></p><ul class="unordered"><li>"c"</li></ul><h1 class="heading1">"(*0*)(*1*)ing"</h1>`);
 
         // Paste forbidden inline styles
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
         topaste = dompack.create("div", { innerHTML: '<b>b</b><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
-        rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"testb"</h1><p class="normal"><img class="wh-rtd__img" height="50" src="${imgsrc}" width="50">(*0*)(*1*)</p><h1 class="heading1">"ing"</h1>`);
+        rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"testb"</h1><p class="normal"><img class="wh-rtd__img" src="${imgsrc}">(*0*)(*1*)</p><h1 class="heading1">"ing"</h1>`);
 
         // Paste breaking content found on our gitlab wiki
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
