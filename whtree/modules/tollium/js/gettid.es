@@ -80,9 +80,10 @@ function executeCompiledTidText(text, params, rich)
 function resolveTid(tid, params, options)
 {
   if(curLang=='debug')
-  {
     return '{' + tid + (params.length ? '|' + params.join('|') : '') + '}';
-  }
+
+  if(tid[0] == '~')
+    tid = 'tollium:tilde.' + tid.substr(1);
 
   // Make sure we have 4 string params
   for (let i = 0; i < 4; ++i)
