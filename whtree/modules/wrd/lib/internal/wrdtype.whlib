@@ -1907,7 +1907,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
-        IF(RecordExists(val) AND (val.width = 0 OR val.height = 0))
+        IF(RecordExists(val) AND val.mimetype NOT LIKE "image/*")
           THROW NEW Exception("Received an invalid image");
 
         IF(RecordExists(val))

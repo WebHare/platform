@@ -265,6 +265,10 @@ MACRO TestSchema()
   //deleted the file, so check the opposite queries
   TestImageFileField(persontype, testpersonid, FALSE);
 
+  //verify we can add a svg
+  persontype->UpdateEntity(testpersonid, [ test_image := WrapBlob(GetWebhareResource("mod::tollium/web/ui/img/broken.svg"), "broken.svg") ]);
+  TestEq("image/svg+xml", persontype->GetEntityField(testpersonid, "test_image").mimetype);
+
   testpersonobj->DeleteEntity();
 
   TestThrowsLike('*WRD_LIMITDATE*', PTR persontype->CreateEntity([ wrd_limitdate := DEFAULT DATETIME ]));

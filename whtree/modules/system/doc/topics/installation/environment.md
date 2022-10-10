@@ -15,10 +15,10 @@ the expanded symlink. This allows you to specify a 'default' WebHare installatio
 
 ### WEBHARE_BASEPORT
 The base port number for various connections. If not set, assumed to be 13679. The following ports are offset from this number:
+- `+0` (13679) - Rescue port. Serves an unencrypted webinterface even if the webserver configuration cannot be processed
 - `+5` (13684) - Trusted port - we trust `X-Forwarded-*` headers
 - `+6` (13685) - OpenSearch
 - `+7` (13686) - Reserved for OpenSearch dashboard
-- `+9` (13688) - Rescue port. Serves an unencrypted webinterface even if the webserver configuration cannot be processed
 
 ### WEBHARE_DTAPSTAGE
 Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'development'. If not set, configurable in WebHare.
@@ -80,8 +80,9 @@ Set the IP address binding for the secure/trusted port (usually 13684). If not s
 intended for the nginx reverse proxy and allows connections to fake their source port, IP and protocol.
 
 ### WEBHARE_RESCUEPORT_BINDIP
-Set the IP address binding for the rescue port (usually 13688). If not set it defaults to localhost. The rescueport hosts
-an insecure WebHare backend interface
+Set the IP address binding for the rescue port (usually 13679). If not set it defaults to localhost. The rescueport hosts
+an insecure WebHare backend interface. (Pre 5.02, WebHare would us 13688 as its rescue port because 13679 was reserved
+for the database server)
 
 ### WEBHARE_LOOPBACKPORT_BINDIP
 Set the IP address binding for the loopback connections port (usually 13683). If not set it defaults to localhost. This port
