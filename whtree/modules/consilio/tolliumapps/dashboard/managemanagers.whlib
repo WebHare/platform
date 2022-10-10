@@ -147,7 +147,7 @@ PUBLIC STATIC OBJECTTYPE RuntimeSettings EXTEND TolliumScreenBase
     ^watermark_high->placeholder := default_watermark_high;
     ^watermark_flood->placeholder := default_watermark_flood;
 
-    // Read Elasticsearch configuration (TODO shouldn't block on this in case its down - perhaps split off runtime settings into a separate dialog?)
+    // Read Elasticsearch configuration (TODO shouldn't block on this in case it's down - perhaps split off runtime settings into a separate dialog?)
     TRY
     {
       this->id := data.id;
