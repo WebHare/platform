@@ -862,9 +862,11 @@
   <textgroup gid="tilde">   <!-- tilde -->
     <text tid="accessibility">Toegankelijkheid</text>
     <text tid="add">Toevoegen</text>
+    <text tid="addtostartmenu">Toon in favorieten</text>
     <text tid="advanced">Geavanceerd</text>
     <text tid="apikey">API sleutel</text>
     <text tid="apply">Toepassen</text>
+    <text tid="bksp">Backspace</text>
     <text tid="browse">Bladeren</text>
     <text tid="cancel">Annuleren</text>
     <text tid="change">Aanpassen</text>
@@ -880,6 +882,7 @@
     <text tid="cut">Knippen</text>
     <text tid="date">Datum</text>
     <text tid="defaultvalue">Standaardwaarde</text>
+    <text tid="del">Del</text>
     <text tid="delete">Verwijderen</text>
     <text tid="deleteall">Alles verwijderen</text>
     <text tid="deletiondate">Verwijderdatum</text>
@@ -892,6 +895,9 @@
     <text tid="edit">Bewerken</text>
     <text tid="email">E-mailadres</text>
     <text tid="enable">Inschakelen</text>
+    <text tid="end">End</text>
+    <text tid="enter">Enter</text>
+    <text tid="esc">Escape</text>
     <text tid="exit">Afsluiten</text>
     <text tid="export">Exporteren</text>
     <text tid="filename">Bestandsnaam</text>
@@ -900,6 +906,7 @@
     <text tid="firstname">Voornaam</text>
     <text tid="fullname">Volledige naam</text>
     <text tid="help">Help</text>
+    <text tid="home">Home</text>
     <text tid="id">ID</text>
     <text tid="import">Importeren</text>
     <text tid="inspect">Inspecteren</text>
@@ -915,6 +922,7 @@
     <text tid="mailfrom">Van</text>
     <text tid="mailto">Aan</text>
     <text tid="manage">Beheren</text>
+    <text tid="menu">Menu</text>
     <text tid="mimetype">MIME type</text>
     <text tid="modificationdate">Wijzigingsdatum</text>
     <text tid="moveto">Verplaatsen naar</text>
@@ -931,6 +939,8 @@
     <text tid="passwordnew">Nieuw wachtwoord</text>
     <text tid="passwordrepeat">Herhaal wachtwoord</text>
     <text tid="paste">Plakken</text>
+    <text tid="pgdn">Page Down</text>
+    <text tid="pgup">Page Up</text>
     <text tid="preferences">Voorkeuren</text>
     <text tid="preview">Voorbeeld tonen</text>
     <text tid="previous">Vorige</text>
@@ -956,6 +966,7 @@
     <text tid="subject">Onderwerp</text>
     <text tid="submit">Versturen</text>
     <text tid="synchronize">Synchroniseren</text>
+    <text tid="tab">Tab</text>
     <text tid="tag">Tag</text>
     <text tid="title">Titel</text>
     <text tid="tobottom">Onderaan</text>
