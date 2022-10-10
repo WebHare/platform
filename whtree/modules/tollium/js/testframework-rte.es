@@ -344,6 +344,9 @@ export async function runWithUndo(rte, func, options = {})
 
   await func();
 
+  //wait for all uploads to complete
+  await test.wait( () => !rte.getContentBodyNode().querySelector(".wh-rtd__img--uploading"));
+
   if (options.waits)
     await test.wait(options.waits);
 
