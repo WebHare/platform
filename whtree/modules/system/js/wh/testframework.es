@@ -664,6 +664,10 @@ function wrdAuthLogout()
   let redirectto = getWrdLogoutUrl(getWin().location.href);
   window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
 }
+async function writeLogMarker(text)
+{
+  await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
+}
 
 
 function sleep(delay)
@@ -882,6 +886,7 @@ module.exports = { registerTests: registerJSTests
                  , subtest
                  , invoke
                  , loadPage: load //DEPRECATED
+                 , writeLogMarker
 
                  , pasteHTML
                  , wrdAuthLogout
