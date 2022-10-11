@@ -13,7 +13,7 @@
 
     <actions gid=".actions">
       <action name="anonymize" onexecute="doanonymize" />
-      <action name="act_cancel" onexecute="cancel" tid="tollium:common.actions.cancel" />
+      <action name="act_cancel" onexecute="cancel" tid="~cancel" />
     </actions>
 
     <body>

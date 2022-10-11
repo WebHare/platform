@@ -252,7 +252,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
                                       this->pvt_fileinfo.filename,
                                       this->owner->tolliumuser->FormatFilesize(Length(this->pvt_fileinfo.data), 0));
 
-      this->replace->title := GetTid("tollium:common.actions.replace");
+      this->replace->title := GetTid("~replace");
       this->replace->hint := GetTid("tollium:components.fileedit.hints.replace_file");
       this->replace->icon := "tollium:actions/replace";
       this->RefreshActions();
@@ -261,7 +261,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
     {
       this->filename->value := GetTid("tollium:components.fileedit.nofile");
 
-      this->replace->title := GetTid("tollium:common.actions.add");
+      this->replace->title := GetTid("~add");
       this->replace->hint := GetTid("tollium:components.fileedit.hints.add_file");
       this->replace->icon := "tollium:actions/add";
       this->RefreshActions();

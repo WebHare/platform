@@ -67,9 +67,9 @@
             </list>
           </cell>
           <cell>
-            <button action="addtype" width="1pr" tid="tollium:common.actions.add"/>
-            <button action="edittype" width="1pr" tid="tollium:common.actions.edit"/>
-            <button action="deltype" width="1pr" tid="tollium:common.actions.delete"/>
+            <button action="addtype" width="1pr" tid="~add"/>
+            <button action="edittype" width="1pr" tid="~edit"/>
+            <button action="deltype" width="1pr" tid="~delete"/>
             <panel spacers="top bottom">
               <button action="editvalues" width="1pr" />
               <button action="manageattrs" width="1pr" />
@@ -133,13 +133,13 @@
 
   <screen name="manageattrs" gid=".attributes" width="140x" height="30x" allowresize="true">
     <actions>
-      <action name="addattr" onexecute="doaddattr" tid="tollium:common.actions.add" />
+      <action name="addattr" onexecute="doaddattr" tid="~add" />
 
-      <action name="editattr" onexecute="doeditattr" tid="tollium:common.actions.edit" >
+      <action name="editattr" onexecute="doeditattr" tid="~edit" >
         <enableon source="attrs" min="1" max="1" />
       </action>
 
-      <action name="deleteattr" onexecute="dodeleteattr" tid="tollium:common.actions.delete" shortcut="del">
+      <action name="deleteattr" onexecute="dodeleteattr" tid="~delete" shortcut="del">
         <enableon source="attrs" min="1" max="1" checkflags="!base" />
       </action>
 

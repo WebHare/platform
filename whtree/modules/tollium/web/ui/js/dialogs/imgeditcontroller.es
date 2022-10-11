@@ -181,7 +181,7 @@ class ImgeditDialogController
           { title: getTid("tollium:components.imgedit.editor.title")
           , text: getTid("tollium:components.imgedit.messages.corruptimage")
           , icon: "warning"
-          , buttons: [ { name: "close", title: getTid("tollium:common.actions.close") }
+          , buttons: [ { name: "close", title: getTid("~close") }
                      ]
           });
     });
@@ -242,9 +242,9 @@ class ImgeditDialogController
         , status:       { type: 'text', width: "1pr", ellipsis: true, value: "" }
         , progress:     { type: 'progress', width: "150px", max: 0, value: 0, visible: false }
         , okaction:     { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , okbutton:     { type: 'button', title: getTid("tollium:common.actions.save"), action: 'okaction' }
+        , okbutton:     { type: 'button', title: getTid("~save"), action: 'okaction' }
         , cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , cancelbutton: { type: 'button', title: getTid("tollium:common.actions.cancel"), action: 'cancelaction' }
+        , cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' }
         , imageeditor:  { type: 'customhtml', width: "1pr", height: "1pr" }
         });
     this.modallayer = this.dialog.node.querySelector(".modallayer");
@@ -375,7 +375,7 @@ class ImgeditDialogController
   _onEditorOpenTool(event)
   {
     this.activetool = event.detail;
-    this.dialog.getComponent("okbutton").setTitle(getTid("tollium:common.actions.ok"));
+    this.dialog.getComponent("okbutton").setTitle(getTid("~ok"));
     this.dialog.getComponent("frame").setTitle(getTid("tollium:components.imgedit.editor." + this.activetool.panel._imgedittool));
     this._relayoutDialog();
   }
@@ -383,7 +383,7 @@ class ImgeditDialogController
   _onEditorCloseTool()
   {
     this.activetool = null;
-    this.dialog.getComponent("okbutton").setTitle(getTid("tollium:common.actions.save"));
+    this.dialog.getComponent("okbutton").setTitle(getTid("~save"));
     this.dialog.getComponent("frame").setTitle(getTid("tollium:components.imgedit.editor.title"));
     this._relayoutDialog();
   }
@@ -413,8 +413,8 @@ class ImgeditDialogController
             { title: getTid("tollium:components.imgedit.editor.title")
             , text: getTid("tollium:components.imgedit.messages.confirmdiscardtool")
             , icon: "warning"
-            , buttons: [ { name: "yes", title: getTid("tollium:common.actions.yes") }
-                       , { name: "no", title: getTid("tollium:common.actions.no") }
+            , buttons: [ { name: "yes", title: getTid("~yes") }
+                       , { name: "no", title: getTid("~no") }
                        ]
             });
         callback();
@@ -438,9 +438,9 @@ class ImgeditDialogController
             { title: getTid("tollium:components.imgedit.editor.title")
             , text: getTid("tollium:components.imgedit.messages.confirmdiscardchanges")
             , icon: "warning"
-            , buttons: [ { name: "yes", title: getTid("tollium:common.actions.yes") }
-                       , { name: "no", title: getTid("tollium:common.actions.no") }
-                       , { name: "cancel", title: getTid("tollium:common.actions.cancel") }
+            , buttons: [ { name: "yes", title: getTid("~yes") }
+                       , { name: "no", title: getTid("~no") }
+                       , { name: "cancel", title: getTid("~cancel") }
                        ]
             });
 
@@ -468,7 +468,7 @@ ImgeditDialogController.checkTypeAllowed = function(screen, type)
         { title: getTid("tollium:components.imgedit.editor.title")
         , text: getTid("tollium:components.imgedit.messages.unsupportedtype")
         , icon: "warning"
-        , buttons: [ { name: "close", title: getTid("tollium:common.actions.close") }
+        , buttons: [ { name: "close", title: getTid("~close") }
                    ]
         });
     return false;

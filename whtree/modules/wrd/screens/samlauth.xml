@@ -35,14 +35,14 @@
         <enableon source="connectedproviders" frameflags="selected_sp !haveconnected" />
       </action>
 
-      <action name="edit" tid="tollium:common.actions.properties">
+      <action name="edit" tid="~properties">
         <enableon source="samlproviders" min="1" checkflags="sp" onexecute="doeditsp" />
         <enableon source="samlproviders" min="1" checkflags="idp" onexecute="doeditidp" />
         <enableon source="connectedproviders" min="1" checkflags="sp" onexecute="doeditconnectedsp" />
         <enableon source="connectedproviders" min="1" checkflags="idp" onexecute="doeditconnectedidp" />
       </action>
 
-      <action name="delete" tid="tollium:common.actions.delete">
+      <action name="delete" tid="~delete">
         <enableon source="samlproviders" min="1" checkflags="sp" onexecute="dodeletesp" />
         <enableon source="samlproviders" min="1" checkflags="idp" onexecute="dodeleteidp" />
         <enableon source="connectedproviders" min="1" checkflags="sp" onexecute="dodeleteconnectedsp" />
@@ -85,7 +85,7 @@
     </compositions>
 
     <toolbar>
-      <button tid="tollium:common.actions.add" menu="addmenu" icon="tollium:actions/add" />
+      <button tid="~add" menu="addmenu" icon="tollium:actions/add" />
       <button action="edit" icon="tollium:actions/properties" />
       <button action="delete" icon="tollium:actions/delete" />
       <divider />

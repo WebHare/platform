@@ -463,7 +463,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
     {
       IF(Length(newvalue)>=256)
       {
-        work->AddError(GetTid("tollium:common.errors.too_long", GetTid("tollium:common.labels.title")));
+        work->AddError(GetTid("tollium:common.errors.too_long", GetTid("~title")));
       }
       INSERT CELL title := newvalue INTO upd;
     }

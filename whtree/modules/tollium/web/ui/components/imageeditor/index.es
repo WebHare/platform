@@ -59,9 +59,9 @@ class ImageEditor
     this.el = el;
 
     this.toolbar = new Toolbar({ applyicon: toddImages.createImage("tollium:actions/apply", 24, 24, "b")
-                               , applylabel: getTid("tollium:common.actions.apply")
+                               , applylabel: getTid("~apply")
                                , closeicon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b")
-                               , closelabel: getTid("tollium:common.actions.cancel")
+                               , closelabel: getTid("~cancel")
                                });
     this.surface = new ImageSurface(this.el, this.toolbar, options);
     this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt));
@@ -80,7 +80,7 @@ class ImageEditor
     if (this.options.resetImage)
     {
       this.toolbar.addButton(new Toolbar.Button(this.toolbar,
-          { label: getTid("tollium:common.actions.reset")
+          { label: getTid("~reset")
           , icon: toddImages.createImage("tollium:actions/reset", 24, 24, "b")
           , onExecute: this.resetImage.bind(this)
           }));

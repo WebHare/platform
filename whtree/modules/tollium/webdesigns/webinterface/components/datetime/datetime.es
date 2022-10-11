@@ -7,7 +7,6 @@ import $todd from "@mod-tollium/web/ui/js/support";
 
 import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime.es';
 import './datetime.scss';
-import "./datetime.lang.json";
 
 
 /****************************************************************************************************************************
@@ -338,10 +337,10 @@ export default class ObjDateTime extends ComponentBase
   {
     evt.detail.datepicker.append(
       <div class="tollium__datetime__picker__buttonbar">
-        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__cancelbutton" onClick={ () => this.cancelDatepicker() }>{getTid("tollium:common.actions.cancel")}</button>
+        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__cancelbutton" onClick={ () => this.cancelDatepicker() }>{getTid("~cancel")}</button>
         <div class="tollium__datetime__picker__buttonflex"></div>
-        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__todaybutton"  onClick={ () => this.selectToday() }>{getTid("tollium:common.actions.today")}</button>
-        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__nonebutton"   onClick={ () => this.selectNone() }>{getTid("tollium:common.labels.none")}</button>
+        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__todaybutton"  onClick={ () => this.selectToday() }>{getTid("~today")}</button>
+        <button type="button" class="tollium__datetime__picker__button tollium__datetime__picker__nonebutton"   onClick={ () => this.selectNone() }>{getTid("~none")}</button>
       </div>);
   }
 }

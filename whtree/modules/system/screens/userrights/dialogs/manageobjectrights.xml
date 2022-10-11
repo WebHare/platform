@@ -20,9 +20,9 @@
             <includefragment name="objectrightslist" fragment="userrights/parts/objectrightslist.objectrightslist" />
           </cell>
           <cell>
-            <button tid="tollium:common.actions.add" action="objectrightslist->grantrightonobject" />
-            <button tid="tollium:common.actions.edit" action="objectrightslist->edit"/>
-            <button tid="tollium:common.actions.delete" action="objectrightslist->revokerightonobject"/>
+            <button tid="~add" action="objectrightslist->grantrightonobject" />
+            <button tid="~edit" action="objectrightslist->edit"/>
+            <button tid="~delete" action="objectrightslist->revokerightonobject"/>
           </cell>
         </row>
       </grid>

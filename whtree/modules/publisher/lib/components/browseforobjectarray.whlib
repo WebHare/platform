@@ -300,7 +300,7 @@ check filetype
 
     OBJECT addbutton := this->CreateSubComponent("button");
     addbutton->width := "1pr";
-    addbutton->title := GetTid("tollium:common.actions.add");
+    addbutton->title := GetTid("~add");
     addbutton->action := addaction;
 
     // "Edit" button
@@ -312,7 +312,7 @@ check filetype
 
     OBJECT editbutton := this->CreateSubComponent("button");
     editbutton->width := "1pr";
-    editbutton->title := GetTid("tollium:common.actions.edit");
+    editbutton->title := GetTid("~edit");
     editbutton->action := editaction;
 
     // "Delete" button
@@ -321,7 +321,7 @@ check filetype
 
     OBJECT deletebutton := this->CreateSubComponent("button");
     deletebutton->width := "1pr";
-    deletebutton->title := GetTid("tollium:common.actions.delete");
+    deletebutton->title := GetTid("~delete");
     deletebutton->action := deleteaction;
 
     OBJECT moveupbutton;
@@ -335,7 +335,7 @@ check filetype
 
       moveupbutton := this->CreateSubComponent("button");
       moveupbutton->width := "1pr";
-      moveupbutton->title := GetTid("tollium:common.actions.up");
+      moveupbutton->title := GetTid("~up");
       moveupbutton->action := moveupaction;
 
       // "Move Down" button
@@ -344,7 +344,7 @@ check filetype
 
       movedownbutton := this->CreateSubComponent("button");
       movedownbutton->width := "1pr";
-      movedownbutton->title := GetTid("tollium:common.actions.down");
+      movedownbutton->title := GetTid("~down");
       movedownbutton->action := movedownaction;
 
       orderingpanel := this->CreateSubComponent("panel");

@@ -496,9 +496,9 @@ class FilterDialogController
         , previewbutton: { type: 'button', title: getTid("tollium:components.imgedit.filters.preview"), action: 'previewaction' }
         , spacer:       { type: 'text', width: "1pr", value: "" }
         , okaction:     { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , okbutton:     { type: 'button', title: getTid("tollium:common.actions.ok"), action: 'okaction' }
+        , okbutton:     { type: 'button', title: getTid("~ok"), action: 'okaction' }
         , cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , cancelbutton: { type: 'button', title: getTid("tollium:common.actions.cancel"), action: 'cancelaction' }
+        , cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' }
         , ...this.options.components
         };
 

@@ -296,8 +296,8 @@ class DashboardApp
     let response = await
       runSimpleScreen(this.app, { title: getTid("tollium:shell.logout.title")
                                 , text: getTid("tollium:shell.logout.surelogout")
-                                , buttons: [{ name: 'yes', title: getTid("tollium:common.actions.yes") }
-                                           ,{ name: 'no', title: getTid("tollium:common.actions.no") }
+                                , buttons: [{ name: 'yes', title: getTid("~yes") }
+                                           ,{ name: 'no', title: getTid("~no") }
                                            ]
                                 });
     if(response == 'yes')

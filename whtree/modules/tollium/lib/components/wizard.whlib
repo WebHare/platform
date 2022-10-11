@@ -62,7 +62,7 @@ PUBLIC OBJECTTYPE TolliumWizard EXTEND TolliumPanel
     }
 
     this->prevbutton := this->CreateSubComponent("button");
-    this->prevbutton->title := "\xE2\x80\xB9\xE2\x80\xB9 " || GetTid("tollium:common.actions.previous");
+    this->prevbutton->title := "\xE2\x80\xB9\xE2\x80\xB9 " || GetTid("~previous");
     this->prevbutton->action := this->CreateSubComponent("action");
     this->prevbutton->action->onexecute := PTR this->GotoPreviousPage;
 
@@ -71,7 +71,7 @@ PUBLIC OBJECTTYPE TolliumWizard EXTEND TolliumPanel
     this->pvt_nextbutton->action->onexecute := PTR this->GotoNextPage;
 
     this->cancelbutton := this->CreateSubComponent("button");
-    this->cancelbutton->title := GetTid("tollium:common.actions.cancel");
+    this->cancelbutton->title := GetTid("~cancel");
     this->cancelbutton->tolliumresult := "tollium_cancel";
     this->cancelbutton->visible := this->cancelbutton_visible;
 
@@ -163,8 +163,8 @@ PUBLIC OBJECTTYPE TolliumWizard EXTEND TolliumPanel
   MACRO SetCurrentPagefinish(BOOLEAN isfinish)
   {
     this->pvt_curpagefinish := isfinish;
-    this->pvt_nextbutton->title := isfinish ? GetTid("tollium:common.actions.finish")
-                                           : GetTid("tollium:common.actions.next") ||  " \xE2\x80\xBA\xE2\x80\xBA";
+    this->pvt_nextbutton->title := isfinish ? GetTid("~finish")
+                                           : GetTid("~next") ||  " \xE2\x80\xBA\xE2\x80\xBA";
   }
 
   PUBLIC MACRO GotoPreviousPage()

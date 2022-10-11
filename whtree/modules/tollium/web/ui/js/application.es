@@ -577,7 +577,7 @@ export class ApplicationBase
     utilerror.reportException(e);
     runSimpleScreen(this,
                       { text: getTid("tollium:shell.errors.errortitle")
-                      , buttons: [{ name: 'close', title: getTid("tollium:common.actions.close") }]
+                      , buttons: [{ name: 'close', title: getTid("~close") }]
                       });
   }
 
@@ -1165,7 +1165,7 @@ export class BackendApplication extends ApplicationBase
                                          ? getTid("tollium:shell.errors.appstartfailed-development")
                                          : getTid("tollium:shell.errors.appstartfailed")
                               , buttons: [ { name: 'close'
-                                           , title: getTid("tollium:common.actions.close")
+                                           , title: getTid("~close")
                                            }]
                               });
       this.terminateApplication();

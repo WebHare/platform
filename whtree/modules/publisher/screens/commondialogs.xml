@@ -23,7 +23,7 @@
 
   <screen name="selectsitedialog" gid=".selectsitedialog" width="50x" height="30x" allowresize="true">
     <actions>
-      <action name="selectsite" onexecute="submit" tid="tollium:common.actions.ok">
+      <action name="selectsite" onexecute="submit" tid="~ok">
         <enableon source="sites" min="1" />
       </action>
     </actions>
@@ -38,8 +38,8 @@
     </body>
     <footer layout="right">
       <line>
-        <button name="selectbutton" action="selectsite" tid="tollium:common.actions.ok" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+        <button name="selectbutton" action="selectsite" tid="~ok" />
+        <button tolliumresult="cancel" tid="~cancel" />
       </line>
     </footer>
   </screen>

@@ -296,7 +296,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     IF (NOT this->readonly)
     {
       this->save := this->CreateSubComponent("button");
-      this->save->title := GetTid("tollium:common.actions.save");
+      this->save->title := GetTid("~save");
       this->save->hint := GetTid("tollium:components.imgedit.hints.save_image");
       this->save->icon := "tollium:actions/save";
       this->save->enabled := RecordExists(this->curval);
@@ -314,7 +314,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     IF (NOT this->readonly)
     {
       this->remove := this->CreateSubComponent("button");
-      this->remove->title := GetTid("tollium:common.actions.delete");
+      this->remove->title := GetTid("~delete");
       this->remove->hint := GetTid("tollium:components.imageedit.delete_image");
       this->remove->icon := "tollium:actions/delete";
       this->remove->enabled := RecordExists(this->curval);
@@ -388,7 +388,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     {
       IF (ObjectExists(this->replace))
       {
-        this->replace->title := GetTid("tollium:common.actions.replace");
+        this->replace->title := GetTid("~replace");
         this->replace->hint := GetTid("tollium:components.imageedit.replace_image");
         this->replace->icon := "tollium:actions/replace";
       }
@@ -402,7 +402,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     {
       IF (ObjectExists(this->replace))
       {
-        this->replace->title := GetTid("tollium:common.actions.add");
+        this->replace->title := GetTid("~add");
         this->replace->hint := GetTid("tollium:components.imgedit.hints.add_image");
         this->replace->icon := "tollium:actions/add";
       }
@@ -440,12 +440,12 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
       {
         IF (RecordExists(this->img->value))
         {
-          this->replace->title := GetTid("tollium:common.actions.replace");
+          this->replace->title := GetTid("~replace");
           this->replace->icon := "tollium:actions/replace";
         }
         ELSE
         {
-          this->replace->title := GetTid("tollium:common.actions.add");
+          this->replace->title := GetTid("~add");
           this->replace->icon := "tollium:actions/add";
         }
 

@@ -50,7 +50,7 @@ export async function run(event, options)
         , title: getTid("tollium:shell.feedback.button-general")
         }
       , { name: "cancel"
-        , title: getTid("tollium:common.actions.cancel")
+        , title: getTid("~cancel")
         }
       ]
     , defaultbutton: "specific"

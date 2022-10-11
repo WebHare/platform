@@ -9,7 +9,7 @@
           allowresize="true" savestate="size"
           >
     <actions>
-      <action name="editdbinfo" tid="tollium:common.actions.edit">
+      <action name="editdbinfo" tid="~edit">
         <enableon source="dbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdbinfo" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdraftdbinfo" />
       </action>
@@ -22,11 +22,11 @@
         <enableon source="draftdbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdraftdbinfo" />
       </action>
 
-      <downloadaction name="dbinfodownload" tid="tollium:common.actions.download">
+      <downloadaction name="dbinfodownload" tid="~download">
         <enableon source="dbinfo" min="1" max="1" checkflags="candownload" ondownload="ondbinfodownload" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="candownload" ondownload="ondraftdbinfodownload" />
       </downloadaction>
-      <action name="jumptoreference" tid="tollium:common.actions.edit" onexecute="dojumptoreference">
+      <action name="jumptoreference" tid="~edit" onexecute="dojumptoreference">
         <enableon source="refs" min="1" max="1" />
       </action>
     </actions>

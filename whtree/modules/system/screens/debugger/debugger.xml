@@ -421,7 +421,7 @@
           <cell>
             <line layout="right">
               <button action="connect" />
-              <button tolliumresult="close" tid="tollium:common.actions.close" />
+              <button tolliumresult="close" tid="~close" />
             </line>
           </cell>
         </row>
@@ -482,7 +482,7 @@
     <footer>
       <line layout="right">
         <button name="openbutton" action="open" tid=".open" />
-        <button tolliumresult="close" tid="tollium:common.actions.close" />
+        <button tolliumresult="close" tid="~close" />
       </line>
     </footer>
   </screen>

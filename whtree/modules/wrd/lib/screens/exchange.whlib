@@ -877,8 +877,8 @@ PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
     }
     ELSE
     {
-      domain := [ [ rowkey := "0", title := GetTid("tollium:common.labels.no") ]
-                , [ rowkey := "1", title := GetTid("tollium:common.labels.yes") ]
+      domain := [ [ rowkey := "0", title := GetTid("~no") ]
+                , [ rowkey := "1", title := GetTid("~yes") ]
                 ];
     }
 

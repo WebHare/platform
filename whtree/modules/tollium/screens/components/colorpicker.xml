@@ -4,8 +4,8 @@
 
   <fragment name="coloredit" gid=".edit">
     <actions>
-      <action name="selectaction" tid="tollium:common.actions.select" hinttid="tollium:components.colorpicker.hints.select_color" onexecute="selectcolor" />
-      <action name="clearaction" tid="tollium:common.actions.clear" hinttid="tollium:components.colorpicker.hints.clear_color" onexecute="clearcolor" />
+      <action name="selectaction" tid="~select" hinttid="tollium:components.colorpicker.hints.select_color" onexecute="selectcolor" />
+      <action name="clearaction" tid="~clear" hinttid="tollium:components.colorpicker.hints.clear_color" onexecute="clearcolor" />
     </actions>
     <contents>
       <line>

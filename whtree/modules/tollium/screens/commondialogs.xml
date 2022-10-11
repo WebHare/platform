@@ -97,8 +97,8 @@
     </body>
     <footer>
       <line layout="right">
-        <button name="okbutton" tolliumresult="tollium_submit" tid="tollium:common.actions.ok" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+        <button name="okbutton" tolliumresult="tollium_submit" tid="~ok" />
+        <button tolliumresult="cancel" tid="~cancel" />
       </line>
     </footer>
   </screen>
@@ -116,8 +116,8 @@
     </body>
     <footer>
       <line layout="right">
-        <button action="download" tid="tollium:common.actions.download"/>
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+        <button action="download" tid="~download"/>
+        <button tolliumresult="cancel" tid="~cancel" />
       </line>
     </footer>
   </screen>
@@ -132,7 +132,7 @@
     <footer>
       <line layout="right">
         <button action="windowopen" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
+        <button tolliumresult="cancel" tid="~cancel" />
       </line>
     </footer>
   </screen>
@@ -212,7 +212,7 @@
           gid=".progress"
           tid=".title">
     <actions>
-      <action name="cancelaction" onexecute="docancel" tid="tollium:common.actions.cancel" />
+      <action name="cancelaction" onexecute="docancel" tid="~cancel" />
     </actions>
     <body width="75x" layout="left">
       <heading tid=".progress" />
@@ -230,7 +230,7 @@
   <screen name="exceptionscreen" gid=".exception" tid=".title" height="45x" width="130x">
     <actions>
       <action name="sendemail" onexecute="dosendemail" tid=".email" />
-      <action name="closeaction" onexecute="doclose" tid="tollium:common.actions.close" />
+      <action name="closeaction" onexecute="doclose" tid="~close" />
     </actions>
     <body layout="left">
       <text valuetid=".exception" wordwrap="true" />

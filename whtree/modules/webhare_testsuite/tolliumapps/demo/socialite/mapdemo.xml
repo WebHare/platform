@@ -68,10 +68,10 @@
     </menus>
 
     <toolbar>
-      <button menu="addtomap" icon="tollium:actions/add"        tid="tollium:common.actions.add" />
+      <button menu="addtomap" icon="tollium:actions/add"        tid="~add" />
 <!--
-      <button action="delete"       icon="tollium:actions/delete"     tid="tollium:common.actions.delete" />
-      <button action="properties"   icon="tollium:actions/properties" tid="tollium:common.actions.properties" />
+      <button action="delete"       icon="tollium:actions/delete"     tid="~delete" />
+      <button action="properties"   icon="tollium:actions/properties" tid="~properties" />
       <divider/>
       <button action="refresh"      icon="tollium:actions/reload"/>
       <divider/>

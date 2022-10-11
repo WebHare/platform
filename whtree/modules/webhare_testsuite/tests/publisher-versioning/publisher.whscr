@@ -185,7 +185,7 @@ OBJECT ASYNC FUNCTION PublisherNewFileProperties()
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
   TestEq("indexdoc-2.rtd", TT("name")->value);
   TestEq(FALSE, TT("publish")->value);
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.save}"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:tilde.save}"));
 
   TestEq("indexdoc-2.rtd", TT("filelist")->selection[0].name);
   TestEq(FALSE, OpenWHFSObject(TT("filelist")->value[0])->publish);
@@ -1399,7 +1399,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
 
   rec := AWAIT ExpectScreenChange(+1, PTR TT("createarchive")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
   topscreen->filename->value := "testfile2.zip";
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.ok}")); //expect warning about creatingarchives
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:tilde.ok}")); //expect warning about creatingarchives
   AWAIT rec.expectcallreturn();
 
   // Test not published, no public draft
@@ -1623,7 +1623,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
   // Create an archive
   AWAIT ExpectScreenChange(+1, PTR TT("createarchive")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
   topscreen->filename->value := "testfile3.zip";
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.ok}")); //expect warning about creatingarchives
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:tilde.ok}")); //expect warning about creatingarchives
 
   // Select the new zip
   testfile := testfolder->parentobject->OpenByName("testfile3.zip");

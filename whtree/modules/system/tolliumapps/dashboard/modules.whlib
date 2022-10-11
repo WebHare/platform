@@ -317,7 +317,7 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
           [ rowkey :=           rec.path
           , path :=             rec.path
           , name :=             rec.data.name
-          , archived :=         rec.isarchive ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+          , archived :=         rec.isarchive ? GetTid("~yes") : GetTid("~no")
           , orderdate :=        rec.data.moduledate
           , uploaddate :=       rec.data.newformat ? rec.data.moduledate : DEFAULT DATETIME
           , obsoletiondate :=   rec.data.obsoletiondate

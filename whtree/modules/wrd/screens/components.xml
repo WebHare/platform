@@ -11,7 +11,7 @@
       <line>
         <select name="freeattr" type="pulldown" defaultbutton="btn_searchfree" onchange="onselectfreeattr" />
         <textedit name="freevalue" defaultbutton="btn_searchfree" width="30x" />
-        <button name="btn_searchfree" action="searchfree" hinttid=".searchhint" tid="tollium:common.actions.search"/>
+        <button name="btn_searchfree" action="searchfree" hinttid=".searchhint" tid="~search"/>
       </line>
     </contents>
   </fragment>
@@ -37,9 +37,9 @@
 
   <fragment name="entitiesedit" gid=".entitylist" lib="components/entitylist.whlib">
     <actions>
-      <forward name="add" action="entities->add" tid="tollium:common.actions.add" />
-      <forward name="edit" action="entities->edit" tid="tollium:common.actions.edit" />
-      <forward name="delete" action="entities->delete" tid="tollium:common.actions.delete" />
+      <forward name="add" action="entities->add" tid="~add" />
+      <forward name="edit" action="entities->edit" tid="~edit" />
+      <forward name="delete" action="entities->delete" tid="~delete" />
     </actions>
     <contents>
       <listedit name="entities" ongetchildren="dogetchildren" onrowedit="dorowedit" rowkeytype="integer" />
@@ -72,7 +72,7 @@
             <textarea minwidth="30x" width="1pr" height="1pr" name="addressfield" defaultbutton="changebutton" enabled="false" title="" hiderequiredifdisabled="false" />
           </cell>
           <cell>
-            <button name="changebutton" tid="tollium:common.actions.edit" action="changeaction" />
+            <button name="changebutton" tid="~edit" action="changeaction" />
           </cell>
         </grid>
       </inlineblock>

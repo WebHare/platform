@@ -297,26 +297,6 @@ class Calendar2 extends CalendarTable
     for(let m = 0; m < 12; ++m)
       this.monthselectnode.appendChild(<option value={m+1} selected={m == selectedmonth-1}>{this._languagetexts[m+2]}</option>);
 
-    // //buttons: cancel/today/empty
-    // var btnbarnode = dompack.create('div',{className:'button-bar'});
-    // dompack.create('button',{textContent: getTid("tollium:common.actions.cancel"), 'name':'cancel'}).inject(btnbarnode).addEvent('click',function()
-    // {
-    //   this.node.fireEvent('cancel');
-    // }.bind(this));
-
-    // var btngroupnode = dompack.create('div',{className:'button-group'}).inject(btnbarnode);
-    // dompack.create('button',{textContent : getTid("tollium:common.actions.today"), 'name':'today', className : 'cta'}).inject(btngroupnode).addEvent('click', function()
-    // {
-    //   this.date = new Date();
-    //   this.node.fireEvent('change',this.date);
-    // }.bind(this));
-
-    // dompack.create('button',{textContent : getTid("tollium:common.labels.none"), 'name':'empty'}).inject(btngroupnode).addEvent('click', function()
-    // {
-    //   this.date = null;
-    //   this.node.fireEvent('change',this.date);
-    // }.bind(this));
-
     this.node.append(headernode, this.tablenode);//, btnbarnode);
 
     //looks like we're visible ! install a capturing

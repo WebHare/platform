@@ -46,7 +46,7 @@
       <action name="exportschema" onexecute="doexportschema"  />
       <action name="exportxmlmetadata" onexecute="doexportxmlmetadata"  />
       <!-- <action name="exportdotstructure" onexecute="doexportdotstructure"  /> -->
-      <action name="addtostartmenu" tid="tollium:common.actions.addtostartmenu" onexecute="doaddtostartmenu" />
+      <action name="addtostartmenu" tid="~addtostartmenu" onexecute="doaddtostartmenu" />
 
       <action name="newfree" frameflags="right_readwrite" onexecute="donewfree" />
       <action name="schemaprops" onexecute="doschemaprops" frameflags="right_metadata" />
@@ -85,7 +85,7 @@
 
     <menus gid=".menu">
       <menu name="menubar">
-        <item tid="tollium:common.actions.export">
+        <item tid="~export">
           <item action="exportschema" />
           <item action="exportxmlmetadata" />
           <!-- <item action="exportdotstructure" /> -->
@@ -134,7 +134,7 @@
     </menus>
 
     <toolbar name="buttons">
-      <button action="newfree" icon="tollium:actions/add" tid="tollium:common.actions.add"  />
+      <button action="newfree" icon="tollium:actions/add" tid="~add"  />
       <button action="editentity" icon="tollium:actions/edit" />
       <button action="deleteentity" icon="tollium:actions/delete" />
       <divider />

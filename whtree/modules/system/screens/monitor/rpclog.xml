@@ -4,7 +4,7 @@
 
   <screen name="rpclog" gid=".rpclog.panel">
     <actions>
-      <action name="properties" onexecute="doeditrpclog" tid="tollium:common.actions.properties">
+      <action name="properties" onexecute="doeditrpclog" tid="~properties">
         <enableon source="logslist" min="1" />
       </action>
     </actions>

@@ -10,8 +10,8 @@
     <contents>
       <line>
         <textedit name="username" title="" enabled="false" width="1pr" />
-        <button action="edit" name="editbtn" title="" icon="tollium:actions/edit" hinttid="tollium:common.actions.edit"/>
-        <button action="clear" name="clearbtn" title="" icon="tollium:actions/delete" hinttid="tollium:common.actions.clear"/>
+        <button action="edit" name="editbtn" title="" icon="tollium:actions/edit" hinttid="~edit"/>
+        <button action="clear" name="clearbtn" title="" icon="tollium:actions/delete" hinttid="~clear"/>
       </line>
     </contents>
   </fragment>

@@ -241,7 +241,7 @@ PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
              , rightname :=     grantedright
              , righttitle :=    rightrec.title
              , objectid :=      grantedobject
-             , grantable :=     withgrantoption ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , grantable :=     withgrantoption ? GetTid("~yes") : GetTid("~no")
              , grantid
              , grantedright
              , style :=         inherited ? "inheritedstyle" : ""
@@ -297,7 +297,7 @@ PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
 
     tree :=
         SELECT *
-             , withgrantoption := canmanage ? GetTid("tollium:common.labels.yes") : GetTid("tollium:common.labels.no")
+             , withgrantoption := canmanage ? GetTid("~yes") : GetTid("~no")
           FROM tree;
 
     RETURN tree;

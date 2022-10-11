@@ -80,7 +80,7 @@
                     <accepttype type="local:querybuilder.removefilter" dropeffects="move" />
                   </acceptdrops>
                   <column name="typename" type="text" tree="true" tid=".available" />
-                  <column name="title" type="text" tid="tollium:common.labels.title" />
+                  <column name="title" type="text" tid="~title" />
                 </list>
               </panel>
             </part>

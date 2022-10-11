@@ -305,7 +305,7 @@
       <line layout="right">
         <button action="abort" />
         <button action="refresh" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.close" />
+        <button tolliumresult="cancel" tid="~close" />
       </line>
     </footer>
   </screen>

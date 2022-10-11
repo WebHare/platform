@@ -28,7 +28,7 @@
         <!-- added actions appear here -->
       </menu>
       <menu name="noselectionmenu">
-        <item name="additem" action="add" tid="common.actions.add" />
+        <item name="additem" action="add" tid="~add" />
       </menu>
     </menus>
     <contents>
@@ -48,13 +48,13 @@
             </list>
           </cell>
           <cell name="buttoncell">
-            <button name="addbutton" tid="common.actions.add" action="add" width="1pr" />
-            <button name="editbutton" tid="common.actions.edit" action="edit" width="1pr" />
-            <button name="deletebutton" tid="common.actions.delete" action="delete" width="1pr" />
+            <button name="addbutton" tid="~add" action="add" width="1pr" />
+            <button name="editbutton" tid="~edit" action="edit" width="1pr" />
+            <button name="deletebutton" tid="~delete" action="delete" width="1pr" />
 
             <panel spacers="top">
-              <button name="moveupbutton" tid="common.actions.up" action="moveup" width="1pr" visible="false"/>
-              <button name="movedownbutton" tid="common.actions.down" action="movedown" width="1pr" visible="false"/>
+              <button name="moveupbutton" tid="~up" action="moveup" width="1pr" visible="false"/>
+              <button name="movedownbutton" tid="~down" action="movedown" width="1pr" visible="false"/>
             </panel>
             <panel spacers="top" name="extrabuttons" visible="false">
             </panel>

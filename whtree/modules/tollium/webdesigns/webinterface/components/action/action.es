@@ -268,8 +268,8 @@ export default class ObjAction extends ActionForwardBase
           { title: getTid("tollium:components.imgedit.editor.title")
           , text: getTid("tollium:components.imgedit.messages.confirmreset")
           , icon: "question"
-          , buttons: [ { name: "yes", title: getTid("tollium:common.actions.yes") }
-                     , { name: "no", title: getTid("tollium:common.actions.no") }
+          , buttons: [ { name: "yes", title: getTid("~yes") }
+                     , { name: "no", title: getTid("~no") }
                      ]
           , onclose:function(result)
             {
