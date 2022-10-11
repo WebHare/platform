@@ -57,7 +57,10 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 PUBLIC CONSTANT INTEGER whconstant_whfsid_shorturl := 23;
 
 //Default key expiry warning (days)
-PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 21;
+PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 45;
+
+//Default key expiry warning (days) for automatically renewed keys
+PUBLIC CONSTANT INTEGER whconstant_autorenewed_warnexpirydays := 21;
 
 //Default index page for webserver. Must be lowercase!
 PUBLIC CONSTANT STRING whconstant_webserver_indexbasename := "index";

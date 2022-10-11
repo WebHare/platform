@@ -1339,13 +1339,6 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
       this->DebugLog(`cmd=${data.action}, params=${EncodeJSON(CELL[...data, DELETE action])}`, Consiliodebugall);
       SWITCH (data.action)
       {
-        CASE "SHUTDOWN"
-        {
-          this->DebugLog("Shutdown request received", ConsilioDebugError);
-          IF (ObjectExists(ipc_conn))
-            ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
-          this->DeInit();
-        }
         CASE "DELETEINDEX"
         {
           IF (ObjectExists(ipc_conn))
@@ -2095,8 +2088,8 @@ MACRO RunQueueManager()
   queuemgr->SetMaxTaskTime(maxtasktime);
   queuemgr->SetMaxWorkerRunTime(maxworkerruntime);
   queuemgr->SetMaxWorkerTasks(maxworkertasks);
+  AddInterruptCallback(PTR queuemgr->DeInit());
   queuemgr->Run();
-  queuemgr->DeInit();
 }
 
 RunQueueManager();

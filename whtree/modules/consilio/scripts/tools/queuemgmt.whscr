@@ -21,7 +21,6 @@ WHILE (command != "")
     Print("DELETEOBJECT (indexid|0) groupid\n");
     Print("CONFIGURE debuglevel n\n");
     Print("CONFIGURE numworkers n\n");
-    Print("SHUTDOWN\n");
     Print("STATUS\n");
     Print("GETERRORS\n");
     Print("CLEARERRORS contentsourceid\n");

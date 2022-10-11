@@ -194,7 +194,7 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
             , jumpto := jumpto
             , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
             ] INTO messages AT END;
-      ELSE IF (certdata.valid_until < AddDaysToDate(keypair.warnexpirydays ?? whconstant_default_warnexpirydays, now))
+      ELSE IF (certdata.valid_until < AddDaysToDate(keypair.warnexpirydays ?? obj->GetDefaultRenewalWarningPeriod(), now))
       {
         RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
         INSERT

@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
-LOADLIB "mod::wrd/lib/country/nl.whlib";
+LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
 
 
 /** This library contains hardcoded postcode.nl address verification calls
@@ -146,7 +146,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
 
   RECORD FUNCTION __GetAddressByPostCode(STRING zip, STRING nr_detail)
   {
-    RECORD housenorec := SplitNLNrDetail(nr_detail);
+    RECORD housenorec := SplitHousenumber(nr_detail);
     INTEGER houseno := ToInteger(housenorec.nr, 0);
     IF (houseno <= 0)
       RETURN [ status := "invalid_nr_detail" ];
@@ -173,7 +173,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
     RETURN CELL
         [ status :=           "ok"
         , ...data
-        , postcode :=         NormalizeNLZipCode(data.postcode)
+        , postcode :=         FixupZipCodeNL(data.postcode)
         ];
   }
 
@@ -191,7 +191,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
     IF (NOT this->settings.withallmethods)
       RETURN [ status := "not_supported" ];
 
-    RECORD housenorec := SplitNLNrDetail(nr_detail);
+    RECORD housenorec := SplitHousenumber(nr_detail);
     INTEGER houseno := ToInteger(housenorec.nr, 0);
     IF (houseno <= 0)
       RETURN [ status := "invalid_nr_detail" ];
@@ -220,7 +220,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
     RETURN CELL
         [ status :=           "ok"
         , ...data
-        , postcode :=         NormalizeNLZipCode(data.postcode)
+        , postcode :=         FixupZipCodeNL(data.postcode)
         ];
   }
 >;

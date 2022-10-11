@@ -2,7 +2,7 @@
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
-LOADLIB "mod::wrd/lib/country/nl.whlib";
+LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
 
 
 PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
@@ -213,7 +213,7 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
       RECORD zipfield := (SELECT * FROM this->country_fields WHERE ToUppercase(tag) = "ZIP");
       IF (zipfield.component->value != "")
       {
-        STRING normalized := NormalizeNLZipCode(zipfield.component->value);
+        STRING normalized := FixupZipCodeNL(zipfield.component->value);
         IF (normalized = "")
           work->AddError(GetTid("wrd:commondialogs.messages.addressverify_invalid_zip"));
       }

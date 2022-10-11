@@ -172,10 +172,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
           {
             this->DoBlacklist();
           }
-          CASE "restart"
-          {
-            this->DoRestart();
-          }
           CASE "properties"
           {
             IF (LENGTH(^catalogs->selection) = 1)
@@ -219,13 +215,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
   MACRO DoBlacklist()
   {
     this->LoadScreen(".blacklist")->RunModal();
-  }
-
-  MACRO DoRestart()
-  {
-    IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmrestart")) = "yes")
-      IF (NOT __ConsilioRestartQueueManager())
-        this->RunSimpleScreen("warning", GetTid("consilio:catalog.messages.sendingcommandfailed"));
   }
 
   MACRO DoAddContentSource()
