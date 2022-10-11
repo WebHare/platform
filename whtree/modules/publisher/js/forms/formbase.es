@@ -182,10 +182,9 @@ export default class FormBase
     this._dovalidation = formhandling.validate;
     if(this._dovalidation)
     {
-      this._curtriggerevents = [...formhandling.triggerevents];
-      this._curafterevents = [...formhandling.triggerafterfailure];
-      this._curtriggerevents.forEach(eventname => this.node.addEventListener(eventname, handleValidateEvent, true));
-      this._curafterevents.forEach(eventname => this.node.addEventListener(eventname, handleValidateAfterEvent, true));
+      this.node.addEventListener("focusout", handleValidateEvent, true);
+      this.node.addEventListener("input", handleValidateAfterEvent, true);
+      this.node.addEventListener("change", handleValidateAfterEvent, true);
       this.node.noValidate = true;
     }
   }
