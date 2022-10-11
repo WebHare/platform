@@ -37,7 +37,7 @@ MACRO GotSessionExpiresChange(DATETIME sessionexpires)
 
 MACRO GotSessionExpired()
 {
-  parentlink->SendMessage(CELL[ type := "sessionexpired" ]);
+  parentlink->DoRequest(CELL[ type := "sessionexpired" ]);
 }
 
 parentlink := GetIPCLinkToParent();
