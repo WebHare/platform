@@ -882,9 +882,11 @@
   <textgroup gid="tilde" keepemptyreason="These are the new common texts, and cannot be revoked once used">   <!-- tilde -->
     <text tid="accessibility">Accessibility</text>
     <text tid="add">Add</text>
+    <text tid="addtostartmenu">Show in favorites</text>
     <text tid="advanced">Advanced</text>
     <text tid="apikey">API key</text>
     <text tid="apply">Apply</text>
+    <text tid="bksp">Backspace</text>
     <text tid="browse">Browse</text>
     <text tid="cancel">Cancel</text>
     <text tid="change">Change</text>
@@ -900,6 +902,7 @@
     <text tid="cut">Cut</text>
     <text tid="date">Date</text>
     <text tid="defaultvalue">Default value</text>
+    <text tid="del">Del</text>
     <text tid="delete">Delete</text>
     <text tid="deleteall">Delete all</text>
     <text tid="deletiondate">Deletion date</text>
@@ -912,6 +915,9 @@
     <text tid="edit">Edit</text>
     <text tid="email">Email</text>
     <text tid="enable">Enable</text>
+    <text tid="end">End</text>
+    <text tid="enter">Enter</text>
+    <text tid="esc">Escape</text>
     <text tid="exit">Exit</text>
     <text tid="export">Export</text>
     <text tid="filename">File name</text>
@@ -920,6 +926,7 @@
     <text tid="firstname">First name</text>
     <text tid="fullname">Full name</text>
     <text tid="help">Help</text>
+    <text tid="home">Home</text>
     <text tid="id">ID</text>
     <text tid="import">Import</text>
     <text tid="inspect">Inspect</text>
@@ -935,6 +942,7 @@
     <text tid="mailfrom">From</text>
     <text tid="mailto">To</text>
     <text tid="manage">Manage</text>
+    <text tid="menu">Menu</text>
     <text tid="mimetype">MIME type</text>
     <text tid="modificationdate">Modification date</text>
     <text tid="moveto">Move To</text>
@@ -951,6 +959,8 @@
     <text tid="passwordnew">New password</text>
     <text tid="passwordrepeat">Repeat password</text>
     <text tid="paste">Paste</text>
+    <text tid="pgdn">Page down</text>
+    <text tid="pgup">Page up</text>
     <text tid="preferences">Preferences</text>
     <text tid="preview">Preview</text>
     <text tid="previous">Previous</text>
@@ -976,6 +986,7 @@
     <text tid="subject">Subject</text>
     <text tid="submit">Submit</text>
     <text tid="synchronize">Synchronize</text>
+    <text tid="tab">Tab</text>
     <text tid="tag">Tag</text>
     <text tid="title">Title</text>
     <text tid="tobottom">To bottom</text>
