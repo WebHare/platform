@@ -130,8 +130,6 @@ dompack.register('#coretest-setvalidator',
         return "";
       }));
 
-let currentvideonode = null;
-
 dompack.register(".wh-form__page", page => page.addEventListener("wh:form-pagechange", evt =>
   {
     let pagenumber = dompack.qSA('.wh-form__page').indexOf(evt.target);
