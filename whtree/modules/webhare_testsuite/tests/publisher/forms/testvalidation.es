@@ -49,6 +49,7 @@ test.registerTests(
       test.eq('Dit is geen geldig e-mailadres.', emailgroup.querySelector('.wh-form__error').textContent);
 
       test.fill('#coretest-email', 'advocado@beta.webhare.net');
+      await test.wait('ui');
       test.eq('', emailgroup.querySelector('.wh-form__error').textContent);
       test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
@@ -65,9 +66,9 @@ test.registerTests(
       test.click("#coretest-opt5_textedit");
       test.false(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
       test.false(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
-
       test.click("#coretest-number"); //focus something else
       //now we should see the error classes appear!
+      await test.wait('ui');
       test.true(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
       test.true(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"));
     }
@@ -80,6 +81,7 @@ test.registerTests(
       await test.pressKey('Tab', { shiftKey: true });
       test.eq('De waarde mag niet groter zijn dan 2.', numbergroup.querySelector('.wh-form__error').textContent);
       test.fill('#coretest-number','-5');
+      await test.wait('ui');
       test.eq('De waarde mag niet lager zijn dan -2.', numbergroup.querySelector('.wh-form__error').textContent);
     }
 
@@ -96,6 +98,7 @@ test.registerTests(
       await test.pressKey('Tab', { shiftKey: true });
       test.eqMatch(/De waarde mag niet groter zijn dan 2...-..-..\./, dateofbirthgroup.querySelector('.wh-form__error').textContent);
       test.fill('#coretest-dateofbirth','1899-12-31');
+      await test.wait('ui');
       test.eq('De waarde mag niet lager zijn dan 1900-01-01.', dateofbirthgroup.querySelector('.wh-form__error').textContent);
 
       test.fill("#coretest-dateofbirth","");
@@ -307,6 +310,7 @@ test.registerTests(
         test.fill("#coretest-condition_not", true);
         test.click(test.qS('#coretest-condition_not_required'));
         test.click(test.qS('#coretest-condition_not_enabled'));
+        await test.wait('ui');
         test.true(test.qS('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
         test.fill("#coretest-condition_not", false);
         await test.wait('ui');
