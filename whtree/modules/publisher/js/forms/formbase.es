@@ -206,17 +206,6 @@ export default class FormBase
     if(error && !(error instanceof Node))
       error = dompack.create('span', { textContent: error });
 
-    if(!dompack.dispatchCustomEvent(mygroup, 'wh:form-displaymessage', //this is where parsley hooks in and cancels to handle the rendering of faults itself
-          { bubbles: true
-          , cancelable: true
-          , detail: { message: error
-                    , field: failedfield
-                    , type: type
-                    } }))
-    {
-      return null;
-    }
-
     let messagenode = mygroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
     if(!messagenode)
     {
@@ -1388,25 +1377,13 @@ export default class FormBase
       if(!tovalidate.length)
         return { valid: true, failed: [], firstfailed: null };
 
-      let deferred = dompack.createDeferred();
       let result;
-      let validationcancelled;
-
-      if(dompack.dispatchCustomEvent(this.node, 'wh:form-validate', { bubbles:true, cancelable:true, detail: { tovalidate: tovalidate, deferred: deferred } }))
-      {
-        //not cancelled, carry out the validation ourselves.
-        let validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
-        //remove the elements from validate for which the promise failed
-        let failed = tovalidate.filter( (fld,idx) => !validationresults[idx]);
-        result = { valid: failed.length == 0
-                 , failed: failed
-                 };
-      }
-      else
-      {
-        validationcancelled = true;
-        result = await deferred.promise; //then we expect the validator to sort it all out
-      }
+      let validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
+      //remove the elements from validate for which the promise failed
+      let failed = tovalidate.filter( (fld,idx) => !validationresults[idx]);
+      result = { valid: failed.length == 0
+               , failed: failed
+               };
 
       result.firstfailed = result.failed.length ? result.failed[0] : null;
       if(result.firstfailed && (!options || options.focusfailed))
@@ -1416,7 +1393,7 @@ export default class FormBase
         if(tofocus)
           dompack.focus(tofocus, { preventScroll:true });
 
-        if(!this._dovalidation && !validationcancelled)
+        if(!this._dovalidation)
           reportValidity(tofocus);
 
         this.scrollIntoView(result.firstfailed);

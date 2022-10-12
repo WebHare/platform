@@ -230,23 +230,6 @@ test.registerTests(
       test.false(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
     }
 
-  , 'Test taking over error handling'
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?captureerrors=1'
-    }
-
-  , async function()
-    {
-      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
-      test.click('#coretest-setvalidator');
-      await test.pressKey('Tab');
-      await test.wait('ui');
-      test.eq("R<a>am", setvalidatorgroup.querySelector('.customerror').textContent);
-      test.true(test.qS('#coretest-setvalidator').classList.contains("broken"));
-
-      test.fill('#coretest-setvalidator','richerror');
-      test.eq("Rich Error", setvalidatorgroup.querySelector('.customerror a').textContent);
-    }
-
   , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
     }
     //the following tests only test the API (and for compatibility with parlsey). We can get through these tests without actually responding to the user (ie no triggers)
