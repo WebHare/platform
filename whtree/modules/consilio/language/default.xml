@@ -380,6 +380,7 @@
         <text tid="indexmanager">OpenSearch server</text>
         <text tid="managemanagers">Manage index managers</text>
         <text tid="noindices">No indices</text>
+        <text tid="shards">Shards</text>
         <text tid="size">Size</text>
         <text tid="title">Index managers</text>
         <text tid="waitingforstatus">Waiting for index list…</text>

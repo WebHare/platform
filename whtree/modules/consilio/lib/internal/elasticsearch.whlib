@@ -1387,12 +1387,14 @@ PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndices(INTEGER indexmanager)
   RECORD ARRAY indices := EnforceStructure([[ "uuid" := ""
                                             , "docs.count" := 0
                                             , "pri.store.size" := 0i64
+                                            , "pri" := 0
                                             , "index" := ""
                                             , "health" := ""
                                            ]], SendRawJSONToElasticsearch(indexmanager, "GET", '/_cat/indices?format=json&bytes=b', DEFAULT RECORD).result);
   RETURN SELECT uuid
               , docs := indices."docs.count"
               , size := indices."pri.store.size"
+              , shards := pri
               , indexname := indices."index"
               , health
               , status
