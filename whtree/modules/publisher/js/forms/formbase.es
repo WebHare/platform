@@ -39,9 +39,8 @@ function doValidation(field, isafter)
   if(!form || !form.propWhFormhandler)
     return;
 
-  let owner = field.closest('*[data-wh-form-is-validator]');
   let formhandler = form.propWhFormhandler;
-  formhandler.validate([owner || field], {focusfailed:false});
+  formhandler.validate([field], { focusfailed:false });
 }
 
 function handleValidateEvent(event)
@@ -1344,32 +1343,35 @@ export default class FormBase
       return { valid: true, failed: [], firstfailed: null };
     }
 
-    let tovalidate; //fields to validate
-    if(!limitset) //no limit specified
-    {
-      tovalidate = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
-    }
-    else
-    {
-      tovalidate = [];
-      let checklist = Array.isArray(limitset) ? limitset : [limitset];
-      checklist.forEach(node =>
-      {
-        if(dompack.matches(node, anyinputselector))
-          tovalidate.push(node);
-        tovalidate = tovalidate.concat(Array.from(node.querySelectorAll(anyinputselector)));
-      });
+    let tovalidate = new Set;
+    let original = limitset;
+    if(!limitset)  //validate entire form if unspecified what to validate
+      limitset = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
 
-      //If we need to validate a radio, validate all radios in their group so we can properly clear their error classes
-      tovalidate.filter(node => node.name && node.type == "radio").forEach(node =>
+    for(let node of Array.isArray(limitset) ? limitset : [limitset])
+    {
+      /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
+         If you're targeting a group, we'll end up validating both the radio/checkbox (directly attached here) and any eg. embedded textedits  */
+      if(node.matches(`input[type=radio],input[type=checkbox]`)) //when validating a
       {
-        let siblings = dompack.qSA(this.node, `input[name="${node.name}"]`);
-        tovalidate = tovalidate.concat(siblings.filter(sibling => !tovalidate.includes(sibling)));
-      });
+        let group = node.closest(".wh-form__fieldgroup");
+        if(group)
+          tovalidate.add(group);
+        continue;
+      }
+
+      if(dompack.matches(node, anyinputselector))
+        tovalidate.add(node);
+      for(let subnode of node.querySelectorAll(anyinputselector))
+        tovalidate.add(subnode);
     }
 
+    tovalidate = Array.from(tovalidate); //we need an array now for further processing
     if(options && options.iffailedbefore)
       tovalidate = tovalidate.filter(node => hasEverFailed(node));
+
+    if(dompack.debugflags.fhv)
+      console.log("[fhv] Validation of %o expanded to %d elements: %o", original, tovalidate.length, [...tovalidate]);
 
     let lock = dompack.flagUIBusy();
     try

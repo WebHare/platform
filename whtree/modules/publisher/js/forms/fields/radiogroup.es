@@ -9,6 +9,10 @@ export default class RadioGroupField
     this.node.dataset.whFormIsValidator = true; //needed to forward validation calls to us
     this.node.whCheckboxGroupField = this;
     this.node.whFormsBuiltinChecker = () => this._validate();
+
+    //we should probably disable by name (or form.elements[name] but validate() and form isn't really tracking name either...
+    dompack.qSA(this.node, `input[type='radio']`).forEach(node => node.dataset.whFormSkipnativevalidation = true); //don't handle by both RadioGroupField *and* native validation
+
     this._validate();
   }
 

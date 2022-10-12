@@ -58,6 +58,20 @@ test.registerTests(
       test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'));
     }
 
+  , 'Test required/focus behavior of additional fields inside radio groups'
+  , async function()
+    {
+      test.click("#coretest-radiotest-5");
+      test.click("#coretest-opt5_textedit");
+      test.false(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
+      test.false(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
+
+      test.click("#coretest-number"); //focus something else
+      //now we should see the error classes appear!
+      test.true(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
+      test.true(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"));
+    }
+
   , 'Test number field'
   , async function()
     {
