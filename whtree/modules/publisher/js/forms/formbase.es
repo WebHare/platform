@@ -1382,7 +1382,7 @@ export default class FormBase
       return { valid: true, failed: [], firstfailed: null };
     }
 
-    //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fieds as failed.
+    //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
     let defer = dompack.createDeferred();
     this.validationqueue.push({defer, limitset, options});
     if(this.validationqueue.length == 1)
