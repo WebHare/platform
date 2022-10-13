@@ -58,6 +58,20 @@ test.registerTests(
       test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'));
     }
 
+  , 'Test required/focus behavior of additional fields inside radio groups'
+  , async function()
+    {
+      test.click("#coretest-radiotest-5");
+      test.click("#coretest-opt5_textedit");
+      test.false(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
+      test.false(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
+
+      test.click("#coretest-number"); //focus something else
+      //now we should see the error classes appear!
+      test.true(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
+      test.true(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"));
+    }
+
   , 'Test number field'
   , async function()
     {
@@ -228,23 +242,6 @@ test.registerTests(
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
       test.false(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
-    }
-
-  , 'Test taking over error handling'
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?captureerrors=1'
-    }
-
-  , async function()
-    {
-      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
-      test.click('#coretest-setvalidator');
-      await test.pressKey('Tab');
-      await test.wait('ui');
-      test.eq("R<a>am", setvalidatorgroup.querySelector('.customerror').textContent);
-      test.true(test.qS('#coretest-setvalidator').classList.contains("broken"));
-
-      test.fill('#coretest-setvalidator','richerror');
-      test.eq("Rich Error", setvalidatorgroup.querySelector('.customerror a').textContent);
     }
 
   , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/'

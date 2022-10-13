@@ -13,9 +13,7 @@ let handlers = { "publisher:form": form => new FormBase(form)
                };
 let didregister;
 let formoptions = null;
-let defaultsettings = { triggerevents: ['focusout']
-                      , triggerafterfailure: ['input','change']
-                      , pxl: true
+let defaultsettings = { pxl: true
                       , validate: true
                       , warnslow: 5000 //after how many msecs to warn a form is slow
                       };

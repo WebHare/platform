@@ -39,9 +39,8 @@ function doValidation(field, isafter)
   if(!form || !form.propWhFormhandler)
     return;
 
-  let owner = field.closest('*[data-wh-form-is-validator]');
   let formhandler = form.propWhFormhandler;
-  formhandler.validate([owner || field], {focusfailed:false});
+  formhandler.validate([field], { focusfailed:false });
 }
 
 function handleValidateEvent(event)
@@ -182,10 +181,9 @@ export default class FormBase
     this._dovalidation = formhandling.validate;
     if(this._dovalidation)
     {
-      this._curtriggerevents = [...formhandling.triggerevents];
-      this._curafterevents = [...formhandling.triggerafterfailure];
-      this._curtriggerevents.forEach(eventname => this.node.addEventListener(eventname, handleValidateEvent, true));
-      this._curafterevents.forEach(eventname => this.node.addEventListener(eventname, handleValidateAfterEvent, true));
+      this.node.addEventListener("focusout", handleValidateEvent, true);
+      this.node.addEventListener("input", handleValidateAfterEvent, true);
+      this.node.addEventListener("change", handleValidateAfterEvent, true);
       this.node.noValidate = true;
     }
   }
@@ -206,17 +204,6 @@ export default class FormBase
 
     if(error && !(error instanceof Node))
       error = dompack.create('span', { textContent: error });
-
-    if(!dompack.dispatchCustomEvent(mygroup, 'wh:form-displaymessage', //this is where parsley hooks in and cancels to handle the rendering of faults itself
-          { bubbles: true
-          , cancelable: true
-          , detail: { message: error
-                    , field: failedfield
-                    , type: type
-                    } }))
-    {
-      return null;
-    }
 
     let messagenode = mygroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
     if(!messagenode)
@@ -1356,32 +1343,35 @@ export default class FormBase
       return { valid: true, failed: [], firstfailed: null };
     }
 
-    let tovalidate; //fields to validate
-    if(!limitset) //no limit specified
-    {
-      tovalidate = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
-    }
-    else
-    {
-      tovalidate = [];
-      let checklist = Array.isArray(limitset) ? limitset : [limitset];
-      checklist.forEach(node =>
-      {
-        if(dompack.matches(node, anyinputselector))
-          tovalidate.push(node);
-        tovalidate = tovalidate.concat(Array.from(node.querySelectorAll(anyinputselector)));
-      });
+    let tovalidate = new Set;
+    let original = limitset;
+    if(!limitset)  //validate entire form if unspecified what to validate
+      limitset = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
 
-      //If we need to validate a radio, validate all radios in their group so we can properly clear their error classes
-      tovalidate.filter(node => node.name && node.type == "radio").forEach(node =>
+    for(let node of Array.isArray(limitset) ? limitset : [limitset])
+    {
+      /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
+         If you're targeting a group, we'll end up validating both the radio/checkbox (directly attached here) and any eg. embedded textedits  */
+      if(node.matches(`input[type=radio],input[type=checkbox]`)) 
       {
-        let siblings = dompack.qSA(this.node, `input[name="${node.name}"]`);
-        tovalidate = tovalidate.concat(siblings.filter(sibling => !tovalidate.includes(sibling)));
-      });
+        let group = node.closest(".wh-form__fieldgroup");
+        if(group)
+          tovalidate.add(group);
+        continue;
+      }
+
+      if(dompack.matches(node, anyinputselector))
+        tovalidate.add(node);
+      for(let subnode of node.querySelectorAll(anyinputselector))
+        tovalidate.add(subnode);
     }
 
+    tovalidate = Array.from(tovalidate); //we need an array now for further processing
     if(options && options.iffailedbefore)
       tovalidate = tovalidate.filter(node => hasEverFailed(node));
+
+    if(dompack.debugflags.fhv)
+      console.log("[fhv] Validation of %o expanded to %d elements: %o", original, tovalidate.length, [...tovalidate]);
 
     let lock = dompack.flagUIBusy();
     try
@@ -1389,25 +1379,13 @@ export default class FormBase
       if(!tovalidate.length)
         return { valid: true, failed: [], firstfailed: null };
 
-      let deferred = dompack.createDeferred();
       let result;
-      let validationcancelled;
-
-      if(dompack.dispatchCustomEvent(this.node, 'wh:form-validate', { bubbles:true, cancelable:true, detail: { tovalidate: tovalidate, deferred: deferred } }))
-      {
-        //not cancelled, carry out the validation ourselves.
-        let validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
-        //remove the elements from validate for which the promise failed
-        let failed = tovalidate.filter( (fld,idx) => !validationresults[idx]);
-        result = { valid: failed.length == 0
-                 , failed: failed
-                 };
-      }
-      else
-      {
-        validationcancelled = true;
-        result = await deferred.promise; //then we expect the validator to sort it all out
-      }
+      let validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
+      //remove the elements from validate for which the promise failed
+      let failed = tovalidate.filter( (fld,idx) => !validationresults[idx]);
+      result = { valid: failed.length == 0
+               , failed: failed
+               };
 
       result.firstfailed = result.failed.length ? result.failed[0] : null;
       if(result.firstfailed && (!options || options.focusfailed))
@@ -1417,7 +1395,7 @@ export default class FormBase
         if(tofocus)
           dompack.focus(tofocus, { preventScroll:true });
 
-        if(!this._dovalidation && !validationcancelled)
+        if(!this._dovalidation)
           reportValidity(tofocus);
 
         this.scrollIntoView(result.firstfailed);

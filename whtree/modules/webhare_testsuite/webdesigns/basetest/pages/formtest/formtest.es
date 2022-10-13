@@ -130,28 +130,6 @@ dompack.register('#coretest-setvalidator',
         return "";
       }));
 
-if(location.href.includes('captureerrors=1'))
-{
-  //take over the update error handler
-  window.addEventListener("wh:form-displaymessage", evt =>
-  {
-    if(evt.detail.type != 'error')
-      return;
-
-    evt.preventDefault();
-    if(evt.detail.message && !evt.detail.field)
-      throw new Error("Received error but no indication of failed field");
-    if(!evt.detail.message && evt.detail.field)
-      throw new Error("Received failed field but no actual error");
-
-    if(evt.detail.field)
-      evt.detail.field.classList.add("broken");
-
-    dompack.qSA(evt.target, '.customerror').forEach(node => node.remove());
-    dompack.append(evt.target, dompack.create("div", { className: "customerror", childNodes: [evt.detail.message] }));
-  });
-}
-
 let currentvideonode = null;
 
 async function onInsertVideoSubmit(evt)
