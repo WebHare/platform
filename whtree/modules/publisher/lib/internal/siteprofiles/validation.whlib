@@ -2,6 +2,8 @@
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/lookups.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::tollium/lib/internal/validation.whlib";
 
@@ -66,6 +68,10 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
           TRY GetTaskTypeSettings(task.task, FALSE);
           CATCH (OBJECT e) this->AddErrorForLine(apply.line, e->what);
         }
+
+      IF(CellExists(apply,"usepublishtemplate") AND RecordExists(apply.usepublishtemplate) AND apply.usepublishtemplate.script != "")
+        IF(NOT RecordExists(RetrieveWebHareResource(apply.usepublishtemplate.script, [ allowmissing := TRUE ])))
+          this->AddErrorForLine(apply.line, `No such file: ${apply.usepublishtemplate.script}`);
     }
 
     FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
