@@ -132,19 +132,6 @@ dompack.register('#coretest-setvalidator',
 
 let currentvideonode = null;
 
-async function onInsertVideoSubmit(evt)
-{
-  evt.preventDefault();
-
-  let result = await RTDField.getForNode(currentvideonode).insertVideoByURL(document.querySelector('#insertvideo__url').value);
-  if(result.success)
-  {
-    qS('#insertvideo').style.display='none';
-    return;
-  }
-  alert(result.message);
-}
-
 dompack.register(".wh-form__page", page => page.addEventListener("wh:form-pagechange", evt =>
   {
     let pagenumber = dompack.qSA('.wh-form__page').indexOf(evt.target);
