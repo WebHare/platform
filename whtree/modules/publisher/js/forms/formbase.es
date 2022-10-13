@@ -1352,7 +1352,7 @@ export default class FormBase
     {
       /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
          If you're targeting a group, we'll end up validating both the radio/checkbox (directly attached here) and any eg. embedded textedits  */
-      if(node.matches(`input[type=radio],input[type=checkbox]`)) //when validating a
+      if(node.matches(`input[type=radio],input[type=checkbox]`)) 
       {
         let group = node.closest(".wh-form__fieldgroup");
         if(group)
