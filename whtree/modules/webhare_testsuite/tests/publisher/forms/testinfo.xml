@@ -17,6 +17,7 @@
     <arg value="replacedcomponents"/>
   </jstest>
   <jstest file="testvalidation.es" />
+  <jstest file="testvalidation-delay.es" />
   <jstest name="testconditionalfields-plaincomponents" file="testconditionalfields.es">
     <arg value="plaincomponents"/>
   </jstest>

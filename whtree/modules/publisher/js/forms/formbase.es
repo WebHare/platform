@@ -27,20 +27,57 @@ function getErrorFields(validationresult)
 }
 function hasEverFailed(field)
 {
+  if(field.matches("input[type=radio],input[type=checkbox]")) //these are handled by their group, so do the failed check there
+    return field.closest(".wh-form__fieldgroup")?.classList.contains('wh-form__field--everfailed');
+
   return field.classList.contains('wh-form__field--everfailed');
 }
-function doValidation(field, isafter)
+function doValidation(field, iffailedbefore)
 {
-  //If we're not an 'after failure' event, stay silent if the field hasn't erred yet
-  if(isafter && !hasEverFailed(field))
+  if(iffailedbefore || validationpendingfor)
+    releasePendingValidations(); //release any earlier validation. this also cancels 'delayvalidation' but better safe than sorry if we double-run here
+
+  if(delayvalidation) //Can't be "iffailedbefore" as that would have been cleared above
+  {
+    if(dompack.debugflags.fhv)
+      console.log("[fhv] doValidation: validations are delayed. now pending: ", field);
+    validationpendingfor = field;
     return;
+  }
 
   let form = field.closest('form');
   if(!form || !form.propWhFormhandler)
     return;
 
   let formhandler = form.propWhFormhandler;
-  formhandler.validate([field], { focusfailed:false });
+  formhandler.validate([field], { focusfailed:false, iffailedbefore: iffailedbefore });
+}
+
+let delayvalidation = false, validationpendingfor = null;
+
+function doDelayValidation(event)
+{
+  if(delayvalidation)
+    releasePendingValidations();
+
+  delayvalidation = true;
+}
+
+function releasePendingValidations(event)
+{
+  if(!delayvalidation)
+    return;
+
+  delayvalidation = false;
+
+  if (validationpendingfor)
+  {
+    let tovalidate = validationpendingfor;
+    if(dompack.debugflags.fhv)
+      console.log("[fhv] releasePendingValidations: ", tovalidate);
+    validationpendingfor = null;
+    doValidation(tovalidate, false);
+  }
 }
 
 function handleValidateEvent(event)
@@ -57,6 +94,7 @@ export default class FormBase
   constructor(formnode)
   {
     this.node = formnode;
+    this.validationqueue = [];
     if(this.node.nodeName != 'FORM')
       throw new Error("Specified node is not a <form>"); //we want our clients to be able to assume 'this.node.elements' works
 
@@ -75,6 +113,7 @@ export default class FormBase
     this.node.addEventListener('submit', evt => this._submit(evt, null));
     this.node.addEventListener('wh:form-dosubmit', evt => this._doSubmit(evt, null));
     this.node.addEventListener("wh:form-setfielderror", evt => this._doSetFieldError(evt));
+    this.node.addEventListener("mousedown", doDelayValidation);
 
     this._rewriteEnableOn();
     this._updateConditions(true); //Update required etc handlers
@@ -1343,11 +1382,40 @@ export default class FormBase
       return { valid: true, failed: [], firstfailed: null };
     }
 
-    let tovalidate = new Set;
+    //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
+    let defer = dompack.createDeferred();
+    this.validationqueue.push({defer, limitset, options});
+    if(this.validationqueue.length == 1)
+      this._executeNextValidation(); //we're first on the queue so process it
+
+    return defer.promise;
+  }
+
+  async _executeNextValidation()
+  {
+    while(this.validationqueue.length)
+    {
+      let item = this.validationqueue[0];
+      try
+      {
+        let result = await this._executeQueuedValidation(item.limitset, item.options);
+        item.defer.resolve(result);
+      }
+      catch(error)
+      {
+        item.defer.reject(error);
+      }
+      this.validationqueue.shift(); //remove the top item
+    }
+  }
+
+  async _executeQueuedValidation(limitset, options)
+  {
     let original = limitset;
     if(!limitset)  //validate entire form if unspecified what to validate
       limitset = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
 
+    let tovalidate = new Set;
     for(let node of Array.isArray(limitset) ? limitset : [limitset])
     {
       /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
@@ -1416,8 +1484,9 @@ export default class FormBase
   {
     this.node.reset();
   }
-
 }
+
+window.addEventListener("mouseup", releasePendingValidations, true);
 
 FormBase.getForNode = function(node)
 {
