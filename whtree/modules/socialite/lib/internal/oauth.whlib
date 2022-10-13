@@ -157,7 +157,7 @@ PUBLIC OBJECTTYPE OauthNetworkConnection EXTEND NetworkConnectionBase
       callbackurl := this->GetCallbackURL(this->pvt_authcallbackhosturl);
       IF (srhid != "")
       {
-        IF (this->pvt_mode NOT IN [ "youtube", "youku", "facebook" ])
+        IF (this->pvt_mode NOT IN [ "youtube", "facebook" ])
           callbackurl := AddVariableToURL(callbackurl, "srhid", srhid);
         ELSE
           callbackurl := AddVariableToURL(callbackurl, "state", "__socialite_srhid:" || srhid);
@@ -774,11 +774,6 @@ PUBLIC STATIC OBJECTTYPE OauthV2WebBrowser EXTEND WebBrowser
     {
       indata.url := ReplaceVariableInURL(indata.url, "client_id", this->pvt_oauthv2_client_id);
       indata.url := ReplaceVariableInURL(indata.url, "access_token", this->oauth_token.access_token);
-    }
-    ELSE IF (this->pvt_mode = "youku")
-    {
-      indata.url := ReplaceVariableInURL(indata.url, "client_id", this->pvt_oauthv2_client_id);
-      indata.url := ReplaceVariableInURL(indata.url, "oauth_token", this->oauth_token.access_token);
     }
     ELSE IF (this->pvt_mode IN ["yammer","pinterest","google","moneybird","vimeo","linkedin","linkedinv2"])
     {

@@ -254,18 +254,6 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     }
   }
 
-  MACRO OnNetworkChange()
-  {
-    IF(this->network->value="youku" AND ToUppercase(this->movietext->value) IN ["BEAGLE","BEAGLES"])
-    {
-      this->movietext->value := "小猎犬";
-    }
-    ELSE IF(this->network->value!="youku" AND this->movietext->value = "小猎犬")
-    {
-      this->movietext->value := "Beagle";
-    }
-  }
-
   MACRO DoSearch()
   {
     this->infotextpanel->visible := FALSE;

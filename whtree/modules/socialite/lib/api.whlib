@@ -82,11 +82,7 @@ PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
     {
       app := NEW GoogleNetworkApp(apprec);
     }
-    CASE 'YOUKU'
-    {
-      app := NEW YoukuNetworkApp(apprec);
-    }
-    CASE 'MONEYBIRD'
+   CASE 'MONEYBIRD'
     {
       app := NEW MoneybirdNetworkApp(apprec);
     }

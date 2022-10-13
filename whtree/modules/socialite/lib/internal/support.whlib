@@ -119,13 +119,6 @@ PUBLIC RECORD ARRAY socialnetworks :=
     , helplinks := [[ title := "Managing applications", link := "https://code.google.com/apis/console" ]
                    ]
     ]
-  , [ tag := "YOUKU"
-    , title := "Youku"
-    , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
-    , helplinks := [[ title := "API Documentation", link := "http://open.youku.com/docs/index.html" ]
-                   ,[ title := "Managing applications", link := "http://open.youku.com/app"]
-                   ]
-    ]
   , [ tag := "MONEYBIRD"
     , title := "Moneybird"
     , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]

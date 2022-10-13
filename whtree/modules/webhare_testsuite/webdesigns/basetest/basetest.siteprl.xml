@@ -542,7 +542,7 @@
 
   <apply>
     <to type="all" pathmask="*/widgets.rtd" />
-    <videowidget limitnetworks="youtube youku" />
+    <videowidget limitnetworks="youtube" />
   </apply>
 
   <apply>

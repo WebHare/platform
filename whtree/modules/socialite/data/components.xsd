@@ -32,17 +32,15 @@
   <!-- components which use this group must offer a 'value' member which accepts a RECORD with 'network' and 'id' -->
   <xs:attributeGroup name="movieselection">
     <xs:attribute name="network"><!-- type="xs:string" -->
+      <xs:annotation>
+        <xs:documentation>
+          Which video network the video comes from
+        </xs:documentation>
+      </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
           <xs:enumeration value="youtube" />
           <xs:enumeration value="vimeo" />
-          <xs:enumeration value="youku">
-            <xs:annotation>
-              <xs:documentation>
-                Which video network the video comes from
-              </xs:documentation>
-            </xs:annotation>
-          </xs:enumeration>
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>

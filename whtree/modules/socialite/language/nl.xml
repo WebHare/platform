@@ -149,7 +149,6 @@
   <textgroup gid="embedvideo">   <!-- embedvideo -->
     <textgroup gid="network">   <!-- embedvideo.network -->
       <text tid="vimeo">Vimeo</text>
-      <text tid="youku">Youku</text>
       <text tid="youtube">YouTube</text>
     </textgroup>
   </textgroup>
