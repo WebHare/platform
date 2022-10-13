@@ -62,7 +62,7 @@
 
     <body>
       <line layout="left">
-        <select name="network" type="pulldown" onchange="onnetworkchange" />
+        <select name="network" type="pulldown" />
         <textedit name="movietext" width="1pr" defaultbutton="searchbutton" tid=".searchwords" value="" />
         <button name="searchbutton" action="search" tid="~search" />
         <button action="clear" />

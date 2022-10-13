@@ -227,9 +227,6 @@
     <embedvideoprovider name="vimeo"
                         objectname="lib/internal/embedvideo/vimeo.whlib#VimeoProvider"
                         tid="embedvideo.network.vimeo" />
-    <embedvideoprovider name="youku"
-                        objectname="lib/internal/embedvideo/youku.whlib#YoukuProvider"
-                        tid="embedvideo.network.youku" />
   </publisher>
 
   <moduleregistry>

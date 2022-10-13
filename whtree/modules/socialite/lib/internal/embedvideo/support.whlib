@@ -66,7 +66,7 @@ STRING FUNCTION __GetPathName(STRING urlpath)
 }
 
 /** @short Tries to determine network and videoid from the specified URL
-           (currently supports YouTube, Vimeo and Youku)
+           (currently supports YouTube and Vimeo)
     @param url A valid URL (either http or https)
     @return Information on the movie (or DEFAULT RECORD if parsing failed)
     @return.network The network on which the video resides
@@ -83,13 +83,6 @@ PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
   {
     //add div around incase there is extra html after the iframe
     OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob('<div>' || text || '</div>'))->GetElementsByTagName("iframe");
-    IF (iframe->Length > 0)
-      text := iframe->Item(0)->GetAttribute('src');
-  }
-  ELSE IF (text LIKE "<embed*") // Youku also offer code with <embed>
-  {
-    //add div around incase there is extra html after the iframe
-    OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob('<div>' || text || '</div>'))->GetElementsByTagName("embed");
     IF (iframe->Length > 0)
       text := iframe->Item(0)->GetAttribute('src');
   }
@@ -155,60 +148,6 @@ PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
            , videoid   := videoid
            , starttime := ParseYoutubeStarttime(text)
            ];
-  }
-  ELSE IF (host_lc = 'v.youku.com')
-  {
-    //ABORT(AnyToString(unpacked,"tree"));
-
-    // http://v.youku.com/v_show/id_XNzk4MTkwNDI0.html
-    STRING ARRAY parts := Tokenize(pathname, '/');
-
-    STRING lastpart := parts[end-1];
-    IF (lastpart LIKE "id_*.html")
-    {
-      RETURN [ network := "youku"
-             , videoid      := SubString(lastpart, 3, Length(lastpart) - 8)
-             , starttime := 0
-             ];
-    }
-    ELSE
-      RETURN DEFAULT RECORD; // invalid format
-
-  }
-  ELSE IF (host_lc = 'player.youku.com')
-  {
-    // Parse URL's we (or the user) grabbed from iframe/embed codes
-
-    // <embed> code  - http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf
-    // <iframe> code - http://player.youku.com/embed/XNzk4MTkwNDI0
-    STRING ARRAY parts := Tokenize(pathname, '/');
-
-    IF (parts[0] = "embed") // URL from iframe embed
-    {
-      // ['embed', 'XNzk4MTkwNDI0']
-
-      //abort(anytostring(parts,"tree"));
-
-      IF (Length(parts) != 2)
-        RETURN DEFAULT RECORD;
-
-      RETURN [ network := "youku"
-             , videoid      := parts[end-1]
-             , starttime := 0
-             ];
-    }
-    ELSE IF (parts[0] = "player.php")
-    {
-      // ['player.php', 'sid', 'XNzk4MTkwNDI0', 'v.swf']
-
-      IF (Length(parts) != 4)
-        RETURN DEFAULT RECORD;
-
-      RETURN [ network := "youku"
-             , videoid      := parts[end-2]
-             , starttime := 0
-             ];
-    }
   }
 
   RETURN DEFAULT RECORD;

@@ -2502,7 +2502,7 @@
       <text tid="duration">Duur</text>
       <text tid="error_maxresults">Uw zoekopdracht leverde meer dan <param p="1"/> resultaten op. Probeert u a.u.b. een specifiekere zoekopdracht.</text>
       <text tid="error_noresults">Uw zoekopdracht leverde geen resultaten op. Probeert u a.u.b. een andere zoekopdracht.</text>
-      <text tid="infotext">U kunt naar video's zoeken op basis van:<br/><br/>- een willekeurige zoekterm<br/>- een Vimeo/Youtube/Youku videocode (bijvoorbeeld "BAf7lcYEXag")<br/>- een directe Vimeo/Youtube/Youku URL (bijvoorbeeld "http://vimeo.com/37695028")<br/><br/>Klik op "Zoeken" om de resultaten weer te geven.  Selecteer het resultaat en klik op "OK" om de video in te voegen.</text>
+      <text tid="infotext">U kunt naar video's zoeken op basis van:<br/><br/>- een willekeurige zoekterm<br/>- een Vimeo / YouTube videocode (bijvoorbeeld "BAf7lcYEXag")<br/>- een directe Vimeo / YouTube URL (bijvoorbeeld "http://vimeo.com/37695028")<br/><br/>Klik op "Zoeken" om de resultaten weer te geven.  Selecteer het resultaat en klik op "OK" om de video in te voegen.</text>
       <text tid="network">Zoek in</text>
       <text tid="no_video">Geen video ingesteld</text>
       <text tid="novideoselected">U heeft geen video geselecteerd.</text>

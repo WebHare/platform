@@ -13,7 +13,6 @@ LOADLIB "mod::socialite/lib/networkapi/vimeo.whlib";
 LOADLIB "mod::socialite/lib/networkapi/google.whlib";
 LOADLIB "mod::socialite/lib/networkapi/instagram.whlib";
 LOADLIB "mod::socialite/lib/networkapi/pinterest.whlib";
-LOADLIB "mod::socialite/lib/networkapi/youku.whlib";
 LOADLIB "mod::socialite/lib/networkapi/moneybird.whlib";
 
 LOADLIB "mod::socialite/lib/internal/support.whlib";
@@ -306,16 +305,6 @@ PUBLIC OBJECTTYPE GoogleNetworkApp EXTEND AccessTokenNetworkApp
   : AccessTokenNetworkApp(apprec)
   {
     EXTEND THIS BY GoogleConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE YoukuNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY YoukuConnection;
     this->SetupAccessTokenApp();
   }
 >;

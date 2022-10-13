@@ -129,26 +129,7 @@ MACRO TestNewVideoAPI()
         // ADDME: test with starttime in the hash -> #t=2m10s
       ];
 
-  RECORD ARRAY youkutestdata :=
-    [ [ title := "Youku video"
-      , test  := "http://v.youku.com/v_show/id_XNzk4MTkwNDI0.html"
-      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
-      ]
-    , [ title := "Youku Flash player"
-      , test  := "http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf"
-      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
-      ]
-    , [ title := "Youku Embed"
-      , test  := '<embed src="http://player.youku.com/player.php/sid/XNzk4MTkwNDI0/v.swf" allowFullScreen="true" quality="high" width="480" height="400" align="middle" allowScriptAccess="always" type="application/x-shockwave-flash"></embed>'
-      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
-      ]
-    , [ title := "Youku iframe embed"
-      , test  := '<iframe height=498 width=510 src="http://player.youku.com/embed/XNzk4MTkwNDI0" frameborder=0 allowfullscreen></iframe>'
-      , out   := [ network := "youku", videoid := "XNzk4MTkwNDI0", starttime := 0 ]
-      ]
-    ];
-
-  FOREVERY(RECORD testdata FROM (youtubetestdata CONCAT vimeotestdata CONCAT youkutestdata))
+  FOREVERY(RECORD testdata FROM (youtubetestdata CONCAT vimeotestdata))
   {
     RECORD result := GuessEmbeddedVideoFromCode(testdata.test);
     TestEq(testdata.out, result);
@@ -254,38 +235,9 @@ MACRO TestYoutubeProvider()
   TestEq(1*60*60+10*60+59, videores.duration);
 }
 
-MACRO TestYoukuProvider()
-{
-  OBJECT prov := GetVideoEmbedProvider("youku");
-  TestEQ(TRUE, ObjectExists(prov));
-
-  RECORD ARRAY searchres := prov->Search("",3);
-  TestEq(0, Length(searchres));
-
-  searchres := prov->Search("小獵犬",3); //'test' was returning only 2 videos all of a sudden
-  TestEq(TRUE, Length(searchres)>0);
-
-  RECORD videoinfo := prov->DescribeVideo(searchres[0].videoid);
-  TestEq(TRUE, videoinfo.duration != 0);
-
-  RECORD embedinstance := MakeVideoEmbedInstance("youku", searchres[0].videoid);
-  TestEq(TRUE, RecordExists(embedinstance.thumbnail));
-  TestEq(TRUE, embedinstance.thumbnail.width > 0);
-
-  STRING findvideo := searchres[0].videoid;
-  searchres := prov->Search(searchres[0].videoid,1);
-  TestEq(1, Length(searchres));
-  TestEq(findvideo, searchres[0].videoid);
-
-  // 2018-02-05: This search started to return results
-  //searchres := prov->Search("xzxzxzkeywordthatsurelyshouldntmatchanythingzxzxzxfhgd",3);
-  //DumpValue(searchres, "tree");
-  //TestEq(0, Length(searchres));
-}
 
 RunTestFramework([ PTR Prep
                  , PTR TestNewVideoAPI
                  , PTR TestYoutubeProvider
                  , PTR TestVimeoProvider
-                 , PTR TestYoukuProvider
                  ]);
