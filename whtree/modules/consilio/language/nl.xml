@@ -382,6 +382,7 @@
         <text tid="indexmanager">OpenSearch server</text>
         <text tid="managemanagers">Beheer indexmanagers</text>
         <text tid="noindices">Geen indices</text>
+        <text tid="shards">Shards</text>
         <text tid="size">Grootte</text>
         <text tid="title">Index managers</text>
         <text tid="waitingforstatus">Wacht op indexlijst…</text>
