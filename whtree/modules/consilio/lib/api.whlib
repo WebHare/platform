@@ -265,14 +265,10 @@ RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required, FLO
         ELSE
           resultquery.subqueries := resultquery.subqueries CONCAT query.subqueries;
       }
-      ELSE
+      ELSE IF (RecordExists(query.subqueries))
       {
-        // Move every prohibited subquery a level up
-        resultquery.subqueries := resultquery.subqueries CONCAT SELECT * FROM query.subqueries WHERE prohibited;
-        DELETE FROM query.subqueries WHERE prohibited;
-        // If there are any subqueries left, add the remaining boolean query
-        IF (RecordExists(query.subqueries))
-          INSERT CELL[ query, required, prohibited := FALSE ] INTO resultquery.subqueries AT END;
+        // Add the boolean query to the subqueries
+        INSERT CELL[ query, required, prohibited := FALSE ] INTO resultquery.subqueries AT END;
       }
     }
     ELSE IF(query._type = "nothing")

@@ -357,6 +357,53 @@ MACRO RunQueryBoostTest()
   TestEq(3.14f, searchres.results[3].score);
 }
 
+MACRO RunBooleanQueryRewrite()
+{
+  // Regression: a AND (b OR (NOT c)) would be 'optimized' into a AND (NOT c) AND (b)
+  TestEq(
+      [ _type := "boolean"
+      , subqueries :=
+          [ [ query := [ _type := "literal", field := "a", term := "a", boost := 1f ]
+            , required := TRUE
+            , prohibited := FALSE
+            ]
+          , [ query :=
+                [ _type := "boolean"
+                , subqueries :=
+                    [ [ query := [ _type := "literal", field := "b", term := "b", boost := 1f ]
+                      , required := FALSE
+                      , prohibited := FALSE
+                      ]
+                    , [ query :=
+                          [ _type := "boolean"
+                          , subqueries :=
+                              [ [ query := [ _type := "literal", field := "c", term := "c", boost := 1f ]
+                                , required := FALSE
+                                , prohibited := TRUE
+                                ]
+                              ]
+                          , boost := 1f
+                          ]
+                      , required := FALSE
+                      , prohibited := FALSE
+                      ]
+                    ]
+                , boost := 1f
+                ]
+            , required := TRUE
+            , prohibited := FALSE
+            ]
+          ]
+      , boost := 1f
+      ], CQAnd(
+           [ CQMatch("a", "=", "a")
+           , CQOr(
+               [ CQMatch("b", "=", "b")
+               , CQNot(CQMatch("c", "=", "c"))
+               ])
+           ]));
+}
+
 RunTestframework(
     [ PTR PrepareCustomCatalog
     , PTR RunTheMatchQueries
@@ -365,4 +412,5 @@ RunTestframework(
     , PTR RunExplainQuery
     , PTR RunTotalTrackTest
     , PTR RunQueryBoostTest
+    , PTR RunBooleanQueryRewrite
     ]);

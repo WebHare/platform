@@ -17,8 +17,6 @@ LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
-LOADLIB "mod::publisher/lib/dialogs.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -1043,7 +1041,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
     {
       RECORD ARRAY subfields := UnpackRecord(field.value);
       value := this->GetTid(".recordvalue", ToString(Length(subfields)));
-      FOREVERY (RECORD subfield FROM subfields)
+      FOREVERY (RECORD subfield FROM SELECT * FROM subfields ORDER BY name)
         subnodes := subnodes CONCAT this->GenerateFieldRows(subfield, level + 1);
     }
     ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
