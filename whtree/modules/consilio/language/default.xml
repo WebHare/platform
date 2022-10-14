@@ -398,6 +398,7 @@
         <text tid="name">Name</text>
         <text tid="runtimesettings">Run-time settings</text>
         <text tid="threshold_enabled">Disk usage checks enabled</text>
+        <text tid="warnheapusage">Heap use warning level</text>
         <text tid="watermark_flood">Read-only mode</text>
         <text tid="watermark_high">Very low disk space</text>
         <text tid="watermark_low">Low disk space</text>

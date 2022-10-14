@@ -2,10 +2,12 @@
 
 LOADLIB "wh::promise.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 
 PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
@@ -13,11 +15,12 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
   RECORD ARRAY messages;
 
   OBJECT ARRAY promises;
-  INTEGER ARRAY indexmanagers :=
-      SELECT AS INTEGER ARRAY id
-        FROM consilio.indexmanagers;
-  FOREVERY (INTEGER indexmgrid FROM indexmanagers)
-    INSERT CreatePromise(PTR CheckIndexManager(indexmgrid, #1, #2)) INTO promises AT END;
+  RECORD ARRAY indexmanagers := SELECT id
+                                     , config := ParseIndexmanagerConfiguration(configuration)
+                                  FROM consilio.indexmanagers;
+
+  FOREVERY (RECORD indexmgr FROM indexmanagers)
+    INSERT CreatePromise(PTR CheckIndexManager(indexmgr, #1, #2)) INTO promises AT END;
   OBJECT indexmanagerpromise := CreatePromiseAll(promises);
 
   RECORD ARRAY brokencontentsources := SELECT contentsources.id
@@ -35,45 +38,49 @@ PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
         ] INTO messages AT END;
   }
 
-  FOREVERY(STRING msg FROM STRING ARRAY(WaitForPromise(indexmanagerpromise)))
-    IF (msg != "")
-      INSERT [ msg := ":" || msg ] INTO messages AT END;
+  FOREVERY(OBJECT promise FROM promises)
+    messages := messages CONCAT WaitForPromise(promise);
 
   RETURN messages;
 }
 
-MACRO CheckIndexManager(INTEGER indexmgrid, MACRO PTR onresolve, MACRO PTR onreject)
+MACRO CheckIndexManager(RECORD indexmgr, MACRO PTR onresolve, MACRO PTR onreject)
 {
+  RECORD ARRAY messages;
+  RECORD status;
   TRY
   {
-    RECORD result := GetIndexManagerState(indexmgrid);
-    IF (result.status != SearchOk)
-    {
-      onresolve(`Could not connect to index manager #${indexmgrid}: ${result.status}`);
-      RETURN;
-    }
-    ELSE
-    {
-      // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
-      IF ("indexstatus=0" IN result.msg)
-      {
-        // Find the watermark
-        STRING watermark := Substring(SELECT AS STRING msg FROM ToRecordArray(result.msg, "msg") WHERE msg LIKE "disk.watermark=*", 15);
-        // We don't have to show "false" (not threshold active) or "ok" (threshold not triggered)
-        IF (watermark NOT IN [ "", "false", "ok" ])
-        {
-          // Watermark has the form <low|high|flood>=<value>, where value is percentage full, or byte value free
-          STRING ARRAY parts := Tokenize(watermark, "=");
-          onresolve(`Index manager #${indexmgrid} has disk watermark ${parts[0]} (${parts[1] LIKE "*%" ? `> ${parts[1]} in use` : `< ${parts[1]} free`})`);
-          RETURN;
-        }
-      }
-    }
-    onresolve("");
+    status := GetOpensearchStatus(indexmgr.id);
   }
   CATCH (OBJECT e)
   {
     LogHarescriptException(e);
-    onresolve(`Could not connect to index manager #${indexmgrid}: ${e->what}`);
+    INSERT CELL [ msg := `:Could not connect to index manager #${indexmgr.id}: ${e->what}` ] INTO messages AT END;
   }
+
+  IF(RecordExists(status))
+  {
+    // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
+    IF (status.indexstatus = 0)
+    {
+      // Find the watermark
+      STRING watermark := status.disk_watermark;
+      // We don't have to show "false" (not threshold active) or "ok" (threshold not triggered)
+      IF (watermark NOT IN [ "", "false", "ok" ])
+      {
+        // Watermark has the form <low|high|flood>=<value>, where value is percentage full, or byte value free
+        STRING ARRAY parts := Tokenize(watermark, "=");
+        INSERT CELL [ msg := `:Index manager #${indexmgr.id} has disk watermark ${parts[0]} (${parts[1] LIKE "*%" ? `> ${parts[1]} in use` : `< ${parts[1]} free`})`
+                    , messagetag := [ type := "consilio:indexmanager.diskusage", indexmanager := indexmgr.id ]
+                    ] INTO messages AT END;
+      }
+    }
+
+    IF(indexmgr.config.warnheapusage != 0 AND status.jvm_heap_used_percent >= indexmgr.config.warnheapusage) //FIXME should be configurable in the runtime settings
+      INSERT CELL [ msg := `:Index manager #${indexmgr.id} has heap memory usage ${status.jvm_heap_used_percent}% `
+                  , messagetag := [ type := "consilio:indexmanager.memoryusage", indexmanager := indexmgr.id ]
+                  ] INTO messages AT END;
+  }
+
+  onresolve(messages);
 }

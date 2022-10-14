@@ -22,6 +22,7 @@
       <heading name="configuration" />
       <textedit name="initialmemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
       <textedit name="maximummemorypool" minvalue="0" emptyvalue="0" suffix="MiB" valuetype="integer" />
+      <textedit name="warnheapusage" minvalue="10" maxvalue="100" emptyvalue="0" suffix="%" valuetype="integer" />
     </body>
   </screen>
 

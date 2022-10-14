@@ -62,6 +62,7 @@ PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
 PUBLIC CONSTANT RECORD default_opensearch_configuration :=
     [ initialmemorypool := 128
     , maximummemorypool := 350
+    , warnheapusage := 90
     ];
 
 PUBLIC CONSTANT INTEGER contentsourcestatus_disabled := -1;
@@ -128,6 +129,16 @@ PUBLIC STRING FUNCTION NormalizeUrl(STRING url, STRING fromurl)
   RETURN result;
 }
 
+PUBLIC RECORD FUNCTION ParseIndexmanagerConfiguration(STRING configuration)
+{
+  RECORD config;
+  IF(configuration != "")
+    config := DecodeHSON(configuration);
+  config := EnforceStructure(default_opensearch_configuration, config);
+
+  RETURN config;
+}
+
 PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
 {
   OpenPrimary();
@@ -137,17 +148,17 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
                          ]
                        ];
 
-  RECORD builtin_opensearch := SELECT * FROM consilio.indexmanagers WHERE address="builtin-opensearch";
+  RECORD builtin_opensearch := SELECT id
+                                    , config := ParseIndexmanagerConfiguration(configuration)
+                                 FROM consilio.indexmanagers WHERE address="builtin-opensearch";
   IF(RecordExists(builtin_opensearch))
   {
-    RECORD config;
-    IF(builtin_opensearch.configuration != "")
-      config := DecodeHSON(builtin_opensearch.configuration);
-    config := EnforceStructure(default_opensearch_configuration, config);
-
     INSERT
         [ name := "consilio:opensearch"
-        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh", ToString(config.initialmemorypool), ToString(config.maximummemorypool) ]
+        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh"
+                        , ToString(builtin_opensearch.config.initialmemorypool)
+                        , ToString(builtin_opensearch.config.maximummemorypool)
+                        ]
         , isstandalone := TRUE
         ] INTO apps AT END;
   }

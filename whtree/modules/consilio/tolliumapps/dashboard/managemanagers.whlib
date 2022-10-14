@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
 <
   INTEGER id;
   BOOLEAN builtinaddress;
-  RECORD intialconfig;
+  RECORD currentconfig;
 
   MACRO Init(RECORD data)
   {
@@ -69,8 +69,10 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
     ^configuration->visible := this->builtinaddress;
     ^initialmemorypool->visible := this->builtinaddress;
     ^maximummemorypool->visible := this->builtinaddress;
+    ^warnheapusage->visible := this->builtinaddress;
     ^initialmemorypool->placeholder := ToString(default_opensearch_configuration.initialmemorypool);
     ^maximummemorypool->placeholder := ToString(default_opensearch_configuration.maximummemorypool);
+    ^warnheapusage->placeholder := ToString(default_opensearch_configuration.warnheapusage);
 
     IF(data.id != 0)
     {
@@ -83,12 +85,19 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
 
       IF(indexmgr.configuration != "")
       {
-        this->intialconfig := DecodeHSON(indexmgr.configuration);
-        IF(CellExists(this->intialconfig, 'initialmemorypool'))
-          ^initialmemorypool->value := this->intialconfig.initialmemorypool;
-        IF(CellExists(this->intialconfig, 'maximummemorypool'))
-          ^maximummemorypool->value := this->intialconfig.maximummemorypool;
+        RECORD config := DecodeHSON(indexmgr.configuration);
+        IF(CellExists(config, 'initialmemorypool'))
+          ^initialmemorypool->value := config.initialmemorypool;
+        IF(CellExists(config, 'maximummemorypool'))
+          ^maximummemorypool->value := config.maximummemorypool;
+        IF(CellExists(config, 'warnheapusage'))
+          ^warnheapusage->value := config.warnheapusage;
       }
+
+      //we only watch the values that will trigger a restart (due to being on the cmdline to opensearch)
+      this->currentconfig := CELL[ initialmemorypool := ^initialmemorypool->value
+                                 , maximummemorypool := ^maximummemorypool->value
+                                 ];
     }
 
     //require address if we've already got a builtin version of this one
@@ -104,14 +113,17 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
         INSERT CELL initialmemorypool := ^initialmemorypool->value INTO config;
       IF(^maximummemorypool->value > 0)
         INSERT CELL maximummemorypool := ^maximummemorypool->value INTO config;
+      IF(^warnheapusage->value > 0)
+        INSERT CELL warnheapusage := ^warnheapusage->value INTO config;
 
-      IF(EncodeHSON(config) != EncodeHSON(this->intialconfig))
+      IF(^initialmemorypool->value != this->currentconfig.initialmemorypool
+         OR ^maximummemorypool->value != this->currentconfig.maximummemorypool)
       {
         IF(this->RunSimpleScreen("verify", this->GetTid(".willrestart")) != "yes")
           RETURN FALSE;
-
-        INSERT CELL configuration := RecordExists(config) ? EncodeHSON(config) : "" INTO toset;
       }
+
+      INSERT CELL configuration := RecordExists(config) ? EncodeHSON(config) : "" INTO toset;
     }
 
     OBJECT work := this->BeginWork();
