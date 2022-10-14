@@ -18,6 +18,7 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagerStatus(INTEGER indexid)
   RETURN SELECT rowkey := uuid
               , docs
               , size
+              , shards
               , name := indexname
               , health
            FROM ListOpenSearchIndices(indexid);
@@ -65,6 +66,8 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
       RECORD ARRAY result := AWAIT this->statuspromise;
       ^indices->rows := SELECT *
                              , health := this->GetHealthIcon(health, ^indices)
+                             , size := this->contexts->user->FormatFileSize(size, 0, TRUE)
+                             , size_sort := Right("000000000000000000" || size, 19)
                           FROM result;
       ^indices->empty := this->GetTid(".noindices");
     }
