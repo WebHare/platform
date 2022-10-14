@@ -590,12 +590,3 @@ PUBLIC OBJECT FUNCTION OpenSuggestObject(STRING catalog, /*unused*/STRING passwo
 
   RETURN NEW SuggestObject([ type := "catalog", catalog := catalog ]);
 }
-
-
-
-//Get the status of the IndexManager
-PUBLIC RECORD FUNCTION GetIndexManagerStatus(INTEGER indexmgrid)
-{
-  // Get the IndexManager status
-  RETURN GetIndexManagerState(indexmgrid);
-}

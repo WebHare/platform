@@ -338,36 +338,15 @@
       <text tid="contentsources-desc"><param p="2"/>/<param p="1"/> (<param p="3"/> uitgeschakeld)</text>
       <text tid="currenttask">Huidige taak</text>
       <text tid="deadline">Deadline</text>
-      <text tid="description">Omschrijving</text>
       <text tid="estimate_unavailable">geen schatting beschikbaar</text>
       <text tid="estimatedcompletion">Verwachte voltooing</text>
-      <text tid="indexmanagers">Indexmanagers</text>
-      <text tid="indexstatus">Status</text>
-      <text tid="janitor_nexttask">Volgende onderhoudstaak</text>
       <text tid="name">Naam</text>
-      <text tid="nexttime">Volgende keer</text>
       <text tid="publisherqueue">Publisher wachtrij</text>
       <text tid="queuelength">Lengte wachtrij</text>
-      <text tid="running">Draait</text>
-      <text tid="runtaskinforeground">Voer taak in voorgrond uit</text>
-      <text tid="scheduletasknow">Plan taak nu in</text>
-      <text tid="script">Script</text>
       <text tid="starttime">Starttijd</text>
-      <text tid="tasks">Taken</text>
       <text tid="time">Tijd</text>
       <text tid="title">Wachtrijen</text>
       <text tid="workers">Werkers</text>
-      <textgroup gid="indexmanagerstatus">   <!-- monitor.queues.indexmanagerstatus -->
-        <text tid="available">Beschikbaar</text>
-        <text tid="checking">Moet nagelopen worden</text>
-        <text tid="flood_watermark">Alleen-lezen-modus (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
-        <text tid="high_watermark">Erg weinig schijfruimte (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
-        <text tid="low_watermark">Weinig schijfruimte (<ifparam p="2" value="more">&gt; <param p="1"/> in gebruik<else/>&lt; <param p="1"/> beschikbaar</ifparam>)</text>
-        <text tid="offline">Offline</text>
-        <text tid="optimizing">Wordt geoptimaliseerd</text>
-        <text tid="unauthorized">Niet geautoriseerd</text>
-        <text tid="unknown">Onbekend</text>
-      </textgroup>
       <textgroup gid="workerstatus">   <!-- monitor.queues.workerstatus -->
         <text tid="checkgroup">Herindexeren '<param p="1"/>'<ifparam p="2" value=""><else/> in catalogus '<param p="2"/>'</ifparam></text>
         <text tid="checkindex">Nalopen catalogus '<param p="1"/>'</text>

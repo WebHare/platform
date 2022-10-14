@@ -132,68 +132,6 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
 
   RECORD ARRAY FUNCTION GetConsilioWorkers()
   {
-    RECORD ARRAY statusrows;
-    FOREVERY (RECORD indexmanager FROM SELECT id, name FROM consilio.indexmanagers)
-    {
-      RECORD status := GetIndexManagerStatus(indexmanager.id);
-      Print("IndexManager status:\n" || AnyToString(status, "tree"));
-      IF (status.status = SearchOk)
-      {
-        RECORD statusrow :=
-            [ name := indexmanager.name
-            , indexstatus := this->GetTid(".indexmanagerstatus.unknown")
-            , janitor_nexttask := DEFAULT DATETIME
-            ];
-        FOREVERY (STRING msgline FROM status.msg)
-        {
-          STRING ARRAY parts := Tokenize(msgline,"=");
-          SWITCH (parts[0])
-          {
-            CASE "indexstatus"
-            {
-              SWITCH (parts[1])
-              {
-                CASE "0" {}
-                CASE "1" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.available"); }
-                CASE "2" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.checking"); }
-                CASE "3" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.optimizing"); }
-                CASE "4" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.offline"); }
-                CASE "5" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unauthorized"); }
-                DEFAULT  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unknown"); }
-              }
-            }
-            CASE "janitor.nexttask"
-            {
-              statusrow.janitor_nexttask := this->DecodeDateTimeString(parts[1]);
-            }
-            CASE "disk.available"
-            {
-            }
-            CASE "disk.total"
-            {
-            }
-            CASE "disk.watermark"
-            {
-              // If the watermark is a percentage, it triggers if the disk is filled that percentage, otherwise it triggers
-              // if the empty disk space is less than the threshold
-              SWITCH (parts[1])
-              {
-                CASE "false" {}
-                CASE "ok"    {}
-                CASE "low"   { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.low_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
-                CASE "high"  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.high_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
-                CASE "flood" { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.flood_watermark", parts[2], parts[2] LIKE "*%" ? "more" : "less"); }
-                DEFAULT  { statusrow.indexstatus := this->GetTid(".indexmanagerstatus.unknown"); }
-              }
-            }
-          }
-        }
-        INSERT statusrow INTO statusrows AT END;
-      }
-    }
-    this->indexmanagers->rows := statusrows;
-
-
     RECORD ARRAY contentproviders := SELECT *
                                          , title := GetTid(title)
                                       FROM GetContentProviders();
