@@ -265,34 +265,47 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       ];
 }
 
-PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
+PUBLIC RECORD FUNCTION GetOpensearchStatus(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ timeout := opensearch_read_timeout
+                             , firstconnect_timeout := opensearch_read_timeout
+                             ], options);
+
   RECORD result :=
-      [ status := SearchOk
-      , msg := DEFAULT STRING ARRAY
+      [ msg := STRING[]
       ];
 
-  // Get file system status (containing total and available disk space)
-  RECORD fs_stats := SendRawJSONToElasticsearch(indexmgrid, "GET", "/_nodes/stats/fs", DEFAULT RECORD);
-  IF (fs_stats.status != SearchOk)
-    RETURN CELL[ ...result, status := fs_stats.status ];
-
-  // Get cluster settings (containing disk thresholds)
-  RECORD settings := GetElasticsearchSettings(indexmgrid, TRUE);
-  IF (NOT RecordExists(settings))
-    RETURN CELL[ ...result, status := SearchHTTPError ];
+  // Get file system status (containing total and available disk space) and cluster settings (containing disk thresholds). Both calls will throw if no 200 Ok is received
+  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", "/_nodes/stats", options);
 
   // The nodes are named; we'll just use the first (and, at least for now, only) node
-  RECORD node := UnpackRecord(fs_stats.result.nodes)[0].value;
-  // Disk sizes are returned as floats, presumably to support disk sizes > 2^63 bytes. We'll cross that bridge when we get
-  // there...
-  INTEGER64 available_bytes := INTEGER64(node.fs.total.available_in_bytes);
-  INTEGER64 total_bytes := INTEGER64(node.fs.total.total_in_bytes);
+  stats := UnpackRecord(stats.result.nodes)[0].value;
 
-  INSERT `disk.available=${available_bytes}` INTO result.msg AT END;
-  INSERT `disk.total=${total_bytes}` INTO result.msg AT END;
+  /* TODO Monitor breakers tripping ? that's the clearest sign of trouble but we need a way to reset it then: eg
+       +BREAKERS: RECORD
+        +FIELDDATA: RECORD
+         +ESTIMATED_SIZE: '0b'
+         +ESTIMATED_SIZE_IN_BYTES: 0
+         +LIMIT_SIZE: '140mb'
+         +LIMIT_SIZE_IN_BYTES: 146800640
+         +OVERHEAD: 1.03000000000000000000
+         +TRIPPED: 0
+  */
+
+  stats := EnforceStructure(CELL[ fs := [ total := [ available_in_bytes := 0i64
+                                                   , total_in_bytes := 0i64
+                                                   ]
+                                        ]
+                                , jvm := [ mem := [ heap_used_percent := 0 ] ]
+                                ], stats);
+
+  INTEGER64 total_bytes :=stats.fs.total.total_in_bytes;
+  INTEGER64 available_bytes :=stats.fs.total.available_in_bytes;
+  INTEGER indexstatus;
+  STRING watermark;
 
   // Read cluster disk settings
+  RECORD settings := GetElasticsearchSettings(indexmgrid, TRUE, options);
   IF (settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
   {
     INTEGER64 low_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
@@ -300,32 +313,34 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
     INTEGER64 flood_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
     IF (available_bytes < flood_bytes AND CellExists(settings,"cluster.routing.allocation.disk.watermark.flood"))
     {
-      INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=flood=${settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
+      watermark := `flood=${settings."cluster.routing.allocation.disk.watermark.flood"}`;
     }
     ELSE IF (available_bytes < high_bytes)
     {
-      INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=high=${settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
+      watermark := `high=${settings."cluster.routing.allocation.disk.watermark.high"}`;
     }
     ELSE IF (available_bytes < low_bytes)
     {
-      INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=low=${settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
+      watermark := `low=${settings."cluster.routing.allocation.disk.watermark.low"}`;
     }
     ELSE
     {
-      INSERT `indexstatus=1` INTO result.msg AT END;
-      INSERT "disk.watermark=ok" INTO result.msg AT END;
+      indexstatus := 1;
+      watermark := "ok";
     }
   }
   ELSE
   {
-    INSERT `indexstatus=1` INTO result.msg AT END;
-    INSERT "disk.watermark=false" INTO result.msg AT END;
+    indexstatus := 1;
+    watermark := "false";
   }
 
-  RETURN result;
+  RETURN CELL [ disk_available := available_bytes
+              , disk_total := total_bytes
+              , disk_watermark := watermark
+              , jvm_heap_used_percent := stats.jvm.mem.heap_used_percent
+              , indexstatus
+              ];
 }
 
 PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)

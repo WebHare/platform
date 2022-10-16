@@ -524,36 +524,15 @@
       <text tid="contentsources-desc"><param p="2"/>/<param p="1"/> (<param p="3"/> disabled)</text>
       <text tid="currenttask">Current task</text>
       <text tid="deadline">Deadline</text>
-      <text tid="description">Description</text>
       <text tid="estimate_unavailable">estimate unavailable</text>
       <text tid="estimatedcompletion">Estimated completion</text>
-      <text tid="indexmanagers">Index Managers</text>
-      <text tid="indexstatus">Status</text>
-      <text tid="janitor_nexttask">Next janitor task</text>
       <text tid="name">Name</text>
-      <text tid="nexttime">Next run</text>
       <text tid="publisherqueue">Publisher queue</text>
       <text tid="queuelength">Queue length</text>
-      <text tid="running">Running</text>
-      <text tid="runtaskinforeground">Run task in foreground</text>
-      <text tid="scheduletasknow">Schedule task now</text>
-      <text tid="script">Script</text>
       <text tid="starttime">Starttime</text>
-      <text tid="tasks">Tasks</text>
       <text tid="time">Time</text>
       <text tid="title">Queues</text>
       <text tid="workers">Workers</text>
-      <textgroup gid="indexmanagerstatus">   <!-- monitor.queues.indexmanagerstatus -->
-        <text tid="available">Available</text>
-        <text tid="checking">Should be checked</text>
-        <text tid="flood_watermark">Read-only mode (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
-        <text tid="high_watermark">Very low disk space (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
-        <text tid="low_watermark">Low disk space (<ifparam p="2" value="more">&gt; <param p="1"/> in use<else/>&lt; <param p="1"/> available</ifparam>)</text>
-        <text tid="offline">Offline</text>
-        <text tid="optimizing">Being optimized</text>
-        <text tid="unauthorized">Unauthorized</text>
-        <text tid="unknown">Unknown</text>
-      </textgroup>
       <textgroup gid="workerstatus">   <!-- monitor.queues.workerstatus -->
         <text tid="checkgroup">Reindexing '<param p="1"/>' in catalog '<param p="2"/>'</text>
         <text tid="checkindex">Checking catalog '<param p="1"/>'</text>

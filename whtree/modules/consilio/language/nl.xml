@@ -398,6 +398,7 @@
         <text tid="name">Naam</text>
         <text tid="runtimesettings">Instellingen</text>
         <text tid="threshold_enabled">Controle schijfgebruik actief</text>
+        <text tid="warnheapusage">Heapgebruik waarschuwingsniveau</text>
         <text tid="watermark_flood">Alleen-lezen-modus</text>
         <text tid="watermark_high">Erg weinig schijfruimte</text>
         <text tid="watermark_low">Weinig schijfruimte</text>

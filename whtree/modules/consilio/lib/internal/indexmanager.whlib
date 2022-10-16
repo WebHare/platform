@@ -21,20 +21,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 // Public API
 //
 
-PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
-{
-  RECORD result :=
-      [ status := SearchOk
-      , msg := DEFAULT STRING ARRAY
-      ];
-
-  RECORD indexmanager := GetIndexManagers(indexmgrid);
-  IF (RecordExists(indexmanager))
-    result := GetElasticsearchStatus(indexmanager.id);
-
-  RETURN result;
-}
-
 /** @short Get a list of indices from an indexmanager
     @param indexmgrid The id of the indexmanager
     @param options Options
