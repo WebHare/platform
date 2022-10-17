@@ -8,18 +8,18 @@
       <action name="search" onexecute="dosearch" />
       <action name="clear" onexecute="doclear" />
       <action name="selectdomain" onexecute="doselectdomain" />
-      <action name="addurl" icon="tollium:actions/add" onexecute="doaddurl" tid="~add" />
-      <action name="deleteurl" icon="tollium:actions/delete" tid="~delete">
+      <action name="addurl" onexecute="doaddurl" tid="~add" />
+      <action name="deleteurl" tid="~delete">
         <enableon source="shorturls" min="1" onexecute="dodeleteurl" requirefocus="true" />
       </action>
       <action name="exportall" ellipsis="true" onexecute="doexportall" />
       <action name="exportselection" ellipsis="true" onexecute="doexportselection">
         <enableon source="shorturls" min="1" requirefocus="true" />
       </action>
-      <action name="editurl" icon="tollium:actions/edit" tid="~edit">
+      <action name="editurl" tid="~edit">
         <enableon source="shorturls" min="1" max="1" onexecute="doediturl" requirefocus="true" />
       </action>
-      <windowopenaction name="view" icon="tollium:actions/view">
+      <windowopenaction name="view">
         <enableon source="shorturls" min="1" max="1" onwindowopen="onview" />
       </windowopenaction>
       <action name="bulkcreate" ellipsis="true" onexecute="dobulkcreate" />
@@ -56,11 +56,11 @@
     </menus>
 
     <toolbar>
-      <button action="addurl" />
-      <button action="editurl" />
-      <button action="deleteurl" />
+      <button action="addurl" icon="tollium:actions/add" />
+      <button action="editurl" icon="tollium:actions/edit" />
+      <button action="deleteurl" icon="tollium:actions/delete" />
       <divider />
-      <button action="view" />
+      <button action="view" icon="tollium:actions/view" />
       <button icon="tollium:actions/export" menu="exportmenu" tid="~export" />
     </toolbar>
 
@@ -100,6 +100,7 @@
     <compositions>
       <p:fsobject name="fsobject" />
     </compositions>
+
     <body spacers="none">
       <tabs name="tabs">
         <tab tid=".urlprops">

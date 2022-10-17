@@ -127,16 +127,16 @@
 
   <screen name="resultgrid" gid="commondialogs.resultgrid" width="300x" height="40x" flags="canemail" allpublic="true">
     <actions gid="wrd:commondialogs.actions">
-      <action name="email_results"  onexecute="DoEmail" icon="tollium:mailclient/new_message" frameflags="canemail" />
+      <action name="email_results"  onexecute="DoEmail"  frameflags="canemail" />
 
-      <action name="export_results" onexecute="DoExport" icon="tollium:actions/export" />
+      <action name="export_results" onexecute="DoExport" />
       <action name="run" onexecute="DoRun" hint="" />
       <action name="exportdirect" onexecute="DoExportDirect" hint="" />
     </actions>
 
     <toolbar>
-      <button action="email_results"  name="emailbutton" />
-      <button action="export_results" />
+      <button action="email_results"  name="emailbutton" icon="tollium:mailclient/new_message"/>
+      <button action="export_results" icon="tollium:actions/export" />
     </toolbar>
 
     <body>
