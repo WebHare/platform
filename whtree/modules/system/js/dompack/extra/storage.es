@@ -1,4 +1,6 @@
 /* @recommendedimport: import * as storage from 'dompack/extra/storage';
+
+   A storage API that will mock when access is being denied to the browser storage objects (eg Chrome incognito 'Block third-party cookies')
 */
 
 let backupsession = {}, backuplocal = {};
@@ -11,6 +13,26 @@ const isolated = "whIsolateStorage" in document.documentElement.dataset;
 export function isIsolated()
 {
   return isolated;
+}
+
+// Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'
+export function available()
+{
+  if(isolated)
+    return true;
+
+  if(typeof available.known === undefined)
+  {
+    try
+    {
+      available.known = !!window.sessionStorage;
+    }
+    catch(ignore)
+    {
+      available.known = false;
+    }
+  }
+  return available.known;
 }
 
 export function setSession(key, value)
