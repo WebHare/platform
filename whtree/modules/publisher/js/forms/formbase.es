@@ -1434,7 +1434,12 @@ export default class FormBase
         tovalidate.add(subnode);
     }
 
+    /* This was:
     tovalidate = Array.from(tovalidate); //we need an array now for further processing
+       but that breaks on some old mootools integrations, see https://gitlab.webhare.com/webharebv/codekloppers/-/issues/677#note_146801
+       wokaround: */
+    tovalidate = [...tovalidate]; //we need an array now for further processing
+
     if(options && options.iffailedbefore)
       tovalidate = tovalidate.filter(node => hasEverFailed(node));
 
