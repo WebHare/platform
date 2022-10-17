@@ -283,7 +283,6 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     IF (NOT this->readonly)
     {
       this->replace := this->CreateSubComponent("button");
-      this->replace->type := "icon";
       this->InsertComponentAfter(this->replace, imgpanel, TRUE);
 
       OBJECT action := this->CreateSubComponent("uploadaction");
@@ -300,7 +299,6 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
       this->save->hint := GetTid("tollium:components.imgedit.hints.save_image");
       this->save->icon := "tollium:actions/save";
       this->save->enabled := RecordExists(this->curval);
-      this->save->type := "icon";
 
       OBJECT action := this->CreateSubComponent("downloadaction");
       action->ondownload := PTR this->DownloadImage;
@@ -318,7 +316,6 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
       this->remove->hint := GetTid("tollium:components.imageedit.delete_image");
       this->remove->icon := "tollium:actions/delete";
       this->remove->enabled := RecordExists(this->curval);
-      this->remove->type := "icon";
 
       OBJECT action := this->CreateSubComponent("action");
       action->onexecute := PTR this->RemoveImage;

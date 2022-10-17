@@ -15,7 +15,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
   STRING pvt_icon;
   STRING pvt_disablemode;
   BOOLEAN pvt_pressed;
-  STRING pvt_type;
   STRING pvt_align;
   BOOLEAN pvt_ellipsis;
   OBJECT pvt_menu;
@@ -38,9 +37,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
   /** Whether the button is pressed. (ADDME: verify text: This property only applies to toolbar buttons.)
   */
   PUBLIC PROPERTY pressed(pvt_pressed, SetPressed);
-
-
-  PUBLIC PROPERTY type(pvt_type, SetType);
 
 
   PUBLIC PROPERTY disablemode(pvt_disablemode, SetDisableMode);
@@ -69,7 +65,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
   MACRO NEW()
   {
     this->pvt_invisibletitle := TRUE;
-    this->pvt_type := "standard";
     this->pvt_align := "center";
     this->pvt_disablemode := "grayed";
     this->componenttype := "button";
@@ -107,7 +102,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
     this->pvt_icon := definition.icon;
 
     // Toolbar buttons don't have column 'TYPE'.
-    this->pvt_type := CellExists(definition, "TYPE") ? definition.type : "standard";
     this->pvt_disablemode := definition.disablemode;
 
     IF (this->pvt_hint = "" AND ObjectExists(this->action))
@@ -208,8 +202,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
   {
     IF (this->dirtyflags.fully)
     {
-      STRING type := this->type;
-
       RECORD compinfo := [ icon := this->icon
                          , hint := this->hint
                          , action := GetComponentName(this->action)
@@ -218,7 +210,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
                          , ispressed := this->pvt_pressed
                          , align := this->align
                          , disablemode := this->disablemode
-                         , buttontype := this->type
                          , title := this->renderedtitle
                          , ismenubutton := this->ismenubutton
                          ];
