@@ -30,7 +30,6 @@ export default class ObjMenuItem extends ComponentBase
 
     this.title = data.title;
     this.hint = data.hint;
-    this.icon = data.icon;
     this.action = data.action;
     this.enabled = data.enabled;
     this.checked = data.checked;

@@ -105,11 +105,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
       this->pvt_align := "center";
 
     this->pvt_icon := definition.icon;
-    IF (this->pvt_icon = "" AND ObjectExists(this->action))
-    {
-      this->action->SetDependency(this, [ icon := TRUE ]);
-      this->pvt_icon := this->action->icon;
-    }
 
     // Toolbar buttons don't have column 'TYPE'.
     this->pvt_type := CellExists(definition, "TYPE") ? definition.type : "standard";
@@ -195,10 +190,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
       {
         TolliumComponentBase::SetHint(this->action->hint);
       }
-    CASE "icon"
-      {
-        this->SetIconBase(this->action->hint);
-      }
     }
   }
 
@@ -280,9 +271,15 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
 
   MACRO SetIcon(STRING newicon)
   {
-    this->SetIconBase(newicon);
-    IF (ObjectExists(this->action))
-      this->action->SetDependency(this, [ icon := FALSE ]);
+    IF (this->pvt_icon != newicon)
+    {
+      BOOLEAN do_replace := newicon != "" AND this->pvt_icon = "";
+      this->pvt_icon := newicon;
+      IF (do_replace)
+        this->ExtUpdatedComponent();
+      ELSE
+        this->ExtUpdatedIcon();
+    }
   }
 
 
@@ -349,20 +346,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
   // Helper functions
   //
 
-  MACRO SetIconBase(STRING newicon)
-  {
-    IF (this->pvt_icon != newicon)
-    {
-      BOOLEAN do_replace := newicon != "" AND this->pvt_icon = "";
-      this->pvt_icon := newicon;
-      IF (do_replace)
-        this->ExtUpdatedComponent();
-      ELSE
-        this->ExtUpdatedIcon();
-    }
-  }
-
-
   PUBLIC BOOLEAN FUNCTION TolliumSetResult()
   {
     IF(this->tolliumresult = "tollium_submit") //the special OK/SUBMIT button
@@ -407,9 +390,6 @@ PUBLIC OBJECTTYPE TolliumButton EXTEND TolliumComponentBase
 
   MACRO ExtUpdatedIcon()
   {
-    this->ExtUpdatedComponent();/*disabled
-    this->EnsureFilledDirtyFlags();
-    this->dirtyflags.icon := TRUE;
-    */
+    this->ExtUpdatedComponent();
   }
 >;
