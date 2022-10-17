@@ -12,7 +12,7 @@
         <col/>
         <row>
           <cell spacers="left">
-            <heading name="errorlogbox" tid=".errorlogbox" title="" />
+            <heading name="errorlogbox" />
           </cell>
           <cell spacers="right">
             <button action="runlogsscreen" />

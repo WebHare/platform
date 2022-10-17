@@ -2,7 +2,7 @@
          lib="screens/monitor/webserverscripts.whlib"
          gid="monitor.webserverscripts">
 
-  <screen name="webserverscripts" title=""
+  <screen name="webserverscripts"
           tid=".title"
           gid=".manager"
           >

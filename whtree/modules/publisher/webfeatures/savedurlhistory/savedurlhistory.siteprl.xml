@@ -40,7 +40,6 @@
                 name="creationdate"
                 type="datetime"
                 tid="~creationdate"
-                title=""
                 visible="false" />
     </body>
   </screen>

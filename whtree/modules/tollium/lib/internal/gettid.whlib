@@ -46,7 +46,7 @@ PUBLIC STRING FUNCTION ParseXMLTidDirectly(STRING resourcename, OBJECT el, STRIN
   IF(resourcename != "" AND resourcename NOT LIKE "*::*") //no exceptions, noone externally should use this
     THROW NEW Exception("ParseXMLTidDirectly call with invalid resource name");
   IF(onparsedtid != DEFAULT MACRO PTR)
-    onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid ]);
+    onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid, conflicting_attributes := STRING[] ]);
   RETURN tid;
 }
 
@@ -82,7 +82,14 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, 
     }
 
     IF(onparsedtid != DEFAULT MACRO PTR)
-      onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid ]);
+    {
+      STRING ARRAY conflicting_attributes; //do we have both tid= and one of title/htmltitle ?
+      IF(el->HasAttributeNS(ns, "html" || attrname))
+        INSERT "html" || attrname INTO conflicting_attributes AT END;
+      IF(el->HasAttributeNS(ns, attrname))
+        INSERT attrname INTO conflicting_attributes AT END;
+      onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid, conflicting_attributes ]);
+    }
 
     RETURN tid;
   }
@@ -99,7 +106,7 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, 
     IF(RecordExists(trygidfromname))
     {
       IF(onparsedtid != DEFAULT MACRO PTR AND trygidfromname.tid!="")
-        onparsedtid(CELL[ resourcename, tid := trygidfromname.tid, line := el->linenum, col := 0, attrname := trygidfromname.attr ]);
+        onparsedtid(CELL[ resourcename, tid := trygidfromname.tid, line := el->linenum, col := 0, attrname := trygidfromname.attr, conflicting_attributes := STRING[] ]);
 
       RETURN trygidfromname.tid;
     }
