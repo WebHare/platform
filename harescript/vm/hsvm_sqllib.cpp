@@ -1524,27 +1524,6 @@ void HS_SQL_DescribeTypeInfo(VirtualMachine *vm)
         return vm->GetSQLSupport().UnregisterTypeInfo(stackm.GetInteger(HSVM_Arg(0)));
 }
 
-void HS_SQL_KeepTransactionsAlive(VarId id_set, VirtualMachine *vm)
-{
-        VMGroup *group = vm->GetVMGroup();
-
-        std::vector< VirtualMachine * > vms;
-        group->GetListOfVMs(&vms);
-
-        bool all_alive = true;
-
-        for (std::vector< VirtualMachine * >::iterator it = vms.begin();  it != vms.end(); ++it)
-        {
-                SQLContext context((*it)->GetContextKeeper());
-
-                for (SQLContextData::TransactionsStorage::iterator it2 = context->transactions.begin(); it2 != context->transactions.end(); ++it2)
-                    if (*it2)
-                        all_alive = (*it2)->KeepAlive() && all_alive;
-        }
-
-        HSVM_BooleanSet(*vm, id_set, all_alive);
-}
-
 struct GroupingDef
 {
         typedef std::vector< std::pair< ColumnNameId, ColumnNameId > > MappedIds;
@@ -1977,7 +1956,6 @@ void SQLSupport::Register(BuiltinFunctionsRegistrator &bifreg, Blex::ContextRegi
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("BINDSCHEMATOTABLE::T:CS", HS_SQL_BindSchemaToTable));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBINDINGFROMTABLE::R:T", HS_SQL_GetBoundTransactionFromTable));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBINDINGFROMSCHEMA::R:C", HS_SQL_GetBoundTransactionFromSchema));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("KEEPTRANSACTIONSALIVE::B:", HS_SQL_KeepTransactionsAlive));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SQL_INSERT:::TIRB", HS_SQL_Insert));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SQL_INSERTMULTIPLE:::TIRAB", HS_SQL_InsertMultiple));

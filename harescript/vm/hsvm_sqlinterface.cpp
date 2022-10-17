@@ -296,11 +296,6 @@ DatabaseTransactionDriverInterface::~DatabaseTransactionDriverInterface()
 {
 }
 
-bool DatabaseTransactionDriverInterface::KeepAlive()
-{
-        return true;
-}
-
 void DatabaseTransactionDriverInterface::ExecuteInserts(DatabaseQuery const &query, VarId newrecordarray)
 {
         StackMachine &stackm = vm->GetStackMachine();

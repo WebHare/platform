@@ -1499,7 +1499,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     this->_sessionexpirytimer := NEW WaitableTimer;
     this->_sessionexpirytimer->WaitSignalled()->Then(PTR this->GotSessionExpired);
 
-    this->KeepStorageAlive();
     RunModuleHookTarget("tollium:appstartup", CELL [ this->contexts ]);
   }
 
@@ -1840,28 +1839,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
         RETURN TRUE;
     }
     RETURN FALSE;
-  }
-
-  MACRO KeepStorageAlive()
-  {
-    // Keep all transactions alive, and fault if they are not.
-    IF (NOT KeepTransactionsAlive())
-    {
-      /* At least one transaction died; try to reconnect for this VM, so we can show the exception dialog.
-         (crashes will happen if the db can't be reached due to registry accesses, let's hope it's up by now)
-
-         Can't do ReconnectAllWHDBTransactions in the normal case, because blob access is limited to blobs
-         you have seen in your current connection, every access to a dbase blob will fault after reconnection.
-      */
-      //IF (NOT IsWHDBConnectionAlive())
-      //  ReconnectAllWHDBTransactions();
-
-      // ADDME: currently only closes of webhare db connections can be detected, so this msg is correct. For now.
-      THROW NEW Exception("The connection to the WebHare database has been closed");
-    }
-
-    // Run every 10 minutes
-    RegisterTimedCallback(AddTimeToDate(10 * 60 * 1000, GetCurrentDateTime()), PTR this->KeepStorageAlive);
   }
 
   // ---------------------------------------------------------------------------

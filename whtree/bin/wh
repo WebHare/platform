@@ -569,11 +569,6 @@ case $INSTR in
     runscript --workerthreads 4 mod::publisher/scripts/internal/publishing.whscr --measure "$@"
     ;;
 
-  "reindex")
-    check_webhare_running
-    runscript --workerthreads 4 mod::publisher/scripts/tools/reindex_publisher.whscr "$@"
-    ;;
-
   "terminate")
     check_webhare_running
     kill `pgrep -f $WEBHARE_DIR/bin`

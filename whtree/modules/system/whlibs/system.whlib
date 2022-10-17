@@ -2684,15 +2684,6 @@ PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(TABLE gettable, STRING columnn
 }
 
 
-
-/** @short Keeps all transactions alive
-    @long Gives all transactions in the current group (weblets too) the opportunity to communicate with
-          their database, to avoid timeouts due to inactivity
-    @return Whether all transactions are still alive
-*/
-PUBLIC BOOLEAN FUNCTION KeepTransactionsAlive() __ATTRIBUTES__(EXTERNAL);
-
-
 /** @short Unpacks a record into a record array
     @long Creates a record array with info about a record (all the cell names, types of the values in the cells)
     @param rec Record to unpack

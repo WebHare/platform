@@ -278,10 +278,6 @@ struct BLEXLIB_PUBLIC DatabaseTransactionDriverInterface
         /** Closes the query.
             @param id Id identifying query */
         virtual void CloseCursor(CursorId id) = 0;
-
-        /** Keepalive for the transaction. Override when needed.
-        */
-        virtual bool KeepAlive();
 };
 
 struct TableColumn

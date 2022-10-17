@@ -34,7 +34,7 @@ PUBLIC STRING FUNCTION GetCachedWRDImageURL(STRING baseurl, INTEGER64 imageid, R
     @param fileid Setting id of the file
     @return URL for the file
 */
-PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER fileid)
+PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER64 fileid)
 {
   RETURN GetUnifiedCacheURL(baseurl, 2, 3, fileid, DEFAULT RECORD);
 }
