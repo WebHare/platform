@@ -19,8 +19,6 @@
   <servicemanager>
     <task runat="*/30  * * * *" script="scripts/tasks/checksessions.whscr" tag="checksessions" description="Check persistent sessions" />
     <task runat="*/5   * * * *" script="scripts/tasks/update_embedded.whscr" tag="update_embedded" description="Update embedded scripts" />
-
-    <runonce script="scripts/runonce/setup_feedaccount.whscr" tag="setup_feedaccount" when="aftertablecreation" />
   </servicemanager>
 
   <services>
