@@ -176,22 +176,6 @@
         </part>
         <part width="2pr">
           <publisher:previewbrowser name="previewbrowser" />
-
-<!--
-          <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left right" borders="bottom">
-            <line layout="tabs-space">
-              <textedit width="1pr" name="previewurl" enabled="false" title="" >
-                <button name="qrbutton" type="icon" icon="tollium:objects/qr"  title="" />
-              </textedit>
-              <select name="deviceselect" type="pulldown" title="" >
-                <option rowkey="1" title="Standaardweergave"/>
-              </select>
-              <buttongroup layout="horizontal" borders="left">
-                <button type="icon" icon="tollium:actions/reload"  hinttid=".refreshhint"/>
-              </buttongroup>
-            </line>
-          </panel>
-        -->
         </part>
       </split>
     </body>
