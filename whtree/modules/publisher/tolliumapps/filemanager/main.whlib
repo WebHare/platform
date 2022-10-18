@@ -1794,8 +1794,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       RETURN;
     }
 
-    OBJECT dialog := CreateWHFSSitePropsDialog(this, fsobject->parentsite);
-    dialog->RunModal();
+    RunFSObjectPropertiesDialog(this, fsobject->parentsite, [ siteproperties := TRUE ]);
     ^foldertree->ReloadOverview();
     ^filelist->ReloadOverview();
   }

@@ -378,10 +378,14 @@ PUBLIC MACRO RunFSObjectInspectDialog(OBJECT parentscreen, INTEGER objectid, REC
 /** Run the 'edit object properties' dialog
     @param parentscreen Screen invoking us
     @param objectid Object to edit
-    @cell options.assumereadaccess Don't check for read access, just ssume the user has it*/
+    @cell(boolean) options.assumereadaccess Don't check for read access, just assume the user has it
+    @cell(boolean) options.siteproperties Open to access site properties
+*/
 PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ assumereadaccess := FALSE], options);
+  options := ValidateOptions(CELL[ assumereadaccess := FALSE
+                                 , siteproperties := FALSE
+                                 ], options);
 
   IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
   {
@@ -395,7 +399,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   TRY
   {
-    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], "objectprops")->RunModal();
+    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], options.siteproperties ? "site" : "objectprops")->RunModal();
   }
   CATCH(OBJECT err)
   {

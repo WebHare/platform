@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -103,9 +103,8 @@ ASYNC MACRO SharedBlocks()
   BLOB widgetblob3 := GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock( ResolveWidgetAsSharedBlock(lvl1widgetobj->id))));
   TestEq(widgetblob, widgetblob3);
 
-  OBJECT props := CreateWHFSObjectPropsDialog(GetTestController(), sharedblocksobj->id);
-  AWAIT ExpectScreenChange(+1, PTR props->RunModal());
-  OBJECT objectprops := props->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest", "blocks");
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), sharedblocksobj->id));
+  OBJECT objectprops := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest", "blocks");
   TestEq(TRUE, ObjectExists(objectprops));
   AWAIT ExpectScreenChange(+1, PTR objectprops->sharedblocks->addbutton->TolliumClick);
   TestEq(2,Length(topscreen->roots));

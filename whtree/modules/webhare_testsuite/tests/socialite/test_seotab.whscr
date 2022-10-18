@@ -1,5 +1,5 @@
 <?wh
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -11,7 +11,7 @@ OBJECT ASYNC FUNCTION TestSEOTab()
   OBJECT image := siteroot->OpenByName("bob.jpg");
   OBJECT seotab;
 
-  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), image->id)->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), image->id));
   seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO" AND obj->visible;
   TestEq(FALSE, ObjectExists(seotab),"seotab should NOT appear on images");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -19,12 +19,12 @@ OBJECT ASYNC FUNCTION TestSEOTab()
   OBJECT indexhtmldoc := siteroot->OpenByName("index.html");
   OBJECT statichtmldoc := siteroot->OpenByName("static.html");
 
-  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), statichtmldoc->id)->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), statichtmldoc->id));
   seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
   TestEq(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->visible);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
-  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), indexhtmldoc->id)->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), indexhtmldoc->id));
   seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
   TestEq(TRUE, ObjectExists(seotab));
   TestEq(TRUE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->visible);
@@ -43,7 +43,7 @@ OBJECT ASYNC FUNCTION TestSEOTab()
   TestEQ(FALSE, "index" IN toks);
   TestEQ(TRUE, "noarchive" IN toks);
 
-  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), indexhtmldoc->id)->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), indexhtmldoc->id));
   topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->value := FALSE;
   topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noarchive")->value := FALSE;
   topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "nofollow")->value := TRUE;

@@ -1,9 +1,11 @@
 <?wh
-LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
 
 OBJECT ASYNC FUNCTION SiteProps()
 {
@@ -14,8 +16,7 @@ OBJECT ASYNC FUNCTION SiteProps()
 
   testfw->SetTestUser("sysop");
 
-  OBJECT sitedialog := CreateWHFSSitePropsDialog(GetTestController(), root->id);
-  AWAIT ExpectScreenChange(+1, PTR sitedialog->RunModal()); //simply should not crash
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), root->id, [ siteproperties := TRUE ]));
   TT("locksite")->value := TRUE;
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 

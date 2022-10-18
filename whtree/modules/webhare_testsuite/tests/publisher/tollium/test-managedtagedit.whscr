@@ -2,7 +2,7 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 ASYNC MACRO TestManagedTagEdit()
@@ -11,8 +11,7 @@ ASYNC MACRO TestManagedTagEdit()
   OBJECT testloc := GetTestsuiteTempFolder()->CreateFile([name := "tags" ]);
   testfw->CommitWork();
 
-  OBJECT dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testloc->id));
 
   TT("folksonomy")->tagedit->value := ["newtag"];
   TestEq(["newtag"], TT("folksonomy")->tagedit->value);
@@ -25,8 +24,7 @@ ASYNC MACRO TestManagedTagEdit()
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 
-  dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testloc->id));
   TestEq(["newtag"], TT("folksonomy")->tagedit->value);
   TestEq(STRING[], TT("taxonomy")->tagedit->value); //should fail
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
