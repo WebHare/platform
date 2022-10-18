@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
@@ -124,6 +125,15 @@ MACRO CleanupWebharePrivate()
   }
 }
 
+MACRO CleanupSocialite()
+{
+  trans->BeginWork();
+  //Remove unconfigured apps
+  INTEGER ARRAY appswithkeys := SELECT AS INTEGER ARRAY application FROM socialite.applicationkeys WHERE value != "";
+  DELETE FROM socialite.applications WHERE id NOT IN appswithkeys;
+  trans->CommitWork();
+}
+
 MACRO RunExecuteMaintenance()
 {
   IF(NOT IsRestoredWebhare())
@@ -134,6 +144,7 @@ MACRO RunExecuteMaintenance()
     CleanupUserMgmt();
     CleanupUserRights();
     CleanupWebharePrivate();
+    CleanupSocialite();
   }
   FixupUserMgmt();
 }
