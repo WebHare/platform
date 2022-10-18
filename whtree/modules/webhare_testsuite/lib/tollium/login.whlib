@@ -13,21 +13,6 @@ LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 
 
-PUBLIC RECORD FUNCTION TestInvoke_EnableTestSuite2FA()
-{
-  OpenPrimary();
-
-  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
-  IF ("*@allow2fa.test.webhare.net" NOT IN allowsecondfactormasks)
-  {
-    allowsecondfactormasks := STRING[ ...ArrayDelete(allowsecondfactormasks, [ "" ]), "*@allow2fa.test.webhare.net" ];
-    GetPrimary()->BeginWork();
-    WriteRegistryKey("system.userrights.allowsecondfactorloginmasks", Detokenize(allowsecondfactormasks, " "));
-    GetPrimary()->CommitWork();
-  }
-  RETURN DEFAULT RECORD;
-}
-
 PUBLIC RECORD FUNCTION TestInvoke_GetTOTPCode(RECORD data)
 {
   data := ValidateOptions(
