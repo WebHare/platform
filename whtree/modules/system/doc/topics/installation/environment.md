@@ -67,6 +67,9 @@ from the same tree without confusing your text editor.
 If set, at every start/softreset a [server configuration file](serverconfig.md) will be downloaded from this location (either https:// or file:// url)
 and applied. For https:// urls, some variables describing the current installation will added.
 
+### WEBHARE_PGCONFIGFILE
+Override the configuration file passed to PostgreSQL
+
 ### WEBHARE_WH_HOOK
 Points to a script that will be sourced by 'wh' and can filter any command passed to it
 
