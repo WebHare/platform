@@ -327,13 +327,13 @@ ASYNC MACRO WalkTheTree()
 //
 ASYNC MACRO CreatePhotoAlbum()
 {
-  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), GetTestsuiteTempFolder()->id, [type := 3]));
+  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), GetTestsuiteTempFolder()->id, [ type := 3, isfolder := TRUE ]));
   TT("name")->value := "photoalbum";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
-  TestEQ(TRUE, (AWAIT res.expectcallreturn) != 0);
+  TestEQ(TRUE, (AWAIT res.expectcallreturn()) != 0);
 
-  OBJECT createfolder := OpenWHFSObject(AWAIT res.expectcallreturn);
+  OBJECT createfolder := OpenWHFSObject(AWAIT res.expectcallreturn());
   TestEq(TRUE, ObjectExists(createfolder));
   TestEQ(3, createfolder->type);
   TestEq(TRUE, createfolder->indexdoc != 0);

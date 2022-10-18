@@ -267,16 +267,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   // Public properties and variables
   //
 
-  //OBJECT objectpropscontext;
-
   /// Webcontext for the currently edited item
   OBJECT webcontext;
-
-  /// Id of the currently edited object
-  PUBLIC PROPERTY objectid(itemid,-); //NOTE: part of the public api now
-
-  /// Id of the currently edited site (only set when the current object is a site). Probably not used.
-  //PUBLIC PROPERTY siteid(GetSiteId,-); //NOTE: part of the public api now
 
   // ---------------------------------------------------------------------------
   //
@@ -1087,7 +1079,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     //Set up any extensions
     RECORD extensions := [ owner := this
                          , propertytabs := ^maintabs
-                         , objectid := this->objectid
+                         , objectid := this->itemid
                          , typens := this->curtype.namespace
                          , onsubmits := DEFAULT MACRO PTR ARRAY
                          ];
@@ -1724,8 +1716,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoRequestApproval()
   {
-    IF (this->Submit(TRUE))
-      this->tolliumresult := "ok";
+    INTEGER id := this->Submit(TRUE);
+    IF(id != 0)
+      this->__SetScreenResult(id);
   }
 
   MACRO DoCancelDraft()
@@ -1798,12 +1791,15 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
   }
 
-  BOOLEAN FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
+  INTEGER FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
   {
     // Auto-check for required fields
     OBJECT quickfeedback := this->BeginFeedback();
     IF(quickfeedback->HasFailed())
-      RETURN quickfeedback->Finish();
+    {
+      quickfeedback->Finish();
+      RETURN 0;
+    }
 
     quickfeedback->Cancel(); //don't show any warnings now yet... the next BeginWork will.
 
@@ -1823,7 +1819,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     {
       // Run all scheduled messageboxes
       IF (NOT this->RunScheduledMessageBoxes())
-        RETURN FALSE;
+        RETURN 0;
 
       OBJECT work := this->BeginWork();
 
@@ -1861,7 +1857,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         IF(ObjectExists(othersite) AND othersite->id != this->sourceitem->id)
         {
           work->AddError(GetTid("publisher:common.errors.sitealreadyexists", name));
-          RETURN work->Finish();
+          work->Finish();
+          RETURN 0;
         }
       }
 
@@ -1874,7 +1871,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           work->AddError(GetTid("publisher:common.errors.hiddenfolderexists", name, this->parentfolder->name));
         ELSE
           work->AddError(GetTid("publisher:common.errors.fileorfolderexists", name, this->parentfolder->name));
-        RETURN work->Finish();
+
+        work->Finish();
+        RETURN 0;
       }
 
       RECORD indexactions;
@@ -2102,7 +2101,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       } //this->siteversioningpolicy
 
       IF(work->HasFailed())
-        RETURN work->Finish();
+      {
+        work->Finish();
+        RETURN 0;
+      }
 
       // All updates have been calculated, start applying them
 
@@ -2192,7 +2194,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         onsubmit(work);
 
       IF(work->HasFailed())
-        RETURN work->Finish();
+      {
+        work->Finish();
+        RETURN 0;
+      }
 
       // Execute index actions
       IF (RecordExists(indexactions))
@@ -2256,15 +2261,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
 
       IF (NOT work->Finish())
-        RETURN FALSE;
+        RETURN 0;
 
-      this->itemid := objid;
       IF (execute_approval_request AND NOT have_draft)
         this->RunSimpleScreen("info", this->GetTid(".messageboxes.noversionedfieldswerechanged"));
       ELSE IF (have_draft AND NOT execute_approval_request)
         this->RunSimpleScreen("info", this->GetTid(".messageboxes.submitversionedfiletoapplychanges"));
 
-      RETURN TRUE;
+      RETURN objid;
     } //while(TRUE)
   }
 

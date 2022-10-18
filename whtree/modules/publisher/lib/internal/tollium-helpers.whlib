@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
@@ -671,9 +672,8 @@ PUBLIC STRING FUNCTION GetVersioningDraftWarning(OBJECT fsobject)
   RETURN "normal";
 }
 
-PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
+PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
 {
-  OBJECT dialog;
   RECORD ARRAY faultypropeditors;
   BOOLEAN sidetabs;
 
@@ -691,8 +691,7 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
   {
     TRY
     {
-      dialog := parent->LoadScreen(dialogname, CELL[...data, faultypropeditors, sidetabs ]);
-      BREAK;
+      RETURN parent->RunScreen(dialogname, CELL[...data, faultypropeditors, sidetabs ]);
     }
     CATCH (OBJECT<PropertyEditorException> e)
     {
@@ -706,9 +705,15 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
 
       INSERT fault INTO faultypropeditors AT END;
     }
-    // Don't catch unknown exceptions
+    CATCH(OBJECT err)
+    {
+      // don't crash on any exception, we can just choose to not open the properties dialog
+      // which is better than to crash the whole Publisher
+      RunExceptionReportDialog(parent, err);
+      RETURN 0;
+
+    }
   }
-  RETURN dialog;
 }
 
 RECORD ARRAY FUNCTION ApplyModifyTypes(RECORD ARRAY intypes, RECORD ARRAY modifyrules)

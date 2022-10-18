@@ -208,18 +208,13 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
   }
 
   //only path where createres can be a DEFAULT RECORD is where options.issite = TRUE
-  OBJECT creationdialog := __CreateHistoryPropsDialog(parentscreen,
+  RETURN __RunHistoryPropsDialog(parentscreen,
       [ why := options.issite ? "newsite" : createres.template != 0 ? "duplicate" : options.isfolder ? "newfolder" : "newfile"
       , parentfolder := parentfolder
       , type := options.issite ? 0 : createres.createtype
       , fsobj := options.issite ? 0 : createres.template
       ], options.issite ? "site"
                         : "objectprops");
-
-  IF(creationdialog->RunModal() != "ok")
-    RETURN 0;
-
-  RETURN creationdialog->objectid;
 }
 
 /** Run the 'delete object' flow
@@ -399,7 +394,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   TRY
   {
-    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], options.siteproperties ? "site" : "objectprops")->RunModal();
+    __RunHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], options.siteproperties ? "site" : "objectprops");
   }
   CATCH(OBJECT err)
   {
