@@ -356,76 +356,120 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       searchquery.query := AddElasticsearchQueryFilters(searchquery.query, exclude_filters, TRUE);
     }
 
-    RECORD finalquery := [ method := "GET"
-                         , path := "/" || indexmanager.indexname || indexmanager.suffix || "/_search"
-                         , body := searchquery
-                         ];
-
-    IF(IsDebugTagEnabled("consilio:searches"))
-      LogDebug("consilio:searches", "OpenSearch search", CELL[ ...searchstart, searchquery := finalquery ]);
-
-    BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
-                                                 , uuid := queryuuid
-                                                 , searchquery := finalquery
-                                                 , options.restrict_to
-                                                 , options.first
-                                                 , options.count
-                                                 , summary_length := options.summary
-                                                 , sess := RecordExists(options.session) ? options.session.sessid : ""
-                                                 , options.highlightfields
-                                                 , fields := searchquery._source
-                                                 , now := querystart
-                                                 , catalog
-                                                 ]);
-
-    IF(options.debug)
-      Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
-
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain, options.timeout ]);
-    IF(options.debug)
-      DumpValue(response, "tree");
-
-    result.status := response.status;
-    IF (result.status = SearchOk)
+    // A composite aggregation should be paginated when all terms are requested, as we don't know the number of terms beforehand
+    STRING paginated_composite_agg;
+    IF (CellExists(searchquery, "aggs") AND RecordExists(searchquery.aggs))
     {
-      IF (response.result.timed_out)
-        result.status := SearchTimeOutError;
-      ELSE
+      // The aggregation is a record containing one cell with the actual aggregation, named after the aggregated field
+      RECORD agg := UnpackRecord(searchquery.aggs)[0];
+      paginated_composite_agg := CellExists(agg.value, "composite") AND agg.value.composite.size < 0 ? agg.name : "";
+      // Set the page size to 100
+      IF (paginated_composite_agg != "")
       {
-        IF (CellExists(query, "aggregation"))
-        {
-          result.totalcount := response.result.hits.total.value;
-          result.totalexact := response.result.hits.total.relation = "eq";
-          IF (RecordExists(options.aggregation_mapping))
-            INSERT CELL aggregation := RECORD[] INTO result;
+        agg.value.composite.size := 100;
+        searchquery.aggs := CellUpdate(searchquery.aggs, paginated_composite_agg, agg.value);
+      }
+    }
 
-          // If the main aggregation is a 'count' aggregation, there are no aggregation results
-          IF (query.aggregation._type = "count")
+    BOOLEAN search_done;
+    RECORD after_key;
+    WHILE (NOT search_done)
+    {
+      IF (paginated_composite_agg != "" AND RecordExists(after_key))
+      {
+        RECORD agg := GetCell(searchquery.aggs, paginated_composite_agg);
+        agg.composite := CELL[ ...agg.composite, after := after_key ];
+        searchquery.aggs := CellUpdate(searchquery.aggs, paginated_composite_agg, agg);
+      }
+
+      RECORD finalquery := [ method := "GET"
+                           , path := "/" || indexmanager.indexname || indexmanager.suffix || "/_search"
+                           , body := searchquery
+                           ];
+
+      IF(IsDebugTagEnabled("consilio:searches"))
+        LogDebug("consilio:searches", "OpenSearch search", CELL[ ...searchstart, searchquery := finalquery ]);
+
+      BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
+                                                   , uuid := queryuuid
+                                                   , searchquery := finalquery
+                                                   , options.restrict_to
+                                                   , options.first
+                                                   , options.count
+                                                   , summary_length := options.summary
+                                                   , sess := RecordExists(options.session) ? options.session.sessid : ""
+                                                   , options.highlightfields
+                                                   , fields := searchquery._source
+                                                   , now := querystart
+                                                   , catalog
+                                                   ]);
+
+      IF(options.debug)
+        Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
+
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain, options.timeout ]);
+      IF(options.debug)
+        DumpValue(response, "tree");
+
+      result.status := response.status;
+      IF (result.status = SearchOk)
+      {
+        IF (response.result.timed_out)
+        {
+          result.status := SearchTimeOutError;
+          search_done := TRUE;
+        }
+        ELSE
+        {
+          IF (CellExists(query, "aggregation"))
           {
-            RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
-            RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
-            IF (RecordExists(singleresult))
+            result.totalcount := response.result.hits.total.value;
+            result.totalexact := response.result.hits.total.relation = "eq";
+            IF (RecordExists(options.aggregation_mapping))
+              INSERT CELL aggregation := RECORD[] INTO result;
+
+            // If the main aggregation is a 'count' aggregation, there are no aggregation results
+            IF (query.aggregation._type = "count")
             {
-              IF (RecordExists(options.aggregation_mapping))
-                INSERT singleresult INTO result.aggregation AT END;
-              ELSE
-                INSERT singleresult INTO result.results AT END;
-            }
-          }
-          ELSE
-          {
-            // For now, we only have one top-level aggregation per query
-            RECORD main_aggregation := UnpackRecord(response.result.aggregations);
-            IF (RecordExists(main_aggregation))
-            {
-              VARIANT aggresult := ReadElasticsearchAggregationResult(query.aggregation, main_aggregation.name, response.result.aggregations);
-              IF (IsTypeIDArray(TypeID(aggresult)))
+              RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
+              RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
+              IF (RecordExists(singleresult))
               {
-                FOREVERY (RECORD lineresult FROM aggresult)
+                IF (RecordExists(options.aggregation_mapping))
+                  INSERT singleresult INTO result.aggregation AT END;
+                ELSE
+                  INSERT singleresult INTO result.results AT END;
+              }
+            }
+            ELSE
+            {
+              // For now, we only have one top-level aggregation per query
+              RECORD main_aggregation := UnpackRecord(response.result.aggregations);
+              INTEGER numresults;
+              IF (RecordExists(main_aggregation))
+              {
+                VARIANT aggresult := ReadElasticsearchAggregationResult(query.aggregation, main_aggregation.name, response.result.aggregations);
+                IF (IsTypeIDArray(TypeID(aggresult)))
                 {
-                  RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.aggregation_mapping ?? mapping);
+                  numresults := Length(aggresult);
+                  FOREVERY (RECORD lineresult FROM aggresult)
+                  {
+                    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.aggregation_mapping ?? mapping);
+                    IF (RecordExists(singleresult))
+                    {
+                      IF (RecordExists(options.aggregation_mapping))
+                        INSERT singleresult INTO result.aggregation AT END;
+                      ELSE
+                        INSERT singleresult INTO result.results AT END;
+                    }
+                  }
+                }
+                ELSE
+                {
+                  RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
                   IF (RecordExists(singleresult))
                   {
+                    numresults := 1;
                     IF (RecordExists(options.aggregation_mapping))
                       INSERT singleresult INTO result.aggregation AT END;
                     ELSE
@@ -433,45 +477,49 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                   }
                 }
               }
-              ELSE
+              // If this is a paginated composite aggregation, retrieve the new after key (if there are no results, there is
+              // no after_key)
+              IF (paginated_composite_agg != "")
               {
-                RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.aggregation_mapping ?? mapping);
-                IF (RecordExists(singleresult))
-                {
-                  IF (RecordExists(options.aggregation_mapping))
-                    INSERT singleresult INTO result.aggregation AT END;
-                  ELSE
-                    INSERT singleresult INTO result.results AT END;
-                }
+                // If we received less results than requested, we're already done
+                IF (numresults < 1000)
+                  after_key := DEFAULT RECORD;
+                ELSE
+                  after_key := CellExists(main_aggregation.value, "after_key") ? main_aggregation.value.after_key : DEFAULT RECORD;
               }
             }
-          }
-        }
-        IF (NOT CellExists(query, "aggregation") OR RecordExists(options.aggregation_mapping))
-        {
-          IF (NOT RecordExists(options.aggregation_mapping))
-          {
-            result.totalcount := response.result.hits.total.value;
-            result.totalexact := response.result.hits.total.relation = "eq";
-          }
 
-          // An array with length 0 is returned as VARIANT ARRAY
-          IF (Length(response.result.hits.hits) > 0)
-            result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
+            // If we're not paginating or if there is no after key (i.e. there are no more results to retrieve), we're done
+            IF (paginated_composite_agg = "" OR NOT RecordExists(after_key))
+              search_done := TRUE;
+          }
+          IF (NOT CellExists(query, "aggregation") OR RecordExists(options.aggregation_mapping))
+          {
+            IF (NOT RecordExists(options.aggregation_mapping))
+            {
+              result.totalcount := response.result.hits.total.value;
+              result.totalexact := response.result.hits.total.relation = "eq";
+              search_done := TRUE;
+            }
+
+            // An array with length 0 is returned as VARIANT ARRAY
+            IF (Length(response.result.hits.hits) > 0)
+              result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, searchquery, mapping, options);
+          }
         }
       }
+
+      IF (RecordExists(result.session))
+        ModuleLog("consilio:queries", EncodeHSON(CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]));
+
+      BroadcastEvent("consilio:executedquery", [ isstart := FALSE
+                                               , uuid := queryuuid
+                                               , status := response.status
+                                               , code := CellExists(response, "code") ? response.code : 0
+                                               , numresults := CellExists(response, "results") ? Length(result.results) : 0
+                                               , now := GetCurrentDateTime()
+                                               ]);
     }
-
-    IF (RecordExists(result.session))
-      ModuleLog("consilio:queries", EncodeHSON(CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]));
-
-    BroadcastEvent("consilio:executedquery", [ isstart := FALSE
-                                             , uuid := queryuuid
-                                             , status := response.status
-                                             , code := CellExists(response, "code") ? response.code : 0
-                                             , numresults := CellExists(response, "results") ? Length(result.results) : 0
-                                             , now := GetCurrentDateTime()
-                                             ]);
 
     IF(IsDebugTagEnabled("consilio:searches"))
       LogDebug("consilio:searches", "Search complete",

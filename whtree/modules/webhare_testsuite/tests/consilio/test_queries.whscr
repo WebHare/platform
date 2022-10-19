@@ -117,6 +117,59 @@ MACRO RunTheMatchQueries()
 
 MACRO RunTheAggregationQueries()
 {
+  // Terms aggregation
+  TestEq([ totalcount := 4, aggregation :=
+             [ [ groupid := "QC1" ]
+             , [ groupid := "QC2" ]
+             , [ groupid := "QC3" ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms"),
+         [ mapping := [ groupid := "" ] ]));
+  TestEq([ totalcount := 4, aggregation :=
+             [ [ groupid := "QC1", numdocs := 1 ]
+             , [ groupid := "QC2", numdocs := 2 ]
+             , [ groupid := "QC3", numdocs := 1 ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ countfield := "numdocs" ]),
+         [ mapping := [ groupid := "", numdocs := 0 ] ]));
+  TestEq([ totalcount := 3, aggregation :=
+             [ [ groupid := "QC1", numdocs := 1 ]
+             , [ groupid := "QC2", numdocs := 2 ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ countfield := "numdocs", query := CQMatch("shortkeyword", ">=", "eins") ]),
+         [ mapping := [ groupid := "", numdocs := 0 ] ]));
+  TestEq([ totalcount := 3, aggregation :=
+             [ [ groupid := "QC1", numdocs := 1 ]
+             , [ groupid := "QC2", numdocs := 1 ]
+             , [ groupid := "QC3", numdocs := 1 ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ countfield := "numdocs", query := CQMatch("shortkeyword", "<", "zweite") ]),
+         [ mapping := [ groupid := "", numdocs := 0 ] ]));
+  TestEq([ totalcount := 4, aggregation :=
+             [ [ groupid := "QC3" ]
+             , [ groupid := "QC2" ]
+             , [ groupid := "QC1" ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ orderdesc := TRUE ]),
+         [ mapping := [ groupid := "" ] ]));
+  TestEq([ totalcount := 4, aggregation :=
+             [ [ groupid := "QC1" ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ size := 1 ]),
+         [ mapping := [ groupid := "" ] ]));
+  TestEq([ totalcount := 4, aggregation :=
+             [ [ groupid := "QC3" ]
+             ]
+         ],
+         ExecTestAggregation(CQAggregate("groupid", "terms", [ orderdesc := TRUE, size := 1 ]),
+         [ mapping := [ groupid := "" ] ]));
+
   // Count aggregation (should just be the totalcount)
   TestThrowsLike("Name option is required for aggregation type 'count'", PTR CQAggregate("groupid", "count"));
   TestEq([ totalcount := 4, aggregation := [ count := 4 ] ],
