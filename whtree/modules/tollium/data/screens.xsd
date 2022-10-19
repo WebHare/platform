@@ -1338,7 +1338,6 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attributeGroup ref="Icon" />
     <xs:attributeGroup ref="tc:Shortcut" />
   </xs:attributeGroup>
 
@@ -1351,7 +1350,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
-      <xs:attributeGroup ref="Icon" />
       <xs:attributeGroup ref="tc:Shortcut" />
       <xs:attributeGroup ref="Action" />
     </xs:complexType>
@@ -1870,8 +1868,6 @@ To change a <xs:attribute /> for adding descriptions
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
-
-        <xs:attributeGroup ref="Icon" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>

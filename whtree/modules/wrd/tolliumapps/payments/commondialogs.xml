@@ -66,11 +66,6 @@
       <tabs type="regular" height="1pr" name="providertabs">
         <tab tid=".generic" name="providertab">
           <textedit composition="provider" cellname="wrd_tag" tid="~tag" width="1pr" />
-          <!--
-          <textedit composition="provider" cellname="wrd_title" required="true" maxlength="200" />
-          <textedit composition="provider" cellname="wrd_ordering" emptyvalue="0" width="10x" valuetype="integer" />
-          <textedit composition="provider" cellname="payment_expirepending" emptyvalue="0" width="4x" valuetype="integer" />
-        -->
         </tab>
       </tabs>
     </body>

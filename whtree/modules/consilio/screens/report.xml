@@ -1,52 +1,45 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/report.whlib"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
-         gid="report"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="report" library="/lib/screens/report.whlib">
 
-  <screen name="linkcheck" gid=".linkcheck"
-          allowresize="true" savestate="size"
-          width="120x" height="40x">
+  <screen name="linkcheck"
+          width="120x"
+          height="40x"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".linkcheck"
+          savestate="size">
     <actions>
       <action name="fileview" onexecute="dofileview" />
-      <action name="csvexport" icon="tollium:actions/export" onexecute="docsvexport" />
+      <action name="csvexport" onexecute="docsvexport" />
     </actions>
 
     <toolbar gid=".toolbar">
-      <button action="csvexport" />
+      <button action="csvexport" icon="tollium:actions/export" />
     </toolbar>
 
     <body>
-      <checkbox name="showalllinks" title="" labeltid=".showalllinks" onchange="refreshlinks" />
+      <checkbox name="showalllinks" labeltid=".showalllinks" onchange="refreshlinks" title="" />
       <panel width="1pr" height="1pr">
-        <list name="links"
-              selectmode="single"
-              openaction="fileview"
-              width="1pr" height="1pr">
+        <list name="links" width="1pr" height="1pr" openaction="fileview" selectmode="single">
           <column name="filepath" type="text" width="2pr" />
           <column name="url" type="url" width="3pr" />
           <column name="text" type="text" width="1pr" />
-          <column name="status_icon" hintname="status_hint" sortkeyname="status" type="icon" tid=".status" />
+          <column name="status_icon" type="icon" hintname="status_hint" sortkeyname="status" tid=".status" />
         </list>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
   <fragment name="objectreport" gid=".objectreport">
     <actions>
     </actions>
     <contents>
-      <checkbox name="showalllinks" title="" labeltid=".showalllinks" onchange="refreshlinks" />
+      <checkbox name="showalllinks" labeltid=".showalllinks" onchange="refreshlinks" title="" />
       <panel width="1pr" height="1pr">
         <list name="links" width="1pr" height="1pr">
-          <column name="referrer" sortkeyname="referrer_sort" type="text" width="1pr" />
-          <column name="url" sortkeyname="url_sort" type="url" width="3pr" />
-          <column name="text" sortkeyname="text_sort" type="text" width="1pr" />
-          <column name="status_icon" sortkeyname="status_sort" hintname="status_hint" type="icon" tid=".status" />
+          <column name="referrer" type="text" width="1pr" sortkeyname="referrer_sort" />
+          <column name="url" type="url" width="3pr" sortkeyname="url_sort" />
+          <column name="text" type="text" width="1pr" sortkeyname="text_sort" />
+          <column name="status_icon" type="icon" hintname="status_hint" sortkeyname="status_sort" tid=".status" />
         </list>
       </panel>
     </contents>

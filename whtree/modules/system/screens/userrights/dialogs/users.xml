@@ -22,7 +22,7 @@
             <passwordfield name="password" entercurrentpassword="false" />
             <authenticationsettings name="authenticationsettings" />
             <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
-            <box checkbox="true" layout="left" hr="false" name="whuser_disabled" composition="userobj" cellname="whuser_disabled" title="" tid=".whuser_disabled" enablecomponents="whuser_disablereason" >
+            <box checkbox="true" layout="left" hr="false" name="whuser_disabled" composition="userobj" cellname="whuser_disabled" tid=".whuser_disabled" enablecomponents="whuser_disablereason" >
               <textarea name="whuser_disablereason" composition="userobj" cellname="whuser_disablereason" required="true" />
             </box>
             <spacer name="insertpoint_account" visible="false" />

@@ -5,9 +5,8 @@ LOADLIB "mod::tollium/lib/components/action.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // The menu item
-PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
+PUBLIC STATIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
 <
-  STRING pvt_icon;
   RECORD ARRAY pvt_items;
   BOOLEAN pvt_selected;
   BOOLEAN pvt_checked;
@@ -18,7 +17,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
 
   UPDATE PUBLIC PROPERTY renderedtitle(GetTitleWithEllipsis, -);
 
-  PUBLIC PROPERTY icon(pvt_icon, SetIcon);
   PUBLIC PROPERTY items(pvt_items, SetItems);
   PUBLIC PROPERTY selected(pvt_selected, SetSelected);
   PUBLIC PROPERTY checked(pvt_checked, SetChecked);
@@ -40,7 +38,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
 
     IF(CellExists(def,'action'))//it's a <item>, not a <menu>
     {
-      this->pvt_icon := def.icon;
       this->disablemode := def.disablemode;
       this->pvt_indent := def.indent;
       this->pvt_ellipsis := def.ellipsis;
@@ -68,11 +65,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
     IF(ObjectExists(newaction) AND NOT (newaction EXTENDSFROM TolliumActionForwardBase))
       THROW NEW TolliumException(this, "Setting object '" || newaction->name || "' as action, but it does not appear to be an action component");
 
-    IF (this->pvt_icon = "" AND ObjectExists(this->pvt_action))
-    {
-      this->pvt_action->SetDependency(this, [ icon := TRUE ]);
-      this->pvt_icon := this->pvt_action->icon;
-    }
     IF(this->pvt_title="" AND ObjectExists(this->pvt_action))
     {
       this->pvt_action->SetDependency(this, [ title := TRUE ]);
@@ -129,14 +121,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
       {
         TolliumComponentBase::SetTitle(this->pvt_action->title);
       }
-    CASE "icon"
-      {
-        IF (this->pvt_icon != this->pvt_action->icon)
-        {
-          this->pvt_icon := this->pvt_action->icon;
-          this->ExtUpdatedComponent();
-        }
-      }
     CASE "hint"
       {
         TolliumComponentBase::SetHint(this->pvt_action->hint);
@@ -151,13 +135,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
       this->pvt_action->SetDependency(this, [ title := FALSE ]);
   }
 
-  MACRO SetIcon(STRING newicon)
-  {
-    this->pvt_icon := newicon;
-    this->ExtUpdatedComponent();
-    IF (ObjectExists(this->pvt_action))
-      this->pvt_action->SetDependency(this, [ icon := FALSE ]);
-  }
 
   UPDATE MACRO SetHint(STRING newhint)
   {
@@ -319,7 +296,6 @@ PUBLIC OBJECTTYPE TolliumMenuItem EXTEND TolliumSpecialComponent
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
     RECORD compinfo := [ hint := this->hint
-                       , icon := this->icon
                        , disablemode := this->disablemode
                        , items := DEFAULT STRING ARRAY
                        , action := GetComponentName(this->action)
