@@ -205,7 +205,7 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
   RECORD ARRAY tids := RunAndExtractTids(PTR validator->ValidateDocument());
   errors := errors CONCAT validator->errors;
 
-  FOREVERY(RECORD conflict FROM SELECT DISTINCT * FROM tids WHERE Length(conflicting_attributes) > 0)
+  FOREVERY(RECORD conflict FROM SELECT * FROM tids WHERE Length(conflicting_attributes) > 0)
     FOREVERY(STRING attr FROM conflict.conflicting_attributes)
       INSERT CELL[ conflict.resourcename, conflict.line, conflict.col, message := `Conflicting translation attributes '${conflict.attrname}' and '${attr}'` ] INTO errors AT END;
 
