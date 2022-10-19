@@ -2,18 +2,7 @@ import * as test from "@mod-tollium/js/testframework";
 
 
 test.registerTests(
-  [ "Test startup focus steal"
-  , async function()
-    {
-      await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
-      await test.wait( () => test.qSA('.t-apptab').length >= 2);
-      test.click(test.qSA('.t-apptab')[0]);
-      test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "Selecting the first tab should focus the dashboard");
-      await test.wait('ui');
-      test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "And even when the second app is here, it should still have the dashboard focused");
-    }
-
-  , "Normal init"
+  [ "Normal init"
   , async function()
     {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
@@ -156,6 +145,17 @@ test.registerTests(
       await test.wait('ui');
       test.eq("0", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
       test.eq("", test.getCurrentScreen().getToddElement("messages").querySelector('textarea').value);
+    }
+
+  , "Test startup focus steal"
+  , async function()
+    {
+      await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest(sleep)&' + test.getTolliumDebugVariables());
+      await test.wait( () => test.qSA('.t-apptab').length >= 2);
+      test.click(test.qSA('.t-apptab')[0]);
+      test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "Selecting the first tab should focus the dashboard");
+      await test.wait('ui');
+      test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "And even when the second app is here, it should still have the dashboard focused");
     }
 
   , "Session-expiry"
