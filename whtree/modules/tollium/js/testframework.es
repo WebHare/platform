@@ -369,7 +369,7 @@ function getTolliumHost()
 
 function getTolliumDebugVariables()
   {
-    var addurl = 'intolerant=1';
+    var addurl = '';
     try
     {
       var parenturi = new URL(window.parent.location.href);

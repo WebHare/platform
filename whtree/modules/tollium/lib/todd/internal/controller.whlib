@@ -274,7 +274,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
     this->requestactive := TRUE;
 
     this->pvt_baseurl := Tokenize(options.url,'?')[0];
-    this->intolerant := options.intolerant;
 
     IF (options.shortunknowntids)
       __shortunknowntids := TRUE;

@@ -1421,9 +1421,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// Indicates whether debugging is enabled
   PUBLIC BOOLEAN debugging;
 
-  /// Mark all errors as fatal. useful for debugging
-  PUBLIC BOOLEAN intolerant;
-
   /// Issue flag
   PUBLIC PROPERTY issueflag(_issueflag, SetIssueFlag);
 

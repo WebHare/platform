@@ -15,7 +15,6 @@ PUBLIC CONSTANT RECORD appstartoptions :=
       , shortunknowntids := FALSE
       , target := DEFAULT RECORD
       , message := DEFAULT RECORD
-      , intolerant := FALSE
       , webvars := RECORD[]
       , hasconnect := FALSE
       , goparam := ""
