@@ -6387,14 +6387,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="countbadge">
-    <xs:annotation>
-      <xs:appinfo>
-        <tai:tolliumcomponent placement="block" objecttype="/lib/components/countbadge.whlib#TolliumCountBadge" />
-      </xs:appinfo>
-    </xs:annotation>
-  </xs:element>
-
   <xs:element name="proxy" type="Proxy">
     <xs:annotation>
       <xs:appinfo>
