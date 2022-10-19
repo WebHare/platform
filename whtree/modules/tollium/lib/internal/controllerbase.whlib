@@ -1388,6 +1388,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// @type(object mod::system/lib/internal/asynctools.whlib#WaitableTimer) Timer for session expiry
   OBJECT _sessionexpirytimer;
 
+  RECORD __startupoptions;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -1449,6 +1451,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
   /// @type(object %TolliumContexts) Tollium contexts
   PUBLIC PROPERTY contexts(this->pvt_contexts,-);
+
+  /// The original startup options/context for this application. Used for subapps
+  PUBLIC PROPERTY startupoptions(__startupoptions, -);
 
   PUBLIC MACRO PTR __onnoforwardprogress;
   PUBLIC MACRO PTR __onnoactionhandlerfound;

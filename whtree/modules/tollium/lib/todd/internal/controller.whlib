@@ -183,9 +183,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   // Variables
   //
 
-  // Start options
-  RECORD options;
-
   INTEGER pvt_outputstream;
 
   STRING uploadmethod;
@@ -235,7 +232,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
 
   PUBLIC PROPERTY outputstream(pvt_outputstream, -);
 
-  PUBLIC PROPERTY webvariables(this->options.webvars, -);
+  PUBLIC PROPERTY webvariables(this->__startupoptions.webvars, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -247,12 +244,12 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   MACRO NEW(RECORD options, OBJECT userapi, OBJECT wrdauthplugin)
   : TolliumControllerBase(userapi, wrdauthplugin, FALSE)
   {
-    this->options := options;
+    this->__startupoptions := options;
     this->pvt_wrdauthplugin := wrdauthplugin;
     this->debugging := options.params.debug; //FIXME ensure that debugging is ONLY enabled if the appservice permitted this user to debug
     this->profiling := options.profile ? 3 : options.memoryprofile ? 4 : 0;
-    this->frontendid := this->options.frontendid;
-    this->requestdata := this->options.requestdata;
+    this->frontendid := this->__startupoptions.frontendid;
+    this->requestdata := this->__startupoptions.requestdata;
     this->SetSessionExpires(options.launchuserinfo.loggedin_expires, TRUE);
 
     this->controllertype := "todd";
@@ -288,7 +285,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
                              ]);
       this->QueueInstruction([ instr := "appupdate"
                              , type := "apptab"
-                             , title := this->title ?? this->options.app
+                             , title := this->title ?? this->__startupoptions.app
                              , icon := this->icon
                              , hasissues := this->issueflag
                              , appmenu := this->GetAppMenu()
