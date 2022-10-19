@@ -297,7 +297,7 @@ class IndyShell
     //This is the true shell. Ask the tollium shell what we need to do. Pass it any webvariables?
     var options = {};
     options.params = whintegration.config.obj.appserviceparams;
-    this.tolliumservice.request('StartPortal', [ options, browser.getTriplet() ], this.gotPortal.bind(this), this.failPortal.bind(this));
+    this.tolliumservice.request('StartPortal', [ options ], this.gotPortal.bind(this), this.failPortal.bind(this));
   }
   gotPortal(data)
   {
