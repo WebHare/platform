@@ -307,36 +307,3 @@ t-towlnotification + t-towlnotification
 {
   margin-top: 5px;
 }
-
-/****************************************************************************************************************************
- * Other stuff (FIXME: categorize, skinning)
- */
-
-
-/* No-JS stuff */
-.tollium-unsupported
-{
-  background: #ffffff;
-  color: #444444;
-  font-family: verdana, arial, helvetica, sans-serif;
-  font-weight: normal;
-  line-height: 1.3em;
-  margin: 50px auto;
-  text-align: left;
-  width: 50%;
-}
-.tollium-unsupported b
-{
-  font-size: 1.2em;
-  font-weight: bold;
-}
-.tollium-unsupported a
-{
-  color: #3333cc;
-  text-decoration: none;
-}
-.tollium-unsupported a:hover
-{
-  color: #0000ff;
-  text-decoration: underline;
-}
