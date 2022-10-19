@@ -10,9 +10,6 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 
 
-//ADDME remove these loadlibs:
-INTEGER todd_srhtimeout := 10 * 60;  // Must have client contact every 10 minutes
-
 RECORD webcontroller_dirty := [ fully := FALSE
                               , grab_activation := FALSE //NOT implied by fully!
                               ];
@@ -189,18 +186,12 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   // Start options
   RECORD options;
 
-  //STRING toddbase;
-  STRING startmenutext;
-  BOOLEAN requestretry;
-
   INTEGER pvt_outputstream;
 
   STRING uploadmethod;
   STRING downloadmethod;
 
   RECORD dirtyflags;
-
-  OBJECT printembedder;
 
   /// Whether there is an active request
   BOOLEAN requestactive;
@@ -242,7 +233,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   // Properties
   //
 
-  PUBLIC PROPERTY webstartmenutext(startmenutext, SetStartMenuText);
   PUBLIC PROPERTY outputstream(pvt_outputstream, -);
 
   PUBLIC PROPERTY webvariables(this->options.webvars, -);
@@ -267,8 +257,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
 
     this->controllertype := "todd";
 
-    this->pvt_apptimeout := todd_srhtimeout;
-
     this->dirtyflags := webcontroller_dirty;
     this->dirtyflags.fully := TRUE;
     this->requestactive := TRUE;
@@ -284,22 +272,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
     this->pvt_debugstream := CreateStream();
     RedirectOutputTo(this->pvt_debugstream);
   }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Getters & setters
-  //
-
-  MACRO SetStartMenuText(STRING startmenutext)
-  {
-    this->startmenutext := startmenutext;
-    this->ExtUpdatedController();
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Debugging
-  //
 
   // ---------------------------------------------------------------------------
   //

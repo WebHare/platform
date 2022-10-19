@@ -1314,15 +1314,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   BOOLEAN running;
 
 
-  /// Date and time of last contact with the client
-  DATETIME lastclientcontact;
-
-
-  /// Time-out in seconds (need client contact within this period)
-  INTEGER pvt_apptimeout;
-
-
-
 
   /// Application title
   STRING title;
@@ -1407,13 +1398,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// Controller type
   PUBLIC PROPERTY type(controllertype,-);
 
-  /// Storage. Retained for compatibility with older Tollium applications
-  //PUBLIC PROPERTY storage(pvt_storage,-);
-
-
-  /// Resource manager. Retained for compatibility with older Tollium applications
-  //PUBLIC PROPERTY resourcemgr(pvt_resourcemgr,-);
-
 
   /// List of visible screens (FIXME should not be writable!)
   PUBLIC OBJECT ARRAY windowstack;
@@ -1455,9 +1439,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   PUBLIC PROPERTY applicationtarget(pvt_apptarget, SetApplicationTarget); //ADDME Make RW and updating this (and appname) should affect SendApplicationMessage
 
 
-  /// Timeout in seconds
-  PUBLIC PROPERTY apptimeout(pvt_apptimeout, -);
-
   PUBLIC PROPERTY baseurl(pvt_baseurl, -);
 
   /// Whether the interface runs on https
@@ -1490,7 +1471,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     this->pvt_contexts := NEW TolliumContexts(DEFAULT OBJECT, this);
 
     this->running := TRUE;
-    this->lastclientcontact := GetCurrentDateTime();
     this->pvt_baseurl := "about:blank";
 
     this->_sessionexpirytimer := NEW WaitableTimer;
