@@ -96,8 +96,6 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
   INTEGER itemid;
   BOOLEAN newsite;
 
-  PUBLIC PROPERTY objectid(itemid,-);
-
   ///////////////////////////////////////////////////////////////////
   //
   //  Basic screen functions (init & submit)
@@ -224,7 +222,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
                         ORDER BY ToUppercase(feature);
   }
 
-  BOOLEAN FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
 
@@ -328,10 +326,9 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       RunEditFolderHooks(oldversion, objid);
 
     IF(NOT work->Finish())
-      RETURN FALSE;
+      RETURN 0;
 
-    this->itemid := objid;
-    RETURN TRUE;
+    RETURN objid;
   }
   ///////////////////////////////////////////////////////////////////
   //

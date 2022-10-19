@@ -7,10 +7,9 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -328,14 +327,13 @@ ASYNC MACRO WalkTheTree()
 //
 ASYNC MACRO CreatePhotoAlbum()
 {
-  OBJECT dialog := CreateNewFolderDialog(GetTestController(), GetTestsuiteTempFolder()->id, 3);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal()); //simply should not crash
+  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), GetTestsuiteTempFolder()->id, [ type := 3, isfolder := TRUE ]));
   TT("name")->value := "photoalbum";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
-  TestEQ(TRUE, dialog->objectid != 0);
+  TestEQ(TRUE, (AWAIT res.expectcallreturn()) != 0);
 
-  OBJECT createfolder := OpenWHFSObject(dialog->objectid);
+  OBJECT createfolder := OpenWHFSObject(AWAIT res.expectcallreturn());
   TestEq(TRUE, ObjectExists(createfolder));
   TestEQ(3, createfolder->type);
   TestEq(TRUE, createfolder->indexdoc != 0);

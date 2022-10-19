@@ -4,7 +4,6 @@ LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib"; // republish functions
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -199,8 +198,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO DoOpenSiteProperties()
   {
-    OBJECT dlg := CreateWHFSSitePropsDialog(this, this->siteslist->value[0]);
-    dlg->RunModal();
+    RunFSObjectPropertiesDialog(this, this->siteslist->value[0], [ siteproperties := TRUE ]);
   }
 
   MACRO DoRepublish()

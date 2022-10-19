@@ -431,13 +431,10 @@ fi
 
 create_container()
 {
-  local CONTAINERID NR CONTAINERDOCKERARGS USERSERVERCONFIG
+  local CONTAINERID NR CONTAINERDOCKERARGS
 
   NR=$1
   CONTAINERDOCKERARGS="$DOCKERARGS"
-  if [ -n "$ISMODULETEST" ]; then
-    USERSERVERCONFIG=1
-  fi
 
   echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
 
@@ -458,9 +455,7 @@ create_container()
   # Allow whdata to be mounted on ephemeral (overlayfs) storage
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
-  if [ -n "$USERSERVERCONFIG" ]; then
-    echo "WEBHARE_CONFIGURL=file:///config/serverconfig.xml" >> ${TEMPBUILDROOT}/env-file
-  else #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
+  if [ -z "$ISMODULETEST" ]; then  #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
     echo "WH_EXTRACTTESTSUITE=1" >> ${TEMPBUILDROOT}/env-file
   fi
 
@@ -485,27 +480,6 @@ create_container()
     echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
     echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
     echo ""
-  fi
-
-  if [ -n "$USERSERVERCONFIG" ]; then # for module tests, configure a primary interface URL. we need to keep this here until we no longer CI test against versions older than 4.34
-    echo "`date` Add serverconfiguration to create a primary interface"
-
-    mkdir "${TEMPBUILDROOT}/config"
-    cat > "${TEMPBUILDROOT}/config/serverconfig.xml" << HERE
-<serverconfig xmlns="http://www.webhare.net/xmlns/system/serverconfig">
-  <bindings>
-    <binding name="http" port="80" virtualhost="true" />
-  </bindings>
-  <webservers>
-    <interface name="primaryinterface" virtualhost="true" isprimary="true" baseurl="http://127.0.0.1/" />
-  </webservers>
-  <setregistrykey module="system" key="services.smtp.mailfrom" value="defaultmailfrom@beta.webhare.net" />
-</serverconfig>
-HERE
-
-    if ! $SUDO docker cp "${TEMPBUILDROOT}/config" $CONTAINERID:/; then
-      die "Failed installing the server configuration"
-    fi
   fi
 
   if [ -n "$ADDMODULES" ]; then

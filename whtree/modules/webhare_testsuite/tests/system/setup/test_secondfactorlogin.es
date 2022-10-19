@@ -93,8 +93,6 @@ test.registerTests(
   , "enable TOTP"
   , async function enable2FA()
     {
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#EnableTestSuite2FA');
-
       test.click(test.qS("#dashboard-user-name"));
       await test.wait('ui');
       test.click(test.qSA("t-button").filter(e => e.textContent == "Change")[1]);

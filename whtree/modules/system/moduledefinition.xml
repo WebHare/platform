@@ -2014,7 +2014,7 @@ The full base URL on which this site will be published, calculated by combining 
         <string name="newuserdefaults_timezone" description="Default settings for new users - time zone" initialval="Europe/Amsterdam" />
         <string name="newuserdefaults_decimalsep" description="Default settings for new users - decimal separator" initialval="," />
         <string name="newuserdefaults_thousandsep" description="Default settings for new users - thousand separator" initialval="." />
-        <string name="allowsecondfactorloginmasks" description="Login name masks for which second factor login can be configured" />
+        <obsoletekey name="allowsecondfactorloginmasks" />
       </node>
       <node name="tasks"> <!-- system.tasks -->
         <integer name="maxprocesses" description="Maximum # of parallel processes started by executetasks" initialval="4" />
@@ -2153,7 +2153,6 @@ The full base URL on which this site will be published, calculated by combining 
   <development>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/serverconfig" rootnodes="serverconfig" schemalocation="data/serverconfig.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
     <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />
     <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="whres::xml/wsdl.xsd" />

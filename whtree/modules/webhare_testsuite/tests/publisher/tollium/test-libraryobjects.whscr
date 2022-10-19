@@ -2,7 +2,7 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 ASYNC MACRO TestLibraryObjects()
@@ -34,8 +34,7 @@ ASYNC MACRO TestLibraryObjects()
   OBJECT testloc := GetTestsuiteTempFolder()->CreateFile([name := "testing" ]);
   testfw->CommitWork();
 
-  OBJECT dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testloc->id));
 
   // test: no content yet in somefolder
   TestEq(0, Length(TT(":LibraryObjects")->options));
@@ -52,8 +51,7 @@ ASYNC MACRO TestLibraryObjects()
   GetTestsuiteTempFolder()->CreateFolder([name := "other" ])->CreateFile([name := "otherfile"]);
   testfw->CommitWork();
 
-  dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testloc->id));
 
   // test:
   // - /tempfolder/somefolder/testfile
@@ -75,8 +73,7 @@ ASYNC MACRO TestLibraryObjects()
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 
-  dialog := CreateWHFSObjectPropsDialog(GetTestController(), somefolder->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), somefolder->id));
 
   // test:
   // - /tempfolder/somefolder/testfile
@@ -97,8 +94,7 @@ ASYNC MACRO TestLibraryObjects()
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 
-  dialog := CreateWHFSObjectPropsDialog(GetTestController(), testfile->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
 
   // These are resolved relative to the parent of testfile, so this yields the same results as the somefolder tests above
   TestEq(5, Length(TT(":LibraryObjects")->options));
@@ -109,8 +105,7 @@ ASYNC MACRO TestLibraryObjects()
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 
-  dialog := CreateWHFSObjectPropsDialog(GetTestController(), otherfolder->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), otherfolder->id));
 
   // test:
   // - /tempfolder/somefolder/testfile

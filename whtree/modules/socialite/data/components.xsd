@@ -29,57 +29,6 @@
 
   -->
 
-  <!-- components which use this group must offer a 'value' member which accepts a RECORD with 'network' and 'id' -->
-  <xs:attributeGroup name="movieselection">
-    <xs:attribute name="network"><!-- type="xs:string" -->
-      <xs:annotation>
-        <xs:documentation>
-          Which video network the video comes from
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="youtube" />
-          <xs:enumeration value="vimeo" />
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-
-    <xs:attribute name="videoid" type="xs:string"><!-- stored as 'id' when getting/setting value of any video component -->
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>The default value (video id) to use</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="thumbnailsettings">
-    <xs:attribute name="showthumbnail" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Whether to show a thumbnail of the video</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="thumbnailwidth" type="tc:Size" default="320px">
-      <xs:annotation>
-        <xs:documentation>
-          The width of the thumbnail
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="thumbnailheight" type="tc:Size" default="180px">
-      <xs:annotation>
-        <xs:documentation>
-          The height of the thumbnail
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:attributeGroup>
-
   <xs:element name="map">
     <xs:annotation>
       <xs:appinfo>

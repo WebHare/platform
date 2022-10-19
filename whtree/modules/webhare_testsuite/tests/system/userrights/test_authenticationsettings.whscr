@@ -15,18 +15,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 ASYNC MACRO Setup()
 {
-  INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
-  GetPrimary()->BeginWork();
-
-  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
-  IF ("*@allow2fa.test.webhare.net" NOT IN allowsecondfactormasks)
-  {
-    allowsecondfactormasks := STRING[ ...ArrayDelete(allowsecondfactormasks, [ "" ]), "*@allow2fa.test.webhare.net" ];
-    WriteRegistryKey("system.userrights.allowsecondfactorloginmasks", Detokenize(allowsecondfactormasks, " "));
-  }
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "minlength:2");
-
-  GetPrimary()->CommitWork();
+  GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
 }
 
 ASYNC MACRO ManageAuthenticationSettings()
@@ -126,12 +115,9 @@ ASYNC MACRO TestAuditLog()
   // STORY: ensure the audit log of lisa has an event
   testfw->SetTestUser("lisa");
 
-  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
-  BOOLEAN lisawith2fa := __MatchesAnyMask("lisa@beta.webhare.net", allowsecondfactormasks);
-
   // Change lisa's password
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings"));
-  AWAIT ExpectScreenChange(+1, lisawith2fa ? PTR TTClick(":Change[1/2]") : PTR TTClick(":Change"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
   TTFillByTitle(":Password", testfw->GetUserPassword("lisa"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);

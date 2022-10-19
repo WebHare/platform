@@ -40,7 +40,6 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#EnableTestSuite2FA');
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GrantSomeRights', "pietje@allow2fa.test.webhare.net");
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
           { version: 1

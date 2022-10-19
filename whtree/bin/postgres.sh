@@ -51,18 +51,19 @@ fi
 
 
 cd "${BASH_SOURCE%/*}/../etc/"
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-docker.conf"
-else
-  PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-sourceinstall.conf"
+if [ -z "$WEBHARE_PGCONFIGFILE" ]; then
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then
+    WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-docker.conf"
+  else
+    WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-sourceinstall.conf"
+  fi
 fi
-
 
 mkdir -p "$PSROOT"
 
 function generateConfigFile()
 {
-  echo "include '$PGCONFIGFILE'"
+  echo "include '$WEBHARE_PGCONFIGFILE'"
   # include_if_exists generates noise if the file doesn't exist
   if [ -f "$WEBHARE_DATAROOT/etc/postgresql-custom.conf" ]; then
     echo "include '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'"
