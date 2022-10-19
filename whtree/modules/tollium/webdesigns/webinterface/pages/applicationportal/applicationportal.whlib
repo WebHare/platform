@@ -34,6 +34,8 @@ LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
+LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
+
 ///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
 CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword","system:managetwofactorauth"];
 ///Expected protocol version. Bump if we break backwards compatible with JS code
@@ -828,21 +830,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   //marking params as unused as dropping them can give JS errors when updating, and webhareconnect doesn't make a material difference for anyone
   PUBLIC RECORD FUNCTION WCS_StartApp(OBJECT webcontext, STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ frontendid := ""
-                               , params := DEFAULT RECORD
-                               , shortunknowntids := FALSE
-                               , highpriority := FALSE
-                               , jsprofile := FALSE
-                               , target := DEFAULT RECORD
-                               , message := DEFAULT RECORD
-                               , intolerant := FALSE
-                               , webvars := RECORD[]
-                               , hasconnect := FALSE
-                               , goparam := ""
-                               , browser := ""
-                               , isloginapp := FALSE
-                               , protocolversion := 0
-                               ], EnforceStructure([webvars := RECORD[]], options));
+    options := ValidateOptions(appstartoptions, EnforceStructure([webvars := RECORD[]], options));
 
     this->SetupPortal(webcontext);
     STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");

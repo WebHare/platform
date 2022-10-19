@@ -313,29 +313,3 @@ STRING FUNCTION RewriteFilenameToSite(STRING filename)
 
   RETURN filename;
 }
-
-PUBLIC RECORD FUNCTION RecompileFile(STRING filename, RECORD options)
-{
-  RECORD result :=
-      [ errors :=     DEFAULT RECORD ARRAY
-      , warnings :=   DEFAULT RECORD ARRAY
-      ];
-
-  filename := RewriteFilenameToSite(filename);
-  IF (filename LIKE "whfs::*")
-  {
-    result.errors :=
-        [ filename :=   filename
-        , message :=    filename = "whfs::" ? "File not found" : "Can only recompile files within a site"
-        , line :=       1
-        , pos :=        1
-        , iserror :=    TRUE
-        ];
-
-    RETURN result;
-  }
-
-  BOOLEAN force := CellExists(options, "FORCE") ? options.force : FALSE;
-
-  RETURN __SYSTEM_RECOMPILELIBRARY(filename, force);
-}

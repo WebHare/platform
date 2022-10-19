@@ -211,20 +211,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   /// Is the reflect window active?
   BOOLEAN reflectactive;
 
-  /// Current signalled state
-//  BOOLEAN issignalled;
-
-
-  /// Debugging variables
-  ///@{
-
-  PUBLIC BOOLEAN highpriority;
-
-//  RECORD logpipedata;
-
-  ///@}
-
-
   /** Requestdata
       @cell remoteip
       @cell remoteport
@@ -320,13 +306,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   //
   // Internal helper functions
   //
-
-  PUBLIC STRING FUNCTION SetPriorityInURL(STRING url)
-  {
-    IF (this->highpriority AND url != "")
-      url := ReplaceVariableInURL(url, "$tolliumhighpriority", "true");
-    RETURN url;
-  }
 
   MACRO TolliumWebRender()
   {

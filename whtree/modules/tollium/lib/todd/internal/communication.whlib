@@ -9,6 +9,26 @@ BOOLEAN log_communication := FALSE;
 
 INTEGER ack_timeout_msecs := 100; // Ack every message after at most 100ms
 
+PUBLIC CONSTANT RECORD appstartoptions :=
+  CELL[ frontendid := ""
+      , params := DEFAULT RECORD
+      , shortunknowntids := FALSE
+      , target := DEFAULT RECORD
+      , message := DEFAULT RECORD
+      , intolerant := FALSE
+      , webvars := RECORD[]
+      , hasconnect := FALSE
+      , goparam := ""
+      , browser := ""
+      , isloginapp := FALSE
+      , protocolversion := 0
+      , app := ""
+      , launchuserinfo := [ loggedin := 0
+                          , loggedin_name := ""
+                          , loggedin_expires := DEFAULT DATETIME
+                          ]
+      ];
+
 
 PUBLIC STATIC OBJECTTYPE ToddMessageLinkEndpoint
 < // ---------------------------------------------------------------------------

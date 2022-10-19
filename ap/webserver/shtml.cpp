@@ -268,11 +268,9 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         }
 
         SRHRunningAppPtr app(new SRHRunningApp(this));
-        // High priority request?
-        bool highpriority = webcon->GetRequestParser().GetVariableValue("$tolliumhighpriority") == "true";
 
         // Create a new job.
-        HareScript::VMGroup *group = webserver.GetJobManager().CreateVMGroup(highpriority);
+        HareScript::VMGroup *group = webserver.GetJobManager().CreateVMGroup(false);
 
         app->vmgroup.reset(group, false);
 

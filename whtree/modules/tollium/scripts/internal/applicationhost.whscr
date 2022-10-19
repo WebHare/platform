@@ -50,7 +50,6 @@ RECORD firstmsg := parentlink->ReceiveMessage(DEFAULT DATETIME);
 
 /* Startup message
    @cell(string) frontendid
-   @cell(boolean) highpriority
    @cell(record) appparams
    @cell(string) app
    @cell parameters
