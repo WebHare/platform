@@ -1268,13 +1268,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="type" type="ButtonType" default="standard">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Type of the button (ignored for toolbar buttons). Default is 'standard'.</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
+    <xs:attribute name="type" />  <!-- deprecated. wasn't really used anyway -->
 
     <xs:attributeGroup ref="Ellipsis" />
 
@@ -1293,13 +1287,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
-
-  <xs:simpleType name="ButtonType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="standard"/>
-      <xs:enumeration value="icon"/>
-    </xs:restriction>
-  </xs:simpleType>
 
   <!-- Grouped buttons -->
   <xs:complexType name="ButtonGroup">

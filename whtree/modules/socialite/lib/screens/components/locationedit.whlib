@@ -103,7 +103,6 @@ PUBLIC OBJECTTYPE GoogleLocationEdit EXTEND TolliumComponentBase
     this->replace := this->CreateSubComponent("button");
     this->parent->InsertComponentAfter(this->replace, this->textedit, FALSE);
 
-    this->replace->type := "icon";
     this->replace->icon := "tollium:actions/edit";
     this->replace->visible := NOT this->readonly;
 
@@ -116,7 +115,6 @@ PUBLIC OBJECTTYPE GoogleLocationEdit EXTEND TolliumComponentBase
     this->remove := this->CreateSubComponent("button");
     this->parent->InsertComponentAfter(this->remove, this->replace, FALSE);
 
-    this->remove->type := "icon";
     this->remove->icon := "tollium:actions/delete";
     this->remove->visible := NOT this->readonly;
 

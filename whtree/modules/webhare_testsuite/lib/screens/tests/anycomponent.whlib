@@ -177,7 +177,6 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
         IF (component = "textedit")
         {
           OBJECT btn := this->CreateTolliumComponent("button");
-          btn->type := "icon";
           btn->icon := "tollium:objects/qr";
           INSERT btn INTO this->comp->buttons AT END;
         }

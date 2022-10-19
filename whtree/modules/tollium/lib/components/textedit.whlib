@@ -518,7 +518,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
       OBJECT ARRAY iconbuttons;
       FOREVERY (OBJECT button FROM this->buttons)
-        IF (button->type = "icon")
+        IF (button->icon != "")
           INSERT button INTO iconbuttons AT END;
       INSERT CELL buttons := GetVisibleComponentNames(iconbuttons) INTO compinfo;
 

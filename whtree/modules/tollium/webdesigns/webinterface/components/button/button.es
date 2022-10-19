@@ -26,7 +26,6 @@ export default class ObjButton extends ActionableBase
     this.setTitle(data.title);
 
     this.icon = data.icon;
-    this.type = data.buttontype; // "standard" or "icon"
     this.pressed = data.ispressed || false;
     this.ismenubutton = data.ismenubutton;
 
@@ -118,15 +117,12 @@ export default class ObjButton extends ActionableBase
     {
       if (this.icon)
       {
-        if (this.type == "icon" || !this.title)
-          this.node.classList.add("icon");
-
+        this.node.classList.add("icon");
         this.iconsize = 16; //ADDME: Adjust according to button size?
         this.iconnode = icons.createImage(this.icon, this.iconsize, this.iconsize, 'b', {className:"button__img"});
         this.node.appendChild(this.iconnode);
       }
-
-      if (this.type != "icon" && this.title)
+      else
       {
         this.textnode = <span>{this.title}</span>;
         this.node.appendChild(this.textnode);
@@ -163,7 +159,7 @@ export default class ObjButton extends ActionableBase
       //ADDME: If word wrapped, take width into account!
       let contentwidth = 0;
 
-      if (this.type != "icon" && this.title != "") // for buttons of type 'icon' we hide the title
+      if (!this.icon) // for buttons of type 'icon' we hide the title
         contentwidth += $todd.CalculateTextSize(this.title).x;
 
       //console.log("Width", contentwidth, "for title", this.title, " + (skinsettings.xpad)", this.skinsettings.xpad);
