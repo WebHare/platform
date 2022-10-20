@@ -3231,7 +3231,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
     this->QueueInstruction([ instr :=           "init"
                            , whsid :=           this->applicationid
-                           , commhost :=        ResolveToAbsoluteURL(this->baseurl, "/")
                            , lang :=            ObjectExists(this->user) ? this->user->language : ""
                            ]);
   }

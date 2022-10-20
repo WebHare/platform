@@ -34,7 +34,6 @@ class ApplicationTab
                                   className="t-apptab__icon" />}
           {this.close = <span className="t-apptab__close" />}
           {this.title = <span title={app.title} className="t-apptab__title">{app.title}</span> }
-          {this.countbadge = <span className="t-apptab__countbadge" display="none" />}
         </div>;
 
     this.root[appbarsymbol] = { tabmodifier: ''
@@ -277,7 +276,6 @@ export default class ApplicationBar
 
   // shortcut.app Application object
   // shortcut.icononly Only show icon (e.g. for homescreen app)
-  // shortcut.countbadge Number to display in a badge over the icon
   toggleShortcut(app, show, fixed)
   {
     var appidx = this.apps.findIndex(elt => elt.app == app);

@@ -668,9 +668,6 @@ export class BackendApplication extends ApplicationBase
     /// Frontend id used for this application
     this.frontendid = '';
 
-    /// Host for communication with backend
-    this.commhost = '';
-
     /// Communication endpoint
     this.appcomm = null;
 
@@ -691,7 +688,6 @@ export class BackendApplication extends ApplicationBase
   applyAppInit(node)
   {
     this.whsid = node.whsid;
-    this.commhost = node.commhost;
     this.lang = node.lang;
     this.dateformat = node.dateformat;
     this.timeformat = node.timeformat;
@@ -702,7 +698,7 @@ export class BackendApplication extends ApplicationBase
     this.queuedEvents.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
     this.queuedEvents = [];
 
-    this.appcomm = new LinkEndPoint({ linkid: this.whsid, commhost: this.commhost, frontendid: this.frontendid });
+    this.appcomm = new LinkEndPoint({ linkid: this.whsid, commhost: location.origin, frontendid: this.frontendid });
     this.appcomm.onmessage = this.processMessage.bind(this);
     this.appcomm.onclosed = this._gotLinkClosed.bind(this);
     this.appcomm.registerManuallyReceivedMessage(this.lastinitmessage);
@@ -1185,7 +1181,7 @@ export class BackendApplication extends ApplicationBase
       return;
     }
 
-    this.shell.registerApplicationFrontendLink(data);
+    this.shell.registerApplicationFrontendLink({ ...data, commhost: location.origin });
 
     var appstartmsg = data.appdata;
     if (appstartmsg.type == 'appstart')

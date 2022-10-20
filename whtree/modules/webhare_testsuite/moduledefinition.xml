@@ -76,9 +76,6 @@
     <application name="imagemap" screen="tolliumapps/demo/imagemap-editor/imagemap_editor.xml#main" title="Imagemap editor">
       <accesscheck />
     </application>
-    <application name="dymodemo" screen="tolliumapps/demo/dymo/dymo.xml#main">
-      <accesscheck />
-    </application>
     <application name="wrddemo" screen="tolliumapps/demo/wrd/wrddemo.xml#main" supportedlanguages="en">
       <accesscheck />
     </application>

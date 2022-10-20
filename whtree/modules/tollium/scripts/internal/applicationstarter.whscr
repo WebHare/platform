@@ -306,15 +306,14 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
   OBJECT ASYNC FUNCTION StartApp(OBJECT link, RECORD message, INTEGER64 replyid)
   {
     // Read parameters
-    RECORD invoke := this->GetMsgCell(message, "INVOKE", TypeID(RECORD));
-
-    STRING frontendid := this->GetMsgCell(invoke, "FRONTENDID", TypeID(STRING));
-    BOOLEAN highpriority := this->GetMsgCell(invoke, "HIGHPRIORITY", TypeID(BOOLEAN));
-    STRING app := this->GetMsgCell(invoke, "APP", TypeID(STRING));
-    RECORD launchuserinfo := this->GetMsgCell(invoke, "LAUNCHUSERINFO", TypeID(RECORD));
-    INTEGER loggedin_entityid := this->GetMsgCell(launchuserinfo, "LOGGEDIN", TypeID(INTEGER));
-    STRING loggedin_name := this->GetMsgCell(launchuserinfo, "LOGGEDIN_NAME", TypeID(STRING));
-    DATETIME loggedin_expires := this->GetMsgCell(launchuserinfo, "LOGGEDIN_EXPIRES", TypeID(DATETIME)) ?? MAX_DATETIME;
+    message := ValidateOptions(CELL[ task := "", invoke := appstartoptions ], message);
+    RECORD invoke := message.invoke;
+    STRING frontendid := invoke.frontendid;
+    STRING app := invoke.app;
+    RECORD launchuserinfo := invoke.launchuserinfo;
+    INTEGER loggedin_entityid := launchuserinfo.loggedin;
+    STRING loggedin_name := launchuserinfo.loggedin_name;
+    DATETIME loggedin_expires := launchuserinfo.loggedin_expires;
 
     // Create an application host
     RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr");
@@ -360,7 +359,6 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
       this->LogDebug("Created app " || jobrec.job->groupid || ", frontendid " || frontendid);
 
     // Send configuration to job & start it
-    jobrec.job->SetPriority(highpriority ? "high" : "normal");
     jobrec.job->ipclink->SendMessage(invoke);
     jobrec.job->Start();
 
