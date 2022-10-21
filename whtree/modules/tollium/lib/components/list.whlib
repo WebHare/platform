@@ -2824,17 +2824,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
     IF(this->rowiconname != "")
     {
-      IF(fullrow)
-        INSERT GetCell(row, this->rowiconname) INTO outrow.cells AT END;
-      ELSE //FIXME Are we sure footers can't have rowicons ?
-        INSERT 0 INTO outrow.cells AT END;
+      INSERT CellExists(row, this->rowiconname) ? GetCell(row, this->rowiconname) : 0 INTO outrow.cells AT END;
       IF(this->rowiconhintname != "")
-      {
-        IF(fullrow)
-          INSERT GetCell(row, this->rowiconhintname) INTO outrow.cells AT END;
-        ELSE //FIXME Are we sure footers can't have rowicons ?
-          INSERT "" INTO outrow.cells AT END;
-      }
+        INSERT CellExists(row, this->rowiconhintname) ? GetCell(row, this->rowiconhintname) : "" INTO outrow.cells AT END;
     }
 
     RECORD toddprops;
@@ -2886,20 +2878,10 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       }
 
       IF(col.iconname!="")
-      {
-        IF(fullrow = FALSE)
-          INSERT 0 INTO outrow.cells AT END;
-        ELSE
-          INSERT GetCell(row, col.iconname) INTO outrow.cells AT END;
-      }
+        INSERT CellExists(row, col.iconname) ? GetCell(row, col.iconname) : 0 INTO outrow.cells AT END;
 
       IF(col.iconoverlayname!="")
-      {
-        IF(fullrow = FALSE)
-          INSERT 0 INTO outrow.cells AT END;
-        ELSE
-          INSERT GetCell(row, col.iconoverlayname) INTO outrow.cells AT END;
-      }
+        INSERT CellExists(row, col.iconoverlayname) ? GetCell(row, col.iconoverlayname) : 0 INTO outrow.cells AT END;
 
       IF(col.collapsedname != "")
       {
