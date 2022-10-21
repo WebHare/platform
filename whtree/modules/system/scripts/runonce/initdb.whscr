@@ -167,6 +167,16 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "shorturl"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
+                               , [ id := whconstant_whfsid_whfs
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_whfs_snapshots
+                                 , parent := whconstant_whfsid_whfs
+                                 , name := "snapshots"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
                                ];
 
 DATETIME initnow := GetCurrentDatetime();

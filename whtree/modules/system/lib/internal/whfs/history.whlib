@@ -7,22 +7,34 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-//To avoid races, create the versionfolder for a site immediately when creating the site. But having multiple shouldn't really mater
-PUBLIC INTEGER FUNCTION EnsureVersionFolder(INTEGER site)
+//TODO - To avoid races, create WHFS folders for a site immediately when creating the site. But having multiple shouldn't really matter..
+INTEGER FUNCTION EnsureWHFSSiteFolder(INTEGER forparent, INTEGER site)
 {
-  //Always prefer the 'oldest' version folder. cleanupversions will merge newers into the oldest anyway
+  //Always prefer the 'oldest' version folder. cleanversions will merge newers into the oldest anyway
   INTEGER versionroot := SELECT AS INTEGER id
                            FROM system.fs_objects
-                          WHERE parent = whconstant_whfsid_versions
+                          WHERE parent = forparent
                                 AND filelink = site
                        ORDER BY creationdate;
+
   IF(versionroot = 0)//create that first
   {
     DATETIME now := GetCurrentdatetime();
     versionroot := MakeAutonumber(system.fs_objects, "id");
 
     INSERT INTO system.fs_objects(id, parent, name, filelink, creationdate, modificationdate, isfolder)
-           VALUES(versionroot, 11, ToString(versionroot), site, now, now, TRUE);
+           VALUES(versionroot, forparent, ToString(versionroot), site, now, now, TRUE);
   }
+
   RETURN versionroot;
+}
+
+PUBLIC INTEGER FUNCTION EnsureVersionFolder(INTEGER site)
+{
+  RETURN EnsureWHFSSiteFolder(whconstant_whfsid_versions, site);
+}
+
+PUBLIC INTEGER FUNCTION EnsureSnapshotsFolder(INTEGER site)
+{
+  RETURN EnsureWHFSSiteFolder(whconstant_whfsid_versions, site);
 }

@@ -56,6 +56,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 //Folder id for webhare-private/system/shorturl
 PUBLIC CONSTANT INTEGER whconstant_whfsid_shorturl := 23;
 
+//Folder id for webhare-private/system/whfs
+PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs := 24;
+
+//Folder id for webhare-private/system/whfs/snapshots
+PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs_snapshots := 25;
+
 //Default key expiry warning (days)
 PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 45;
 
