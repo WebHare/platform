@@ -25,7 +25,7 @@ todd_components = getComponents();
 
 
 import * as dompack from 'dompack';
-import * as browser from 'dompack/extra/browser';
+import * as storage from 'dompack/extra/storage';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as WRDAuth from '@mod-wrd/js/auth';
 import './debugging/magicmenu';
@@ -426,13 +426,13 @@ class IndyShell
 
     ///This is an updated WebHare version; use that info
     console.warn("Have to update, detected change to the JS code and no apps are running!");
-    sessionStorage["WebHare-lastInitVersion-updated"] = "1";
+    storage.setSession("WebHare-lastInitVersion-updated", 1);
     location.reload(true);
   }
   checkWasJustUpdated()
   {
-    let wasjustupdated = sessionStorage.getItem("WebHare-lastInitVersion-updated") == "1";
-    sessionStorage.removeItem("WebHare-lastInitVersion-updated");
+    let wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") == "1";
+    storage.setSession("WebHare-lastInitVersion-updated", null);
     return wasjustupdated;
   }
 
