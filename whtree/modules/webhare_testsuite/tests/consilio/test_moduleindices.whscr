@@ -285,16 +285,16 @@ MACRO TestESCreationAPIs()
 
   // Explicitly delete from ES
   SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
-  RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
+  indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestEq(RECORD[], SELECT * FROM indices WHERE indexid = catalog->id);
   TestEq(RECORD[], catalog->ListSuffixes());
   TestEq(FALSE, catalog->IsReadyForStorage(), "With the index gone, we're no longer ready");
 
   // Recreate it
   catalog->ApplyConfiguration();
   TestEq(TRUE, catalog->IsReadyForStorage(), "ApplyConfiguration should have fixed it");
-  result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestAssert(IsValueSet(SELECT * FROM indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
   RECORD checkindex := SendRawJSONToElasticsearch(testindex.indexmanager, "GET", `/${testindex.indexname}/_mapping`, DEFAULT RECORD);
@@ -308,8 +308,8 @@ MACRO TestESCreationAPIs()
 
   // Delete it again from the index manager
   catalog->DeleteSuffix("");
-  result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestEq(RECORD[], SELECT * FROM result.indices WHERE indexid = catalog->id);
+  indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestEq(RECORD[], SELECT * FROM indices WHERE indexid = catalog->id);
 
   // Create a subindex
   catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
@@ -354,13 +354,13 @@ MACRO TestESCreationAPIs()
   catalog->AttachIndex(0);
   testfw->CommitWork();
 
-  result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsValueSet(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestAssert(IsValueSet(SELECT * FROM indices WHERE indexid = catalog->id));
 
   // Delete it again from the index manager
   catalog->DeleteSuffix("");
-  result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestAssert(IsDefaultValue(SELECT * FROM indices WHERE indexid = catalog->id));
 }
 
 MACRO TestESBulkInsertion()
@@ -374,8 +374,8 @@ MACRO TestESBulkInsertion()
   TestEq(TRUE, catalog->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
   Print(catalog->GetStorageInfo()||"\n");
 
-  RECORD result := GetIndexManagerIndexList(testindex.indexmanager);
-  TestAssert(IsDefaultValue(SELECT * FROM result.indices WHERE indexid = catalog->id));
+  RECORD ARRAY indices := GetIndexManagerIndexList(testindex.indexmanager);
+  TestAssert(IsDefaultValue(SELECT * FROM indices WHERE indexid = catalog->id));
 
   //Offering an undeclared cell must fail (this tests ES error handling, if we start catching errors earlier we might need something else or a raw mode to explicitly trigger ES error handling)
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(

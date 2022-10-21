@@ -30,21 +30,12 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
         indexmanager, or DEFAULT INTEGER ARRAY when there are no indices or when
         no indexmanager with the given id exists
 */
-PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD ARRAY FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(CELL[], options);
 
-  RECORD result :=
-      [ status := SearchIndexNotFound
-      , indices := DEFAULT RECORD ARRAY
-      ];
-
+  RECORD ARRAY indexlist := ListOpenSearchIndices(indexmgrid);
   RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid);
-  RECORD indexmanager := indexmanagers;
-  IF (NOT RecordExists(indexmanager))
-    RETURN result;
-
-  RECORD ARRAY indexlist := ListOpenSearchIndices(indexmanager.id);
 
   // Unmanaged indices may have a suffix: <indexname>-<suffix>
   indexlist := SELECT TEMPORARY toks := Tokenize(indexname,'-')
@@ -68,8 +59,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
         FROM indexlist
     GROUP BY indexname;
 
-  result.indices := SELECT indexid, indexname, suffixes FROM indexlist ORDER BY indexid, indexname;
-  RETURN result;
+  RETURN SELECT indexid, indexname, suffixes FROM indexlist ORDER BY indexid, indexname;
 }
 
 PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
