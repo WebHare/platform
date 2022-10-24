@@ -1,0 +1,48 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO Prep()
+{
+  testfw->BeginWork();
+
+  OBJECT testfolderobj2 := CreateObjectWithHistory(testfw->GetUserObject("sysop"), GetTestsuiteTempFolder(),
+    [ name := "sub", typens := "http://www.webhare.net/xmlns/publisher/normalfolder" ]);
+  TestEqMembers([[ type := "create", user := testfw->GetUserAuthobjectId("sysop"), when := testfolderobj2->creationdate, userdata := [ login := "sysop@beta.webhare.net" ] ]], ListObjectHistory(testfolderobj2->id), "*");
+  TestEq(testfolderobj2->creationdate, testfolderobj2->modificationdate);
+
+  OBJECT newfile := CreateObjectWithHistory(testfw->GetUserObject("marge"), testfolderobj2,
+    [ name :="test.html"
+    , title :="A new title"
+    , keywords := "my new keywords"
+    , description := "d"
+    , data := StringToBlob("I'm a jolly good file")
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["a","b","d"]  ]]
+    ]);
+  TestEq(newfile->creationdate, newfile->modificationdate);
+
+  TestEqMembers([ [ type := "create", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge"), when := newfile->modificationdate, userdata := [ login := "marge@beta.webhare.net" ] ]
+                ], ListObjectHistory(newfile->id), "*");
+  TestEq(['a','b','d'], newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+
+  testfw->CommitWork();
+}
+RunTestframework([ PTR Prep
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "marge" ]
+                                   ,[ login := "homer" ]
+                                   ]
+                    ]);

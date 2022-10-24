@@ -1492,7 +1492,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           When this action took place
         </d:documentation>
       </d:datetime>
-      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade">
+      <d:integer name="fs_object" references=".fs_objects" ondelete="cascade" nullable="false">
         <d:documentation>
           Object described by this history record
         </d:documentation>
@@ -1504,7 +1504,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:integer>
       <d:integer name="type">
         <d:documentation>
-          History action type. 0=deletion, 1 to 3 unused. 4=create, 5=modify, 6=move/undelete
+          History action type. See whconstant_historytype_…
         </d:documentation>
       </d:integer>
       <d:integer name="currentparent" references=".fs_objects" ondelete="set default">
@@ -1512,15 +1512,24 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The parent at the moment the action was created
         </d:documentation>
       </d:integer>
-      <d:integer name="related" references=".fs_objects" ondelete="cascade">
+      <d:integer name="snapshot" references=".fs_objects" ondelete="cascade">
         <d:documentation>
-          Related fs_object, used to store 'original' values when modifying
+          Snapshot fs_object used to store 'original' values when modifying
         </d:documentation>
       </d:integer>
+      <d:obsoletecolumn name="related" />
       <d:varchar name="currentname" maxlength="256">
         <d:documentation>
           The name at the moment the action was created
         </d:documentation>
+      </d:varchar>
+      <d:varchar name="version" maxlength="16">
+        <d:documentation>
+          Version number associated with this item
+        </d:documentation>
+      </d:varchar>
+      <d:varchar name="userdata" maxlength="2048">
+        <d:documentation>Data describing user making these changes (GetUserDataForLogging)</d:documentation>
       </d:varchar>
     </d:table>
 

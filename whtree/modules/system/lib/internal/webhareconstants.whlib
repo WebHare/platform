@@ -110,6 +110,15 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_create := 4;
 /// fs_history.type modified action
 PUBLIC CONSTANT INTEGER whconstant_historytype_modify := 5;
 
+/// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
+PUBLIC CONSTANT INTEGER whconstant_historytype_save := 1;
+
+/// fs_history.type publish action
+PUBLIC CONSTANT INTEGER whconstant_historytype_publish := 2;
+
+/// fs_history.type revert action
+PUBLIC CONSTANT INTEGER whconstant_historytype_revert := 3;
+
 /// publisher.schedule start publish/republish event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
 
