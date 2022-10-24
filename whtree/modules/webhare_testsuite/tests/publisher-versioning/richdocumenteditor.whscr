@@ -126,7 +126,7 @@ OBJECT ASYNC FUNCTION TestVersioned()
   // Update the draft to not-published
   RECORD idata := GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
   idata.flags := 0;
-  GetPublicDraft(testfile->id)->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", idata);
+  GetPublicDraft(testfile->id)->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", idata, [ __allowreadonlyupdate := TRUE ]);
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Accepted" ]);
   testfw->CommitWork();
 

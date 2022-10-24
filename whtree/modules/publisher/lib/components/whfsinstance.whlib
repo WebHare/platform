@@ -114,11 +114,12 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
     this->SignalUpdatedCompositionMetadata();
   }
 
-  PUBLIC MACRO WriteInstanceToFSObject()
+  PUBLIC MACRO WriteInstanceToFSObject(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(CELL[ __allowreadonlyupdate := FALSE ], options);
     OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type) AND ObjectExists(loc))
-      loc->SetInstanceDataByType(this->type, this->GetUpdateValue());
+      loc->SetInstanceDataByType(this->type, this->GetUpdateValue(), options);
   }
 
   //Set the <fsobject> maintaining our load/store target

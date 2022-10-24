@@ -311,7 +311,7 @@ MACRO IsActiveTest()
 
   //I still want to be able to set contenttypes on recycled data
   OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
-  betatype->SetInstanceData(activetest->id, [ stringtest := "a" ] );
+  betatype->SetInstanceData(activetest->id, [ stringtest := "a" ], [ __allowreadonlyupdate := TRUE ]);
   TestEq("a", betatype->GetInstanceData(activetest->id).stringtest);
 
   testfw->CommitWork();

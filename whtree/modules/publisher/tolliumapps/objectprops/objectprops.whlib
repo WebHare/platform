@@ -1579,7 +1579,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       curbaseobject := instance->basefsobject;
       instance->basefsobject := OpenWHFSOBject(draftid);
     }
-    instance->WriteInstanceToFSObject();
+    instance->WriteInstanceToFSObject([ __allowreadonlyupdate := draftid != 0 ]);
     IF (instance->type->id IN versioned_contenttypes AND draftid != 0)
       instance->basefsobject := curbaseobject;
   }
@@ -2181,14 +2181,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
             draftmetadata.flags := draftmetadata.flags BITOR DraftFlag_UnmarkAsIndex;
         }
 
-        whfs_draftmetadata->SetInstanceData(draftitem->id, draftmetadata);
+        whfs_draftmetadata->SetInstanceData(draftitem->id, draftmetadata, [ __allowreadonlyupdate := TRUE ]);
 
         DELETE CELL name, published, indexaction FROM versioned_metadata;
       } //have_draft
 
       // Update the versioned metadata at the draft
       IF(RecordExists(versioned_metadata))
-        draftitem->UpdateMetadata(versioned_metadata);
+        draftitem->UpdateMetadata(versioned_metadata, [ __allowreadonlyupdate := TRUE ]);
 
       FOREVERY(MACRO PTR onsubmit FROM this->onsubmits)
         onsubmit(work);

@@ -203,7 +203,7 @@ PUBLIC MACRO SubmitApprovalRequestForDraft(OBJECT draftobject, RECORD options)
   INTEGER orgparentsite := RecordExists(lastevent) ? lastevent.fs_site : source->parentsite;
 
   // Set the submitted for approval flag
-  source->UpdateMetadata([ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, TRUE) ]);
+  source->UpdateMetadata([ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, TRUE) ], [ __allowreadonlyupdate := TRUE ]);
 
   // Get the policy for the object
   OBJECT policy := GetVersioningPolicyForFileObject(source);
@@ -253,7 +253,7 @@ PUBLIC MACRO CancelApprovalRequestForDraft(OBJECT draftobject)
   OBJECT source := OpenWHFSObject(draftobject->source);
   source->UpdateMetadata(
       [ published := SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE)
-      ]);
+      ], [ __allowreadonlyupdate := TRUE ]);
 
   RECORD request :=
       SELECT id
@@ -363,7 +363,7 @@ PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
   newmetadata.flags :=
       (metadata.flags BITAND BITNEG DraftFlag_WasIndex) +
       (newmetadata.flags BITAND DraftFlag_WasIndex);
-  whfs_draftmetadata->SetInstanceData(applied_draft->id, newmetadata);
+  whfs_draftmetadata->SetInstanceData(applied_draft->id, newmetadata, [ __allowreadonlyupdate := TRUE ]);
 
   // Move that draft to the persistent storage too
   UPDATE system.fs_objects
@@ -377,7 +377,7 @@ PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
   INTEGER newpublished := SetFlagsInPublished(
                               SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE),
                               PublishedFlag_HasPublicDraft, FALSE);
-  source->UpdateMetadata([ published := newpublished ]);
+  source->UpdateMetadata([ published := newpublished ], [ __allowreadonlyupdate := TRUE ]);
 
   // Hook for policy-specific actions
   policy->OnApprovalRequestAccepted(applied_draft);
@@ -507,10 +507,10 @@ PUBLIC MACRO UpdateSubmittedDraft(OBJECT draftobject, RECORD ignorefields)
     IF (cancopy NOT IN ignorefields.versioned_contenttypes)
     {
       OBJECT typeobj := OpenWHFSTypeById(cancopy);
-      typeobj->SetInstanceData(draftobject->fsobject->id, typeobj->GetInstanceData(draftobject->source));
+      typeobj->SetInstanceData(draftobject->fsobject->id, typeobj->GetInstanceData(draftobject->source), [ __allowreadonlyupdate := TRUE ]);
     }
 
-  draftobject->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftdata);
+  draftobject->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftdata, [ __allowreadonlyupdate := TRUE ]);
 
   // Make sure the cached fsobject reflects reality
   draftobject->fsobject->Refresh();
@@ -592,7 +592,7 @@ PUBLIC MACRO ApplyDraftByVersionedFields(OBJECT draftobject, RECORD fields, RECO
       DELETE CELL parent FROM toapply;
   }
 
-  source->UpdateMetadata(toapply);
+  source->UpdateMetadata(toapply, [ __allowreadonlyupdate := TRUE ]);
   source->Refresh();
 
   // Move after applying any updates, can't apply updates to deleted objects
@@ -667,7 +667,7 @@ PUBLIC MACRO ApplyDraftByVersionedFields(OBJECT draftobject, RECORD fields, RECO
   {
     OBJECT type := OpenWHFSTypeById(contenttype);
     RECORD data := type->GetInstanceData(draftobject->id);
-    type->SetInstanceData(source->id, data);
+    type->SetInstanceData(source->id, data, [ __allowreadonlyupdate := TRUE ]);
   }
 }
 

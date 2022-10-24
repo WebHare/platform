@@ -59,20 +59,20 @@ MACRO ModifyAllDraftFields(OBJECT destfolder, OBJECT testfiledraft, BOOLEAN publ
       , ispinned :=       TRUE
       , data :=           StringToBlob("modified")
       , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/pdffile")->id
-      ]);
+      ], [ __allowreadonlyupdate := TRUE ]);
 
   testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata",
         [ name :=         "modified.pdf"
         , parent :=       destfolder->id
         , flags :=        (publish ? DraftFlag_Publish : 0)
-        ]);
+        ], [ __allowreadonlyupdate := TRUE ]);
 
   OBJECT rd := NEW RichDocument;
   rd->ImportFromPlainText("modified");
 
   testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
         [ data :=         rd->ExportAsRecord()
-        ]);
+        ], [ __allowreadonlyupdate := TRUE ]);
 }
 
 ASYNC MACRO TestAccept()
@@ -305,7 +305,7 @@ ASYNC MACRO TestDeny()
         [ name :=         "testdeny.txt"
         , parent :=       root->id
         , flags :=        DraftFlag_Publish
-        ]);
+        ], [ __allowreadonlyupdate := TRUE ]);
 
   testfw->CommitWork();
 

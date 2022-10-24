@@ -1554,7 +1554,14 @@ STATIC OBJECTTYPE WHFSType
     //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
     options := ValidateOptions(
         [ isvisibleedit :=    this->cloneoncopy
+        , __allowreadonlyupdate := FALSE
         ], options);
+
+    RECORD file := SELECT parentsite, parent, type, whfspath FROM system.fs_objects WHERE id = objectid;
+    IF(NOT RecordExists(file))
+      THROW NEW Exception(`Attempting to update instance data on non existing file #${objectid}`);
+    IF(NOT options.__allowreadonlyupdate AND IsReadonlyWHFSSpace(file.whfspath)) //we still allow invisible edits so (old?) Draft code can do its job
+      THROW NEW Exception(`Attempting to update readonly object ${file.whfspath}`);
 
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
@@ -1607,14 +1614,10 @@ STATIC OBJECTTYPE WHFSType
     IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
       GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
 
-    RECORD file := SELECT parentsite, parent, type FROM system.fs_objects WHERE id = objectid;
-    IF(RecordExists(file)) //no conflict removed it ?
-    {
-      IF (options.isvisibleedit)
-        GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
-      ELSE
-        GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
-    }
+    IF (options.isvisibleedit)
+      GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
+    ELSE
+      GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
 
     RETURN instance;
   }
@@ -1632,6 +1635,7 @@ STATIC OBJECTTYPE WHFSType
     options := ValidateOptions(
         [ isvisibleedit := this->cloneoncopy
         , orphans       := FALSE
+        , __allowreadonlyupdate := FALSE
         ], options);
 
     BOOLEAN orphans := options.orphans;
