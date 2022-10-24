@@ -13,6 +13,7 @@
       <option tag="isc" title="Image editor: Debug smartcrop" />
       <option tag="ixf" title="Image editor: Experimental functions" />
       <option tag="rll" title="Render label lines" />
+      <option tag="col" title="Crash on layout issues" />
     </debugsettings>
     <debugsettings title="Site testing">
       <option tag="nsc" title="No spam checks (disable recaptchas etc)" />

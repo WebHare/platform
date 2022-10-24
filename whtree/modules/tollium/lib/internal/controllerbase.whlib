@@ -1314,15 +1314,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   BOOLEAN running;
 
 
-  /// Date and time of last contact with the client
-  DATETIME lastclientcontact;
-
-
-  /// Time-out in seconds (need client contact within this period)
-  INTEGER pvt_apptimeout;
-
-
-
 
   /// Application title
   STRING title;
@@ -1397,6 +1388,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// @type(object mod::system/lib/internal/asynctools.whlib#WaitableTimer) Timer for session expiry
   OBJECT _sessionexpirytimer;
 
+  RECORD __startupoptions;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -1407,22 +1400,12 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   /// Controller type
   PUBLIC PROPERTY type(controllertype,-);
 
-  /// Storage. Retained for compatibility with older Tollium applications
-  //PUBLIC PROPERTY storage(pvt_storage,-);
-
-
-  /// Resource manager. Retained for compatibility with older Tollium applications
-  //PUBLIC PROPERTY resourcemgr(pvt_resourcemgr,-);
-
 
   /// List of visible screens (FIXME should not be writable!)
   PUBLIC OBJECT ARRAY windowstack;
 
   /// Indicates whether debugging is enabled
   PUBLIC BOOLEAN debugging;
-
-  /// Mark all errors as fatal. useful for debugging
-  PUBLIC BOOLEAN intolerant;
 
   /// Issue flag
   PUBLIC PROPERTY issueflag(_issueflag, SetIssueFlag);
@@ -1458,9 +1441,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   PUBLIC PROPERTY applicationtarget(pvt_apptarget, SetApplicationTarget); //ADDME Make RW and updating this (and appname) should affect SendApplicationMessage
 
 
-  /// Timeout in seconds
-  PUBLIC PROPERTY apptimeout(pvt_apptimeout, -);
-
   PUBLIC PROPERTY baseurl(pvt_baseurl, -);
 
   /// Whether the interface runs on https
@@ -1471,6 +1451,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
   /// @type(object %TolliumContexts) Tollium contexts
   PUBLIC PROPERTY contexts(this->pvt_contexts,-);
+
+  /// The original startup options/context for this application. Used for subapps
+  PUBLIC PROPERTY startupoptions(__startupoptions, -);
 
   PUBLIC MACRO PTR __onnoforwardprogress;
   PUBLIC MACRO PTR __onnoactionhandlerfound;
@@ -1493,7 +1476,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     this->pvt_contexts := NEW TolliumContexts(DEFAULT OBJECT, this);
 
     this->running := TRUE;
-    this->lastclientcontact := GetCurrentDateTime();
     this->pvt_baseurl := "about:blank";
 
     this->_sessionexpirytimer := NEW WaitableTimer;

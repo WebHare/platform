@@ -624,7 +624,7 @@ class ToddCompBase
     if (setwidth < this.width.min)
     {
       console.error(this.getDebugName()  + ' "' + this.name + '": Setting width to less than minimum (', setwidth, 'vs', this.width.min, ')', this.node);
-      if ($todd.intolerant)
+      if (dompack.debugflags.col)
         throw new Error("Component got less width than needed");
       setwidth = this.width.min;
     }
@@ -637,7 +637,7 @@ class ToddCompBase
     if (setheight < this.height.min)
     {
       console.error(this.componenttype + ' "' + this.name + '": Setting height to less than minimum (', setheight, 'vs', this.height.min, ')', this.node);
-      if ($todd.intolerant)
+      if (dompack.debugflags.col)
         throw new Error("Component got less height than needed");
       setheight = this.height.min;
     }
@@ -692,7 +692,7 @@ class ToddCompBase
   // Get the top margin of the component within its line
   getVerticalPosition()
   {
-    if(!this.parentcomp && $todd.intolerant)
+    if(!this.parentcomp && dompack.debugflags.col)
       throw new Error("No parent component for current element");
     if (!this.parentcomp || this.parentcomp.componenttype != "panel.line" || this.parentcomp.layout == "tabs-space")
       return 0;
@@ -828,7 +828,7 @@ class ToddCompBase
 
 export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, options)
 {
-  let intolerant = $todd.intolerant || (options && options.intolerant);
+  let intolerant = dompack.debugflags.col || options?.intolerant;
 
   if(!(available>=0)) //guard against negative or non-number availables
   {

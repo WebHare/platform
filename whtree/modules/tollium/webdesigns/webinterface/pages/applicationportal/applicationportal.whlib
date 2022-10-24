@@ -97,7 +97,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   PUBLIC STRING toddstaticroot;
   PUBLIC RECORD appserviceparams;
   PUBLIC BOOLEAN frontendmode;
-  PUBLIC BOOLEAN intolerant;
 
   PUBLIC BOOLEAN debugging;
   PUBLIC BOOLEAN profiling;
@@ -151,7 +150,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , profiling        := this->profiling
       , memoryprofiling  := this->memoryprofiling
       , frontendmode     := this->frontendmode
-      , intolerant       := this->intolerant
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
       , allowinframe     := this->allowinframe
@@ -391,7 +389,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
     this->profiling := GetWebVariable("profile") IN ["1","true"] OR IsWHDebugOptionSet("apr");
     this->memoryprofiling := GetWebVariable("profile") = "memory";
-    this->intolerant := GetWebVariable("intolerant") IN ["1","true"];
 
     IF (GetWebVariable("oauth_responseid") != "")
     {

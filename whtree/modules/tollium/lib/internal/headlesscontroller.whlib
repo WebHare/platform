@@ -58,7 +58,6 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
   {
     this->pvt_isvalidation := isvalidation;
     this->forceallpublic := TRUE;
-    this->intolerant := TRUE;
     this->pvt_baseurl := (isvalidation ? "" : GetPrimaryWebhareInterfaceURL()) ?? "https://webhare.example.com/";
     //create new override url only if current is close to expiry
     this->overrideurl := isvalidation ? "" : RunInSeparatePrimary(PTR GetOrExtendOverrideURL(24*60*60*1000, AddTimeToDate(60*60*1000, GetCurrentdatetime())));

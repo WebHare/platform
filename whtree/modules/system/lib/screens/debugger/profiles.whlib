@@ -18,7 +18,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 CONSTANT STRING portname := "system:profiles";
 
-PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -62,11 +62,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->basecolumns :=
-        [ functionslist :=  this->functionslist->columns
-        , childrencalls :=  this->childrencalls->columns
-        , parentcalls :=    this->parentcalls->columns
-        , nameslist :=      this->nameslist->columns
-        , stacktracelist := this->stacktracelist->columns
+        [ functionslist :=  ^functionslist->columns
+        , childrencalls :=  ^childrencalls->columns
+        , parentcalls :=    ^parentcalls->columns
+        , nameslist :=      ^nameslist->columns
+        , stacktracelist := ^stacktracelist->columns
         ];
 
     IF (CellExists(data, "FROMDEBUGGER"))
@@ -84,11 +84,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                , handler :=     handler
             FROM data.profiles;
 
-      DELETE FROM this->profileslist->columns WHERE name = "source";
+      DELETE FROM ^profileslist->columns WHERE name = "source";
 
       ^session->visible := FALSE;
       this->RefreshProfileList();
-      this->profileslist->value := LENGTH(this->pvt_profiles);
+      ^profileslist->value := LENGTH(this->pvt_profiles);
     }
     ELSE
     {
@@ -161,9 +161,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       this->profiledir := RecordExists(^session->selection) ? ^session->selection.path : "";
 
-      this->diskprofilelistener->masks := [ "system:storedprofile." || ^session->selection.name ];
+      ^diskprofilelistener->masks := [ "system:storedprofile." || ^session->selection.name ];
       this->UpdateProfilesFromDisk();
-      this->profileslist->value := 1;
+      ^profileslist->value := 1;
     }
     ELSE
     {
@@ -254,19 +254,19 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnFunctionSelected()
   {
-    this->parentcalls->ReloadList();
-    this->childrencalls->ReloadList();
+    ^parentcalls->ReloadList();
+    ^childrencalls->ReloadList();
 
-    IF (RecordExists(this->functionslist->selection))
+    IF (RecordExists(^functionslist->selection))
     {
-      INSERT this->functionslist->value INTO this->parentcalls->expanded AT END;
-      INSERT this->functionslist->value INTO this->childrencalls->expanded AT END;
+      INSERT ^functionslist->value INTO ^parentcalls->expanded AT END;
+      INSERT ^functionslist->value INTO ^childrencalls->expanded AT END;
     }
   }
 
   MACRO OnNameSelected()
   {
-    this->stacktracelist->ReloadList();
+    ^stacktracelist->ReloadList();
   }
 
   // ---------------------------------------------------------------------------
@@ -384,7 +384,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO RefreshProfileList()
   {
-    this->profileslist->rows :=
+    ^profileslist->rows :=
         SELECT rowkey := id
              , when := GetMsecondCount(this->contexts->user->UTCToLocal(when))
              , source
@@ -394,21 +394,21 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
              , infosortval :=   info.sortval
           FROM this->pvt_profiles;
 
-    IF (RecordExists(this->profileslist->selection))
+    IF (RecordExists(^profileslist->selection))
       this->RefreshMainLists();
   }
 
 
   MACRO RefreshMainLists()
   {
-    RECORD row := this->profileslist->selection;
+    RECORD row := ^profileslist->selection;
     IF (NOT RecordExists(row))
     {
       this->currenthandler := DEFAULT OBJECT;
-      this->childrencalls->visible := FALSE;
-      this->parentcalls->visible := FALSE;
-      this->functionslist->ReloadList();
-      this->nameslist->ReloadList();
+      ^childrencalls->visible := FALSE;
+      ^parentcalls->visible := FALSE;
+      ^functionslist->ReloadList();
+      ^nameslist->ReloadList();
       this->lasttype := "";
     }
     ELSE
@@ -424,20 +424,20 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
          WHERE id = row.rowkey;
       }
 
-      IF (this->functionslist->visible AND RecordExists(this->functionslist->selection))
-        this->lastselectedfunction := this->functionslist->selection;
-      IF (this->nameslist->visible AND RecordExists(this->nameslist->selection))
-        this->lastselectedname := this->nameslist->selection;
+      IF (^functionslist->visible AND RecordExists(^functionslist->selection))
+        this->lastselectedfunction := ^functionslist->selection;
+      IF (^nameslist->visible AND RecordExists(^nameslist->selection))
+        this->lastselectedname := ^nameslist->selection;
 
       this->currenthandler := profdata.handler;
       IF (this->lasttype != this->currenthandler->GetType())
       {
         STRING ARRAY lists := this->currenthandler->GetShownLists();
-        this->nameslist->visible := "names" IN lists;
-        this->functionslist->visible := "functions" IN lists;
-        this->childrencalls->visible := "children" IN lists;
-        this->parentcalls->visible := "parents" IN lists;
-        this->stacktracelist->visible := "stacktrace" IN lists;
+        ^nameslist->visible := "names" IN lists;
+        ^functionslist->visible := "functions" IN lists;
+        ^childrencalls->visible := "children" IN lists;
+        ^parentcalls->visible := "parents" IN lists;
+        ^stacktracelist->visible := "stacktrace" IN lists;
 
         IF (this->lasttype != "")
           this->SaveInterfaceState(this->lasttype);
@@ -454,46 +454,46 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         IF ("stacktrace" IN lists)
           this->ReconfigureList("stacktracelist", "stacktrace");
 
-        this->ct_children->visible := this->childrencalls->visible;
-        this->ct_parents->visible := this->parentcalls->visible;
-        this->ct_trace->visible := this->stacktracelist->visible;
+        ^ct_children->visible := ^childrencalls->visible;
+        ^ct_parents->visible := ^parentcalls->visible;
+        ^ct_trace->visible := ^stacktracelist->visible;
       }
       ELSE
       {
-        IF (this->functionslist->visible)
-          this->functionslist->ReloadList();
-        IF (this->nameslist->visible)
-          this->nameslist->ReloadList();
-        IF (this->childrencalls->visible)
-          this->childrencalls->ReloadList();
-        IF (this->parentcalls->visible)
-          this->parentcalls->ReloadList();
-        IF (this->stacktracelist->visible)
-          this->stacktracelist->ReloadList();
+        IF (^functionslist->visible)
+          ^functionslist->ReloadList();
+        IF (^nameslist->visible)
+          ^nameslist->ReloadList();
+        IF (^childrencalls->visible)
+          ^childrencalls->ReloadList();
+        IF (^parentcalls->visible)
+          ^parentcalls->ReloadList();
+        IF (^stacktracelist->visible)
+          ^stacktracelist->ReloadList();
       }
     }
 
-    this->functionslistpart->visible := this->functionslist->visible;
-    this->nameslistpart->visible := this->nameslist->visible;
-    this->relationspart->visible := this->childrencalls->visible OR this->parentcalls->visible OR this->stacktracelist->visible;
+    ^functionslistpart->visible := ^functionslist->visible;
+    ^nameslistpart->visible := ^nameslist->visible;
+    ^relationspart->visible := ^childrencalls->visible OR ^parentcalls->visible OR ^stacktracelist->visible;
 
-    this->profileslist->borders.bottom := NOT this->relationspart->visible;
-    this->nameslist->borders.bottom := NOT this->relationspart->visible;
-    this->functionslist->borders.bottom := NOT this->relationspart->visible;
+    ^profileslist->borders.bottom := NOT ^relationspart->visible;
+    ^nameslist->borders.bottom := NOT ^relationspart->visible;
+    ^functionslist->borders.bottom := NOT ^relationspart->visible;
 
-    IF (RecordExists(this->lastselectedfunction) AND this->functionslist->visible)
+    IF (RecordExists(this->lastselectedfunction) AND ^functionslist->visible)
     {
-      this->functionslist->selection :=
+      ^functionslist->selection :=
           SELECT *
-            FROM this->functionslist->rows
+            FROM ^functionslist->rows
            WHERE functionname = this->lastselectedfunction.functionname
              AND library = this->lastselectedfunction.library;
     }
-    IF (RecordExists(this->lastselectedname) AND this->nameslist->visible)
+    IF (RecordExists(this->lastselectedname) AND ^nameslist->visible)
     {
-      this->nameslist->selection :=
+      ^nameslist->selection :=
           SELECT *
-            FROM this->nameslist->rows
+            FROM ^nameslist->rows
            WHERE name = this->lastselectedname.name
                  AND (CellExists(rows, "DEPTH") ? depth = 0 : TRUE)
            LIMIT 1;
@@ -517,7 +517,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO ReconfigureList(STRING compname, STRING nameforhandler)
   {
     RECORD ARRAY columns := GetCell(this->basecolumns, compname);
-    OBJECT comp := GetMember(this, compname);
+    OBJECT comp := GetMember(this, "^"||compname);
 
     RECORD config := this->currenthandler->GetListConfig(nameforhandler);
 
@@ -542,7 +542,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetFunctionListRows(RECORD parentrow)
   {
-    IF (NOT ObjectExists(this->currenthandler) OR NOT this->functionslist->visible)
+    IF (NOT ObjectExists(this->currenthandler) OR NOT ^functionslist->visible)
       RETURN DEFAULT RECORD ARRAY;
 
     RETURN this->currenthandler->GetFunctionsListChildren(parentrow);
@@ -550,7 +550,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetNamesListRows(RECORD parentrow)
   {
-    IF (NOT ObjectExists(this->currenthandler) OR NOT this->nameslist->visible)
+    IF (NOT ObjectExists(this->currenthandler) OR NOT ^nameslist->visible)
       RETURN DEFAULT RECORD ARRAY;
 
     RETURN this->currenthandler->GetNamesListChildren(parentrow);
@@ -558,8 +558,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetParentListRows(RECORD parentrow)
   {
-    RECORD funcsel := this->functionslist->selection;
-    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->parentcalls->visible)
+    RECORD funcsel := ^functionslist->selection;
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT ^parentcalls->visible)
       RETURN DEFAULT RECORD ARRAY;
 
     RETURN this->currenthandler->GetParentsListChildren(funcsel, parentrow);
@@ -567,8 +567,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetChildrenListRows(RECORD parentrow)
   {
-    RECORD funcsel := this->functionslist->selection;
-    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->childrencalls->visible)
+    RECORD funcsel := ^functionslist->selection;
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT ^childrencalls->visible)
       RETURN DEFAULT RECORD ARRAY;
 
     RETURN this->currenthandler->GetChildrenListChildren(funcsel, parentrow);
@@ -576,8 +576,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetStackTraceRows()
   {
-    RECORD funcsel := this->nameslist->selection;
-    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->stacktracelist->visible)
+    RECORD funcsel := ^nameslist->selection;
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT ^stacktracelist->visible)
       RETURN DEFAULT RECORD ARRAY;
 
 
@@ -630,32 +630,32 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoChildOpen()
   {
-    this->functionslist->value := this->childrencalls->selection.openrowkey;
+    ^functionslist->value := ^childrencalls->selection.openrowkey;
   }
 
   MACRO DoEditSource()
   {
-    this->OpenInEditor(this->functionslist->selection);
+    this->OpenInEditor(^functionslist->selection);
   }
 
   MACRO DoEditChildrenCallSource()
   {
-    this->OpenInEditor(this->childrencalls->selection);
+    this->OpenInEditor(^childrencalls->selection);
   }
 
   MACRO DoEditParentCallSource()
   {
-    this->OpenInEditor(this->parentcalls->selection);
+    this->OpenInEditor(^parentcalls->selection);
   }
 
   MACRO DoEditStackTraceSource()
   {
-    this->OpenInEditor(this->stacktracelist->selection);
+    this->OpenInEditor(^stacktracelist->selection);
   }
 
   MACRO DoParentOpen()
   {
-    this->functionslist->value := this->parentcalls->selection.openrowkey;
+    ^functionslist->value := ^parentcalls->selection.openrowkey;
   }
 
   MACRO DoClearList()

@@ -82,8 +82,6 @@ $todd.applicationstack = [];
 $todd.resourcebase = "";
 $todd.customactions = {};
 
-$todd.intolerant = window.location.href.indexOf('intolerant=1') != -1;
-
 $todd.getActiveApplication = function()
 {
   return $todd.applicationstack.at(-1);
@@ -283,7 +281,7 @@ $todd.CalcAbsSize = function(size, horizontal, inline)
       if(horizontal)
       {
         console.error("'gr' units not supported horizontally");
-        if($todd.intolerant)
+        if(dompack.debugflags.col)
           throw new Error("'gr' units not supported horizontally");
       }
 
