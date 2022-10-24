@@ -1696,11 +1696,7 @@ The full base URL on which this site will be published, calculated by combining 
 
         </d:documentation>
       </d:varchar>
-      <d:integer name="historydays">
-        <d:documentation>
-          How many days of history to keep in this site
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="historydays" />
       <d:varchar name="versioningpolicy" maxlength="128">
         <d:documentation>
           Whether the site is under version control

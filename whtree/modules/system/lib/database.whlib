@@ -233,7 +233,6 @@ PUBLIC SCHEMA
     , STRING "outputfolder"
     , STRING "lockreason"
     , BOOLEAN "locked"
-    , INTEGER "historydays"
     , INTEGER "id" AS "root" NULL := 0 __ATTRIBUTES__(READONLY)
     , STRING "cdnbaseurl"
     , STRING "webroot" __ATTRIBUTES__(READONLY)

@@ -71,7 +71,7 @@ PUBLIC INTEGER PublishedFlag_HasWebDesign         :=   800000; //this file depen
 PUBLIC INTEGER PublishedFlag_StripExtension       :=  1600000; //strip the extension from the file's url
 PUBLIC INTEGER PublishedFlag_HasPublicDraft       :=  3200000; //there are drafts associated with the file
 PUBLIC INTEGER PublishedFlag_SubmittedForApproval :=  6400000; //the draft has been submitted for approval (versioning)
-PUBLIC INTEGER PublishedFlag_History              := 12800000; //whether to keep history for the object
+//PUBLIC INTEGER PublishedFlag_History              := 12800000; //whether to keep history for the object - obsolete since 502 but we'll need to reserve it for a bit...
 
 // Draft flag masks
 PUBLIC INTEGER DraftFlag_Publish :=                 1; // Whether the draft should be published

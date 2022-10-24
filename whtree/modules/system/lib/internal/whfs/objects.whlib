@@ -822,7 +822,6 @@ OBJECTTYPE WHFSObject
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
 
     RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
-    AddModifyHistory(now, oldversion, newversion);
 
     IF(options.setindex)
       this->parentobject->UpdateMetadata([ indexdoc := this->id ]);
@@ -853,26 +852,6 @@ OBJECTTYPE WHFSObject
 
     RETURN this->pvt_exists;
   }
-
-  /** Get the change history for this object
-      @return Change history items
-      @cell(string) return.type One of 'recycled', 'created', 'modified'
-      @cell(integer) return.user User authobject id
-      @cell(datetime) return.when Modification time
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetHistory()
-  {
-    RETURN SELECT type := type = whconstant_historytype_recycle ? "recycled"
-                          : type = whconstant_historytype_create ? "created"
-                          : type = whconstant_historytype_modify ? "modified"
-                          : "#" || type
-                , user
-                , when
-             FROM system.fs_history
-            WHERE fs_object = this->id
-         ORDER BY when;
-  }
-
 
   /** @short Create a copy of this file/folder in the destination folder, with optional rename.
       @param destfolder Destination folder
@@ -1191,8 +1170,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
     INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
     published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));
-    IF(IsHistoryEnabledForSite(this->parentsite))
-      published := SetFlagsInPublished(published, PublishedFlag_History, TRUE);
 
     IF(isfolder = FALSE AND CellExists(metadata,"publish"))
     {
@@ -1295,7 +1272,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
                                , newtype := CellExists(metadata,'type') ? metadata.type : 0
                                ]);
 
-    AddCreateHistory(metadata);
     RETURN newfolder;
   }
 
@@ -1361,7 +1337,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     }
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
-    AddCreateHistory(metadata);
     RETURN toret;
   }
 

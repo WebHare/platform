@@ -1,6 +1,4 @@
 <?wh
-/* Test the save & preview workflows in the EditDocument app */
-
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::xml/dom.whlib";
