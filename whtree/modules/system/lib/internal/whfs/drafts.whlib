@@ -209,23 +209,6 @@ OBJECTTYPE WHFSDraft
         ];
   }
 
-  PUBLIC MACRO SaveAsPublicDraft()
-  {
-    IF(this->pvt_source = 0)
-      THROW NEW Exception("This draft no longer exists");
-
-    INTEGER mydraftid := this->id;
-    RECORD myversion := SELECT parent, filelink FROM system.fs_objects WHERE id = mydraftid;
-    IF(NOT RecordExists(myversion))
-      THROW NEW Exception("Unable to find draft #" || mydraftid);
-
-    DELETE FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = myversion.filelink AND id != mydraftid;
-    UPDATE system.fs_objects SET parent := whconstant_whfsid_drafts, modificationdate := GetCurrentDatetime() WHERE id = mydraftid;
-    this->pvt_ispublic := TRUE;
-
-    RefreshDraftStatus(myversion.filelink);
-  }
-
   /** @short Save this draft to a public draft
       @param options
       @cell(stringarray) options.basefields If present, list of cells to save from fs_object
