@@ -167,7 +167,7 @@ OBJECTTYPE WHFSDraft
     this->pvt_fsobject := OpenWHFSObject(draftid);
     this->pvt_source := source;
   }
-  MACRO DestroySelf()
+  MACRO UnlinkThis()
   {
     this->pvt_ispublic := FALSE;
     this->pvt_fsobject := DEFAULT OBJECT;
@@ -252,7 +252,7 @@ OBJECTTYPE WHFSDraft
     DELETE FROM system.fs_objects WHERE filelink = this->source AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts] AND id != publicdraft->id;
     RefreshDraftStatus(this->source);
 
-    this->DestroySelf(); //disable this object
+    this->UnlinkThis(); //disable this object
     RETURN publicdraft;
   }
 
@@ -301,7 +301,7 @@ OBJECTTYPE WHFSDraft
 
     final := OpenWHFSObject(this->pvt_source);
     IF (NOT options.keeppublicdraft OR NOT this->ispublic)
-      this->DestroySelf(); //disable this object
+      this->UnlinkThis(); //disable this object
 
     RETURN final;
   }
@@ -319,7 +319,7 @@ OBJECTTYPE WHFSDraft
     IF(sourceid != 0)
       RefreshDraftStatus(sourceid);
 
-    this->DestroySelf();
+    this->UnlinkThis();
   }
 
   /** Returns the event masks for broadcasts fired for this object
