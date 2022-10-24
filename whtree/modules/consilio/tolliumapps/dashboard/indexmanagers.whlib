@@ -1,7 +1,7 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
@@ -15,10 +15,12 @@ PUBLIC RECORD ARRAY FUNCTION GetIndexManagerStatus(INTEGER indexid)
     RETURN RECORD[];
 
   OpenPrimary();
-  RETURN SELECT rowkey := uuid
+  RETURN SELECT TEMPORARY toks := Tokenize(indexname, "-")
+              , rowkey := uuid
               , docs
               , size
               , shards
+              , indexname := toks[0]
               , name := indexname
               , health
            FROM ListOpenSearchIndices(indexid);
@@ -64,12 +66,27 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
     TRY
     {
       RECORD ARRAY result := AWAIT this->statuspromise;
-      ^indices->rows := SELECT *
-                             , health := this->GetHealthIcon(health, ^indices)
-                             , size := this->contexts->user->FormatFileSize(size, 0, TRUE)
-                             , size_sort := Right("000000000000000000" || size, 19)
-                          FROM result;
+      RECORD ARRAY catalogs :=
+          SELECT catalog_indexmanagers.indexname
+               , catalog := catalogs.name
+            FROM consilio.catalogs
+               , consilio.catalog_indexmanagers
+           WHERE catalog_indexmanagers.catalogid = catalogs.id;
+      result := JoinArrays(result, "indexname", catalogs, [ catalog := "" ], [ rightouterjoin := TRUE ]);
+
+      ^indices->rows :=
+          SELECT *
+               , rawhealth := health
+               , rawdocs := docs
+               , rawsize := size
+               , health := this->GetHealthIcon(health, ^indices)
+               , docs := this->contexts->user->FormatMoney(docs, 0, TRUE)
+               , size := this->contexts->user->FormatFileSize(size, 0, TRUE)
+               , size_sort := Right("000000000000000000" || size, 19)
+               , listrowclasses := catalog = "" ? [ "grayedout" ] : STRING[]
+            FROM result;
       ^indices->empty := this->GetTid(".noindices");
+      this->UpdateFooterRows();
     }
     CATCH(OBJECT<OPERATIONCANCELLEDEXCEPTION> e)
     {
@@ -107,5 +124,21 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
       CASE "red"    { RETURN list->GetIcon("tollium:status/error"); }
     }
     RETURN 0;
+  }
+  MACRO UpdateFooterRows()
+  {
+    RECORD ARRAY relevantrows := ^indices->selection ?? ^indices->rows;
+    // The cluster status is controlled by the worst index status
+    STRING clusterhealth := SELECT AS STRING rawhealth FROM relevantrows ORDER BY SearchElement([ "red", "yellow", "green" ], rawhealth);
+    ^indices->footerrows :=
+        SELECT TEMPORARY totalsize := Sum(rawsize)
+             , docs := this->contexts->user->FormatMoney(Sum(rawdocs), 0, TRUE)
+             , health := this->GetHealthIcon(clusterhealth, ^indices)
+             , name := this->GetTid(".indicescount", ToString(Count(*)))
+             , catalog := this->GetTid(".unconnectedcount", ToString(Length(SELECT FROM VAR relevantrows WHERE catalog = "")))
+             , shards := Sum(shards)
+             , size := this->contexts->user->FormatFileSize(totalsize, 0, TRUE)
+          FROM relevantrows
+         LIMIT 1;
   }
 >;

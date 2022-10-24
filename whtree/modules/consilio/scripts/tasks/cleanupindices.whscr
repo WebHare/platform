@@ -23,19 +23,17 @@ BOOLEAN debug := "--debug" IN GetConsoleArguments();
 FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuiltin)
 {
   //We garbage collect indexmanagers we fully control ourselves
-  RECORD result := GetIndexmanagerIndexList(indexmanager.id);
+  RECORD ARRAY indices := GetIndexmanagerIndexList(indexmanager.id);
   IF (debug)
-    Print(`Checking index manager ${indexmanager.id}: ${result.status}\n`);
-  IF (result.status != SearchOk)
-    CONTINUE;
+    Print(`Checking index manager ${indexmanager.id}: ${Length(indices)} indices\n`);
 
   STRING ARRAY expected_indices := SELECT AS STRING ARRAY indexname
                                      FROM consilio.catalog_indexmanagers
                                     WHERE catalog_indexmanagers.indexmanager = VAR indexmanager.id
                                  ORDER BY indexname;
 
-  DELETE FROM result.indices WHERE BinaryFind(expected_indices, indexname) != -1;
-  FOREVERY(RECORD toremove FROM result.indices)
+  DELETE FROM indices WHERE BinaryFind(expected_indices, indexname) != -1;
+  FOREVERY(RECORD toremove FROM indices)
   {
     IF(toremove.indexname NOT LIKE "c_*")  //definately not autocreated by us... let's leave it for the sysop to figure out
     {

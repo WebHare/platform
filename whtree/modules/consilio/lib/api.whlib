@@ -361,24 +361,30 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
 /** @short Builds an aggregation query
     @param field Field to aggregate over
     @param type Aggregation type (`"count"`, `"min"`, `"max"`, `"terms"`, `"top_hits"`, `"cardinality"`)
-    @cell options.name Name of the query, to refer to this query (defaults to the used field)
-    @cell options.size Nr of items to keep after ordering (only for aggregation types `"terms"` and `"top_hits"`)
-    @cell options.orderby Field to order over (only for aggregation types `"terms"` and `"top_hits"`)
-    @cell options.orderdesc Whether to reverse the ordering (only for aggregation types `"terms"` and `"top_hits"`)
-    @cell options.query Query to run the aggregation over (defaults to matching all documents in the index)
-    @cell options.aggregations Subaggregations (returned by #CQAggregate)
+    @cell(string) options.name Name of the query, to refer to this query (defaults to the used field)
+    @cell(integer) options.size Nr of items to return (only for aggregation types `"terms"` and `"top_hits"`, defaults to -1
+        for `"terms"` to return all terms, must be a positive non-zero number for `"top_hits"`)
+    @cell(string) options.countfield The name of the field to return the number of documents containing the term in (only for
+        aggregation type `"terms"`)
+    @cell(string) options.orderby Field to order over (only for aggregation type `"top_hits"`, `"terms"` are always sorted by
+        the aggregation field value)
+    @cell(boolean) options.orderdesc Whether to reverse the ordering (only for aggregation types `"terms"` and `"top_hits"`,
+        defaults to FALSE for `"terms"` and to TRUE for `"top_hits"`)
+    @cell(record) options.query Query to run the aggregation over (defaults to matching all documents in the index)
+    @cell(record array) options.aggregations Subaggregations (returned by #CQAggregate)
     @return Consilio aggregation query record
 */
 PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ name := ""
-      , size := 0
+      , size := -1
+      , countfield := ""
       , orderby := ""
-      , orderdesc := TRUE
+      , orderdesc := FALSE
       , query := DEFAULT RECORD
       , aggregations := DEFAULT RECORD ARRAY
-      ], options);
+      ], options, [ optional := [ "orderdesc" ] ]);
 
   // Make sure either field or name is given
   IF (type != "count")
@@ -387,7 +393,7 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
     THROW NEW Exception("Name option is required for aggregation type 'count'");
 
   // For top_hits, a size must be given
-  IF (type IN [ "terms", "top_hits" ] AND options.size <= 0)
+  IF (type IN [ "top_hits" ] AND options.size <= 0)
     THROW NEW Exception("A non-zero size option is required for aggregation type 'top_hits'");
 
   RECORD aggregation :=
@@ -399,9 +405,15 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
   IF (type IN [ "min", "max", "count", "cardinality" ])
   {
   }
-  ELSE IF (type IN [ "terms", "top_hits" ])
+  ELSE IF (type = "terms")
   {
-    aggregation := CELL[ ...aggregation, options.size, options.orderby, options.orderdesc ];
+    BOOLEAN orderdesc := CellExists(options, "orderdesc") AND options.orderdesc;
+    aggregation := CELL[ ...aggregation, options.size, options.countfield, orderdesc ];
+  }
+  ELSE IF (type = "top_hits")
+  {
+    BOOLEAN orderdesc := NOT CellExists(options, "orderdesc") OR options.orderdesc;
+    aggregation := CELL[ ...aggregation, options.size, options.orderby, orderdesc ];
   }
   ELSE
     THROW NEW Exception(`Invalid aggregation type '${type}'`);

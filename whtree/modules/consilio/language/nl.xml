@@ -374,15 +374,18 @@
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
       <textgroup gid="indexmanagers">   <!-- tolliumapps.dashboard.indexmanagers -->
+        <text tid="catalog">Catalogus</text>
         <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
         <text tid="docs">Documenten</text>
         <text tid="getmapping">Mappings</text>
         <text tid="indexmanager">OpenSearch server</text>
+        <text tid="indicescount"><ifparam p="1" value="1">1 index<else/><param p="1"/> indices</ifparam></text>
         <text tid="managemanagers">Beheer indexmanagers</text>
         <text tid="noindices">Geen indices</text>
         <text tid="shards">Shards</text>
         <text tid="size">Grootte</text>
         <text tid="title">Index managers</text>
+        <text tid="unconnectedcount"><ifparam p="1" value="1">1 niet-verbonden index<else/><param p="1"/> niet-verbonden indices</ifparam></text>
         <text tid="waitingforstatus">Wacht op indexlijst…</text>
       </textgroup>
       <textgroup gid="managemanagers">   <!-- tolliumapps.dashboard.managemanagers -->

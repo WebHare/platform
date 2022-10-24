@@ -976,14 +976,18 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
     }
     CASE "terms"
     {
+      // Convert a 'terms' aggregation into a composite aggregation, so we can return all terms
+      RECORD terms := CELL[ aggregation.field];
+      IF (aggregation.orderdesc)
+        INSERT CELL "order" := "desc" INTO terms;
       result :=
-          [ terms :=
-              CELL[ aggregation.field
-                  , aggregation.size
+          [ composite := CELL
+              [ sources :=
+                  [ CellInsert(DEFAULT RECORD, aggregation.field, CELL[ terms ])
                   ]
+              , aggregation.size
+              ]
           ];
-      IF (aggregation.orderby != "")
-        INSERT CELL "order" := CellInsert(DEFAULT RECORD, aggregation.orderby, aggregation.orderdesc ? "desc" : "asc") INTO result.terms;
     }
     CASE "top_hits"
     {
@@ -1083,7 +1087,9 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
       {
         FOREVERY (RECORD bucket FROM result_aggregation.buckets)
         {
-          RECORD lineresult := CellInsert(DEFAULT RECORD, query_aggregation.name, bucket."key");
+          RECORD lineresult := CellInsert(DEFAULT RECORD, query_aggregation.name, GetCell(bucket."key", query_aggregation.name));
+          IF (query_aggregation.countfield != "")
+            lineresult := CellInsert(lineresult, query_aggregation.countfield, bucket.doc_count);
 
           IF (CellExists(query_aggregation, "aggregations"))
           {
