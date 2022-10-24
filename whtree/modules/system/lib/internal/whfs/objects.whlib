@@ -1269,12 +1269,13 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell metadata.ordering Relative ordering vs other objects in the parent folder (integer, optional)
       @cell metadata.indexdoc Id of indexdocument of this folder (integer, must link to file within this folder,
         optional)
-      @cell(boolean) options.runhooks Whether to run hooks
+      @cell(boolean) options.runhooks Whether to run hooks. Defaults to true
       @return (object %WHFSFolder) New folder object
   */
   PUBLIC OBJECT FUNCTION CreateFolder(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE ], options);
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
 
     metadata := VerifyMetadata(metadata, TRUE);
     metadata := this->FixupNewObjectMetadata(metadata, TRUE);
@@ -1368,8 +1369,11 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @param requiredmetadata The required metadata. The name cell is used to lookup the existing folder
       @param optionalmetadata Optional metadata, will only be used when creating the folder
       @return(object %WHFSFolder) The folder */
-  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
+
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFolder requires open work`); //prevent users from 'getting away' with EnsureFolder outside work if it didn't make any material change
 
@@ -1387,15 +1391,18 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
       RETURN existing;
     }
-    RETURN this->CreateFolder(MakeMergedRecord(requiredmetadata, optionalmetadata));
+    RETURN this->CreateFolder(CELL[...requiredmetadata, ...optionalmetadata], options);
   }
 
   /** @short Get a file, create if it doesn't exist.
       @param requiredmetadata The required metadata. The name cell is used to lookup the existing file
       @param optionalmetadata Optional metadata, will only be used when creating the file
       @return(object %WHFSFile) The file */
-  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
+
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFile requires open work`); //prevent users from 'getting away' with EnsureFile outside work if it didn't make any material change
 
@@ -1413,7 +1420,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
       RETURN existing;
     }
-    RETURN this->CreateFile(MakeMergedRecord(requiredmetadata, optionalmetadata));
+    RETURN this->CreateFile(CELL[...requiredmetadata, ...optionalmetadata], options);
   }
 
 
