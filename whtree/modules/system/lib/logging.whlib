@@ -149,7 +149,7 @@ PUBLIC MACRO LogRPCForSoapClient(STRING logsource, STRING sourcetracker, OBJECT 
 
 /** @short Write a marker with optional text to all primary logfiles
     @param text Text to write with the mark */
-PUBLIc MACRO WriteLogMarker(STRING text)
+PUBLIC MACRO WriteLogMarker(STRING text)
 {
   STRING mark := `--- MARK${text != "" ? `: ${text}` : ''} ---`;
   LogDebug("system:debug", mark);

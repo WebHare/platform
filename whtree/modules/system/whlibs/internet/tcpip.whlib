@@ -413,6 +413,19 @@ PUBLIC INTEGER FUNCTION GetLastSocketError(INTEGER connectionid)
   RETURN __HS_TCPIP_GETLASTERROR(connectionid).errorcode;
 }
 
+/** @short Get the message for the last error on a TCP/IP socket. Also returns
+    SSL error messages (which are not reflected in the error code)
+    @param connectionid Integer connectionid to use
+    @return Message for the last error at this connection (if exists)
+*/
+PUBLIC STRING FUNCTION GetLastSocketErrorMessage(INTEGER connectionid)
+{
+  RECORD errinfo := __HS_TCPIP_GETLASTERROR(connectionid);
+  IF(errinfo.sslerror != "")
+    RETURN errinfo.sslerror;
+  RETURN GetSocketErrorText(errinfo.errorcode) ?? "Socket error #" || errinfo.errorcode;
+}
+
 /** @short Convert a TCP/IP socket error to text
     @param errorcode Code of the error
     @return String with the tcp error text belonging to this code

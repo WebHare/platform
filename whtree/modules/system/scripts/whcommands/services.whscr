@@ -59,10 +59,16 @@ MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
   SetConsoleLineBuffered(FALSE);
   SetOutputBuffering(FALSE); //do we need this?
 
+  STRING ARRAY debugargs := app.args CONCAT serviceargs;
+  FOR (INTEGER i := -1; i < LENGTH(debugargs); i := i + 1)
+    IF ((i >= 0 AND debugargs[i] LIKE "mod::*") OR i = LENGTH(app.args) - 1)
+    {
+      INSERT "--debug" INTO debugargs AT i + 1;
+      BREAK;
+    }
+
   WHILE(TRUE)
   {
-    STRING ARRAY debugargs := app.args CONCAT ["--debug"] CONCAT serviceargs;
-
     OBJECT proc := CreateProcess(app.app, debugargs,
       [ take_input := FALSE
       , take_output := TRUE

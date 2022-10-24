@@ -12,6 +12,7 @@
       <button id="starttests">Start</button>
       <button id="skiptest" disabled>Skip</button>
       <button id="toggleautostart">Toggle autostart</button>
+      <button id="togglerepeatuntilerror">Repeat until error</button>
       <button id="opentestframe">Open testframe in tab</button>
       <span id="teststatus"></span>
     </div>

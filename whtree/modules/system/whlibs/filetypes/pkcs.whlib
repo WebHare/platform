@@ -557,3 +557,29 @@ PUBLIC RECORD FUNCTION CheckPKCSSignature(RECORD decoded, RECORD options DEFAULT
 
   RETURN [ success := TRUE, code := "OK" ];
 }
+
+/** Returns whether a decoded certificate is valid for a certain hostname, also considering wildcards
+    @param cert Decoded certificate
+    @param hostname Hostname to search for
+    @return TRUE if the certificate is valid for the hostname
+*/
+PUBLIC BOOLEAN FUNCTION IsCertificateForHostname(RECORD cert, STRING hostname)
+{
+  hostname := ToLowercase(hostname);
+  IF(hostname IN cert.servernames)
+    RETURN TRUE;
+
+  STRING firstname := Tokenize(hostname, ".")[0];
+
+  /* Check for matches with wildcard dnsaltnames
+      a.b.c matches *.b.c
+      *.b.c matches *.b.c
+      x.a.b.c does not match *.b.c
+      a.*.c does not match *.b.c
+  */
+  FOREVERY (STRING sname FROM cert.servernames)
+    IF (Left(sname, 2) = "*." AND hostname = firstname || SubString(sname, 1))
+      RETURN TRUE;
+
+  RETURN FALSE;
+}

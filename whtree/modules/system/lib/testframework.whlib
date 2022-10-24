@@ -2422,3 +2422,14 @@ PUBLIC MACRO WaitForTimedTasks(RECORD options)
     Sleep(100);
   }
 }
+
+/** Invoke function to write a log marker
+    @param text Log marker text
+    @return Nothing
+    @private
+*/
+PUBLIC RECORD FUNCTION TestInvoke_WriteLogMarker(STRING text)
+{
+  WriteLogMarker(text);
+  RETURN DEFAULT RECORD;
+}

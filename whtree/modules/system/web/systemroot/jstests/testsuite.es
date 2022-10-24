@@ -118,7 +118,7 @@ class TestFramework
   runTests()
   {
     document.documentElement.classList.add("testframework--testsstarted");
-    this.runAllTests(0); // with promises
+    return this.runAllTests(0); // with promises
     //this.startNextTest(); // with old implementation
   }
   skipTest()
@@ -600,6 +600,8 @@ class TestFramework
 
     console.warn(text);
     console.warn(e);
+
+    this.haveerror = true;
 
     this.log(prefix + (e ? " exception: " + e : " failed with unknown reason"));
     let lognode = this.log("Location: computing...");
@@ -1434,9 +1436,14 @@ class TestSuite
   {
     this.testfw = new TestFramework;
 
+    let url = new URL(window.location.href);
+    this.repeatuntilerror = url.searchParams.get('repeatuntilerror') == '1';
+    this.autostart = url.searchParams.get('autostart') != '0';
+
     this.getTestList();
 
     document.getElementById('toggleautostart').addEventListener('click', () => this.toggleAutoStart());
+    document.getElementById('togglerepeatuntilerror').addEventListener('click', () => this.toggleRepeatUntilError());
     document.getElementById('opentestframe').addEventListener("click", () => this.openTestFrame());
     document.getElementById('skiptest').addEventListener("click", () => this.skipTest());
     if (!this.autostart)
@@ -1454,6 +1461,10 @@ class TestSuite
       document.getElementById('toggleautostart').textContent = "Disable autostart";
       document.getElementById('starttests').disabled = true;
     }
+    if (this.repeatuntilerror)
+      document.getElementById('togglerepeatuntilerror').textContent = "Disable repeatuntilerror";
+    else
+      document.getElementById('togglerepeatuntilerror').textContent = "Enable repeatuntilerror";
   }
 
   getTestList()
@@ -1505,12 +1516,10 @@ class TestSuite
       this.testfw.addTests(filtered);
       this.gottests = true;
 
-      if(url.searchParams.get('autostart'))
-        this.autostart = url.searchParams.get('autostart') != '0';
-      else
+      if(!url.searchParams.get('autostart'))
         this.autostart = qSA('#tests li').length == 1;
 
-      if (this.autostart)
+      if (this.autostart || this.repeatuntilerror)
         this.startTests();
 
     });
@@ -1520,6 +1529,13 @@ class TestSuite
   {
     var url = new URL(window.location.href);
     url.searchParams.set('autostart', this.autostart ? '0' : '1');
+    location.href = url.toString();
+  }
+
+  toggleRepeatUntilError()
+  {
+    var url = new URL(window.location.href);
+    url.searchParams.set('repeatuntilerror', this.repeatuntilerror ? '0' : '1');
     location.href = url.toString();
   }
 
@@ -1533,8 +1549,14 @@ class TestSuite
         return;
       this.started = true;
 
-      this.testfw.runTests();
+      this.testfw.runTests().then(() => this.checkTestResult())
     }
+  }
+
+  checkTestResult()
+  {
+    if (this.repeatuntilerror && !this.testfw.haveerror)
+      window.location.reload();
   }
 
   skipTest()

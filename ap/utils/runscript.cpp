@@ -270,6 +270,14 @@ int UTF8Main(std::vector<std::string> const &args)
                 HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
 //                jobmgr->SetRunningTimeout(vmgroup, 30);
 
+                jobmgr->SetJobErrorReporter([&connection](std::string const &groupid, std::string const &externalsessiondata, ErrorHandler const &errorhandler, std::string const &script, std::string const &contextinfo)
+                {
+                        std::map< std::string, std::string > params;
+                        params["script"] = Blex::AnyToJSON(script);
+                        params["contextinfo"] = Blex::AnyToJSON(contextinfo);
+                        LogHarescriptError(*connection, "runscript", groupid, externalsessiondata, errorhandler, params);
+                });
+
                 // Store ptr to jobmgr for the signal handler
                 SignalJobMgrInteration signalintegration(jobmgr.get());
 

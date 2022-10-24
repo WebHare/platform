@@ -220,6 +220,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   INTEGER pvt_timeout;
   STRING pvt_useragent;
   INTEGER pvt_sockerr;
+  STRING pvt_sockerrmessage;
   RECORD ARRAY pvt_cookies;
   BOOLEAN pvt_persistentconnections;
   BOOLEAN pvt_autofollow;
@@ -360,6 +361,9 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
   RECORD webharetrustedport;
 
+  /** List of SSL options to use
+      - "SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION": Allow legacy insecure renegotiation between OpenSSL and unpatched clients or servers.
+  */
   PUBLIC STRING ARRAY ssloptions;
 
   // ---------------------------------------------------------------------------
@@ -851,6 +855,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   OBJECT FUNCTION* PointBrowserTo(STRING url, RECORD options, BOOLEAN isasync)
   {
     this->pvt_sockerr := 0;
+    this->pvt_sockerrmessage := "";
     RECORD unpacked := UnpackURL(url);
 
     STRING server := CellExists(options,'connecthost') ? options.connecthost : unpacked.host;
@@ -878,6 +883,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         IF (NOT BindSocket(connid, this->pvt_bindhost, this->pvt_bindport))
         {
           this->pvt_sockerr := GetLastSocketError(connid);
+          this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
           this->MyErrorHandler("Could not bind to " || this->pvt_bindhost || ":" || this->pvt_bindport);
           CloseSocket(connid);
           RETURN 0;
@@ -911,6 +917,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         IF (NOT connectresult)
         {
           this->pvt_sockerr := GetLastSocketError(connid);
+          this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
           this->MyErrorHandler("Could not connect to proxy " || connecttohost || ":" || connecttoport || " (for " || url || ")");
           CloseSocket(connid);
           RETURN 0;
@@ -974,6 +981,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
             IF (connectresult)
               BREAK;
             this->pvt_sockerr := GetLastSocketError(connid);
+            this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
           }
           IF (NOT anyallowed)
           {
@@ -1008,6 +1016,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         IF(NOT SetSecureConnection(connid, TRUE, CELL[ hostname := server, this->ssloptions ]))
         {
           this->pvt_sockerr := GetLastSocketError(connid);
+          this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
           this->MyErrorHandler("Could not establish secure connection");
           CloseSocket(connid);
           RETURN 0;
@@ -1160,7 +1169,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
       this->SetDummyLastRequest();
       this->pvt_lastrequest.code := this->pvt_sockerr ?? -1;
-      this->pvt_lastrequest.message := this->pvt_sockerr < 0 ? GetSocketErrorText(this->pvt_sockerr) : this->pvt_lasterror; //"Connection failed";
+      this->pvt_lastrequest.message := this->pvt_sockerr < 0 ? this->pvt_sockerrmessage : this->pvt_lasterror; //"Connection failed";
       RETURN FALSE;
     }
 
@@ -1673,6 +1682,20 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   PUBLIC INTEGER FUNCTION GetSocketError()
   {
     RETURN this->pvt_sockerr;
+  }
+
+  /** Returns the socket status of the last request
+      @return Socket error status
+      @cell(integer) return.code Socket error code
+      @cell(string) return.message Socket error message
+      @see GetLastSocketError GetLastSocketErrorMessage
+  */
+  PUBLIC RECORD FUNCTION GetSocketStatus()
+  {
+    RETURN
+        [ code := this->pvt_sockerr
+        , message := this->pvt_sockerrmessage
+        ];
   }
 
   /** Deletes a single cookie
