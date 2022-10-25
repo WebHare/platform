@@ -427,9 +427,10 @@ PUBLIC MACRO DenyApprovalRequestForDraft(OBJECT draftobject, RECORD options)
      SET finished := GetCurrentDateTime()
    WHERE id = request.id;
 
+  // Move the submitted version into the version history
   UPDATE system.fs_objects
-     SET parent := 17
-   WHERE id = draftobject->fsobject->id;
+     SET parent := whconstant_whfsid_versionhistory
+   WHERE id = draftobject->id;
 
   UPDATE system.fs_objects
      SET published := SetFlagsInPublished(published, PublishedFlag_SubmittedForApproval, FALSE)
@@ -450,8 +451,9 @@ PUBLIC MACRO DenyApprovalRequestForDraft(OBJECT draftobject, RECORD options)
       , expirydate :=     request.expirydate
       ]);
 
-  // Clone the old draft as new public draft
-  __CloneDraftAsPublicDraft(draftobject->id);
+  // Clone the old draft as new public draft if we were updateing a published version
+  IF(source->publish)
+    __CloneDraftAsPublicDraft(draftobject->id);
 }
 
 /** Updates a sumbitted draft so its non-versioned fields reflect the current live object

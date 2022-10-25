@@ -407,7 +407,7 @@ MACRO TestOrderingAndVersionNumbers()
       , [ o := 2, c := TRUE, v := "0.2", e := VersionEventType_FinalDenial ]
       ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
 
-  testfiledraft := GetPublicDraft(testfile->id);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "third approved request" ]);
   TestEQ(
       [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]
@@ -441,7 +441,7 @@ MACRO TestOrderingAndVersionNumbers()
       , [ o := 6, c := TRUE, v := "1.2", e := VersionEventType_FinalDenial ]
       ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
 
-  testfiledraft := GetPublicDraft(testfile->id);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "fifth will-cancel request" ]);
   TestEQ(
       [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]

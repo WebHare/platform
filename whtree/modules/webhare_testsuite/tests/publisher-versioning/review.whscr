@@ -100,8 +100,8 @@ OBJECT ASYNC FUNCTION BaseReview()
 
   // Update title, submit again
   testfw->BeginWork();
+  testfiledraft := UpdateDraftPublish(testfile, TRUE);
   testfile->UpdateMetadata([ title := "second title" ]);
-  testfiledraft := GetPublicDraft(testfile->id);
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval again" ]); // req (2)
   testfw->CommitWork();
 
