@@ -162,7 +162,7 @@ GLOBALLDFLAGS += -rdynamic
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
-	MACOSVERSION := $(shell sw_vers | grep ProductVersion | cut -f 2 | cut -d "." -f 1-2)
+	MACOSVERSION := $(shell sw_vers | grep ProductVersion | tr -d '\t' | cut -d: -f2 | cut -d "." -f 1-2)
 	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 	GLOBALLDFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 else
