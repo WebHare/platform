@@ -241,7 +241,7 @@ MACRO DraftingTest()
   draft := CreateDraft(testfile, testfile->id, FALSE);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["robots"] ]);
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
-  draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft := CreateAutosave(testfw->GetUserObject("homer"), testfile->id);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["death"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
 

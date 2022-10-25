@@ -471,10 +471,12 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
 /** @short Create a new draft from this object
     @param whfsobject Object to which the draft is linked
     @param instancesource ID from which we should copy existing contenettype data, Usually whfsobject->id */
-PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BOOLEAN publicdraft)
+PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BOOLEAN publicdraft, OBJECT __user DEFAULTSTO DEFAULT OBJECT)
 {
   IF(whfsobject->isfolder)
     THROW NEW Exception("Cannot create a draft version from a folder");
+  IF(NOT ObjectExists(__user))
+    __user := GetEffectiveUser();
 
   INTEGER versioning_site;
   IF (publicdraft)
@@ -506,7 +508,7 @@ PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BO
   }
 
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  QuickCopy(whfsobject->id, instancesource, destid, publicdraft ? whconstant_whfsid_drafts : whconstant_whfsid_autosaves, [ modifiedby := GetEffectiveUserID(), filelink := whfsobject->id, creationdate := GetCurrentDatetime() ]);
+  QuickCopy(whfsobject->id, instancesource, destid, publicdraft ? whconstant_whfsid_drafts : whconstant_whfsid_autosaves, [ modifiedby := __user->authobjectid, filelink := whfsobject->id, creationdate := GetCurrentDatetime() ]);
 
   IF (versioning_site != 0)
     GetPrimary()->BroadcastOnCommit("system:versionevent." || versioning_site || "." || whfsobject->id, [ type := "createdraft", live_file := whfsobject->id, draft := destid ]);

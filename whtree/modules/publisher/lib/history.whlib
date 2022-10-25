@@ -84,3 +84,11 @@ PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECOR
   RETURN final;
 }
 
+/** Create an autosave */
+PUBLIC OBJECT FUNCTION CreateAutosave(OBJECT user, INTEGER objid) //autosaves used to be called 'private draft' but I think this is much clearer
+{
+  IF(NOT ObjectExists(user))
+    THROW NEW Exception(`CreateAutosave requires a user object`);
+
+  RETURN CreateDraft(OpenWHFSObject(objid), objid, FALSE, user);
+}
