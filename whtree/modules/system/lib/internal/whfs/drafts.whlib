@@ -3,11 +3,42 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib" ;
+LOADLIB "mod::system/lib/internal/whfs/history.whlib" ;
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
+
+RECORD FUNCTION StringVersionToParts(STRING stringversion)
+{
+  STRING ARRAY toks := Tokenize(stringversion, '.');
+  IF(Length(toks) != 2)
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[ major := ToInteger(toks[0], 0)
+             , minor := ToInteger(toks[1], 0)
+             ];
+}
+
+RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
+{
+  RECORD ARRAY currentversions := SELECT version, userdata
+                                    FROM system_internal.fs_history
+                                   WHERE fs_object = VAR source
+                                         AND version != "";
+  currentversions := SELECT *, parts := StringVersionToParts(version) FROM currentversions;
+  RETURN (SELECT AS RECORD CELL[ parts.major
+                               , parts.minor
+                               , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
+                               ] FROM currentversions
+                                WHERE RecordExists(parts)
+                                ORDER parts.major DESC, parts.minor DESC
+                                LIMIT 1)
+         ?? [ userdata := DEFAULT RECORD, major := 0, minor := 0 ];
+}
+
 
 RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid, INTEGER versionparent, RECORD updates)
 {
@@ -207,6 +238,67 @@ OBJECTTYPE WHFSDraft
         [ basefields :=   basefields
         , instances :=    instances
         ];
+  }
+
+
+  /** @short Save this draft to a new public draft
+      @cell(string array) options.basefields If present, list of cells to save from fs_object
+      @cell(string array) options.contenttypes If present, list of contenttypes to save
+      @return The public draft into which this draft was merged */
+  PUBLIC MACRO SaveAsNewPublicDraft(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ basefields := STRING[]
+                               , contenttypes := STRING[]
+                               ], options);//, [ optional := ["BASEFIELDS", "CONTENTTYPES"] ]);
+
+    IF(this->pvt_source = 0)
+      THROW NEW Exception("This draft no longer exists");
+
+    //Move our version to the draft folder, move away older drafts to snapshots and remove all other autosaves
+    INTEGER snapshotparent := EnsureSnapshotsFolder(SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->source);
+    DATETIME now := GetCurrentDatetime();
+    UPDATE system.fs_objects SET parent := snapshotparent
+                           WHERE filelink = this->source
+                                 AND parent = whconstant_whfsid_drafts;
+    UPDATE system.fs_objects SET parent := whconstant_whfsid_drafts
+                               , modificationdate := now
+                           WHERE id = this->id;
+    DELETE FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves
+                                    AND filelink = this->source;
+
+    //Copy the unmanaged instances into the draft (as the autosave may be behind on those props)
+    //Which types should not be copied?
+    INTEGER ARRAY managedtypes;
+    FOREVERY(STRING ns FROM options.contenttypes)
+      INSERT OpenWHFSType(ns)->id INTO managedtypes AT END;
+
+    //Merge the unmanaged copyable fields from the source
+    FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(this->source))
+      IF(cancopy NOT IN managedtypes)
+      {
+        OBJECT typeobj := OpenWHFSTypeById(cancopy);
+        typeobj->SetInstanceData(this->id, typeobj->GetInstanceData(this->source));
+      }
+
+    //And reapply managed fields
+    RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->source;
+    UPDATE system.fs_objects SET RECORD CELL[...sourcedata, ...PickCells(sourcedata, options.basefields) ] WHERE id = this->id;
+
+    //TODO require a locked transaction?
+    //Get next version#
+    RECORD curversion := GetLastSnapshotVersion(this->source);
+
+    INSERT CELL [ fs_object := this->source
+                , user := GetEffectiveUserId()
+                , userdata := EncodeHSON(user->GetUserDataForLogging())
+                , type := whconstant_historytype_save
+                , when := now
+                , snapshot := this->id
+                , version := `${curversion.major}.${curversion.minor + 1}`
+                ] INTO system_internal.fs_history;
+
+    RefreshDraftStatus(this->source);
+    this->UnlinkThis(); //disable this object
   }
 
   /** @short Save this draft to a public draft
