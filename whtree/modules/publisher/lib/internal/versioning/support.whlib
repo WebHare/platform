@@ -378,9 +378,6 @@ PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
                               SetFlagsInPublished(source->published, PublishedFlag_SubmittedForApproval, FALSE),
                               PublishedFlag_HasPublicDraft, FALSE);
   source->UpdateMetadata([ published := newpublished ], [ __allowreadonlyupdate := TRUE ]);
-
-  // Hook for policy-specific actions
-  policy->OnApprovalRequestAccepted(applied_draft);
 }
 
 /** Denies a request for approval

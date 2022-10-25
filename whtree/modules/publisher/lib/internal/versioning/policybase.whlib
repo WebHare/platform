@@ -423,18 +423,6 @@ PUBLIC STATIC OBJECTTYPE VersioningPolicyBase
     RETURN fsobjects;
   }
 
-  /** @short Callback that is run after a draft is accepted
-      @param draftobject The draft object (draftobject->source is the live object's id)
-  */
-  PUBLIC MACRO OnApprovalRequestAccepted(OBJECT draftobject)
-  {
-  }
-
-  PUBLIC RECORD FUNCTION GetHistoryExtension()
-  {
-    RETURN DEFAULT RECORD;
-  }
-
   /** Returns the fields to restore
       @return
       @cell return.fields
