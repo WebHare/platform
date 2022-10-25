@@ -464,8 +464,8 @@
       </menu>
 
       <menu name="newfilemenu">
-        <item action="newfile" tid="filemanager.main.app.actions.newfilefromcontext" disablemode="hidden" />
-        <item action="newfolder" tid="filemanager.main.app.actions.newfolderfromcontext" disablemode="hidden" />
+        <item action="newfile" tid="filemanager.main.app.actions.newfile" disablemode="hidden" />
+        <item action="newfolder" tid="filemanager.main.app.actions.newfolder" disablemode="hidden" />
         <item tid=".upload" action="upload" disablemode="hidden" />
         <divider/>
         <item action="selectall" disablemode="hidden" />
