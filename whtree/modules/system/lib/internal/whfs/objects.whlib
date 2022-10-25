@@ -635,6 +635,7 @@ OBJECTTYPE WHFSObject
   {
     options := ValidateOptions( [ runhooks := TRUE
                                 , setindex := FALSE
+                                , __allowreadonlyupdate := FALSE
                                 ], options);
 
     BOOLEAN republish_file := FALSE;
@@ -649,6 +650,8 @@ OBJECTTYPE WHFSObject
     IF(NOT this->isfolder)
       newmetadata := FixupDataAndType(newmetadata, oldversion);
 
+    IF(IsReadonlyWHFSSpace(this->whfspath) AND NOT options.__allowreadonlyupdate)
+      THROW NEW Exception(`Attempting to update readonly object ${this->whfspath}`);
 
     STRING ARRAY canupdate := GetUpdatableMetadataFields(this->pvt_isfolder);
     FOREVERY(RECORD cellrec FROM UnpackRecord(newmetadata))
@@ -822,7 +825,6 @@ OBJECTTYPE WHFSObject
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
 
     RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
-    AddModifyHistory(now, oldversion, newversion);
 
     IF(options.setindex)
       this->parentobject->UpdateMetadata([ indexdoc := this->id ]);
@@ -853,26 +855,6 @@ OBJECTTYPE WHFSObject
 
     RETURN this->pvt_exists;
   }
-
-  /** Get the change history for this object
-      @return Change history items
-      @cell(string) return.type One of 'recycled', 'created', 'modified'
-      @cell(integer) return.user User authobject id
-      @cell(datetime) return.when Modification time
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetHistory()
-  {
-    RETURN SELECT type := type = whconstant_historytype_recycle ? "recycled"
-                          : type = whconstant_historytype_create ? "created"
-                          : type = whconstant_historytype_modify ? "modified"
-                          : "#" || type
-                , user
-                , when
-             FROM system.fs_history
-            WHERE fs_object = this->id
-         ORDER BY when;
-  }
-
 
   /** @short Create a copy of this file/folder in the destination folder, with optional rename.
       @param destfolder Destination folder
@@ -1191,8 +1173,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
     INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
     published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));
-    IF(IsHistoryEnabledForSite(this->parentsite))
-      published := SetFlagsInPublished(published, PublishedFlag_History, TRUE);
 
     IF(isfolder = FALSE AND CellExists(metadata,"publish"))
     {
@@ -1269,12 +1249,13 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell metadata.ordering Relative ordering vs other objects in the parent folder (integer, optional)
       @cell metadata.indexdoc Id of indexdocument of this folder (integer, must link to file within this folder,
         optional)
-      @cell(boolean) options.runhooks Whether to run hooks
+      @cell(boolean) options.runhooks Whether to run hooks. Defaults to true
       @return (object %WHFSFolder) New folder object
   */
   PUBLIC OBJECT FUNCTION CreateFolder(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE ], options);
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
 
     metadata := VerifyMetadata(metadata, TRUE);
     metadata := this->FixupNewObjectMetadata(metadata, TRUE);
@@ -1294,7 +1275,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
                                , newtype := CellExists(metadata,'type') ? metadata.type : 0
                                ]);
 
-    AddCreateHistory(metadata);
     RETURN newfolder;
   }
 
@@ -1360,7 +1340,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     }
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
-    AddCreateHistory(metadata);
     RETURN toret;
   }
 
@@ -1368,8 +1347,11 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @param requiredmetadata The required metadata. The name cell is used to lookup the existing folder
       @param optionalmetadata Optional metadata, will only be used when creating the folder
       @return(object %WHFSFolder) The folder */
-  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
+
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFolder requires open work`); //prevent users from 'getting away' with EnsureFolder outside work if it didn't make any material change
 
@@ -1387,15 +1369,18 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
       RETURN existing;
     }
-    RETURN this->CreateFolder(MakeMergedRecord(requiredmetadata, optionalmetadata));
+    RETURN this->CreateFolder(CELL[...requiredmetadata, ...optionalmetadata], options);
   }
 
   /** @short Get a file, create if it doesn't exist.
       @param requiredmetadata The required metadata. The name cell is used to lookup the existing file
       @param optionalmetadata Optional metadata, will only be used when creating the file
       @return(object %WHFSFile) The file */
-  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ runhooks := TRUE
+                                ], options);
+
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFile requires open work`); //prevent users from 'getting away' with EnsureFile outside work if it didn't make any material change
 
@@ -1413,7 +1398,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
       RETURN existing;
     }
-    RETURN this->CreateFile(MakeMergedRecord(requiredmetadata, optionalmetadata));
+    RETURN this->CreateFile(CELL[...requiredmetadata, ...optionalmetadata], options);
   }
 
 

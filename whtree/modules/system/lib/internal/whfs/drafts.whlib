@@ -32,7 +32,7 @@ RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid,
   FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(instancesource))
   {
     OBJECT typeobj := OpenWHFSTypeById(cancopy);
-    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(instancesource));
+    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(instancesource), [ __allowreadonlyupdate := TRUE ]);
   }
 
   OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
@@ -41,7 +41,7 @@ RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid,
       , parent :=     orginfo.isactive ? orginfo.parent : 0
       , flags :=      (IsPublish(orginfo.published) ? (DraftFlag_Publish + DraftFlag_WasPublished) : 0) +
                       (isindex ? DraftFlag_WasIndex : 0)
-      ]);
+      ], [ __allowreadonlyupdate := TRUE ]);
 
   RETURN currentinfo;
 }
@@ -62,7 +62,7 @@ MACRO RefreshDraftStatus(INTEGER fsobjectid)
       GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, fsobjectid);
 
       // Get the versioning site this draft belongs to
-      INTEGER versioning_site := file.parent = 18
+      INTEGER versioning_site := file.parent = whconstant_whfsid_versionarchive
           ? SELECT AS INTEGER fs_site FROM system.fs_versionevents WHERE live_object = fsobjectid
           : SELECT AS INTEGER id FROM system.sites WHERE id = file.parentsite AND versioningpolicy != "";
 
@@ -134,11 +134,11 @@ PUBLIC OBJECT FUNCTION __CloneDraftasPublicDraft(INTEGER draftid)
   FOREVERY(RECORD cancopy FROM copyableinstances) //ADDME should orphan data be cloned too ?
   {
     OBJECT typeobj := OpenWHFSTypeById(cancopy.id);
-    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(draftid));
+    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(draftid), [ __allowreadonlyupdate := TRUE ]);
   }
 
   OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-  typeobj->SetInstancedata(destid, typeobj->GetInstanceData(draftid));
+  typeobj->SetInstancedata(destid, typeobj->GetInstanceData(draftid), [ __allowreadonlyupdate := TRUE ]);
 
   RETURN OpenWHFSDraft(destid);
 }
@@ -209,23 +209,6 @@ OBJECTTYPE WHFSDraft
         ];
   }
 
-  PUBLIC MACRO SaveAsPublicDraft()
-  {
-    IF(this->pvt_source = 0)
-      THROW NEW Exception("This draft no longer exists");
-
-    INTEGER mydraftid := this->id;
-    RECORD myversion := SELECT parent, filelink FROM system.fs_objects WHERE id = mydraftid;
-    IF(NOT RecordExists(myversion))
-      THROW NEW Exception("Unable to find draft #" || mydraftid);
-
-    DELETE FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = myversion.filelink AND id != mydraftid;
-    UPDATE system.fs_objects SET parent := whconstant_whfsid_drafts, modificationdate := GetCurrentDatetime() WHERE id = mydraftid;
-    this->pvt_ispublic := TRUE;
-
-    RefreshDraftStatus(myversion.filelink);
-  }
-
   /** @short Save this draft to a public draft
       @param options
       @cell(stringarray) options.basefields If present, list of cells to save from fs_object
@@ -252,17 +235,17 @@ OBJECTTYPE WHFSDraft
     OBJECT final := publicdraft->fsobject;
     RECORD new_metadata := this->GetFilteredMetadata(this->id, options);
     RECORD old_metadata := this->GetFilteredMetadata(final->id, options);
-    final->UpdateMetadata(new_metadata.basefields);
+    final->UpdateMetadata(new_metadata.basefields, [ __allowreadonlyupdate := TRUE ]);
     FOREVERY (RECORD instance FROM new_metadata.instances)
     {
-      instance.type->__ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
+      instance.type->__ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE, [ __allowreadonlyupdate := TRUE ]);
     }
 
     //delete copyable instance not present in the old list
     FOREVERY (RECORD instance FROM old_metadata.instances)
       IF (NOT RecordLowerBound(new_metadata.instances, instance, [ "NAMESPACE" ]).found)
       {
-        instance.type->SetInstancedata(final->id, instance.type->defaultinstance);
+        instance.type->SetInstancedata(final->id, instance.type->defaultinstance, [ __allowreadonlyupdate := TRUE ]);
       }
 
     //Remove all drafts, except the public draft
@@ -399,7 +382,7 @@ PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BO
       GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, whfsobject->id);
 
       // Get the versioning site this draft belongs to
-      versioning_site := file.parent = 18
+      versioning_site := file.parent = whconstant_whfsid_versionarchive
           ? SELECT AS INTEGER fs_site FROM system.fs_versionevents WHERE live_object = whfsobject->id
           : SELECT AS INTEGER id FROM system.sites WHERE id = file.parentsite AND versioningpolicy != "";
     }
