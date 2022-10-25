@@ -428,9 +428,7 @@
           <text tid="movetotop">Move to top</text>
           <text tid="moveup">Move up</text>
           <text tid="newfile">New file</text>
-          <text tid="newfilefromcontext">New empty file</text>
           <text tid="newfolder">New folder</text>
-          <text tid="newfolderfromcontext">New dolder</text>
           <text tid="newinstance">Open in new tab</text>
           <text tid="objecthistory">History</text>
           <text tid="openeditinseparatetab">Open editor in separate tab</text>
@@ -1112,9 +1110,7 @@
       <text tid="linkcheck">Link check</text>
       <text tid="managerights">Manage rights</text>
       <text tid="newfile">New File</text>
-      <text tid="newfilefromcontext">New Empty File</text>
       <text tid="newfolder">New Folder</text>
-      <text tid="newfolderfromcontext">New Folder</text>
       <text tid="newinstance">New Window</text>
       <text tid="ordering">Set Up Ordering</text>
       <text tid="outputslaves">Secondary outputs</text>
