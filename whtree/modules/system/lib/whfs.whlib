@@ -6,7 +6,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib" EXPORT WHFSException, GetWHFSFileDirect;
 LOADLIB "mod::system/lib/internal/whfs/control.whlib" EXPORT ScheduleRepublish;
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" EXPORT OpenWHFSDraft, GetPublicDraft;
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT LookupWHFSObject;
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib" EXPORT OpenWHFSType, OpenWHFSTypeById, GetWHFSInstanceDirect;
 LOADLIB "mod::system/lib/internal/whfs/import.whlib" EXPORT ImportWHFSArchive;
