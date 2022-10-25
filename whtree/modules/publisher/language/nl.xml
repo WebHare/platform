@@ -428,9 +428,7 @@
           <text tid="movetotop">Bovenaan zetten</text>
           <text tid="moveup">Omhoog</text>
           <text tid="newfile">Nieuw bestand</text>
-          <text tid="newfilefromcontext">Nieuw bestand</text>
           <text tid="newfolder">Nieuwe map</text>
-          <text tid="newfolderfromcontext">Nieuwe map</text>
           <text tid="newinstance">In nieuw tabblad openen</text>
           <text tid="objecthistory">Geschiedenis</text>
           <text tid="openeditinseparatetab">Open editor in aparte tab</text>
@@ -1112,9 +1110,7 @@
       <text tid="linkcheck">Linkcontrole</text>
       <text tid="managerights">Rechten beheren</text>
       <text tid="newfile">Nieuw bestand</text>
-      <text tid="newfilefromcontext">Nieuw bestand</text>
       <text tid="newfolder">Nieuwe map</text>
-      <text tid="newfolderfromcontext">Nieuwe map</text>
       <text tid="newinstance">Nieuw venster</text>
       <text tid="ordering">Volgorde instellen</text>
       <text tid="outputslaves">Secundaire uitvoer</text>
