@@ -66,13 +66,19 @@ PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECOR
     final->SetInstanceData(instance.whfstype, CELL [...instance, DELETE whfstype], [ isvisibleedit := FALSE ]);
   }
 
+  RECORD userinfo := user->GetUserDataForLogging();
   INSERT CELL[ fs_object := final->id
              , user := user->authobjectid  //TODO obsolete in the future?
-             , userdata := EncodeHSON(user->GetUserDataForLogging())
+             , userdata := EncodeHSON(userinfo)
              , type := whconstant_historytype_create
              , when := now
              , version := "0.1"
              ] INTO system_internal.fs_history;
+
+  OpenWHFSType("http://www.webhare.net/xmlns/publisher/version")->SetInstancedata(final->id,
+    [ version := "0.1"
+    , editor := userinfo
+    ], [ isvisibleedit := FALSE ]);
 
 
   RETURN final;

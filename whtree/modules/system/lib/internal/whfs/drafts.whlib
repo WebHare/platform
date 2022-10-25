@@ -174,7 +174,7 @@ PUBLIC OBJECT FUNCTION __CloneDraftasPublicDraft(INTEGER draftid)
   RETURN OpenWHFSDraft(destid);
 }
 
-OBJECTTYPE WHFSDraft
+STATIC OBJECTTYPE WHFSDraft
 <
   OBJECT pvt_fsobject;
   BOOLEAN pvt_ispublic;
@@ -182,6 +182,7 @@ OBJECTTYPE WHFSDraft
 
   PUBLIC PROPERTY ispublic(pvt_ispublic, -);
 
+  //TODO get rid of when, user and fsobject. They're caches and already hid some bugs in the versioning code, but we should probably wait until all Versioning code is removed - 90% of fsobject references are there.
   PUBLIC PROPERTY fsobject(pvt_fsobject,-);
 
   PUBLIC PROPERTY id(pvt_fsobject->id, -);
@@ -253,13 +254,17 @@ OBJECTTYPE WHFSDraft
 
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
+    IF(this->ispublic)
+      THROW NEW Exception("This draft is already public");
 
-    //Move our version to the draft folder, move away older drafts to snapshots and remove all other autosaves
     INTEGER snapshotparent := EnsureSnapshotsFolder(SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->source);
     DATETIME now := GetCurrentDatetime();
+    //Move older drafts to the snapshot folder for safe keeping
     UPDATE system.fs_objects SET parent := snapshotparent
                            WHERE filelink = this->source
-                                 AND parent = whconstant_whfsid_drafts;
+                                 AND parent = whconstant_whfsid_drafts
+                                 AND id != this->id;
+    //Move our version to the draft folder
     UPDATE system.fs_objects SET parent := whconstant_whfsid_drafts
                                , modificationdate := now
                            WHERE id = this->id;
@@ -277,12 +282,12 @@ OBJECTTYPE WHFSDraft
       IF(cancopy NOT IN managedtypes)
       {
         OBJECT typeobj := OpenWHFSTypeById(cancopy);
-        typeobj->SetInstanceData(this->id, typeobj->GetInstanceData(this->source));
+        typeobj->SetInstanceData(this->id, typeobj->GetInstanceData(this->source), [ isvisibleedit := FALSE ]);
       }
 
     //And reapply managed fields
     RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->source;
-    UPDATE system.fs_objects SET RECORD CELL[...sourcedata, ...PickCells(sourcedata, options.basefields) ] WHERE id = this->id;
+    UPDATE system.fs_objects SET RECORD CELL[...sourcedata, ...PickCells(sourcedata, options.basefields), modificationdate := now ] WHERE id = this->id;
 
     //TODO require a locked transaction?
     //Get next version#
@@ -298,7 +303,7 @@ OBJECTTYPE WHFSDraft
                 ] INTO system_internal.fs_history;
 
     RefreshDraftStatus(this->source);
-    this->UnlinkThis(); //disable this object
+    this->pvt_ispublic := TRUE;
   }
 
   /** @short Save this draft to a public draft
@@ -353,7 +358,7 @@ OBJECTTYPE WHFSDraft
       @cell(stringarray) options.basefields If present, list of cells to save from fs_object
       @cell(stringarray) options.contenttypes If present, list of contenttypes to save
       @return The original WHFS object into which this draft was merged */
-  PUBLIC OBJECT FUNCTION SaveAsFinal(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC MACRO SaveAsFinal(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
@@ -363,39 +368,59 @@ OBJECTTYPE WHFSDraft
         , contenttypes :=     DEFAULT STRING ARRAY
         , keeppublicdraft :=  FALSE
         ],
-        options,
-        [ optional := [ "BASEFIELDS", "CONTENTTYPES" ]]);
+        options);
 
-    //Copy our data back to the original object
-    OBJECT final := OpenWHFSObject(this->pvt_source);
-    IF(NOT ObjectExists(final))
-      THROW NEW Exception("Unable to open source object #" || this->pvt_source);
+    DATETIME now := GetCurrentDatetime();
+    //Move the draft and any older public drafts to snapshots for safe keeping
+    INTEGER snapshotparent := EnsureSnapshotsFolder(SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->source);
+    UPDATE system.fs_objects SET parent := snapshotparent
+                               , modificationdate := now
+                           WHERE id = this->id;
+    UPDATE system.fs_objects SET parent := snapshotparent
+                           WHERE filelink = this->source
+                                 AND parent = whconstant_whfsid_drafts
+                                 AND id != this->id;
 
-    RECORD new_metadata := this->GetFilteredMetadata(this->id, options);
-    RECORD old_metadata := this->GetFilteredMetadata(final->id, options);
+    //Copy managed data from this the draft to the final
+    INTEGER ARRAY managedtypes;
+    FOREVERY(STRING ns FROM options.contenttypes)
+    {
+      OBJECT typeobj := OpenWHFSType(ns);
+      typeobj->SetInstanceData(this->source, typeobj->GetInstanceData(this->id), [ isvisibleedit := FALSE ]);
+    }
 
-    final->UpdateMetadata(new_metadata.basefields);
-
-    FOREVERY (RECORD instance FROM new_metadata.instances)
-      instance.type->__ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
-
-    FOREVERY (RECORD instance FROM old_metadata.instances)
-      IF (NOT RecordLowerBound(new_metadata.instances, instance, [ "NAMESPACE" ]).found)
-        instance.type->SetInstancedata(final->id, instance.type->defaultinstance);
-
-    //Remove all drafts
-    DELETE
-      FROM system.fs_objects
-     WHERE filelink = this->source
-       AND parent IN (options.keeppublicdraft ? [ whconstant_whfsid_autosaves ] : [ whconstant_whfsid_autosaves, whconstant_whfsid_drafts ]);
+    //And reapply managed fields
+    RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->id;
+    RECORD updates := PickCells(sourcedata, options.basefields);
+    OpenWHFSObject(this->source)->UpdateMetadata(CELL[...updates, modificationdate := now ]);
 
     RefreshDraftStatus(this->source);
 
-    final := OpenWHFSObject(this->pvt_source);
+    //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
+    OBJECT versioninfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/version");
+    RECORD curversion := GetLastSnapshotVersion(this->source);
+    STRING nextversion := `${curversion.major + 1}.0`;
+    RECORD userinfo := user->GetUserDataForLogging();
+
+    OpenWHFSType("http://www.webhare.net/xmlns/publisher/version")->SetInstancedata(this->source,
+      [ version := nextversion
+      , editor := curversion.userdata
+      , publisher := userinfo
+      , published := now
+      ], [ isvisibleedit := FALSE ]);
+
+    //Add history record
+    INSERT CELL [ fs_object := this->source
+                , user := user->authobjectid
+                , userdata := EncodeHSON(userinfo)
+                , type := whconstant_historytype_publish
+                , when := now
+                , version := nextversion
+                , snapshot := this->id
+                ] INTO system_internal.fs_history;
+
     IF (NOT options.keeppublicdraft OR NOT this->ispublic)
       this->UnlinkThis(); //disable this object
-
-    RETURN final;
   }
 
   PUBLIC MACRO DeleteSelf()

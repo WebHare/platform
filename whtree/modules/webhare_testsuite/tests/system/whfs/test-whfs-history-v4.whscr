@@ -38,6 +38,12 @@ MACRO Prep()
                 ], ListObjectHistory(newfile->id), "*");
   TestEq(['a','b','d'], newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
 
+  TestEqMembers([ version := "0.1"
+                , editor := [ login := "marge@beta.webhare.net" ]
+                , publisher := DEFAULT RECORD
+                , published := DEFAULT DATETIME
+                ], newfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
+
   testfw->CommitWork();
 }
 
@@ -153,10 +159,103 @@ MACRO DraftingTest()
   TestEq(["yet-another-draft"], OpenWHFSObject(history[2].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
+  TestEqMembers([ version := "0.1"
+                , editor := [ login := "marge@beta.webhare.net" ]
+                , publisher := DEFAULT RECORD
+                , published := DEFAULT DATETIME
+                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*", "Up until now, the version info should still be unchanged");
+  TestEqMembers([ version := ""
+                , editor := DEFAULT RECORD
+                , publisher := DEFAULT RECORD
+                , published := DEFAULT DATETIME
+                ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*", "snapshots have no version info");
+
   drafts := GetDrafts(testfile->id);
   TestEq(1, Length(drafts));
   TestEq(TRUE, drafts[0].mine);
   TestEq(history[2].snapshot, drafts[0].id);
+
+  //We now need to publish the final draft
+  draft := OpenWHFSDraft(drafts[0].id);
+
+  DATETIME oldmoddate := testfile->modificationdate;
+  draft->SaveAsFinal(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq(["yet-another-draft" ], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq(0, Length(GetDrafts(testfile->id)));
+  TestEq(TRUE, testfile->modificationdate > oldmoddate);
+  TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+
+  history := ListObjectHistory(testfile->id);
+  TestEqMembers([ [ type := "create",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "publish", version := "1.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
+                ], history, "*");
+
+  TestEqMembers([ version := "1.0"
+                , editor := [ login := "homer@beta.webhare.net" ]
+                , publisher := [ login := "marge@beta.webhare.net" ]
+                , published := testfile->modificationdate
+                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
+
+  //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
+  TestEq(['a','e','f'], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq(["yet-another-draft"], OpenWHFSObject(history[2].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq(["yet-another-draft"], OpenWHFSObject(history[3].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq(["yet-another-draft"], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+
+  TestAssert(testfile->id != history[3].snapshot);
+
+  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
+
+  /////////////////////
+  //
+  // STORY: Going straight from autosave to final should not leave a lingering autosave
+
+  //Create an autosave for this draft
+  draft := CreateDraft(testfile, testfile->id, FALSE);
+  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["rabbits"] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEqMembers([ version := "2.0"
+                , editor := [ login := "marge@beta.webhare.net" ]
+                , publisher := [ login := "marge@beta.webhare.net" ]
+                , published := testfile->modificationdate
+                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
+  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
+
+  history := ListObjectHistory(testfile->id);
+  TestEqMembers([ [ type := "create",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "publish", version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "publish", version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
+                ], history, "*");
+
+  /////////////////////
+  //
+  // STORY: Neither should: Autosave, Draft, Edit, Publish leave a lingering autosave
+  draft := CreateDraft(testfile, testfile->id, FALSE);
+  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["robots"] ]);
+  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft := CreateDraft(testfile, testfile->id, FALSE);
+  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["death"] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+
+  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
+
+  history := ListObjectHistory(testfile->id);
+  TestEqMembers([ [ type := "create",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "publish", version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "publish", version := "2.0", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "save",    version := "2.1", user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "publish", version := "3.0", user := testfw->GetUserAuthobjectId("homer") ]
+                ], history, "*");
 
   testfw->CommitWork();
 }
