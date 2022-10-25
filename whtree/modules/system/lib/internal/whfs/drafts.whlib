@@ -294,9 +294,9 @@ STATIC OBJECTTYPE WHFSDraft
     RECORD curversion := GetLastSnapshotVersion(this->source);
 
     INSERT CELL [ fs_object := this->source
-                , user := GetEffectiveUserId()
+                , user := user->authobjectid
                 , userdata := EncodeHSON(user->GetUserDataForLogging())
-                , type := whconstant_historytype_save
+                , type := whconstant_historytype_saved
                 , when := now
                 , snapshot := this->id
                 , version := `${curversion.major}.${curversion.minor + 1}`
@@ -373,13 +373,14 @@ STATIC OBJECTTYPE WHFSDraft
     DATETIME now := GetCurrentDatetime();
     //Move the draft and any older public drafts to snapshots for safe keeping
     INTEGER snapshotparent := EnsureSnapshotsFolder(SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->source);
-    UPDATE system.fs_objects SET parent := snapshotparent
-                               , modificationdate := now
-                           WHERE id = this->id;
+    IF (NOT options.keeppublicdraft)
+      UPDATE system.fs_objects SET parent := snapshotparent
+                                 , modificationdate := now
+                             WHERE id = this->id;
+
     UPDATE system.fs_objects SET parent := snapshotparent
                            WHERE filelink = this->source
-                                 AND parent = whconstant_whfsid_drafts
-                                 AND id != this->id;
+                                 AND parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ];
 
     //Copy managed data from this the draft to the final
     INTEGER ARRAY managedtypes;
@@ -413,7 +414,7 @@ STATIC OBJECTTYPE WHFSDraft
     INSERT CELL [ fs_object := this->source
                 , user := user->authobjectid
                 , userdata := EncodeHSON(userinfo)
-                , type := whconstant_historytype_publish
+                , type := whconstant_historytype_approved
                 , when := now
                 , version := nextversion
                 , snapshot := this->id

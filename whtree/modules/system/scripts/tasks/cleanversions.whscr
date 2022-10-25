@@ -100,7 +100,7 @@ RECORD ARRAY recyclebinitems := SELECT when := ANY(when)
                                      , historyid := ANY(id)
                                      , currentname := ANY(currentname)
                                   FROM system.fs_history
-                                 WHERE type = whconstant_historytype_recycle
+                                 WHERE type = whconstant_historytype_recycled
                               GROUP BY fs_object
                               ORDER BY ANY(when) DESC;
 

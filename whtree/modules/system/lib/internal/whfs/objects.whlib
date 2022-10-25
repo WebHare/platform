@@ -85,7 +85,7 @@ PUBLIC RECORD ARRAY FUNCTION FixupRecycleBinNames(RECORD ARRAY inrecs)
                              , currentname
                           FROM system.fs_history
                          WHERE fs_history.fs_object IN inactiveids
-                               AND type = whconstant_historytype_recycle
+                               AND type = whconstant_historytype_recycled
                       ORDER BY fs_object;
 
   FOREVERY(RECORD inrec FROM inrecs)
@@ -967,7 +967,7 @@ OBJECTTYPE WHFSObject
   */
   PUBLIC MACRO RestoreSelf()
   {
-    RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_object = this->id AND type = whconstant_historytype_recycle;
+    RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_object = this->id AND type = whconstant_historytype_recycled;
     IF(NOT RecordExists(historyinfo))
       THROW NEW Exception("No history information for this object, cannot figure out original location");
 
@@ -3073,7 +3073,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     //any moves clears trashing info
     INTEGER ARRAY cleartrashfor := SELECT AS INTEGER ARRAY destid FROM this->plan WHERE NOT create;
     IF(Length(cleartrashfor) > 0)
-      DELETE FROM system.fs_history WHERE type = whconstant_historytype_recycle AND fs_object IN cleartrashfor;
+      DELETE FROM system.fs_history WHERE type = whconstant_historytype_recycled AND fs_object IN cleartrashfor;
   }
 
   PUBLIC MACRO SetPlanRecordOption(RECORD planrecord, RECORD options)

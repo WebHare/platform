@@ -8,12 +8,12 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" ;
 
 
-CONSTANT STRING ARRAY eventnames := [ "recycled" //0 whconstant_historytype_recycle
-                                    , "save"     //1 whconstant_historytype_save
-                                    , "publish"  //2 whconstant_historytype_publish
-                                    , "revert"   //3 whconstant_historytype_revert
-                                    , "create"   //4 whconstant_historytype_create
-                                    , "modify"   //5 whconstant_historytype_modify (legacy - may need to keep reserved if not reusable immediately)
+CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_recycled
+                                    , "saved"      //1 whconstant_historytype_saved
+                                    , "#2"         //currently unused
+                                    , "reverted"   //3 whconstant_historytype_reverted
+                                    , "created"    //4 whconstant_historytype_created
+                                    , "approved"   //5 whconstant_historytype_approved (legacy - may need to keep reserved if not reusable immediately)
                                     ];
 
 /** Get the change history for this object
@@ -70,7 +70,7 @@ PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECOR
   INSERT CELL[ fs_object := final->id
              , user := user->authobjectid  //TODO obsolete in the future?
              , userdata := EncodeHSON(userinfo)
-             , type := whconstant_historytype_create
+             , type := whconstant_historytype_created
              , when := now
              , version := "0.1"
              ] INTO system_internal.fs_history;

@@ -44,6 +44,9 @@ these are considered the unmanaged fields.
 The document editor creates an autosave in the `whconstant_whfsid_autosaves` folder (a full copy linked through `filelink` to
 the original source) when you start editing a document to record the current changes. This autosave is then periodically updated.
 
+A public draft is created when a published file has pending content changes - ie the Save button for a published
+file creates a draft but does not update the source. You cannot create a public draft for an unpublished document.
+
 When you save a draft the current autosave is moved to the `whconstant_whfsid_drafts` folder. All clonable unmanaged data is
 recopied from the source. The draft's minor version number is increased and the editor is set to the user saving
 this draft. A version event of type 'saved' is generated and the snapshot is set to the draft id. Any earlier drafts are
