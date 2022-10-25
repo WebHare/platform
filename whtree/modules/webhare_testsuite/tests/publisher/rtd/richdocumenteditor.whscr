@@ -322,8 +322,8 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
   DenyApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := GetEffectiveUser(), message := "Denied" ]);
   testfw->CommitWork();
 
-  // No public draft anymore, the draft was denied
-  TestEq(TRUE, ObjectExists(GetPublicDraft(testfile->id)));
+  // No public draft needed anymore, the request was denied but it was never published
+  TestEq(FALSE, ObjectExists(GetPublicDraft(testfile->id)));
 
   // Open editdocument again.
   // Now, the file is versioned but not published, so save should go to live version
@@ -336,11 +336,9 @@ OBJECT ASYNC FUNCTION TestReadOnlyVersioned()
   AWAIT ExpectNoScreenChange(PTR topscreen->save->TolliumClick());
 
   // Test: unversioned file saved as draft must be saved directly to the existing file must leave the draft alone
-  TestEq(TRUE, OBjectExists(GetPublicDraft(testfile->id)));
-  RECORD rtd := GetPublicDraft(testfile->id)->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  TestEQLike("*saved to live*", BlobToString(rtd.data.htmltext)); // draft should not be updated
-  rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  TestEQLike("*saved again to live*", BlobToString(rtd.data.htmltext)); // live version should be
+  TestEq(FALSE, ObjectExists(GetPublicDraft(testfile->id)));
+  RECORD rtd := testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEqLike("*saved again to live*", BlobToString(rtd.data.htmltext));
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
