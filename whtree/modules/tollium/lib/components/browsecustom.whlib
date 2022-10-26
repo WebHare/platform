@@ -9,13 +9,14 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
   RECORD pvt_value;
   INTEGER pvt_valuetypeid;
 
-  STRING empty;
+  STRING pvt_empty;
 
   // ---------------------------------------------------------------------------
   //
   // Properties
   //
 
+  PUBLIC PROPERTY empty(pvt_empty, SetEmpty);
   PUBLIC PROPERTY value(GetValue, SetValue);
 
   PUBLIC FUNCTION PTR onbrowse;
@@ -62,7 +63,7 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
     this->onchange := def.onchange;
     this->onmapvalue := def.onmapvalue;
 
-    this->empty := def.empty;
+    this->pvt_empty := def.empty;
 
     this->SetTitle(def.title);
     this->SetReadonly(def.readonly);
@@ -106,6 +107,16 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
     this->SetValue(newvalue);
   }
 
+  MACRO SetEmpty(STRING emptytext)
+  {
+    IF(this->pvt_empty = emptytext)
+      RETURN;
+
+    this->pvt_empty := emptytext;
+    IF (IsDefaultvalue(this->value)) //update text if currently empty
+      ^titletext->value := this->pvt_empty;
+  }
+
   MACRO DoClear()
   {
     this->SetValue( GetTypeDefaultValue(this->pvt_valuetypeid) );
@@ -126,7 +137,7 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
 
     IF (this->IsEmptyValue(newvalue))
     {
-      ^titletext->value := this->empty;
+      ^titletext->value := this->pvt_empty;
 
       IF (this->onchange != DEFAULT FUNCTION PTR AND (NOT RecordExists(orgcontainer) OR NOT this->IsEmptyValue(orgcontainer.value)))
         this->onchange();
