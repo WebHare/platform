@@ -926,6 +926,14 @@
 
       <xs:attribute name="type" type="s:ListColumnType" use="required" />
       <xs:attributeGroup ref="ContextAndType" />
+
+      <xs:attribute name="noentityvaluetid" type="sc:Tid" />
+      <xs:attribute name="noentityvalue" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Value to show if no entity was selected</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+
     </xs:complexType>
   </xs:element>
 

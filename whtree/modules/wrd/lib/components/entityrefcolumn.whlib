@@ -19,6 +19,7 @@ PUBLIC OBJECTTYPE EntityRefColumn EXTEND TolliumListColumnBase
   STRING pvt_inputkind;
   OBJECT wrdschema;
   OBJECT wrdtype;
+  STRING noentityvalue;
 
   PUBLIC PROPERTY field(pvt_field, SetField);
   PUBLIC PROPERTY inputkind(pvt_inputkind, SetInputKind);
@@ -35,6 +36,7 @@ PUBLIC OBJECTTYPE EntityRefColumn EXTEND TolliumListColumnBase
     this->type := data.type;
     this->name := data.name;
     this->inputkind := ToUppercase(data.inputkind);
+    this->noentityvalue := data.noentityvalue;
 
     IF(data.wrdtype != "" AND HavePrimaryTransaction()) // skip when validating
     {
@@ -100,7 +102,13 @@ PUBLIC OBJECTTYPE EntityRefColumn EXTEND TolliumListColumnBase
       entityid := referredtype->Search("WRD_GUID", invalue);
 
     IF(entityid=0)
-      RETURN this->list->GetDefaultValueForColumnType(this->type);
+    {
+      VARIANT retval := this->list->GetDefaultValueForColumnType(this->type);
+      IF(TYPEID(retval) = TYPEID(STRING)) //TODO support non string noentityvalues? we'd need to convert to the proper type
+        RETURN this->noentityvalue;
+      ELSE
+        RETURN retval;
+    }
 
     RECORD referred := referredtype->GetEntityFields(entityid, [ STRING(this->pvt_field) ]);
     RETURN RecordExists(referred) ? GetCell(referred, this->pvt_field) : this->list->GetDefaultValueForColumnType(this->type);

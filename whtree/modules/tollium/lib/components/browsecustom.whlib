@@ -9,13 +9,14 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
   RECORD pvt_value;
   INTEGER pvt_valuetypeid;
 
-  STRING empty;
+  STRING pvt_empty;
 
   // ---------------------------------------------------------------------------
   //
   // Properties
   //
 
+  PUBLIC PROPERTY empty(pvt_empty, SetEmpty);
   PUBLIC PROPERTY value(GetValue, SetValue);
 
   PUBLIC FUNCTION PTR onbrowse;
@@ -62,7 +63,7 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
     this->onchange := def.onchange;
     this->onmapvalue := def.onmapvalue;
 
-    this->empty := def.empty;
+    this->pvt_empty := def.empty;
 
     this->SetTitle(def.title);
     this->SetReadonly(def.readonly);
@@ -87,7 +88,7 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
 
   UPDATE PUBLIC MACRO PostInitComponent()
   {
-    this->titletext->width := this->width;
+    ^titletext->width := this->width;
     TolliumFragmentBase::PostInitComponent();
   }
 
@@ -106,11 +107,19 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
     this->SetValue(newvalue);
   }
 
+  MACRO SetEmpty(STRING emptytext)
+  {
+    IF(this->pvt_empty = emptytext)
+      RETURN;
+
+    this->pvt_empty := emptytext;
+    IF (IsDefaultvalue(this->value)) //update text if currently empty
+      ^titletext->value := this->pvt_empty;
+  }
+
   MACRO DoClear()
   {
     this->SetValue( GetTypeDefaultValue(this->pvt_valuetypeid) );
-    //this->pvt_value := [ value := GetTypeDefaultValue(this->pvt_valuetypeid) ];
-    //this->titletext->value := this->empty;
   }
 
   VARIANT FUNCTION GetValue()
@@ -128,7 +137,7 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
 
     IF (this->IsEmptyValue(newvalue))
     {
-      this->titletext->value := this->empty;
+      ^titletext->value := this->pvt_empty;
 
       IF (this->onchange != DEFAULT FUNCTION PTR AND (NOT RecordExists(orgcontainer) OR NOT this->IsEmptyValue(orgcontainer.value)))
         this->onchange();
@@ -140,9 +149,9 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
     //  THROW NEW Exception("new value must be of type "||GetTypeName(this->pvt_valuetypeid));
 
     IF (this->onmapvalue != DEFAULT FUNCTION PTR)
-      this->titletext->value := this->onmapvalue(newvalue);
+      ^titletext->value := this->onmapvalue(newvalue);
     ELSE IF (this->pvt_valuetypeid IN [TypeID(STRING), TypeID(INTEGER)])
-      this->titletext->value := newvalue || "";
+      ^titletext->value := newvalue || "";
     // ADDME: support datetime too?
 
     // Fire onchange when the value has changed - or might have changed, but we can't detect it
@@ -158,28 +167,27 @@ PUBLIC OBJECTTYPE BrowseCustom EXTEND TolliumFragmentBase
   UPDATE MACRO SetReadonly(BOOLEAN readonly)
   {
     this->pvt_readonly := readonly;
-    //this->titletext->enabled := NOT readonly;
-    this->browsebutton->visible := NOT readonly;
-    this->clearbutton->visible := NOT readonly AND NOT this->pvt_required;
+    ^browsebutton->visible := NOT readonly;
+    ^clearbutton->visible := NOT readonly AND NOT this->pvt_required;
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN newenabled)
   {
     TolliumFragmentBase::SetEnabled(newenabled);
-    this->clearbutton->enabled := newenabled;
-    this->browsebutton->enabled := newenabled;
+    ^clearbutton->enabled := newenabled;
+    ^browsebutton->enabled := newenabled;
   }
 
   UPDATE MACRO SetRequired(BOOLEAN required)
   {
     this->pvt_required := required;
-    this->titletext->required := required;
-    this->clearbutton->visible := NOT required AND NOT this->pvt_readonly;
+    ^titletext->required := required;
+    ^clearbutton->visible := NOT required AND NOT this->pvt_readonly;
   }
 
   UPDATE MACRO SetTitle(STRING title)
   {
-    this->titletext->title := title;
+    ^titletext->title := title;
   }
 
   BOOLEAN FUNCTION IsEmptyValue(VARIANT value)

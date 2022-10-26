@@ -101,6 +101,10 @@ Before you try anything else, make sure you are up-to-date and try the fixbuild 
 wh fixbuild
 ```
 
+If you get stuck debugging build issues, you can try to ask for help on the [WebHare developers group](https://groups.google.com/a/webhare.dev/g/developers)
+
+Please post as much of the error log as possible of your *last* 'wh make' attempt that didn't generate any further progress.
+
 #### "No rule to make target"
 These errors are usually fixed by running `wh make clean-deps`
 

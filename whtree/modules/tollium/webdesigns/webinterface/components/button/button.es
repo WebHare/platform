@@ -120,6 +120,8 @@ export default class ObjButton extends ActionableBase
         this.node.classList.add("icon");
         this.iconsize = 16; //ADDME: Adjust according to button size?
         this.iconnode = icons.createImage(this.icon, this.iconsize, this.iconsize, 'b', {className:"button__img"});
+        this.node.title = this.title;
+
         this.node.appendChild(this.iconnode);
       }
       else

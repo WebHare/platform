@@ -835,18 +835,6 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
 
     this->Refresh();
     this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
-
-    RECORD tabextension := ObjectExists(this->policy)
-                           ? this->policy->GetHistoryExtension()
-                           : DEFAULT RECORD;
-
-    IF (RecordExists(tabextension))
-    {
-      RECORD loadresult := this->proptabs->LoadTabsExtension(tabextension.resource || "#" || tabextension.name);
-      FOREVERY (OBJECT comp FROM loadresult.components)
-        IF (comp EXTENDSFROM TolliumTabsExtensionBase AND MemberExists(comp, "ViewHistoryForDraft"))
-          this->historyextcomp := comp;
-    }
   }
 
   // ---------------------------------------------------------------------------
