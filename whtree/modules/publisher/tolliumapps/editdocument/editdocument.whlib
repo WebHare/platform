@@ -1198,7 +1198,7 @@ PUBLIC STATIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase
   }
   MACRO InitFinishPage(RECORD data)
   {
-    IF (this->contexts->editdocumentapi->onpreview != DEFAULT MACRO PTR)
+    IF (this->contexts->editdocumentapi->onpreviewlink != DEFAULT MACRO PTR)
       ^link->value := this->contexts->editdocumentapi->onpreviewlink(this->tolliumparent->GetPreviewObject(TRUE), ^validuntil->value, ^passwordprotect->value ? ^password->value : "");
     ELSE
       ^link->value := this->tolliumparent->CreatePreviewLink(^validuntil->value, ^passwordprotect->value ? ^password->value : "", FALSE);
