@@ -1,0 +1,71 @@
+<?wh
+
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+MACRO VerifyLogin()
+{
+  OBJECT userapi; //tests need this
+  IF(GetWebHeader("X-WH-OverrideUserAPI") != "" AND GetDtapStage() = "development")
+    userapi := GetWRDAuthUserAPI(OpenWRDSchema(GetWebHeader("X-WH-OverrideUserAPI")));
+  ELSE
+    userapi := GetPrimaryWebhareUserAPI();
+
+  RECORD auth_params := GetParsedAuthenticationHeader();
+  IF(auth_params.type = "BASIC")
+  {
+    STRING user := TrimWhitespace(auth_params.username);
+
+    GetPrimary()->BeginWork();
+    RECORD result := userapi->TryAppPasswordLogin("consilio:opensearch", user, TrimWhitespace(auth_params.password), FALSE);
+    GetPrimary()->CommitWork();
+
+    IF(RecordExists(result))
+    {
+      IF(userapi->GetTolliumUserFromEntityId(result.entityid)->HasRight("system:sysop"))
+        RETURN;
+      AbortWithHTTPError(403); //valid credentials, no access
+    }
+  }
+
+  AddHTTPHeader("WWW-Authenticate", 'Basic realm=builtin-opensearch', TRUE);
+  AbortWithHTTPError(401);
+}
+
+//A password protected proxy to the built-in OpenSearch engine
+OBJECT trans := OpenPrimary();
+VerifyLogin();
+trans->Close();
+
+RECORD ARRAY allheaders := SELECT field, value
+                             FROM GetAllWebHeaders()
+                            WHERE ToUppercase(field) NOT IN ["HOST","PROXY-CONNECTION","USER-AGENT","CONTENT-LENGTH","PROXY-AUTHORIZATION"];
+BLOB body := GetRequestBody();
+
+RECORD urlparts := UnpackURL(GetRequestURL());
+RECORD opensearchurl := UnpackURL(GetBuiltinOpensearchAddress());
+
+INTEGER conn := opensearchurl.secure ? OpenSecureHTTPServer(opensearchurl.host, opensearchurl.port) : OpenHTTPServer(opensearchurl.host, opensearchurl.port);
+IF(conn<=0)
+  THROW NEW Exception("Connection to OpenSearch failed");
+
+//29 = strip '.consilio/builtin-opensearch/'
+RECORD result := SendHTTPRequest(conn, "/" || Substring(urlparts.urlpath, 29), GetRequestMethod(), allheaders, body);
+AddHTTPHeader("Status", ToString(result.code), FALSE);
+//ADDME Would need a 'clear' all headers to be able to reliable transfer multi headers (eg Set-Cookie and Path etc)
+FOREVERY(RECORD hdr FROM result.headers)
+  IF(ToUppercase(hdr.field) NOT IN ["CONTENT-LENGTH","TRANSFER-ENCODING","CONNECTION"])
+    AddHTTPHeader(hdr.field, hdr.value, TRUE);
+
+SendWebFile(result.content);
