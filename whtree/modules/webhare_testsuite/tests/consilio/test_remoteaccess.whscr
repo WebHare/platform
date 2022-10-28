@@ -1,0 +1,43 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestDirectAccess()
+{
+  // test with app password
+  testfw->BeginWork();
+  STRING sysop_pwd := testfw->GetUserObject("sysop")->CreateAppPassword("consilio:opensearch","Homer's iMac").password;
+  STRING lisa_pwd := testfw->GetUserObject("lisa")->CreateAppPassword("consilio:opensearch","Lisa's iMac").password;
+  testfw->CommitWork();
+
+  RECORD url := UnpackURL(GetPrimaryWebhareInterfaceURL() || ".consilio/builtin-opensearch/_cluster/health");
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(url), [ headers := [[ field := "X-WH-OverrideUserAPI", value := "wrd:testschema"] ]]));
+  TestEq(401, testfw->browser->GetHTTPStatusCode());
+
+  url.user := testfw->GetUserLogin("sysop");
+  url.password := Left(sysop_pwd, Length(sysop_pwd)-1);
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(url), [ headers := [[ field := "X-WH-OverrideUserAPI", value := "wrd:testschema"] ]]));
+  TestEq(401, testfw->browser->GetHTTPStatusCode());
+
+  url.password := sysop_pwd;
+  TestEq(TRUE, testfw->browser->GotoWebPage(RepackURL(url), [ headers := [[ field := "X-WH-OverrideUserAPI", value := "wrd:testschema"] ]]));
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+  TestAssert(CellExists(DecodeJSONBlob(testfw->browser->content),"status"));
+
+  url.user := testfw->GetUserLogin("lisa");
+  url.password := lisa_pwd;
+  TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(url), [ headers := [[ field := "X-WH-OverrideUserAPI", value := "wrd:testschema"] ]]));
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), "403 as credentials are valid but no access");
+
+  // lisa should not have access (not a syosp)
+}
+
+Runtestframework( [ PTR TestDirectAccess
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "lisa", grantrights := ["system:supervisor"] ]
+                                    ]
+                     ]
+                  );

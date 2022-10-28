@@ -124,8 +124,10 @@
     <body spacers="none">
       <wizard name="wizard">
         <page onnext="ondevicepagenext" name="devicepage">
-          <select type="pulldown" name="scope">
-            <!--FIXME centralized transalted scope registry -->
+          <select type="pulldown" name="scope" required="true">
+            <!--TODO centralized scope registry -->
+            <option rowkey="" title="" invalidselection="true"/>
+            <option rowkey="consilio:opensearch" title="consilio:opensearch" />
             <option rowkey="system:webdav" title="system:webdav" />
           </select>
           <textedit name="device" width="1pr" required="true" placeholdertid=".device-placeholder"/>
