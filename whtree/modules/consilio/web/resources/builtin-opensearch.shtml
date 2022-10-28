@@ -61,7 +61,10 @@ IF(conn<=0)
   THROW NEW Exception("Connection to OpenSearch failed");
 
 //29 = strip '.consilio/builtin-opensearch/'
-RECORD result := SendHTTPRequest(conn, "/" || Substring(urlparts.urlpath, 29), GetRequestMethod(), allheaders, body);
+STRING requrl := Substring(urlparts.urlpath, 29);
+WHILE (requrl LIKE "/*") //opensearch-dashboard will throw in duplicate slashes at the start of URLs.. which we don't like.
+  requrl:=Substring(requrl,1);
+RECORD result := SendHTTPRequest(conn, "/" || requrl, GetRequestMethod(), allheaders, body);
 AddHTTPHeader("Status", ToString(result.code), FALSE);
 //ADDME Would need a 'clear' all headers to be able to reliable transfer multi headers (eg Set-Cookie and Path etc)
 FOREVERY(RECORD hdr FROM result.headers)
