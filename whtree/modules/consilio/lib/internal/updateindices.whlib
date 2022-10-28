@@ -261,7 +261,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
     wantcatalogs[#want].catalog := catalog;
     IF(catalog->managed != want.managed)
     {
-      PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);
+      PrintTo(2, `Catalog '${want.tag}' is incorrectly ${catalog->managed ? "" : "not "}managed, it probably needs to be recreated\n`);
       CONTINUE;
     }
 
