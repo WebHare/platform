@@ -47,6 +47,7 @@
     <webrule path="allroots:/.px/" match="initial" handlebyscript="web/resources/pxl.txt">
       <addheader header="Content-Type" value="text/plain" />
     </webrule>
+    <webrule path="root:/.consilio/builtin-opensearch/" match="initial" handlebyscript="web/resources/builtin-opensearch.shtml" />
   </backend>
 
   <tollium>
