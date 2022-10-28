@@ -53,7 +53,7 @@ Update the username, password and hostname as neeed.
 You can test your URL by passing it to `curl` - it should show some JSON output. This will also show you the version
 number of OpenSearch - you will need the Dashboard to be the same version
 
-The easiest way to start the Dashboard is probably to use the docker container for OpenSaerch dashboard as follows:
+The easiest way to start the Dashboard is probably to use the docker container for OpenSearch dashboard as follows:
 
 ```
 docker run -p 127.0.0.1:5601:5601\
@@ -66,3 +66,5 @@ docker run -p 127.0.0.1:5601:5601\
 ```
 
 Update the environment variables and version number as needed.
+
+The OpenSearch Dashboard docker will say something like `Server running at http://127.0.0.1:5601`, which is the url to use to open the Dashboard
