@@ -1228,6 +1228,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @param baseurl Base url to redirect the user to
       @param entityid Userid to reset
       @cell options.verifierstart Optional code with which the verifier should start
+      @cell(boolean) options.skipauditlog Do not log this request to the auditlog - needed to prevent unsollicited link requests from flooding the logs (eg webshop order confiration)
       @return Password reset link data
       @cell return.verifier The verification code (should be emailed to the user)
       @cell return.verifiedlink The verified link (should be emailed to the user)
@@ -1239,6 +1240,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , verifierstart := ""
                                , data := DEFAULT RECORD
                                , logdata := DEFAULT RECORD
+                               , skipauditlog := FALSE
                                ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
 
     IF(options.routerpage != "")
@@ -1248,12 +1250,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF (NOT RecordExists(retval))
       RETURN DEFAULT RECORD;
 
-    this->LogCustomAuditEvent("wrd:getresetlink",
-        [ account := entityid
-        , message := CELL[ retval.validuntil
-                         , ...options.logdata
-                         ]
-        ]);
+    IF(NOT options.skipauditlog)
+    {
+      this->LogCustomAuditEvent("wrd:getresetlink",
+          [ account := entityid
+          , message := CELL[ retval.validuntil
+                           , ...options.logdata
+                           ]
+          ]);
+    }
 
     RETURN retval;
   }
