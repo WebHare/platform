@@ -40,10 +40,6 @@
   </services>
 
   <backend>
-    <webrule path="allroots:/tollium_todd.res/consilio/auth_elastic.shtml"
-             match="exact"
-             authscript="scripts/internal/auth_elastic.whscr"
-             priority="before" />
     <webrule path="allroots:/.px/" match="initial" handlebyscript="web/resources/pxl.txt">
       <addheader header="Content-Type" value="text/plain" />
     </webrule>
