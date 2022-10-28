@@ -27,6 +27,11 @@ MACRO TestDirectAccess()
   TestEq(200, testfw->browser->GetHTTPStatusCode());
   TestAssert(CellExists(DecodeJSONBlob(testfw->browser->content),"status"));
 
+  //simulate dupe slashes opensearch-dashboard may add
+  url.urlpath := UnpackURL(GetPrimaryWebhareInterfaceURL() || ".consilio/builtin-opensearch//_cluster/health").urlpath;
+  TestEq(200, testfw->browser->GetHTTPStatusCode());
+  TestAssert(CellExists(DecodeJSONBlob(testfw->browser->content),"status"));
+
   url.user := testfw->GetUserLogin("lisa");
   url.password := lisa_pwd;
   TestEq(FALSE, testfw->browser->GotoWebPage(RepackURL(url), [ headers := [[ field := "X-WH-OverrideUserAPI", value := "wrd:testschema"] ]]));
