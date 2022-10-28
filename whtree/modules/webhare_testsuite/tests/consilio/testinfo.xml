@@ -25,6 +25,7 @@
   <test script="test_cleanup.whscr" />
   <test script="test_pagelists.whscr" />
   <test script="test_upgrades.whscr"/>
+  <test script="test_remoteaccess.whscr"/>
 
   <jstest file="test_pxl.es" />
   <jstest file="test_backendapi.es" />
