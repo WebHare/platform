@@ -33,7 +33,8 @@ PUBLIC RECORD ARRAY FUNCTION ListCertficates()
     }
 
     INSERT
-        [ name :=         keypair_rec.name
+        [ id :=           keypair_rec.id
+        , name :=         keypair_rec.name
         , chainfile :=    BlobToString(keypair->certificatechain)
         , keyfile :=      BlobToString(keypair->privatekey)
         , valid_until :=  certdata.valid_until
