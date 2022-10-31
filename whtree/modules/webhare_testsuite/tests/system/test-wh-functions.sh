@@ -61,8 +61,10 @@ testVersionChecks()
   testRejectedUpgrade 4.35.0-dev 5.0.0-dev  "Should not allow you to upgrade from 4.35 dangerous prereleases straight to 5.0"
 
   testAllowedUpgrade  5.1.0-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to a custom version should be accepted, and '-' shouldn't confuse the parser"
-  testAllowedUpgrade  5.1.0-dev  5.1.1-custom-5.1  "A 'sideways' upgrade to a newer is acceptable"
-  testRejectedUpgrade 5.1.1-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to a older is unacceptable"
+  testAllowedUpgrade  5.1.0-dev  5.1.1-custom-5.1  "A 'sideways' upgrade to newer is acceptable"
+  testRejectedUpgrade 5.1.1-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to older is unacceptable"
+
+  testAllowedUpgrade  5.1.0-dev  5.1.0-5-1-certbotupdates  "Don't get confused by the many numbers added by a custom/5-1-certbotupdates branch"
 }
 
 testDockerTagCalculation()

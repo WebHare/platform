@@ -434,7 +434,8 @@ vercomp () {
       return 0
   fi
   local IFS=.
-  local ver1number="${1%-*}" ver2number="${2%-*}"
+  # Truncate after first '-' (%%-* truncates after first, %-* truncates after last)
+  local ver1number="${1%%-*}" ver2number="${2%%-*}"
   local ver1suffix ver2suffix
   # check if we truncated something, if so, grab the suffix
   [ "$ver1number" != "$1" ] && ver1suffix="-${1#*-}"
