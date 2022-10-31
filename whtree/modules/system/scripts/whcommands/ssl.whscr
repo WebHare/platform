@@ -8,8 +8,6 @@ LOADLIB "wh::filetypes/pkcs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
-LOADLIB "mod::system/lib/internal/nginx/config.whlib";
-
 
 MACRO CertBot(RECORD subargs)
 {
@@ -17,45 +15,38 @@ MACRO CertBot(RECORD subargs)
   IF(NOT res.success)
   {
     IF (res.error = "hostnotlocal")
-      TerminateScriptWithError(`The hostname '${res.errordata}' is not hosted on this server\n`);
+      TerminateScriptWithError(`The hostname '${res.errordata}' is not hosted on this server`);
 
     ABORT(res); //FIXME nice error
   }
 }
 
+OBJECT FUNCTION OpenKey(BOOLEAN rawkeyname, STRING hostname)
+{
+  OBJECT keypair;
+  IF(rawkeyname)
+    keypair := OpenKeyPairByName(hostname);
+  ELSE
+    keypair := OpenKeyPair(GetBestKeyPairForHostName(hostname));
+
+  IF(NOT ObjectExists(keypair))
+    TerminateScriptWithError(`No such key ${rawkeyname ? `'${hostname}'` : `for hostname '${hostname}'`}`);
+
+  RETURN keypair;
+}
+
 MACRO GetKeyInfo(BOOLEAN rawkeyname, STRING hostname, STRING which)
 {
-  RECORD bestcert := GetBestCertificateForHost(ListCertficates(), hostname);
-  IF(RecordExists(bestcert))
-  {
-    Print((which="privatekey" ? bestcert.keyfile : bestcert.chainfile) || "\n");
-    RETURN;
-  }
-
-  STRING filename := rawkeyname ? hostname : GetCertbotFilenameForHostname(hostname);
-  OBJECT keypair := OpenKeyPairByName(rawkeyname ? hostname : "certbot-" || hostname);
-
-  //FIXME get by alias etc too, also get non-certbot keys, always get the latest
-  //FIXME cache the names that go into every key, instead of having to parse 'm all, if we can't make that performant!
-  IF(NOT ObjectExists(keypair))
-    TerminateScriptWithError(`No such key ${rawkeyname ? `'${hostname}'` : `for certbot hostname '${hostname}'`}\n`);
-
+  OBJECT keypair := OpenKey(rawkeyname, hostname);
   SendBlobTo(0, which="privatekey" ? keypair->privatekey : keypair->certificatechain);
 }
 
 MACRO SetKeyCertificate(BOOLEAN rawkeyname, STRING hostname, BLOB certdata)
 {
-  STRING filename := rawkeyname ? hostname : GetCertbotFilenameForHostname(hostname);
-  OBJECT keypair := OpenKeyPairByName(filename);
-
-  //FIXME get by alias etc too, also get non-certbot keys, always get the latest
-  //FIXME cache the names that go into every key, instead of having to parse 'm all, if we can't make that performant!
-  IF(NOT ObjectExists(keypair))
-    TerminateScriptWithError(`No such key ${rawkeyname ? `'${hostname}'` : `for certbot hostname '${hostname}'`}\n`);
-
+  OBJECT keypair := OpenKey(rawkeyname, hostname);
   RECORD rec := keypair->TestCertificate(certdata);
   IF (NOT rec.success)
-    TerminateScriptWithError(`Error: ${rec.message}n`);
+    TerminateScriptWithError(`Error: ${rec.message}`);
 
   GetPrimary()->BeginWork();
   keypair->UpdateMetadata([ certificatechain := certdata ]);
@@ -72,10 +63,10 @@ MACRO ListKeys(BOOLEAN allkeys)
     BLOB cert := keypair->certificate;
 
     PRINT(`Key name: ${rec.name}\n`);
-    IF (rec.name LIKE "certbot-*")
-      PRINT(`- Certbot hostname: ${SubString(rec.name, 8)}\n`);
     IF (LENGTH(cert) = 0)
+    {
       PRINT(`- No certificate\n`);
+    }
     ELSE
     {
       RECORD decoded := DecodePEMFile(BlobToString(cert));
