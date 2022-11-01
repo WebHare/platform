@@ -5,6 +5,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
@@ -45,22 +46,23 @@ PUBLIC STATIC OBJECTTYPE Reader
 
     this->fileid := fileid;
     this->allpubssize := 0;
+
     INTEGER retval := -1;
 
     TRY
     {
       this->process := NEW PublicationProcess(fileid);
       IF(NOT RecordExists(this->process->basedata))
-      {
-        //the file can't be published anymore (site locked, webhare-private..). just dequeue it without making any more noise
-        this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
-        retval := 0;
-        RETURN 0;
-      }
+        retval := 0; //the file can't be published anymore (site locked, webhare-private..). just dequeue it without making any more noise
     }
     CATCH(OBJECT e)
     {
       LogHarescriptException(e);
+      retval := 0; //fallthrough to FinishPublishing
+    }
+
+    IF(retval = 0) //either a dequeue or an exception occurred
+    {
       this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
       retval := 0;
       RETURN 0;
@@ -148,7 +150,6 @@ PUBLIC STATIC OBJECTTYPE Reader
       DEBUGPRINT("Publishing HS errors:\n" || AnyToString(hs_errors, "boxed"));
 
     GetPrimary()->BeginWork([ mutex := `publisher:publishstate.${fileid}`]);
-    this->StoreErrors(fileid, hs_errors, warnings);
 
     RECORD filescan := SELECT published
                             , COLUMN errordata
@@ -159,14 +160,18 @@ PUBLIC STATIC OBJECTTYPE Reader
                             , parent
                             , parentsite
                          FROM system.fs_objects
-                        WHERE id = fileid;
+                        WHERE id = fileid
+                              AND NOT IsReadonlyWHFSSpace(whfspath);
+
     IF (NOT RecordExists(filescan))
     {
       // File has been deleted; don't commit at all
-      DEBUGPRINT(`File #${fileid} has been deleted`);
+      DEBUGPRINT(`File #${fileid} has been deleted or moved to snapshot space`);
       GetPrimary()->RollbackWork();
       RETURN 0;
     }
+
+    this->StoreErrors(fileid, hs_errors, warnings);
 
     // Signal update of the published status
     OBJECT handler := GetWHFSCommitHandler();
