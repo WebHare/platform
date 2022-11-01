@@ -701,8 +701,10 @@ MACRO HeavyCastTest()
      AND type_from IN [ TypeID(INTEGER ARRAY), TypeID(FLOAT ARRAY), TypeID(MONEY ARRAY), TypeID(INTEGER64 ARRAY) ];
 
   // Explicit can convert variant arrays to arrays of all other types
+  // And since 5.2 we'll do implict conversions too
   UPDATE combos
-     SET c_e := TRUE
+     SET c_i := TRUE
+       , c_e := TRUE
    WHERE IsTypeidArray(type_to)
      AND type_from = TypeID(VARIANT ARRAY);
 

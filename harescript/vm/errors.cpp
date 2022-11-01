@@ -285,6 +285,7 @@ ERRORDEF(263, ErrorId,                   "Error ID: %0")
 ERRORDEF(264, PrefixDoesNotAllowRelativeAddressing, "Relative adressing with respect to an URI with prefix '%0' is not allowed.")
 ERRORDEF(265, MisspelledMember,          "Member '%0' does not exist, did you mean '%1'?.")
 ERRORDEF(266, CannotConvertToIterator,   "Cannot convert this expression to an iterator.")
+ERRORDEF(267, CannotConvertFilledVariantArray, "Cannot automatically convert a filled VARIANT ARRAY to type '%0'")
 
 
 { 0,0 }};
