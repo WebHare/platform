@@ -329,7 +329,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       RETURN DEFAULT RECORD;
 
     INTEGER setwidth := ToInteger(imgnode->GetAttribute('width'), image.width);
-    IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth) //limi to maximagewidth
+    IF(this->maximagewidth > 0 AND setwidth > this->maximagewidth) //limit to maximagewidth
       setwidth := this->maximagewidth;
 
     FLOAT aspectratio := FLOAT(image.width) / FLOAT(image.height);
