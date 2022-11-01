@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/witty.whlib";
+LOADLIB "mod::system/lib/internal/modules/althooks.whlib";
 LOADLIB "mod::system/lib/internal/modules/version.whlib";
 
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
@@ -266,7 +267,8 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     IF(this->lastlib != libname)
     {
       this->lastlib := libname;
-      this->lastlibdescr := DescribeCompiledLibrary(libname);
+      this->lastlibdescr := HookableDescribeCompiledLibrary(libname);
+
       IF(NOT RecordExists(this->lastlibdescr))
       {
         BOOLEAN exists := RecordExists(RetrieveWebHareResource(libname, [ allowmissing := TRUE ]));
