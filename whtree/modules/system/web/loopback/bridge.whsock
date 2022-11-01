@@ -45,7 +45,7 @@ MACRO SendPacket(RECORD data)
 
 MACRO OnData(STRING datapacket)
 {
-  RECORD data := DecodeJSON(datapacket);
+  RECORD data := datapacket LIKE "hson:" ? DecodeHSON(datapacket) : DecodeJSON(datapacket);
   IF(NOT RecordExists(data))
     THROW NEW Exception("Invalid packet received");
 
