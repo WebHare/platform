@@ -34,7 +34,7 @@ fi
 # We must have $WEBHARE_DIR, pointing to the 'whtree'.
 if [ -z "$WEBHARE_DIR" ]; then
   if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
-    export WEBHARE_DIR="$WEBHARE_CHECKEDOUT_TO/whtree"
+    export WEBHARE_DIR="${WEBHARE_CHECKEDOUT_TO%/}/whtree"
   else
     export WEBHARE_DIR=`cd ${BASH_SOURCE%/*}/..; pwd`
   fi
