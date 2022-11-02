@@ -176,7 +176,7 @@ MACRO TestCRTCSRDecoding()
 {
   RECORD x := DecodePEMFile(testcsr);
   TestEq("C=NL, ST=OV, L=Enschede, O=B-Lex IT B.V., CN=www.b-lex.nl", x.subject);
-  TestEq(["www.b-lex.nl","webhare.moe.sf.b-lex.com","moe.springfield.webhare.nl"], x.servernames);
+  TestEq(["webhare.moe.sf.b-lex.com","moe.springfield.webhare.nl"], x.servernames, "www.b-lex.nl is now ignored as CN is deprecated");
 
   x := DecodePEMFile(twodomcert);
   TestEq(["cms1.webhare.com","cms1-sites.webhare.com"], x.servernames);

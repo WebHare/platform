@@ -255,10 +255,8 @@ RECORD FUNCTION DecodeCertificateRequest(STRING certdata)
   RECORD ARRAY subjectfields := GetDNFields(subject_rdn);
 
   STRING ARRAY servernames;
-  STRING commonname := SELECT AS STRING value FROM subjectfields WHERE fieldname="CN";
-  IF(commonname != "")
-    INSERT commonname INTO servernames AT END;
 
+  BOOLEAN has_subjectaltname;
   RECORD extensionrequest := SELECT * FROM decoded.value.certificationrequestinfo.attributes WHERE type="1.2.840.113549.1.9.14";
   IF(RecordExists(extensionrequest))
   {
@@ -266,12 +264,29 @@ RECORD FUNCTION DecodeCertificateRequest(STRING certdata)
       FOREVERY(RECORD dat FROM val.data)
         IF(dat.extnid = "2.5.29.17")
         {
+          has_subjectaltname := TRUE;
           OBJECT extn_decoder := NEW StaticBERDecoder(dat.extnvalue);
           RECORD ARRAY vals := decoder->ParseData(extn_decoder, "SubjectAltName").value;
           FOREVERY(STRING name FROM SELECT AS STRING ARRAY dnsname FROM vals)
             IF(name NOT IN servernames)
               INSERT name INTO servernames AT END;
         }
+  }
+
+  IF(NOT has_subjectaltname)
+  {
+    /* https://www.rfc-editor.org/rfc/rfc2818 (and the default since Chrome 58) states:
+       3.1: If a subjectAltName extension of type dNSName is present, that MUST
+           be used as the identity.
+
+       So we only parse the CN if the altname is missing. Additionally
+       "Although the use of the Common Name is existing practice, it is deprecated and
+        Certification Authorities are encouraged to use the dNSName instead."
+    */
+
+    STRING commonname := SELECT AS STRING value FROM subjectfields WHERE fieldname="CN";
+    IF(commonname != "")
+      INSERT commonname INTO servernames AT END;
   }
 
   RETURN
