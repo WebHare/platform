@@ -84,10 +84,18 @@ MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
       IF(read = 0)
       {
         STRING cmd := ToUppercase(ReadFrom(0,-1));
-        IF(cmd = "?" OR cmd NOT IN ["Q"])
+        IF(cmd = "?" OR cmd NOT IN ["Q","R"])
         {
-          Print("\n** Q to quit **\n");
+          Print("\n** Q to quit, R to restart **\n");
           CONTINUE;
+        }
+        IF(cmd="R")
+        {
+          Print("\nrestarting\n");
+          proc->SendInterrupt();
+          Sleep(400); //TODO watch process, if it closes faster than in 400 msecs that's okay too
+          proc->Terminate();
+          BREAK;
         }
 
         Print("\nquitting\n");
@@ -117,6 +125,7 @@ MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
     }
 
     Print(`\nProcess exited with exit code ${proc->exitcode}\n`);
+    proc->Close();
 
     //FIXME if not an autostart app, break now
     Sleep(1000);
