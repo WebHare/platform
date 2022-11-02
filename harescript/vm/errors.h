@@ -308,6 +308,7 @@ namespace Error
                 PrefixDoesNotAllowRelativeAddressing = 264,
                 MisspelledMember =           265,
                 CannotConvertToIterator =    266,
+                CannotConvertFilledVariantArray = 267,
                 /* Please reuse free error codes instead of adding more of them */
         };
 }

@@ -651,6 +651,12 @@ void StackMachine::CastTo(VarId arg, VariableTypes::Type totype)
                             throw VMRuntimeError (Error::CannotConvertType, HareScript::GetTypeName(gottype), HareScript::GetTypeName(totype));
                         SetArrayType(arg, VariableTypes::VariantArray);
                 }
+                else if (gottype == VariableTypes::VariantArray && (totype & VariableTypes::Array))
+                {
+                        if (ArraySize(arg) != 0)
+                            throw VMRuntimeError (Error::CannotConvertFilledVariantArray, HareScript::GetTypeName(totype));
+                        SetArrayType(arg, totype);
+                }
                 else if(totype != VariableTypes::Variant)//always cast to variant (fix Cannot convert 'STRING' to 'VARIANT' on function pointers)
                     throw VMRuntimeError (Error::CannotConvertType, HareScript::GetTypeName(gottype), HareScript::GetTypeName(totype));
         }

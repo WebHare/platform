@@ -160,7 +160,8 @@ bool SemanticChecker::VerifyTypeWithCast(Rvalue* &expr, VariableTypes::Type want
             || (wantedtype == VariableTypes::Float && exprtype == VariableTypes::Integer64)
             || (wantedtype == VariableTypes::Float && exprtype == VariableTypes::Integer)
             || (wantedtype == VariableTypes::Float && exprtype == VariableTypes::Money)
-            || (wantedtype == VariableTypes::VariantArray && (exprtype & VariableTypes::Array)))
+            || (wantedtype == VariableTypes::VariantArray && (exprtype & VariableTypes::Array))
+            || ((wantedtype & VariableTypes::Array) && exprtype== VariableTypes::VariantArray))
         {
                 Rvalue *cast = coder.ImCast(expr->position, expr, wantedtype, false, true);
                 typestorage[cast] = wantedtype;
