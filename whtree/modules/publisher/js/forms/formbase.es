@@ -80,10 +80,21 @@ function releasePendingValidations(event)
   }
 }
 
-function handleValidateEvent(event)
+/* Browser extensions such as 1Password interfere with the event model and may
+   cause focusout to not fire for email and password fields. They don't seem
+   to break focusin so we'll watch focusin to detect missed focusout events */
+let lastfocusout = null;
+function handleFocusOutEvent(event)
 {
+  lastfocusout = event.target;
   doValidation(event.target,false);
 }
+function handleFocusInEvent(event)
+{
+  if(event.relatedTarget && lastfocusout != event.relatedTarget)
+    doValidation(event.relatedTarget,false);
+}
+
 function handleValidateAfterEvent(event)
 {
   doValidation(event.target,true);
@@ -220,7 +231,7 @@ export default class FormBase
     this._dovalidation = formhandling.validate;
     if(this._dovalidation)
     {
-      this.node.addEventListener("focusout", handleValidateEvent, true);
+      this.node.addEventListener("focusout", handleFocusOutEvent, true);
       this.node.addEventListener("input", handleValidateAfterEvent, true);
       this.node.addEventListener("change", handleValidateAfterEvent, true);
       this.node.noValidate = true;
@@ -1492,6 +1503,7 @@ export default class FormBase
 }
 
 window.addEventListener("mouseup", releasePendingValidations, true);
+window.addEventListener("focusin", handleFocusInEvent, true);
 
 FormBase.getForNode = function(node)
 {
