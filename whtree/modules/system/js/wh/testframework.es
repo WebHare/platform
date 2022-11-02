@@ -589,9 +589,9 @@ function fillUpload(element, files)
 function getTestSiteRoot()
 {
   var topdoc = window.parent.document.documentElement;
-  if(!topdoc.hasAttribute("data-testsiteroot"))
+  if(!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");
-  return (new URL(topdoc.getAttribute("data-testsiteroot"), location.href)).toString();
+  return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
 function getListViewHeader(text)
