@@ -93,7 +93,7 @@ MACRO DebugService(STRING servicename, STRING ARRAY serviceargs)
         {
           Print("\nrestarting\n");
           proc->SendInterrupt();
-          Sleep(400); //TODO watch process, if it closes faster than in 400 sec that's okay too
+          Sleep(400); //TODO watch process, if it closes faster than in 400 msecs that's okay too
           proc->Terminate();
           BREAK;
         }
