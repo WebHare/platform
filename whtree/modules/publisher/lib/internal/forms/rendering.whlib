@@ -488,8 +488,6 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
     {
       IF(RecordExists(fielddescription.dataset))
         THROW NEW Exception("radiogroups and checkboxgroups do not support dataset");
-      IF(RecordExists(fielddescription.infotext))
-        THROW NEW Exception(`Don't know how to render infotext for fields of type '${fielddescription.type}' (field: '${fielddescription.name}')`);
 
       BOOLEAN isradio := fielddescription.type = "radiogroup";
 
@@ -512,8 +510,13 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
 
         IF(hasinfotext)
           this->RenderInfoText(opt.infotext);
+
         Print('</div>');
       }
+
+      BOOLEAN hasinfotext := RecordExists(fielddescription.infotext) AND this->formintegrationplugin->enableinfotexts;
+      IF(hasinfotext)
+        this->RenderInfoText(fielddescription.infotext);
     }
     ELSE IF(fielddescription.type = "array")
     {
