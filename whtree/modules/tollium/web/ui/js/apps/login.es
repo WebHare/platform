@@ -84,7 +84,7 @@ class LoginApp
                         , spacers: { left:true, right: true, bottom: true }
                         }
 
-      , totpcode:       { type: "textedit", required: true, width: "20x", defaultbutton: "secondfactorloginbutton" }
+      , totpcode:       { type: "textedit", autocomplete: "one-time-code", required: true, width: "20x", defaultbutton: "secondfactorloginbutton" }
 
       , secondfactorlogincancelbutton:
                         { type: "button", title: getTid("tollium:shell.login.cancel"), action: "secondfactorlogincancelaction" }

@@ -171,7 +171,7 @@ PUBLIC OBJECTTYPE FormFieldBase
   /// Name of the field
   PUBLIC PROPERTY name(this->field.name,-);
 
-  /// Title of this field
+  /// This field's parent field
   PUBLIC PROPERTY parent(this->pvt_parent, -);
 
   /// Title of this field

@@ -2114,7 +2114,7 @@ PUBLIC STRING FUNCTION EncodeQP(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 // returns '<HTML>'
 STRING example1 := DecodeHTML("&#60;HTML&#62;");
 
-// returns "Johnny /n Jane"
+// returns "Johnny \n Jane"
 STRING example2 := DecodeHTML("Johnny <br /> Jane");
 */
 PUBLIC STRING FUNCTION DecodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);

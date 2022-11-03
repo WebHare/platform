@@ -657,8 +657,8 @@ PUBLIC RECORD FUNCTION __GetIndexManagerOptions(INTEGER indexid)
     @cell(integer) options.save_searches_site Set an explicit site id to save the query for (by default, Consilio tries to
         determine the site id by checking if the index contains only one publisher content source or by using
         %LookupPublisherUrl on the `restrict_url`)
-    @cell(integer) options.summary_length The length of the summary to generate for each result (-1 for default length, 0 to
-        prevent summary generation, defaults to -1)
+    @cell(integer) options.summary_length The length of the summary to generate for each result (-1 for the default length of
+        200, 0 to prevent summary generation, defaults to -1)
     @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields` (set to
         empty string to disable match highlighting)
     @cell(string array) options.highlightfields The fields in which found query words should be highlighted (note that all
