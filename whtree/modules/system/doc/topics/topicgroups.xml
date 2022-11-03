@@ -4,7 +4,7 @@
   <group title="Internet and utilities" topics="internet webapis xml rpc graphics file-formats localization" />
   <group title="Backend applications" topics="tollium tollium-components icons publisher-apps" />
   <group title="Frontend applications" topics="frontend-utilities" />
-  <group title="WebHare R Database" topics="wrd wrdauth payments wrd-components" />
+  <group title="WebHare Rich Datastore" topics="wrd wrdauth payments wrd-components" />
   <group title="Installation and setup" topics="installation changelogs" />
   <group title="Developer support" topics="testframework internals" />
 </topicgroups>

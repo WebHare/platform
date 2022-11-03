@@ -127,26 +127,21 @@ function activeAuthorMode()
 
 function checkAuthorMode()
 {
-  try
+  // Is author mode activated through the Publisher?
+  if (location.search.includes("wh-feedback-token="))
   {
-    // Is author mode activated through the Publisher?
-    if (location.search.includes("wh-feedback-token="))
+    const url = new URL(location.href);
+    const token = JSON.parse(atob(url.searchParams.get("wh-feedback-token")));
+    if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) // Check if the string has the general JWT header.payload.signature format
     {
-      const url = new URL(location.href);
-      const token = JSON.parse(atob(url.searchParams.get("wh-feedback-token")));
-      if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) // Check if the string has the general JWT header.payload.signature format
-      {
-        localStorage.whFeedbackToken = token;
-        url.searchParams.delete("wh-feedback-token");
-        history.replaceState(null, "", url);
-      }
+      localStorage.whFeedbackToken = token;
+      url.searchParams.delete("wh-feedback-token");
+      history.replaceState(null, "", url);
     }
-
-    const token = localStorage?.whFeedbackToken;
-    if (token.match(/^[^.]*\.[^.]*\.[^.]*$/))
-      activeAuthorMode();
   }
-  catch(ignore) {}
+
+  if (localStorage?.whFeedbackToken?.match(/^[^.]*\.[^.]*\.[^.]*$/))
+    activeAuthorMode();
 }
 
 if(typeof window !== 'undefined') //check we're in a browser window, ie not serverside or some form of worker
@@ -161,6 +156,6 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
   if(!config.site)
     config.site={};
 
-  if(window.top === window) //we're top level
-    checkAuthorMode();
+  if(window.top === window && !document.documentElement.classList.contains("wh-noauthormode")) //we're top level
+    setTimeout(checkAuthorMode,0); //async startup.. also allows it to throw exceptions without breaking anything
 }
