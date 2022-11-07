@@ -9,35 +9,20 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-
-//OBJECT testsite;
-
-MACRO Prepare()
-{
-  testfw->BeginWork();
-
-  OBJECT firstfolder := testfw->GetWHFSTestRoot();
-
-  //cleanup for a reliable repeatable test (without executerecomp whfs_types fails if executed twice in a row, FIXME?€)
-  FlushUnreferredContentData();
-
-  testfw->CommitWork();
-}
 
 MACRO TestCheckedLinks()
 {
   testfw->BeginWork();
-  OBJECT testsite := testfw->GetTestSite();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]);
   testfw->CommitWork();
 
+  OBJECT testsite := testfw->GetTestSite();
   testfw->BeginWork();
-  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "test.txt" ]);
+  OBJECT testdatafile := GetTestsuiteTempFolder()->CreateFile([ name := "test.txt" ]);
 
   OBJECT doc := NEW RichDocument;
   doc->ImportFromRecord([ htmltext := StringToBlob('<html><body>'
@@ -111,7 +96,5 @@ MACRO TestCheckedLinks()
   testfw->CommitWork();
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE ])
-                 , PTR Prepare
-                 , PTR TestCheckedLinks
+RunTestframework([ PTR TestCheckedLinks
                  ]);
