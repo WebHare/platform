@@ -1,4 +1,6 @@
 <?wh
+//short: Upload folder contents into WHFS
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::files.whlib";

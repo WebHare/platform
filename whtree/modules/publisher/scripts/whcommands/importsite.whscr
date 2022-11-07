@@ -1,4 +1,6 @@
 <?wh
+//short: Extract a wharchive into a site
+
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
@@ -17,7 +19,7 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "whfspath", typ
                                                      ]);
 IF (NOT RecordExists(args) OR Length(args.archives) = 0 OR args.whfspath = "")
 {
-  Print("Usage: runscript site_importer.whscr --whfspath p [options] archive [ archive ... ]\n");
+  Print("Usage: wh publisher:importsite --whfspath p [options] archive [ archive ... ]\n");
   Print("       --whfspath p The path to place the imported sites in\n");
   Print("       -q           Quiet\n");
   Print("       --nosite     Don't make a site of the archive (just import files and folders)\n");
