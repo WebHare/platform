@@ -17,9 +17,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestCheckedLinks()
 {
-  testfw->BeginWork();
-  testfw->CommitWork();
-
   OBJECT testsite := testfw->GetTestSite();
   testfw->BeginWork();
   OBJECT testdatafile := GetTestsuiteTempFolder()->CreateFile([ name := "test.txt" ]);
@@ -48,7 +45,7 @@ MACRO TestCheckedLinks()
       , [ url :=    "http://example.com/4", referrer := "rich" ]
       , [ url :=    "http://example.com/5", referrer := "rich" ]
       , [ url :=    ResolveToAbsoluteURL(testdatafile->url,"/test"), referrer := "rich" ]
-      ], SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url LIKE "http://example.com/*" DESC, url);
+      ], (SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url LIKE "http://example.com/*" DESC, url), "Verify that 'oldintextlink' does not appear in this list");
 
   testfw->BeginWork();
 
@@ -90,6 +87,18 @@ MACRO TestCheckedLinks()
   testfw->CommitWork();
 
   TestEQ(DEFAULT RECORD ARRAY, SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
+
+  //Verify orphan members are properly ignored
+  testfw->BeginWork();
+  RegisterWHFSType([ namespace := "http://www.webhare.net/xmlns/beta/consiliotest"
+                   , members := [[ name := "oldintextlink", type := 16/*intextlink*/ ]]
+                   ]);
+  whfs_consiliotest->SetInstanceData(testdatafile->id,
+      [ oldintextlink :=   MakeIntExtExternalLink("http://example.com/000")
+      ], [ orphans := TRUE ]);
+  testfw->CommitWork();
+
+  TestEq(RECORD[], (SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url LIKE "http://example.com/*" DESC, url));
 
   testfw->BeginWork();
   testdatafile->DeleteSelf();
