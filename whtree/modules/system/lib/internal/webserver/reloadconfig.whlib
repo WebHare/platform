@@ -29,10 +29,18 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
   IF(NOT RecordExists(configuration))
     THROW NEW Exception("No valid configuration received");
 
-  //Enforce the structure expected by the webserver fore more stability between upgrades - TODO also enforce structure for subarrays
+  //Enforce the structure expected by the webserver fore more stability between upgrades - TODO also enforce structure for other subarrays than datastorage
   configuration := EnforceStructure(GetBaseWebserverConfigRecord(), configuration);
 
-  configuration.rules := SELECT ...__whs_baserulerecord, ... rules FROM configuration.rules;
+  FOREVERY(RECORD rule FROM configuration.rules)
+  {
+    rule := CELL[ ...__whs_baserulerecord, ...rule ];
+    FOREVERY(RECORD datastorage FROM rule.datastorage)
+      rule.datastorage[#datastorage] := CELL [ ...__whs_basedatastoragerecord, ...datastorage ];
+
+    configuration.rules[#rule] := rule;
+  }
+
   RECORD reloadstatus := ConfigureWebserver(configuration);
 
   FlushAuthentication();
