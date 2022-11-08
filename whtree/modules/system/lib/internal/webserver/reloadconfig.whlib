@@ -37,6 +37,8 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
     rule := CELL[ ...__whs_baserulerecord, ...rule ];
     FOREVERY(RECORD datastorage FROM rule.datastorage)
       rule.datastorage[#datastorage] := CELL [ ...__whs_basedatastoragerecord, ...datastorage ];
+
+    configuration.rules[#rule] := rule;
   }
 
   RECORD reloadstatus := ConfigureWebserver(configuration);
