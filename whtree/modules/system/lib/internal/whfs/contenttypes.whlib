@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/enrichment.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
@@ -1820,8 +1822,8 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
   IF(NOT ObjectExists(type))
   {
     whfstypeid := MakeAutonumber(system.fs_types, "id");
-    INSERT INTO system.fs_types(id, namespace, orphan, isfiletype, isfoldertype, cloneoncopy, isdynamicexecution)
-           VALUES(whfstypeid, typeinfo.namespace, TRUE, makefiletype, makefoldertype, makecloneoncopy, makedynamicexecution);
+    INSERT INTO system_internal.fs_types(id, namespace, orphan, isfiletype, isfoldertype, cloneoncopy, isdynamicexecution, orphansince)
+           VALUES(whfstypeid, typeinfo.namespace, TRUE, makefiletype, makefoldertype, makecloneoncopy, makedynamicexecution, GetCurrentDatetime());
   }
   ELSE
   {
@@ -2020,8 +2022,8 @@ PUBLIC RECORD FUNCTION ApplyCTMembersRecurse(RECORD ARRAY inmembers, INTEGER cur
     ELSE
     {
       memberid := MakeAutonumber(system.fs_members, "id");
-      INSERT INTO system.fs_members(id, name, fs_type, parent, orphan, type)
-             VALUES(memberid, memberinfo.name, curtype, curparent, orphans, memberinfo.type);
+      INSERT INTO system_internal.fs_members(id, name, fs_type, parent, orphan, type, orphansince)
+             VALUES(memberid, memberinfo.name, curtype, curparent, orphans, memberinfo.type, orphans ? GetCurrentDatetime() : DEFAULT DATETIME);
     }
 
     INSERT memberid INTO retval.seenmembers AT END;
