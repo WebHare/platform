@@ -404,7 +404,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       RETURN DEFAULT RECORD;
     }
 
-    RECORD match := SELECT * FROM lib.functions WHERE name = ToUppercase(functoks[1]);
+    RECORD match := SELECT * FROM lib.functions WHERE lib.casesensitive ? name = functoks[1] : name = ToUppercase(functoks[1]);
     IF(NOT RecordExists(match))
     {
       this->AddError(node, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
@@ -434,7 +434,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       RETURN DEFAULT RECORD;
     }
 
-    RECORD match := SELECT * FROM lib.functions WHERE name = ToUppercase(functoks[1]);
+    RECORD match := SELECT * FROM lib.functions WHERE lib.casesensitive ? name = functoks[1] : name = ToUppercase(functoks[1]);
     IF(NOT RecordExists(match))
     {
       this->AddErrorForScope(tolliumscope, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
