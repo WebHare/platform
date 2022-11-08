@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
@@ -34,14 +35,15 @@ PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
            , href := checked_objectlinks.url
         FROM consilio.checked_links
            , consilio.checked_objectlinks
-           , system.fs_members
-           , system.fs_settings
-           , system.fs_instances
+           , system_internal.fs_members
+           , system_internal.fs_settings
+           , system_internal.fs_instances
            , system.fs_objects
        WHERE fs_objects.id IN fsobjects
              AND fs_instances.fs_object = fs_objects.id
              AND fs_settings.fs_instance = fs_instances.id
              AND fs_settings.fs_member = fs_members.id
+             AND fs_members.orphansince = DEFAULT DATETIME
              AND checked_objectlinks.system_fs_setting = fs_settings.id
              AND checked_objectlinks.link = checked_links.id;
 
