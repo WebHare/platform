@@ -2954,7 +2954,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       IF((NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
       {
-        IF(NOT is_temp AND this->__typerec.metatype != 4) //for domains its optional
+        IF(NOT is_temp AND this->__typerec.metatype != 4 AND NOT options.importmode) //for domains its optional
         {
           options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -2975,7 +2975,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       IF((NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
       {
-        IF(NOT is_temp)
+        IF(NOT is_temp AND NOT options.importmode)
         {
           options.errorcallback([tag := "WRD_RIGHTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
