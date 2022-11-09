@@ -6,7 +6,7 @@
 */
 const bridge = require('@mod-system/js/wh/bridge');
 
-async function main(bundlename)
+async function main(bundlename, options)
 {
   var taskcontext = {};
   let data = { directcompile:true };
@@ -25,6 +25,8 @@ async function main(bundlename)
 
   try
   {
+    if(options.verbose)
+      data.logLevel = "verbose";
     assetCompiler(taskcontext, data);
 
     let result = await completionpromise;
@@ -51,7 +53,8 @@ async function main(bundlename)
 }
 
 let getopt = require('node-getopt/lib/getopt.js').create([
-  ['h' , 'help'                , 'display this help'],
+  ['h' , 'help'                , 'display this help']
+ ,['v' , 'verbose'             , 'verbose log level']
 ])              // create Getopt instance
 .bindHelp()     // bind option 'help' to default action
 .parseSystem(); // parse command line
@@ -64,4 +67,4 @@ if(!bundle)
   return;
 }
 
-main(bundle);
+main(bundle, { verbose: !!getopt.options.v });

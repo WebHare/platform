@@ -1,0 +1,6 @@
+{
+  "main": "./forthebrowser.mjs",
+  "browser": {
+    "./test.mjs": "./test.browser.mjs"
+  }
+}
