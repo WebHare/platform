@@ -18,3 +18,11 @@ PUBLIC RECORD FUNCTION HookableDescribeCompiledLibrary(STRING libname)
   ELSE
     RETURN DEFAULT RECORD;
 }
+
+PUBLIC RECORD FUNCTION HookableStartTolliumApp(RECORD app, RECORD invoke)
+{
+  RECORD hookresult := RunModuleHookTarget("system:librarysystem", CELL[ task := "StartTolliumApp", app, invoke, firstmessage := DEFAULT RECORD ]);
+  IF(RecordExists(hookresult.firstmessage))
+    RETURN hookresult.firstmessage;
+  RETURN DEFAULT RECORD;
+}
