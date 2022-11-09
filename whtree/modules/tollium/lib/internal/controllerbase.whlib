@@ -45,6 +45,30 @@ INTEGER no_forward_progress_wait := 2000; // wait 2 seconds for forward progress
 INTEGER gc_waitperiod := 60000; // collect garbage every 1 minute after a wait has been started
 BOOLEAN debug_logcontroller := IsDebugTagEnabled("tollium:logcontroller");
 
+
+PUBLIC RECORD FUNCTION GetApplicationToLaunch(STRING apppath)
+{
+  STRING ARRAY toks := Tokenize(apppath,':');
+  RECORD module := GetWebhareModuleInfo(toks[0]);
+  IF(Length(toks)>2 OR NOT RecordExists(module))
+    RETURN DEFAULT RECORD;
+
+  STRING appname;
+  RECORD app;
+  IF(Length(toks)>=2)
+  {
+    appname := toks[0]||":"||toks[1];
+    app := SELECT * FROM module.portal.applications WHERE name=appname;
+  }
+  ELSE
+  {
+    app := SELECT * FROM module.portal.applications LIMIT 1;
+    appname := RecordExists(app)?toks[0]||":"||app.name : "";
+  }
+
+  RETURN app;
+}
+
    /** Check internal callbacks
       @param handle Optional signalled handle (use -1 to ignore)
       @param docheck Whether check is needed (ignored when handle is set)
@@ -2152,38 +2176,13 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug())
       this->pvt_inapppath := STRING[];
 
-    IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND NOT this->tolliumuser->HasRight("system:supervisor"))
-    {
-      this->RunMessageBox("tollium:commondialogs.webhareclosedformaintenance");
-      RETURN;
-    }
-
-    STRING ARRAY toks := Tokenize(apppath,':');
-    RECORD module := GetWebhareModuleInfo(toks[0]);
-    IF(Length(toks)>2 OR NOT RecordExists(module))
-    {
-      this->RunMessageBox("tollium:commondialogs.applaunchfailure_invalidappname", apppath);
-      RETURN;
-    }
-
-    STRING appname;
-    RECORD app;
-    IF(Length(toks)>=2)
-    {
-      appname := toks[0]||":"||toks[1];
-      app := SELECT * FROM module.portal.applications WHERE name=appname;
-    }
-    ELSE
-    {
-      app := SELECT * FROM module.portal.applications LIMIT 1;
-      appname := RecordExists(app)?toks[0]||":"||app.name : "";
-    }
-
+    RECORD app := GetApplicationToLaunch(apppath);
     IF(NOT RecordExists(app))
     {
-      this->RunMessageBox("tollium:commondialogs.applaunchfailure_nosuchapp", toks[0], appname);
+      this->RunSimpleScreen("error", GetTid("tollium:commondialogs.messageboxes.applaunchfailure", apppath));
       RETURN;
     }
+
     IF(Length(data.params) >0 AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
     {
       this->RunSimpleScreen("error", GetTid("tollium:shell.controller.untrustedparams"));
@@ -2192,7 +2191,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
     //Print("intialize app\n" || AnyToString(app, "tree"));
     //Print("xx^ authenticationinfo:\n" || AnyToString(GetAuthenticationRecord(), "tree"));
-    STRING suggestedlanguage := GetBestLanguageFor(toks[0], GetTidLanguage());
+    STRING suggestedlanguage := GetBestLanguageFor(Tokenize(app.name,':')[0], GetTidLanguage());
     IF(Length(app.supportedlanguages) > 0 AND suggestedlanguage NOT IN app.supportedlanguages)
       suggestedlanguage := app.supportedlanguages[0];
     SetTidLanguage(suggestedlanguage);
@@ -2217,7 +2216,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     IF (this->__DoIntegratedAppLaunch(this, app, data))
       RETURN;
 
-    this->RunMessageBox("tollium:commondialogs.applaunchfailure", appname);
+    this->RunSimpleScreen("error", GetTid("tollium:commondialogs.messageboxes.applaunchfailure", apppath));
   }
 
   PUBLIC BOOLEAN FUNCTION __DoIntegratedAppLaunch(OBJECT parent, RECORD app, RECORD data)

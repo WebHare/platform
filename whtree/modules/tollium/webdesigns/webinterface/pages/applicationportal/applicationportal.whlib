@@ -31,6 +31,7 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
@@ -829,26 +830,25 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   {
     options := ValidateOptions(appstartoptions, EnforceStructure([webvars := RECORD[]], options));
 
+    IF(options.protocolversion != expecttoddprotocolversion)
+      RETURN [ error := "unexpectedprotocolversion" ];
+
     this->SetupPortal(webcontext);
     STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");
+
+    IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND (NOT ObjectExists(this->currentuser) OR NOT this->currentuser->HasRight("system:supervisor")))
+      RETURN CELL[ error := "launcherror", errormessage := GetTid("tollium:commondialogs.messageboxes.webhareclosedformaintenance") ];
+
+    IF(ObjectExists(this->wrdauthplugin) AND NOT ObjectExists(this->currentuser) AND appname NOT IN loginapps)
+      RETURN [ error := "notloggedin" ];
 
     IF(appname NOT IN loginapps AND Length(this->applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->applicationmasks))
       THROW NEW Exception(`Application '${appname}' is not permitted by this portal's applicationmasks`);
 
-    IF(ObjectExists(this->wrdauthplugin)
-       AND NOT ObjectExists(this->currentuser)
-       AND appname NOT IN loginapps)
-    {
-      RETURN [ error := "notloggedin" ];
-    }
-
-    IF(options.protocolversion <= 0) //NOTE we only need this until there are no more 4.27s and 4.28.0s - we hijack the error path to show our message
-      RETURN [ errors := [[ message :=  GetTid("tollium:shell.login.unexpectedprotocolversion"), line := 0 , file := 0, col := 0, filename := "" ]]];
-    IF(options.protocolversion != expecttoddprotocolversion)
-      RETURN [ error := "unexpectedprotocolversion" ];
-
     RECORD parsedappname := this->ParseAppName(appname);
-
+    RECORD app := GetApplicationToLaunch(parsedappname.appname);
+    IF(NOT RecordExists(app))
+      RETURN CELL[ error := "launcherror", errormessage := GetTid("tollium:commondialogs.messageboxes.applaunchfailure", parsedappname.appname) ];
 
     IF (options.frontendid = "")
       THROW NEW Exception("Missing frontendid");
