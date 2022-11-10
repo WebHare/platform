@@ -46,6 +46,7 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
   {
     this->apptoken := EncryptForThisServer("publisher:pwaapptoken", [ id := webdesign->targetobject->id]);
     INSERT CELL "wh-pwa-uid" := GenerateUFS128BitId() INTO this->webdesign->htmldata;
+    INSERT CELL "wh-pwa-fileid" := ToString(webdesign->targetobject->id) INTO this->webdesign->htmldata;
     this->UpdatePWASettings();
   }
 

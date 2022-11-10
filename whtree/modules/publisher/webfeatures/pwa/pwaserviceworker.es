@@ -217,7 +217,9 @@ async function logToAllClients(loglevel, message)
 async function startBackgroundVersionCheck(data)
 {
   console.log("startBackgroundVersionCheck",data);
-  let versioninfo = await checkVersion({pwauid: data ? data.pwauid : null});
+  let versioninfo = await checkVersion({ pwauid: data?.pwauid || null
+                                       , pwafileid: data?.pwafileid || null
+                                       });
   if (versioninfo.forcerefresh)
   {
     addToSwLog({ event: 'forcedrefresh' });

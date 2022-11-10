@@ -50,7 +50,9 @@ async function sendSWRequest(type, data)
 
 export async function checkForUpdate()
 {
-  return await sendSWRequest("checkversion", { pwauid: document.documentElement.dataset.whPwaUid });
+  return await sendSWRequest("checkversion", { pwauid: document.documentElement.dataset.whPwaUid
+                                             , pwafileid: document.documentElement.dataset.whPwaFileid
+                                             });
 }
 export async function downloadUpdate()
 {
@@ -155,6 +157,7 @@ async function precheckExistingWorkers()
   registrations.filter(reg => reg.active).forEach(reg => sendSWRequestTo(reg.active, 'loading',
     { pwasettings: whintegration.config.obj.pwasettings
     , pwauid: document.documentElement.dataset.whPwaUid
+    , pwafileid: document.documentElement.dataset.whPwaFileid
     }));
 }
 
