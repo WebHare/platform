@@ -8,6 +8,14 @@ if(!appname)
 
 const debugassetpacks = serviceworkerurl.searchParams.get('debug')=='1';
 
+function generateBase64UniqueID()
+{
+  let u8array = new Uint8Array(16);
+  crypto.getRandomValues(u8array);
+  return btoa(String.fromCharCode.apply(null, u8array));
+}
+let logprefix = `[SW ${appname} ${generateBase64UniqueID()}] `;
+
 ////////////////////////////////
 //
 // Database API.
@@ -176,7 +184,7 @@ async function doInitialAppInstallation()
 {
   try
   {
-    console.log("First we download our most important files");
+    console.log(`${logprefix}First we download our most important files`);
     await downloadApplication();
   }
   catch(e)
@@ -188,9 +196,9 @@ async function doInitialAppInstallation()
 
 self.addEventListener('install', event =>
 {
-  console.log('[Service Worker] Install from ' + location.href);
-  console.log('[Service Worker] For app ' + appname);
-  console.log('[Service Worker] For scope ' + self.registration.scope);
+  console.log(`${logprefix}Install from ${location.href}`);
+  console.log(`${logprefix}For app ${appname}`);
+  console.log(`${logprefix}For scope ${self.registration.scope}`);
 
   addToSwLog({ event: 'install' });
   /* TODO are we sure we always want to do a full cache redownload on install? currently we probably cant avoid it as outside
@@ -203,14 +211,14 @@ self.addEventListener('install', event =>
 
 async function logToAllClients(loglevel, message)
 {
-  console[loglevel]("[Service Worker] " + message);
+  console.log(`${logprefix}${message}`);
   let clients = await self.clients.matchAll();
   clients.forEach(client => client.postMessage({ type: "log", loglevel, message }));
 }
 
 async function startBackgroundVersionCheck(data)
 {
-  console.log("startBackgroundVersionCheck",data);
+  console.log(`${logprefix}startBackgroundVersionCheck`,data);
   let versioninfo = await checkVersion({ pwauid: data?.pwauid || null
                                        , pwafileid: data?.pwafileid || null
                                        });
@@ -226,8 +234,8 @@ async function startBackgroundVersionCheck(data)
 
 self.addEventListener('activate', async function(event)
 {
-  console.log('[Service Worker] Activated from ' + location.href);
-  console.log('[Service Worker] For scope ' + self.registration.scope);
+  console.log(`${logprefix}Activated from`,location.href);
+  console.log(`${logprefix}For scope`,self.registration.scope);
 
   //make sure we wrote activate to the log, at least for our tets...
   addToSwLog({ event: 'activate' });
@@ -272,14 +280,14 @@ async function ourFetch(event)
       }
   }
 
-  console.log("[Service Worker] Looking for " + event.request.url)
+  console.log(`${logprefix}Looking for`, event.request.url);
 
   //FIXME stop reopening them caches if we can
   let cache = await caches.open("pwacache-" + appname);
   let match = await cache.match(event.request);
   if(match)
   {
-    console.log("[Service Worker] We have " + event.request.url + " in our cache");
+    console.log(`${logprefix}We have ${event.request.url} + " in our cache`);
     return match;
   }
 
@@ -302,7 +310,7 @@ async function checkVersion(clientversioninfo)
 
   let currentversion = await getSwStoreValue("currentversion");
   let forcerefresh = await getSwStoreValue("forcerefresh");
-  console.log("checkversion", {currentversion, clientversioninfo});
+  console.log(`${logprefix}checkversion`, {currentversion, clientversioninfo});
   return { needsupdate:  (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid != versioninfo.pwauid)
                          || versioninfo.updatetok != currentversion.updatetok
          , forcerefresh: new Date(versioninfo.forcerefresh) > forcerefresh
@@ -364,7 +372,7 @@ async function sendIssueReport(body)
 
     if(lastissuereports.length >= 3 && (lastissuereports[0].when - new Date) < 3 * 60 * 10000)
     {
-      console.log("suppressing report, 3rd oldest report less than 3 minutes ago", body);
+      console.log(`${logprefix}suppressing report, 3rd oldest report less than 3 minutes ago`, body);
       return;
     }
 
@@ -388,7 +396,7 @@ async function sendIssueReport(body)
   }
   catch(e)
   {
-    console.log("Failed to report issue",e);
+    console.log(`${logprefix}Failed to report issue`,e);
   }
   finally
   {
