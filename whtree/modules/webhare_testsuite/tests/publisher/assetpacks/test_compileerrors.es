@@ -153,6 +153,16 @@ describe("test_compileerrors", (done) =>
     assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss.scss")));
   });
 
+  it("browser override in package.json works", async function()
+  {
+    let result = await compileAdhocTestBundle(__dirname + "/data/browser-override", false);
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/data/browser-override/test.browser.mjs")));
+    assert(!filedeps.includes(path.join(__dirname,"/data/browser-override/test.mjs")));
+  });
+
   it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
   {
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es", false);
@@ -244,14 +254,14 @@ describe("test_compileerrors", (done) =>
     let result = await compileAdhocTestBundle(path.join(__dirname,"optimizations/regressions.es"), false);
     assert(result.haserrors === false);
 
-    /* Older versions of esbuild collapsed global values, i.e.
-        margin-bottom: 0;
-        margin-left: unset;
-        margin-right: unset;
-        margin-top: 0;
-       became
-        margin: 0 unset;
-    */
+    // Older versions of esbuild collapsed global values, i.e.
+    //    margin-bottom: 0;
+    //    margin-left: unset;
+    //    margin-right: unset;
+    //    margin-top: 0;
+    //   became
+    //    margin: 0 unset;
+
     let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
     assert(css.match(/.test1a{.*margin-left:unset.*}/));
     assert(css.match(/.test1a{.*padding-left:initial.*}/));
