@@ -154,11 +154,13 @@ async function precheckExistingWorkers()
     return;
 
   let registrations = await (navigator.serviceWorker.getRegistrations());
-  registrations.filter(reg => reg.active).forEach(reg => sendSWRequestTo(reg.active, 'loading',
-    { pwasettings: whintegration.config.obj.pwasettings
-    , pwauid: document.documentElement.dataset.whPwaUid
-    , pwafileid: document.documentElement.dataset.whPwaFileid
-    }));
+  for(let sw of registrations)
+    if(sw.active && sw.scope === appbase)
+      sendSWRequestTo(sw.active, 'loading',
+        { pwasettings: whintegration.config.obj.pwasettings
+        , pwauid: document.documentElement.dataset.whPwaUid
+        , pwafileid: document.documentElement.dataset.whPwaFileid
+        });
 }
 
 function onServiceWorkerMessage(event)
