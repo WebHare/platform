@@ -1,3 +1,4 @@
+// when developing, to explicitly recompile our package: wh assetpacks recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb.es';
 
 const serviceworkerurl = new URL(location.href);
@@ -86,18 +87,11 @@ async function setSwStoreValue(key, value)
   }
 }
 
-function getWHConfig(pagetext) //extract and parse the wh-contig tag
+function getWHConfig(pagetext) //extract and parse the wh-config tag
 {
   let scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
   let scriptend = pagetext.indexOf('</script>', scriptpos);
   return JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47));
-}
-
-async function cacheReloadAll(cache, requests)
-{
-  let fetchers = requests.map(req => fetch(req, { cache: 'reload' }));
-  let results = await Promise.all(fetchers);
-  //and wh
 }
 
 async function downloadApplication()
@@ -409,7 +403,8 @@ self.onerror = function(error)
                   , error: error.message
                   , trace: error.trace
                 });
-}
+};
+
 addEventListener("unhandledrejection", function(event)
 {
   console.error('Unhandled rejection (promise: ', event.promise, ', reason: ', event.reason, event);
