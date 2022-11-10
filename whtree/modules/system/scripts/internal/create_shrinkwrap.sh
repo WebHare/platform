@@ -100,9 +100,9 @@ if ! $TIMEOUT "$WHTREE/bin/wh" run mod::system/scripts/internal/shrinkwrap.whscr
   EXITCODE=1
 fi
 
-# Create the history files
+# Create the history files for every whtree module (except webhare_testsuite)
 for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
-  if [ "$MOD" != "webhare_testsuite" ]; then
+  if [ "$MOD" != "webhare_testsuite" ] && [ -d "$WHTREE/modules/$MOD" ]; then
     mkdir -p "$WHTREE/modules/$MOD/history"
     ( cd "$WHTREE/modules" && TZ=UTC zip -x "$MOD/history/*" -r "$MOD/history/source.zip" "$MOD" )
   fi
