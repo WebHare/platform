@@ -2951,7 +2951,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       IF((NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
       {
-        IF(NOT is_temp AND this->__typerec.metatype != 4) //for domains its optional
+        IF(NOT is_temp AND this->__typerec.metatype != 4 AND NOT options.importmode) //for domains its optional
         {
           options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -2972,7 +2972,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       IF((NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
       {
-        IF(NOT is_temp)
+        IF(NOT is_temp AND NOT options.importmode)
         {
           options.errorcallback([tag := "WRD_RIGHTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -3109,16 +3109,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             WHERE entity = entityid
               AND unique_rawdata != "";
           }
-          ELSE
-          {
-            INTEGER ARRAY unique_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE isunique;
-
-            UPDATE wrd.entity_settings
-              SET unique_rawdata := rawdata
-            WHERE entity = entityid
-              AND unique_rawdata = ""
-              AND attribute IN unique_attrs;
-          }
         }
 
         INTEGER ARRAY relevant_attrids;
@@ -3205,6 +3195,18 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           SELECT AS STRING ARRAY attr.tag
             FROM splitdata.settings
            WHERE ArraysIntersect(attr.__selectattributeids, updateres.updatedattrs);
+
+      IF (NOT is_new AND CellExists(splitdata.entityrec, "limitdate") AND allow_unique_rawdata)
+      {
+        // materialize all unique data if needed after deleting updated settings
+        INTEGER ARRAY unique_attrs := SELECT AS INTEGER ARRAY id FROM this->attributelist WHERE isunique;
+
+        UPDATE wrd.entity_settings
+           SET unique_rawdata := rawdata
+         WHERE entity = entityid
+           AND unique_rawdata = ""
+           AND attribute IN unique_attrs;
+      }
 
       IF (this->__typerec.keephistorydays > 0 OR historydebugging)
       {
