@@ -160,6 +160,15 @@ MACRO TestUnique()
     CATCH (OBJECT e)
       ExpectCommitException(e, "*duplicate key value violates unique constraint*"); // postgresql exception
   }
+
+  // test database protection when updating limitdate to the future with clashing old values (that are updated, so should not error out)
+  {
+    testfw->BeginWork();
+    OBJECT deleted := dom_obj->CreateEntity([ test_free := "UNIQUEFREE6", wrd_limitdate := MakeDate(2020,1,1) ]);
+    OBJECT active := dom_obj->CreateEntity([ test_free := "UNIQUEFREE6" ]);
+    deleted->UpdateEntity([ test_free := "UNIQUEFREE7", wrd_limitdate := MAX_DATETIME ]);
+    testfw->CommitWork();
+  }
 }
 
 MACRO TestEnsureEntity()
