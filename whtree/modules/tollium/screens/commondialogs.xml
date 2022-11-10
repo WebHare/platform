@@ -3,11 +3,6 @@
          gid="commondialogs">
 
   <messageboxes gid=".messageboxes">
-    <messagebox name="applaunchfailure" icon="error" buttons="ok" />
-    <messagebox name="applaunchfailure_invalidappname" icon="error" buttons="ok" />
-    <messagebox name="applaunchfailure_nosuchmodule" icon="error" buttons="ok" />
-    <messagebox name="applaunchfailure_nosuchapp" icon="error" buttons="ok" />
-
     <!-- The 'showmessage' messagebox just shows the first parameter in an information messagebox, can be used to quickly
          display some information without having to create a (temporary) messagebox -->
     <messagebox name="showmessage" icon="" buttons="ok" />

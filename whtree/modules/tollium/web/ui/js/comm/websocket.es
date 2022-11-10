@@ -61,9 +61,6 @@ export default class WebSocketTransport extends TransportBase
     this.sentall = [];
     this.signalled = this.endpoints;
 
-    // make next reconnection speedy again
-    this.backoff = 0;
-
 //    console.log('gotopen');
     this.updateListenLinks();
 
@@ -78,6 +75,9 @@ export default class WebSocketTransport extends TransportBase
       var msg = rawmsg.msg.data[i];
       this.processGotMessageMessage(msg);
     }
+
+    // once the connection is actually sending messages, make next reconnection speedy again (don't reset backoff in a close/open loop)
+    this.backoff = 0;
   }
 
   gotError(event)
@@ -92,7 +92,7 @@ export default class WebSocketTransport extends TransportBase
     this.socket = null;
 
     let nowbackoff = this.backoff;
-    this.backoff = Math.min(this.backoff * 2 || 1, 60);
+    this.backoff = Math.min( (this.backoff * 2) || 1, 60);
 
     if (nowbackoff >= 16) // 15 seconds without a connection
       this.signalOffline();

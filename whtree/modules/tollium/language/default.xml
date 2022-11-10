@@ -398,9 +398,6 @@
       <text tid="addedtostartmenu">This item has been added to your Start Menu Favorites. <br/><br/>You can manage your favorites in your Personal Settings: click on your username displayed at the bottom of the Start Menu.</text>
       <text tid="alreadyaddedtostartmenu">This item has already been added to the favorites.</text>
       <text tid="applaunchfailure">The application '<param p="1"/>' could not be started</text>
-      <text tid="applaunchfailure_invalidappname">The specified application name '<param p="1"/>' is invalid</text>
-      <text tid="applaunchfailure_nosuchapp">Module '<param p="1"/>' does not have an application '<param p="2"/>'</text>
-      <text tid="applaunchfailure_nosuchmodule">Module '<param p="1"/>' does not exist</text>
       <text tid="confirmclearcontents">Are you sure you want to delete all contents?<br/><br/>This operation cannot be undone.</text>
       <text tid="confirmclearformatting">Are you sure you want to discard all style?<br/><br/>This operation cannot be undone.</text>
       <text tid="confirmdeleteembeddedobject">Are you sure you want to delete this embedded object?<br/><br/>This operation cannot be undone.</text>

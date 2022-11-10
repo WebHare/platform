@@ -398,9 +398,6 @@
       <text tid="addedtostartmenu">Het item is toegevoegd aan de favorieten in uw startmenu.<br/><br/>U kunt uw favorieten beheren via uw Persoonlijke Instellingen - deze vindt u door onder in het startmenu op uw gebruikersnaam te klikken.</text>
       <text tid="alreadyaddedtostartmenu">Dit item is al aan de favorieten toegevoegd.</text>
       <text tid="applaunchfailure">De applicatie '<param p="1"/>' kon niet opgestart worden</text>
-      <text tid="applaunchfailure_invalidappname">De opgegeven applicatienaam '<param p="1"/>' is niet geldig</text>
-      <text tid="applaunchfailure_nosuchapp">Module '<param p="1"/>' bevat geen applicatie '<param p="2"/>'</text>
-      <text tid="applaunchfailure_nosuchmodule">Module '<param p="1"/>' bestaat niet</text>
       <text tid="confirmclearcontents">Weet u zeker dat u alle inhoud wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
       <text tid="confirmclearformatting">Weet u zeker dat u alle opmaak wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
       <text tid="confirmdeleteembeddedobject">Weet u zeker dat u dit ingevoegde object wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
