@@ -41,6 +41,8 @@ builddocker-scheduled:
 
 testbaselibs:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -54,6 +56,8 @@ testbaselibs:
 
 testmodules:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   script:
     - whtree/bin/wh testdocker --tag=-external checkmodules
   artifacts:
@@ -65,6 +69,8 @@ testmodules:
 
 testversioning:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -78,6 +84,8 @@ testversioning:
 
 testpublisher:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -91,6 +99,8 @@ testpublisher:
 
 testpublisher-forms:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -104,6 +114,8 @@ testpublisher-forms:
 
 testsystem:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -117,6 +129,8 @@ testsystem:
 
 testwebdesign:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -130,6 +144,8 @@ testwebdesign:
 
 testdatabase:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -143,6 +159,8 @@ testdatabase:
 
 testtollium:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -156,6 +174,8 @@ testtollium:
 
 testconsilio:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -169,6 +189,8 @@ testconsilio:
 
 testcore:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -182,6 +204,8 @@ testcore:
 
 testwebserver:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -195,6 +219,8 @@ testwebserver:
 
 testsocialite:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -208,6 +234,8 @@ testsocialite:
 
 testwrd:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -221,6 +249,8 @@ testwrd:
 
 testjscomponents:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -234,6 +264,8 @@ testjscomponents:
 
 testexternal:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   allow_failure: true
@@ -248,6 +280,8 @@ testexternal:
 
 testsftp:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   allow_failure: true
@@ -262,6 +296,8 @@ testsftp:
 
 testtwohares:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -275,6 +311,8 @@ testtwohares:
 
 testbackuprestore:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
@@ -288,6 +326,8 @@ testbackuprestore:
 
 calculatecoverage:
   stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
   when: manual
   except:
     - /^docs\/.*$/

@@ -36,7 +36,7 @@ if [ -n "$WHBUILD_ISTESTSUITEBUILD" ]; then
 fi
 
 # Extract embedded webhare_testsuite
-if [ -n "$WH_EXTRACTTESTSUITE" ]; then
+if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
   echo "$(date) Extracting module webhare_testsuite"
   mkdir -p /opt/whmodules/
   if ! tar -C /opt/whmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
