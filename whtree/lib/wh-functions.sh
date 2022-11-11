@@ -159,13 +159,61 @@ get_installable_moduledirs()
   return 0
 }
 
+calc_dir_relpath()
+{
+  local base target result
+  base="x$2"
+  base="${base//\/\//\/}"
+  base="${base%/}"
+  target="x$3"
+  target="${target//\/\//\/}"
+  target="${target%/}/"
+  result=
+  while [[ "${target#$base}/" == "$target/" ]]; do
+    base="$(dirname "$base")"
+    result="$result../"
+  done
+  eval $1="\${result}\${target#\$base/}"
+  WEBHARE_DIR_RELATIVE="${result}${target#$base/}"
+}
+
 setup_node()
 {
+  local relpath
+
   getwhparameters
   mkdir -p "$WEBHARE_DATAROOT/nodejs"
   export NODE_PATH=$WEBHARE_DIR/node_modules:$WEBHARE_DATAROOT/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
   export WEBHARE_LOOPBACKPORT
+
+  # Make sure $WEBHARE_DATAROOT/webhare-config/tsconfig.json exists
+  if [ ! -f "$WEBHARE_DATAROOT/webhare-config/tsconfig.json" ] || [ "$1" == "--force" ]; then
+    # absolute paths in "extends" don't seem to work
+    mkdir -p "$WEBHARE_DATAROOT/webhare-config/"
+    calc_dir_relpath relpath "$WEBHARE_DATAROOT/webhare-config" "$WEBHARE_DIR"
+    echo "$WEBHARE_DATAROOT" "$WEBHARE_DIR" "$relpath"
+    # Mirror the NODE_PATH for path resolution
+    # and make sure the 'node' types-definitions are loaded (won't be inherited, so need
+    # to copy them)
+    cat << EOF > "$WEBHARE_DATAROOT/webhare-config/tsconfig.json"
+{ "extends": "${relpath}tsconfig.json"
+, "compilerOptions":
+  { "paths": {
+      "*": [
+        "*",
+        "$WEBHARE_DIR/node_modules/*",
+        "$WEBHARE_DATAROOT/node_modules/*"
+      ],
+    },
+    "types": [
+      "node"
+    ]
+  }
+}
+EOF
+  fi
+  export TS_NODE_PROJECT="$WEBHARE_DATAROOT/webhare-config/tsconfig.json"
 }
 
 getlog()
