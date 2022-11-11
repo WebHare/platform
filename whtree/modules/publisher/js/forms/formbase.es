@@ -766,9 +766,18 @@ export default class FormBase
         if (option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined)
         {
           if(selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
+          {
             selectnode.selectedIndex = 0;
+          }
           else
+          {
             selectnode.selectedIndex = -1;
+            if(!selectnode.__didPlaceholderWarning)
+            {
+              selectnode.__didPlaceholderWarning = true;
+              console.warn("This <select> lacks an explicit placeholder so we had to set selectedIndex to -1", selectnode);
+            }
+          }
         }
 
         if (!isinit && !tovalidate.includes(selectnode))
