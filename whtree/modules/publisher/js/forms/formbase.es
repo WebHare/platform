@@ -142,22 +142,34 @@ export default class FormBase
       return;
 
     let now = Date.now();
-    if(!this._formsessionid)
+    let isfirst = !this._formsessionid;
+    if(isfirst)
     {
       this._formsessionid = pxl.generateId();
       this._firstinteraction = now;
     }
 
     let pagestate = this._getPageState();
+    vars = { // TODO how to tell forms apart now that target may be random and ID is not persistent. or is URL more than enough?
+             // ds_formmeta_id: formid && formid != '-' ? formid : ''
+             ds_formmeta_session: this._formsessionid
+           , ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage)
+           , ...vars
+           };
+
+     /* if isfirst and eventtype !== null, the user might eg. try to submit or nextpage *immediately* without ever having
+        any other form interation. to make sure our stats make sense (counting started vs submitted), we'll send the
+        formstarted anyway since WH 5.02 */
+    if(isfirst)
+      pxl.sendPxlEvent("publisher:formstarted", vars, { node: this.node });
+
+    if(eventtype === null)
+      return; //we were only invoked for the implicit formstarted event
+
     // let formid = this.node.dataset.whFormId;
-    pxl.sendPxlEvent(eventtype, { /* TODO how to tell forms apart now that target may be random
-                                          and ID is not persistent. or is URL more than enough?
-                                  ds_formmeta_id: formid && formid != '-' ? formid : '' */
-                                  ds_formmeta_session: this._formsessionid
+    pxl.sendPxlEvent(eventtype, { ...vars
                                 , dn_formmeta_time: now - this._firstinteraction
                                 , dn_formmeta_pagenum: pagestate.curpage + 1
-                                , ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage)
-                                , ...vars
                                 }, { node: this.node });
   }
 
@@ -589,9 +601,7 @@ export default class FormBase
 
   _onInputChange(evt)
   {
-    if(!this._firstinteraction)
-      this.sendFormEvent("publisher:formstarted");
-
+    this.sendFormEvent(null); //only trigger implicit _firstinteraction event
     this._updateConditions(false);
   }
 
