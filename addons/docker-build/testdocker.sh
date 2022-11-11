@@ -455,10 +455,6 @@ create_container()
   # Allow whdata to be mounted on ephemeral (overlayfs) storage
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
-  if [ -z "$ISMODULETEST" ]; then  #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
-    echo "WH_EXTRACTTESTSUITE=1" >> ${TEMPBUILDROOT}/env-file
-  fi
-
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
   set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
 
