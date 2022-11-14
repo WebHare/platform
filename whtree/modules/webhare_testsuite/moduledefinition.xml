@@ -354,7 +354,7 @@
       <nested name="documents">
         <text name="title" />
         <keyword name="type" />
-        <nested name="pages">
+        <nested name="pages" include_in_parent="true" include_in_root="true">
           <integer name="page" />
           <text name="content" />
         </nested>
