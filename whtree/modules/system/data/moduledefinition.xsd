@@ -2369,6 +2369,16 @@
             <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attributeGroup ref="FieldAttributes" />
+          <xs:attribute name="include_in_parent" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>Add the flattened nested fields to the parent object</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="include_in_root" type="xs:boolean">
+            <xs:annotation>
+              <xs:documentation>Add the flattened nested fields to the root object</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
 
