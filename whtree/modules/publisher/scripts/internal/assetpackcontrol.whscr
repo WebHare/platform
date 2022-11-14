@@ -979,7 +979,7 @@ STATIC OBJECTTYPE AssetPackController
 
   /** Upon compile success, move all newly generated files to the output directory
   */
-  MACRO MoveGeneratedFiles(RECORD bundle, STRING usedcompiler)
+  MACRO MoveGeneratedFiles(RECORD bundle)
   {
     STRING builddir := MergePath(bundle.outputpath, "build");
     CreateDiskDirectory(Mergepath(bundle.outputpath,"st"), TRUE);
@@ -995,9 +995,6 @@ STATIC OBJECTTYPE AssetPackController
         CONTINUE;
 
       STRING outpath := rec.name;
-      IF(usedcompiler = "webpack" AND rec.name NOT LIKE "ap.*" AND rec.name NOT LIKE "apmanifest.json*") //webpack builds moved static assets into a subdir, doesn't appear to be needed for esbuild
-        outpath := "st/" || rec.name;
-
       STRING destpath := MergePath(bundle.outputpath, outpath);
       IF(NOT MoveDiskPath(rec.path, destpath))
       {
@@ -1104,7 +1101,7 @@ STATIC OBJECTTYPE AssetPackController
     RECORD ARRAY generatedassets;
     IF (NOT haserrors)
     {
-      this->MoveGeneratedFiles(bundle, message.compiler);
+      this->MoveGeneratedFiles(bundle);
       generatedassets := this->ListAssetsOnDisk(bundle);
     }
 
@@ -1113,7 +1110,6 @@ STATIC OBJECTTYPE AssetPackController
         CELL[ haserrors
             , lastcompile :=   now
             , lastcompiletoken := message.compiletoken
-            , lastcompiler :=  CellExists(message, 'compiler') ? message.compiler : bundle.lastcompiler
             ];
 
     RECORD changes :=
@@ -1198,7 +1194,6 @@ STATIC OBJECTTYPE AssetPackController
         , info :=             bundle.info
         , lastcompile :=      bundle.lastcompile
         , lastcompiletoken := bundle.lastcompiletoken
-        , lastcompiler :=     bundle.lastcompiler
         , requirecompile :=   bundle.requirecompile
         , dependencies :=     bundle.dependencies
         , generatedassets :=  bundle.generatedassets
@@ -1257,7 +1252,6 @@ STATIC OBJECTTYPE AssetPackController
                  , iscompiling :=         FALSE
                  , lastcompile :=         DEFAULT DATETIME
                  , lastcompiletoken :=    ""
-                 , lastcompiler :=        ""
                  , outputpath :=          outputpath
                  , found :=               FALSE
                  , masks :=               DEFAULT STRING ARRAY
@@ -1320,7 +1314,6 @@ STATIC OBJECTTYPE AssetPackController
         rec.resolve([ haserrors := TRUE
                     , lastcompile := GetCurrentDatetime()
                     , lastcompiletoken := ""
-                    , lastcompiler := ""
                     , outputtag := rec.outputtag
                     ]);
         DELETE FROM this->compilewaits WHERE bundleid = rec.outputtag;
@@ -1424,7 +1417,7 @@ STATIC OBJECTTYPE AssetPackController
   OBJECT FUNCTION DoWait(RECORD bundle, BOOLEAN acceptstale)
   {
     IF (bundle.lastcompile != DEFAULT DATETIME AND (acceptstale OR (NOT bundle.iscompiling AND NOT bundle.requirecompile)))
-      RETURN CreateResolvedPromise(CELL[ bundle.haserrors, bundle.lastcompile, bundle.lastcompiletoken, bundle.lastcompiler, bundle.outputtag ]);
+      RETURN CreateResolvedPromise(CELL[ bundle.haserrors, bundle.lastcompile, bundle.lastcompiletoken, bundle.outputtag ]);
 
     RETURN this->CreateCompilePromise(bundle.outputtag);
   }

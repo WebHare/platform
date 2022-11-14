@@ -301,10 +301,9 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
        FROM system_internal.assetpacks
       WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE);
 
-  // Prefer esnext bundles first, then tollium, then the rest. The check order is order in which recompiles are scheduled.
+  // Prefer tollium first, then the rest. The check order is order in which recompiles are scheduled.
    dbbundles := SELECT * FROM dbbundles
-                     ORDER BY bundleconfig.compatibility NOT IN ["modern",""] DESC
-                            , outputtag LIKE "tollium:*" DESC;
+                     ORDER BY outputtag LIKE "tollium:*" DESC;
 
   RETURN dbbundles;
 }
