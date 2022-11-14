@@ -397,6 +397,7 @@
       <keyword name="c_keyword" />
       <text name="c_indexoptions" index_options="positions" />  <!-- The default for OpenSearch -->
       <keyword name="c_ignoreabove" />
+      <nested name="c_nested" include_in_parent="true" />
     </fieldgroup>
 
     <fieldgroup tag="conflicttest_red">
@@ -404,6 +405,7 @@
       <text name="c_keyword" />
       <text name="c_indexoptions" />
       <keyword name="c_ignoreabove" ignore_above="256" />
+      <nested name="c_nested" include_in_root="true" />
     </fieldgroup>
 
     <fieldgroup tag="testgroup">
