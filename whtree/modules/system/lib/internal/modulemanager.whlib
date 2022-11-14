@@ -642,38 +642,51 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
   STRING storageroot := GetWebhareConfiguration().basedataroot || "storage/";
   CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
-  RECORD ARRAY tocheck := SELECT name
-                               , path := GetModuleInstallationRoot(name)
-                               , storage := storageroot || name
-                               , currentrootlink := ReadSoftLink(whdatamods || "@mod-" || name)
-                               , currentstoragelink := ReadSoftLink(whdatamods || "@storage-" || name)
-                            FROM ToRecordArray(modules,"name");
+  // Only create links for modules where GetModuleInstallationRoot is non-empty
+  RECORD ARRAY modulelinks :=
+       SELECT module
+            , name :=    `@mod-${module}`
+            , target :=  GetModuleInstallationRoot(module)
+         FROM ToRecordArray(modules, "module");
+  DELETE FROM modulelinks WHERE target = "";
 
-  FOREVERY(RECORD tofix FROM tocheck)
+  RECORD ARRAY modulestoragelinks :=
+      SELECT  name :=    `@storage-${module}`
+            , target :=  `${storageroot}${module}`
+         FROM modulelinks;
+
+  RECORD ARRAY tocheck := modulelinks CONCAT modulestoragelinks;
+
+  // Also add dompack
+  IF (isallmodules)
   {
-    IF(tofix.path="")
-      CONTINUE;
+    tocheck := tocheck CONCAT
+      [ [ name :=     "dompack"
+        , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
+        ]
+      ];
+  }
 
-    IF(tofix.currentrootlink != tofix.path)
+  FOREVERY (RECORD link FROM tocheck)
+  {
+    STRING linkpath := `${whdatamods}${link.name}`;
+    STRING currenttarget := ReadSoftLink(linkpath);
+    IF (currenttarget != link.target)
     {
       //create using temp, overwiting any existing link where needed
-      CreateSoftLink(whdatamods || "@mod-" || tofix.name || ".tmp", tofix.path);
-      MoveDiskPath(whdatamods || "@mod-" || tofix.name || ".tmp", whdatamods || "@mod-" || tofix.name);
-    }
-    IF(tofix.currentstoragelink != tofix.storage)
-    {
-      //create using temp, overwiting any existing link where needed
-      CreateSoftLink(whdatamods || "@storage-" || tofix.name || ".tmp", tofix.storage);
-      MoveDiskPath(whdatamods || "@storage-" || tofix.name || ".tmp", whdatamods || "@storage-" || tofix.name);
+      CreateSoftLink(`${linkpath}.tmp`, link.target);
+      MoveDiskPath(`${linkpath}.tmp`, linkpath);
     }
   }
 
-  IF(isallmodules)
+  IF (isallmodules)
   {
-    RECORD ARRAY deletelinks := (SELECT * FROM ReadDiskDirectory(whdatamods,"@mod-*") WHERE Substring(name,5) NOT IN modules)
-                                CONCAT
-                                (SELECT * FROM ReadDiskDirectory(whdatamods,"@storage-*") WHERE Substring(name,9) NOT IN modules);
-    FOREVERY(RECORD tokill FROM deletelinks)
-      DeleteDiskFile(tokill.path);
+    STRING ARRAY tokill :=
+        SELECT AS STRING ARRAY path
+          FROM ReadDiskDirectory(whdatamods, "*")
+         WHERE name NOT IN (SELECT AS STRING ARRAY name FROM tocheck);
+
+    FOREVERY (STRING path FROM tokill)
+      DeleteDiskFile(path);
   }
 }

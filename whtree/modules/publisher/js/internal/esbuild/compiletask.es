@@ -185,7 +185,6 @@ async function runTask(taskcontext, data)
       // , metafile:true
 
       , nodePaths: [ path.join(bridge.getBaseDataRoot(),"node_modules/")
-                   , path.join(bridge.getInstallationRoot(), "modules/system/js/") //TODO workaround for dompack resolution. we should probably move dompack to node_modules and avoid further special dompack hacks
                    ]
       , resolveExtensions: [".js",".es",".ts",".tsx"]
       , logLevel: data.logLevel || 'silent'
