@@ -45,7 +45,8 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename)
 {
   STRING diskpath := GetWebHareResourceDiskPath(resourcename);
   STRING eslintpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/eslint");
-  STRING ARRAY args := [ "-f", "json", "--no-eslintrc", "-c", GetWebHareResourceDiskPath("mod::system/data/validation/eslintrc.json"), "--stdin", "--stdin-filename", diskpath ];
+  STRING eslintrcpath := MergePath(GetWebhareConfiguration().installationroot, ".eslintrc.json");
+  STRING ARRAY args := [ "-f", "json", "--no-eslintrc", "-c", eslintrcpath, "--stdin", "--stdin-filename", diskpath ];
 
   OBJECT proc := CreateProcess(eslintpath, args, TRUE, TRUE, TRUE, FALSE);
   //eslint looks up its plugins relative to its location

@@ -814,28 +814,6 @@ HERE
     exit 255
     ;;
 
-  "eslint")
-    getwhparameters
-    CHECKDIR=
-    TORUN=".bin/eslint"
-    args=()
-    if [ "$1" == "--watch" ]; then
-      TORUN=".bin/esw -w --color -f simple"
-      shift;
-    elif [ "$1" == "--fix" ]; then
-      # remove the cache directives
-      args=( --fix )
-      shift;
-    fi
-    if [ $# -eq 0 ]; then
-      args+=("$WEBHARE_CHECKEDOUT_TO/whtree/modules/")
-    else
-      args+=( "$@" )
-    fi
-    "$WEBHARE_DIR/node_modules/"$TORUN --cache --cache-location "$WEBHARE_DATAROOT/ephemeral/eslintcache/cache" -c "$WEBHARE_DIR/modules/system/data/validation/eslintrc.json" --ext .js,.es --ignore-pattern "**/node_modules/**" --ignore-pattern "**/bower_components/**" "${args[@]}"
-    exit $?
-    ;;
-
   "__listcommands")
     list_commands | sort -u
     exit 0
