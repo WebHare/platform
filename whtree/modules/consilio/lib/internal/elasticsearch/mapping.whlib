@@ -122,6 +122,11 @@ RECORD ARRAY FUNCTION ParseIndexField(RECORD field, STRING module, RECORD state)
         IF (ignore_above != 0)
           INSERT CELL ignore_above := ignore_above INTO fielddef.settings;
       }
+      CASE "nested"
+      {
+        INSERT CELL include_in_parent := ParseXSBoolean(subfield->GetAttribute("include_in_parent")) INTO fielddef.settings;
+        INSERT CELL include_in_root := ParseXSBoolean(subfield->GetAttribute("include_in_root")) INTO fielddef.settings;
+      }
     }
 
     INSERT fielddef INTO properties AT END;

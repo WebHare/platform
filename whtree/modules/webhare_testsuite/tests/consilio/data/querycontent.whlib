@@ -41,7 +41,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
           , type := "content"
           , pages :=
               [ [ page := 1, content := "Lorem ipsum dolor sit amet, consectetur adipiscing elit." ]
-              , [ page := 2, content := "Lorem maecenas ornare sagittis quam, sed facilisis diam pulvinar nec." ]
+              , [ page := 2, content := "Lorem maecenas fringilla ornare sagittis quam, sed facilisis diam pulvinar nec." ]
               , [ page := 3, content := "Lorem etiam facilisis tincidunt purus vitae faucibus." ]
               , [ page := 4, content := "Lorem suspendisse commodo felis mi." ]
               , [ page := 5, content := "Lorem donec viverra nisi vel felis lacinia tempor." ]
@@ -49,7 +49,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
               , [ page := 7, content := "Lorem cras nec efficitur magna, lorem sed lorem aliquet ex." ]
                 // no 'lorem'
               , [ page := 8, content := "Sed sodales egestas varius." ]
-              , [ page := 9, content := "Lorem suspendisse fermentum elit quis nisi bibendum, in egestas ipsum aliquet." ]
+              , [ page := 9, content := "Lorem suspendisse fermentum elit quis nisi bibendum, in egestas dapibus ipsum aliquet." ]
               , [ page := 10, content := "Lorem nulla facilisi." ]
               ]
           ]
@@ -79,7 +79,7 @@ CONSTANT RECORD ARRAY contentdatabase :=
           ]
         , [ title := "Second document, second object, fourth subdocument"
           , type := "content"
-          , pages := [ [ page := 1, content := "Lorem quisque porta velit in mauris pulvinar finibus." ] ]
+          , pages := [ [ page := 1, content := "Lorem quisque porta velit in mauris pulvinar dapibus finibus." ] ]
           ]
         , [ title := "Second document, second object, fifth subdocument"
           , type := "content"

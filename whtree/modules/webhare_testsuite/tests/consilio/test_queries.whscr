@@ -337,6 +337,7 @@ MACRO RunTheNestedQueries()
   TestEq(TRUE, document.pages[0].pagescore > 0);
   TestEq('<span class="consilio--highlight">Lorem</span> morbi a tortor', document.pages[0].summary);
 
+  // The second returned publication
   publication := searchres.results[1];
   TestEq("QC2", publication.groupid);
   TestEq("O1", publication.objectid);
@@ -349,6 +350,87 @@ MACRO RunTheNestedQueries()
   TestEq(TRUE, document.pages[0].pagescore > 0);
   TestEq(7, document.pages[0].page); // Contains 3 lorems, should be scored highest
   TestEq('magna, <span class="consilio--highlight">lorem</span> sed <span class="consilio--highlight">lorem</span>', document.pages[0].summary); // the last two lorems are highlighted, as they are closest
+
+  // Because the document.pages.content fields are added to each level within the object structure (they're added to their
+  // parent documents and to the publication root), we can find matches on each level and we should be able to find multiple
+  // words within a document or publication, even if they don't appear on the same page or even within the same document.
+  // Searching for two words 'fringilla dapibus' should return all three publications: the first publication (QC1/O0) has
+  // both words one the same page of a document, the second publication (QC2/O1) has them on separate pages within the same
+  // document and the third pubication (QC2/O2) has them in separate documents
+  searchres := RunConsilioSearch("consilio:testfw_queries",
+      CQOr(
+          [ CQNested("documents",
+                     CQOr([
+                       CQNested("documents.pages",
+                                CQParseUserQuery("fringilla dapibus", [ defaultfields := [ [ field := "documents.pages.content" ] ] ]),
+                                [ count := 3
+                                , scorefield := "pagescore"
+                                , totalcountfield := "numpages"
+                                , summaryfield := "summary"
+                                ]),
+                       CQParseUserQuery("fringilla dapibus", [ defaultfields := [ [ field := "documents.pages.content" ] ] ])
+                     ]),
+                     [ count := 5
+                     , scorefield := "docscore"
+                     , totalcountfield := "numdocs"
+                     ])
+          , CQParseUserQuery("fringilla dapibus", [ defaultfields := [ [ field := "documents.pages.content" ] ] ])
+          ]),
+      [ count := 10
+      , mapping :=
+          [ documents :=
+              [ [ title := ""
+                , pages :=
+                    [ [ page := 0
+                      ]
+                    ]
+                ]
+              ]
+          ]
+      , debug := TRUE
+      , scorefield := "pubscore"
+      , highlightfields := [ "documents.title", "documents.pages.content" ]
+      , highlightparts := [ "documents.pages.content" ]
+      , summaryfield := ""
+      , summary_length := 20
+      ]);
+
+  TestEq(3, searchres.totalcount);
+  TestEq(3, Length(searchres.results));
+
+  // The first returned publication has one matching page
+  publication := searchres.results[0];
+  TestEq("QC1", publication.groupid);
+  TestEq("O0", publication.objectid);
+  // There is 1 matching document
+  TestEq(1, publication.numdocs);
+  TestEq(1, Length(publication.documents));
+  document := publication.documents[0];
+  TestEq(TRUE, document.docscore > 0);
+  TestEq('Content document', document.title); // Contains lorems in the document title, should be scored highest, 'lorem' should be highlighted
+  TestEq(1, document.numpages);
+  TestEq(TRUE, document.pages[0].pagescore > 0);
+  TestEq('Proin <span class=\"consilio--highlight\">fringilla<\/span> ipsum', document.pages[0].summary);
+
+  // The second returned publication has one matching documents, no pages returned
+  publication := searchres.results[1];
+  TestEq("QC2", publication.groupid);
+  TestEq("O1", publication.objectid);
+  // There is 1 matching document
+  TestEq(1, publication.numdocs);
+  TestEq(1, Length(publication.documents));
+  document := publication.documents[0];
+  TestEq(TRUE, document.docscore > 0);
+  TestEq('Second document, first object', document.title); // Contains lorems in the document title, should be scored highest, 'lorem' should be highlighted
+  TestEq(0, document.numpages);
+
+  // The third returned publication has no matching documents
+  publication := searchres.results[2];
+  TestEq("QC2", publication.groupid);
+  TestEq("O2", publication.objectid);
+  // There are no matching documents
+  TestEq(0, publication.numdocs);
+  TestEq(0, Length(publication.documents));
 }
 
 MACRO RunExplainQuery()
