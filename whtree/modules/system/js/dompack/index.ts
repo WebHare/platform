@@ -16,5 +16,5 @@ export { qS, qSA, contains, closest, matches
        , setStyles
        , getBaseURI, getRelativeBounds } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
-export { focus, register, registerMissed, scrollIntoView, getRect } from './src/components';
+export { focus, register, registerMissed, scrollIntoView } from './src/components';
 export { debugflags, parseDebugURL, addDebugFlags, initDebug } from './src/debug';

@@ -78,31 +78,6 @@ function applyRegistration(reg: ComponentRegistration, startnode?: Element)
   });
 }
 
-/** getBoundingClientRect, but as a plain copyable object.. Debugging and other code often needs this
-    @param node Node to query
-    @param srcrect Offset rectangle
-    @return top,bottom,left,right,width,height like getBCR, but spreadable/assignable/copyable etc*/
-export function getRect(node: Element, srcrect?: { top: number, bottom: number, left: number, right: number })
-{
-  const bcr = node.getBoundingClientRect();
-  let rect = { top: bcr.top
-             , bottom: bcr.bottom
-             , left: bcr.left
-             , right: bcr.right
-             , width: bcr.width
-             , height: bcr.height
-             };
-
-  if(srcrect)
-  {
-    rect.top = rect.top - srcrect.top;
-    rect.bottom = rect.bottom - srcrect.top;
-    rect.left = rect.left - srcrect.left;
-    rect.right = rect.right - srcrect.right;
-  }
-  return rect;
-}
-
 /* A focus implementation that allows the node to intercept focused, allowing eg
    radio/checkbox replacements to redirect focus but also explicitly preventing
    focus of a disabled element
