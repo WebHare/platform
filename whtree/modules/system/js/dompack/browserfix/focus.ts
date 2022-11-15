@@ -1,12 +1,12 @@
 /** @import: import * as domfocus from 'dompack/browserfix/focus';
 */
 
-export function getActiveElement(doc)
+export function getActiveElement(doc: Document | null)
 {
   try
   {
     //activeElement can reportedly throw on IE9 and _definately_ on IE11
-    return doc.activeElement;
+    return doc?.activeElement || null;
   }
   catch(e)
   {
@@ -16,22 +16,29 @@ export function getActiveElement(doc)
 
 export function getToplevelWindow()
 {
-  let toplevelwindow = window;
+  let toplevelwindow: Window = window;
   while(toplevelwindow.frameElement)
     toplevelwindow = toplevelwindow.parent;
   return toplevelwindow;
 }
+
+export function asIframe(node: Element | null) : HTMLIFrameElement | null
+{
+  return node && (node as HTMLElement)?.matches?.('iframe') ? node as HTMLIFrameElement : null;
+}
+
 /** Find the currently focused element
-    @param limitwin If set, only return compontents in the specified document (prevents editable iframes from returning subframes) */
-export function getCurrentlyFocusedElement(limitdoc)
+    @param limitdoc If set, only return compontents in the specified document (prevents editable iframes from returning subframes) */
+export function getCurrentlyFocusedElement(limitdoc?: Document)
 {
   try
   {
     var focused = getActiveElement(getToplevelWindow().document);
     while(true)
     {
-      if (focused.tagName == "IFRAME" && (!limitdoc || focused.ownerDocument != limitdoc))
-        focused = getActiveElement(focused.contentDocument);
+      let frame = asIframe(focused);
+      if(frame && (!limitdoc || frame.ownerDocument != limitdoc))
+        focused = getActiveElement(frame.contentDocument);
       else
         break;
     }
@@ -45,19 +52,14 @@ export function getCurrentlyFocusedElement(limitdoc)
   }
 }
 
-function isHTMLElement(node)
-{
-  return node.nodeType == 1 && typeof node.className == "string";
-}
-
-function getIframeFocusableNodes(body, currentnode, recurseframes)
+function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: boolean)
 {
   //ADDME force body into list?
-  var subnodes = [];
+  var subnodes: Element[] = [];
   try
   {
-    const body = (currentnode.contentDocument || currentnode.contentWindow.document).body;
-    if (body.isContentEditable)
+    const body = currentnode.contentDocument?.body || currentnode.contentWindow?.document.body || null;
+    if (body?.isContentEditable)
       return subnodes;
 
     subnodes = getFocusableComponents(body, recurseframes);
@@ -72,7 +74,9 @@ function getIframeFocusableNodes(body, currentnode, recurseframes)
 
 // whether the node is reachable for focus by keyboard navigation
 // (because tabIndex == -1 will be seen a non(keyboard)focusable by this function)
-export function canFocusTo(node) //returns if a -visible- node is focusable (this function does not check for visibility itself)
+// TODO this function should probably be cleaner but you'll be breaking a lot of tests in subtle ways if you change it. 
+//      well perhaps we don't need to check for "COMMAND" but I've lost any further appetite on cleanup attempts
+export function canFocusTo(node: any) //returns if a -visible- node is focusable (this function does not check for visibility itself)
 {
   try
   {
@@ -86,6 +90,7 @@ export function canFocusTo(node) //returns if a -visible- node is focusable (thi
       return false;
 
     return (parseInt(node.getAttribute('tabIndex')) >= 0) //we cannot read the property tabIndex directly, as IE <= 8 will return '0' even if the tabIndex is missing
+                                                          //even then: a[name] reports tabIndex 0 but has no getAttribute('tabIndex') so be prepared if you try to fix this..
            || (["A","LINK"].includes(node.nodeName) && node.href)
            || (!node.disabled && (["BUTTON","SELECT","TEXTAREA","COMMAND"].includes(node.nodeName)
                                   || (node.nodeName=="INPUT" && node.type != "hidden")));
@@ -96,18 +101,13 @@ export function canFocusTo(node) //returns if a -visible- node is focusable (thi
   }
 }
 
-
-export function getFocusableComponents(startnode, recurseframes)
+export function getFocusableComponents(startnode: Element | null, recurseframes: boolean)
 {
-  var focusable=[];
-  for(var currentnode=startnode.firstChild;currentnode;currentnode=currentnode.nextSibling) //can't use element.getChildren, startnode may be document
+  var focusable: Element[] = [];
+  if (!startnode)
+    return focusable;
+  for(var currentnode=startnode.firstElementChild;currentnode;currentnode=currentnode.nextElementSibling) //can't use element.getChildren, startnode may be document
   {
-    if(!isHTMLElement(currentnode))
-    {
-      //if(currentnode.getStyle) console.log("getFocusableComponents skipping",currentnode, $(currentnode).getStyle("display"), currentnode.getStyle("visibility"))
-      continue;
-    }
-
     // Get current style (avoid mootools due to cross-frame issues)
     var currentstyle = getComputedStyle(currentnode);
     if (!currentstyle || currentstyle.display == "none" || currentstyle.visibility == "hidden")
@@ -115,10 +115,10 @@ export function getFocusableComponents(startnode, recurseframes)
       //if(currentnode.getStyle) console.log("getFocusableComponents skipping",currentnode, $(currentnode).getStyle("display"), currentnode.getStyle("visibility"))
       continue;
     }
-
-    if(recurseframes && currentnode.nodeName == "IFRAME") //might contain more things to focus
+    
+    if(recurseframes && asIframe(currentnode)) //might contain more things to focus
     {
-      const subnodes = getIframeFocusableNodes(currentnode, currentnode, recurseframes);
+      const subnodes = getIframeFocusableNodes(asIframe(currentnode)!, recurseframes);
       if(subnodes.length)
         focusable=focusable.concat(subnodes);
     }
@@ -127,8 +127,8 @@ export function getFocusableComponents(startnode, recurseframes)
       focusable.push(currentnode);
     }
 
-    if (currentnode.isContentEditable)
-      continue;
+    if ((currentnode as HTMLElement).isContentEditable)
+      continue; //don't look for further focusable nodes inside, the whole RTE counts as an editable component
 
     const subnodes = getFocusableComponents(currentnode, recurseframes);
     if(subnodes.length)
@@ -139,5 +139,5 @@ export function getFocusableComponents(startnode, recurseframes)
 
 export function getAllFocusableComponents()
 {
-  return getFocusableComponents(getToplevelWindow().document, true);
+  return getFocusableComponents(getToplevelWindow().document.documentElement, true);
 }

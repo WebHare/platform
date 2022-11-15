@@ -1,17 +1,28 @@
-import { dispatchCustomEvent, stop } from '../src/events.es';
+import { dispatchCustomEvent, stop } from '../src/events';
 
+type EventCoordinates =
+{
+  pageX: number;
+  pageY: number;
+  clientX: number;
+  clientY: number;
+  screenX: number;
+  screenY: number;
+ };
 // Store data about the current move
-let moveeventdata = null;
-let lastcoordinates = null;
+let moveeventdata: { target: EventTarget | null, startX: number, startY: number } | null = null;
+let lastcoordinates: EventCoordinates | null = null;
 
 // Fire a move event and return the resulting event
-function fireMoveEvent(eventtype, listener, event, cancelable)
+function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: MouseEvent | TouchEvent, cancelable: boolean)
 {
   //FIXME properly wait for 'last' touch when multitouchmoving ?
 
-  listener = moveeventdata ? moveeventdata.listener : listener;
-  let originaltarget = moveeventdata ? moveeventdata.target : event.target;
-  let coordinatesource = event.type == "touchmove" ? event.touches[0] : event.type == "touchend" ? lastcoordinates : event;
+  listener = moveeventdata?.target ?? listener;
+  let originaltarget = moveeventdata?.target ?? event.target;
+  if (!originaltarget)
+    return;
+  let coordinatesource = event instanceof TouchEvent ? event.touches[0] : event.type == "touchend" ? lastcoordinates! : event;
   if(event.type == "touchmove")
     lastcoordinates = cloneCoordinates(coordinatesource);
 
@@ -31,9 +42,9 @@ function fireMoveEvent(eventtype, listener, event, cancelable)
 
 // Activate the global mouse handlers and store the original event target (the 'movable' element) and start position to
 // calculate mouse movement
-function startMove(listener, target, startX, startY)
+function startMove(target: EventTarget | null, startX: number, startY: number)
 {
-  moveeventdata = { listener, target, startX, startY };
+  moveeventdata = { target, startX, startY };
   window.addEventListener("mousemove", moveMouseMove, true);
   window.addEventListener("mouseup", moveMouseUp, true);
   window.addEventListener("touchmove", moveMouseMove, true);
@@ -50,7 +61,7 @@ function stopMove()
   window.removeEventListener("touchend", moveMouseUp, true);
 }
 
-function cloneCoordinates(coordinatesource)
+function cloneCoordinates(coordinatesource: MouseEvent | Touch | EventCoordinates): EventCoordinates
 {
   return { pageX: coordinatesource.pageX
          , pageY: coordinatesource.pageY
@@ -62,39 +73,39 @@ function cloneCoordinates(coordinatesource)
 }
 
 // Handle a mousedown event on a movable element
-function moveMouseDown(event)
+function moveMouseDown(event: Event) // We're a mouse/touch event handler, so we know the event is a MouseEvent or TouchEvent
 {
-  if (event.button) //not the main button
+  if (event instanceof MouseEvent && event.button) //not the main button
     return;
 
   // Start the move by firing the movestart event
-  if(!fireMoveEvent("dompack:movestart", this, event, true))
+  if(!fireMoveEvent("dompack:movestart", event.target, event as MouseEvent | TouchEvent, true))
     return;
 
   // Start the move action
-  let coordinatesource = event.touches ? event.touches[0] : event;
+  let coordinatesource = event instanceof TouchEvent ? event.touches[0] : event as MouseEvent;
   lastcoordinates = cloneCoordinates(coordinatesource);
-  startMove(this, event.target, coordinatesource.clientX, coordinatesource.clientY);
+  startMove(event.target, coordinatesource.clientX, coordinatesource.clientY);
 
   // Prevent default to prevent selecting text or click
   stop(event);
 }
 
 // Handle a (global) mousemove event
-function moveMouseMove(event)
+function moveMouseMove(event: Event) // We're a mouse/touch event handler, so we know the event is a MouseEvent or TouchEvent
 {
   // Check if we have data (we should have, but check just in case)
   if (moveeventdata)
   {
     stop(event);
     // Fire the move event on the original target, use the current event target as relatedTarget
-    fireMoveEvent("dompack:move", null, event, false);
+    fireMoveEvent("dompack:move", null, event as MouseEvent | TouchEvent, false);
   }
 
 }
 
 // Handle a (global) mouseup event
-function moveMouseUp(event)
+function moveMouseUp(event: MouseEvent | TouchEvent)
 {
   // Check if we have data (we should have, but check just in case)
   if (moveeventdata)
@@ -106,12 +117,12 @@ function moveMouseUp(event)
   stopMove();
 }
 
-export function enable(el)
+export function enable(el: EventTarget)
 {
   el.addEventListener("mousedown", moveMouseDown);
   el.addEventListener("touchstart", moveMouseDown);
 }
-export function disable(el)
+export function disable(el: EventTarget)
 {
   el.removeEventListener("mousedown", moveMouseDown);
   el.removeEventListener("touchstart", moveMouseDown);

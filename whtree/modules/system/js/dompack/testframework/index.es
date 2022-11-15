@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-import * as dombusy from '../src/busy.es';
+import * as dombusy from '../src/busy';
 
 import { _resolveToSingleElement, _getFocusableElement } from './pointer.es';
 export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect.es';

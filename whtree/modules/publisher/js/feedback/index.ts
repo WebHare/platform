@@ -1,28 +1,20 @@
+import { KeyValueObject, PlainValue, Properties } from "@mod-system/js/types";
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";
 import * as service from "./internal/feedback.rpc.json";
 import "@mod-publisher/web/common/feedback/styles.css";
 
-export interface DeferredPromise<T>
-{
-  promise: Promise<T>;
-  resolve: (result: T) => void;
-  reject: (error: Error) => void;
-}
-
-// Object with string keys and string, number of boolean values
-type KeyValueObject = { [key: string]: { value: string | number | boolean }};
-
-type HighlightCallback = (node: Element) => Element | null;
+export type HighlightCallback = (node: Element) => Element;
+export type DOMFilterCallback = (node: Element) => Element;
 
 export interface FeedbackOptions
 {
   token: string;
   addElement?: boolean;
   highlightCallback?: HighlightCallback;
-  domFilterCallback?: (node: Node) => boolean;
+  domFilterCallback?: DOMFilterCallback;
   postFilterCallback?: (node: DocumentFragment) => void;
-  feedbackPromise?: () => Promise<KeyValueObject>;
+  feedbackPromise?: () => Promise<KeyValueObject<PlainValue>>;
 }
 
 export interface FeedbackResult
@@ -36,13 +28,13 @@ export interface ScreenshotData
 {
   readonly version: number;
   screenshot: {
-    htmlAttrs: Array<{ name: string, value: string }>;
-    styleSheets: Array<string>;
-    bodyAttrs: Array<{ name: string, value: string }>;
+    htmlAttrs: Properties;
+    styleSheets: string[];
+    bodyAttrs: Properties;
     bodyContents: string;
   };
   size: {
-    width: Number,
+    width: number,
     height: number
   };
   browser: string;
@@ -53,7 +45,7 @@ export interface ScreenshotData
 
 export interface PointOptions
 {
-  highlightCallback: HighlightCallback;
+  highlightCallback?: HighlightCallback;
 }
 
 export interface PointResult
@@ -65,7 +57,7 @@ export interface PointResult
 }
 
 
-const defaultOptions: FeedbackOptions = { token: null, addElement: true };
+const defaultOptions: FeedbackOptions = { token: "", addElement: true };
 let feedbackOptions: FeedbackOptions;
 
 /** @short Initialize the global feedback options

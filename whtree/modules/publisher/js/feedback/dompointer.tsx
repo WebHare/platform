@@ -1,14 +1,15 @@
 import * as dompack from "dompack";
-import { DeferredPromise, PointOptions, PointResult } from "./index";
+import { DeferredPromise } from "@mod-system/js/types";
+import { PointOptions, PointResult, HighlightCallback } from "./index";
 
-let deferred: DeferredPromise<PointResult>, highlighter: HTMLElement, highlightCallback: (node: Element) => Element;
+let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
 
-export default function pointAtDOM(event: MouseEvent, options: PointOptions): Promise<PointResult>
+export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null>
 {
   if (deferred)
     return Promise.reject(new Error("Already pointing at DOM"));
 
-  highlightCallback = options.highlightCallback;
+  highlightCallback = options?.highlightCallback || null;
 
   deferred = dompack.createDeferred();
   if (!highlighter)
@@ -19,7 +20,7 @@ export default function pointAtDOM(event: MouseEvent, options: PointOptions): Pr
   if (event)
     highlightDOM(event);
 
-  return deferred.promise;
+  return deferred!.promise;
 }
 
 function activateDOMPointer()
@@ -38,8 +39,10 @@ function deactivateDOMPointer()
   document.documentElement.classList.remove("wh-feedback--dompointer");
 }
 
-function resolveWithResult(result: PointResult)
+function resolveWithResult(result: PointResult | null)
 {
+  if (!deferred)
+    return;
   deactivateDOMPointer();
   const resolve = deferred.resolve;
   deferred = null;
@@ -90,5 +93,5 @@ function captureDOMNode(event: MouseEvent)
 function getHoveredDOMNode(event: MouseEvent)
 {
   const el = document.elementFromPoint(event.clientX, event.clientY);
-  return highlightCallback ? highlightCallback(el) : el;
+  return el && highlightCallback ? highlightCallback(el) : el;
 }

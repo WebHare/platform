@@ -1,4 +1,4 @@
-import * as browser from 'dompack/extra/browser.es';
+import * as browser from 'dompack/extra/browser';
 import * as dompack from 'dompack';
 
 /////////////////////////////////////////////////////////////////////////

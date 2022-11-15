@@ -1,8 +1,8 @@
-import { debugflags } from "../src/debug.es";
-import { fireHTMLEvent } from "../src/events.es";
-import { checkedDispatchEvent } from "./pointer.es";
-import { getName as browserName } from "../extra/browser.es";
-import * as domfocus from "../browserfix/focus.es";
+import { debugflags } from "../src/debug";
+import { fireHTMLEvent } from "../src/events";
+import { checkedDispatchEvent } from "./pointer";
+import { getName as browserName } from "../extra/browser";
+import * as domfocus from "../browserfix/focus";
 
 
 export function getKeyboardEventProps(data)

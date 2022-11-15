@@ -10,27 +10,29 @@
    new KeyboardHandler(this.textarea, {}, { dontpropagate: ['Enter']});
 */
 
-import { normalizeKeyboardEventData } from '../src/events.es';
-import { debugflags } from '../src/debug.es';
+import { NormalizedKeyboardEvent, normalizeKeyboardEventData } from '../src/events';
+import { debugflags } from '../src/debug';
 
-var propnames = { "shiftKey":   "Shift"
-                , "ctrlKey":    navigator.platform == "MacIntel" ? "Control" : [ "Accel", "Control" ]
-                , "metaKey":    navigator.platform == "MacIntel" ? [ "Accel", "Meta" ] : "Meta"
-                , "altKey":     "Alt"
+const IS_MAC_PLATFORM = navigator.userAgent.indexOf("Mac OS X") > 0;
+
+var propnames = { shiftKey: "Shift"
+                , ctrlKey:  IS_MAC_PLATFORM ? "Control" : [ "Accel", "Control" ]
+                , metaKey:  IS_MAC_PLATFORM ? [ "Accel", "Meta" ] : "Meta"
+                , altKey:   "Alt"
                 };
 
-function getFinalKey(event) //get the naem for the 'final' key, eg the 'D' in 'alt+control+d'
+function getFinalKey(event: NormalizedKeyboardEvent) //get the naem for the 'final' key, eg the 'D' in 'alt+control+d'
 {
   if(event.code.startsWith('Key') && event.code.length==4)
-    return event.code.substr(3,1).toUpperCase();
+    return event.code.substring(3,4).toUpperCase();
   if(event.code.startsWith('Digit') && event.code.length==6)
-    return event.code.substr(5,1).toUpperCase();
+    return event.code.substring(5,6).toUpperCase();
   return event.key.length === 1 ? event.key.toUpperCase() : event.key;
 }
 
-function getKeyNames(event)
+function getKeyNames(event: NormalizedKeyboardEvent)
 {
-  let names = [[]];
+  let names: string[][] = [[]];
 
 /*
   // Firefix under selenium on linux always says 'Unidentified' as key. Backup for some keys.
@@ -38,18 +40,18 @@ function getKeyNames(event)
     basekey = selenium_backup[event.keyCode];
 */
   // Create the modifiers in the names array (omit the basekey, so we can sort on modifier first)
-  Object.keys(propnames).forEach(function(propname)
+  Object.keys(propnames).forEach(propname =>
   {
     if (event[propname])
     {
       // The key is pressed. Add the modifier name to all current names.
-      var modifier = propnames[propname];
+      var modifier: string = propnames[propname];
       if (!Array.isArray(modifier))
         names.forEach(function(arr) { arr.push(modifier); });
       else
       {
         // Multiple modifiers map to this key, duplicate all result sequences for every modifier
-        var newkeys = [];
+        var newkeys: string[][] = [];
         modifier.forEach(function(singlemodifier)
         {
           names.forEach(function(arr)
@@ -62,18 +64,16 @@ function getKeyNames(event)
     }
   });
 
-  names = names.map(function(arr)
+  return names.map(function(arr)
   {
     // Sort the modifier names
     arr = arr.sort();
     arr.push(getFinalKey(event));
     return arr.join("+");
   });
-
-  return names;
 }
 
-function validateKeyName(key)
+function validateKeyName(key: string)
 {
   var modifiers = key.split("+");
   modifiers.pop();
@@ -91,6 +91,19 @@ function validateKeyName(key)
     throw new Error("Illegal key name " + key + ", modifiers must be sorted alphabetically");
 }
 
+type KeyboardMappingHandler = (event: KeyboardEvent) => boolean | void;
+type KeyboardMapping = { [key: string]: KeyboardMappingHandler };
+type KeyPressHandler = (event: KeyboardEvent, key: string) => boolean | void;
+type KeyboardEventHandler = (event: Event) => void;
+type KeyboardHandlerOptions =
+{
+  stopmapped?: boolean;
+  dontpropagate?: string[];
+  onkeypress?: KeyPressHandler;
+  captureunsafekeys?: boolean;
+  listenoptions?: AddEventListenerOptions;
+};
+
 /** node: The node to attach to
     keymap: Keymap
     options.stopmapped - preventDefault and stopPropagation on any key we have in our map
@@ -100,15 +113,25 @@ function validateKeyName(key)
 */
 export default class KeyboardHandler
 {
-  constructor(node, keymap, options)
+  node: EventTarget;
+  keymap: KeyboardMapping;
+  stopmapped: boolean;
+  dontpropagate: string[];
+  onkeypress?: KeyPressHandler;
+  captureunsafekeys: boolean;
+  private _listenoptions?: AddEventListenerOptions;
+  private _onkeydown: KeyboardEventHandler;
+  private _onkeypress: KeyboardEventHandler;
+
+  constructor(node: EventTarget, keymap: KeyboardMapping, options?: KeyboardHandlerOptions)
   {
     this.node = node;
     this.keymap = {};
-    this.stopmapped = options&&options.stopmapped;
-    this.dontpropagate = options && options.dontpropagate ? [...options.dontpropagate].map(name => name.toUpperCase()) : [];
-    this.onkeypress = options&&options.onkeypress;
-    this.captureunsafekeys = options&&options.captureunsafekeys;
-    this._listenoptions = (options && options.listenoptions) || {};
+    this.stopmapped = options?.stopmapped ?? false;
+    this.dontpropagate = options?.dontpropagate ? [...options.dontpropagate].map(name => name.toUpperCase()) : [];
+    this.onkeypress = options?.onkeypress;
+    this.captureunsafekeys = options?.captureunsafekeys ?? false;
+    this._listenoptions = options?.listenoptions;
 
     Object.keys(keymap).forEach(keyname =>
     {
@@ -135,15 +158,17 @@ export default class KeyboardHandler
       @param key Parsed key (as returned by GetKeyNames)
       @return Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
   */
-  _mustIgnoreKey(target, key, keynames)
+  private _mustIgnoreKey(target: EventTarget | null, key: string, keynames: string[])
   {
+    if (!(target instanceof Node))
+      return false;
     var tag = target.nodeName.toLowerCase();
     if (tag == "select")
     {
       if (["ArrowUp", "ArrowDown",  "Home", "End", "PageUp", "PageDown"].indexOf(key) != -1)
         return true;
     }
-    else if (tag == "input" || tag == "textarea" || target.isContentEditable)
+    else if (tag == "input" || tag == "textarea" || (target instanceof HTMLElement && target.isContentEditable))
     {
       // These keys we ignore, regardless of the modifier
       if ([ "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"
@@ -160,7 +185,7 @@ export default class KeyboardHandler
         is_special_combo = true;
 
       // Only contenteditable wants "Shift+Enter"
-      if (target.isContentEditable && keynames.indexOf("Shift+Enter") != -1)
+      if (target instanceof HTMLElement && target.isContentEditable && keynames.indexOf("Shift+Enter") != -1)
         is_special_combo = true;
 
       // These exact combo's are wanted by all inputs
@@ -173,7 +198,7 @@ export default class KeyboardHandler
     return false;
   }
 
-  addKey(keybinding, handler)
+  addKey(keybinding: string, handler: KeyboardMappingHandler)
   {
     if(debugflags.key)
     {
@@ -182,13 +207,13 @@ export default class KeyboardHandler
     }
     this.keymap[keybinding.toUpperCase()] = handler;
   }
-  removeKey(keybinding)
+  removeKey(keybinding: string)
   {
     delete this.keymap[keybinding.toUpperCase()];
   }
-  _onKeyDown(event)
+  _onKeyDown(event: Event) // We're a key event handler, so we know the event is a KeyboardEvent
   {
-    let keydata = normalizeKeyboardEventData(event);
+    let keydata = normalizeKeyboardEventData(event as KeyboardEvent);
 
     // Get all possible names for this key
     let keynames = getKeyNames(keydata);
@@ -240,7 +265,7 @@ export default class KeyboardHandler
         event.preventDefault();
       }
 
-      let ishandled = mapping.apply(this.node,[event]);
+      let ishandled = mapping.apply(this.node,[event as KeyboardEvent]);
       if(ishandled && !event.defaultPrevented)
       {
         console.warn(`The key handler for '${keynames[i]}' should preventDefault (or dompack.stop) the event to block fruther propagation`);
@@ -255,13 +280,13 @@ export default class KeyboardHandler
     }
     return true;
   }
-  _onKeyPress(event)
+  _onKeyPress(event: Event) // We're a key event handler, so we know the event is a KeyboardEvent
   {
-    let keydata = normalizeKeyboardEventData(event);
+    let keydata = normalizeKeyboardEventData(event as KeyboardEvent);
 
     if (this.onkeypress)
     {
-      if (!this.onkeypress.apply(this.node, [ event, keydata.key ]))
+      if (!this.onkeypress.apply(this.node, [ event as KeyboardEvent, keydata.key ]))
       {
         if(!event.defaultPrevented)
           console.warn("The onkeypress handler should preventDefault (or dompack.stop) the event to block fruther propagation");
@@ -270,52 +295,51 @@ export default class KeyboardHandler
       }
     }
   }
-}
 
-export function getEventKeyNames(event)
-{
-  let keydata = normalizeKeyboardEventData(event);
-  return getKeyNames(keydata);
-}
-
-KeyboardHandler.getEventKeyNames = function(event)
-{
-  let keydata = normalizeKeyboardEventData(event);
-  return getKeyNames(keydata);
-};
-
-/** Is the native 'copy' modifier for this platform pressed? */
-KeyboardHandler.hasNativeEventCopyKey = function(event)
-{
-  return event && (navigator.platform == "MacIntel" ? event.altKey : event.ctrlKey);
-};
-
-/** Is the native 'multiselect' modifier for this platform pressed? */
-KeyboardHandler.hasNativeEventMultiSelectKey = function(event)
-{
-  return event && (navigator.platform == "MacIntel" ? event.metaKey : event.ctrlKey);
-};
-
-KeyboardHandler.getDragModeOverride = function(event)
-{
-  const modifiers =
-      (event.altKey?"Alt+":"") +
-      (event.ctrlKey?"Control+":"") +
-      (event.metaKey?"Meta+":"") +
-      (event.shiftKey?"Shift+":"") +
-      (navigator.platform === "MacIntel" ? "Mac" : "Other");
-
-  let override = "";
-  switch (modifiers)
+  static getEventKeyNames(event: KeyboardEvent)
   {
-    case "Shift+Other":
-    case "Meta+Other":    override = "move"; break;
-    case "Control+Other":
-    case "Alt+Mac":       override = "copy"; break;
-    case "Control+Shift+Other":
-    case "Alt+Other":
-    case "Control+Mac":   override = "link"; break;
+    let keydata = normalizeKeyboardEventData(event);
+    return getKeyNames(keydata);
   }
 
-  return override;
-};
+  /** Is the native 'copy' modifier for this platform pressed? */
+  static hasNativeEventCopyKey(event: KeyboardEvent)
+  {
+    return event && (IS_MAC_PLATFORM ? event.altKey : event.ctrlKey);
+  };
+
+  /** Is the native 'multiselect' modifier for this platform pressed? */
+  static hasNativeEventMultiSelectKey(event: KeyboardEvent)
+  {
+    return event && (IS_MAC_PLATFORM ? event.metaKey : event.ctrlKey);
+  };
+
+  static getDragModeOverride(event: KeyboardEvent)
+  {
+    const modifiers =
+        (event.altKey?"Alt+":"") +
+        (event.ctrlKey?"Control+":"") +
+        (event.metaKey?"Meta+":"") +
+        (event.shiftKey?"Shift+":"") +
+        (IS_MAC_PLATFORM ? "Mac" : "Other");
+
+    let override = "";
+    switch (modifiers)
+    {
+      case "Shift+Other":
+      case "Meta+Other":    override = "move"; break;
+      case "Control+Other":
+      case "Alt+Mac":       override = "copy"; break;
+      case "Control+Shift+Other":
+      case "Alt+Other":
+      case "Control+Mac":   override = "link"; break;
+    }
+
+    return override;
+  };
+}
+
+export function getEventKeyNames(event: KeyboardEvent)
+{
+  return KeyboardHandler.getEventKeyNames(event);
+}

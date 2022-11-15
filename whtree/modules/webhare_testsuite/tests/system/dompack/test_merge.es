@@ -1,6 +1,6 @@
 import * as test from "@mod-system/js/wh/testframework";
 
-import * as merge from "dompack/extra/merge.es";
+import * as merge from "dompack/extra/merge";
 
 test.registerTests(
 [ "Pulldown test"

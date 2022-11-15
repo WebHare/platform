@@ -1,12 +1,13 @@
-import * as browser from "dompack/extra/browser";
-import { ScreenshotData } from "./index";
+import { Properties } from "@mod-system/js/types";
+import * as browser from "@mod-system/js/dompack/extra/browser";
+import { DOMFilterCallback, ScreenshotData } from "./index";
 
 const SCREENSHOTVERSION = 2;
 
 /** Take a DOM snapshot
 */
-export default function takeScreenshot(domFilterCallback: (node: Node) => boolean,
-                                       postFilterCallback: (node: DocumentFragment) => void): ScreenshotData
+export default function takeScreenshot(domFilterCallback?: DOMFilterCallback,
+                                       postFilterCallback?: (node: DocumentFragment) => void): ScreenshotData
 {
   const bodyFragment = document.createDocumentFragment();
   cloneNodeContents(document.body, bodyFragment, domFilterCallback);
@@ -15,9 +16,9 @@ export default function takeScreenshot(domFilterCallback: (node: Node) => boolea
   const bodyNode = document.createElement("div");
   bodyNode.append(bodyFragment);
 
-  const htmlAttrs: Array<{ name: string, value: string }> = [ ...document.documentElement.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
-  const styleSheets = [ ...document.styleSheets ].map(sheet => [ ...sheet.cssRules ].map(rule => rule.cssText).join(""));
-  const bodyAttrs: Array<{ name: string, value: string }> = [ ...document.body.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
+  const htmlAttrs: Properties = Array.from(document.documentElement.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
+  const styleSheets = Array.from(document.styleSheets).map(sheet => Array.from(sheet.cssRules).map(rule => rule.cssText).join(""));
+  const bodyAttrs: Properties = Array.from(document.body.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
 
   // Save the document's and body's scroll positions
   if (document.documentElement.scrollTop)
@@ -46,36 +47,38 @@ export default function takeScreenshot(domFilterCallback: (node: Node) => boolea
   );
 }
 
-function cloneNodeContents(source: Node, target: DocumentFragment | Element, domFilterCallback: (node: Node) => boolean): void
+function filterNode(node: Node, domFilterCallback?: DOMFilterCallback): boolean
+{
+  if (node instanceof HTMLElement && node.dataset.whScreenshotSkip || node.nodeName == "WH-AUTHORBAR")
+    return false;
+  return !domFilterCallback || !(node instanceof Element) || domFilterCallback(node) != null;
+}
+
+function cloneNodeContents(source: Node, target: DocumentFragment | Element, domFilterCallback?: DOMFilterCallback): void
 {
   if (!source.childNodes.length)
     return;
-  target.append(...[ ...source.childNodes ].map(childNode =>
-  {
-    // Skip over the author bar and nodes having a 'data-wh-screenshot-skip' attribute
-    if (childNode instanceof HTMLElement && childNode.dataset.whScreenshotSkip || childNode.nodeName == "WH-AUTHORBAR")
-      return;
-    if (!domFilterCallback || domFilterCallback(childNode))
-    {
-      const childClone = childNode.cloneNode(false);
-      if (childClone instanceof Element)
-      {
-        if (childClone.nodeName === "IFRAME")
-        {
-          childClone.removeAttribute("src");
-          childClone.setAttribute("sandbox", "");
-        }
-        if (childNode instanceof Element && childClone instanceof HTMLElement)
-        {
-          if (childNode.scrollTop)
-            childClone.dataset.whScreenshotScrollTop = childNode.scrollTop.toString();
-          if (childNode.scrollLeft)
-            childClone.dataset.whScreenshotScrollLeft = childNode.scrollLeft.toString();
-        }
 
-        cloneNodeContents(childNode, childClone, domFilterCallback);
+  target.append(...[...source.childNodes].filter(_ => filterNode(_, domFilterCallback)).map(childNode =>
+  {
+    const childClone = childNode.cloneNode(false);
+    if (childClone instanceof Element)
+    {
+      if (childClone.nodeName === "IFRAME")
+      {
+        childClone.removeAttribute("src");
+        childClone.setAttribute("sandbox", "");
       }
-      return childClone;
+      if (childNode instanceof Element && childClone instanceof HTMLElement)
+      {
+        if (childNode.scrollTop)
+          childClone.dataset.whScreenshotScrollTop = childNode.scrollTop.toString();
+        if (childNode.scrollLeft)
+          childClone.dataset.whScreenshotScrollLeft = childNode.scrollLeft.toString();
+      }
+
+      cloneNodeContents(childNode, childClone, domFilterCallback);
     }
-  }).filter(_ => !!_));
+    return childClone;
+  }));
 }

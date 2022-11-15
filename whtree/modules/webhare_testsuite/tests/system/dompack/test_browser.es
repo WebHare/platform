@@ -1,5 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
-import * as browser from 'dompack/extra/browser.es';
+import * as browser from 'dompack/extra/browser';
 
 test.registerTests(
 [ "Browser detection"

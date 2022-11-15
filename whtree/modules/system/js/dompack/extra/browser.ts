@@ -7,23 +7,31 @@
 */
 /* eslint no-useless-escape: off */
 
-export function parseUserAgent(ua)
+export type UserAgentInfo =
+{
+  name: string;
+  version: number;
+  platform: string;
+  device: "desktop" | "mobile" | "tablet" | "";
+};
+
+export function parseUserAgent(ua: string): UserAgentInfo
 {
   ua = ua.toLowerCase();
 
   // chrome is included in the edge UA, so need to check for edge first, before checking if it's chrome.
   // safari is included in the miuibrowser UA, so need to check for miuibrowser first, before checking if it's safari.
-  var UA = ua.match(/(edge|miuibrowser)[\s\/:]([\w\d\.]+)/);
+  let UA: RegExpMatchArray | null = ua.match(/(edge|miuibrowser)[\s\/:]([\w\d\.]+)/);
   if (!UA)
     UA = ua.match(/(opera|ie|firefox|chrome|trident|crios|version)[\s\/:]([\w\d\.]+)?.*?(safari|(?:rv[\s\/:]|version[\s\/:])([\w\d\.]+)|$)/);
   if (!UA) //try ios 11.4.1
   {
     UA = ua.match(/; cpu os ([\d]+)/);
     if(UA)
-      UA = [null, 'safari', parseInt(UA[1]) ];
+      UA = ['', 'safari', UA[1] ];
   }
   if (!UA)
-    UA = [null, 'unknown', 0];
+    UA = ['', 'unknown', "0" ];
 
   if (UA[1] == 'trident'){
     UA[1] = 'ie';
@@ -35,13 +43,16 @@ export function parseUserAgent(ua)
   let platform = ua.match(/ip(?:ad|od|hone)/) ? 'ios' : (ua.match(/(?:webos|android)/) || ua.match(/mac|win|linux/) || ['other'])[0];
   if (platform == 'win') platform = 'windows';
 
-  let ret = { name: (UA[1] == 'version') ? UA[3] : UA[1],
-              version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
-              platform: platform,
-              device: ua.match(/ipad/) ? 'tablet' : [ 'ios', 'webos', 'android' ].includes(platform) ? 'mobile' : [ 'mac', 'windows', 'linux' ].includes(platform) ? 'desktop' : ''
-            };
-  if (ret.name == 'ie' && !ret.version && document.documentMode)
-    ret.version = document.documentMode;
+  let ret: UserAgentInfo =
+    { name: (UA[1] == 'version') ? UA[3] : UA[1],
+      version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
+      platform: platform,
+      device: ua.match(/ipad/) ? 'tablet' : [ 'ios', 'webos', 'android' ].includes(platform) ? 'mobile' : [ 'mac', 'windows', 'linux' ].includes(platform) ? 'desktop' : ''
+    };
+  type IEDocument = Document & { documentMode?: number };
+  const doc: IEDocument = document;
+  if (ret.name == 'ie' && !ret.version && doc.documentMode)
+    ret.version = doc.documentMode;
 
   return ret;
 }

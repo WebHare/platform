@@ -1,1 +1,1 @@
-export { run, registerFormatter } from 'dompack/extra/merge.es';
+export { run, registerFormatter } from 'dompack/extra/merge';

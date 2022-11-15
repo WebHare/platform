@@ -1,12 +1,12 @@
 import './dompackexample.scss';
 
 import * as dompack from "dompack";
-import Pulldown from "dompack/components/pulldown/index.es";
-import AutoSuggest from "dompack/components/autosuggest/index.es";
-import StaticSuggestionList from "dompack/components/autosuggest/staticlist.es";
-import * as dialog from 'dompack/components/dialog/index.es';
-import * as dialogapi from 'dompack/api/dialog.es';
-import * as storage from 'dompack/extra/storage.es';
+import Pulldown from "dompack/components/pulldown/index";
+import AutoSuggest from "dompack/components/autosuggest/index";
+import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
+import * as dialog from 'dompack/components/dialog/index';
+import * as dialogapi from 'dompack/api/dialog';
+import * as storage from 'dompack/extra/storage';
 import * as cookie from "dompack/extra/cookie";
 
 window.storageSetLocal = storage.setLocal;

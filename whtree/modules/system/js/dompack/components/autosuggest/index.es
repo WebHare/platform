@@ -1,6 +1,6 @@
-import * as dompack from "../../index.es";
-import SelectList from "../internal/selectlist.es";
-import KeyboardHandler from '../../extra/keyboard.es';
+import * as dompack from "../../index";
+import SelectList from "../internal/selectlist";
+import KeyboardHandler from '../../extra/keyboard';
 
 export function normalizeSelectValues(values)
 {

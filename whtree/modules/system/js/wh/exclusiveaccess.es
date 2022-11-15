@@ -1,1 +1,1 @@
-export * from "@mod-tollium/js/internal/exclusiveaccess.es";
+export * from "@mod-tollium/js/internal/exclusiveaccess";

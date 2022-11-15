@@ -1,17 +1,32 @@
-import { append, setStyles } from './tree.es';
+import { append, setStyles } from './tree';
 
-function flattenArray(list)
+declare global
 {
-  return list.reduce((acc, elt) => acc.concat(Array.isArray(elt) ? flattenArray(elt) : elt), []);
+  namespace JSX
+  {
+    interface IntrinsicElements
+    {
+      [eleName: string]: any;
+    }
+  }
 }
 
-function setClassName(node, value)
+type CreateElementFunction = (attributes: { [key: string]: any }, _1?: null, _2?: null) => HTMLElement;
+
+function flattenArray<T>(list: T[]): T[]
 {
-  if (!value || typeof value === 'string')
+  return list.reduce((acc: T[], elt) => acc.concat(Array.isArray(elt) ? flattenArray(elt) : elt), []);
+}
+
+function setClassName(node: Element, value?: string | Array<string> | { [key: string]: boolean })
+{
+  if (!value)
+    node.className = '';
+  if (typeof value === 'string')
     node.className = value || '';
   else if (Array.isArray(value))
     node.className = value.filter(elt => elt && typeof elt === 'string').join(" ");
-  else
+  else if (value instanceof Object)
   {
     let str = "";
     Object.keys(value).forEach((key, idx) => { if (value[key]) str += (idx ? " " : "") + key; });
@@ -27,25 +42,26 @@ const MATCH_DASH_AND_CHAR = /-([a-zA-Z])/g;
 
 /** Convert a camelCased identifier to a dashed string
 */
-export function toDashed(value)
+export function toDashed(value: string)
 {
   if (value)
     return (value.substring(0, 1) + value.substring(1).replace(MATCH_UPCASE, "-$1")).toLowerCase();
+  return "";
 }
 
 /** Convert a dashed string to a camelCase identifier
 */
-export function toCamel(value)
+export function toCamel(value: string)
 {
-  return value.replace(MATCH_DASH_AND_CHAR, (item, match_1) => match_1.toUpperCase());
+  return value.replace(MATCH_DASH_AND_CHAR, (_, match_1) => match_1.toUpperCase());
 }
 
-function attrHasBooleanValue(propname)
+function attrHasBooleanValue(propname: string)
 {
   return ['disabled','checked','selected','readonly','multiple','ismap'].includes(propname);
 }
 
-function createElement(elementname, attributes, toattrs)
+function createElement(elementname: string, attributes: { [key: string]: any }, toattrs: boolean)
 {
   var node = document.createElement(elementname);
   if(attributes)
@@ -86,7 +102,7 @@ function createElement(elementname, attributes, toattrs)
         return void Object.assign(node[attrname], value);
 
       if(attrname == 'childNodes') //append as children
-        return void append(node, ...attributes.childNodes.filter(child => child != null && child !== true && child !== false));
+        return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child != null && child !== true && child !== false));
 
       if(toattrs && attrHasBooleanValue(attrname))
       {
@@ -121,7 +137,7 @@ function createElement(elementname, attributes, toattrs)
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
-export function create(elementname, attributes)
+export function create(elementname: string, attributes: { [key: string]: any })
 {
   return createElement(elementname, attributes, false);
 }
@@ -134,12 +150,12 @@ export function create(elementname, attributes)
     /* @jsxFrag dompack.jsxfragment *\/
     your code
 */
-export function jsxcreate(element, attributes, ...childNodes)
+export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: (Node | string | number)[])
 {
   // Ensure attributes
   attributes = attributes || {};
   // Flatten childnodes arrays, convert numbers to strings. Also support children property (React uses that)
-  let parts = (attributes.childNodes || []).concat(attributes.children || []).concat(childNodes);
+  let parts: (Node | string | number)[] = (attributes.childNodes || []).concat(attributes.children || []).concat(childNodes);
   if (attributes.children)
     attributes.children = null;
   parts = flattenArray(parts);
@@ -151,7 +167,7 @@ export function jsxcreate(element, attributes, ...childNodes)
   return createElement(element, attributes, true);
 }
 
-export function jsxfragment(inp)
+export function jsxfragment(inp: Node)
 {
   let frag = document.createDocumentFragment();
   frag.append(...inp.childNodes);

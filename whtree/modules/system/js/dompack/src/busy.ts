@@ -1,13 +1,26 @@
-import * as domdebug from './debug.es';
-import * as dompromise from './promise.es';
-import * as domevents from './events.es';
+import * as domdebug from './debug';
+import * as dompromise from './promise';
+import * as domevents from './events';
+import { DeferredPromise } from "../../types";
 
-let lockmgr = null;
-let locallocks = [];
+let lockmgr: LockManager | null = null;
+let locallocks: Lock[] = [];
 let ischild = false;
+
+const lockmgrprop = "dompack:busylockmanager";
+interface LockManagerWindow extends Window
+{
+  [key: string]: any;
+};
 
 class LockManager
 {
+  locks: Lock[];
+  busycounter: number;
+  deferreduipromise: DeferredPromise<boolean> | null;
+  uiwatcher: NodeJS.Timeout | null;
+  modallocked: boolean;
+
   //this object is not for external consumption
   constructor()
   {
@@ -24,7 +37,7 @@ class LockManager
         return true;
     return false;
   }
-  add(lock)
+  add(lock: Lock)
   {
     this.locks.push(lock);
     let returnvalue = this.busycounter++;
@@ -38,7 +51,7 @@ class LockManager
     }
     return returnvalue;
   }
-  release(lock)
+  release(lock: Lock)
   {
     let pos = this.locks.indexOf(lock);
     if(pos==-1)
@@ -95,7 +108,7 @@ class LockManager
   }
   logLocks()
   {
-    this.locks.forEach( (lock,idx) => console.log('[bus] lock #' + lock.locknum, lock.acquirestack, lock) );
+    this.locks.forEach( lock => console.log('[bus] lock #' + lock.locknum, lock.acquirestack, lock) );
     console.log("[bus] total " + this.locks.length + " locks");
   }
   getLockIds()
@@ -104,20 +117,30 @@ class LockManager
   }
 }
 
+type LockOptions =
+{
+  ismodal: boolean;
+};
+
 export class Lock
 {
-  constructor(options)
-  {
-    this.ismodal = options && options.ismodal;
+  ismodal: boolean;
+  locknum: number;
+  acquirestack: string | undefined;
+  releasestack: string | undefined;
 
-    this.locknum = lockmgr.add(this);
+  constructor(options: LockOptions | null)
+  {
+    this.ismodal = options?.ismodal || false;
+
+    this.locknum = lockmgr!.add(this);
     if(ischild)
       locallocks.push(this);
 
     if(domdebug.debugflags.bus)
     {
       this.acquirestack = (new Error).stack;
-      console.trace('[bus] Busy lock #' + this.locknum + ' taken. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
+      console.trace('[bus] Busy lock #' + this.locknum + ' taken. ' + lockmgr!.getNumLocks() + " locks active now: " + lockmgr!.getLockIds());
     }
   }
   release()
@@ -125,7 +148,7 @@ export class Lock
     if(domdebug.debugflags.bus)
       this.releasestack = (new Error).stack;
 
-    lockmgr.release(this);
+    lockmgr!.release(this);
     if(ischild)
     {
       let lockpos = locallocks.indexOf(this);
@@ -134,7 +157,7 @@ export class Lock
 
     if(domdebug.debugflags.bus)
     {
-      console.trace('[bus] Busy lock #' + this.locknum + ' released. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
+      console.trace('[bus] Busy lock #' + this.locknum + ' released. ' + lockmgr!.getNumLocks() + " locks active now: " + lockmgr!.getLockIds());
     }
   }
 }
@@ -142,28 +165,29 @@ export class Lock
 /** Return a promise resolving as soon as the UI is free for at least one tick */
 export function waitUIFree()
 {
-  return lockmgr.waitUIFree();
+  return lockmgr!.waitUIFree();
 }
 
 /** flag userinterface as busy. tests then know not to interact with the UI until the busy flag is released
     @param options Options
     @cell options.ismodal Whether the lock is a modal lock
 */
-export function flagUIBusy(options)
+export function flagUIBusy(options: LockOptions)
 {
   return new Lock(options);
 }
 
 export function getUIBusyCounter()
 {
-  return lockmgr.busycounter;
+  return lockmgr!.busycounter;
 }
 
 try //we're accessing a parent window, so we may hit security exceptions
 {
-  if(window.parent && window.parent.$dompack$busylockmanager)
+  const parent = window.parent as LockManagerWindow;
+  if(parent && parent[lockmgrprop])
   {
-    lockmgr = window.parent.$dompack$busylockmanager;
+    lockmgr = parent[lockmgrprop];
     ischild = true;
     //if we connected to a parent...  deregister our locks, eg. if parent navigated our frame away
     window.addEventListener("unload", () =>
@@ -173,7 +197,7 @@ try //we're accessing a parent window, so we may hit security exceptions
 
       //switch to local instance as we'll be unable to auto-release
       let locallockmgr = new LockManager;
-      locallocks.forEach(lock => { lockmgr.release(lock); locallockmgr.add(lock); });
+      locallocks.forEach(lock => { lockmgr!.release(lock); locallockmgr.add(lock); });
       locallocks = [];
       lockmgr = locallockmgr;
     });
@@ -187,4 +211,4 @@ if(!lockmgr)
   lockmgr = new LockManager;
 
 if(typeof window != 'undefined')
-  window.$dompack$busylockmanager = lockmgr;
+  (window as LockManagerWindow)[lockmgrprop] = lockmgr;

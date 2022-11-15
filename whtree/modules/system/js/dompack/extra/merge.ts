@@ -1,6 +1,9 @@
-const formatters = {}, updaters = {};
+type FormatFunction = (value: any) => string | number;
+type UpdateFunction = (node: HTMLElement, value: any) => void;
+const formatters: { [key: string]: FormatFunction } = {}
+const updaters: { [key: string]: UpdateFunction } = {};
 
-function mergeNode(node, set, data)
+function mergeNode(node: HTMLElement, set: string, data: any)
 {
   const parts = set.split(":");
   const isNodeFunc = parts.length === 1;
@@ -10,7 +13,7 @@ function mergeNode(node, set, data)
     return;
   }
 
-  let func;
+  let func: string = "";
   let exprpath = (isNodeFunc ? parts[0] : parts[1]).trim();
 
   const callparts = exprpath.split("(");
@@ -98,23 +101,24 @@ function mergeNode(node, set, data)
 }
 
 /** Apply all merge fields within a node, recursively
-    @param node Root node to start merging
+    @param mergenode Root node to start merging
     @param data Merge data
     @param options
     @cell options.filter If set, a function that will be called for every node with merge functions. If it returns a falsy value, the node will be skipped.
 */
-export async function run(node, data, { filter } = {})
+export async function run(mergenode: ParentNode, data: any, { filter }: { filter?: (node: Element) => boolean } = {})
 {
-  let nodes = node.querySelectorAll('*[data-merge],*[data-wh-merge]');
+  let nodes = mergenode.querySelectorAll('*[data-merge],*[data-wh-merge]');
   for(let node of Array.from(nodes)) //FIXME drop support for data-wh-merge as soon as we've completed the phase out
   {
-    if (filter && !filter(node))
+    if (node.nodeType != 1 || (filter && !filter(node)))
       continue;
 
     // Parse 'a=b;c=d(e)'
-    let sets = (node.dataset.merge || node.dataset.whMerge).split(";");
-    for (let set of sets)
-      mergeNode(node, set, data);
+    let sets = ((node as HTMLElement).dataset.merge || (node as HTMLElement).dataset.whMerge)?.split(";");
+    if (sets)
+      for (let set of sets)
+        mergeNode(node, set, data);
   }
 }
 
@@ -122,7 +126,7 @@ export async function run(node, data, { filter } = {})
     @param name Name of the formatter function
     @param callback Formatter function. Called with parameter (value), must return a formatted value to write to the property.
 */
-export function registerFormatter(name, callback)
+export function registerFormatter(name: string, callback: FormatFunction)
 {
   formatters[name] = callback;
 }
@@ -131,7 +135,7 @@ export function registerFormatter(name, callback)
     @param name Name of the updater function
     @param callback Updater function. Called with parameters (node: HTMLElement, value: Any).
 */
-export function registerUpdater(name, callback)
+export function registerUpdater(name: string, callback: UpdateFunction)
 {
   updaters[name] = callback;
 }

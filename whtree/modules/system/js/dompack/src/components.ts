@@ -1,19 +1,28 @@
-import * as domtree from './tree.es';
-import * as domevents from './events.es';
+import * as domtree from './tree';
+import * as domevents from './events';
 
-let components = [];
+type RegistrationHandler = (node: Element, index?: number) => void;
+type ComponentRegistration =
+{
+  selector: string;
+  handler: RegistrationHandler;
+  index: number;
+  num: number;
+  afterdomready: boolean;
+};
+
+let components: ComponentRegistration[] = [];
 const map = new WeakMap();
 
-
 //is a node completely in the dom? if we can find a sibling anywhere, it must be closed
-function isNodeCompletelyInDom(node)
+function isNodeCompletelyInDom(node: Element | null)
 {
-  for(;node;node=node.parentNode)
+  for(;node;node=node.parentElement)
     if(node.nextSibling)
       return true;
   return false;
 }
-function processRegistration(item, reg, domready)
+function processRegistration(item: Element, reg: ComponentRegistration, domready: boolean)
 {
   if(!domready && !isNodeCompletelyInDom(item))
     return; //not safe to register
@@ -29,7 +38,7 @@ function processRegistration(item, reg, domready)
   }
   reg.handler(item, reg.index++); //note: if an exception is reported from Object.handler,
 }
-function applyRegistration(reg, startnode)
+function applyRegistration(reg: ComponentRegistration, startnode?: Element)
 {
   let domready = domtree.isDomReady();
   if(reg.afterdomready && !domready)
@@ -49,27 +58,31 @@ function applyRegistration(reg, startnode)
     {
       console.error("Exception handling registration of",item,"for rule",reg.selector);
       console.log("Registration",reg);
-      console.log(e,e.stack);
-      if (window.onerror)
+      if (e instanceof Error)
       {
-        // Send to onerror to trigger exception reporting
-        try
+        console.log(e,e.stack);
+        if (window.onerror)
         {
-          window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
-        }
-        catch (e)
-        {
+          // Send to onerror to trigger exception reporting
+          try
+          {
+            // @ts-ignore fileName, lineNumber and columnNumber are non-standard
+            window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
+          }
+          catch(e){}
         }
       }
+      else
+        console.log(e);
     }
   });
 }
 
 /** getBoundingClientRect, but as a plain copyable object.. Debugging and other code often needs this
     @param node Node to query
-    @param srcret Offset rectangle
+    @param srcrect Offset rectangle
     @return top,bottom,left,right,width,height like getBCR, but spreadable/assignable/copyable etc*/
-export function getRect(node, srcrect)
+export function getRect(node: Element, srcrect?: { top: number, bottom: number, left: number, right: number })
 {
   const bcr = node.getBoundingClientRect();
   let rect = { top: bcr.top
@@ -85,7 +98,7 @@ export function getRect(node, srcrect)
     rect.top = rect.top - srcrect.top;
     rect.bottom = rect.bottom - srcrect.top;
     rect.left = rect.left - srcrect.left;
-    rect.right = rect.right - srcrect.left;
+    rect.right = rect.right - srcrect.right;
   }
   return rect;
 }
@@ -97,28 +110,20 @@ export function getRect(node, srcrect)
    @param node Node to focus
    @param options.preventScroll Prevent scroll to focused element
 */
-export function focus(node, options)
+export function focus(node: Element, options?: FocusOptions)
 {
   if(!domevents.dispatchCustomEvent(node, 'dompack:takefocus', { bubbles: true, cancelable: true, detail: {options} }))
     return true;
 
-  if(node.disabled)
+  if(typeof (node as any).focus !== "function" || (node as HTMLInputElement).disabled)
     return false;
 
-  // IE likes to throw errors when setting focus
-  try
-  {
-    node.focus(options);
-  }
-  catch(e)
-  {
-    return false;
-  }
+  (node as HTMLInputElement).focus(options);
   return true;
 }
 
-/** Deprecated, invoke scrollIntoView directly  on the nodes */
-export function scrollIntoView(node, options)
+/** @deprecated invoke scrollIntoView directly  on the nodes */
+export function scrollIntoView(node: Element, options: ScrollIntoViewOptions)
 {
   node.scrollIntoView(options);
   return true;
@@ -133,23 +138,24 @@ export function scrollIntoView(node, options)
     - the node to register
     - the index of the node (a unique counter for this selector - first is 0) */
 
-export function register(selector, handler, options)
+export function register(selector: string, handler: RegistrationHandler, options?: { afterdomready: boolean })
 {
-  let newreg = { selector: selector
-               , handler: handler
-               , index: 0
-               , num: components.length
-               , afterdomready: !options || options.afterdomready
-               };
+  const newreg: ComponentRegistration =
+    { selector: selector
+    , handler: handler
+    , index: 0
+    , num: components.length
+    , afterdomready: !options || options.afterdomready
+    };
   if(components.length==0 && !domtree.isDomReady()) //first component... we'll need a ready handler
     domtree.onDomReady(() => registerMissed());
 
   components.push(newreg);
-  applyRegistration(newreg, null);
+  applyRegistration(newreg);
 }
 
 // register any components we missed on previous scans
-export function registerMissed(startnode)
+export function registerMissed(startnode?: Element)
 {
   let todo = components.slice(0);
   todo.forEach(item => applyRegistration(item, startnode));

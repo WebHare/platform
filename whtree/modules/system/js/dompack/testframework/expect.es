@@ -1,4 +1,4 @@
-import { log } from './index.es';
+import { log } from './index';
 
 var typeOf = function(item){
         if (item == null) return 'null';

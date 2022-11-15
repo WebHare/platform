@@ -1,11 +1,25 @@
 /* import * as preload from 'dompack/extra/preload' */
 
-export function promiseImage(imgsrc)
+type PromiseImageResult =
 {
-  return new Promise((resolve, reject) =>
+  node: HTMLImageElement;
+  src: string;
+  width: number;
+  height: number;
+};
+
+type PromiseScriptResult =
+{
+  node: HTMLScriptElement;
+  src: string;
+};
+
+export function promiseImage(imgsrc: string)
+{
+  return new Promise<PromiseImageResult>((resolve, reject) =>
   {
     let img = new Image;
-    img.onload = function(evt)
+    img.onload = () =>
     {
       resolve({node: img
               ,src: img.src
@@ -18,12 +32,12 @@ export function promiseImage(imgsrc)
   });
 }
 
-export function promiseScript(scriptsrc)
+export function promiseScript(scriptsrc: string)
 {
-  return new Promise((resolve, reject) =>
+  return new Promise<PromiseScriptResult>((resolve, reject) =>
   {
     let scripttag = document.createElement('script');
-    scripttag.onload = function(evt)
+    scripttag.onload = () =>
     {
       resolve( { node: scripttag
                , src: scripttag.src
@@ -32,11 +46,11 @@ export function promiseScript(scriptsrc)
     scripttag.onerror = reject;
     scripttag.src = scriptsrc;
 
-    document.querySelector('head,body').appendChild(scripttag);
+    document.querySelector('head,body')?.appendChild(scripttag);
   });
 }
 
-export function promiseCSS(src)
+export function promiseCSS(src: string)
 {
   let element = document.createElement('link');
   element.type = 'text/css';
@@ -44,29 +58,20 @@ export function promiseCSS(src)
   element.href = src;
   let retval = promiseNewLinkNode(element);
 
-  document.querySelector('head,body').appendChild(element);
+  document.querySelector('head,body')?.appendChild(element);
   return retval;
 }
 
-export function promiseNewLinkNode(element)
+export function promiseNewLinkNode(element: HTMLLinkElement)
 {
-  return new Promise((resolve, reject) =>
+  return new Promise<void>((resolve, reject) =>
   {
-    let r = false;
-    element.onload = element.onreadystatechange = function()
-    {
-      if (!r && (!this.readyState || this.readyState == 'complete')) {
-        r = true;
-        resolve();
-      }
-    };
-    element.onerror = function(err) {
-      reject(err, element);
-    };
+    element.onload = () => resolve();
+    element.onerror = reject;
   });
 }
 
-export function promiseAssetPack(apname)
+export function promiseAssetPack(apname: string)
 {
   let basepath = `/.ap/${apname.replace(':','.')}/ap.`;
   if(document.querySelector(`script[src$="${CSS.escape(basepath+'js')}"`))
