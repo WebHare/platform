@@ -1246,9 +1246,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
 
           STRING compatibility := assetpacknode->GetAttribute("compatibility") ?? "es2016";
-          IF(compatibility IN ["webpack","modern"])
-            compatibility := "es2016";
-
           INSERT [ name := assetpackname
                  , entrypoint := entrypoint
                  , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))

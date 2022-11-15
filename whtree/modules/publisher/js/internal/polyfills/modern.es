@@ -27,6 +27,7 @@ if(!String.prototype.at)
 //replaceChildren polyfill
 if(!Element.prototype.replaceChildren)
 {
+  //not generally supported by Chrome, Firefox and Safari before Oct 2020
   Element.prototype.replaceChildren = function()
   {
     this.innerHTML = "";
@@ -38,6 +39,3 @@ if(!Element.prototype.replaceChildren)
 // end of ParentNode, Childnode
 //
 ///////////////////////////////////////////////////////////////////////////////////
-
-if(!window.__whCompatibility)
-  window.__whCompatibility = "modern";
