@@ -162,11 +162,15 @@ function initializeVideoElementV2(node)
         activateVideo(videonode, video, { autoplay: true });
       });
 
+    // Because we don't use <button> we must implement it's keyboard interaction
     playbutton.addEventListener("keypress", function(evt)
       {
         // we are only interested in enter and space keypressed
         if (evt.keyCode != 13 && evt.keyCode != 32)
           return;
+
+        // prevent other code getting the event or the space both triggering the video AND scrolling the page
+        evt.preventDefault();
 
         activateVideo(videonode, video, { autoplay: true});
       });
