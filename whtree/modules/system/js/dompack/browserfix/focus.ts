@@ -1,7 +1,4 @@
-/** @import: import * as domfocus from 'dompack/browserfix/focus';
-*/
-
-export function getActiveElement(doc: Document | null)
+export function getActiveElement(doc: Document | null) : Element | null
 {
   try
   {
@@ -27,16 +24,20 @@ export function asIframe(node: Element | null) : HTMLIFrameElement | null
   return node && (node as HTMLElement)?.matches?.('iframe') ? node as HTMLIFrameElement : null;
 }
 
-/** Find the currently focused element
-    @param limitdoc If set, only return compontents in the specified document (prevents editable iframes from returning subframes) */
-export function getCurrentlyFocusedElement(limitdoc?: Document)
+/**
+     Find the currently focused element
+ *
+    @param limitdoc If set, only return compontents in the specified document (prevents editable iframes from returning subframes)
+    @returns The element or null
+ */
+export function getCurrentlyFocusedElement(limitdoc?: Document) : Element | null
 {
   try
   {
-    var focused = getActiveElement(getToplevelWindow().document);
+    let focused = getActiveElement(getToplevelWindow().document);
     while(true)
     {
-      let frame = asIframe(focused);
+      const frame = asIframe(focused);
       if(frame && (!limitdoc || frame.ownerDocument != limitdoc))
         focused = getActiveElement(frame.contentDocument);
       else
@@ -55,7 +56,7 @@ export function getCurrentlyFocusedElement(limitdoc?: Document)
 function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: boolean)
 {
   //ADDME force body into list?
-  var subnodes: Element[] = [];
+  let subnodes: Element[] = [];
   try
   {
     const body = currentnode.contentDocument?.body || currentnode.contentWindow?.document.body || null;
@@ -76,24 +77,22 @@ function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: 
 // (because tabIndex == -1 will be seen a non(keyboard)focusable by this function)
 // TODO this function should probably be cleaner but you'll be breaking a lot of tests in subtle ways if you change it. 
 //      well perhaps we don't need to check for "COMMAND" but I've lost any further appetite on cleanup attempts
-export function canFocusTo(node: any) //returns if a -visible- node is focusable (this function does not check for visibility itself)
+export function canFocusTo(node: Element) //returns if a -visible- node is focusable (this function does not check for visibility itself)
 {
   try
   {
-    if(node.nodeType != 1)
-      return false;
-    if(node.contentEditable === "true")
+    if((node as HTMLElement).contentEditable === "true")
       return true;
 
     // http://dev.w3.org/html5/spec-preview/editing.html#focusable
-    if(node.tabIndex == -1) //explicitly disabled
+    if((node as HTMLElement).tabIndex == -1) //explicitly disabled
       return false;
 
-    return (parseInt(node.getAttribute('tabIndex')) >= 0) //we cannot read the property tabIndex directly, as IE <= 8 will return '0' even if the tabIndex is missing
+    return (parseInt(node.getAttribute('tabIndex') || "") >= 0) //we cannot read the property tabIndex directly, as IE <= 8 will return '0' even if the tabIndex is missing
                                                           //even then: a[name] reports tabIndex 0 but has no getAttribute('tabIndex') so be prepared if you try to fix this..
-           || (["A","LINK"].includes(node.nodeName) && node.href)
-           || (!node.disabled && (["BUTTON","SELECT","TEXTAREA","COMMAND"].includes(node.nodeName)
-                                  || (node.nodeName=="INPUT" && node.type != "hidden")));
+           || (["A","LINK"].includes(node.nodeName) && (node as HTMLLinkElement).href)
+           || (!(node as HTMLInputElement).disabled && (["BUTTON","SELECT","TEXTAREA","COMMAND"].includes(node.nodeName)
+           || (node.nodeName=="INPUT" && (node as HTMLInputElement).type != "hidden")));
   }
   catch(e)
   {
@@ -103,24 +102,25 @@ export function canFocusTo(node: any) //returns if a -visible- node is focusable
 
 export function getFocusableComponents(startnode: Element | null, recurseframes: boolean)
 {
-  var focusable: Element[] = [];
+  let focusable: Element[] = [];
   if (!startnode)
     return focusable;
-  for(var currentnode=startnode.firstElementChild;currentnode;currentnode=currentnode.nextElementSibling) //can't use element.getChildren, startnode may be document
+  for(const currentnode of startnode.children)
   {
     // Get current style (avoid mootools due to cross-frame issues)
-    var currentstyle = getComputedStyle(currentnode);
+    const currentstyle = getComputedStyle(currentnode);
     if (!currentstyle || currentstyle.display == "none" || currentstyle.visibility == "hidden")
     {
       //if(currentnode.getStyle) console.log("getFocusableComponents skipping",currentnode, $(currentnode).getStyle("display"), currentnode.getStyle("visibility"))
       continue;
     }
     
-    if(recurseframes && asIframe(currentnode)) //might contain more things to focus
+    let iframe;
+    if(recurseframes && (iframe = asIframe(currentnode))) //might contain more things to focus
     {
-      const subnodes = getIframeFocusableNodes(asIframe(currentnode)!, recurseframes);
+      const subnodes = getIframeFocusableNodes(iframe, recurseframes);
       if(subnodes.length)
-        focusable=focusable.concat(subnodes);
+        focusable = focusable.concat(subnodes);
     }
     else if(canFocusTo(currentnode))
     {
@@ -129,7 +129,7 @@ export function getFocusableComponents(startnode: Element | null, recurseframes:
 
     if ((currentnode as HTMLElement).isContentEditable)
       continue; //don't look for further focusable nodes inside, the whole RTE counts as an editable component
-
+    
     const subnodes = getFocusableComponents(currentnode, recurseframes);
     if(subnodes.length)
       focusable = focusable.concat(subnodes);

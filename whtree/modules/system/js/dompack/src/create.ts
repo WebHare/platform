@@ -2,15 +2,18 @@ import { append, setStyles } from './tree';
 
 declare global
 {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX
   {
     interface IntrinsicElements
     {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [eleName: string]: any;
     }
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CreateElementFunction = (attributes: { [key: string]: any }, _1?: null, _2?: null) => HTMLElement;
 
 function flattenArray<T>(list: T[]): T[]
@@ -34,14 +37,18 @@ function setClassName(node: Element, value?: string | Array<string> | { [key: st
   }
 }
 
-/** Matches non-first uppercase characters
+/**
+     Matches non-first uppercase characters
     (when the second char is uppercases, the first char is passed too)
-*/
+ */
 const MATCH_UPCASE = /([A-Z])/g;
 const MATCH_DASH_AND_CHAR = /-([a-zA-Z])/g;
 
-/** Convert a camelCased identifier to a dashed string
-*/
+/**
+ Convert a camelCased identifier to a dashed string
+ *
+ * @param value identifier to convert
+ */
 export function toDashed(value: string)
 {
   if (value)
@@ -49,8 +56,11 @@ export function toDashed(value: string)
   return "";
 }
 
-/** Convert a dashed string to a camelCase identifier
-*/
+/**
+ Convert a dashed string to a camelCase identifier
+ *
+ * @param value identifier to convert
+ */
 export function toCamel(value: string)
 {
   return value.replace(MATCH_DASH_AND_CHAR, (_, match_1) => match_1.toUpperCase());
@@ -61,9 +71,10 @@ function attrHasBooleanValue(propname: string)
   return ['disabled','checked','selected','readonly','multiple','ismap'].includes(propname);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createElement(elementname: string, attributes: { [key: string]: any }, toattrs: boolean)
 {
-  var node = document.createElement(elementname);
+  const node = document.createElement(elementname);
   if(attributes)
   {
     Object.keys(attributes).forEach(attrname =>
@@ -80,7 +91,7 @@ function createElement(elementname: string, attributes: { [key: string]: any }, 
         return;
       }
 
-      let value = attributes[attrname];
+      const value = attributes[attrname];
 
       if (attrname == 'on') //create event listeners
         return void Object.keys(value).forEach(eventname => node.addEventListener(eventname, value[eventname], false));
@@ -137,19 +148,25 @@ function createElement(elementname: string, attributes: { [key: string]: any }, 
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function create(elementname: string, attributes: { [key: string]: any })
 {
   return createElement(elementname, attributes, false);
 }
 
-/** Function to create for jsx, create elements directly (instead of virtual dom nodes).
-
+/**
+ Function to create for jsx, create elements directly (instead of virtual dom nodes).
+ 
     import * as dompack from 'dompack';
-
+ 
     /* @jsx dompack.jsxcreate *\/
     /* @jsxFrag dompack.jsxfragment *\/
     your code
-*/
+ *
+ * @param element Name of the element to create
+ * @param {...any} childNodes Any child nodes to add immediately
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: (Node | string | number)[])
 {
   // Ensure attributes
@@ -169,7 +186,7 @@ export function jsxcreate(element: string | CreateElementFunction, attributes: {
 
 export function jsxfragment(inp: Node)
 {
-  let frag = document.createDocumentFragment();
+  const frag = document.createDocumentFragment();
   frag.append(...inp.childNodes);
   return frag;
 }

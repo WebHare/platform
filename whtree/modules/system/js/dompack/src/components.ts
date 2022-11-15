@@ -11,7 +11,7 @@ type ComponentRegistration =
   afterdomready: boolean;
 };
 
-let components: ComponentRegistration[] = [];
+const components: ComponentRegistration[] = [];
 const map = new WeakMap();
 
 //is a node completely in the dom? if we can find a sibling anywhere, it must be closed
@@ -31,7 +31,7 @@ function processRegistration(item: Element, reg: ComponentRegistration, domready
     map.set(item, [ reg.num ]);
   else
   {
-    let list = map.get(item);
+    const list = map.get(item);
     if (list.includes(reg.num))
       return;
     list.push(reg.num);
@@ -40,11 +40,11 @@ function processRegistration(item: Element, reg: ComponentRegistration, domready
 }
 function applyRegistration(reg: ComponentRegistration, startnode?: Element)
 {
-  let domready = domtree.isDomReady();
+  const domready = domtree.isDomReady();
   if(reg.afterdomready && !domready)
     return;
 
-  let items = Array.from( (startnode || document).querySelectorAll(reg.selector));
+  const items = Array.from( (startnode || document).querySelectorAll(reg.selector));
   if(startnode && domtree.matches(startnode,reg.selector))
     items.unshift(startnode);
 
@@ -66,7 +66,7 @@ function applyRegistration(reg: ComponentRegistration, startnode?: Element)
           // Send to onerror to trigger exception reporting
           try
           {
-            // @ts-ignore fileName, lineNumber and columnNumber are non-standard
+            // @ts-ignore: fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
           }
           catch(e){}
@@ -90,28 +90,35 @@ export function focus(node: Element, options?: FocusOptions)
   if(!domevents.dispatchCustomEvent(node, 'dompack:takefocus', { bubbles: true, cancelable: true, detail: {options} }))
     return true;
 
-  if(typeof (node as any).focus !== "function" || (node as HTMLInputElement).disabled)
+  if(typeof (node as HTMLElement).focus !== "function" || (node as HTMLInputElement).disabled)
     return false;
 
   (node as HTMLInputElement).focus(options);
   return true;
 }
 
-/** @deprecated invoke scrollIntoView directly  on the nodes */
+/**
+ * @param node Node to show
+ * @param options Scroll options
+ * @deprecated invoke scrollIntoView directly  on the nodes
+ */
 export function scrollIntoView(node: Element, options: ScrollIntoViewOptions)
 {
   node.scrollIntoView(options);
   return true;
 }
 
-/** @short Register a component for auto-initialization.
+/**
+    Register a component for auto-initialization.
+ 
     @param selector Selector the component must match
     @param handler Handler
     @param options Any unrecognized options are passed to the handler
-
+ 
     The handler will be invoked with two parameters
     - the node to register
-    - the index of the node (a unique counter for this selector - first is 0) */
+    - the index of the node (a unique counter for this selector - first is 0)
+ */
 
 export function register(selector: string, handler: RegistrationHandler, options?: { afterdomready: boolean })
 {
@@ -132,6 +139,6 @@ export function register(selector: string, handler: RegistrationHandler, options
 // register any components we missed on previous scans
 export function registerMissed(startnode?: Element)
 {
-  let todo = components.slice(0);
+  const todo = components.slice(0);
   todo.forEach(item => applyRegistration(item, startnode));
 }

@@ -43,7 +43,7 @@ export function parseUserAgent(ua: string): UserAgentInfo
   let platform = ua.match(/ip(?:ad|od|hone)/) ? 'ios' : (ua.match(/(?:webos|android)/) || ua.match(/mac|win|linux/) || ['other'])[0];
   if (platform == 'win') platform = 'windows';
 
-  let ret: UserAgentInfo =
+  const ret: UserAgentInfo =
     { name: (UA[1] == 'version') ? UA[3] : UA[1],
       version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
       platform: platform,
@@ -58,7 +58,7 @@ export function parseUserAgent(ua: string): UserAgentInfo
 }
 
 //module.exports =
-let browser = parseUserAgent(navigator.userAgent);
+const browser = parseUserAgent(navigator.userAgent);
 
 export function getName()
 {

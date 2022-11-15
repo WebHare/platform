@@ -1,7 +1,3 @@
-/** @import: import KeyboardHandler from "dompack/extra/keyboard";
-
-*/
-
 /* All keynames should be mixed-cased, as done here: http://www.w3.org/TR/DOM-Level-3-Events-key/
 
    Modifiers should be in the ordering Alt+Control+Meta+Shift+key (ie alphabetical)
@@ -15,7 +11,7 @@ import { debugflags } from '../src/debug';
 
 const IS_MAC_PLATFORM = navigator.userAgent.indexOf("Mac OS X") > 0;
 
-var propnames = { shiftKey: "Shift"
+const propnames = { shiftKey: "Shift"
                 , ctrlKey:  IS_MAC_PLATFORM ? "Control" : [ "Accel", "Control" ]
                 , metaKey:  IS_MAC_PLATFORM ? [ "Accel", "Meta" ] : "Meta"
                 , altKey:   "Alt"
@@ -45,13 +41,13 @@ function getKeyNames(event: NormalizedKeyboardEvent)
     if (event[propname])
     {
       // The key is pressed. Add the modifier name to all current names.
-      var modifier: string = propnames[propname];
+      const modifier: string = propnames[propname];
       if (!Array.isArray(modifier))
         names.forEach(function(arr) { arr.push(modifier); });
       else
       {
         // Multiple modifiers map to this key, duplicate all result sequences for every modifier
-        var newkeys: string[][] = [];
+        const newkeys: string[][] = [];
         modifier.forEach(function(singlemodifier)
         {
           names.forEach(function(arr)
@@ -75,7 +71,7 @@ function getKeyNames(event: NormalizedKeyboardEvent)
 
 function validateKeyName(key: string)
 {
-  var modifiers = key.split("+");
+  const modifiers = key.split("+");
   modifiers.pop();
 
   // Check for allowed modifiers
@@ -85,7 +81,7 @@ function validateKeyName(key: string)
       throw new Error("Illegal modifier name '" + mod + "' in key '" + key + "'");
   });
 
-  var original_order = modifiers.join('+');
+  const original_order = modifiers.join('+');
   modifiers.sort();
   if (modifiers.join('+') != original_order)
     throw new Error("Illegal key name " + key + ", modifiers must be sorted alphabetically");
@@ -104,13 +100,14 @@ type KeyboardHandlerOptions =
   listenoptions?: AddEventListenerOptions;
 };
 
-/** node: The node to attach to
+/**
+     node: The node to attach to
     keymap: Keymap
     options.stopmapped - preventDefault and stopPropagation on any key we have in our map
     options.dontpropagate - string array of keys not to propagate out of this object
     options.onkeypress - when set, call for all keypresses. signature: function(event, key). Should always return true and preventDefault (and/or stop) the event to cancel its handling
     options.listenoptions - addEventListener options (eg {capture:true})
-*/
+ */
 export default class KeyboardHandler
 {
   node: EventTarget;
@@ -152,17 +149,20 @@ export default class KeyboardHandler
     this.node.removeEventListener('keypress', this._onkeypress, this._listenoptions);
   }
 
-  /** Returns thether the current pressed special key should be ignored for the current target node
+  /**
+       Returns thether the current pressed special key should be ignored for the current target node
       Used to detect input/textarea/rte's
+   *
       @param target Current target node for keyboard event
-      @param key Parsed key (as returned by GetKeyNames)
-      @return Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
-  */
+      @param key Parsed key 
+      @param keynames Potential names for the keys (as returned by GetKeyNames)
+      @returns Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
+   */
   private _mustIgnoreKey(target: EventTarget | null, key: string, keynames: string[])
   {
     if (!(target instanceof Node))
       return false;
-    var tag = target.nodeName.toLowerCase();
+    const tag = target.nodeName.toLowerCase();
     if (tag == "select")
     {
       if (["ArrowUp", "ArrowDown",  "Home", "End", "PageUp", "PageDown"].indexOf(key) != -1)
@@ -178,7 +178,7 @@ export default class KeyboardHandler
           ].indexOf(key) != -1)
         return true;
 
-      var is_special_combo = false;
+      let is_special_combo = false;
 
       // only input doesn't want exact combo 'Enter', the rest does
       if (tag != "input" && keynames.indexOf("Enter") != -1)
@@ -213,10 +213,10 @@ export default class KeyboardHandler
   }
   _onKeyDown(event: Event) // We're a key event handler, so we know the event is a KeyboardEvent
   {
-    let keydata = normalizeKeyboardEventData(event as KeyboardEvent);
+    const keydata = normalizeKeyboardEventData(event as KeyboardEvent);
 
     // Get all possible names for this key
-    let keynames = getKeyNames(keydata);
+    const keynames = getKeyNames(keydata);
     if (!keydata.key || !keynames.length)
     {
       if(debugflags.key)
@@ -251,9 +251,9 @@ export default class KeyboardHandler
       });
     }
 
-    for (var i = 0; i < keynames.length; ++i)
+    for (let i = 0; i < keynames.length; ++i)
     {
-      let mapping = this.keymap[keynames[i].toUpperCase()];
+      const mapping = this.keymap[keynames[i].toUpperCase()];
       if(!mapping)
         continue;
 
@@ -265,7 +265,7 @@ export default class KeyboardHandler
         event.preventDefault();
       }
 
-      let ishandled = mapping.apply(this.node,[event as KeyboardEvent]);
+      const ishandled = mapping.apply(this.node,[event as KeyboardEvent]);
       if(ishandled && !event.defaultPrevented)
       {
         console.warn(`The key handler for '${keynames[i]}' should preventDefault (or dompack.stop) the event to block fruther propagation`);
@@ -282,7 +282,7 @@ export default class KeyboardHandler
   }
   _onKeyPress(event: Event) // We're a key event handler, so we know the event is a KeyboardEvent
   {
-    let keydata = normalizeKeyboardEventData(event as KeyboardEvent);
+    const keydata = normalizeKeyboardEventData(event as KeyboardEvent);
 
     if (this.onkeypress)
     {
@@ -298,21 +298,29 @@ export default class KeyboardHandler
 
   static getEventKeyNames(event: KeyboardEvent)
   {
-    let keydata = normalizeKeyboardEventData(event);
+    const keydata = normalizeKeyboardEventData(event);
     return getKeyNames(keydata);
   }
 
-  /** Is the native 'copy' modifier for this platform pressed? */
+  /**
+   * Is the native 'copy' modifier for this platform pressed?
+   *
+   * @param event Event to check
+   */
   static hasNativeEventCopyKey(event: KeyboardEvent)
   {
     return event && (IS_MAC_PLATFORM ? event.altKey : event.ctrlKey);
-  };
+  }
 
-  /** Is the native 'multiselect' modifier for this platform pressed? */
+  /**
+   * Is the native 'multiselect' modifier for this platform pressed?
+   *
+   * @param event Event to check
+   */
   static hasNativeEventMultiSelectKey(event: KeyboardEvent)
   {
     return event && (IS_MAC_PLATFORM ? event.metaKey : event.ctrlKey);
-  };
+  }
 
   static getDragModeOverride(event: KeyboardEvent)
   {
@@ -336,7 +344,7 @@ export default class KeyboardHandler
     }
 
     return override;
-  };
+  }
 }
 
 export function getEventKeyNames(event: KeyboardEvent)

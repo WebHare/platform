@@ -3,7 +3,7 @@
 
 import { KeyValueObject } from "../../types";
 import { isIsolated } from './storage';
-let isolatedcookies: KeyValueObject<string> = {};
+const isolatedcookies: KeyValueObject<string> = {};
 
 export type CookieOptions =
 {
@@ -58,7 +58,7 @@ class Cookie
       value += '; path=' + this.options.path;
     if (this.options.duration)
     {
-      var date = new Date();
+      const date = new Date();
       date.setTime(date.getTime() + this.options.duration * 24 * 60 * 60 * 1000);
       value += '; expires=' + date.toUTCString();
     }
@@ -77,7 +77,7 @@ class Cookie
     if(isIsolated())
       return isolatedcookies["c." + this.key] || null;
 
-    var value = document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
+    const value = document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
     return (value) ? decodeURIComponent(value[1]) : null;
   }
   remove()
@@ -98,7 +98,7 @@ export function list()
 
   return document.cookie.split(';').map(cookie =>
   {
-    let parts = cookie.split('=');
+    const parts = cookie.split('=');
     return { name: decodeURIComponent(parts[0].trim()), value:decodeURIComponent(parts[1]||'') };
   });
 }

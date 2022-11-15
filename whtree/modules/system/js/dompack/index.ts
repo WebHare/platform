@@ -1,7 +1,4 @@
-/* @importstatement:
-     import * as dompack from 'dompack';
-
-   This function is our public api. Any direct inclusions from src/.... not mentioned here are not a stable API
+/* This is our public api. Any direct inclusions from src/.... not mentioned here are not a stable API
 */
 
 export { createDeferred } from './src/promise';

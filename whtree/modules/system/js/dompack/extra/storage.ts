@@ -4,15 +4,15 @@
 */
 import { KeyValueObject } from "../../types";
 
-let backupsession: KeyValueObject<any> = {};
-let backuplocal: KeyValueObject<any> = {};
+const backupsession: KeyValueObject<unknown> = {};
+const backuplocal: KeyValueObject<unknown> = {};
 let sessionfail: boolean;
 let localfail: boolean;
 
 //isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
 const isolated = "whIsolateStorage" in document.documentElement.dataset;
 
-/** @return True if our storage is fully isolated */
+/** @returns True if our storage is fully isolated */
 export function isIsolated()
 {
   return isolated;
@@ -78,7 +78,7 @@ export function getSession<T>(key: string): T | null
   {
     try
     {
-      let retval = window.sessionStorage[key];
+      const retval = window.sessionStorage[key];
       try
       {
         return retval ? JSON.parse(retval) : null;
@@ -98,7 +98,7 @@ export function getSession<T>(key: string): T | null
       }
     }
   }
-  return key in backupsession ? backupsession[key] : null;
+  return key in backupsession ? backupsession[key] as T: null;
 }
 
 export function setLocal<T>(key: string, value: T)
@@ -140,7 +140,7 @@ export function getLocal<T>(key: string): T | null
   {
     try
     {
-      let retval = window.localStorage[key];
+      const retval = window.localStorage[key];
       try
       {
         return retval ? JSON.parse(retval) : null;
@@ -160,5 +160,5 @@ export function getLocal<T>(key: string): T | null
       }
     }
   }
-  return key in backuplocal ? backuplocal[key] : null;
+  return key in backuplocal ? backuplocal[key] as T: null;
 }

@@ -3,9 +3,11 @@ import * as domcookie from '../extra/cookie';
 
 export const debugflags: KeyValueObject<boolean> = {};
 
-/** Extract a specific variable from the URL
+/**
+   Extract a specific variable from the URL
+ *
   @param varname Variable name, eg dompack-debug
-*/
+ */
 export function parseDebugURL(varname: string)
 {
   //FIXME proper regex escape for varname, but fortunately this isn't user input

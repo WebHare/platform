@@ -19,17 +19,25 @@ function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: M
   //FIXME properly wait for 'last' touch when multitouchmoving ?
 
   listener = moveeventdata?.target ?? listener;
-  let originaltarget = moveeventdata?.target ?? event.target;
+  const originaltarget = moveeventdata?.target ?? event.target;
   if (!originaltarget)
     return;
-  let coordinatesource = event instanceof TouchEvent ? event.touches[0] : event.type == "touchend" ? lastcoordinates! : event;
+  
+  let coordinatesource;
+  if(event instanceof TouchEvent)
+    coordinatesource = event.touches[0];
+  else if(event.type == "touchend")
+    coordinatesource = lastcoordinates || event;
+  else 
+    coordinatesource = event;
+
   if(event.type == "touchmove")
     lastcoordinates = cloneCoordinates(coordinatesource);
 
-  let movedX = moveeventdata ? coordinatesource.clientX - moveeventdata.startX : 0;
-  let movedY = moveeventdata ? coordinatesource.clientY - moveeventdata.startY : 0;
+  const movedX = moveeventdata ? coordinatesource.clientX - moveeventdata.startX : 0;
+  const movedY = moveeventdata ? coordinatesource.clientY - moveeventdata.startY : 0;
 
-  let eventdata = { movedX: movedX, movedY: movedY
+  const eventdata = { movedX: movedX, movedY: movedY
                   , pageX: coordinatesource.pageX, pageY: coordinatesource.pageY
                   , clientX: coordinatesource.clientX, clientY: coordinatesource.clientY
                   , screenX: coordinatesource.screenX, screenY: coordinatesource.screenY
@@ -83,7 +91,7 @@ function moveMouseDown(event: Event) // We're a mouse/touch event handler, so we
     return;
 
   // Start the move action
-  let coordinatesource = event instanceof TouchEvent ? event.touches[0] : event as MouseEvent;
+  const coordinatesource = event instanceof TouchEvent ? event.touches[0] : event as MouseEvent;
   lastcoordinates = cloneCoordinates(coordinatesource);
   startMove(event.target, coordinatesource.clientX, coordinatesource.clientY);
 

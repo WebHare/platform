@@ -6,7 +6,7 @@ const swipedetect = Symbol("dompack swipedetect");
 interface SwipeEventTarget extends EventTarget
 {
   [key: symbol]: SwipeDetect;
-};
+}
 
 type SwipeDetectOptions =
 {
@@ -126,13 +126,13 @@ class SwipeDetect
     if(!this.swipeinfo)
       return true;
 
-    let dx = this.swipeinfo.end.x - this.swipeinfo.start.x;
-    let dy = this.swipeinfo.end.y - this.swipeinfo.start.y;
+    const dx = this.swipeinfo.end.x - this.swipeinfo.start.x;
+    const dy = this.swipeinfo.end.y - this.swipeinfo.start.y;
 
     this.swipeinfo.endtime = Date.now();
 
-    let abs_x = Math.abs(dx);
-    let abs_y = Math.abs(dy);
+    const abs_x = Math.abs(dx);
+    const abs_y = Math.abs(dy);
 
     if(this.options.threshold_distance && this.options.threshold_speed && abs_x > this.options.threshold_distance && abs_x / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dx > 0 ? "e" : "w";

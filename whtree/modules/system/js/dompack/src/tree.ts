@@ -23,7 +23,7 @@ function generateInsertList(nodes: (string | Node)[])
   if(nodes.length==1)
     return typeof nodes[0]==='string' ? document.createTextNode(nodes[0]) : nodes[0];
 
-  let frag = document.createDocumentFragment();
+  const frag = document.createDocumentFragment();
   nodes.forEach(node => frag.appendChild(typeof node === 'string' ? document.createTextNode(node) : node));
   return frag;
 }
@@ -125,16 +125,25 @@ export function append(node: ParentNode, ...nodes: (string | Node)[])
 }
 
 //offer toggleClass ourselves as IE11's native version is broken - does not understand the last parameter
-/** Toggle a single class */
+/**
+ * Toggle a single class
+ *
+ * @param node Node to modify
+ * @param classname Class to toggle
+ * @param settoggle true to enable, false to disable, undefined to toggle
+ * @deprecated Just use classList.toggle on the node itself
+ */
 export function toggleClass(node: Element, classname: string, settoggle?: boolean)
 {
   node.classList.toggle(classname, settoggle);
 }
 
-/** Toggle classes in a node
+/**
+     Toggle classes in a node
+ *
     @param node Node which classes to toggle
     @param toggles Object, all keys will be added/removed based on the truthyness of their values
-*/
+ */
 export function toggleClasses(node: Element, toggles: { [key: string]: boolean })
 {
   if (typeof(toggles) !== "object")
@@ -156,14 +165,19 @@ export function empty(node: Element)
     node.removeChild(node.lastChild);
 }
 
-/** get the relative bound difference between two elements, and return a writable copy */
+/**
+ * get the relative bound difference between two elements, and return a writable copy
+ *
+ * @param node The node for which you need coordinates
+ * @param relativeto The reference point
+ */
 export function getRelativeBounds(node: Element, relativeto: Element): Rect
 {
   if(!relativeto)
     relativeto = node.ownerDocument.documentElement;
 
-  var nodecoords = node.getBoundingClientRect();
-  var relcoords = relativeto.getBoundingClientRect();
+  const nodecoords = node.getBoundingClientRect();
+  const relcoords = relativeto.getBoundingClientRect();
   return { top: nodecoords.top - relcoords.top
          , left: nodecoords.left - relcoords.left
          , right: nodecoords.right - relcoords.left
@@ -228,9 +242,11 @@ export function getJSONAttribute<T>(node: Element, attributename: string): T | n
   return null;
 }
 
-/** Get the base URI of the current document. IE11 doesn't implement document.baseURI
+/**
+     Get the base URI of the current document. IE11 doesn't implement document.baseURI
+ *
     @param doc Document to query. Defaults to window.document
-*/
+ */
 export function getBaseURI(doc: Document | undefined)
 {
   if(!doc)
@@ -238,7 +254,7 @@ export function getBaseURI(doc: Document | undefined)
   if(doc.baseURI)
     return doc.baseURI;
 
-  let base = doc.querySelector('base');
+  const base = doc.querySelector('base');
   if(base && base.href)
     return base.href;
   return doc.URL;
@@ -265,9 +281,13 @@ export function qSA(node_or_selector: ParentNode | string, selector?: string): E
 }
 
 
-/** Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate
+/**
+     Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate
     (can be used as replacement for Mootools .setStyles)
-*/
+ *
+ * @param node Node to update
+ * @param value Styles to set
+ */
 export function setStyles(node: HTMLElement, value?: string | { [key: string]: string | number })
 {
   if (!value)
@@ -276,7 +296,7 @@ export function setStyles(node: HTMLElement, value?: string | { [key: string]: s
     node.style.cssText = value || '';
   else
   {
-    for (let i in value)
+    for (const i in value)
     {
       // for numbers, add 'px' if the constant isn't dimensionless (eg zIndex)
       node.style[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false

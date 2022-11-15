@@ -1,6 +1,3 @@
-/** @import: import * as text from 'dompack/types/text';
-*/
-
 export function encodeTextNode(str: string)
 {
   return str.split('&').join('&amp;')
@@ -28,7 +25,7 @@ export function decodeValue(str: string)
             .replace(/&amp;/g, "&");
 }
 
-export function encodeJSCompatibleJSON(value: any)
+export function encodeJSCompatibleJSON(value: unknown)
 {
   return JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }

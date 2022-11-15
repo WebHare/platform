@@ -19,9 +19,22 @@ export interface FeedbackOptions
 
 export interface FeedbackResult
 {
-  success: boolean;
-  guid?: string; // if success == true
-  error?: string; // if success == false
+  /**  If the feedback was successfully stored  */
+   success: boolean; 
+
+   /** If successful, the feedback GUID */
+   guid?: string;
+ 
+   /** If successful, an array of available topics */
+   topics?: {
+    /** The topic tag */
+     tag: string,
+     /** The topic title */
+     titel: string,
+   }[];
+  
+   /** If not succesful, an error message */
+   error?: string;
 }
 
 export interface ScreenshotData
@@ -41,7 +54,7 @@ export interface ScreenshotData
   device: string;
   userAgent: string;
   url: string; // version 2
-};
+}
 
 export interface PointOptions
 {
@@ -60,37 +73,36 @@ export interface PointResult
 const defaultOptions: FeedbackOptions = { token: "", addElement: true };
 let feedbackOptions: FeedbackOptions;
 
-/** @short Initialize the global feedback options
+/**
+    Initialize the global feedback options
+ 
     @param options New options
-    @cell options.userData Author data
-    @cell options.userData.realname The user's name
-    @cell options.userData.email The user's email address
-    @cell options.addElement If the user should be asked to point at an element
-    @cell options.highlightCallback A function that, given a hovered element, returns the element that should be
+    @param options.userData Author data
+    @param options.userData.realname The user's name
+    @param options.userData.email The user's email address
+    @param options.addElement If the user should be asked to point at an element
+    @param options.highlightCallback A function that, given a hovered element, returns the element that should be
         highlighted (optional, by default the hovered element is highlighted)
-    @cell options.domFilterCallback A function that, given a DOM element, returns whether the element returns if
+    @param options.domFilterCallback A function that, given a DOM element, returns whether the element returns if
         the element should be included in the screenshot (optional, by default all elements are included)
-    @cell options.postFilterCallback A function that receives the screenshot DOM fragment and can do additional
+    @param options.postFilterCallback A function that receives the screenshot DOM fragment and can do additional
         filtering or manipulation
-    @cell options.feedbackPromise A function that returns a Promise, which resolves with extra data (a record-like
+    @param options.feedbackPromise A function that returns a Promise, which resolves with extra data (a record-like
         object) to add to the feedback
-*/
+ */
 export function initFeedback(options: FeedbackOptions): void
 {
   feedbackOptions = { ...defaultOptions, ...options };
 }
 
-/** @short Get feedback
+
+/**
+     Get feedback
+ 
     @param event The event that caused requesting the feedback (optional)
     @param extraOptions Extra options, overwriting the global options @includecelldef %initFeedback.options
-    @return The result
-    @cell(boolean) return.success If the feedback was successfully stored
-    @cell(string) return.guid If successful, the feedback GUID
-    @cell(object array) return.topics If successful, an array of available topics
-    @cell(string) return.topics.tag The topic tag
-    @cell(string) return.topics.title The topic title
-    @cell(string) return.error If not successful, an error message
-*/
+    @returns The result
+ */
 export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>
 {
   const options = { ...feedbackOptions, ...extraOptions };

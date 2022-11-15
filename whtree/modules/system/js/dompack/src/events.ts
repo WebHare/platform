@@ -1,11 +1,11 @@
-export let CustomEvent = window.CustomEvent;
+export const CustomEvent = window.CustomEvent;
 
 type DomEventOptions =
 {
   bubbles?: boolean;
   cancelable?: boolean;
   relatedTarget?: EventTarget;
-  detail?: any;
+  detail?: object;
 };
 
 export function dispatchDomEvent(element: EventTarget, eventtype: string, options?: DomEventOptions)
@@ -24,11 +24,13 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
   if(!element || !(element as Node).ownerDocument)
     return true; //the element has left the dom... so there's no more bubbling. just drop it
   
-  //FIXME the load/scroll is buggy and we should be probably beusing new Event (but an earlier attempt at that triggered quite a few test failures)
-  let createtype = /*["load","scroll"].includes(eventtype) == "load"*/false ? "UIEvents" : ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
-  var evt = (element as Node).ownerDocument!.createEvent(createtype);
+  //FIXME the load/scroll is buggy and we should be probably be using new Event (but an earlier attempt at that triggered quite a few test failures)
+  const createtype = /*["load","scroll"].includes(eventtype) == "load"*/false ? "UIEvents" : ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we verified its non-null ness above but TS doesn't really understand that
+  const evt = (element as Node).ownerDocument!.createEvent(createtype);
   evt.initEvent(eventtype, options.bubbles, options.cancelable);
   if(options.detail)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we should just rewrite to new Event
     (evt as any).detail = options.detail;
   if(options.relatedTarget) //its a readonly prop, so redefine it
     Object.defineProperty(evt, 'relatedTarget', { value:options.relatedTarget, writable: false });
@@ -43,7 +45,11 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
 }
 
 //fire the proper modified events (input and/or change) on the element after changing its value - DEPRECATED, you should fire the proper input and change events according to the situation
-/** @deprecated Fire the proper input and change events according to the situation */
+/**
+ * @param element Element to receive event
+ * @param options Event options
+ * @deprecated Fire the proper input and change events according to the situation
+ */
 export function fireModifiedEvents(element: EventTarget, options?: DomEventOptions)
 {
   dispatchDomEvent(element, 'input', options);
@@ -51,7 +57,12 @@ export function fireModifiedEvents(element: EventTarget, options?: DomEventOptio
 }
 
 //manually fire 'onchange' events. needed for event simulation - DEPRECATED
-/** @deprecated */
+/**
+ * @param element Element to receive event
+ * @param type Event type
+ * @param options Event options
+ * @deprecated Use dispatchDomEvent instead
+ */
 export function fireHTMLEvent(element: EventTarget, type: string, options?: DomEventOptions)
 {
   return dispatchDomEvent(element, type, options);
@@ -61,20 +72,22 @@ type CustomEventParams =
 {
   bubbles: boolean;
   cancelable: boolean;
-  detail?: any;
+  detail?: object;
   defaulthandler?: (evt: CustomEvent) => void;
 };
 
-/** Fire a custom event
+/**
+     Fire a custom event
+ *
     @param node node to fire the event on
     @param event event type
-    @param params
-    @cell params.bubbles
-    @cell params.cancelable
-    @cell params.detail
-    @cell params.defaulthandler Handler to execute if the default isn't prevented by a event listener
-    @return true if the default wasn't prevented
-*/
+    @param params Event options
+    @param params.bubbles Whether this event should bubble up in the DOM
+    @param params.cancelable Whether this event can be cancelled
+    @param params.detail Custom event information
+    @param params.defaulthandler Handler to execute if the default isn't prevented by a event listener
+    @returns true if the default wasn't prevented
+ */
 export function dispatchCustomEvent(node: EventTarget, event: string, params?: CustomEventParams)
 {
   if(!params)
@@ -85,7 +98,7 @@ export function dispatchCustomEvent(node: EventTarget, event: string, params?: C
       throw new Error(`Missing '${prop}' in dispatchCustomEvent params`);
   });
 
-  let evt = new CustomEvent(event, { bubbles: params.bubbles
+  const evt = new CustomEvent(event, { bubbles: params.bubbles
                                    , cancelable: params.cancelable
                                    , detail: params.detail
                                    });
@@ -105,12 +118,15 @@ export function dispatchCustomEvent(node: EventTarget, event: string, params?: C
   return defaultaction && !evt.defaultPrevented;
 }
 
-/** Change the value of a form element, and fire the correct events as if it were a user change
+/**
+     Change the value of a form element, and fire the correct events as if it were a user change
+ *
     @param element Element to change
-    @param newvalue New value */
-export function changeValue(element: Object, newvalue: string | number | boolean)
+    @param newvalue New value
+ */
+export function changeValue(element: HTMLInputElement | HTMLSelectElement, newvalue: string | number | boolean)
 {
-  if ((element as HTMLInputElement).matches(`input[type=radio], input[type=checkbox]`))
+  if (element.matches(`input[type=radio], input[type=checkbox]`))
   {
     if(!!(element as HTMLInputElement).checked == !!newvalue)
       return;
@@ -119,10 +135,10 @@ export function changeValue(element: Object, newvalue: string | number | boolean
   else
   {
     //FIXME it's not really clean to assume that this element is changeable - throw for non input/select..
-    if((element as any).value == newvalue)
+    if((element as HTMLInputElement).value == newvalue)
       return;
 
-    (element as any).value = newvalue + "";
+    (element as HTMLInputElement).value = newvalue + "";
   }
   dispatchDomEvent(element as EventTarget, 'input');
   dispatchDomEvent(element as EventTarget, 'change');
@@ -265,10 +281,12 @@ export type NormalizedKeyboardEvent =
   isComposing: boolean;
 };
 
-/** Returns normalized keyboard event properties, following the current W3C UI Events spec
+/**
+     Returns normalized keyboard event properties, following the current W3C UI Events spec
+ *
     @param evt Keyboard event
-    @return Normalized keyboard event data
-*/
+    @returns Normalized keyboard event data
+ */
 export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboardEvent
 {
   // event.key is supported from chrome:51, edge, ff: 29, ie: 9, not in safari
@@ -278,7 +296,7 @@ export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboa
   let key = evt.key;
   if (!keydata)
     initKeyMapping();
-  if (keydata.mapping.hasOwnProperty(key))
+  if (keydata.mapping[key])
     key = keydata.mapping[key];
   else if (key.startsWith("U+")) // U+xxxx code
     key = String.fromCodePoint(parseInt(key.substring(2), 16));
@@ -302,7 +320,11 @@ export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboa
       });
 }
 
-/** Stop, fully, an event */
+/**
+ * Stop, fully, an event
+ *
+ * @param event Event to stop
+ */
 export function stop(event: Event)
 {
   event.preventDefault();

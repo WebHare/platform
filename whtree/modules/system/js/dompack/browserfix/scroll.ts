@@ -1,6 +1,3 @@
-/** @import: import * as domscroll from 'dompack/browserfix/scroll';
-*/
-
 import * as dompack from 'dompack';
 import { Rect } from '../src/tree';
 
@@ -10,10 +7,10 @@ type ScrollStyle =
   scrollLeft?: number;
 }
 
-let debugscrolling = false;
+const debugscrolling = false;
 
-var clamp = function(min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
-var parsepx = function(val: string)
+const clamp = function(min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
+const parsepx = function(val: string)
 {
   if (val == "0")
     return parseInt(val,10);
@@ -25,7 +22,7 @@ var parsepx = function(val: string)
   return floatVal;
 };
 
-var addContextToRect = function(rect: Rect, context: Rect): Rect
+const addContextToRect = function(rect: Rect, context: Rect): Rect
 {
   return (
     { top:    rect.top - context.top
@@ -42,11 +39,11 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle)
 {
   if(node == node.ownerDocument.documentElement) //scroll its window instead
   {
-    var win: Window | null = node.ownerDocument.defaultView;
+    const win: Window | null = node.ownerDocument.defaultView;
     if (win)
     {
-      var setx = style.scrollLeft ?? win.scrollX ?? win.document.documentElement.scrollLeft ?? 0;
-      var sety = style.scrollTop ?? win.scrollY ?? win.document.documentElement.scrollTop ?? 0;
+      const setx = style.scrollLeft ?? win.scrollX ?? win.document.documentElement.scrollLeft ?? 0;
+      const sety = style.scrollTop ?? win.scrollY ?? win.document.documentElement.scrollTop ?? 0;
       win.scrollTo(setx, sety);
     }
   }
@@ -91,9 +88,9 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle)
   return style;
 }
 
-var getMovedBoxes = function(boxes: Rect[], x: number, y: number)
+const getMovedBoxes = function(boxes: Rect[], x: number, y: number)
 {
-  var newboxes: Rect[] = [];
+  const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
   boxes.forEach(function(item)
@@ -112,14 +109,14 @@ var getMovedBoxes = function(boxes: Rect[], x: number, y: number)
   return newboxes;
 };
 
-var getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number)
+const getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number)
 {
-  var newboxes: Rect[] = [];
+  const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
   boxes.forEach(function(item)
     {
-      var newbox =
+      const newbox =
         { top :     clamp(0, max_y, item.top)
         , right:    clamp(0, max_x, item.right)
         , bottom:   clamp(0, max_y, item.bottom)
@@ -146,19 +143,21 @@ type ScrollOptions =
   duration?: number;
 };
 
-/** Scrolls elements so that a specific node is visible. If an (x,y) coordinate is given, that point is
+/**
+     Scrolls elements so that a specific node is visible. If an (x,y) coordinate is given, that point is
     scrolled into view. If not, the left top is scrolled into view , with as much of the element as possible.
     Also, a number of pixels around the point is placed into view (context).
+ *
     @param node Node to get in view
     @param options Options
-    @cell options.x X offset within node to get into view
-    @cell options.y Y offset within node to get into view
-    @cell options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
-    @cell options.limitnode Parent top stop scrolling at
-*/
+    @param options.x X offset within node to get into view
+    @param options.y Y offset within node to get into view
+    @param options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
+    @param options.limitnode Parent top stop scrolling at
+ */
 export function scrollToElement(node: HTMLElement, options?: ScrollOptions)
 {
-  var animations = getScrollToElementAnimations(node, options);
+  const animations = getScrollToElementAnimations(node, options);
   animations.forEach(function(item) { item.hooksetstyles(item.to); }); //FIXME remove hooksetstyles
 }
 
@@ -172,24 +171,21 @@ type ScrollAction =
   hooksetstyles: (pos: ScrollPos) => void;
 };
 
-/** Returns the animation needed to make a specific node visible. If an (x,y) coordinate is given, that point is
+/**
+     Returns the animation needed to make a specific node visible. If an (x,y) coordinate is given, that point is
     scrolled into view. If not, the left top is scrolled into view , with as much of the element as possible.
     Also, a number of pixels around the point is placed into view (context).
+ *
     @param node Node to get in view
     @param options Options
-    @cell options.x X offset within node to get into view
-    @cell options.y Y offset within node to get into view
-    @cell options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
-    @cell options.limitnode Parent top stop scrolling at
-    @cell options.duration Duration
-    @cell options.allownodes List of nodes to explicitly allow scrolling (compensate for overflow: hidden)
-    @return List of scroll animations (can be fed into animation timeline)
-    @cell return.target
-    @cell return.from
-    @cell return.to
-    @cell return.hooksetstyles
-    @cell return.duration
-*/
+    @param options.x X offset within node to get into view
+    @param options.y Y offset within node to get into view
+    @param options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
+    @param options.limitnode Parent top stop scrolling at
+    @param options.duration Duration
+    @param options.allownodes List of nodes to explicitly allow scrolling (compensate for overflow: hidden)
+    @returns List of scroll animations (can be fed into animation timeline)
+ */
 function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions)
 {
    if(debugscrolling)
@@ -199,8 +195,8 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   options = options || {};
 
   // Get location within node to get into view
-  var x = options.x || 0;
-  var y = options.y || 0;
+  const x = options.x || 0;
+  const y = options.y || 0;
 
   // Extra context (when x & y aren't specified)
 //  var boundrec = node.getBoundingClientRect();
@@ -212,8 +208,8 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   if (typeof options.context == "number")
       options.context = options.context + "px";
 
-  var contextparts = options.context.split(' ');
-  var context: Rect =
+  const contextparts = options.context.split(' ');
+  const context: Rect =
     { top:    parsepx(contextparts[0])
     , right:  parsepx(contextparts[1] || contextparts[0])
     , bottom: parsepx(contextparts[2] || contextparts[0])
@@ -227,10 +223,10 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     options.limit = options.limit.ownerDocument.documentElement;
 
   // List of actions
-  var actions: ScrollAction[] = [];
+  const actions: ScrollAction[] = [];
 
   // Calculate 2 boxes - first for if context is really to big
-  var boxes: Rect[] =
+  let boxes: Rect[] =
     [ { top:      y - 1
       , right:    x + 1
       , bottom:   y + 1
@@ -253,17 +249,17 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   boxes.push(addContextToRect(dompack.getRelativeBounds(node, node), context));
 
 //  var orgnode = node;
-  var parent: HTMLElement | null;
+  let parent: HTMLElement | null;
 
   for (; node; node=parent)
   {
-    var doc = node.ownerDocument;
-    var wnd = doc.defaultView;
+    const doc = node.ownerDocument;
+    const wnd = doc.defaultView;
 
 //    var parent;
     if (node == doc.documentElement) //at the root
     {
-      var iframe = wnd?.frameElement;
+      const iframe = wnd?.frameElement;
       if (!iframe)
         break;
       node = iframe as HTMLElement;
@@ -280,7 +276,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
 
     // Calculate offset of node within parent. Mootools getPosition(relative) doesn't work, sometimes
     // returns NaN and doesn't account for borders
-    var position =
+    let position =
         { x: node.offsetLeft - (parent == node.offsetParent ? 0 : parent.offsetLeft)
         , y: node.offsetTop - (parent == node.offsetParent ? 0 : parent.offsetTop)
         };
@@ -298,14 +294,14 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
       console.log('moved boxes', [ ...boxes ]);
 
     // For the html-tag, we also allow '' & 'visible' as scrollable
-    var match_overflow_set = parent.nodeName != 'HTML'
+    const match_overflow_set = parent.nodeName != 'HTML'
       ? [ "scroll", "auto" ]
       : [ "scroll", "auto", "", "visible" ]; // "" for IE8
 
     //var can_scroll = [ "scroll", "auto", top_default ].includes(getComputedStyle(parent,"overflow"));
-    var general_scroll = getComputedStyle(parent).overflow;
-    var can_scroll_x = match_overflow_set.includes(getComputedStyle(parent).overflowX || general_scroll) || parent.classList.contains("wh-scrollableview-canscroll-h");
-    var can_scroll_y = match_overflow_set.includes(getComputedStyle(parent).overflowY || general_scroll) || parent.classList.contains("wh-scrollableview-canscroll-v");
+    const general_scroll = getComputedStyle(parent).overflow;
+    let can_scroll_x = match_overflow_set.includes(getComputedStyle(parent).overflowX || general_scroll) || parent.classList.contains("wh-scrollableview-canscroll-h");
+    let can_scroll_y = match_overflow_set.includes(getComputedStyle(parent).overflowY || general_scroll) || parent.classList.contains("wh-scrollableview-canscroll-v");
 
     if (!can_scroll_x && options.allownodes)
       can_scroll_x = options.allownodes.includes(parent);
@@ -318,8 +314,8 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     if (!can_scroll_x && !can_scroll_y)
       continue;
 
-    var clientsize = { x: parent.clientWidth, y: parent.clientHeight };
-    var scrollsize = { x: parent.scrollWidth, y:parent.scrollHeight };
+    const clientsize = { x: parent.clientWidth, y: parent.clientHeight };
+    let scrollsize = { x: parent.scrollWidth, y:parent.scrollHeight };
     if (parent.classList.contains('wh-scrollableview')) // Scrollable view
     {
       scrollsize =
@@ -332,7 +328,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
       continue;
 
     // Get current scroll
-    var scrollpos = { x: parent.scrollLeft, y:parent.scrollTop};
+    const scrollpos = { x: parent.scrollLeft, y:parent.scrollTop};
     if (parent.classList.contains('wh-scrollableview')) // Scrollable view
     {
       scrollpos.x = -node.offsetLeft;
@@ -345,7 +341,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
       console.log(' scroll ', scrollsize.x, '/', scrollsize.y,'client ', clientsize.x, '/', clientsize.y, 'curpos:', scrollpos.x, '/', scrollpos.y);
     }
 
-    var range =
+    const range =
       { minleft: 0
       , maxleft: Math.max(0, scrollsize.x - clientsize.x)
       , mintop: 0
@@ -366,8 +362,8 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     //if(debugscrolling) console.log('range post', range);
 
     // Get clamped scroll position. Ignore if we can't scroll in this direction
-    var newscrollleft = can_scroll_x ? clamp(range.minleft, range.maxleft, scrollpos.x) : scrollpos.x;
-    var newscrolltop = can_scroll_y ? clamp(range.mintop, range.maxtop, scrollpos.y) : scrollpos.y;
+    const newscrollleft = can_scroll_x ? clamp(range.minleft, range.maxleft, scrollpos.x) : scrollpos.x;
+    const newscrolltop = can_scroll_y ? clamp(range.mintop, range.maxtop, scrollpos.y) : scrollpos.y;
 
     if (debugscrolling)
     {
@@ -378,7 +374,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     // Only schedule an action when something changed
     if (newscrollleft != scrollpos.x || newscrolltop != scrollpos.y)
     {
-      var action: ScrollAction =
+      const action: ScrollAction =
           { duration:      options.duration || 0
           , target:        parent
           , from:          {}

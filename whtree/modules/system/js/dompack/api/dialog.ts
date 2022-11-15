@@ -1,6 +1,4 @@
-/* @import * as dialogapi from 'dompack/api/dialog'
-
-   Dialogapi offers an API to which dialog providers cannot connect. It does
+/* Dialogapi offers an API to which dialog providers cannot connect. It does
    not implement the dialogs themselves
 */
 
@@ -19,7 +17,7 @@ type DialogOptions =
 };
 type DialogConstructor = (options: DialogOptions) => DialogBase;
 
-let dialogstack: DialogBase[] = [];
+const dialogstack: DialogBase[] = [];
 let keyhandler: KeyboardHandler | null = null;
 let dialogconstructor: DialogConstructor | null = null;
 let dialogoptions: DialogOptions | null = null;
@@ -41,10 +39,10 @@ function onTab(event: KeyboardEvent, direction: number)
 
   dompack.stop(event);
 
-  let focusable = domfocus.getFocusableComponents(dialogstack[dialogstack.length-1].contentnode, true);
+  const focusable = domfocus.getFocusableComponents(dialogstack[dialogstack.length-1].contentnode, true);
   const el = domfocus.getCurrentlyFocusedElement();
-  let tofocusidx = el ? focusable.indexOf(el) + direction : -1;
-  let tofocus = tofocusidx< 0 ? focusable[focusable.length-1] : tofocusidx >= focusable.length ? focusable[0] : focusable[tofocusidx];
+  const tofocusidx = el ? focusable.indexOf(el) + direction : -1;
+  const tofocus = tofocusidx< 0 ? focusable[focusable.length-1] : tofocusidx >= focusable.length ? focusable[0] : focusable[tofocusidx];
   if(tofocus)
     dompack.focus(tofocus);
 }
@@ -68,7 +66,7 @@ export class DialogBase
 
     if(this.options.borrow && typeof this.options.borrow == 'string')
     {
-      let borrow = document.querySelector(this.options.borrow);
+      const borrow = document.querySelector(this.options.borrow);
       if(!borrow)
         throw new Error("Invalid 'borrow' selectior: " + this.options.borrow);
       this.options.borrow = borrow;
@@ -125,7 +123,7 @@ export class DialogBase
 
   _checkFocus()
   {
-    let focusable = domfocus.getFocusableComponents(this.contentnode, true);
+    const focusable = domfocus.getFocusableComponents(this.contentnode, true);
     if(focusable.length != 0)
       dompack.focus(focusable[0]);
     else
@@ -138,7 +136,7 @@ export class DialogBase
     if(!this.open)
       return;
 
-    let myoffset = dialogstack.indexOf(this);
+    const myoffset = dialogstack.indexOf(this);
     if(myoffset >= 0)
       dialogstack.splice(myoffset,1);
 
@@ -174,6 +172,7 @@ export class DialogBase
   }
 
   afterShow()
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- supposed to be empty but extenders can override
   {
   }
 }
@@ -191,41 +190,47 @@ export function setupDialogs(newdialogconstructor: DialogConstructor, options: D
 }
 
 /** Verify whether the dialog api is initialized */
-export function isCreateDialogAvailable()
+export function isCreateDialogAvailable() : boolean
 {
   return !!dialogconstructor;
 }
 
-/** Create a dialog */
+/**
+ * Create a dialog
+ *
+ * @param options dialog settings
+ */
 export function createDialog(options: DialogOptions)
 {
   if(!dialogconstructor)
     throw new Error("Cannot create dialog, no dialog class defined");
 
-  let dialog = dialogconstructor(options);
+  const dialog = dialogconstructor(options);
   if(dialog.options.borrow)
     dialog.contentnode?.appendChild(dialog.options.borrow);
   return dialog;
 }
 
-/** @param question - if a string, will be wrapped as textContent into a <p> and presented as the question
+/**
+                     @param question - if a string, will be wrapped as textContent into a <p> and presented as the question
                     - if a html node, will appear as the question (allowing you to insert html)
                     - if an array of nodes, all these nodes will be inserted
-    @param choices
-    @cell choices.title Title for the choice
-    @cell choices.result Override result to return if clicked (otherwise you'll just receive the title)
-    @cell(boolean) options.allowcancel Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
-    @cell(object) options.focusonclose Element to focus on closing the dialog
-    @cell(object) options.signal An AbortSignal which if set will close the dialog and resolve it with a null response
-    @cell(string) options.theme Additional class to set on the dialog
-*/
+    @param choices Buttons (choices) the message box will offer, eg Ok and Cancel
+    @param choices.title Title for the choice
+    @param choices.result Override result to return if clicked (otherwise you'll just receive the title)
+    @param options Dialog options
+    @param options.allowcancel Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
+    @param options.focusonclose Element to focus on closing the dialog
+    @param options.signal An AbortSignal which if set will close the dialog and resolve it with a null response
+    @param options.theme Additional class to set on the dialog
+ */
 export async function runMessageBox(question: string | HTMLElement | HTMLElement[], choices: { title: string, result?: string, className?: string }[], options?: DialogOptions)
 {
   choices = choices || [];
   options = { allowcancel: choices.length == 0, ...options};
 
-  let dialog = createDialog(options);
-  let choicebuttons = choices.map(choice =>
+  const dialog = createDialog(options);
+  const choicebuttons = choices.map(choice =>
         dompack.create("button", { type: "button"
                                  , className: dialogoptions ? dialogoptions.messageboxclassbase + "button " + (choice.className || "") : ""
                                  , textContent: choice.title

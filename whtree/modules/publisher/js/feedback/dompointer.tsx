@@ -20,7 +20,7 @@ export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): 
   if (event)
     highlightDOM(event);
 
-  return deferred!.promise;
+  return deferred.promise;
 }
 
 function activateDOMPointer()
