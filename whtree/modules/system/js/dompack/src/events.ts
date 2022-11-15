@@ -110,12 +110,6 @@ export function dispatchCustomEvent(node: EventTarget, event: string, params?: C
     @param newvalue New value */
 export function changeValue(element: Object, newvalue: string | number | boolean)
 {
-  if(element instanceof Array || element instanceof NodeList) //TODO apparently instanceof NodeList worked but it would probably actually fill when iframes are involved...
-  {
-    Array.from(element).forEach(node => changeValue(node, newvalue));
-    return;
-  }
-
   if ((element as HTMLInputElement).matches(`input[type=radio], input[type=checkbox]`))
   {
     if(!!(element as HTMLInputElement).checked == !!newvalue)
