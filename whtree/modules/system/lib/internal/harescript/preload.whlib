@@ -223,8 +223,8 @@ MACRO SaveProfileFile(STRING type, STRING ext, VARIANT profiledata)
       , ...GetScriptData()
       ];
 
-  STRING encodeddata := JSONENCODETOSTRING(data, FALSE, DEFAULT RECORD);
-  BLOB encodedrawdata := JSONENCODETOBLOB(profiledata, TRUE, DEFAULT RECORD);
+  STRING encodeddata := JSONENCODETOSTRING(data, FALSE, DEFAULT RECORD, DEFAULT RECORD);
+  BLOB encodedrawdata := JSONENCODETOBLOB(profiledata, TRUE, DEFAULT RECORD, DEFAULT RECORD);
 
   STRING timestamp := Substitute(SubString(EncodeHSON(GetCurrentDatetime()), 7, 19), ".", "");
   STRING filename := timestamp || "-" || GetCurrentGroupId() || ext;

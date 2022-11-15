@@ -380,6 +380,39 @@ MACRO TestJSONArray()
   TestEQ(`[2,1,4,6]`, EncodeJSON(obj));
 }
 
+MACRO TestJSONFormatting()
+{
+  RECORD rec :=
+      [ a := [ b := [ 1, 2 ], c := "c", d := CELL[], e := VARIANT[] ]
+      ];
+  INSERT CELL b := DecodeJSON(EncodeJSON(rec.a), DEFAULT RECORD, [ wrapobjects := TRUE ]) INTO rec;
+
+  STRING expect :=
+`{
+  "a": {
+    "b": [
+      1,
+      2
+    ],
+    "c": "c",
+    "d": {},
+    "e": []
+  },
+  "b": {
+    "b": [
+      1,
+      2
+    ],
+    "c": "c",
+    "d": {},
+    "e": []
+  }
+}
+`;
+  TestEQ(expect, EncodeJSON(rec, DEFAULT RECORD, [ formatted := TRUE ]));
+  TestEQ(StringToBlob(expect), EncodeJSONBlob(rec, DEFAULT RECORD, [ formatted := TRUE ]));
+}
+
 __system_jsonobjectclonehook := PTR OnClone;
 
 PRINT("\n === Running TestJSON\n");
@@ -387,3 +420,4 @@ TestJSON();
 TestWrappedJSONEncodeDecode();
 TestJSONObject();
 TestJSONArray();
+TestJSONFormatting();

@@ -475,6 +475,7 @@ class ColumnNameCache
         ColumnNameId col_fixed;
         ColumnNameId col_flags;
         ColumnNameId col_found;
+        ColumnNameId col_formatted;
         ColumnNameId col_func;
         ColumnNameId col_functionid;
         ColumnNameId col_groupid;
