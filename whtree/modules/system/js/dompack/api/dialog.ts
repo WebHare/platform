@@ -9,11 +9,16 @@ import { DeferredPromise } from '@mod-system/js/types';
 
 type DialogOptions =
 {
-  allowcancel?: boolean;
-  borrow?: Element | string;
-  signal?: EventTarget;
+  /**  Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified */
+   allowcancel?: boolean;
+  /**  Element to focus on closing the dialog */
   focusonclose?: HTMLElement;
+  /**  An AbortSignal which if set will close the dialog and resolve it with a null response */
+  signal?: EventTarget;
+  /**  Additional class to set on the dialog */
   messageboxclassbase?: string;
+
+  borrow?: Element | string;
 };
 type DialogConstructor = (options?: DialogOptions) => DialogBase;
 
@@ -163,7 +168,7 @@ export class DialogBase
   /**
    * resolve the dialog with the specified answer
    *
-   * @param response Response (or choice) to return. null if the dialog was simply cancelled
+   * @param response - Response (or choice) to return. null if the dialog was simply cancelled
    */
   resolve(response: string | null)
   {
@@ -199,7 +204,7 @@ export function isCreateDialogAvailable() : boolean
 /**
  * Create a dialog
  *
- * @param options dialog settings
+ * @param options - dialog settings
  */
 export function createDialog(options?: DialogOptions)
 {
@@ -212,20 +217,24 @@ export function createDialog(options?: DialogOptions)
   return dialog;
 }
 
+type DialogChoice =
+{
+  /** Title for the choice */
+  title: string;
+  /** Override result to return if clicked (otherwise you'll just receive the title) */
+  result?: string;
+  className?: string;
+}
+
+
 /**
                      @param question - if a string, will be wrapped as textContent into a <p> and presented as the question
                     - if a html node, will appear as the question (allowing you to insert html)
                     - if an array of nodes, all these nodes will be inserted
-    @param choices Buttons (choices) the message box will offer, eg Ok and Cancel
-    @param choices.title Title for the choice
-    @param choices.result Override result to return if clicked (otherwise you'll just receive the title)
-    @param options Dialog options
-    @param options.allowcancel Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
-    @param options.focusonclose Element to focus on closing the dialog
-    @param options.signal An AbortSignal which if set will close the dialog and resolve it with a null response
-    @param options.theme Additional class to set on the dialog
+    @param choices - Buttons (choices) the message box will offer, eg Ok and Cancel
+    @param options - Dialog options
  */
-export async function runMessageBox(question: string | HTMLElement | HTMLElement[], choices: { title: string, result?: string, className?: string }[], options?: DialogOptions)
+export async function runMessageBox(question: string | HTMLElement | HTMLElement[], choices: DialogChoice[], options?: DialogOptions)
 {
   choices = choices || [];
   options = { allowcancel: choices.length == 0, ...options};

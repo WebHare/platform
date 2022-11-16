@@ -27,7 +27,7 @@ export function asIframe(node: Element | null) : HTMLIFrameElement | null
 /**
      Find the currently focused element
  *
-    @param limitdoc If set, only return compontents in the specified document (prevents editable iframes from returning subframes)
+    @param limitdoc - If set, only return compontents in the specified document (prevents editable iframes from returning subframes)
     @returns The element or null
  */
 export function getCurrentlyFocusedElement(limitdoc?: Document) : Element | null

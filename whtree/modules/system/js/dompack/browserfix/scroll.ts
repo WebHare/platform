@@ -135,11 +135,17 @@ const getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number)
 
 type ScrollOptions =
 {
+  /** X offset within node to get into view */
   x?: number;
+  /** Y offset within node to get into view */
   y?: number;
+  /** Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported) */
   context?: number | string;
+  /** Parent top stop scrolling at */
   limit?: Element;
+  /** List of nodes to explicitly allow scrolling (compensate for overflow: hidden) */
   allownodes?: Element[];
+  /** Duration */
   duration?: number;
 };
 
@@ -148,12 +154,8 @@ type ScrollOptions =
     scrolled into view. If not, the left top is scrolled into view , with as much of the element as possible.
     Also, a number of pixels around the point is placed into view (context).
  *
-    @param node Node to get in view
-    @param options Options
-    @param options.x X offset within node to get into view
-    @param options.y Y offset within node to get into view
-    @param options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
-    @param options.limitnode Parent top stop scrolling at
+    @param node - Node to get in view
+    @param options - Scroll options
  */
 export function scrollToElement(node: HTMLElement, options?: ScrollOptions)
 {
@@ -176,14 +178,8 @@ type ScrollAction =
     scrolled into view. If not, the left top is scrolled into view , with as much of the element as possible.
     Also, a number of pixels around the point is placed into view (context).
  *
-    @param node Node to get in view
-    @param options Options
-    @param options.x X offset within node to get into view
-    @param options.y Y offset within node to get into view
-    @param options.context Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported)
-    @param options.limitnode Parent top stop scrolling at
-    @param options.duration Duration
-    @param options.allownodes List of nodes to explicitly allow scrolling (compensate for overflow: hidden)
+    @param node - Node to get in view
+    @param options - Scroll options
     @returns List of scroll animations (can be fed into animation timeline)
  */
 function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions)

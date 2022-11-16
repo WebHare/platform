@@ -46,8 +46,8 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
 
 //fire the proper modified events (input and/or change) on the element after changing its value - DEPRECATED, you should fire the proper input and change events according to the situation
 /**
- * @param element Element to receive event
- * @param options Event options
+ * @param element - Element to receive event
+ * @param options - Event options
  * @deprecated Fire the proper input and change events according to the situation
  */
 export function fireModifiedEvents(element: EventTarget, options?: DomEventOptions)
@@ -58,9 +58,9 @@ export function fireModifiedEvents(element: EventTarget, options?: DomEventOptio
 
 //manually fire 'onchange' events. needed for event simulation - DEPRECATED
 /**
- * @param element Element to receive event
- * @param type Event type
- * @param options Event options
+ * @param element - Element to receive event
+ * @param type - Event type
+ * @param options - Event options
  * @deprecated Use dispatchDomEvent instead
  */
 export function fireHTMLEvent(element: EventTarget, type: string, options?: DomEventOptions)
@@ -70,22 +70,22 @@ export function fireHTMLEvent(element: EventTarget, type: string, options?: DomE
 
 type CustomEventParams =
 {
+  /** Whether this event should bubble up in the DOM */
   bubbles: boolean;
+  /** Whether this event can be cancelled */
   cancelable: boolean;
+  /** Custom event information */
   detail?: object;
+  /** Handler to execute if the default isn't prevented by a event listener */
   defaulthandler?: (evt: CustomEvent) => void;
 };
 
 /**
      Fire a custom event
  *
-    @param node node to fire the event on
-    @param event event type
-    @param params Event options
-    @param params.bubbles Whether this event should bubble up in the DOM
-    @param params.cancelable Whether this event can be cancelled
-    @param params.detail Custom event information
-    @param params.defaulthandler Handler to execute if the default isn't prevented by a event listener
+    @param node - node to fire the event on
+    @param event - event type
+    @param params - Event options
     @returns true if the default wasn't prevented
  */
 export function dispatchCustomEvent(node: EventTarget, event: string, params?: CustomEventParams)
@@ -121,8 +121,8 @@ export function dispatchCustomEvent(node: EventTarget, event: string, params?: C
 /**
      Change the value of a form element, and fire the correct events as if it were a user change
  *
-    @param element Element to change
-    @param newvalue New value
+    @param element - Element to change
+    @param newvalue - New value
  */
 export function changeValue(element: HTMLInputElement | HTMLSelectElement, newvalue: string | number | boolean)
 {
@@ -284,7 +284,7 @@ export type NormalizedKeyboardEvent =
 /**
      Returns normalized keyboard event properties, following the current W3C UI Events spec
  *
-    @param evt Keyboard event
+    @param evt - Keyboard event
     @returns Normalized keyboard event data
  */
 export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboardEvent
@@ -323,7 +323,7 @@ export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboa
 /**
  * Stop, fully, an event
  *
- * @param event Event to stop
+ * @param event - Event to stop
  */
 export function stop(event: Event)
 {

@@ -127,9 +127,9 @@ export function append(node: ParentNode, ...nodes: (string | Node)[])
 /**
  * Toggle a single class
  *
- * @param node Node to modify
- * @param classname Class to toggle
- * @param settoggle true to enable, false to disable, undefined to toggle
+ * @param node - Node to modify
+ * @param classname - Class to toggle
+ * @param settoggle - true to enable, false to disable, undefined to toggle
  * @deprecated Just use classList.toggle on the node itself
  */
 export function toggleClass(node: Element, classname: string, settoggle?: boolean)
@@ -140,8 +140,8 @@ export function toggleClass(node: Element, classname: string, settoggle?: boolea
 /**
      Toggle classes in a node
  *
-    @param node Node which classes to toggle
-    @param toggles Object, all keys will be added/removed based on the truthyness of their values
+    @param node - Node which classes to toggle
+    @param toggles - Object, all keys will be added/removed based on the truthyness of their values
  */
 export function toggleClasses(node: Element, toggles: { [key: string]: boolean })
 {
@@ -166,8 +166,8 @@ export function empty(node: Element)
 /**
  * get the relative bound difference between two elements, and return a writable copy
  *
- * @param node The node for which you need coordinates
- * @param relativeto The reference point
+ * @param node - The node for which you need coordinates
+ * @param relativeto - The reference point
  */
 export function getRelativeBounds(node: Element, relativeto: Element): Rect
 {
@@ -243,7 +243,7 @@ export function getJSONAttribute<T>(node: Element, attributename: string): T | n
 /**
      Get the base URI of the current document. IE11 doesn't implement document.baseURI
  *
-    @param doc Document to query. Defaults to window.document
+    @param doc - Document to query. Defaults to window.document
  */
 export function getBaseURI(doc: Document | undefined)
 {
@@ -283,8 +283,8 @@ export function qSA(node_or_selector: ParentNode | string, selector?: string): E
      Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate
     (can be used as replacement for Mootools .setStyles)
  *
- * @param node Node to update
- * @param value Styles to set
+ * @param node - Node to update
+ * @param value - Styles to set
  */
 export function setStyles(node: HTMLElement, value?: string | { [key: string]: string | number })
 {

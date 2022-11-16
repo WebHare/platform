@@ -50,7 +50,7 @@ const MATCH_DASH_AND_CHAR = /-([a-zA-Z])/g;
 /**
  Convert a camelCased identifier to a dashed string
  *
- * @param value identifier to convert
+ * @param value - identifier to convert
  */
 export function toDashed(value: string)
 {
@@ -62,7 +62,7 @@ export function toDashed(value: string)
 /**
  Convert a dashed string to a camelCase identifier
  *
- * @param value identifier to convert
+ * @param value - identifier to convert
  */
 export function toCamel(value: string)
 {
@@ -164,13 +164,13 @@ export function create(elementname: string, attributes: { [key: string]: any })
  Function to create for jsx, create elements directly (instead of virtual dom nodes).
 
     import * as dompack from 'dompack';
-
-    /* @jsx dompack.jsxcreate *\/
-    /* @jsxFrag dompack.jsxfragment *\/
+ 
+    /* \@jsx dompack.jsxcreate *\/
+    /* \@jsxFrag dompack.jsxfragment *\/
     your code
  *
- * @param element Name of the element to create
- * @param {...any} childNodes Any child nodes to add immediately
+ * @param element - Name of the element to create
+ * @param childNodes - Any child nodes to add immediately
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: (Node | string | number)[])

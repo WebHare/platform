@@ -106,7 +106,7 @@ type KeyboardHandlerOptions =
     options.stopmapped - preventDefault and stopPropagation on any key we have in our map
     options.dontpropagate - string array of keys not to propagate out of this object
     options.onkeypress - when set, call for all keypresses. signature: function(event, key). Should always return true and preventDefault (and/or stop) the event to cancel its handling
-    options.listenoptions - addEventListener options (eg {capture:true})
+    options.listenoptions - addEventListener options (eg \{capture:true\})
  */
 export default class KeyboardHandler
 {
@@ -153,9 +153,9 @@ export default class KeyboardHandler
        Returns thether the current pressed special key should be ignored for the current target node
       Used to detect input/textarea/rte's
    *
-      @param target Current target node for keyboard event
-      @param key Parsed key
-      @param keynames Potential names for the keys (as returned by GetKeyNames)
+      @param target - Current target node for keyboard event
+      @param key - Parsed key 
+      @param keynames - Potential names for the keys (as returned by GetKeyNames)
       @returns Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
    */
   private _mustIgnoreKey(target: EventTarget | null, key: string, keynames: string[])
@@ -305,7 +305,7 @@ export default class KeyboardHandler
   /**
    * Is the native 'copy' modifier for this platform pressed?
    *
-   * @param event Event to check
+   * @param event - Event to check
    */
   static hasNativeEventCopyKey(event: KeyboardEvent)
   {
@@ -315,7 +315,7 @@ export default class KeyboardHandler
   /**
    * Is the native 'multiselect' modifier for this platform pressed?
    *
-   * @param event Event to check
+   * @param event - Event to check
    */
   static hasNativeEventMultiSelectKey(event: KeyboardEvent)
   {

@@ -6,7 +6,7 @@ export const debugflags: KeyValueObject<boolean> = {};
 /**
    Extract a specific variable from the URL
  *
-  @param varname Variable name, eg dompack-debug
+  @param varname - Variable name, eg dompack-debug
  */
 export function parseDebugURL(varname: string)
 {

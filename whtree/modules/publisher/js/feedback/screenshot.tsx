@@ -7,8 +7,8 @@ const SCREENSHOTVERSION = 2;
 /**
  Take a DOM snapshot
  *
- * @param domFilterCallback Filter DOM node during clone
- * @param postFilterCallback Post process the screenshot documentFragment
+ * @param domFilterCallback - Filter DOM node during clone
+ * @param postFilterCallback - Post process the screenshot documentFragment
  */
 export default function takeScreenshot(domFilterCallback?: DOMFilterCallback,
                                        postFilterCallback?: (node: DocumentFragment) => void): ScreenshotData
