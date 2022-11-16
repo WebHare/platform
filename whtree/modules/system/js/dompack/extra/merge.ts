@@ -107,10 +107,9 @@ function mergeNode(node: HTMLElement, set: string, data: any)
 /**
      Apply all merge fields within a node, recursively
  *
-    @param mergenode Root node to start merging
-    @param data Merge data
-    @param options
-    @param options.filter If set, a function that will be called for every node with merge functions. If it returns a falsy value, the node will be skipped.
+    @param mergenode - Root node to start merging
+    @param data - Merge data
+    @param options - filter: If set, a function that will be called for every node with merge functions. If it returns a falsy value, the node will be skipped.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we can't know the types passed to merge call
@@ -133,8 +132,8 @@ export async function run(mergenode: ParentNode, data: any, { filter }: { filter
 /**
      Register a formatter function.
  *
-    @param name Name of the formatter function
-    @param callback Formatter function. Called with parameter (value), must return a formatted value to write to the property.
+    @param name - Name of the formatter function
+    @param callback - Formatter function. Called with parameter (value), must return a formatted value to write to the property.
  */
 export function registerFormatter(name: string, callback: FormatFunction)
 {
@@ -144,8 +143,8 @@ export function registerFormatter(name: string, callback: FormatFunction)
 /**
      Register an updater function (used to update multiple properties of a node at once)
  *
-    @param name Name of the updater function
-    @param callback Updater function. Called with parameters (node: HTMLElement, value: Any).
+    @param name - Name of the updater function
+    @param callback - Updater function. Called with parameters (node: HTMLElement, value: Any).
  */
 export function registerUpdater(name: string, callback: UpdateFunction)
 {

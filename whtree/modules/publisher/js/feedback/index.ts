@@ -9,13 +9,31 @@ import "@mod-publisher/web/common/feedback/styles.css";
 export type HighlightCallback = (node: Element) => Element;
 export type DOMFilterCallback = (node: Element) => Element;
 
+export interface UserData
+{
+  /** The user's name */
+  realname: string;
+  /** The user's email address */
+  email: string;
+}
 export interface FeedbackOptions
 {
   token: string;
+  /** Author data */
+  userData?: UserData;
+  /** If the user should be asked to point at an element */
   addElement?: boolean;
+  /** A function that, given a hovered element, returns the element that should be
+        highlighted (optional, by default the hovered element is highlighted) */
   highlightCallback?: HighlightCallback;
+  /** A function that, given a DOM element, returns whether the element returns if
+        the element should be included in the screenshot (optional, by default all elements are included) */
   domFilterCallback?: DOMFilterCallback;
+  /** A function that receives the screenshot DOM fragment and can do additional
+        filtering or manipulation */
   postFilterCallback?: (node: DocumentFragment) => void;
+  /** A function that returns a Promise, which resolves with extra data (a record-like
+        object) to add to the feedback */
   feedbackPromise?: () => Promise<KeyValueObject<PlainValue>>;
 }
 
@@ -78,19 +96,7 @@ let feedbackOptions: FeedbackOptions;
 /**
     Initialize the global feedback options
  
-    @param options New options
-    @param options.userData Author data
-    @param options.userData.realname The user's name
-    @param options.userData.email The user's email address
-    @param options.addElement If the user should be asked to point at an element
-    @param options.highlightCallback A function that, given a hovered element, returns the element that should be
-        highlighted (optional, by default the hovered element is highlighted)
-    @param options.domFilterCallback A function that, given a DOM element, returns whether the element returns if
-        the element should be included in the screenshot (optional, by default all elements are included)
-    @param options.postFilterCallback A function that receives the screenshot DOM fragment and can do additional
-        filtering or manipulation
-    @param options.feedbackPromise A function that returns a Promise, which resolves with extra data (a record-like
-        object) to add to the feedback
+    @param options - New options
  */
 export function initFeedback(options: FeedbackOptions): void
 {
@@ -101,8 +107,8 @@ export function initFeedback(options: FeedbackOptions): void
 /**
      Get feedback
  
-    @param event The event that caused requesting the feedback (optional)
-    @param extraOptions Extra options, overwriting the global options @includecelldef %initFeedback.options
+    @param event - The event that caused requesting the feedback (optional)
+    @param extraOptions - Extra options, overwriting the global options 
     @returns The result
  */
 export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>

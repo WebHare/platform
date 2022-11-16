@@ -170,8 +170,8 @@ export function waitUIFree()
 /**
      flag userinterface as busy. tests then know not to interact with the UI until the busy flag is released
  *
-    @param options Options
-    @param options.ismodal Whether the lock is a modal lock
+    @param options - Options.<br>
+                   - ismodal: true/false - Whether the lock is a modal lock
  */
 export function flagUIBusy(options?: LockOptions)
 {

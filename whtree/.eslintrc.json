@@ -16,7 +16,8 @@
     },
     "plugins": [
         "react",
-        "@typescript-eslint"
+        "@typescript-eslint",
+        "eslint-plugin-tsdoc"
     ],
     "rules": {
         "semi": [
@@ -32,7 +33,8 @@
         "react/no-unknown-property": 0,
         "react/prop-types": 0,
         "react/jsx-key": 0,
-        "@typescript-eslint/ban-ts-comment": [ "error", { "ts-ignore": "allow-with-description" } ]
+        "@typescript-eslint/ban-ts-comment": [ "error", { "ts-ignore": "allow-with-description" } ],
+        "tsdoc/syntax": "error"
     },
     "settings": {
         "react": {

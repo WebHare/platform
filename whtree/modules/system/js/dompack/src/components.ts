@@ -98,8 +98,8 @@ export function focus(node: Element, options?: FocusOptions)
 }
 
 /**
- * @param node Node to show
- * @param options Scroll options
+ * @param node - Node to show
+ * @param options - Scroll options
  * @deprecated invoke scrollIntoView directly  on the nodes
  */
 export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions)
@@ -110,11 +110,11 @@ export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions)
 
 /**
     Register a component for auto-initialization.
-
-    @param selector Selector the component must match
-    @param handler Handler
-    @param options Any unrecognized options are passed to the handler
-
+ 
+    @param selector - Selector the component must match
+    @param handler - Handler
+    @param options - Any unrecognized options are passed to the handler
+ 
     The handler will be invoked with two parameters
     - the node to register
     - the index of the node (a unique counter for this selector - first is 0)
