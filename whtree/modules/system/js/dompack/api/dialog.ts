@@ -10,12 +10,12 @@ import { DeferredPromise } from '@mod-system/js/types';
 type DialogOptions =
 {
   allowcancel?: boolean;
-  borrow?: Element;
+  borrow?: Element | string;
   signal?: EventTarget;
   focusonclose?: HTMLElement;
   messageboxclassbase?: string;
 };
-type DialogConstructor = (options: DialogOptions) => DialogBase;
+type DialogConstructor = (options?: DialogOptions) => DialogBase;
 
 const dialogstack: DialogBase[] = [];
 let keyhandler: KeyboardHandler | null = null;
@@ -71,11 +71,12 @@ export class DialogBase
         throw new Error("Invalid 'borrow' selectior: " + this.options.borrow);
       this.options.borrow = borrow;
     }
+    // At this point, if this.options.borrow was a string, it's been resolved to an Element
 
     if(this.options.borrow)
     {
-      this._borrowedfrom = this.options.borrow.parentElement;
-      this._borrowednext = this.options.borrow.nextElementSibling;
+      this._borrowedfrom = (this.options.borrow as Element).parentElement;
+      this._borrowednext = (this.options.borrow as Element).nextElementSibling;
     }
 
     if(this.options.signal)
@@ -143,7 +144,7 @@ export class DialogBase
     this.open = false;
     if(this.options.borrow)
       if(this._borrowedfrom)
-        this._borrowedfrom.insertBefore(this.options.borrow, this._borrowednext);
+        this._borrowedfrom.insertBefore(this.options.borrow as Element, this._borrowednext);
       else
         this._borrowednext?.remove();
 
@@ -177,7 +178,7 @@ export class DialogBase
   }
 }
 
-export function setupDialogs(newdialogconstructor: DialogConstructor, options: DialogOptions)
+export function setupDialogs(newdialogconstructor: DialogConstructor, options?: DialogOptions)
 {
   if(dialogconstructor)
   {
@@ -200,14 +201,14 @@ export function isCreateDialogAvailable() : boolean
  *
  * @param options dialog settings
  */
-export function createDialog(options: DialogOptions)
+export function createDialog(options?: DialogOptions)
 {
   if(!dialogconstructor)
     throw new Error("Cannot create dialog, no dialog class defined");
 
   const dialog = dialogconstructor(options);
   if(dialog.options.borrow)
-    dialog.contentnode?.appendChild(dialog.options.borrow);
+    dialog.contentnode?.appendChild(dialog.options.borrow as Element);
   return dialog;
 }
 

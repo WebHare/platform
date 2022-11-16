@@ -38,7 +38,7 @@ class SwipeDetect
   boundTouchMove: EventHandler;
   boundTouchEnd: EventHandler;
 
-  constructor(node: EventTarget, options: SwipeDetectOptions)
+  constructor(node: EventTarget, options?: SwipeDetectOptions)
   {
     if(!node)
       throw new Error("Invalid node passed to SwipeDetect");
@@ -155,7 +155,7 @@ class SwipeDetect
 
 }
 
-export function enable(element: SwipeEventTarget, options: SwipeDetectOptions)
+export function enable(element: SwipeEventTarget, options?: SwipeDetectOptions)
 {
   if (element[swipedetect])
     return;

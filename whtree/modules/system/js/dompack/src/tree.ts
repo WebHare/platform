@@ -124,7 +124,6 @@ export function append(node: ParentNode, ...nodes: (string | Node)[])
   node.appendChild(generateInsertList(nodes));
 }
 
-//offer toggleClass ourselves as IE11's native version is broken - does not understand the last parameter
 /**
  * Toggle a single class
  *
@@ -160,7 +159,6 @@ export function empty(node: Element)
     return;
   }
   //TODO: Warn about out-of-date browser?
-  //node.innerHTML=''; // this does NOT work for IE11, it destroys all nodes instead of unlinking them
   while(node.lastChild)
     node.removeChild(node.lastChild);
 }

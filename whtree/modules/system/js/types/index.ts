@@ -1,4 +1,4 @@
-/// Primitive values (string, number of boolean)
+/// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;
 
 /// An object with string keys and typed values

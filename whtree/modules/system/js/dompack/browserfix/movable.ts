@@ -22,13 +22,13 @@ function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: M
   const originaltarget = moveeventdata?.target ?? event.target;
   if (!originaltarget)
     return;
-  
+
   let coordinatesource;
   if(event instanceof TouchEvent)
     coordinatesource = event.touches[0];
   else if(event.type == "touchend")
     coordinatesource = lastcoordinates || event;
-  else 
+  else
     coordinatesource = event;
 
   if(event.type == "touchmove")
@@ -113,13 +113,13 @@ function moveMouseMove(event: Event) // We're a mouse/touch event handler, so we
 }
 
 // Handle a (global) mouseup event
-function moveMouseUp(event: MouseEvent | TouchEvent)
+function moveMouseUp(event: Event) // We're a mouse/touch event handler, so we know the event is a MouseEvent or TouchEvent
 {
   // Check if we have data (we should have, but check just in case)
   if (moveeventdata)
   {
     stop(event);
-    fireMoveEvent("dompack:moveend", null, event, false);
+    fireMoveEvent("dompack:moveend", null, event as MouseEvent | TouchEvent, false);
   }
   // We're done, stop the move action
   stopMove();

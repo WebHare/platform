@@ -128,7 +128,7 @@ export class Lock
   acquirestack: string | undefined;
   releasestack: string | undefined;
 
-  constructor(options: LockOptions | null)
+  constructor(options?: LockOptions)
   {
     this.ismodal = options?.ismodal || false;
 
@@ -173,7 +173,7 @@ export function waitUIFree()
     @param options Options
     @param options.ismodal Whether the lock is a modal lock
  */
-export function flagUIBusy(options: LockOptions)
+export function flagUIBusy(options?: LockOptions)
 {
   return new Lock(options);
 }

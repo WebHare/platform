@@ -1,5 +1,8 @@
 import { append, setStyles } from './tree';
 
+// This will assign the `any` type to elements created by the jsx-like element constructor, for example, after the statement
+// `const divElement = <div/>;`, the `divElement` variable will have type `any`. Not sure how we can assign the correct
+// element type to the different node names, but adding `"div": HTMLDivElement;` to the `IntrinsicElements` doesn't work.
 declare global
 {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -159,9 +162,9 @@ export function create(elementname: string, attributes: { [key: string]: any })
 
 /**
  Function to create for jsx, create elements directly (instead of virtual dom nodes).
- 
+
     import * as dompack from 'dompack';
- 
+
     /* @jsx dompack.jsxcreate *\/
     /* @jsxFrag dompack.jsxfragment *\/
     your code

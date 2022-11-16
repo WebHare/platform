@@ -17,7 +17,7 @@ const propnames = { shiftKey: "Shift"
                 , altKey:   "Alt"
                 };
 
-function getFinalKey(event: NormalizedKeyboardEvent) //get the naem for the 'final' key, eg the 'D' in 'alt+control+d'
+function getFinalKey(event: NormalizedKeyboardEvent) //get the name for the 'final' key, eg the 'D' in 'alt+control+d'
 {
   if(event.code.startsWith('Key') && event.code.length==4)
     return event.code.substring(3,4).toUpperCase();
@@ -154,7 +154,7 @@ export default class KeyboardHandler
       Used to detect input/textarea/rte's
    *
       @param target Current target node for keyboard event
-      @param key Parsed key 
+      @param key Parsed key
       @param keynames Potential names for the keys (as returned by GetKeyNames)
       @returns Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
    */
