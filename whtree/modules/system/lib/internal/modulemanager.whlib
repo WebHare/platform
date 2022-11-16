@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -636,6 +637,66 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
   RETURN retval;
 }
 
+MACRO SyncLinks(STRING basepath, RECORD ARRAY want, BOOLEAN clean)
+{
+  RECORD ARRAY contents :=
+      SELECT *
+           , used :=  FALSE
+        FROM ReadDiskDirectory(basepath, "*")
+    ORDER BY name;
+
+  DumpValue((SELECT name, path, type FROM contents), "boxed");
+
+  FOREVERY (RECORD item FROM want)
+  {
+    STRING itempath := MergePath(basepath, item.name);
+    RECORD pos := RecordLowerBound(contents, item, [ "NAME" ]);
+    IF (pos.found)
+    {
+      RECORD found := contents[pos.position];
+      contents[pos.position].used := TRUE;
+      INTEGER wanttype := SearchElement([ "", "directory", "softlink" ], item.type);
+      IF (wanttype = -1)
+        THROW NEW Exception(`Unexpected type ${EncodeJSON(item.type)}`);
+      IF (found.type != wanttype)
+      {
+        // wrong type, delete
+        IF (found.type = 1) // directory
+          DeleteDiskDirectoryRecursive(found.path);
+        ELSE // file or link
+          DeleteDiskFile(found.path);
+        pos.found := FALSE;
+      }
+      IF (item.type = "softlink" AND ReadSoftLink(found.path) != item.target)
+        pos.found := FALSE;
+    }
+    IF (NOT pos.found)
+    {
+      IF (item.type = "softlink")
+      {
+        //create using temp, overwiting any existing link where needed
+        CreateSoftLink(`${itempath}.tmp`, item.target);
+        MoveDiskPath(`${itempath}.tmp`, itempath);
+      }
+      ELSE
+        CreateDiskDirectory(itempath, TRUE);
+    }
+    IF (item.type = "directory")
+      SyncLinks(itempath, item.items, clean);
+  }
+
+  IF (clean)
+  {
+    FOREVERY (RECORD rec FROM SELECT * FROM contents WHERE NOT used)
+    {
+      IF (rec.type = 1) // directory
+        DeleteDiskDirectoryRecursive(rec.path);
+      ELSE // file or link
+        DeleteDiskFile(rec.path);
+    }
+  }
+}
+
 PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 {
   STRING whdatamods := GetWebhareConfiguration().basedataroot || "node_modules/";
@@ -644,49 +705,39 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 
   // Only create links for modules where GetModuleInstallationRoot is non-empty
   RECORD ARRAY modulelinks :=
-       SELECT module
-            , name :=    `@mod-${module}`
-            , target :=  GetModuleInstallationRoot(module)
-         FROM ToRecordArray(modules, "module");
+      SELECT module
+           , name :=     `@mod-${module}`
+           , type :=     "softlink"
+           , target :=   GetModuleInstallationRoot(module)
+        FROM ToRecordArray(modules, "module");
   DELETE FROM modulelinks WHERE target = "";
 
   RECORD ARRAY modulestoragelinks :=
-      SELECT  name :=    `@storage-${module}`
-            , target :=  `${storageroot}${module}`
-         FROM modulelinks;
+      SELECT name :=    `@storage-${module}`
+           , type :=     "softlink"
+           , target :=  `${storageroot}${module}`
+        FROM modulelinks;
 
   RECORD ARRAY tocheck := modulelinks CONCAT modulestoragelinks;
 
-  // Also add dompack
+  // Also add dompack and other exported modules
   IF (isallmodules)
   {
     tocheck := tocheck CONCAT
       [ [ name :=     "dompack"
+        , type :=     "softlink"
         , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
+        ]
+      , [ name :=     "@types"
+        , type :=     "directory"
+        , items :=    [ [ name :=     "node"
+                        , type :=     "softlink"
+                        , target :=   GetWebhareConfiguration().installationroot || "node_modules/@types/node"
+                        ]
+                      ]
         ]
       ];
   }
 
-  FOREVERY (RECORD link FROM tocheck)
-  {
-    STRING linkpath := `${whdatamods}${link.name}`;
-    STRING currenttarget := ReadSoftLink(linkpath);
-    IF (currenttarget != link.target)
-    {
-      //create using temp, overwiting any existing link where needed
-      CreateSoftLink(`${linkpath}.tmp`, link.target);
-      MoveDiskPath(`${linkpath}.tmp`, linkpath);
-    }
-  }
-
-  IF (isallmodules)
-  {
-    STRING ARRAY tokill :=
-        SELECT AS STRING ARRAY path
-          FROM ReadDiskDirectory(whdatamods, "*")
-         WHERE name NOT IN (SELECT AS STRING ARRAY name FROM tocheck);
-
-    FOREVERY (STRING path FROM tokill)
-      DeleteDiskFile(path);
-  }
+  SyncLinks(whdatamods, tocheck, isallmodules);
 }
