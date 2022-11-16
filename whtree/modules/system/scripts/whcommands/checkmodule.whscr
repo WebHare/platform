@@ -68,8 +68,19 @@ ELSE
 }
 
 OBJECT ARRAY promises;
+BOOLEAN core_typescript_checked;
 FOREVERY(STRING modname FROM checklist)
 {
+  BOOLEAN checktypescript := TRUE;
+  IF (modname IN whconstant_builtinmodules)
+  {
+    /* Only check typescript for the first of the core modules, typescript check of a core
+       module will check all core modules at once
+    */
+    checktypescript := NOT core_typescript_checked;
+    core_typescript_checked := TRUE;
+  }
+
   Print(`Checking module ${modname}...\n`);
   OBJECT promise := AsyncCallFunctionFromJob(
               "mod::system/lib/internal/modules/checkmodule.whlib#CheckModule",
@@ -81,6 +92,7 @@ FOREVERY(STRING modname FROM checklist)
               , args.color
               , args.nowarnings
               , documentation := args.doc
+              , checktypescript
               ]);
   INSERT promise INTO promises AT END;
 

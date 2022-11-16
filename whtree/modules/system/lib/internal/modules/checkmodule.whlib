@@ -10,7 +10,9 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
+LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
 
 
 OBJECTTYPE CheckerObject
@@ -92,6 +94,7 @@ OBJECTTYPE CheckerObject
                                      , color := FALSE
                                      , documentation := FALSE
                                      , nowarnings := FALSE
+                                     , checktypescript := TRUE
                                      ], options);
 
     IF(this->options.filemask = "")
@@ -103,6 +106,10 @@ OBJECTTYPE CheckerObject
     STRING moddir := GetModuleInstallationRoot(modname);
     IF(moddir="")
       THROW NEW Exception(`No such module '${modname}'`);
+
+    OBJECT typescriptresultpromise;
+    IF (this->options.checktypescript)
+      typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "coremodules" : modname);
 
     this->validateconfig := GetModuleValidationConfig(modname);
     IF(this->validateconfig.futuremodule)
@@ -145,6 +152,12 @@ OBJECTTYPE CheckerObject
         this->AddIssue(issue,"hint");
     }
 
+    IF (ObjectExists(typescriptresultpromise))
+    {
+      RECORD typescriptresult := WaitForPromise(typescriptresultpromise);
+      FOREVERY (RECORD issue FROM typescriptresult.issues)
+        this->AddIssue(issue, issue.category);
+    }
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetIssues()

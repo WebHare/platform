@@ -22,8 +22,6 @@
       "target": "es2022"
     },
     "moduleResolution": "node",
-    "types": [
-      "node"
-    ]
+
   }
 }
