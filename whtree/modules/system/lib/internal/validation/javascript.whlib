@@ -2,10 +2,12 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 
@@ -213,3 +215,59 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
   RETURN CELL[ texts, icons ];
 }
 
+/** Checks typescript files (using the typescript compiler)
+    @param modulename Name of an external module to check or "coremodules" for all core modules.
+    @return Validation results
+    @cell return.issues List of found issues
+    @cell return.issues.filename Resource name
+    @cell return.issues.line Line
+    @cell return.issues.col Column
+    @cell return.issues.message Error message
+    @cell return.issues.category Category (always "error")
+*/
+PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
+{
+  RECORD retval :=
+      [ issues :=     RECORD[]
+      ];
+
+  IF (modulename IN whconstant_builtinmodules)
+    THROW NEW Exception(`Cannot check individual core modules, use "coremodules" to check all core modules`);
+
+  IF (modulename = "coremodules" OR modulename IN whconstant_builtinmodules)
+  {
+    STRING tscpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/tsc");
+    STRING tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
+    STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
+    STRING tsbuildinfofile := MergePath(tsbuildinfodir, "coremodules.tsbuildinfo");
+    CreateDiskDirectoryRecursive(tsbuildinfodir, TRUE);
+
+    STRING ARRAY args := [ "--project", tsconfigpath, "--noEmit", "--incremental", "--tsBuildInfoFile", tsbuildinfofile ];
+
+    OBJECT proc := CreateProcess(tscpath, args, TRUE, TRUE, TRUE, FALSE);
+    proc->initialworkingdirectory := GetWebhareConfiguration().installationroot;
+    proc->Start();
+
+    OBJECT reader := ReadWholeProcessOutput(proc);
+    RECORD procresult := AWAIT reader;
+    proc->Close();
+
+    OBJECT matcher := NEW RegEx("^modules/([^\\(]*)\\((\\d*),(\\d*)\\): (.*)$");
+
+    FOREVERY (STRING line FROM Tokenize(procresult.output, "\n"))
+    {
+      RECORD ARRAY match := matcher->Exec(line);
+      IF (RecordExists(match))
+      {
+        INSERT
+            [ resourcename := `mod::${match[1].value}`
+            , line :=         ToInteger(match[2].value, 1)
+            , col :=          ToInteger(match[3].value, 1)
+            , message :=      match[4].value
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+      }
+    }
+  }
+  RETURN retval;
+}
