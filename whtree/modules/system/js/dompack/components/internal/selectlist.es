@@ -1,4 +1,4 @@
-import * as dompack from "../../index.es";
+import * as dompack from "../../index";
 
 export default class SelectList
 {

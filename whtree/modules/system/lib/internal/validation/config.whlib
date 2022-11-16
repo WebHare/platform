@@ -10,7 +10,7 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
                                           , nomissingtids := FALSE
                                           , nowarnings := FALSE
                                           , documentation := FALSE
-                                          , eslintmasks := STRING[]
+                                          , eslintmasks := STRING[ "*.ts", "*.tsx" ]
                                           ];
 
 /** Returns the validation configuration for a module

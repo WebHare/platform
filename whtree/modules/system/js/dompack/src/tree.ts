@@ -7,105 +7,143 @@
 */
 const IS_NON_DIMENSIONAL = /acit|ex(?:s|g|n|p|$)|rph|ows|mnc|ntw|ine[ch]|zoo|^ord/i;
 
-function generateInsertList(nodes)
+export type Rect =
+{
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+  node?: HTMLElement;
+};
+
+function generateInsertList(nodes: (string | Node)[])
 {
   if(nodes.length==1)
     return typeof nodes[0]==='string' ? document.createTextNode(nodes[0]) : nodes[0];
 
-  let frag = document.createDocumentFragment();
+  const frag = document.createDocumentFragment();
   nodes.forEach(node => frag.appendChild(typeof node === 'string' ? document.createTextNode(node) : node));
   return frag;
 }
 
-export function matches(node, selector)
+export function matches(node: Element, selector: string): boolean
 {
-  var tocall = node.matches || node.matchesSelector || node.msMatchesSelector || node.webkitMatchesSelector;
-  //if none of the 'matches' was found, this might be a textnode or something. returning false is probably safest
-  return tocall && tocall.apply(node, [selector]);
+  return node.matches(selector);
 }
-export function closest(node, selector)
+export function closest(node: Element, selector: string)
 {
   if(node.closest)
     return node.closest(selector);
-  for(;node&&!matches(node,selector);node=node.parentElement)
+  //TODO: Warn about out-of-date browser?
+  let testNode: Element | null = node;
+  for(;testNode&&!matches(testNode,selector);testNode=testNode.parentElement)
     /*iterate*/;
-  return node;
+  return testNode;
 }
 //implements contains. TODO we only really need this on IE11, which doesn't consider a text node a child, we can probably fall back to native elsewhere ?
-export function contains(ancestor, child)
+export function contains(ancestor: Node, child: Node)
 {
-  for(;child;child=child.parentNode)
-    if(child===ancestor)
+  if (ancestor.contains)
+    return ancestor.contains(child);
+  //TODO: Warn about out-of-date browser?
+  for(let testNode: Node | null = child;testNode;testNode=testNode.parentNode)
+    if(testNode===ancestor)
       return true;
   return false;
 }
 //insert a range of nodes before a node: https://dom.spec.whatwg.org/#dom-childnode-before
-export function before(node,...nodes)
+export function before(node: ChildNode, ...nodes: (string | Node)[])
 {
   if(node.before)
   {
     node.before(...nodes);
     return;
   }
+  //TODO: Warn about out-of-date browser?
   if(node.parentNode)
     node.parentNode.insertBefore(generateInsertList(nodes), node);
 }
 //insert a range of nodes after a node: https://dom.spec.whatwg.org/#dom-childnode-after
-export function after(node,...nodes)
+export function after(node: ChildNode, ...nodes: (string | Node)[])
 {
   if(node.after)
   {
     node.after(...nodes);
     return;
   }
+  //TODO: Warn about out-of-date browser?
   if(node.parentNode)
     node.parentNode.insertBefore(generateInsertList(nodes), node.nextSibling);
 }
 //replace node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-replacewith
-export function replaceWith(node,...nodes)
+export function replaceWith(node: ChildNode, ...nodes: (string | Node)[])
 {
   if(node.replaceWith)
   {
     node.replaceWith(...nodes);
     return;
   }
+  //TODO: Warn about out-of-date browser?
   if(node.parentNode)
     node.parentNode.replaceChild(generateInsertList(nodes), node);
 }
 //remove node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-remove
-export function remove(node)
+export function remove(node: ChildNode)
 {
+  if(node.remove)
+  {
+    node.remove();
+    return;
+  }
+  //TODO: Warn about out-of-date browser?
   if(node.parentNode)
     node.parentNode.removeChild(node);
 }
 //insert nodes at start: https://dom.spec.whatwg.org/#dom-parentnode-prepend
-export function prepend(node, ...nodes)
+export function prepend(node: ParentNode, ...nodes: (string | Node)[])
 {
+  if(node.prepend)
+  {
+    node.prepend(...nodes);
+    return;
+  }
+  //TODO: Warn about out-of-date browser?
   node.insertBefore(generateInsertList(nodes), node.firstChild);
 }
 //insert nodes at end: https://dom.spec.whatwg.org/#dom-parentnode-append
-export function append(node, ...nodes)
+export function append(node: ParentNode, ...nodes: (string | Node)[])
 {
+  if(node.append)
+  {
+    node.append(...nodes);
+    return;
+  }
+  //TODO: Warn about out-of-date browser?
   node.appendChild(generateInsertList(nodes));
 }
 
-//offer toggleClass ourselves as IE11's native version is broken - does not understand the last parameter
-/** Toggle a single class */
-export function toggleClass(node, classname, settoggle)
+/**
+ * Toggle a single class
+ *
+ * @param node Node to modify
+ * @param classname Class to toggle
+ * @param settoggle true to enable, false to disable, undefined to toggle
+ * @deprecated Just use classList.toggle on the node itself
+ */
+export function toggleClass(node: Element, classname: string, settoggle?: boolean)
 {
-  if (arguments.length === 2)
-    node.classList.toggle(classname);
-  else if (settoggle)
-    node.classList.add(classname);
-  else
-    node.classList.remove(classname);
+  node.classList.toggle(classname, settoggle);
 }
 
-/** Toggle classes in a node
+/**
+     Toggle classes in a node
+ *
     @param node Node which classes to toggle
     @param toggles Object, all keys will be added/removed based on the truthyness of their values
-*/
-export function toggleClasses(node, toggles)
+ */
+export function toggleClasses(node: Element, toggles: { [key: string]: boolean })
 {
   if (typeof(toggles) !== "object")
     throw new Error("Expected an object with keys as classnames");
@@ -113,21 +151,31 @@ export function toggleClasses(node, toggles)
 }
 
 /* remove the contents of an existing node */
-export function empty(node)
+export function empty(node: Element)
 {
-  //node.innerHTML=''; // this does NOT work for IE11, it destroys all nodes instead of unlinking them
+  if (node.replaceChildren)
+  {
+    node.replaceChildren();
+    return;
+  }
+  //TODO: Warn about out-of-date browser?
   while(node.lastChild)
     node.removeChild(node.lastChild);
 }
 
-/** get the relative bound difference between two elements, and return a writable copy */
-export function getRelativeBounds(node, relativeto)
+/**
+ * get the relative bound difference between two elements, and return a writable copy
+ *
+ * @param node The node for which you need coordinates
+ * @param relativeto The reference point
+ */
+export function getRelativeBounds(node: Element, relativeto: Element): Rect
 {
   if(!relativeto)
     relativeto = node.ownerDocument.documentElement;
 
-  var nodecoords = node.getBoundingClientRect();
-  var relcoords = relativeto.getBoundingClientRect();
+  const nodecoords = node.getBoundingClientRect();
+  const relcoords = relativeto.getBoundingClientRect();
   return { top: nodecoords.top - relcoords.top
          , left: nodecoords.left - relcoords.left
          , right: nodecoords.right - relcoords.left
@@ -143,7 +191,7 @@ export function isDomReady()
 }
 
 /* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions from the ready handler will not be fatal to the rest of code execution */
-export function onDomReady(callback)
+export function onDomReady(callback: () => void)
 {
   if(isDomReady())
   {
@@ -154,19 +202,22 @@ export function onDomReady(callback)
     catch(e)
     {
       console.error("Exception executing a domready handler");
-      console.log(e,e.stack);
-
-      if (window.onerror)
+      if (e instanceof Error)
       {
-        // Send to onerror to trigger exception reporting
-        try
+        console.log(e,e.stack);
+        if (window.onerror)
         {
-          window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
-        }
-        catch (e)
-        {
+          // Send to onerror to trigger exception reporting
+          try
+          {
+            // @ts-ignore fileName, lineNumber and columnNumber are non-standard
+            window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
+          }
+          catch (e){}
         }
       }
+      else
+        console.log(e);
     }
   }
   else
@@ -174,67 +225,80 @@ export function onDomReady(callback)
 }
 
 //parse JSON data, throw with more info on parse failure
-export function getJSONAttribute(node, attributename)
+export function getJSONAttribute<T>(node: Element, attributename: string): T | null
 {
   try
   {
-    return JSON.parse(node.getAttribute(attributename));
+    if (node.hasAttribute(attributename))
+      return JSON.parse(node.getAttribute(attributename) as string);
   }
   catch(e)
   {
     console.error("JSON parse failure on attribute '" +attributename+ "' of node", node);
     throw e;
   }
+  return null;
 }
 
-/** Get the base URI of the current document. IE11 doesn't implement document.baseURI
+/**
+     Get the base URI of the current document. IE11 doesn't implement document.baseURI
+ *
     @param doc Document to query. Defaults to window.document
-*/
-export function getBaseURI(doc)
+ */
+export function getBaseURI(doc: Document | undefined)
 {
   if(!doc)
     doc=window.document;
   if(doc.baseURI)
     return doc.baseURI;
 
-  let base = doc.querySelector('base');
+  const base = doc.querySelector('base');
   if(base && base.href)
     return base.href;
   return doc.URL;
 }
 
 //queryselector quick wrapper
-export function qS(node_or_selector, selector)
+export function qS(node_or_selector: ParentNode | string, selector?: string)
 {
   if(typeof node_or_selector == 'string')
     return document.querySelector(node_or_selector);
-  else
+  else if (selector)
     return node_or_selector.querySelector(selector);
+  return null;
 }
 
 //queryselectorall quick wrapper
-export function qSA(node_or_selector, selector)
+export function qSA(node_or_selector: ParentNode | string, selector?: string): Element[]
 {
   if(typeof node_or_selector == 'string')
     return Array.from(document.querySelectorAll(node_or_selector));
-  else
+  else if (selector)
     return Array.from(node_or_selector.querySelectorAll(selector));
+  return [];
 }
 
 
-/** Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate
+/**
+     Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate
     (can be used as replacement for Mootools .setStyles)
-*/
-export function setStyles(node, value)
+ *
+ * @param node Node to update
+ * @param value Styles to set
+ */
+export function setStyles(node: HTMLElement, value?: string | { [key: string]: string | number })
 {
-  if (!value || typeof value === 'string')
+  if (!value)
+    node.style.cssText = '';
+  else if (typeof value === 'string')
     node.style.cssText = value || '';
-  else if (typeof value === 'object')
+  else
   {
-    for (let i in value)
+    for (const i in value)
     {
       // for numbers, add 'px' if the constant isn't dimensionless (eg zIndex)
-      node.style[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
+      (node.style as any)[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false
           ? value[i] + 'px'
           : value[i];
     }

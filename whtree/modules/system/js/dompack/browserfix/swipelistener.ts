@@ -1,12 +1,44 @@
-import * as dompack from "../index.es";
+import * as dompack from "../index";
 
 /** Add swipe event */
 
-const swipedetect = Symbol();
+const swipedetect = Symbol("dompack swipedetect");
+interface SwipeEventTarget extends EventTarget
+{
+  [key: symbol]: SwipeDetect;
+}
+
+type SwipeDetectOptions =
+{
+  threshold_distance?: number;
+  threshold_speed?: number;
+  enablemouseswipe?: boolean;
+};
+
+type SwipePosition = { x: number, y: number }
+
+type SwipeInfo =
+{
+  starttime: number;
+  endtime: number;
+  start: SwipePosition;
+  end: SwipePosition;
+  target: EventTarget | null;
+  direction: string;
+};
+
+type EventHandler = (event: Event) => boolean;
 
 class SwipeDetect
 {
-  constructor(node, options)
+  options: SwipeDetectOptions;
+  swipeinfo: SwipeInfo | null;
+  node: EventTarget;
+  boundTouchStart: EventHandler;
+  boundTouchMove: EventHandler;
+  boundTouchEnd: EventHandler;
+
+  constructor(node: EventTarget, options?: SwipeDetectOptions)
   {
     if(!node)
       throw new Error("Invalid node passed to SwipeDetect");
@@ -59,41 +91,53 @@ class SwipeDetect
     return ("ontouchstart" in window);
   }
 
-  onTouchStart(ev)
+  onTouchStart(ev: Event)
   {
-    this.swipeinfo = { starttime : new Date().getTime()
+    let pos: SwipePosition | null = null;
+    if (ev instanceof TouchEvent)
+      pos = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
+    else if (ev instanceof MouseEvent)
+      pos = { x: ev.pageX, y: ev.pageY };
+    if (!pos)
+      return true;
+    this.swipeinfo = { starttime : Date.now()
                      , endtime   : -1
-                     , start     : { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY }
-                     , end       : { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY }
+                     , start     : pos
+                     , end       : pos
                      , target    : ev.target
                      , direction : ""
                      };
+    return true;
   }
 
-  onTouchMove(ev)
+  onTouchMove(ev: Event)
   {
     if(!this.swipeinfo)
-      return;
-    this.swipeinfo.end = { x : ev.touches ? ev.touches[0].pageX : ev.pageX, y : ev.touches ? ev.touches[0].pageY : ev.pageY };
+      return true;
+    if (ev instanceof TouchEvent)
+      this.swipeinfo.end = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
+    else if (ev instanceof MouseEvent)
+      this.swipeinfo.end = { x: ev.pageX, y: ev.pageY };
+    return true;
   }
 
-  onTouchEnd(ev)
+  onTouchEnd()
   {
     if(!this.swipeinfo)
-      return;
+      return true;
 
-    let dx = this.swipeinfo.end.x - this.swipeinfo.start.x;
-    let dy = this.swipeinfo.end.y - this.swipeinfo.start.y;
+    const dx = this.swipeinfo.end.x - this.swipeinfo.start.x;
+    const dy = this.swipeinfo.end.y - this.swipeinfo.start.y;
 
-    this.swipeinfo.endtime = new Date().getTime();
+    this.swipeinfo.endtime = Date.now();
 
-    let abs_x = Math.abs(dx);
-    let abs_y = Math.abs(dy);
+    const abs_x = Math.abs(dx);
+    const abs_y = Math.abs(dy);
 
-    if(abs_x > this.options.threshold_distance && abs_x / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
+    if(this.options.threshold_distance && this.options.threshold_speed && abs_x > this.options.threshold_distance && abs_x / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dx > 0 ? "e" : "w";
 
-    if(abs_y > this.options.threshold_distance && abs_y / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
+    if(this.options.threshold_distance && this.options.threshold_speed && abs_y > this.options.threshold_distance && abs_y / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dy > 0 ? "s" : "n";
 
     if(this.swipeinfo.direction != "")
@@ -106,11 +150,12 @@ class SwipeDetect
     }
 
     this.swipeinfo = null;
+    return true;
   }
 
 }
 
-export function enable(element, options)
+export function enable(element: SwipeEventTarget, options?: SwipeDetectOptions)
 {
   if (element[swipedetect])
     return;
@@ -118,7 +163,7 @@ export function enable(element, options)
   element[swipedetect] = new SwipeDetect(element, options);
 }
 
-export function disable(element)
+export function disable(element: SwipeEventTarget)
 {
   if (!element[swipedetect])
     return;

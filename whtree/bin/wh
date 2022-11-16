@@ -360,6 +360,9 @@ origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
 HERE
     mv $WEBHARE_DIR/modules/system/whres/buildinfo.tmp $WEBHARE_DIR/modules/system/whres/buildinfo
   fi
+
+  # always replace webhare-config/tsconfig.json at startup
+  setup_node --force
 }
 
 INSTR="${1:-help}"
@@ -523,25 +526,31 @@ case $INSTR in
       die "Specify the script to run"
     fi
 
-    if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" ]; then
+    if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -3}" == ".tsx" ]; then
       setup_node
       BASE_DIR=$WEBHARE_DIR/node_modules
+      export NODE_OPTIONS=
+      SKIPVALIDATE=--swc
       while (true); do
         if [ "$1" == "--debug" ]; then
-          NODEOPTIONS=--debug
+          NODE_OPTIONS=--debug
           shift
         elif [ "$1" == "--inspect" ]; then
-          NODEOPTIONS=--inspect
+          NODE_OPTIONS=--inspect
           shift
         elif [ "$1" == "--whdebug" ]; then
           shift
+          shift
+        elif [ "$1" == "--validate" ]; then
+          SKIPVALIDATE=
           shift
         else
           break
         fi
       done
-      exec node $NODEOPTIONS "$@"
-      die Failed to invoke node for $1
+      CMDLINE=("$BASE_DIR/.bin/ts-node" $SKIPVALIDATE "$@")
+      exec "${CMDLINE[@]}"
+      die Failed to invoke ts-node for $1
     else
       if [ "$1" == "--whdebug" ]; then
         shift
@@ -805,28 +814,6 @@ HERE
     exit 255
     ;;
 
-  "eslint")
-    getwhparameters
-    CHECKDIR=
-    TORUN=".bin/eslint"
-    args=()
-    if [ "$1" == "--watch" ]; then
-      TORUN=".bin/esw -w --color -f simple"
-      shift;
-    elif [ "$1" == "--fix" ]; then
-      # remove the cache directives
-      args=( --fix )
-      shift;
-    fi
-    if [ $# -eq 0 ]; then
-      args+=("$WEBHARE_CHECKEDOUT_TO/whtree/modules/")
-    else
-      args+=( "$@" )
-    fi
-    "$WEBHARE_DIR/node_modules/"$TORUN --cache --cache-location "$WEBHARE_DATAROOT/ephemeral/eslintcache/cache" -c "$WEBHARE_DIR/modules/system/data/validation/eslintrc.json" --ext .js,.es --ignore-pattern "**/node_modules/**" --ignore-pattern "**/bower_components/**" "${args[@]}"
-    exit $?
-    ;;
-
   "__listcommands")
     list_commands | sort -u
     exit 0
@@ -886,9 +873,9 @@ HERE
       if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
         exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
       fi
-      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ]; then
+      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ] || [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" ]; then
         setup_node
-        exec node "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "${OPTIONS[@]}"
+        exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" "${OPTIONS[@]}"
       fi
 
       die "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"

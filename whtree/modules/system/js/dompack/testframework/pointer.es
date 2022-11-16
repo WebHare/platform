@@ -1,9 +1,9 @@
 import * as dompack from 'dompack';
-import * as domevents from '../src/events.es';
-import * as domscroll from '../browserfix/scroll.es';
-import * as domfocus from "../browserfix/focus.es";
-import { getName, getPlatform } from "../extra/browser.es";
-import { qSA } from './index.es';
+import * as domevents from '../src/events';
+import * as domscroll from '../browserfix/scroll';
+import * as domfocus from "../browserfix/focus";
+import { getName, getPlatform } from "../extra/browser";
+import { qSA } from './index';
 
 var default_mousestate =
                  { cx: 0

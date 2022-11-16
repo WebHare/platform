@@ -2,40 +2,44 @@
 
    A storage API that will mock when access is being denied to the browser storage objects (eg Chrome incognito 'Block third-party cookies')
 */
+import { KeyValueObject } from "../../types";
 
-let backupsession = {}, backuplocal = {};
-let sessionfail, localfail;
+const backupsession: KeyValueObject<unknown> = {};
+const backuplocal: KeyValueObject<unknown> = {};
+let sessionfail: boolean;
+let localfail: boolean;
 
 //isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
 const isolated = "whIsolateStorage" in document.documentElement.dataset;
 
-/** @return True if our storage is fully isolated */
+/** @returns True if our storage is fully isolated */
 export function isIsolated()
 {
   return isolated;
 }
 
 // Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'
-export function available()
+let _available: boolean;
+export function available(): boolean
 {
   if(isolated)
     return true;
 
-  if(typeof available.known === undefined)
+  if(typeof _available === undefined)
   {
     try
     {
-      available.known = !!window.sessionStorage;
+      _available = !!window.sessionStorage;
     }
     catch(ignore)
     {
-      available.known = false;
+      _available = false;
     }
   }
-  return available.known;
+  return _available as boolean;
 }
 
-export function setSession(key, value)
+export function setSession<T>(key: string, value: T)
 {
   try
   {
@@ -68,13 +72,13 @@ export function setSession(key, value)
   }
 }
 
-export function getSession(key)
+export function getSession<T>(key: string): T | null
 {
   if(!isolated)
   {
     try
     {
-      let retval = window.sessionStorage[key];
+      const retval = window.sessionStorage[key];
       try
       {
         return retval ? JSON.parse(retval) : null;
@@ -94,10 +98,10 @@ export function getSession(key)
       }
     }
   }
-  return key in backupsession ? backupsession[key] : null;
+  return key in backupsession ? backupsession[key] as T: null;
 }
 
-export function setLocal(key, value)
+export function setLocal<T>(key: string, value: T)
 {
   try
   {
@@ -130,13 +134,13 @@ export function setLocal(key, value)
   }
 }
 
-export function getLocal(key)
+export function getLocal<T>(key: string): T | null
 {
   if(!isolated)
   {
     try
     {
-      let retval = window.localStorage[key];
+      const retval = window.localStorage[key];
       try
       {
         return retval ? JSON.parse(retval) : null;
@@ -156,5 +160,5 @@ export function getLocal(key)
       }
     }
   }
-  return key in backuplocal ? backuplocal[key] : null;
+  return key in backuplocal ? backuplocal[key] as T: null;
 }

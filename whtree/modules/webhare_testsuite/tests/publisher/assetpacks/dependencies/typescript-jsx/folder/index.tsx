@@ -1,3 +1,3 @@
 export function helloLength(node: Element): number {
-  return node.textContent.length;
+  return (node.textContent || "").length;
 }

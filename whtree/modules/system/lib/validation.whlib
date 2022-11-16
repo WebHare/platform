@@ -231,7 +231,7 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
     RETURN onlytids ? FALSE : TRUE;
 
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
-  IF(ext IN [".WITTY",".ES",".JS",".XML",".XSD",".SITEPRL",".IXO"])
+  IF(ext IN [".WITTY",".ES",".JS",".TS",".TSX",".XML",".XSD",".SITEPRL",".IXO"])
     RETURN TRUE;
   IF(ext = ".IXO")
     RETURN onlytids ? FALSE : TRUE;
@@ -250,6 +250,7 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
   IF(ToUppercase(resourcename) LIKE "*/WEB/IMG/*.SVG")
     RETURN RunSVGIconValidator(doc_blob, resourcename, options);
 
+
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
   SWITCH(ext)
   {
@@ -257,7 +258,7 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
     {
       RETURN RunWittyValidator(doc_blob, resourcename, options);
     }
-    CASE ".ES", ".JS"
+    CASE ".ES", ".JS", ".TS", ".TSX"
     {
       RETURN RunJSValidator(doc_blob, resourcename, options);
     }

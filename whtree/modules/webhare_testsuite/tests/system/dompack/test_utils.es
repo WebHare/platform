@@ -1,7 +1,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 
 import * as dompack from "dompack";
-import * as create from "dompack/src/create.es";
+import * as create from "dompack/src/create";
 import { isValidEmailAddress } from 'dompack/types/email';
 
 var eventcount = 0;

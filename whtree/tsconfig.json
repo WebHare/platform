@@ -1,0 +1,29 @@
+{ "extends": "@tsconfig/recommended",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react",
+    "jsxFactory": "dompack.jsxcreate",
+    "jsxFragmentFactory": "dompack.jsxfragment",
+    "lib": [ "es2018", "dom","dom.iterable" ],
+    "paths": {
+      "dompack": [ "modules/system/js/dompack" ],
+      "dompack/*": [ "modules/system/js/dompack/*" ],
+      "@mod-consilio/*": [ "modules/consilio/*" ],
+      "@mod-publisher/*": [ "modules/publisher/*" ],
+      "@mod-socialite/*": [ "modules/socialite/*" ],
+      "@mod-system/*": [ "modules/system/*" ],
+      "@mod-tollium/*": [ "modules/tollium/*" ],
+      "@mod-webhare_testsuite/*": [ "modules/webhare_testsuite/*" ],
+      "@mod-wrd/*": [ "modules/wrd/*" ]
+    },
+  }
+, "ts-node": {
+    "compilerOptions": {
+      "target": "es2022"
+    },
+    "moduleResolution": "node",
+    "types": [
+      "node"
+    ]
+  }
+}

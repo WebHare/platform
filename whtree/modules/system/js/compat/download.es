@@ -1,5 +1,5 @@
 import * as dompack from "dompack";
-import * as cookie from "dompack/extra/cookie.es";
+import * as cookie from "dompack/extra/cookie";
 
 
 class DownloadManager

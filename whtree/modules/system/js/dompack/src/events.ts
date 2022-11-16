@@ -1,34 +1,14 @@
-let eventconstructor = null;
+export const CustomEvent = window.CustomEvent;
 
-if(typeof window !== 'undefined')
+type DomEventOptions =
 {
-  try  //IE11 does not ship with CustomEvent
-  {
-    new window.CustomEvent("test");
-    eventconstructor = window.CustomEvent;
-  }
-  catch(e)
-  {
-    eventconstructor = function(event, params)
-    {
-      var evt;
-      params = params || {
-          bubbles: false,
-          cancelable: false,
-          detail: undefined
-      };
+  bubbles?: boolean;
+  cancelable?: boolean;
+  relatedTarget?: EventTarget;
+  detail?: object;
+};
 
-      evt = document.createEvent("CustomEvent");
-      evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
-      return evt;
-    };
-    eventconstructor.prototype = window.Event.prototype;
-  }
-}
-
-export let CustomEvent = eventconstructor;
-
-export function dispatchDomEvent(element, eventtype, options)
+export function dispatchDomEvent(element: EventTarget, eventtype: string, options?: DomEventOptions)
 {
   //see here https://developer.mozilla.org/en-US/docs/Web/Events whether an event is bubbles/cancelabel
   options = { bubbles: ["input","change","click","contextmenu","dblclick",
@@ -41,58 +21,84 @@ export function dispatchDomEvent(element, eventtype, options)
             , ...options
             };
 
-  if(!element.ownerDocument)
+  if(!element || !(element as Node).ownerDocument)
     return true; //the element has left the dom... so there's no more bubbling. just drop it
-
-  let createtype = ["load","scroll"].includes(eventtype) == "load" ? "UIEvents" : ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
-
-  var evt = element.ownerDocument.createEvent(createtype);
+  
+  //FIXME the load/scroll is buggy and we should be probably be using new Event (but an earlier attempt at that triggered quite a few test failures)
+  const createtype = /*["load","scroll"].includes(eventtype) == "load"*/false ? "UIEvents" : ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we verified its non-null ness above but TS doesn't really understand that
+  const evt = (element as Node).ownerDocument!.createEvent(createtype);
   evt.initEvent(eventtype, options.bubbles, options.cancelable);
   if(options.detail)
-    evt.detail = options.detail;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we should just rewrite to new Event
+    (evt as any).detail = options.detail;
   if(options.relatedTarget) //its a readonly prop, so redefine it
     Object.defineProperty(evt, 'relatedTarget', { value:options.relatedTarget, writable: false });
 
+  //TODO: Should we keep this code?
+  // @ts-ignore IScroll is a custom Window property set by IScroll
   if(eventtype == 'click' && window.IScroll)
+  // @ts-ignore _constructed is a custom Event property used by IScroll
     evt._constructed = true; //ensure IScroll doesn't blindly cancel our synthetic clicks
 
   return element.dispatchEvent(evt);
 }
 
 //fire the proper modified events (input and/or change) on the element after changing its value - DEPRECATED, you should fire the proper input and change events according to the situation
-export function fireModifiedEvents(element, options)
+/**
+ * @param element Element to receive event
+ * @param options Event options
+ * @deprecated Fire the proper input and change events according to the situation
+ */
+export function fireModifiedEvents(element: EventTarget, options?: DomEventOptions)
 {
-  fireHTMLEvent(element, 'input', options);
-  fireHTMLEvent(element, 'change', options);
+  dispatchDomEvent(element, 'input', options);
+  dispatchDomEvent(element, 'change', options);
 }
 
 //manually fire 'onchange' events. needed for event simulation - DEPRECATED
-export function fireHTMLEvent(element, type, options)
+/**
+ * @param element Element to receive event
+ * @param type Event type
+ * @param options Event options
+ * @deprecated Use dispatchDomEvent instead
+ */
+export function fireHTMLEvent(element: EventTarget, type: string, options?: DomEventOptions)
 {
   return dispatchDomEvent(element, type, options);
 }
 
-/** Fire a custom event
+type CustomEventParams =
+{
+  bubbles: boolean;
+  cancelable: boolean;
+  detail?: object;
+  defaulthandler?: (evt: CustomEvent) => void;
+};
+
+/**
+     Fire a custom event
+ *
     @param node node to fire the event on
     @param event event type
-    @param params
-    @cell params.bubbles
-    @cell params.cancelable
-    @cell params.detail
-    @cell params.defaulthandler Handler to execute if the default isn't prevented by a event listener
-    @return true if the default wasn't prevented
-*/
-export function dispatchCustomEvent(node, event, params)
+    @param params Event options
+    @param params.bubbles Whether this event should bubble up in the DOM
+    @param params.cancelable Whether this event can be cancelled
+    @param params.detail Custom event information
+    @param params.defaulthandler Handler to execute if the default isn't prevented by a event listener
+    @returns true if the default wasn't prevented
+ */
+export function dispatchCustomEvent(node: EventTarget, event: string, params?: CustomEventParams)
 {
   if(!params)
-    params={};
+    throw new Error(`Missing dispatchCustomEvent params`);
   ['bubbles','cancelable'].forEach(prop =>
   {
     if(!(prop in params))
-      throw new Error(`Missing '${prop}' in dispatchCustomEvent parameter`);
+      throw new Error(`Missing '${prop}' in dispatchCustomEvent params`);
   });
 
-  let evt = new CustomEvent(event, { bubbles: params.bubbles
+  const evt = new CustomEvent(event, { bubbles: params.bubbles
                                    , cancelable: params.cancelable
                                    , detail: params.detail
                                    });
@@ -112,35 +118,34 @@ export function dispatchCustomEvent(node, event, params)
   return defaultaction && !evt.defaultPrevented;
 }
 
-/** Change the value of a form element, and fire the correct events as if it were a user change
+/**
+     Change the value of a form element, and fire the correct events as if it were a user change
+ *
     @param element Element to change
-    @param newvalue New value */
-export function changeValue(element, newvalue)
+    @param newvalue New value
+ */
+export function changeValue(element: HTMLInputElement | HTMLSelectElement, newvalue: string | number | boolean)
 {
-  if(element instanceof Array || element instanceof NodeList)
+  if (element.matches(`input[type=radio], input[type=checkbox]`))
   {
-    Array.from(element).forEach(node => changeValue(node, newvalue));
-    return;
-  }
-
-  if(element.nodeName=='INPUT' && ['radio','checkbox'].includes(element.type))
-  {
-    if(!!element.checked == !!newvalue)
+    if(!!(element as HTMLInputElement).checked == !!newvalue)
       return;
-    element.checked=!!newvalue;
+    (element as HTMLInputElement).checked=!!newvalue;
   }
   else
   {
-    if(element.value == newvalue)
+    //FIXME it's not really clean to assume that this element is changeable - throw for non input/select..
+    if((element as HTMLInputElement).value == newvalue)
       return;
 
-    element.value = newvalue;
+    (element as HTMLInputElement).value = newvalue + "";
   }
-  dispatchDomEvent(element, 'input');
-  dispatchDomEvent(element, 'change');
+  dispatchDomEvent(element as EventTarget, 'input');
+  dispatchDomEvent(element as EventTarget, 'change');
 }
 
-let keydata;
+let keydata: { mapping: { [key: string]: string } };
+
 function initKeyMapping()
 {
   keydata =
@@ -261,34 +266,43 @@ function initKeyMapping()
     };
 }
 
-/** Returns normalized keyboard event properties, following the current W3C UI Events spec
+export type NormalizedKeyboardEvent =
+{
+  type: string;
+  target: EventTarget | null;
+  key: string;
+  code : string;
+  ctrlKey: boolean;
+  altKey: boolean;
+  location: number;
+  shiftKey: boolean;
+  metaKey: boolean;
+  repeat: boolean;
+  isComposing: boolean;
+};
+
+/**
+     Returns normalized keyboard event properties, following the current W3C UI Events spec
+ *
     @param evt Keyboard event
-    @return Normalized keyboard event data
-*/
-export function normalizeKeyboardEventData(evt)
+    @returns Normalized keyboard event data
+ */
+export function normalizeKeyboardEventData(evt: KeyboardEvent): NormalizedKeyboardEvent
 {
   // event.key is supported from chrome:51, edge, ff: 29, ie: 9, not in safari
   // event.keyIdentifier in chrome 26-54, opera 15-41, safara: 5.1
   // safari doesn't provide either in keypress events, use U+evt.keyCode (uppercase 4-byte hex)
 
   let key = evt.key;
-  if (key && key.charCodeAt(0) < 32) // IE11 under selenium gives back control chars at keypress
-    key = "";
-
-  key = key || evt.keyIdentifier || (evt.keyCode ? "U+" + ("000" + evt.keyCode.toString(16)).substr(-4).toUpperCase() : "");
-  if (!key)
-    key = "Unidentified";
   if (!keydata)
     initKeyMapping();
-  if (keydata.mapping.hasOwnProperty(key))
+  if (keydata.mapping[key])
     key = keydata.mapping[key];
   else if (key.startsWith("U+")) // U+xxxx code
-    key = String.fromCodePoint(parseInt(key.substr(2), 16));
+    key = String.fromCodePoint(parseInt(key.substring(2), 16));
 
-  // IE11/edge numpad '.' with numlock returns 'Del' in .key in keypress event.
-  if (evt.type === "keypress" && evt.char === ".")
-    key = ".";
-  else if (evt.key == "\u0000" && evt.code == "NumpadDecimal") // seen in chrome 56.0.2924.76 on linux, numpad '.' without numlock returns key "\u0000"
+  // Seen in chrome 56.0.2924.76 on linux, numpad '.' without numlock returns key "\u0000"
+  if (evt.key == "\u0000" && evt.code == "NumpadDecimal")
     key = ".";
 
   return (
@@ -306,8 +320,12 @@ export function normalizeKeyboardEventData(evt)
       });
 }
 
-/** Stop, fully, an event */
-export function stop(event)
+/**
+ * Stop, fully, an event
+ *
+ * @param event Event to stop
+ */
+export function stop(event: Event)
 {
   event.preventDefault();
   event.stopImmediatePropagation();

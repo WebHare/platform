@@ -4,7 +4,7 @@
 //  set_fws := " \r\n\t";
 //  set_ctext := parser->RemoveFromSet(parser->set_ascii, "()\\"); // from rfc 2822
 
-function checkPhrase(phrase)
+function checkPhrase(phrase: string)
 {
   // phrase = 1*word / obs-phrase
   // word = atom / quoted-string
@@ -16,21 +16,21 @@ function checkPhrase(phrase)
   // qcontent = qtext / quoted-pair
   // quoted-string = [CFWS] DQUOTE *([FWS] qcontent) [FWS] DQUOTE [CFWS]
 
-  for (var i = 0; i < phrase.length; )
+  for (let i = 0; i < phrase.length; )
   {
-    while (i < phrase.length && ' \r\n\t'.indexOf(phrase.substr(i, 1)) != -1)
+    while (i < phrase.length && ' \r\n\t'.indexOf(phrase[i]) != -1)
       ++i;
 
-    if (phrase.substr(i, 1) == '(')  // comment
+    if (phrase[i] == '(')  // comment
     {
       ++i;
-      var nesting = 1;
+      let nesting = 1;
       while (nesting > 0 && i < phrase.length)
       {
         // accept ctext (= ascii - '()\\')
-        while (i < phrase.length && '()\\'.indexOf(phrase.substr(i, 1)) == -1 && phrase.charCodeAt(i) < 128)
+        while (i < phrase.length && '()\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
           ++i;
-        switch (phrase.substr(i, 1))
+        switch (phrase[i])
         {
         case ')': --nesting; break;
         case '(': ++nesting; break;
@@ -38,7 +38,7 @@ function checkPhrase(phrase)
           {
             ++i;
             // Accept only text (ascii - '\r\n')
-            if ('\r\n'.indexOf(phrase.substr(i, 1)) != -1 || phrase.charCodeAt(i) >= 128)
+            if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
               return false;
           } break;
         default:
@@ -49,25 +49,25 @@ function checkPhrase(phrase)
       if (nesting != 0)
         return false;
     }
-    else if (phrase.substr(i, 1) == '"')
+    else if (phrase[i] == '"')
     {
       // Parse quoted-string
       // Eat starting '"'
       ++i;
-      var finished = false;
+      let finished = false;
       while (!finished)
       {
         // Accept qtext + fws (ascii - '\t\r\n \"' + '\t\r\n ')
-        while (i < phrase.length && '"\\'.indexOf(phrase.substr(i, 1)) == -1 && phrase.charCodeAt(i) < 128)
+        while (i < phrase.length && '"\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
           ++i;
-        switch (phrase.substr(i, 1))
+        switch (phrase[i])
         {
         case '"': finished = true; break;
         case '\\':
           {
             ++i;
             // Accept only text (ascii - '\r\n')
-            if ('\r\n'.indexOf(phrase.substr(i, 1)) != -1 || phrase.charCodeAt(i) >= 128)
+            if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
               return false;
           } break;
         default:
@@ -81,11 +81,11 @@ function checkPhrase(phrase)
     }
     else
     {
-      var set_atext = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'*+-/=?^_`{|}~";
-      var cnt = 0;
+      const set_atext = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'*+-/=?^_`{|}~";
+      let cnt = 0;
       // Must be atom - must be non-empty or end of string please
       for (; i < phrase.length; ++i, ++cnt)
-        if (set_atext.indexOf(phrase.substr(i, 1)) == -1)
+        if (set_atext.indexOf(phrase[i]) == -1)
           break;
       if (cnt == 0 && i < phrase.length)
         return false;
@@ -94,17 +94,11 @@ function checkPhrase(phrase)
   return true;
 }
 
-function checkRoute(route)
+function checkQuoted(word: string)
 {
-  //ADDME to be implemented
-  return true;
-}
-
-function checkQuoted(word)
-{
-  for (var i = 1; i < word.length; ++i)
+  for (let i = 1; i < word.length; ++i)
   {
-    var ch = word.substr(i, 1);
+    let ch = word[i];
     if ("\t\r\n \\\"".indexOf(ch) == -1 && word.charCodeAt(i) < 128)
       continue;
 
@@ -114,7 +108,7 @@ function checkQuoted(word)
       return false;
 
     ++i;  // quoated-pair: Eat "\"
-    ch = word.substr(i, 1);
+    ch = word[i];
     if ("\r\n".indexOf(ch) != -1 || word.charCodeAt(i) >= 128) // Is text (ascii - '\r\n')
       return false;
   }
@@ -122,11 +116,11 @@ function checkQuoted(word)
 }
 
 
-function checkAtom(word)
+function checkAtom(word: string)
 {
-  for (var i = 0; i < word.length; ++i)
+  for (let i = 0; i < word.length; ++i)
   {
-    var ch = word.substr(i, 1);
+    const ch = word[i];
 
     //Check for space & specials
     if ('()<>@,;:\\".[] '.indexOf(ch) != -1)
@@ -140,16 +134,16 @@ function checkAtom(word)
 }
 
 
-function checkLocalPart(localpart)
+function checkLocalPart(localpart: string)
 {
   if (localpart == "")
     return false;
 
-  if (localpart.substr(0, 1) == '"' && localpart.substr(localpart.length - 1) == '"')
+  if (localpart.startsWith('"') && localpart.endsWith('"'))
     return checkQuoted(localpart);
 
-  var words = localpart.split('.');
-  for (var i = 0; i < words.length; ++i)
+  const words = localpart.split('.');
+  for (let i = 0; i < words.length; ++i)
   {
     if (!checkAtom(words[i]))
       return false;
@@ -158,18 +152,18 @@ function checkLocalPart(localpart)
   return true;
 }
 
-function checkDomain(domain)
+function checkDomain(domain: string)
 {
-  if (domain.substr(domain.length - 1) == ".")
-    domain = domain.substr(0, domain.length - 1);
+  if (domain.endsWith("."))
+    domain = domain.substring(0, domain.length - 1);
 
-  var subdomains = domain.split(".");
+  const subdomains = domain.split(".");
   if (subdomains.length < 2 || subdomains[subdomains.length-1].length < 2)
     return false;
 
-  for (var i = 0; i < subdomains.length; ++i)
+  for (let i = 0; i < subdomains.length; ++i)
   {
-    var subdomain = subdomains[i];
+    const subdomain = subdomains[i];
     if (subdomain == "")
       return false;
 
@@ -180,32 +174,28 @@ function checkDomain(domain)
   return true;
 }
 
-export function isValidEmailAddress(emailaddress)
+export function isValidEmailAddress(emailaddress: string)
 {
-  var name_addr_check = emailaddress.split('<');
+  const name_addr_check = emailaddress.split('<');
 
   // First check if we have a simple address or a name & address pair
 
   if (name_addr_check.length == 2)
   {
-    if (name_addr_check[1].substr(name_addr_check[1].length - 1) != '>')
+    if (!name_addr_check[1].endsWith('>'))
       return false;
 
     // check if the name's valid
     if (!checkPhrase(name_addr_check[0]))
       return false;
 
-    var routeaddress = name_addr_check[1];
-    routeaddress = routeaddress.substr(0, routeaddress.length - 1);
+    let routeaddress = name_addr_check[1];
+    routeaddress = routeaddress.substring(0, routeaddress.length - 1);
 
-    var route_check = routeaddress.split(':');
+    const route_check = routeaddress.split(':');
 
     if (route_check.length == 2)
     {
-      // check if the route is valid
-      if (!checkRoute(route_check[0]))
-        return false;
-
       emailaddress = route_check[1];
     }
     else if (route_check.length == 1)
@@ -218,7 +208,7 @@ export function isValidEmailAddress(emailaddress)
 
   // Now check the simple address
 
-  var address_spec = emailaddress.split('@');
+  const address_spec = emailaddress.split('@');
 
   if (address_spec.length != 2)
     return false;

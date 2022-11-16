@@ -1,6 +1,12 @@
-const formatters = {}, updaters = {};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we can't know the types passed to merge call
+type FormatFunction = (value: any) => string | number;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we can't know the types passed to merge call
+type UpdateFunction = (node: HTMLElement, value: any) => void;
+const formatters: { [key: string]: FormatFunction } = {};
+const updaters: { [key: string]: UpdateFunction } = {};
 
-function mergeNode(node, set, data)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we can't know the types passed to merge call
+function mergeNode(node: HTMLElement, set: string, data: any)
 {
   const parts = set.split(":");
   const isNodeFunc = parts.length === 1;
@@ -10,7 +16,7 @@ function mergeNode(node, set, data)
     return;
   }
 
-  let func;
+  let func = "";
   let exprpath = (isNodeFunc ? parts[0] : parts[1]).trim();
 
   const callparts = exprpath.split("(");
@@ -91,47 +97,57 @@ function mergeNode(node, set, data)
     default:
     {
       // 1-to-1 name to property mapping
-      node[prop] = value;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
+      (node as any)[prop] = value;
       return;
     }
   }
 }
 
-/** Apply all merge fields within a node, recursively
-    @param node Root node to start merging
+/**
+     Apply all merge fields within a node, recursively
+ *
+    @param mergenode Root node to start merging
     @param data Merge data
     @param options
-    @cell options.filter If set, a function that will be called for every node with merge functions. If it returns a falsy value, the node will be skipped.
-*/
-export async function run(node, data, { filter } = {})
+    @param options.filter If set, a function that will be called for every node with merge functions. If it returns a falsy value, the node will be skipped.
+ */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we can't know the types passed to merge call
+export async function run(mergenode: ParentNode, data: any, { filter }: { filter?: (node: Element) => boolean } = {})
 {
-  let nodes = node.querySelectorAll('*[data-merge],*[data-wh-merge]');
-  for(let node of Array.from(nodes)) //FIXME drop support for data-wh-merge as soon as we've completed the phase out
+  const nodes = mergenode.querySelectorAll('*[data-merge],*[data-wh-merge]') as NodeListOf<HTMLElement>;
+  for(const node of Array.from(nodes)) //FIXME drop support for data-wh-merge as soon as we've completed the phase out
   {
-    if (filter && !filter(node))
+    if (node.nodeType != 1 || (filter && !filter(node)))
       continue;
 
     // Parse 'a=b;c=d(e)'
-    let sets = (node.dataset.merge || node.dataset.whMerge).split(";");
-    for (let set of sets)
-      mergeNode(node, set, data);
+    const sets = ((node as HTMLElement).dataset.merge || (node as HTMLElement).dataset.whMerge)?.split(";");
+    if (sets)
+      for (const set of sets)
+        mergeNode(node, set, data);
   }
 }
 
-/** Register a formatter function.
+/**
+     Register a formatter function.
+ *
     @param name Name of the formatter function
     @param callback Formatter function. Called with parameter (value), must return a formatted value to write to the property.
-*/
-export function registerFormatter(name, callback)
+ */
+export function registerFormatter(name: string, callback: FormatFunction)
 {
   formatters[name] = callback;
 }
 
-/** Register an updater function (used to update multiple properties of a node at once)
+/**
+     Register an updater function (used to update multiple properties of a node at once)
+ *
     @param name Name of the updater function
     @param callback Updater function. Called with parameters (node: HTMLElement, value: Any).
-*/
-export function registerUpdater(name, callback)
+ */
+export function registerUpdater(name: string, callback: UpdateFunction)
 {
   updaters[name] = callback;
 }

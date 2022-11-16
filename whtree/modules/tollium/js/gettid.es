@@ -1,6 +1,6 @@
-import * as encoding from "dompack/types/text.es";
-import * as domdebug from "dompack/src/debug.es";
-import * as wh from "@mod-system/js/wh/integration.es";
+import * as encoding from "dompack/types/text";
+import * as domdebug from "dompack/src/debug";
+import * as wh from "@mod-system/js/wh/integration";
 
 /*
 Supported debug flags:

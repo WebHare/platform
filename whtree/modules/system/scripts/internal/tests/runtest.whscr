@@ -167,10 +167,10 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           runner := GetWebHareResourceDiskPath(script);
           arguments := testinfo.arguments;
         }
-        ELSE IF(script LIKE "*.js")
+        ELSE IF(script LIKE "*.js" OR script LIKE "*.ts")
         {
           runner := GetInstallationRoot() || "bin/wh";
-          arguments := [ "run", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
+          arguments := [ "run", "--validate", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
         }
         ELSE
         {
