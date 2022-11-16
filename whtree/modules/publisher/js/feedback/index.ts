@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- the typescript compiler doesn't support importing .rpc.json files
+// @ts-nocheck
 import { KeyValueObject, PlainValue, Properties } from "@mod-system/js/types";
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";

@@ -97,7 +97,8 @@ function mergeNode(node: HTMLElement, set: string, data: any)
     default:
     {
       // 1-to-1 name to property mapping
-      node[prop] = value;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
+      (node as any)[prop] = value;
       return;
     }
   }

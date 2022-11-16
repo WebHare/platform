@@ -134,7 +134,10 @@ function createElement(elementname: string, attributes: { [key: string]: any }, 
         }
       }
       else
-        node[attrname] = attributes[attrname];
+      {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
+        (node as any)[attrname] = attributes[attrname];
+      }
     });
   }
   return node;

@@ -36,12 +36,12 @@ function getKeyNames(event: NormalizedKeyboardEvent)
     basekey = selenium_backup[event.keyCode];
 */
   // Create the modifiers in the names array (omit the basekey, so we can sort on modifier first)
-  Object.keys(propnames).forEach(propname =>
+  (Object.keys(propnames) as Array<keyof typeof propnames>).forEach(propname =>
   {
     if (event[propname])
     {
       // The key is pressed. Add the modifier name to all current names.
-      const modifier: string = propnames[propname];
+      const modifier: string | string[] = propnames[propname];
       if (!Array.isArray(modifier))
         names.forEach(function(arr) { arr.push(modifier); });
       else

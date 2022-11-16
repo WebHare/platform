@@ -299,7 +299,8 @@ export function setStyles(node: HTMLElement, value?: string | { [key: string]: s
     for (const i in value)
     {
       // for numbers, add 'px' if the constant isn't dimensionless (eg zIndex)
-      node.style[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
+      (node.style as any)[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false
           ? value[i] + 'px'
           : value[i];
     }
