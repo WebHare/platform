@@ -4387,6 +4387,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_firstunusedsource = columnnamemapper.GetMapping("FIRSTUNUSEDSOURCE");
         col_fixed = columnnamemapper.GetMapping("FIXED");
         col_flags = columnnamemapper.GetMapping("FLAGS");
+        col_formatted = columnnamemapper.GetMapping("FORMATTED");
         col_found = columnnamemapper.GetMapping("FOUND");
         col_func = columnnamemapper.GetMapping("FUNC");
         col_functionid = columnnamemapper.GetMapping("FUNCTIONID");

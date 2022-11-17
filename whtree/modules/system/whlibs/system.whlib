@@ -4162,7 +4162,7 @@ PUBLIC VARIANT FUNCTION DecodeHSON(STRING indata)
     @return The encoded string. Aborts if any type could not be converted */
 PUBLIC BLOB FUNCTION EncodeHSONBlob(VARIANT arg)
 {
-  RETURN JSONENCODETOBLOB(arg, TRUE, DEFAULT RECORD);
+  RETURN JSONENCODETOBLOB(arg, TRUE, DEFAULT RECORD, DEFAULT RECORD);
 }
 
 /** @short Encode data as a HSON string
@@ -4170,7 +4170,7 @@ PUBLIC BLOB FUNCTION EncodeHSONBlob(VARIANT arg)
     @return The encoded string. Aborts if any type could not be converted */
 PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
 {
-  RETURN JSONENCODETOSTRING(arg, TRUE, DEFAULT RECORD);
+  RETURN JSONENCODETOSTRING(arg, TRUE, DEFAULT RECORD, DEFAULT RECORD);
 }
 
 /** Decodes a JSON blob
@@ -4222,20 +4222,22 @@ PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO
     @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
     @param arg Data to encode
     @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
+    @cell options.formatted Format the JSON nicely (with newlines and indents)
     @return The encoded string. Throws if any type could not be converted */
-PUBLIC STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN JSONENCODETOSTRING(arg, FALSE,translations);
+  RETURN JSONENCODETOSTRING(arg, FALSE, translations, options);
 }
 
 /** @short Encode data as a JSON blob
     @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
     @param arg Data to encode
     @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
+    @cell options.formatted Format the JSON nicely (with newlines and indents)
     @return The encoded blob. Throws if any type could not be converted */
-PUBLIC BLOB FUNCTION EncodeJSONBlob(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC BLOB FUNCTION EncodeJSONBlob(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN JSONENCODETOBLOB(arg, FALSE, translations);
+  RETURN JSONENCODETOBLOB(arg, FALSE, translations, options);
 }
 
 /** Pauses the debugger if attached, or can be used for rule-based connect
@@ -4826,8 +4828,9 @@ PUBLIC STATIC OBJECTTYPE JSONObject
   /** Set the value of a property
       @param name Key
       @param value Value to set
+      @return Transformed value
   */
-  PUBLIC MACRO SetProp(STRING name, VARIANT value)
+  PUBLIC VARIANT FUNCTION SetProp(STRING name, VARIANT value)
   {
     value := WrapJSONObjectsInternal(value, DEFAULT RECORD);
     RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
@@ -4835,6 +4838,7 @@ PUBLIC STATIC OBJECTTYPE JSONObject
       this->props[pos.position] := CELL[ name, value ]; // allow type change
     ELSE
       INSERT CELL[ name, value ] INTO this->props AT pos.position;
+    RETURN value;
   }
 
   /** Removes a property

@@ -62,7 +62,7 @@ to make sure you have the newset version
 Launch a test image in the foreground:
 ```bash
 docker run -p 8000 --rm --name webhare-test -ti \
-  -v ~/projects/webhare/whtree/modules/webhare_testsuite:/opt/whmodules/webhare_testsuite \
+  -v ~/projects/webhare/whtree/modules/webhare_testsuite:/opt/whdata/installedmodules/webhare_testsuite \
   gitlab-registry.webhare.com/webhare/webhare:master-b7748faf2b50d85ccfad1bd0b47aadc5b4c0f167-withts
 ```
 

@@ -645,8 +645,6 @@ MACRO SyncLinks(STRING basepath, RECORD ARRAY want, BOOLEAN clean)
         FROM ReadDiskDirectory(basepath, "*")
     ORDER BY name;
 
-  DumpValue((SELECT name, path, type FROM contents), "boxed");
-
   FOREVERY (RECORD item FROM want)
   {
     STRING itempath := MergePath(basepath, item.name);

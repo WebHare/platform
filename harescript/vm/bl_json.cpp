@@ -1397,20 +1397,25 @@ class JSONEncoder
 
     private:
         void PushNr(int64_t nr, int decimals, Blex::PodVector< char > *dest);
+        void Indent(Blex::PodVector< char > *dest);
 
         HSVM *vm;
         HSVM_VariableId translations;
+        bool formatted;
+        unsigned indent;
 
     public:
         void Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson);
         void Close();
 
-        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations);
+        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool formatted);
 };
 
-JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations)
+JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool _formatted)
 : vm(vm)
 , translations(0)
+, formatted(_formatted)
+, indent(0)
 {
         if (id_translations && HSVM_RecordExists(vm, id_translations))
         {
@@ -1514,6 +1519,17 @@ void ThrowCannotEncodeType(HSVM *vm, HSVM_VariableType type, bool hson, std::vec
 
 } // End of anonymous namespace
 
+void JSONEncoder::Indent(Blex::PodVector< char > *dest)
+{
+        if (formatted)
+        {
+                dest->push_back('\n');
+                for (unsigned i = 0; i < indent; ++i)
+                        dest->push_back(' ');
+        }
+}
+
+
 void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson)
 {
         std::vector< Level > levels;
@@ -1550,6 +1566,9 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                         {
                         case LT_Array:
                             {
+                                    indent -= 2;
+                                    if (current.len)
+                                        Indent(&dest);
                                     dest.push_back(']');
                                     if (current.allocated)
                                         HSVM_DeallocateVariable(vm, current.var);
@@ -1559,6 +1578,9 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                         case LT_Object:
                         case LT_UnpackedObject:
                             {
+                                    indent -= 2;
+                                    if (current.len)
+                                        Indent(&dest);
                                     dest.push_back('}');
                                     if (current.allocated)
                                         HSVM_DeallocateVariable(vm, current.var);
@@ -1578,12 +1600,14 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                     {
                             if (current.pos != 0)
                                 dest.push_back(',');
+                            Indent(&dest);
                             to_encode = HSVM_ArrayGetRef(vm, current.var, current.pos);
                     } break;
                 case LT_Object:
                     {
                             if (current.pos != 0)
                                 dest.push_back(',');
+                            Indent(&dest);
                             HSVM_ColumnId colid = current.columns[current.pos];
                             dest.push_back('"');
 
@@ -1610,6 +1634,8 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
 
                             dest.push_back('"');
                             dest.push_back(':');
+                            if (formatted)
+                                dest.push_back(' ');
 
                             to_encode = HSVM_RecordGetRef(vm, current.var, colid);
                     } break;
@@ -1618,6 +1644,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                             // Reachable in JSON mode only
                             if (current.pos != 0)
                                 dest.push_back(',');
+                            Indent(&dest);
 
                             HSVM_VariableId rec = HSVM_ArrayGetRef(vm, current.var, current.pos);
                             HSVM_VariableId name = HSVM_RecordGetRequiredTypedRef(vm, rec, GetVirtualMachine(vm)->cn_cache.col_name, HSVM_VAR_String);
@@ -1633,6 +1660,8 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                             Blex::EncodeJSON(str.begin, str.end, std::back_inserter(dest));
                             dest.push_back('"');
                             dest.push_back(':');
+                            if (formatted)
+                                dest.push_back(' ');
                     } break;
                 case LT_Root:
                     {
@@ -1670,6 +1699,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                         level.len = HSVM_ArrayLength(vm, to_encode);
                         levels.push_back(level);
                         dest.push_back('[');
+                        indent += 2;
                         continue;
                 }
 
@@ -1704,6 +1734,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
 
                                     std::sort(level.columns.begin(), level.columns.end(), std::bind(TranslatedColumnLess, vm, translations, std::placeholders::_1, std::placeholders::_2));
                                     dest.push_back('{');
+                                    indent += 2;
                                     continue;
                             }
                     }
@@ -1913,6 +1944,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     level.len = HSVM_ArrayLength(vm, var);
                                     levels.push_back(level);
                                     dest.push_back('{');
+                                    indent += 2;
                                     continue;
                             }
                             else if (type == HSVM_VAR_VariantArray)
@@ -1923,6 +1955,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     level.len = HSVM_ArrayLength(vm, var);
                                     levels.push_back(level);
                                     dest.push_back('[');
+                                    indent += 2;
                                     continue;
                             }
                             else if (type == HSVM_VAR_String)
@@ -2028,6 +2061,9 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                 }
         }
 
+        if (formatted)
+            dest.push_back('\n');
+
         if (make_blob)
         {
                 HSVM_PrintTo(vm, stream, dest.size(), &dest[0]);
@@ -2131,6 +2167,43 @@ bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOption
         return true;
 }
 
+struct EncoderOptions
+{
+        bool formatted;
+};
+
+bool ParseEncoderOptions(VirtualMachine *vm, HSVM_VariableId opts, EncoderOptions *options)
+{
+        for (unsigned idx = 0, e = HSVM_RecordLength(*vm, opts); idx < e; ++idx)
+        {
+                HSVM_ColumnId colid = HSVM_RecordColumnIdAtPos(*vm, opts, idx);
+                HSVM_VariableId var = HSVM_RecordGetRef(*vm, opts, colid);
+
+                if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_formatted)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->formatted = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else
+                {
+                        char colname[HSVM_MaxColumnName];
+                        HSVM_GetColumnName(*vm, colid, colname);
+                        HSVM_ThrowException(*vm, ("Unexpected option '" + std::string(colname) + "'").c_str());
+                        return false;
+                }
+
+                char colname[HSVM_MaxColumnName];
+                HSVM_GetColumnName(*vm, colid, colname);
+                HSVM_ThrowException(*vm, ("Option '" + std::string(colname) + "' has the wrong type").c_str());
+                return false;
+
+        }
+        return true;
+}
+
 } // anonymous namespace
 
 void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
@@ -2207,14 +2280,18 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
 
 HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool is_hson)
 {
-        JSONEncoder encoder(vm, 0);
+        JSONEncoder encoder(vm, 0, false);
         encoder.Encode(output, input, false, is_hson);
         encoder.Close();
 }
 
 void JSONEncodeToString(HSVM_VariableId id_set, VirtualMachine *vm)
 {
-        JSONEncoder encoder(*vm, HSVM_Arg(2));
+        EncoderOptions encoderopts{}; // zero-initialize!
+        if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
+            return;
+
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), false, is_hson);
@@ -2223,7 +2300,11 @@ void JSONEncodeToString(HSVM_VariableId id_set, VirtualMachine *vm)
 
 void JSONEncodeToBlob(HSVM_VariableId id_set, VirtualMachine *vm)
 {
-        JSONEncoder encoder(*vm, HSVM_Arg(2));
+        EncoderOptions encoderopts{}; // zero-initialize!
+        if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
+            return;
+
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), true, is_hson);
@@ -2242,8 +2323,8 @@ void InitJSON(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifre
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERPROCESS::B:IS", JSONDecoderProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERFINISH::R:I", JSONDecoderFinish));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERQUICK::R:SBRR", JSONDecoderQuick));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOSTRING::S:VBR", JSONEncodeToString));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOBLOB::X:VBR", JSONEncodeToBlob));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOSTRING::S:VBRR", JSONEncodeToString));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOBLOB::X:VBRR", JSONEncodeToBlob));
 }
 
 } // End of namespace Baselibs

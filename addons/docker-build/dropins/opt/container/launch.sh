@@ -38,8 +38,8 @@ fi
 # Extract embedded webhare_testsuite
 if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
   echo "$(date) Extracting module webhare_testsuite"
-  mkdir -p /opt/whmodules/
-  if ! tar -C /opt/whmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
+  mkdir -p /opt/whdata/installedmodules/
+  if ! tar -C /opt/whdata/installedmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
     echo "Failed to extract testsuite!"
     exit 1
   fi

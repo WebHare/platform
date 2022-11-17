@@ -8,9 +8,11 @@ LOADLIB "wh::filetypes/harescript.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
@@ -215,6 +217,33 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
   RETURN CELL[ texts, icons ];
 }
 
+/** Given a directory, find a .ts or .tsx file, ignoreing node_modules
+    Returns the subpath within the root
+    @param root Root folder
+    @param subpath Subpath to start in (use "" to start at root)
+    @return Subpath to first found .ts or .tsx file
+*/
+PUBLIC STRING FUNCTION RecursivelyFindTypeScriptFile(STRING root, STRING subpath DEFAULTSTO "")
+{
+  STRING finalpath := subpath = "" ? root : MergePath(root, subpath);
+
+  RECORD ARRAY contents := ReadDiskDirectory(finalpath, "*");
+  FOREVERY (RECORD rec FROM contents)
+  {
+    IF (rec.name = "node_modules")
+      CONTINUE;
+    IF (rec.name LIKE "*.ts" OR rec.name LIKE "*.tsx")
+      RETURN subpath = "" ? rec.name : MergePath(subpath, rec.name);
+    IF (rec.type = 1)
+    {
+      STRING tsfile := RecursivelyFindTypeScriptFile(root, subpath = "" ? rec.name : MergePath(subpath, rec.name));
+      IF (IsValueSet(tsfile))
+        RETURN tsfile;
+    }
+  }
+  RETURN "";
+}
+
 /** Checks typescript files (using the typescript compiler)
     @param modulename Name of an external module to check or "coremodules" for all core modules.
     @return Validation results
@@ -223,7 +252,7 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
     @cell return.issues.line Line
     @cell return.issues.col Column
     @cell return.issues.message Error message
-    @cell return.issues.category Category (always "error")
+    @cell return.issues.category Category ("error" or "warning")
 */
 PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
 {
@@ -234,40 +263,107 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   IF (modulename IN whconstant_builtinmodules)
     THROW NEW Exception(`Cannot check individual core modules, use "coremodules" to check all core modules`);
 
-  IF (modulename = "coremodules" OR modulename IN whconstant_builtinmodules)
+  // For core modules (or webhare_testsuite when present in whtree) use the whtree tsconfig.json
+  STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
+  STRING tsconfigpath, tsbuildinfofile;
+  IF (modulename = "coremodules"
+      OR modulename IN whconstant_builtinmodules
+      OR (modulename = "webhare_testsuite" AND GetModuleInstallationRoot(modulename) LIKE GetWebhareConfiguration().installationroot || "*"))
   {
-    STRING tscpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/tsc");
-    STRING tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
-    STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
-    STRING tsbuildinfofile := MergePath(tsbuildinfodir, "coremodules.tsbuildinfo");
-    CreateDiskDirectoryRecursive(tsbuildinfodir, TRUE);
+    tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
+    tsbuildinfofile := MergePath(tsbuildinfodir, "coremodules.tsbuildinfo");
+  }
+  ELSE
+  {
+    STRING installationroot := GetModuleInstallationRoot(modulename);
+    STRING anytsfile := RecursivelyFindTypeScriptFile(installationroot, ".");
 
-    STRING ARRAY args := [ "--project", tsconfigpath, "--noEmit", "--incremental", "--tsBuildInfoFile", tsbuildinfofile ];
+    // Don't need to validate if no .ts/.tsx files present
+    IF (IsDefaultValue(anytsfile))
+      RETURN retval;
 
-    OBJECT proc := CreateProcess(tscpath, args, TRUE, TRUE, TRUE, FALSE);
-    proc->initialworkingdirectory := GetWebhareConfiguration().installationroot;
-    proc->Start();
+    tsconfigpath := MergePath(installationroot, "tsconfig.json");
 
-    OBJECT reader := ReadWholeProcessOutput(proc);
-    RECORD procresult := AWAIT reader;
-    proc->Close();
+    // Don't go create tsconfig.json on acceptance and production servers
+    IF (GetDTAPStage() NOT IN [ "development", "test" ] AND NOT RecordExists(GetDiskFileProperties(tsconfigpath)))
+      RETURN retval;
 
-    OBJECT matcher := NEW RegEx("^modules/([^\\(]*)\\((\\d*),(\\d*)\\): (.*)$");
+    CreateModuleTSConfigFile(modulename);
+    tsbuildinfofile := MergePath(tsbuildinfodir, `${modulename}.tsbuildinfo`);
+  }
 
-    FOREVERY (STRING line FROM Tokenize(procresult.output, "\n"))
+  STRING tscpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/tsc");
+  CreateDiskDirectoryRecursive(tsbuildinfodir, TRUE);
+
+  STRING ARRAY args := [ "--project", tsconfigpath, "--noEmit", "--incremental", "--tsBuildInfoFile", tsbuildinfofile ];
+
+  OBJECT proc := CreateProcess(tscpath, args, FALSE, TRUE, TRUE, FALSE);
+  proc->initialworkingdirectory := GetWebhareConfiguration().installationroot;
+  proc->Start();
+
+  OBJECT reader := ReadWholeProcessOutput(proc);
+  RECORD procresult := AWAIT reader;
+  proc->Close();
+
+  OBJECT matcher := NEW RegEx("^modules/([^\\(]*)\\((\\d*),(\\d*)\\): (.*)$");
+
+  FOREVERY (STRING line FROM Tokenize(procresult.output, "\n"))
+  {
+    RECORD ARRAY match := matcher->Exec(line);
+    IF (RecordExists(match))
     {
-      RECORD ARRAY match := matcher->Exec(line);
-      IF (RecordExists(match))
-      {
-        INSERT
-            [ resourcename := `mod::${match[1].value}`
-            , line :=         ToInteger(match[2].value, 1)
-            , col :=          ToInteger(match[3].value, 1)
-            , message :=      match[4].value
-            , category :=     "error"
-            ] INTO retval.issues AT END;
-      }
+      INSERT
+          [ resourcename := `mod::${match[1].value}`
+          , line :=         ToInteger(match[2].value, 1)
+          , col :=          ToInteger(match[3].value, 1)
+          , message :=      match[4].value
+          , category :=     "error"
+          ] INTO retval.issues AT END;
     }
   }
+
   RETURN retval;
+}
+
+/** Creates a tsconfig.json file in the root directory of the specified module
+    @param modulename Name of the module
+*/
+PUBLIC MACRO CreateModuleTSConfigFile(STRING modulename)
+{
+  IF (modulename IN whconstant_builtinmodules OR
+      (modulename = "webhare_testsuite" AND GetModuleInstallationRoot(modulename) LIKE GetWebhareConfiguration().installationroot || "*"))
+    THROW NEW Exception(`Cannot generate tsconfig.json for webhare core modules`);
+
+  STRING core_tsconfig_path := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
+  STRING installationroot := GetModuleInstallationRoot(modulename);
+
+  RECORD module := SELECT * FROM GetWebHareModules() WHERE name = modulename;
+  STRING ARRAY allowedmodules := STRING[ ...whconstant_builtinmodules, "webhare_testsuite", modulename ];
+  IF (RecordExists(module))
+    allowedmodules := allowedmodules CONCAT ArrayDelete((SELECT AS STRING ARRAY name FROM module.requiredmodules), whconstant_builtinmodules);
+
+  OBJECT paths := NEW JSONObject;
+  paths->SetProp("dompack", [ ResolveToRelativePath(installationroot, MergePath(GetModuleInstallationRoot("system"), "/js/dompack")) ]);
+  paths->SetProp("@types/node", [ ResolveToRelativePath(installationroot, MergePath(GetWebhareConfiguration().installationroot, "node_modules/@types/node")) ]);
+  FOREVERY (STRING mod FROM allowedmodules)
+  {
+    STRING root := GetModuleInstallationRoot(mod);
+    IF (root != "")
+    {
+      paths->SetProp(`@mod-${mod}`, [ ResolveToRelativePath(installationroot, root) ?? "." ]);
+      paths->SetProp(`@storage-${mod}`, [ ResolveToRelativePath(installationroot, GetModuleStorageRoot(mod)) ]);
+    }
+  }
+
+  OBJECT compilerOptions := NEW JSONObject;
+  compilerOptions->SetProp("baseUrl", installationroot);
+  compilerOptions->SetProp("paths", paths);
+
+  OBJECT tsconfig := NEW JSONObject;
+  tsconfig->SetProp("extends", core_tsconfig_path);
+  tsconfig->SetProp("compilerOptions", compilerOptions);
+
+  BLOB tsconfigblob := EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]);
+
+  StoreDiskFile(MergePath(installationroot, "tsconfig.json"), tsconfigblob, [ overwrite := TRUE ]);
 }
