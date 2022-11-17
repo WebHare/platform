@@ -2,6 +2,8 @@ import * as dompack from "../index";
 
 /** Add swipe event */
 
+const HAS_TOUCHEVENT = typeof TouchEvent != "undefined"; // Desktop Safari doesn't have TouchEvent
+
 const swipedetect = Symbol("dompack swipedetect");
 interface SwipeEventTarget extends EventTarget
 {
@@ -94,7 +96,7 @@ class SwipeDetect
   onTouchStart(ev: Event)
   {
     let pos: SwipePosition | null = null;
-    if (ev instanceof TouchEvent)
+    if (HAS_TOUCHEVENT && ev instanceof TouchEvent)
       pos = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
     else if (ev instanceof MouseEvent)
       pos = { x: ev.pageX, y: ev.pageY };
@@ -114,7 +116,7 @@ class SwipeDetect
   {
     if(!this.swipeinfo)
       return true;
-    if (ev instanceof TouchEvent)
+    if (HAS_TOUCHEVENT && ev instanceof TouchEvent)
       this.swipeinfo.end = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
     else if (ev instanceof MouseEvent)
       this.swipeinfo.end = { x: ev.pageX, y: ev.pageY };

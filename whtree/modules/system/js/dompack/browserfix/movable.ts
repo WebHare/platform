@@ -1,5 +1,7 @@
 import { dispatchCustomEvent, stop } from '../src/events';
 
+const HAS_TOUCHEVENT = typeof TouchEvent != "undefined"; // Desktop Safari doesn't have TouchEvent
+
 type EventCoordinates =
 {
   pageX: number;
@@ -24,7 +26,7 @@ function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: M
     return;
 
   let coordinatesource;
-  if(event instanceof TouchEvent)
+  if(HAS_TOUCHEVENT && event instanceof TouchEvent)
     coordinatesource = event.touches[0];
   else if(event.type == "touchend")
     coordinatesource = lastcoordinates || event;
@@ -91,7 +93,7 @@ function moveMouseDown(event: Event) // We're a mouse/touch event handler, so we
     return;
 
   // Start the move action
-  const coordinatesource = event instanceof TouchEvent ? event.touches[0] : event as MouseEvent;
+  const coordinatesource = HAS_TOUCHEVENT && event instanceof TouchEvent ? event.touches[0] : event as MouseEvent;
   lastcoordinates = cloneCoordinates(coordinatesource);
   startMove(event.target, coordinatesource.clientX, coordinatesource.clientY);
 
