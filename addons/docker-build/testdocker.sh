@@ -459,7 +459,7 @@ create_container()
   set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file --tmpfs /opt/whdata:exec $WEBHAREIMAGE"
+  CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file $WEBHAREIMAGE"
   echo "Executing: $CMDLINE"
   CONTAINERID=`$CMDLINE`
 
