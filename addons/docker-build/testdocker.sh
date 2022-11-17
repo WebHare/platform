@@ -480,7 +480,7 @@ create_container()
 
   if [ -n "$ADDMODULES" ]; then
     echo "`date` Copy modules from ${TEMPBUILDROOT}/docker-tests/modules/"
-    if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINERID:/opt/whmodules/; then
+    if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINERID:/opt/whdata/installedmodules/; then
       die "Module copy failed!"
     fi
   fi
@@ -510,7 +510,7 @@ create_container()
   fi
 
   echo "$(date) fixup/chown modules (npm etc)"
-  if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
+  if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whdata/installedmodules/; then
     die "chown modules failed"
   fi
 
