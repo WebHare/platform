@@ -4828,8 +4828,9 @@ PUBLIC STATIC OBJECTTYPE JSONObject
   /** Set the value of a property
       @param name Key
       @param value Value to set
+      @return Transformed value
   */
-  PUBLIC MACRO SetProp(STRING name, VARIANT value)
+  PUBLIC VARIANT FUNCTION SetProp(STRING name, VARIANT value)
   {
     value := WrapJSONObjectsInternal(value, DEFAULT RECORD);
     RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
@@ -4837,6 +4838,7 @@ PUBLIC STATIC OBJECTTYPE JSONObject
       this->props[pos.position] := CELL[ name, value ]; // allow type change
     ELSE
       INSERT CELL[ name, value ] INTO this->props AT pos.position;
+    RETURN value;
   }
 
   /** Removes a property
