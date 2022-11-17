@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/modules/disk.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -425,6 +426,7 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
   GetPrimary()->CommitWork();
+  EnsureModuleStorageFolders(FALSE);
 
   //Run init scripts for the module
   RECORD moduleinfo := GetWebhareModuleInfo(modulename);

@@ -4,6 +4,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/modules/disk.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -145,6 +146,7 @@ MACRO RunExecuteMaintenance()
     CleanupUserRights();
     CleanupWebharePrivate();
     CleanupSocialite();
+    EnsureModuleStorageFolders(TRUE); //cleanup obsolete existing ones too
   }
   FixupUserMgmt();
 }

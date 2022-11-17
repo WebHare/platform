@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+
+///Ensure the necessary module folders are in place
+PUBLIC MACRO EnsureModuleStorageFolders(BOOLEAN delete_unused)
+{
+  STRING storageroot := GetWebHareConfiguration().basedataroot || "storage/";
+  RECORD ARRAY currentmodulefolders := ReadDiskDirectory(storageroot,"*");
+
+  FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames())
+  {
+    RECORD match := SELECT * FROM currentmodulefolders WHERE name = mod;
+    IF(NOT RecordExists(match))
+    {
+      CreateDiskDirectoryRecursive(storageroot || mod, TRUE);
+      CONTINUE;
+    }
+
+    DELETE FROM currentmodulefolders WHERE name = mod;
+  }
+
+  IF(delete_unused)
+    FOREVERY(RECORD remaining FROM currentmodulefolders)
+      DeleteDiskDirectory(remaining.path); //remove folder but ONLY if empty
+}
