@@ -205,9 +205,6 @@ setup_node()
         "$WEBHARE_DATAROOT/node_modules/*"
       ],
     },
-    "types": [
-      "node"
-    ]
   }
 }
 EOF
