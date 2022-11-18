@@ -8,6 +8,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
 
@@ -62,10 +63,34 @@ FOREVERY (RECORD cert FROM allcerts)
 
   IF(Length(requestfor) = 0) //we are no longer hosting this site
   {
+    //link the port up to a new key/certificate. note that this generally only happens on non-proxied WebHares that don't do SNI anyway
+    INTEGER setupreplacement;
+    IF(RecordExists(SELECT FROM system_internal.ports WHERE keypair = cert.id))
+    {
+      FOREVERY(STRING matchhost FROM cert.servernames)
+      {
+        RECORD replacement := GetBestCertificateForHost(allcerts, matchhost);
+        IF(RecordExists(replacement))
+        {
+          setupreplacement := replacement.id;
+          BREAK;
+        }
+      }
+      IF(setupreplacement = 0)
+      {
+        PrintTo(2, `Certificate '${cert.name}' is no longer needed here but still referred by a SSL port!\n`);
+        SetConsoleExitCode(1);
+        CONTINUE;
+      }
+    }
+
     Print(`Certificate '${cert.name}' is no longer needed here, deleting it\n`);
     trans->BeginWork();
     OpenWHFSObject(cert.id)->RecycleSelf();
+    IF(setupreplacement != 0)
+      UPDATE system_internal.ports SET keypair := setupreplacement WHERE keypair = cert.id;
     trans->CommitWork();
+
     CONTINUE;
   }
 
