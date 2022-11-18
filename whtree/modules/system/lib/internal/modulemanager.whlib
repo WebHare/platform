@@ -697,8 +697,10 @@ MACRO SyncLinks(STRING basepath, RECORD ARRAY want, BOOLEAN clean)
 
 PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 {
-  STRING whdatamods := GetWebhareConfiguration().basedataroot || "node_modules/";
-  STRING storageroot := GetWebhareConfiguration().basedataroot || "storage/";
+  STRING installationroot := GetWebhareConfiguration().installationroot;
+  STRING whdataroot := GetWebhareConfiguration().basedataroot;
+  STRING whdatamods := MergePath(whdataroot, "node_modules/");
+  STRING storageroot := MergePath(whdataroot, "storage");
   CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
   // Only create links for modules where GetModuleInstallationRoot is non-empty
@@ -713,10 +715,22 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
   RECORD ARRAY modulestoragelinks :=
       SELECT name :=    `@storage-${module}`
            , type :=     "softlink"
-           , target :=  `${storageroot}${module}`
+           , target :=  MergePath(storageroot, module)
         FROM modulelinks;
 
   RECORD ARRAY tocheck := modulelinks CONCAT modulestoragelinks;
+
+  STRING whdataroot_eslintrc := MergePath(whdataroot, ".eslintrc.json");
+  STRING base_eslintrc := MergePath(installationroot, ".eslintrc.json");
+  STRING eslintrc_json :=
+`{
+  "extends": "@webhare/defaultconfig"
+}`;
+  IF (BlobToString(GetDiskResource(whdataroot_eslintrc, [ allowmissing := TRUE ])) != eslintrc_json)
+  {
+    StoreDiskFile(`${whdataroot_eslintrc}.tmp`, StringToBlob(eslintrc_json), [ overwrite := TRUE ]);
+    MoveDiskPath(`${whdataroot_eslintrc}.tmp`, whdataroot_eslintrc);
+  }
 
   // Also add dompack and other exported modules
   IF (isallmodules)
@@ -730,9 +744,30 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
         , type :=     "directory"
         , items :=    [ [ name :=     "node"
                         , type :=     "softlink"
-                        , target :=   GetWebhareConfiguration().installationroot || "node_modules/@types/node"
+                        , target :=   installationroot || "node_modules/@types/node"
                         ]
                       ]
+        ]
+      , [ name :=     "@webhare"
+        , type :=     "directory"
+        , items :=    [ [ name := "eslint-config-defaultconfig"
+                        , type := "softlink"
+                        , target :=   MergePath(installationroot, "modules/system/data/validation/eslint-config-defaultconfig")
+                        ]
+                      ]
+        ]
+        // ESLint plugins from mod::system/data/validate/eslint-config-defaultconfig/.eslintrc.json
+      , [ name :=     "@typescript-eslint"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/@typescript-eslint")
+        ]
+      , [ name :=     "eslint-plugin-react"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-react")
+        ]
+      , [ name :=     "eslint-plugin-tsdoc"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-tsdoc")
         ]
       ];
   }
