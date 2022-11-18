@@ -164,7 +164,7 @@ export function create(elementname: string, attributes: { [key: string]: any })
  Function to create for jsx, create elements directly (instead of virtual dom nodes).
 
     import * as dompack from 'dompack';
- 
+
     /* \@jsx dompack.jsxcreate *\/
     /* \@jsxFrag dompack.jsxfragment *\/
     your code

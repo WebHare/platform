@@ -35,7 +35,7 @@ export function getCurrentlyFocusedElement(limitdoc?: Document) : Element | null
   try
   {
     let focused = getActiveElement(getToplevelWindow().document);
-    while(true)
+    for(;;)
     {
       const frame = asIframe(focused);
       if(frame && (!limitdoc || frame.ownerDocument != limitdoc))
@@ -75,7 +75,7 @@ function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: 
 
 // whether the node is reachable for focus by keyboard navigation
 // (because tabIndex == -1 will be seen a non(keyboard)focusable by this function)
-// TODO this function should probably be cleaner but you'll be breaking a lot of tests in subtle ways if you change it. 
+// TODO this function should probably be cleaner but you'll be breaking a lot of tests in subtle ways if you change it.
 //      well perhaps we don't need to check for "COMMAND" but I've lost any further appetite on cleanup attempts
 export function canFocusTo(node: Element) //returns if a -visible- node is focusable (this function does not check for visibility itself)
 {
@@ -114,7 +114,7 @@ export function getFocusableComponents(startnode: Element | null, recurseframes:
       //if(currentnode.getStyle) console.log("getFocusableComponents skipping",currentnode, $(currentnode).getStyle("display"), currentnode.getStyle("visibility"))
       continue;
     }
-    
+
     let iframe;
     if(recurseframes && (iframe = asIframe(currentnode))) //might contain more things to focus
     {
@@ -129,7 +129,7 @@ export function getFocusableComponents(startnode: Element | null, recurseframes:
 
     if ((currentnode as HTMLElement).isContentEditable)
       continue; //don't look for further focusable nodes inside, the whole RTE counts as an editable component
-    
+
     const subnodes = getFocusableComponents(currentnode, recurseframes);
     if(subnodes.length)
       focusable = focusable.concat(subnodes);

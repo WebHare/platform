@@ -5,7 +5,11 @@
         "es6": true,
         "node": true
     },
-    "extends": ["eslint:recommended", "plugin:react/recommended", "plugin:@typescript-eslint/recommended" ],
+    "extends": [
+        "eslint:recommended",
+        "plugin:react/recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
         "ecmaVersion": 2018,
@@ -20,20 +24,78 @@
         "eslint-plugin-tsdoc"
     ],
     "rules": {
+        // https://eslint.org/docs/latest/rules/
+        "no-constant-binary-expression": "error",
+        "no-constructor-return": "error",
+        "no-new-native-nonconstructor": "error",
+        "no-self-compare": "error",
+        "no-template-curly-in-string": "error",
+        "no-unmodified-loop-condition": "error",
+        "no-unreachable-loop": "error",
+        "no-unused-private-class-members": "error",
+        "require-atomic-updates": "error",
+        //Suggestions
+        "guard-for-in": "error",
+        "no-empty": [
+            "error",
+            {
+                "allowEmptyCatch": true
+            }
+        ],
+        "no-empty-function": "error",
+        "no-eval": "error",
+        "no-extend-native": "error",
+        "no-extra-boolean-cast": "error",
+        "no-extra-bind": "error",
+        "no-multi-str": "error",
+        "no-new-func": "error",
+        "no-new-object": "error",
+        "no-new-wrappers": "error",
+        "no-implicit-coercion": "error",
+        "no-implicit-globals": "error",
+        "no-implied-eval": "error",
+        "no-invalid-this": "error",
+        "no-lonely-if": "error",
+        "no-loop-func": "error",
+        "no-shadow": "error",
+        "no-throw-literal": "error",
+        "no-unused-expressions": "error",
+        "no-useless-call": "error",
+        "no-var": "error",
+        "prefer-numeric-literals": "error",
+        "prefer-object-spread": "error",
+        "prefer-promise-reject-errors": "error",
+        "prefer-rest-params": "error",
+        "prefer-spread": "error",
+        "yoda": "error",
+        //Prevent these from accidentally lingering in code
+        "no-alert": "error",
+        //Things that make diffing hard
+        "no-tabs": "error",
+        "no-trailing-spaces": "error",
         "semi": [
             "error",
             "always"
         ],
-        "no-console": 0,
-        "no-empty": 0,
-        "no-constant-condition": 0,
-        "no-unused-vars": ["error", { "vars": "all", "args": "none" }],
+        "no-unused-vars": [
+            "error",
+            {
+                "vars": "all",
+                "args": "none"
+            }
+        ],
         "require-yield": 0,
         "linebreak-style": 0,
         "react/no-unknown-property": 0,
         "react/prop-types": 0,
         "react/jsx-key": 0,
-        "@typescript-eslint/ban-ts-comment": [ "error", { "ts-ignore": "allow-with-description" } ],
+        "@typescript-eslint/ban-ts-comment": [
+            "error",
+            {
+                "ts-ignore": "allow-with-description"
+            }
+        ],
+        "@typescript-eslint/no-empty-function":0,
         "tsdoc/syntax": "error"
     },
     "settings": {
@@ -41,16 +103,20 @@
             "pragma": "dompack"
         }
     },
-
-    "overrides": [ {
-        "files": [ "*.js", "**/*.js" ],
-        "env": {
-            "browser": true
-        },
-        "parser": "espree",
-        "parserOptions": {
-            "ecmaVersion": 5,
-            "sourceType": "script"
+    "overrides": [
+        {
+            "files": [
+                "*.js",
+                "**/*.js"
+            ],
+            "env": {
+                "browser": true
+            },
+            "parser": "espree",
+            "parserOptions": {
+                "ecmaVersion": 5,
+                "sourceType": "script"
+            }
         }
-    } ]
+    ]
 }

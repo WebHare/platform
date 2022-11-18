@@ -179,6 +179,7 @@ export class DialogBase
 
   afterShow()
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- supposed to be empty but extenders can override
+  // eslint-disable-next-line no-empty-function -- supposed to be empty but extenders can override
   {
   }
 }
@@ -198,7 +199,7 @@ export function setupDialogs(newdialogconstructor: DialogConstructor, options?: 
 /** Verify whether the dialog api is initialized */
 export function isCreateDialogAvailable() : boolean
 {
-  return !!dialogconstructor;
+  return Boolean(dialogconstructor);
 }
 
 /**
