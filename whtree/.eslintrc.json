@@ -1,56 +1,6 @@
 {
-    "env": {
-        "browser": true,
-        "commonjs": true,
-        "es6": true,
-        "node": true
-    },
-    "extends": ["eslint:recommended", "plugin:react/recommended", "plugin:@typescript-eslint/recommended" ],
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-        "ecmaVersion": 2018,
-        "ecmaFeatures": {
-            "jsx": true
-        },
-        "sourceType": "module"
-    },
-    "plugins": [
-        "react",
-        "@typescript-eslint",
-        "eslint-plugin-tsdoc"
-    ],
-    "rules": {
-        "semi": [
-            "error",
-            "always"
-        ],
-        "no-console": 0,
-        "no-empty": 0,
-        "no-constant-condition": 0,
-        "no-unused-vars": ["error", { "vars": "all", "args": "none" }],
-        "require-yield": 0,
-        "linebreak-style": 0,
-        "react/no-unknown-property": 0,
-        "react/prop-types": 0,
-        "react/jsx-key": 0,
-        "@typescript-eslint/ban-ts-comment": [ "error", { "ts-ignore": "allow-with-description" } ],
-        "tsdoc/syntax": "error"
-    },
-    "settings": {
-        "react": {
-            "pragma": "dompack"
-        }
-    },
-
-    "overrides": [ {
-        "files": [ "*.js", "**/*.js" ],
-        "env": {
-            "browser": true
-        },
-        "parser": "espree",
-        "parserOptions": {
-            "ecmaVersion": 5,
-            "sourceType": "script"
-        }
-    } ]
+    /* Need to use a path starting with ./ to avoid prefixing with eslint-config-
+       In installed modules, just use "@webhare/defaultconfig"
+    */
+    "extends": "./modules/system/data/validation/eslint-config-defaultconfig/"
 }
