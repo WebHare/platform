@@ -38,7 +38,7 @@ PUBLIC RECORD ARRAY FUNCTION ListCertficates()
         , chainfile :=    BlobToString(keypair->certificatechain)
         , keyfile :=      BlobToString(keypair->privatekey)
         , valid_until :=  certdata.valid_until
-        , servernames :=  [ (SELECT AS STRING value FROM certdata.subjectfields WHERE fieldname="CN") ] CONCAT certdata.dns_altnames
+        , servernames :=  certdata.dns_altnames //we now ignore "CN"
         ] INTO certificates AT END;
   }
   RETURN certificates;
