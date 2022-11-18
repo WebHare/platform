@@ -69,7 +69,7 @@ function applyRegistration(reg: ComponentRegistration, startnode?: Element)
             // @ts-ignore: fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
           }
-          catch(e){}
+          catch(e2){}
         }
       }
       else
@@ -110,11 +110,11 @@ export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions)
 
 /**
     Register a component for auto-initialization.
- 
+
     @param selector - Selector the component must match
     @param handler - Handler
     @param options - Any unrecognized options are passed to the handler
- 
+
     The handler will be invoked with two parameters
     - the node to register
     - the index of the node (a unique counter for this selector - first is 0)

@@ -23,9 +23,9 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
 
   if(!element || !(element as Node).ownerDocument)
     return true; //the element has left the dom... so there's no more bubbling. just drop it
-  
+
   //FIXME the load/scroll is buggy and we should be probably be using new Event (but an earlier attempt at that triggered quite a few test failures)
-  const createtype = /*["load","scroll"].includes(eventtype) == "load"*/false ? "UIEvents" : ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
+  const createtype = /*["load","scroll"].includes(eventtype) == "load" ? "UIEvents" :*/ ["focus","blur","focusin","focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we verified its non-null ness above but TS doesn't really understand that
   const evt = (element as Node).ownerDocument!.createEvent(createtype);
   evt.initEvent(eventtype, options.bubbles, options.cancelable);
@@ -128,9 +128,9 @@ export function changeValue(element: HTMLInputElement | HTMLSelectElement, newva
 {
   if (element.matches(`input[type=radio], input[type=checkbox]`))
   {
-    if(!!(element as HTMLInputElement).checked == !!newvalue)
+    if(Boolean((element as HTMLInputElement).checked) == Boolean(newvalue))
       return;
-    (element as HTMLInputElement).checked=!!newvalue;
+    (element as HTMLInputElement).checked=Boolean(newvalue);
   }
   else
   {
@@ -138,7 +138,7 @@ export function changeValue(element: HTMLInputElement | HTMLSelectElement, newva
     if((element as HTMLInputElement).value == newvalue)
       return;
 
-    (element as HTMLInputElement).value = newvalue + "";
+    (element as HTMLInputElement).value = String(newvalue);
   }
   dispatchDomEvent(element as EventTarget, 'input');
   dispatchDomEvent(element as EventTarget, 'change');

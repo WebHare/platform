@@ -87,7 +87,7 @@ class Cookie
       delete isolatedcookies["c." + this.key];
       return;
     }
-    new Cookie(this.key, Object.assign({}, this.options, {duration: -1})).write('');
+    new Cookie(this.key, { ...this.options, duration: -1 }).write('');
   }
 }
 

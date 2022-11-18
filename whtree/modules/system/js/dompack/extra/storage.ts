@@ -25,11 +25,11 @@ export function available(): boolean
   if(isolated)
     return true;
 
-  if(typeof _available === undefined)
+  if(_available === undefined)
   {
     try
     {
-      _available = !!window.sessionStorage;
+      _available = Boolean(window.sessionStorage);
     }
     catch(ignore)
     {

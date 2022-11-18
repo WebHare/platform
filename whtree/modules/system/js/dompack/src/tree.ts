@@ -213,7 +213,7 @@ export function onDomReady(callback: () => void)
             // @ts-ignore fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
           }
-          catch (e){}
+          catch (e2){}
         }
       }
       else
@@ -294,13 +294,13 @@ export function setStyles(node: HTMLElement, value?: string | { [key: string]: s
     node.style.cssText = value || '';
   else
   {
-    for (const i in value)
+    for (const [key,propvalue] of Object.entries(value))
     {
       // for numbers, add 'px' if the constant isn't dimensionless (eg zIndex)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
-      (node.style as any)[i] = typeof value[i] === 'number' && IS_NON_DIMENSIONAL.test(i) === false
-          ? value[i] + 'px'
-          : value[i];
+      (node.style as any)[key] = typeof value[key] === 'number' && IS_NON_DIMENSIONAL.test(key) === false
+          ? propvalue + 'px'
+          : propvalue;
     }
   }
 }

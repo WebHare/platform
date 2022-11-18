@@ -40,11 +40,11 @@ export interface FeedbackOptions
 export interface FeedbackResult
 {
   /**  If the feedback was successfully stored  */
-   success: boolean; 
+   success: boolean;
 
    /** If successful, the feedback GUID */
    guid?: string;
- 
+
    /** If successful, an array of available topics */
    topics?: {
     /** The topic tag */
@@ -52,7 +52,7 @@ export interface FeedbackResult
      /** The topic title */
      titel: string,
    }[];
-  
+
    /** If not succesful, an error message */
    error?: string;
 }
@@ -95,7 +95,7 @@ let feedbackOptions: FeedbackOptions;
 
 /**
     Initialize the global feedback options
- 
+
     @param options - New options
  */
 export function initFeedback(options: FeedbackOptions): void
@@ -106,9 +106,9 @@ export function initFeedback(options: FeedbackOptions): void
 
 /**
      Get feedback
- 
+
     @param event - The event that caused requesting the feedback (optional)
-    @param extraOptions - Extra options, overwriting the global options 
+    @param extraOptions - Extra options, overwriting the global options
     @returns The result
  */
 export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>

@@ -154,7 +154,7 @@ export default class KeyboardHandler
       Used to detect input/textarea/rte's
    *
       @param target - Current target node for keyboard event
-      @param key - Parsed key 
+      @param key - Parsed key
       @param keynames - Potential names for the keys (as returned by GetKeyNames)
       @returns Whether the key must be ignored by KeyboardHandler, default browser behaviour should be triggered.
    */
