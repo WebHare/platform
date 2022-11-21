@@ -150,9 +150,19 @@ elif [ "$PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
 
+function RunDocker()
+{
+  local retval
+  echo "$(date) docker" "$@" >&2
+  $SUDO docker "$@" ; retval="$?"
+  if [ "$retval" != "0" ]; then
+    echo "$(date) docker returned errorcode $retval" >&2
+  fi
+  return $retval
+}
+
 if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
-  echo "Removing container '${FIXEDCONTAINERNAME}'"
-  if ! docker rm -f "$FIXEDCONTAINERNAME" ; then
+  if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
     exit 1
   fi
 fi
@@ -220,23 +230,20 @@ if [ "$NOPULL" != "1" ]; then
 
     ALTERNATEIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:27}  # 27 is the length of 'docker.io/webhare/platform:'
 
-    echo "`date` Pulling image $ALTERNATEIMAGE"
-    if $SUDO docker pull "$ALTERNATEIMAGE" ; then
-      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+    if RunDocker pull "$ALTERNATEIMAGE" ; then
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
       WEBHAREIMAGE="$ALTERNATEIMAGE"
     else
       echo "Failed to pull image from alternate registry"
-      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
 
-      echo "`date` Pulling image $WEBHAREIMAGE"
-      if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
+      if ! RunDocker pull "$WEBHAREIMAGE" ; then
         echo "Failed to pull image"
         exit 1
       fi
     fi
   else
-    echo "`date` Pulling image $WEBHAREIMAGE"
-    if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
+    if ! RunDocker pull "$WEBHAREIMAGE" ; then
       echo "Failed to pull image"
       exit 1
     fi
@@ -266,27 +273,25 @@ function cleanup()
 
   if [ -n "$TESTENV_CONTAINER1" ]; then
     if [ -z "$NOCLEANUP" ]; then
-      echo "`date` Cleanup: stop container $TESTENV_CONTAINER1"
-      $SUDO docker stop $TESTENV_CONTAINER1
+      RunDocker stop "$TESTENV_CONTAINER1"
       # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
-      $SUDO docker rm $TESTENV_CONTAINER1
+      RunDocker rm "$TESTENV_CONTAINER1"
     else
       echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER1"
     fi
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
     if [ -z "$NOCLEANUP" ]; then
-      echo "`date` Cleanup: stop container $TESTENV_CONTAINER2"
-      $SUDO docker stop $TESTENV_CONTAINER2
+      RunDocker stop "$TESTENV_CONTAINER2"
       # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
-      $SUDO docker rm $TESTENV_CONTAINER2
+      RunDocker rm "$TESTENV_CONTAINER2"
     else
       echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER2"
     fi
   fi
   if [ -n "$TEMPBUILDROOT" ]; then
     if [ -z "$NOCLEANUP" ]; then
-      echo "`date` Cleanup: remove buildroot $TEMPBUILDROOT"
+      echo "$(date) Cleanup: remove buildroot $TEMPBUILDROOT"
       rm -rf -- "$TEMPBUILDROOT"
     else
       echo "Not cleaning up, so don't forget to: rm -rf -- $TEMPBUILDROOT"
@@ -326,7 +331,7 @@ if [ -n "$ISMODULETEST" ]; then
 
   echo "`date` Pulling dependency information for module $TESTINGMODULE"
   # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
-  MODSETTINGS="`$SUDO docker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net -l webharecitype=testdocker $WEBHAREIMAGE wh run mod::system/scripts/internal/tests/explainmodule.whscr < $TESTINGMODULEDIR/moduledefinition.xml`"
+  MODSETTINGS="$(RunDocker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net -l webharecitype=testdocker "$WEBHAREIMAGE" wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
   ERRORCODE="$?"
 
   if [ "$ERRORCODE" != "0" ]; then
@@ -459,16 +464,14 @@ create_container()
   set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file $WEBHAREIMAGE"
-  echo "Executing: $CMDLINE"
-  CONTAINERID=`$CMDLINE`
+  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" --tmpfs /opt/whdata:exec "$WEBHAREIMAGE")"
 
   if [ -z "$CONTAINERID" ]; then
     echo Container creating failed
     exit 1
   fi
 
-  echo "`date` Created container with id: $CONTAINERID"
+  echo "$(date) Created container with id: $CONTAINERID"
   eval TESTENV_CONTAINER$NR=\$CONTAINERID
 
   if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
@@ -478,50 +481,50 @@ create_container()
     echo ""
   fi
 
-  if [ -n "$ADDMODULES" ]; then
-    echo "`date` Copy modules from ${TEMPBUILDROOT}/docker-tests/modules/"
-    if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINERID:/opt/whdata/installedmodules/; then
-      die "Module copy failed!"
-    fi
-  fi
-
-  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
-    echo "`date` Copying artifacts into $CONTAINERID"
-    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
-      die "Artifact copy failed!"
-    fi
-  fi
-
-  echo "`date` Starting container$NR $CONTAINERID"
-  if ! $SUDO docker start $CONTAINERID ; then
-    die "Container start failed"
-  fi
-
   if [ "$NR" == "1" ]; then
     # Get version info from first container
     # this initializes the'version' variable
-    eval $( $SUDO docker exec $TESTENV_CONTAINER1 cat /opt/wh/whtree/modules/system/whres/buildinfo )
+    BUILDINFOFILE="$(mktemp)"
+    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
+    source "$BUILDINFOFILE"
     echo "WebHare version info:
       committag=$committag
       builddate=$builddate
       buildtime=$buildtime
       branch=$branch
       version=$version"
+    rm "$BUILDINFOFILE"
+
+    # We can now use:
+    # if version_gte "$version" 4.35 ; then ... fi
   fi
 
-  echo "$(date) fixup/chown modules (npm etc)"
-  if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whdata/installedmodules/; then
+  if [ -n "$ADDMODULES" ]; then
+    if [[ $version > 5.2. ]] ; then #5.2.0 and above!
+      DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
+    else
+      DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
+    fi
+
+    RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
+  fi
+
+  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
+    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
+      die "Artifact copy failed!"
+    fi
+  fi
+
+  if ! RunDocker start "$CONTAINERID" ; then
+    die "Container start failed"
+  fi
+
+  if ! RunDocker exec "$CONTAINERID" chown -R root:root /opt/whdata/installedmodules/; then
     die "chown modules failed"
   fi
 
-  if version_gte "$version" 4.35 ; then
-    if ! $SUDO docker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
-      testfail "wh fixmodules failed"
-    fi
-  else
-    if ! $SUDO docker exec "$CONTAINERID" wh fixmodules --onlybroken --onlymodules ; then
-      testfail "wh fixmodules failed"
-    fi
+  if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
+    testfail "wh fixmodules failed"
   fi
 }
 
