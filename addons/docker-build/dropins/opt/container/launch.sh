@@ -32,7 +32,7 @@ chmod o-rwx /opt/whdata
 
 if [ -n "$WEBHARE_CI" ]; then # CI specific changes
   if ls /webhare-ci-modules/* >/dev/null 2>&1 ; then
-    cp -r //webhare-ci-modules/* /opt/whdata/installedmodules/
+    cp -r /webhare-ci-modules/* /opt/whdata/installedmodules/
   fi
 
   # Extract embedded webhare_testsuite

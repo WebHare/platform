@@ -400,9 +400,6 @@ list_finaltag()
   echo ""
 }
 
-# Version compare
-function version_gte() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" == "$2"; }
-
 c()
 {
   RESULT=
@@ -546,4 +543,3 @@ verify_webhare_version()
 
   return 0
 }
-

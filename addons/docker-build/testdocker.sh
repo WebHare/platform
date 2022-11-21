@@ -18,14 +18,13 @@ else
   source `dirname $0`/wh-functions.sh
 fi
 
+version=""
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
 ALLOWSTARTUPERRORS=""
-TESTSUITEDIR=${MODULESDIR}/webhare_testsuite
 DOCKERARGS=
 TERSE=--terse
 ENTERSHELL=
 RUNTESTARGS=
-PORTMAPPING=
 EXPLICITPORT=
 COVERAGE=
 ADDMODULES=
@@ -149,6 +148,15 @@ if [ "$COVERAGE" == "1" ]; then
 elif [ "$PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
+
+# Generalized semversion compare. Should return 0 if $2 >= $1
+is_atleast_version()
+{
+  [ -z "$version" ] && die "is_atleast_version is invoked too early"
+  vercomp "$version" "$1"
+  [ "$?" == "2" ] && return 1
+  return 0
+}
 
 function RunDocker()
 {
@@ -400,8 +408,8 @@ do
     CLONEINFO=" (branch $MODULEBRANCH)"
   fi
   # If we have the module installed, use its git repository for a faster clone
-  LOCALDIR=`$BASEDIR/whtree/bin/wh getmoduledir $MODULENAME 2>/dev/null`
-  if [ "$LOCALDIR" != "" ] && version_gte $(git --version) 2.11; then
+  LOCALDIR="$("$BASEDIR/whtree/bin/wh" getmoduledir $MODULENAME 2>/dev/null)"
+  if [ "$LOCALDIR" != "" ]; then
     GITOPTIONS="$GITOPTIONS --reference-if-able $LOCALDIR"
   fi
 
@@ -410,8 +418,6 @@ do
     echo "Failed to clone $CLONEURL"
     exit 1
   fi
-
-  ANYMODS=1
 done
 
 if [ -n "$ADDMODULES" ]; then
@@ -496,11 +502,11 @@ create_container()
     rm "$BUILDINFOFILE"
 
     # We can now use:
-    # if version_gte "$version" 4.35 ; then ... fi
+    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
   fi
 
   if [ -n "$ADDMODULES" ]; then
-    if [[ $version > 5.2. ]] ; then #5.2.0 and above!
+    if is_atleast_version 5.2.0-dev ; then
       DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
     else
       DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
@@ -546,7 +552,7 @@ if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartd
   FATALERROR=1
 fi
 
-if version_gte "$version" 5.00; then
+if is_atleast_version 5.0.0; then
   echo "$(date) container1 poststartdone, look for errors"
   if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
     if [ -z "$ALLOWSTARTUPERRORS" ]; then
@@ -566,9 +572,9 @@ if [ -n "$TESTFW_TWOHARES" ]; then
     FATALERROR=1
   fi
 
-  if version_gte "$version" 5.00; then
+  if is_atleast_version 5.0.0; then
     echo "$(date) container2 poststartdone, look for errors"
-    if version_gte "$version" 5.00 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+    if is_atleast_version 5.0.0 && ! $SUDO docker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
       if [ -z "$ALLOWSTARTUPERRORS" ]; then
         testfail "Error logs not clean!"
       else
@@ -603,16 +609,7 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
   $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"
   RETVAL="$?"
   if [ "$RETVAL" != "0" ]; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
-    if ! version_gte $version 4.35 ; then
-      echo "Workaround pre-4.35 race, retry assetpack compilation"
-      $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks recompile ":*"
-      RETVAL="$?"
-      if [ "$RETVAL" != "0" ]; then
-        testfail "wait assetpacks failed, even after retry (errorcode $?)"
-      fi
-    else
-      testfail "wait assetpacks failed (errorcode $?)"
-    fi
+    testfail "wait assetpacks failed (errorcode $RETVAL)"
   fi
 fi
 
