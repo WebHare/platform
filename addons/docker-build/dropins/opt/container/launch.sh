@@ -30,21 +30,22 @@ fi
 chgrp whdata /opt/whdata
 chmod o-rwx /opt/whdata
 
-if [ -n "$WHBUILD_ISTESTSUITEBUILD" ]; then
-  # If this is a test build, we have an existing database. we must upcopy it to prevent sync/flush errors
-  touch /opt/whdata/dbase/*
-fi
-
-# Extract embedded webhare_testsuite
-if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
-  echo "$(date) Extracting module webhare_testsuite"
-  mkdir -p /opt/whdata/installedmodules/
-  if ! tar -C /opt/whdata/installedmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
-    echo "Failed to extract testsuite!"
-    exit 1
+if [ -n "$WEBHARE_CI" ]; then # CI specific changes
+  if ls /webhare-ci-modules/* >/dev/null 2>&1 ; then
+    cp -r /webhare-ci-modules/* /opt/whdata/installedmodules/
   fi
 
-  echo "$(date) Finished initial webhare_testsuite preparation"
+  # Extract embedded webhare_testsuite
+  if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
+    echo "$(date) Extracting module webhare_testsuite"
+    mkdir -p /opt/whdata/installedmodules/
+    if ! tar -C /opt/whdata/installedmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
+      echo "Failed to extract testsuite!"
+      exit 1
+    fi
+
+    echo "$(date) Finished initial webhare_testsuite preparation"
+  fi
 fi
 
 # Mount needed data for restores

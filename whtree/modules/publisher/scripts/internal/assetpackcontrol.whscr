@@ -1721,6 +1721,7 @@ OBJECT mqm := WaitForPromise(OpenWebHareService("system:managedqueuemgr", [ argu
 IF (ObjectExists(mqm))
   mqm->CloseService();
 
+LogDebug("publisher:assetpackcontrol", "Starting");
 OpenPrimary();
 controller := NEW AssetPackController;
 AddInterruptCallback(PTR controller->OnInterrupt);
