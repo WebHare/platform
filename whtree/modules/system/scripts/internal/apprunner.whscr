@@ -253,6 +253,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
     RegisterEventCallback("system:apprunner.internal.rescan", PTR this->GotReloadEvent(FALSE, #1, #2));
     RegisterEventCallback("system:systemconfig", PTR this->GotReloadEvent(FALSE, #1, #2));
 
+    LogDebug("system:apprunner","Starting");
     this->ReloadApplications(NOT RecordExists(PollWHServiceState("poststartdone")));
   }
 
