@@ -3,6 +3,7 @@
 
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testdata.whlib";
 LOADLIB "wh::datetime.whlib";
@@ -217,6 +218,10 @@ MACRO UrlTest()
   TestEQ(FALSE, IsAbsoluteURL("?app=webshop:", FALSE));
   TestEQ(FALSE, IsAbsoluteURL("?app=webshop:order(slaapkamerweb,007799)", FALSE));
   TestEQ(FALSE, IsAbsoluteURL("", FALSE));
+
+  TestEq(FALSE, IsValidURL("<URL:http://nu.nl/>"));
+  TestEq(FALSE, IsValidURL("<FTP:http://nu.nl/>"));
+  TestEq(TRUE, IsValidURL("http://nu.nl/"));
 
   CloseTest("TestInternet: URLs");
 }
