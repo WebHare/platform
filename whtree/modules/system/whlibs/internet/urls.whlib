@@ -2,6 +2,7 @@
 /** @short URL manipulation
     @topic internet/url
 */
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::files.whlib";
 
@@ -285,7 +286,14 @@ PUBLIC BOOLEAN FUNCTION IsValidURL(STRING url)
     RETURN FALSE;
 
   RECORD unpacked := UnpackURL(url);
-  IF (unpacked.scheme = "" OR unpacked.schemespecificpart = "")
+  /* RFC1738: Scheme names consist of a sequence of characters. The lower case
+     letters "a"--"z", digits, and the characters plus ("+"), period
+     ("."), and hyphen ("-") are allowed. For resiliency, programs
+     interpreting URLs should treat upper case letters as equivalent to
+     lower case in scheme names (e.g., allow "HTTP" as well as "http").
+  */
+
+  IF (unpacked.scheme = "" OR unpacked.schemespecificpart = "" OR NOT NEW RegEx("^[-.+a-z0-9]+$")->Test(unpacked.scheme))
     RETURN FALSE;
 
   IF (unpacked.scheme IN [ "http", "https"])
