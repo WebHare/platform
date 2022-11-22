@@ -1,8 +1,7 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- the typescript compiler doesn't support importing .rpc.json files
-// @ts-nocheck
 import { KeyValueObject, PlainValue, Properties } from "@mod-system/js/types";
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";
+// @ts-ignore the typescript compiler doesn't support importing .rpc.json files
 import * as service from "./internal/feedback.rpc.json";
 import "@mod-publisher/web/common/feedback/styles.css";
 
@@ -18,7 +17,8 @@ export interface UserData
 }
 export interface FeedbackOptions
 {
-  token: string;
+  /** Feedback token, a JSON Web Token as returned by GetFeedbackWebToken */
+  token?: string;
   /** Author data */
   userData?: UserData;
   /** If the user should be asked to point at an element */
@@ -50,7 +50,7 @@ export interface FeedbackResult
     /** The topic tag */
      tag: string,
      /** The topic title */
-     titel: string,
+     title: string,
    }[];
 
    /** If not succesful, an error message */

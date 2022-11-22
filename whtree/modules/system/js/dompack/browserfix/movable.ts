@@ -26,12 +26,14 @@ function fireMoveEvent(eventtype: string, listener: EventTarget | null, event: M
     return;
 
   let coordinatesource;
-  if(HAS_TOUCHEVENT && event instanceof TouchEvent)
+  if("touches" in event && event.touches.length)
     coordinatesource = event.touches[0];
   else if(event.type == "touchend")
-    coordinatesource = lastcoordinates || event;
+    coordinatesource = lastcoordinates;
   else
-    coordinatesource = event;
+    coordinatesource = event as MouseEvent;
+  if (!coordinatesource)
+    return;
 
   if(event.type == "touchmove")
     lastcoordinates = cloneCoordinates(coordinatesource);
