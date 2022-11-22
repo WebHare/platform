@@ -1,0 +1,152 @@
+import * as dompack from 'dompack';
+import * as storage from 'dompack/extra/storage';
+import * as dialogapi from 'dompack/api/dialog';
+import { getFeedback, initFeedback, FeedbackResult } from "@mod-publisher/js/feedback";
+import { getTid } from "@mod-tollium/js/gettid";
+// @ts-ignore the typescript compiler doesn't support importing .rpc.json files
+import * as authorservice from "../authorservice.rpc.json";
+
+// The payload of the JSON Web Token as returned by GetFeedbackWebToken
+interface UserData
+{
+  iap: Date;
+  sub: string;
+  name: string;
+  email: string;
+  preferred_username: string;
+}
+
+// The form elements we want to address through the form.elements property
+interface FeedbackFormElements extends HTMLFormControlsCollection
+{
+  topic: HTMLSelectElement;
+  remarks: HTMLTextAreaElement;
+}
+
+let aboutdompointer: HTMLElement | null = null;
+let dontshowagain: HTMLInputElement | null = null;
+let feedbackToken: string | null = null;
+let userData: UserData | null = null;
+
+async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, result: FeedbackResult)
+{
+  //TODO prevent double submissions
+  dompack.stop(event);
+
+  //SubmitFeedback. TODO capture browser triplet and resolution etc too
+  const form = event.target as HTMLFormElement;
+  const elements = form?.elements as FeedbackFormElements;
+  const submission = await authorservice.submitFeedback(result.guid,
+    { topic: elements.topic.value
+    , remarks: elements.remarks.value
+    });
+
+  await dialogapi.runMessageBox(
+    <div>
+      <h2>{ getTid("publisher:site.authormode.feedbacksubmitted") }</h2>
+      <p>{ submission.responsetext }</p>
+    </div>,
+      [ { title: getTid("tollium:tilde.ok"), result: "ok" }
+      ], { /*signal: actrl.signal, */allowcancel: true });
+
+  dialog.resolve("ok");
+}
+
+export async function runFeedbackReport(event: MouseEvent, addElement: boolean)
+{
+  if (!feedbackToken || !userData)
+    return;
+
+  if (addElement && !localStorage.whFeedbackHintHidden)
+  {
+    if (!aboutdompointer)
+    {
+      aboutdompointer =
+        <div class="wh-authormode__aboutdompointer">
+          <div class="wh-authormode__aboutdompointer__block">
+            <span class="wh-authormode__aboutdompointer__text">{ getTid("publisher:site.authormode.aboutdompointer") }</span>
+            <span class="wh-authormode__aboutdompointer__dontshowagain">
+              <label>
+                { dontshowagain = <input type="checkbox" /> }
+                &nbsp;
+                { getTid("publisher:site.authormode.dontshowagain") }
+              </label>
+            </span>
+          </div>
+        </div>;
+    }
+
+    if (aboutdompointer && dontshowagain)
+    {
+      // Create a promise, store the resolve callback
+      let aboutresolve: (value: unknown) => void;
+      const aboutpromise = new Promise(resolve => aboutresolve = resolve);
+      // Upon clicking, set whFeedbackHintHidden and call the resolve callback
+      dontshowagain.checked = false;
+      dontshowagain.onchange = () => { localStorage.whFeedbackHintHidden = "1"; aboutresolve(true); };
+      // Show the aboutdompointer block
+      document.body.append(aboutdompointer);
+      // Wait for 2 seconds before calling the resolve callback
+      // @ts-ignore `resolve` is assigned synchronously, which isn't picked up by the TypeScript compiler (see
+      // https://github.com/Microsoft/TypeScript/issues/30053)
+      setTimeout(aboutresolve, 2000);
+      // Wait for the promise
+      await aboutpromise;
+      // Remove the aboutdompointer block again
+      aboutdompointer.remove();
+    }
+  }
+
+  // Get the feedback data with the screenshot
+  // TODO there needs to be a spinner "Preparing Feedback" or something like that
+  const result = await getFeedback(event, { addElement });
+  if (!result.success)
+  {
+    if (result.error != "cancelled")
+    {
+      await dialogapi.runMessageBox(getTid("publisher:site.authormode.feedbackerror"),
+          [ { title: getTid("tollium:tilde.close"), result: "ok" }
+          ], { /*signal: actrl.signal, */allowcancel: true });
+    }
+    return;
+  }
+
+  // Create dialog
+  const dialog = dialogapi.createDialog({ /*signal: actrl.signal, */allowcancel: false });
+  dialog.contentnode?.append(
+    <form onSubmit={ (formEvent: SubmitEvent) => submitFeedback(dialog, formEvent, result) }>
+      <h2>{ getTid("publisher:site.authormode.feedbackform") }</h2>
+      <p>
+        <label>{ getTid("publisher:site.authormode.from") }: </label>
+        { userData.name }
+      </p>
+      <p>
+        <label for="topic">{ getTid("publisher:site.authormode.topic") }:</label><br/>
+        <select name="topic" required>
+          <option value="" selected disabled>{ getTid("publisher:site.authormode.topic-placeholder") }</option>
+          { result.topics?.map(topic => <option value={topic.tag}>{topic.title}</option>) }
+        </select>
+      </p>
+      <p>
+        <label for="remarks">{ getTid("publisher:site.authormode.remarks") }:</label><br/>
+        <textarea name="remarks" placeholder={ getTid("publisher:site.authormode.remarks-placeholder") } maxlength="4096"></textarea>
+      </p>
+      <div class="wh-authormode__message__buttongroup">
+        <button onClick={ () => dialog.resolve("cancel") }>{ getTid("tollium:tilde.cancel") }</button>
+        <button type="submit">{ getTid("tollium:tilde.submit") }</button>
+      </div>
+    </form>
+    );
+
+  await dialog.runModal();
+}
+
+// Initialize the feedback options
+feedbackToken = storage.getLocal<string>("whFeedbackToken");
+if (feedbackToken?.match(/^[^.]*\.[^.]*\.[^.]*$/))
+{
+  userData = JSON.parse(window.atob(feedbackToken.split(".")[1])) as UserData;
+  initFeedback({ token: feedbackToken });
+}
+else
+  feedbackToken = null;

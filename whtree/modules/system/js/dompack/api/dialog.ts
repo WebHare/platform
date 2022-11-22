@@ -7,7 +7,7 @@ import * as domfocus from 'dompack/browserfix/focus';
 import KeyboardHandler from "dompack/extra/keyboard";
 import { DeferredPromise } from '@mod-system/js/types';
 
-type DialogOptions =
+export type DialogOptions =
 {
   /**  Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified */
    allowcancel?: boolean;

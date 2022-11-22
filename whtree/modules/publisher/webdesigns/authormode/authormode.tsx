@@ -9,7 +9,7 @@ import "./authormode.scss";
 import "./authormode.lang.json";
 
 
-function reportIssue(event, addElement)
+function reportIssue(event: MouseEvent, addElement: boolean)
 {
   dompack.stop(event);
   runFeedbackReport(event, addElement);
@@ -17,7 +17,7 @@ function reportIssue(event, addElement)
 
 function focusFirstAction()
 {
-  document.querySelector("wh-authorbar a").focus();
+  (document.querySelector("wh-authorbar a") as HTMLElement)?.focus();
 }
 
 function setupAuthorMode()
@@ -35,10 +35,10 @@ function setupAuthorMode()
         </ul>
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
-            <a href="#" onClick={event => reportIssue(event, true)}>{ getTid("publisher:site.authormode.feedback-specific") }</a>
+            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{ getTid("publisher:site.authormode.feedback-specific") }</a>
           </li>
           <li class="wh-authorbar__action">
-            <a href="#" onClick={event => reportIssue(event, false)}>{ getTid("publisher:site.authormode.feedback-general") }</a>
+            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{ getTid("publisher:site.authormode.feedback-general") }</a>
           </li>
         </ul>
       </div>
