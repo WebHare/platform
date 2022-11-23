@@ -240,9 +240,7 @@ function initRTE()
   });
 
   const params = new URL(location.href).searchParams;
-  var rteopts = { pageedit: editor == 'page'
-                , selfedit: editor == 'self'
-                , toolbarnode: document.getElementById('toolbar')
+  var rteopts = { toolbarnode: document.getElementById('toolbar')
                 , cssinstance: "wh-rtd-HASH"
                 , jslinks: []
                 , htmlclass: "html-class"
@@ -270,16 +268,8 @@ function initRTE()
   {
     rteopts.edittables = true;
   }
-  if(editor == 'page')
-  {
-//    rteopts.
-  }
-  if(editor == 'self')
-  {
 
-  }
-
-  var node = editor=="self" ? document.body : qS('#holder');
+  let node = qS('#holder');
   let rte = window.rte = new RTE(node, rteopts);
   node.addEventListener("wh:richeditor-action", onRTDAction);
 

@@ -174,7 +174,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
 
   PUBLIC MACRO ValidateSettings()
   {
-    IF(RecordExists(this->rtdtype) AND this->basetype NOT IN ["html","richdocument","pageeditor"])
+    IF(RecordExists(this->rtdtype) AND this->basetype NOT IN ["html","richdocument"])
       THROW NEW Exception("Structured documents require the 'html' type");
   }
 

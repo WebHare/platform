@@ -1135,7 +1135,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     RTEBase::StaticInit(def);
-    this->type := def.type;
+    this->type := "richdocument";
 
     this->contentareawidth := def.contentareawidth;
     IF(def.rtdtype != "")

@@ -16,7 +16,7 @@ MACRO RunBody(OBJECT testcontext)
   STRING editor := GetWebVariable("editor");
   IF(editor="")
     editor := "free";
-  IF(editor NOT IN ["free","structured","structured-contentarea","page","self"])
+  IF(editor NOT IN ["free","structured","structured-contentarea"])
     THROW NEW Exception("Unrecognized editor type '" || editor || "'");
 
   OBJECT css := MakeCSSStyleSheet(GetDiskResource(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/pages/rte/editor.css"));
@@ -28,8 +28,6 @@ MACRO RunBody(OBJECT testcontext)
     , isstructured := editor IN [ "structured", "structured-contentarea" ]
     , isstructurednotoken := editor = "structured"
     , isstructurednotokencontentarea := editor = "structured-contentarea"
-    , ispage := editor = "page"
-    , isself := editor = "self"
     , isparteditable := editor IN ["page","self"]
     , editor := editor
     , emptylines := GetWebVariable("fill")="emptylines"
