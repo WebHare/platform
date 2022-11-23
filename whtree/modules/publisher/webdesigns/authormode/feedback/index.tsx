@@ -142,7 +142,7 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean)
 }
 
 // Initialize the feedback options
-feedbackToken = storage.getLocal<string>("whFeedbackToken");
+feedbackToken = storage.getLocal<string>("wh-feedback:accesstoken");
 if (feedbackToken?.match(/^[^.]*\.[^.]*\.[^.]*$/))
 {
   userData = JSON.parse(window.atob(feedbackToken.split(".")[1])) as UserData;
