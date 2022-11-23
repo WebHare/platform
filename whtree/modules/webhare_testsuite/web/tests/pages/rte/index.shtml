@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/testfw/testpage.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 
 
@@ -44,5 +45,7 @@ MACRO RunBody(OBJECT testcontext)
 }
 
 OpenPrimary();
-InvokeTestPage(PTR RunBody, [ jsfile := "page.es"
+//There is no way for externals to hook into this page.es, so we need a temporary explicit exception
+BOOLEAN nextrte := IsWHDebugOptionSet("nextrte") OR "nextrte" IN Tokenize(GetWebVariable("wh-debug"),",");
+InvokeTestPage(PTR RunBody, [ jsfile := nextrte ? "page-nextrte.es" : "page.es"
                             ]);

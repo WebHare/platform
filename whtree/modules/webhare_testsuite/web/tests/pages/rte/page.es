@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
-import { RTE } from '@mod-tollium/web/ui/components/richeditor';
+import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 var richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 require('./page.css');
 require('./menu.scss');
@@ -270,7 +270,7 @@ function initRTE()
   }
 
   let node = qS('#holder');
-  let rte = window.rte = new RTE(node, rteopts);
+  let rte = window.rte = rteapi.createRTE(node, rteopts);
   node.addEventListener("wh:richeditor-action", onRTDAction);
 
   window.sourcesyncer = new richdebug.SourceDebugger(rte, document.getElementById('sourcesync'), document.getElementById('rangebox'));
