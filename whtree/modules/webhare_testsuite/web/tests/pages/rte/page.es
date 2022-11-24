@@ -207,11 +207,6 @@ function gotPropertiesEvent(event)
   }
 }
 
-window.destroy_rte = function()
-{
-  window.rte.destroy();
-};
-
 function onRTDAction(event)
 {
   if(event.detail.action == 'action-properties')
@@ -281,5 +276,89 @@ window.refreshdebug = function()
   window.sourcesyncer.refresh();
 };
 //console.log("*** addevent");
+
+dompack.register("#showbutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  document.getElementById('holder').style.display = '';
+}));
+
+dompack.register("#hidebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  document.getElementById('holder').style.display = 'none';
+}));
+
+dompack.register("#delayedhidespan", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.delayedhide();
+}));
+
+dompack.register("#delayedhideandshowspan", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.delayedhideandshow();
+}));
+
+dompack.register("#reparentbutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  reparent_rte();
+}));
+
+dompack.register("#givefocusbutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.givefocus();
+}));
+
+dompack.register("#enablebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.rte.setEnabled(true);
+}));
+
+dompack.register("#disablebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.rte.setEnabled(false);
+}));
+
+dompack.register("#readonlybutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.rte.setReadonly(true);
+}));
+
+dompack.register("#readwritebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.rte.setReadonly(false);
+}));
+
+dompack.register("#loadstorebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.loadstore();
+}));
+
+dompack.register("#savestorebutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.savestore();
+}));
+
+dompack.register("#showrenderedbutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.showrendered();
+}));
+
+dompack.register("#refreshdebugbutton", node => node.addEventListener("click", event =>
+{
+  dompack.stop(event);
+  window.refreshdebug();
+}));
 
 dompack.onDomReady(initRTE);
