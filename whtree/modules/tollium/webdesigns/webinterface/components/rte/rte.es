@@ -5,7 +5,7 @@ import { Counter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import { getUTF8Length } from "@mod-system/js/internal/utf8";
 
 import $todd from "@mod-tollium/web/ui/js/support";
-import { RTE } from '@mod-tollium/web/ui/components/richeditor';
+import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 import getTid from "@mod-tollium/js/gettid";
 require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TODO use our own language section.
@@ -126,7 +126,7 @@ export default class ObjRTE extends ComponentBase
   {
     if (message.cssurl)
     {
-      let preload = RTE.preloadCSS([ message.cssurl ]);
+      let preload = rteapi.preloadCSS([ message.cssurl ]);
       message.preloadedcss = preload;
       return preload.loadpromise;
     }
@@ -177,7 +177,7 @@ export default class ObjRTE extends ComponentBase
   buildNode()
   {
     this.node = <div data-name={this.name} propTodd={this} />;
-    this.rte = new RTE(this.node, this.rteoptions);
+    this.rte = rteapi.createRTE(this.node, this.rteoptions);
     if(this.rteoptions.structure)
       this.node.classList.add("structured");
 

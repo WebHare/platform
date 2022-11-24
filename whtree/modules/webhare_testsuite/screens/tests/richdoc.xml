@@ -39,9 +39,6 @@
           <tab name="rtetab" title="Tab with Free RTE">
             <richarea name="editor" width="1pr" height="1pr" type="email"/>
           </tab>
-          <tab name="pageedittab" title="Tab with page editing RTE">
-            <richdocument name="pageedit" width="1pr" height="1pr" type="pageeditor" />
-          </tab>
           <tab name="othertab" title="Tab with Structured RTE">
             <textedit name="focusfield" title="textfield" value="textfield for testing focus. try focussing this field and TAB-bing back to the Editor" width="1pr" />
             <textedit name="dirty" title="Dirty" enabled="false" />

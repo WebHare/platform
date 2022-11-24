@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
-import { RTE } from '@mod-tollium/web/ui/components/richeditor';
+import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 var richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 require('./page.css');
 require('./menu.scss');
@@ -240,9 +240,7 @@ function initRTE()
   });
 
   const params = new URL(location.href).searchParams;
-  var rteopts = { pageedit: editor == 'page'
-                , selfedit: editor == 'self'
-                , toolbarnode: document.getElementById('toolbar')
+  var rteopts = { toolbarnode: document.getElementById('toolbar')
                 , cssinstance: "wh-rtd-HASH"
                 , jslinks: []
                 , htmlclass: "html-class"
@@ -270,17 +268,9 @@ function initRTE()
   {
     rteopts.edittables = true;
   }
-  if(editor == 'page')
-  {
-//    rteopts.
-  }
-  if(editor == 'self')
-  {
 
-  }
-
-  var node = editor=="self" ? document.body : qS('#holder');
-  let rte = window.rte = new RTE(node, rteopts);
+  let node = qS('#holder');
+  let rte = window.rte = rteapi.createRTE(node, rteopts);
   node.addEventListener("wh:richeditor-action", onRTDAction);
 
   window.sourcesyncer = new richdebug.SourceDebugger(rte, document.getElementById('sourcesync'), document.getElementById('rangebox'));

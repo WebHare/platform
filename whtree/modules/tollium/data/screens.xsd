@@ -2979,11 +2979,6 @@ To change a <xs:attribute /> for adding descriptions
             <xs:documentation>Set the horizontal margins. If the contentareawidth is unknown, the margins will always be considered to be 'none'</xs:documentation>
           </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="type" type="RichDocumentTypes" default="richdocument">
-          <xs:annotation>
-            <xs:documentation>The editor to use. Possible types are "richdocument" and "pageeditor".</xs:documentation>
-          </xs:annotation>
-        </xs:attribute>
         <xs:attribute name="maxlength" type="xs:nonNegativeInteger">
           <xs:annotation>
             <xs:documentation>
@@ -3110,7 +3105,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="type" type="RTETypes" use="required"> <!-- required: experiment to force people to be explicit about the type they want -->
           <xs:annotation>
             <xs:documentation>
-              <html:p>The type of content to edit. Possible types are "html", "html-inline", "html-block", "email", "richdocument" and "pageeditor".</html:p>
+              <html:p>The type of content to edit. Possible types are "html", "html-inline", "html-block", "email", "richdocument".</html:p>
             </xs:documentation>
           </xs:annotation>
         </xs:attribute>
@@ -4686,22 +4681,6 @@ To change a <xs:attribute /> for adding descriptions
       <xs:enumeration value="html-inline"/>
       <xs:enumeration value="email"/>
       <xs:enumeration value="richdocument"/>
-      <xs:enumeration value="pageeditor"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <xs:simpleType name="RichDocumentTypes">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="richdocument">
-        <xs:annotation>
-          <xs:documentation>Edit the full document</xs:documentation>
-        </xs:annotation>
-      </xs:enumeration>
-      <xs:enumeration value="pageeditor">
-        <xs:annotation>
-          <xs:documentation>Edit specific parts of a page</xs:documentation>
-        </xs:annotation>
-      </xs:enumeration>
     </xs:restriction>
   </xs:simpleType>
 

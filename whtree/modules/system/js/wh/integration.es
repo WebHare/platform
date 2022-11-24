@@ -3,6 +3,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 */
 
 import * as dompack from 'dompack';
+import * as storage from 'dompack/extra/storage';
 
 export let config = {};
 
@@ -134,13 +135,13 @@ function checkAuthorMode()
     const token = JSON.parse(atob(url.searchParams.get("wh-feedback-token")));
     if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) // Check if the string has the general JWT header.payload.signature format
     {
-      localStorage.whFeedbackToken = token;
+      storage.setLocal("wh-feedback:accesstoken", token);
       url.searchParams.delete("wh-feedback-token");
       history.replaceState(null, "", url);
     }
   }
 
-  if (localStorage?.whFeedbackToken?.match(/^[^.]*\.[^.]*\.[^.]*$/))
+  if (storage.getLocal("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/))
     activeAuthorMode();
 }
 

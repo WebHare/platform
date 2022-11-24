@@ -13,8 +13,6 @@
   <jstest file="teststructured-restructuring.es" />
   <jstest file="teststructured-keyboard.es" />
   <jstest file="testpageframe.es" />
-  <jstest file="testpage.es" />
-  <jstest file="testself.es" />
   <jstest file="testfocus.es" />
   <jstest file="testembeddedobjects.es" />
 

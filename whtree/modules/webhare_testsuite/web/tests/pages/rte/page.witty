@@ -9,16 +9,12 @@
 
     <div id="rtepart"
           data-editor="[editor]"
-          data-allowtags="[allowtags]"
-          [!data-rte-css="[forevery rte_css][if not first] [/if][url][/forevery]"  !]
-          [if isself]class="wh-rtd wh-rtd-editor"[/if]>
+          data-allowtags="[allowtags]">
 
       <span class="editors">
       Editor: <a href="index.shtml" [if isfree]class=selected[/if]>Free</a>
               <a href="index.shtml?editor=structured" [if isstructurednotoken]class=selected[/if]>Structured</a>
               <a href="index.shtml?editor=structured-contentarea" [if isstructurednotokencontentarea]class=selected[/if]>Structured (contentarea)</a>
-              <a href="index.shtml?editor=page" [if ispage]class=selected[/if]>Page</a>
-              <a href="index.shtml?editor=self" [if isself]class=selected[/if]>Self</a>
               <br/>
       </span>
 
