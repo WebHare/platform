@@ -63,8 +63,6 @@ class WebHareServiceWrapper
   constructor(port, response)
   {
     this._port = port;
-    this._promiselist = [];
-    this._port.on("message", (message, msgid) => this.__onPortMessage(message,msgid));
 
     let self=this;
     response.methods.forEach(method =>
@@ -73,55 +71,13 @@ class WebHareServiceWrapper
     });
   }
 
-  __remotingFunc(method, args)
+  async __remotingFunc(method, args)
   {
-    return this._port.doRequest({call: method.name, args: args }).then(response =>
-    {
-      if(response.result)
-        return response.result;
-
-      if(response.__promiseseq)
-      {
-        var defer = tools.createDeferred();
-        var idx = this._promiselist.findIndex(el => el.id == response.__promiseseq);
-        if(idx < 0)
-        {
-          this._promiselist.push ( { id: response.__promiseseq, defer: defer});
-        }
-        else
-        {
-          var message = this._promiselist[idx].response;
-          defer[message.type](message.value);
-          this._promiselist.splice(idx,1);
-        }
-        return defer.promise;
-      }
-
-      console.error("Unexpected response (returned an empty record?)",response);
-      throw new Error("Unexpected response (returned an empty record?)");
-    });
-
-/*    RECORD outmsg := [ call := tocall, args := args ];
-    IF(__logdebug_services)
-      LogDebug("services.whlib", "sendmessage req", outmsg);
-    RECORD res := this->__link->SendMessage(outmsg);
-*/
-  }
-
-  __onPortMessage(message, msgid)
-  {
-    if(message.__promiseseq)
-    {
-      var idx = this._promiselist.findIndex(el => el.id == message.__promiseseq);
-      if(idx < 0)
-      {
-        this._promiselist.push ( { id: message.__promiseseq, response: message });
-        return;
-      }
-      var promise = this._promiselist[idx];
-      this._promiselist.splice(idx,1);
-      promise.defer[message.type](message.value);
-    }
+    let response = await this._port.doRequest({call: method.name, args: args });
+    if(response.exc)
+      throw new Error(response.exc.what);
+    else
+      return response.result;
   }
 }
 
