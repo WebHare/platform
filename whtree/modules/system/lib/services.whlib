@@ -25,7 +25,6 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
 <
   BOOLEAN isoutofdate;
   RECORD ARRAY links;
-  INTEGER promiseseq;
   FUNCTION PTR constructor;
   RECORD options;
 
@@ -130,43 +129,22 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
 
   UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
   {
+    this->HandleTheMessage(link, message, replyid);
+    RETURN [ result := "defer" ];
+  }
+
+  ASYNC MACRO HandleTheMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
     TRY
     {
       INTEGER pos := this->GetLinkPos(link);
-      VARIANT result := CallAnyPtrVA(GetObjectMethodPtr(this->links[pos].handler, message.call), message.args);
-
-      IF (TypeID(result) = TypeID(OBJECT) AND result EXTENDSFROM PromiseBase)
-      {
-        this->promiseseq := this->promiseseq + 1;
-        result->Then(PTR this->ResolvePromise(link, this->promiseseq, #1), PTR this->RejectPromise(link, this->promiseseq, #1));
-        RETURN [ result := "message", msg := [ __promiseseq := this->promiseseq ]];
-      }
-
-      RETURN [ result := "message", msg := [ result := result ] ];
+      VARIANT result := AWAIT CallAnyPtrVA(GetObjectMethodPtr(this->links[pos].handler, message.call), message.args);
+      link->SendReply(CELL[ result ], replyid);
     }
     CATCH (OBJECT e)
     {
-      RETURN [ result := "message", msg := [ __exception := e->EncodeForIPC() ] ];
+      link->SendReply(CELL[ exc := e->EncodeForIPC() ], replyid);
     }
-  }
-
-  MACRO ResolvePromise(OBJECT link, INTEGER promiseseq, VARIANT result)
-  {
-    IF (link->handle = 0) // Already closed?
-      RETURN;
-
-    IF (TypeID(result) = TypeID(OBJECT))
-      link->SendMessage([ __promiseseq := promiseseq, type := "resolve-exception", value := result->EncodeForIPC() ]);
-    ELSE
-      link->SendMessage([ __promiseseq := promiseseq, type := "resolve", value := result ]);
-  }
-
-  MACRO RejectPromise(OBJECT link, INTEGER promiseseq, OBJECT e)
-  {
-    IF (link->handle = 0) // Already closed?
-      RETURN;
-
-    link->SendMessage([ __promiseseq := promiseseq, type := "reject", value := e->EncodeForIPC() ]);
   }
 >;
 
