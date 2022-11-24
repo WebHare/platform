@@ -55,7 +55,6 @@
         "no-implicit-globals": "error",
         "no-implied-eval": "error",
         "no-invalid-this": "error",
-        "no-lonely-if": "error",
         "no-loop-func": "error",
         "no-shadow": "error",
         "no-throw-literal": "error",
@@ -78,8 +77,7 @@
             "always"
         ],
         "no-unused-vars": [
-            "error",
-            {
+            "error", {
                 "vars": "all",
                 "args": "none"
             }
@@ -89,9 +87,13 @@
         "react/no-unknown-property": 0,
         "react/prop-types": 0,
         "react/jsx-key": 0,
+        "@typescript-eslint/array-type": [
+            "error", {
+                "default": "array-simple"
+            }
+        ],
         "@typescript-eslint/ban-ts-comment": [
-            "error",
-            {
+            "error", {
                 "ts-ignore": "allow-with-description"
             }
         ],

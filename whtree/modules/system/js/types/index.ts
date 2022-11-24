@@ -8,7 +8,7 @@ export type KeyValueObject<T> =
 };
 
 /// An array of name/value pairs
-export type Properties = { name: string, value: string }[];
+export type Properties = Array<{ name: string, value: string }>;
 
 /// A deferred promise with typed result value
 export type DeferredPromise<T> =
