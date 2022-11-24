@@ -46,12 +46,12 @@ export interface FeedbackResult
    guid?: string;
 
    /** If successful, an array of available topics */
-   topics?: {
+   topics?: Array<{
     /** The topic tag */
      tag: string,
      /** The topic title */
      title: string,
-   }[];
+   }>;
 
    /** If not succesful, an error message */
    error?: string;

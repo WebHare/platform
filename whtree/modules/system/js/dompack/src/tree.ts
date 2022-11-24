@@ -18,7 +18,7 @@ export type Rect =
   node?: HTMLElement;
 };
 
-function generateInsertList(nodes: (string | Node)[])
+function generateInsertList(nodes: Array<string | Node>)
 {
   if(nodes.length==1)
     return typeof nodes[0]==='string' ? document.createTextNode(nodes[0]) : nodes[0];
@@ -54,7 +54,7 @@ export function contains(ancestor: Node, child: Node)
   return false;
 }
 //insert a range of nodes before a node: https://dom.spec.whatwg.org/#dom-childnode-before
-export function before(node: ChildNode, ...nodes: (string | Node)[])
+export function before(node: ChildNode, ...nodes: Array<string | Node>)
 {
   if(node.before)
   {
@@ -66,7 +66,7 @@ export function before(node: ChildNode, ...nodes: (string | Node)[])
     node.parentNode.insertBefore(generateInsertList(nodes), node);
 }
 //insert a range of nodes after a node: https://dom.spec.whatwg.org/#dom-childnode-after
-export function after(node: ChildNode, ...nodes: (string | Node)[])
+export function after(node: ChildNode, ...nodes: Array<string | Node>)
 {
   if(node.after)
   {
@@ -78,7 +78,7 @@ export function after(node: ChildNode, ...nodes: (string | Node)[])
     node.parentNode.insertBefore(generateInsertList(nodes), node.nextSibling);
 }
 //replace node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-replacewith
-export function replaceWith(node: ChildNode, ...nodes: (string | Node)[])
+export function replaceWith(node: ChildNode, ...nodes: Array<string | Node>)
 {
   if(node.replaceWith)
   {
@@ -102,7 +102,7 @@ export function remove(node: ChildNode)
     node.parentNode.removeChild(node);
 }
 //insert nodes at start: https://dom.spec.whatwg.org/#dom-parentnode-prepend
-export function prepend(node: ParentNode, ...nodes: (string | Node)[])
+export function prepend(node: ParentNode, ...nodes: Array<string | Node>)
 {
   if(node.prepend)
   {
@@ -113,7 +113,7 @@ export function prepend(node: ParentNode, ...nodes: (string | Node)[])
   node.insertBefore(generateInsertList(nodes), node.firstChild);
 }
 //insert nodes at end: https://dom.spec.whatwg.org/#dom-parentnode-append
-export function append(node: ParentNode, ...nodes: (string | Node)[])
+export function append(node: ParentNode, ...nodes: Array<string | Node>)
 {
   if(node.append)
   {

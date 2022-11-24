@@ -12,7 +12,7 @@ interface Tag
 {
   t: "tag";
   tag: string;
-  subs: string | Array<LanguagePart>; // These subs are parsed by DecodeLanguageText, which may return a single string
+  subs: string | LanguagePart[]; // These subs are parsed by DecodeLanguageText, which may return a single string
 }
 
 interface Link
@@ -21,7 +21,7 @@ interface Link
   link: string;
   linkparam: number;
   target: string;
-  subs: string | Array<LanguagePart>; // These subs are parsed by DecodeLanguageText, which may return a single string
+  subs: string | LanguagePart[]; // These subs are parsed by DecodeLanguageText, which may return a single string
 }
 
 interface IfParam
@@ -29,14 +29,14 @@ interface IfParam
   t: "ifparam";
   p: number;
   value: string;
-  subs: Array<LanguagePart>; // These subs are always an array of ParseTextNode results
-  subselse: Array<LanguagePart>; // These subs are always an array of ParseTextNode results
+  subs: LanguagePart[]; // These subs are always an array of ParseTextNode results
+  subselse: LanguagePart[]; // These subs are always an array of ParseTextNode results
 }
 
 // An object with tids or gids
 type LanguageTexts = { [tid: string]: LanguageText };
 // A text, an array of language text parts or an object with tids or gids
-type LanguageText = string | Array<LanguagePart> | LanguageTexts;
+type LanguageText = string | LanguagePart[] | LanguageTexts;
 // A text, a param or a tag, link or ifparam node
 type LanguagePart = string | number | Tag | Link | IfParam;
 
@@ -61,7 +61,7 @@ function encodeHTML(input: string)
               .split('\n').join('<br/>');
 }
 
-function executeCompiledTidText(text: LanguageText, params: Array<string>, rich: boolean)
+function executeCompiledTidText(text: LanguageText, params: string[], rich: boolean)
 {
   if(typeof text == "object" && !Array.isArray(text))
     text = text?.[""] as string;
@@ -129,7 +129,7 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
     tid = 'tollium:tilde.' + tid.substring(1);
 
   // Convert params to string
-  const strparams: Array<string> = params.map(param => typeof param == "number" ? String(param) : param || "");
+  const strparams: string[] = params.map(param => typeof param == "number" ? String(param) : param || "");
 
   // Initialize text with the 'cannot find text' message
   const text = domdebug.debugflags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";

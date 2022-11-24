@@ -24,7 +24,7 @@ function flattenArray<T>(list: T[]): T[]
   return list.reduce((acc: T[], elt) => acc.concat(Array.isArray(elt) ? flattenArray(elt) : elt), []);
 }
 
-function setClassName(node: Element, value?: string | Array<string> | { [key: string]: boolean })
+function setClassName(node: Element, value?: string | string[] | { [key: string]: boolean })
 {
   if (!value)
     node.className = '';
@@ -173,12 +173,12 @@ export function create(elementname: string, attributes: { [key: string]: any })
  * @param childNodes - Any child nodes to add immediately
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: (Node | string | number)[])
+export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: Array<Node | string | number>)
 {
   // Ensure attributes
   attributes = attributes || {};
   // Flatten childnodes arrays, convert numbers to strings. Also support children property (React uses that)
-  let parts: (Node | string | number)[] = (attributes.childNodes || []).concat(attributes.children || []).concat(childNodes);
+  let parts: Array<Node | string | number> = (attributes.childNodes || []).concat(attributes.children || []).concat(childNodes);
   if (attributes.children)
     attributes.children = null;
   parts = flattenArray(parts);
