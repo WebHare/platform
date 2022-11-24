@@ -18,20 +18,17 @@
               <br/>
       </span>
 
-      <a href="#" onclick="document.getElementById('holder').style.display='';return false;">show</a>
-      <a href="#" onclick="document.getElementById('holder').style.display='none';return false;">hide now</a>
-      <a href="#" onclick="delayedhide(); return false;" id="delayedhidespan">hide delay</a>
-      <a href="#" onclick="delayedhideandshow(); return false;" id="delayedhideandshowspan">hide&amp;show delay</a>
-      <a href="#" onclick="reparent_rte();return false;">reparent</a>
-      <a href="#" onclick="saveRTDValue();return false;">save</a>
-      <a href="#" onclick="destroy_rte();return false;">destroy</a>
+      <a id="showbutton" href="#">show</a>
+      <a id="hidebutton" href="#">hide now</a>
+      <a id="delayedhidespan" href="#" >hide delay</a>
+      <a id="delayedhideandshowspan" href="#" >hide&amp;show delay</a>
+      <a id="reparentbutton" href="#" onclick="reparent_rte();return false;">reparent</a>
       <br/>
-      Enable/focus: <a href="#" onclick="givefocus(); return false;">send focus to rte</a>
-      <a href="#" onclick="removefocus(); return false;">remove focus from rte</a>
-      <a href="#" onclick="rte.setEnabled(true); return false;">Enable</a>
-      <a href="#" onclick="rte.setEnabled(false); return false;">Disable</a>
-      <a href="#" onclick="rte.setReadonly(true); return false;">Readonly</a>
-      <a href="#" onclick="rte.setReadonly(false); return false;">Writable</a>
+      Enable/focus: <a id="givefocusbutton" href="#">send focus to rte</a>
+      <a id="enablebutton" href="#">Enable</a>
+      <a id="disablebutton" href="#">Disable</a>
+      <a id="readonlybutton" href="#">Readonly</a>
+      <a id="readwritebutton" href="#">Writable</a>
       (be sure to try focusing a text area, and ensure it is untouched by focus changes)<br/>
 
       <table>
@@ -110,10 +107,10 @@
             <textarea id="store"></textarea><br/>
             <button type="button" id="copybutton">Copy</button>
             <button type="button" id="pastebutton">Paste</button>
-            <button onclick="loadstore()">Load source</button>
-            <button onclick="savestore()">Save source</button>
-            <button onclick="showrendered()">Render above source</button><br/>
-            <button onclick="refreshdebug()">Refresh</button><br/>
+            <button id="loadstorebutton">Load source</button>
+            <button id="savestorebutton">Save source</button>
+            <button id="showrenderedbutton">Render above source</button><br/>
+            <button id="refreshdebugbutton">Refresh</button><br/>
             <textarea id="sourcesync" style="width:100%; height:280px"></textarea><br/>
             <input id="rangebox" style="width:100%" disabled>
           </td>
