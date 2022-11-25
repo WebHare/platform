@@ -1438,7 +1438,7 @@ class TestSuite
 
     let url = new URL(window.location.href);
     this.repeatuntilerror = url.searchParams.get('repeatuntilerror') == '1';
-    this.autostart = url.searchParams.get('autostart') != '0';
+    this.autostart = url.searchParams.get('autostart') === '1';
 
     this.getTestList();
 
