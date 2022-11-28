@@ -80,6 +80,8 @@ PUBLIC STATIC OBJECTTYPE VideoWidgetBase EXTEND WidgetBase
         STRING media := `(max-width:${breakpoint}px)`;
         IF(#breakpoint > 0)
           media := `(min-width:${breakpoints[#breakpoint-1]+1}px) and ${media}`;
+        ELSE
+          thumbnail := breakpointimg;// If has breakpoints, use smallest image as initial image src
 
         Print(`<source srcset="${EncodeValue(breakpointimg.link)}" media="${media}">`);
       }
