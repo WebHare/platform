@@ -129,7 +129,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
   IF (compinfo->HasAttribute("supportedvalues") OR compinfo->HasAttribute("defaultvalue"))
   {
     RECORD parseresult := ParseSupportedValues(ParseXSList(compinfo->GetAttribute("supportedvalues") ?? compinfo->GetAttribute("defaultvalue")));
-    errors := errors CONCAT SELECT resourcename := resourcename, line := compinfo->line, col := 0, message := err FROM ToRecordArray(parseresult.errors, 'err');
+    errors := errors CONCAT SELECT resourcename := resourcename, line := compinfo->linenum, col := 0, message := err FROM ToRecordArray(parseresult.errors, 'err');
     elrec.supportedvalues := parseresult.supportedvalues;
   }
   ELSE IF (compinfo->GetAttribute("supportedvaluesfunc") LIKE "*#*")
