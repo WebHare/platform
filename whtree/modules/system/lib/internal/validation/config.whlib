@@ -11,6 +11,8 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
                                           , nowarnings := FALSE
                                           , documentation := FALSE
                                           , eslintmasks := STRING[ "*.ts", "*.tsx" ]
+                                          , formatmasks := STRING[]
+                                          , formatexcludemasks := STRING[]
                                           ];
 
 /** Returns the validation configuration for a module
@@ -66,6 +68,14 @@ PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
       IF(NOT IsNodeApplicableToThisWebHare(excl))
         CONTINUE;
       INSERT TrimWhitespace(excl->GetAttribute("mask")) INTO retval.eslintmasks AT END;
+    }
+
+    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "format")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(excl))
+        CONTINUE;
+      retval.formatmasks := retval.formatmasks CONCAT ParseXSList(excl->GetAttribute("masks"));
+      retval.formatexcludemasks := retval.formatexcludemasks CONCAT ParseXSList(excl->GetAttribute("excludemasks"));
     }
   }
 

@@ -380,6 +380,13 @@
           <xs:attributeGroup ref="ApplicabletoWebHare" />
         </xs:complexType>
       </xs:element>
+      <xs:element name="format" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="masks" use="required" />
+          <xs:attribute name="excludemasks" />
+          <xs:attributeGroup ref="ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
       <xs:element name="fetchmodule" minOccurs="0" maxOccurs="unbounded">
         <xs:annotation>
           <xs:documentation>Additional modules to fetch for continuous integration (CI) tests. These relations are not transitive (just because module B fetches module C to run its tests, doesn't mean your module A needs C to test itself)</xs:documentation>
