@@ -107,9 +107,10 @@ OBJECTTYPE CheckerObject
     IF(moddir="")
       THROW NEW Exception(`No such module '${modname}'`);
 
-    OBJECT typescriptresultpromise;
+    OBJECT typescriptresultpromise, checkformattingpromise;
     IF (this->options.checktypescript)
       typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "coremodules" : modname);
+    checkformattingpromise := CheckModuleJavascriptFormatting(modname);
 
     this->validateconfig := GetModuleValidationConfig(modname);
     IF(this->validateconfig.futuremodule)
@@ -158,6 +159,10 @@ OBJECTTYPE CheckerObject
       FOREVERY (RECORD issue FROM typescriptresult.issues)
         this->AddIssue(issue, issue.category);
     }
+
+    RECORD formatresult := WaitForPromise(checkformattingpromise);
+    FOREVERY (RECORD issue FROM formatresult.issues)
+      this->AddIssue(issue, issue.category);
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetIssues()

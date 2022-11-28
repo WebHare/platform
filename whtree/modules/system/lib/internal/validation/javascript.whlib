@@ -1,6 +1,8 @@
 <?wh
 
+LOADLIB "wh::async.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
@@ -9,11 +11,14 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
+LOADLIB "mod::system/lib/internal/validation/scan.whlib";
 
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
+
 
 ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
 {
@@ -366,4 +371,138 @@ PUBLIC MACRO CreateModuleTSConfigFile(STRING modulename)
   BLOB tsconfigblob := EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]);
 
   StoreDiskFile(MergePath(installationroot, "tsconfig.json"), tsconfigblob, [ overwrite := TRUE ]);
+}
+
+RECORD FUNCTION DecodeResult(BLOB result)
+{
+  RECORD decoded := DecodeJSONBlob(result);
+  RETURN CELL
+      [ decoded.path
+      , decoded.error
+      , decoded.output
+      ];
+}
+
+/** Format multiple javascript files
+    @param data List of files to format
+    @cell(string) data.path Path to file
+    @cell(blob) data.data Contents of file
+    @return Formatted files
+    @cell(string) return.path Path of formatted file
+    @cell(string) return.error If set, error message
+    @cell(blob) return.output Formatted output (if error is empty)
+*/
+PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
+{
+  INTEGER cmdstream := CreateStream();
+
+  // Run max 8 formatters concurrently
+  OBJECT serializer := MakeCallSerializer([ maxconcurrent := 8 ]);
+
+  RECORD ARRAY scheduled;
+  FOREVERY (RECORD file FROM data)
+  {
+    STRING dir := GetDirectoryFromPath(file.path);
+
+    RECORD cmd := CELL
+        [ basedir :=          dir
+        , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
+        , file.path
+        , data :=             EncodeBase64(BlobToString(file.data))
+        ];
+
+    INSERT CELL
+        [ data :=             file
+        , result :=           serializer->Call(PTR CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]))
+        ] INTO scheduled AT END;
+  }
+
+  RECORD ARRAY results;
+  FOREVERY (RECORD rec FROM scheduled)
+  {
+    RECORD res := AWAIT rec.result;
+    INSERT CELL
+        [ ...rec.data
+        , ...res
+        , output :=    StringToBlob(DecodeBase64(res.output))
+        ] INTO results AT END;
+  }
+
+  RETURN results;
+}
+
+/** Format a single javascript file
+    @param path Path to file
+    @param data Contents of the file
+    @return Formatted file
+    @cell(blob) return.output Formatted file
+*/
+PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data)
+{
+  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ]);
+  IF (res[0].error != "")
+    THROW NEW Exception(`Error formatting file: ${res[0].error}`);
+  RETURN CELL[ res[0].output ];
+}
+
+PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
+{
+  RECORD retval :=
+      [ issues :=     RECORD[]
+      ];
+
+  RECORD ARRAY files := GetFilesToValidate([ `mod::${module}` ], [ extensions := [ ".es", "js", ".ts", ".tsx" ]]);
+
+  RECORD ARRAY toformat;
+  FOREVERY (RECORD rec FROM files)
+  {
+    IF (NOT MatchesPathMasks(rec.subpath, rec.settings.formatmasks) OR MatchesPathMasks(rec.subpath, rec.settings.formatexcludemasks))
+      CONTINUE;
+
+    BLOB data := GetDiskResource(rec.path);
+    INSERT CELL[ rec.path, data, rec.module, rec.subpath ] INTO toformat AT END;
+  }
+
+  TRY
+  {
+    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat));
+    FOREVERY (RECORD rec FROM result)
+    {
+      IF (rec.error != "")
+      {
+        INSERT
+            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+            , line :=         1
+            , col :=          1
+            , message :=      `Formatting file caused an error: ${rec.error}`
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+        CONTINUE;
+
+      }
+      BOOLEAN ismatch := BlobToString(rec.output) = BlobToString(rec.data);
+      IF (NOT ismatch)
+      {
+        INSERT
+            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+            , line :=         1
+            , col :=          1
+            , message :=      `File hasn't been formatted correctly`
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+      }
+    }
+  }
+  CATCH (OBJECT e)
+  {
+        INSERT
+            [ resourcename := `mod::${module}/moduledefinition.xml`
+            , line :=         1
+            , col :=          1
+            , message :=      `Error formatting javascript files: ${e->what}`
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+
+  }
+  RETURN retval;
 }
