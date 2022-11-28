@@ -650,7 +650,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     // FIXME: and what about entities using the selected object as domain value (in singledomain or multipledomain fields) ?
     RETURN
-        SELECT *
+        SELECT *, title := title ?? tag
           FROM this->contexts->wrdschema->ListTypes() AS types
          WHERE (islink /* link */ AND (linkfrom = type->id OR linkto = type->id))
                OR (isattachment /* classification */ AND (linkfrom = type->id));
@@ -862,13 +862,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     OBJECT type := this->contexts->wrdschema->GetTypeById(linktype.id);
 
     RECORD fields;
-    IF (linktype.islink /* link */ AND linktype.requiretype_right = type->id)
-    {
-      IF (linktype.requiretype_left != type->id)
-        fields := [ wrd_rightentity := selectedentity.id ];
-    }
-    ELSE
+    IF(type->linkfrom = selectedentity.type->id)
       fields := [ wrd_leftentity := selectedentity.id ];
+    ELSE IF(type->linkto = selectedentity.type->id)
+      fields := [ wrd_rightentity := selectedentity.id ];
 
     IF(RunWRDEntityEditDialog(this, type, 0, [ entitycontext := fields ]) != 0)
       this->ReloadLinks();
