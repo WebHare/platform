@@ -4,93 +4,93 @@ import FormBase from "@mod-publisher/js/forms/formbase";
 
 test.registerTests(
   [
-      async function()
-      {
-        await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
-        await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
+    async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
-        // Check the form handler
-        let formhandler = FormBase.getForNode(test.qS("form"));
-        test.true(formhandler, "no formhandler available");
+      // Check the form handler
+      let formhandler = FormBase.getForNode(test.qS("form"));
+      test.true(formhandler, "no formhandler available");
 
-        // Check the empty value
-        let result = await formhandler.getFormValue();
-        test.eq("", result.text);
-        test.eq(0, result.contacts.length);
+      // Check the empty value
+      let result = await formhandler.getFormValue();
+      test.eq("", result.text);
+      test.eq(0, result.contacts.length);
 
-        // Fill the name field not in the array
-        test.fill(test.qS("input[name=text]"), "not array");
+      // Fill the name field not in the array
+      test.fill(test.qS("input[name=text]"), "not array");
 
-        // Check the resulting result
-        result = await formhandler.getFormValue();
-        test.eq("not array", result.text);
-        test.eq(0, result.contacts.length);
+      // Check the resulting result
+      result = await formhandler.getFormValue();
+      test.eq("not array", result.text);
+      test.eq(0, result.contacts.length);
 
-        // Verify configuration of the array
-        let arrayholder = test.qS(".wh-form__fieldgroup--array");
-        test.eq("contacts", arrayholder.dataset.whFormGroupFor); //it should NOT claim its subnodes
+      // Verify configuration of the array
+      let arrayholder = test.qS(".wh-form__fieldgroup--array");
+      test.eq("contacts", arrayholder.dataset.whFormGroupFor); //it should NOT claim its subnodes
 
-        // Add a row
-        test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
-        test.eq(1, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
+      // Add a row
+      test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
+      test.eq(1, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
 
-        test.eq(1, test.qSA(".wh-form__arrayrow").length);
+      test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
-        // Fill the array's name field and the not-array name field
-        test.fill(test.qS("input[name=text]"), "still not array");
-        test.fill(test.qS(".wh-form__arrayrow input[type=text]"), "array name");
+      // Fill the array's name field and the not-array name field
+      test.fill(test.qS("input[name=text]"), "still not array");
+      test.fill(test.qS(".wh-form__arrayrow input[type=text]"), "array name");
 
-        //Set select option
-        test.fill(test.qS(".wh-form__arrayrow select"), "2");
+      //Set select option
+      test.fill(test.qS(".wh-form__arrayrow select"), "2");
 
-        //check placeholder
-        test.eq("Your full name",test.qS(".wh-form__arrayrow input.wh-form__textinput").placeholder);
+      //check placeholder
+      test.eq("Your full name",test.qS(".wh-form__arrayrow input.wh-form__textinput").placeholder);
 
-        // Check the resulting result
-        result = await formhandler.getFormValue();
-        test.eq("still not array", result.text);
-        test.eq(1, result.contacts.length);
-        test.eq("array name", result.contacts[0].name);
+      // Check the resulting result
+      result = await formhandler.getFormValue();
+      test.eq("still not array", result.text);
+      test.eq(1, result.contacts.length);
+      test.eq("array name", result.contacts[0].name);
 
-        test.eq("2", result.contacts[0].gender);
+      test.eq("2", result.contacts[0].gender);
 
-        // Add another row
-        test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
-        test.eq(2, test.qSA(".wh-form__arrayrow").length);
+      // Add another row
+      test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
+      test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
-        test.eq("Your full name",test.qSA(".wh-form__arrayrow input[data-wh-form-cellname=name]")[1].placeholder);
+      test.eq("Your full name",test.qSA(".wh-form__arrayrow input[data-wh-form-cellname=name]")[1].placeholder);
 
-        //We expect 3 select options
-        test.eq(3,test.qSA(".wh-form__arrayrow select")[1].options.length);
+      //We expect 3 select options
+      test.eq(3,test.qSA(".wh-form__arrayrow select")[1].options.length);
 
-        // Fill the array's second row's fields
-        let row = test.qSA(".wh-form__arrayrow")[1];
-        test.fill(test.qS(row, "input[type=text]"), "another name");
+      // Fill the array's second row's fields
+      let row = test.qSA(".wh-form__arrayrow")[1];
+      test.fill(test.qS(row, "input[type=text]"), "another name");
 
-        let uploadpromise = test.prepareUpload(
-            [ { url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"
-              , filename: "portrait_8.jpg"
-              }
-            ]);
-        test.qS(row, ".wh-form__uploadfield button").click();
-        await uploadpromise;
+      let uploadpromise = test.prepareUpload(
+          [ { url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"
+            , filename: "portrait_8.jpg"
+            }
+          ]);
+      test.qS(row, ".wh-form__uploadfield button").click();
+      await uploadpromise;
 
-        // Check the resulting result
-        result = await formhandler.getFormValue();
-        test.eq("still not array", result.text);
-        test.eq(2, result.contacts.length);
-        test.eq("array name", result.contacts[0].name);
-        test.eq("another name", result.contacts[1].name);
-        test.true(result.contacts[1].photo);
-        test.eq("portrait_8.jpg", result.contacts[1].photo.filename);
+      // Check the resulting result
+      result = await formhandler.getFormValue();
+      test.eq("still not array", result.text);
+      test.eq(2, result.contacts.length);
+      test.eq("array name", result.contacts[0].name);
+      test.eq("another name", result.contacts[1].name);
+      test.true(result.contacts[1].photo);
+      test.eq("portrait_8.jpg", result.contacts[1].photo.filename);
 
-        // No more rows can be added
-        test.false(test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
+      // No more rows can be added
+      test.false(test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
 
 
-        test.click(test.qS("button[type=submit]"));
-        await test.wait("ui")
-      }
+      test.click(test.qS("button[type=submit]"));
+      await test.wait("ui")
+    }
 
   , { test: async function()
       {
