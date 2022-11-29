@@ -753,11 +753,11 @@ RECORD ARRAY FUNCTION ReadExtraFields(INTEGER file, RECORD entry, INTEGER extraf
         IF (CellExists(entry, "STARTDISK") AND entry.startdisk = max_uint16_t)
           INSERT "startdisk:L" INTO fields AT END;
 
-        IF (IsDefaultValue(fields))
-          THROW NEW Exception(`Found an zip64 extended information extra fields without enabled fields`);
-
-        RECORD decoded := DecodePacket(Detokenize(fields, ","), data);
-        INSERT CELL[ header.fieldtype, ...decoded ] INTO extrafields AT END;
+        IF (IsValueSet(fields))
+        {
+          RECORD decoded := DecodePacket(Detokenize(fields, ","), data);
+          INSERT CELL[ header.fieldtype, ...decoded ] INTO extrafields AT END;
+        }
       }
       CASE zip_structs.zip64_extrafields_infozip_unicodepath.fieldtype
       {
