@@ -64,3 +64,63 @@
   background-repeat: repeat;
   cursor: default;
 }
+
+/* Non-replaced checkboxes in checkboxlists */
+input[type="checkbox"]:not(.wh-checkbox)
+{
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 2px;
+  border: 1px solid #b3b3b3;
+  background-color: #fbfbfb;
+  cursor: pointer;
+  outline: none;
+  margin: 3px 0 0;
+
+  &:focus
+  {
+    border-color: $focused-border-color;
+  }
+
+  &:checked::before
+  {
+    background-color: #308fe2;
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    content: "";
+    display: block;
+    height: 8px;
+    width: 8px;
+    border-radius: 2px;
+
+    @media screen and (-webkit-min-resolution: 2dppx)
+    {
+      left: 2.5px;
+      top: 2.5px;
+      height: 7px;
+      width: 7px;
+    }
+    @media screen and (min-resolution: 2dppx)
+    {
+      left: 2.5px;
+      top: 2.5px;
+      height: 7px;
+      width: 7px;
+    }
+  }
+
+  &:disabled
+  {
+    background-color: #e6e6e6;
+    border-color: #b3b3b3;
+    opacity: 0.5;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
+    background-repeat: repeat;
+    cursor: default;
+  }
+}
