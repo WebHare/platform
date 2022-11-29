@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import * as movable from 'dompack/browserfix/movable';
-import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
+import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 
 import Keyboard from 'dompack/extra/keyboard';
@@ -496,7 +496,7 @@ export default class ListView
     scrolltop = Math.max(0,Math.min(scrollmax, scrolltop));
     if(this.listbodyholder.scrollTop != scrolltop) //we need to scroll
     {
-      ScrollMonitor.setScrollPosition(this.listbodyholder,0,scrolltop);
+      scrollmonitor.setScrollPosition(this.listbodyholder,0,scrolltop);
     }
   }
   //update column widths. although we accept the original columns structure, we'll only use the 'width' parameter
@@ -2311,7 +2311,7 @@ export default class ListView
          (scrollbars disappearing and the element scrolling back to it's top)
       */
       this.listbodyholder.style.overflowY = "hidden";
-      ScrollMonitor.setScrollPosition(this.listbodyholder,0,0);
+      scrollmonitor.setScrollPosition(this.listbodyholder,0,0);
     }
 
     // generate dummy rows to be able to have a zebra stripes effect over the whole height of the list
