@@ -360,6 +360,12 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
        ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
     */
     howtoresize := this->GetRTEResizeInstruction(theimage, node);
+    IF(NOT RecordExists(howtoresize))
+    {
+      this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
+      RETURN;
+    }
+
     INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
     imageurl := GetCachedImageLink(theimage, howtoresize);
 

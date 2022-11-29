@@ -415,9 +415,11 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>'
                                             || '<p class="normal">ongewijzigd + origineel: <img src="cid:imagecid-81500" /></p>'
                                             || '<p class="normal">ongewijzigd + fixed proper width/height: <img src="cid:imagecid-81500" width="178" /></p>'
-                                            || '<p class="normal">external link: <img src="https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png" width="600" height="300" /></p>')
+                                            || '<p class="normal">external link: <img src="https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png" width="600" height="300" /></p>'
+                                            || '<p class="normal">corrupt img: <img src="cid:imagecid-bad" alt="not there"/></p>')
                  , embedded := [ CELL[ ...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), contentid := "imagecid-81400" ]
                                , CELL[ ...WrapBlob(GetHarescriptResource("mod::system/web/tests/webhare.png"),"webhare.png"), contentid := "imagecid-81500" ]
+                               , CELL[ ...WrapBlob(StringToBlob("Ceci n'est pas une image"),"pipe.txt"), contentid := "imagecid-bad" ] //simulates an unknown format, shouldn't crash
                                ]
                  ]);;
   richdoc->SaveToWHFS(testfile);
@@ -437,6 +439,7 @@ MACRO PublishRichDocImageTest()
   TestEq(2, Length(publishres.files));
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
 
+  OBJECT ARRAY paragraphtags := doc->GetElementsByTagName("p")->GetCurrentElements();
   OBJECT ARRAY imgtags := doc->GetElementsByTagName("img")->GetCurrentElements();
   TestEq(8, Length(imgtags), "The external image will not be in the output");
 
@@ -486,6 +489,8 @@ MACRO PublishRichDocImageTest()
   TestEq("51", imgtags[6]->GetAttribute("height"));
   TestEq("178", imgtags[7]->GetAttribute("width"));
   TestEq("51", imgtags[7]->GetAttribute("height"));
+
+  TestEq("corrupt img: not there",  paragraphtags[9]->textcontent);
 }
 
 MACRO IntLinktest()
