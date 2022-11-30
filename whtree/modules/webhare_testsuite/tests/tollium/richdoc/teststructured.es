@@ -177,7 +177,7 @@ test.registerTests(
 
         test.subtest("checkimageprops");
         //verify 'original dimensions' by simply setting aspect ratio back to "ON". should restore the 27x26 range
-        test.eq(false, test.compByName('overridedimensions!cbox').querySelector('input').checked);
+        test.eq(false, test.compByName('overridedimensions!cbox').checked);
         test.eq('26', test.compByName('height').querySelector('input').value);
         test.eq('27', test.compByName('width').querySelector('input').value);
 
@@ -221,7 +221,7 @@ test.registerTests(
 
         test.subtest("checkimageprops");
         test.eq('13', test.compByName('height').querySelector('input').value);
-        test.eq(true, test.compByName('overridedimensions!cbox').querySelector('input').checked);
+        test.eq(true, test.compByName('overridedimensions!cbox').checked);
         test.eq("Alty!", test.compByName('alttext').querySelector('textarea').value);
         test.setTodd('alttext', '');
         test.setTodd('overridedimensions!cbox', false);

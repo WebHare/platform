@@ -44,25 +44,15 @@ export default class ObjCheckbox extends ComponentBase
 
   getValue()
   {
-    return { indeterminate: this.checkboxnode.indeterminate
-           , value: this.checkboxnode.checked
+    return { indeterminate: this.node.indeterminate
+           , value: this.node.checked
            };
   }
 
   setValue(value, indeterminate)
   {
-    this.checkboxnode.checked = value;
-    this.checkboxnode.indeterminate = indeterminate;
-  }
-
-  toggle()
-  {
-    if (this.enabled && !this.readonly)
-    {
-      this.setValue( !this.getValue().value, false);
-      this.gotControlChange();
-      this.checkboxnode.focus();
-    }
+    this.node.checked = value;
+    this.node.indeterminate = indeterminate;
   }
 
   setReadOnly(value)
@@ -70,7 +60,7 @@ export default class ObjCheckbox extends ComponentBase
     if (value != this.readonly)
     {
       this.readonly = value;
-      this.checkboxnode.disabled = !(this.enabled && !this.readonly);
+      this.node.disabled = !(this.enabled && !this.readonly);
     }
   }
 
@@ -79,7 +69,7 @@ export default class ObjCheckbox extends ComponentBase
     if (value != this.enabled)
     {
       this.enabled = value;
-      this.checkboxnode.disabled = !(this.enabled && !this.readonly);
+      this.node.disabled = !(this.enabled && !this.readonly);
     }
   }
 
@@ -91,22 +81,16 @@ export default class ObjCheckbox extends ComponentBase
   // Build the DOM node(s) for this component
   buildNode()
   {
-    this.node =
-      <div className="wh-checkbox-wrapper"
-           data-name={this.name}
-           propTodd={this}
-           onClick={ev => { this.toggle(); }}
-           hint={this.hint || ""}>
-        { this.checkboxnode =
-            <input type="checkbox"
-                   className="wh-checkbox"
-                   value=""
-                   checked={this.value  ? "true" : ""}
-                   disabled={!(this.enabled && !this.readonly) ? "true" : ""}
-                   tabindex={this.enabled ? this.tabindex || "": -1}
-                   onChange={ev => this.gotControlChange(ev)} /> }
-        <label className="wh-checkbox-label" for={this.name} />
-      </div>;
+    //NOTE: ignoring hint. not an accessible way to discover those anyway, should use the label.
+    this.node = <input type="checkbox"
+                       class="t-checkbox"
+                       checked={this.value  ? "true" : ""}
+                       disabled={!(this.enabled && !this.readonly) ? "true" : ""}
+                       tabindex={this.enabled ? this.tabindex || "": -1}
+                       onChange={ev => this.gotControlChange(ev)}
+                       data-name={this.name}
+                       propTodd={this}
+                       />;
   }
 
   // ---------------------------------------------------------------------------
@@ -116,7 +100,7 @@ export default class ObjCheckbox extends ComponentBase
 
   getSkinSettings()
   {
-    var dims = this.node.getBoundingClientRect();
+    const dims = this.node.getBoundingClientRect();
     return { width:  parseInt(dims.width)
            , height: parseInt(dims.height)
            };
@@ -147,7 +131,7 @@ export default class ObjCheckbox extends ComponentBase
 
   gotControlChange(ev)
   {
-    this.value = this.checkboxnode.checked;
+    this.value = this.node.checked;
     this.setDirty();
     if(this.isEventUnmasked("change") || this.enablecomponents.length)
       this.transferState(true);

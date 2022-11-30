@@ -87,7 +87,7 @@ test.registerTests(
         test.eq('action\ncallback 92 154\ncallback2 92 154', textarea.value);
 
         var img = test.compByName('image').querySelector('img');
-        test.click(test.compByName('action2checkbox').querySelector('label'));
+        test.click(test.compByName('action2checkbox'));
         let focused_pre_click = doc.activeElement;
         test.sendMouseGesture([ { el: img, down: 0, x: 98, y: 70 }
                               , { el: img, up: 0, x: 98, y: 70 }
@@ -110,7 +110,7 @@ test.registerTests(
     , test: async function(doc,win)
       {
         test.false(test.compByName('image').classList.contains('todd--disabled'), 'removing action should unlink image from disabling-by-action');
-        test.click(test.compByName('action2checkbox').querySelector('label'));
+        test.click(test.compByName('action2checkbox'));
 
         var img = test.compByName('image').querySelector('img');
         test.sendMouseGesture([ { el: img, down: 0, x: 98, y: 70 }

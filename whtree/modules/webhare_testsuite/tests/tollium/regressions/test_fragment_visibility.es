@@ -24,7 +24,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(0, texts.length);
 
         // Toggle visibility to visible
@@ -53,7 +53,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(1, texts.length);
 
         // Toggle visibility to invisible
@@ -81,7 +81,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(0, texts.length);
 
         // Toggle visibility to visible
@@ -109,7 +109,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(1, texts.length);
 
         // Replace the static box with a dynamic box
@@ -137,7 +137,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(3, buttons.length);
         // The newbox's checkbox should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(1, texts.length);
 
         // Toggle visibility to invisible
@@ -165,7 +165,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(0, buttons.length);
         // No checkboxes should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(0, texts.length);
 
         // Toggle visibility to visible
@@ -193,7 +193,7 @@ test.registerTests(
         var buttons = holder.querySelectorAll("t-button.icon");
         test.eq(3, buttons.length);
         // The boxcheck's checkbox should be visible
-        texts = holder.querySelectorAll(".wh-checkbox");
+        texts = holder.querySelectorAll(".t-checkbox");
         test.eq(1, texts.length);
       }
     }

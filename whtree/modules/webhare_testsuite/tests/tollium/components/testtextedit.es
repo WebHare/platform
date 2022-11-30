@@ -46,7 +46,7 @@ test.registerTests(
       console.log(test.compByTitle("minlength"));
 
       test.fill(test.compByTitle("minlength").querySelector("input"), "4");
-      test.click(test.compByTitle("showcounter").querySelector("label"));
+      test.click(test.compByTitle("showcounter"));
       test.fill(test.compByTitle("lengthmeasure"), "characters");
       await test.wait("ui");
 
@@ -70,7 +70,7 @@ test.registerTests(
       await test.wait("ui");
       test.false(counter.classList.contains("wh-counter--underflow"));
 
-      test.click(test.compByTitle("Required").querySelector("label"));
+      test.click(test.compByTitle("Required"));
       await test.wait("events");
       await test.wait("ui");
 
@@ -117,27 +117,27 @@ test.registerTests(
       test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //required + disabled REMOVES the background color (but SETS the disabled pattern)
-      test.fill(test.compByTitle("Enabled").querySelector("input"), false);
+      test.fill(test.compByTitle("Enabled"), false);
       await test.wait("ui");
       test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
       test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //Disabling HideRequiredIfDisabled re-enables the yellow background AND sets the disabled pattern
-      test.fill(test.compByTitle("HideRequiredIfDisabled").querySelector("input"), false);
+      test.fill(test.compByTitle("HideRequiredIfDisabled"), false);
       await test.wait("ui");
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
       test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //But not if it's not actually required
-      test.fill(test.compByTitle("Required").querySelector("input"), false);
+      test.fill(test.compByTitle("Required"), false);
       await test.wait("ui");
       test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
       test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //Enable and Require the field again - should see the background color but NOT the pattern
-      test.fill(test.compByTitle("Enabled").querySelector("input"), true);
+      test.fill(test.compByTitle("Enabled"), true);
       await test.wait("ui");
-      test.fill(test.compByTitle("Required").querySelector("input"), true);
+      test.fill(test.compByTitle("Required"), true);
       await test.wait("ui");
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
       test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
