@@ -155,9 +155,10 @@ PUBLIC STATIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionB
       @param field A <textedit>
       @param fieldname Field to read. If not specified, it will use the field's name
   */
-  PUBLIC MACRO ReadTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  PUBLIC MACRO ReadTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "", RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    ReadFormNodeTidAttribute(this->node, field, fieldname);
+    options := ValidateOptions([ node := this->node ], options);
+    ReadFormNodeTidAttribute(options.node, field, fieldname);
   }
 
   /** Write title/tid combination attributes back from a textedit
@@ -165,8 +166,9 @@ PUBLIC STATIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionB
       @param field A <textedit>
       @param fieldname Field to read. If not specified, it will use the field's name
   */
-  PUBLIC MACRO WriteTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  PUBLIC MACRO WriteTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "", RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    WriteFormNodeTidAttribute(this->node, field, fieldname);
+    options := ValidateOptions([ node := this->node ], options);
+    WriteFormNodeTidAttribute(options.node, field, fieldname);
   }
 >;
