@@ -1,6 +1,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import RPCClient from '@mod-system/js/wh/rpc';
 import * as testnoauthservice from "./testnoauthservice.rpc.json";
+import createRPCClient from "@webhare/jsonrpc-client";
 
 test.registerTests(
  [ "Basic rpc"
@@ -103,4 +104,21 @@ test.registerTests(
      test.eq({aborted:true}, await call);
 
    }
-]);
+
+  , "Use new JSONRPCClient"
+  , async function()
+    {
+      let testnoauthclient = createRPCClient("webhare_testsuite:testnoauth");
+      test.eq('Hi', await testnoauthclient.echo('Hi'));
+      test.eq({ x:42 }, await testnoauthclient.complexResultsSlow({ x:42 }));
+
+      let exc = await test.throws(testnoauthclient.withOptions({debug:true,timeout:50}).complexResultsSlow({ x:42 }));
+      test.eqMatch(/^RPC Timeout:/, exc.message);
+
+      let controller = new AbortController;
+      let call = testnoauthclient.withOptions({ signal: controller.signal}).complexResultsSlow({ x:42 });
+      controller.abort();
+      exc = await test.throws(call);
+      test.eqMatch(/^RPC Aborted/, exc.message);
+    }
+  ]);
