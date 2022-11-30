@@ -115,13 +115,21 @@ export default class ArrayField
     for (let field of this._queryAllFields(node))
       for (let fieldnode of (field.nodes || [field.node]))
       {
-        //TODO: Update id's as well!
         fieldnode.dataset.whFormCellname = field.name.substr(this.name.length + 1);
         let subname = this.valueNode.dataset.whFormName + "-" + field.name + "-" + rowid;
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else
           fieldnode.name = subname;
+
+        // Rename id's to make them unique; update the label within the field's fieldgroup to point to the new id
+        if (fieldnode.id)
+        {
+          const labelnode = fieldnode.closest(".wh-form__fieldgroup").querySelector(`label[for="${fieldnode.id}"]`);
+          fieldnode.id += "-" + rowid;
+          if (labelnode)
+            labelnode.htmlFor = fieldnode.id;
+        }
       }
   }
 

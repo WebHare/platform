@@ -313,8 +313,8 @@
         <select name="gender" rowkeytype="integer" type="pulldown" title="Gender"/>
         <date name="wrd_dateofbirth" title="DOB" />
       </array>
-      <array name="contacts2" min="0" max="1">
-        <textedit name="name" />  <!-- shouldn't conflict with array above us -->
+      <array name="contacts2" min="0" max="1" title="More contacts">
+        <textedit name="name" title="Name"/>  <!-- shouldn't conflict with array above us -->
         <wt:tscustomcomp name="customcomp" title="customcomp" />
       </array>
       <array name="customarray" title="Custom components">

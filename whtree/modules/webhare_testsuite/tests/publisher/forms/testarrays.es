@@ -277,6 +277,18 @@ test.registerTests(
       test.eq("Sub #2", result.value.customarray[1].customcomp.subvalue);
       // test.eq("abc", result.value.customarray[1].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 2", result.value.customarray[1].twolevel.field2);
+    }
 
+  , "Test labels within array rows"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
+
+      // Find the first fieldgroup of the second row ('Name')
+      const fieldgroup = test.qSA(".wh-form__arrayrow")[1].firstChild;
+      // Click the fieldgroup's label
+      test.click(fieldgroup.querySelector("label"));
+      // The fieldgroup's input should have focus
+      test.true(test.hasFocus(fieldgroup.querySelector("input")));
     }
   ]);
