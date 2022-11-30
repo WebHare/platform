@@ -22,34 +22,39 @@
   border-radius: 2px;
   border: 1px solid #b3b3b3;
   background-color: #fbfbfb;
+  background-repeat: no-repeat;
   cursor: pointer;
   outline: none;
 }
-.wh-checkbox + .wh-checkbox-label:before
-{
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  content: "";
-  display: block;
-  height: 8px;
-  width: 8px;
-  border-radius: 2px;
-}
 
+.wh-checkbox:checked + .wh-checkbox-label
+{
+  background-color: #308fe2;
+  background-image: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg");
+  border-color: #308fe2;
+}
+.wh-checkbox:indeterminate + .wh-checkbox-label
+{
+  background-color: #308fe2;
+  border-color: #308fe2;
+}
+.wh-checkbox:focus + .wh-checkbox-label
+{
+  &::after
+  {
+    border: 1px solid white;
+    bottom: 0;
+    content: "";
+    display: block;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+}
 .wh-checkbox:focus + .wh-checkbox-label
 {
   border-color: $focused-border-color;
-}
-.wh-checkbox:checked + .wh-checkbox-label:before
-{
-  background-color: #308fe2;
-}
-.wh-checkbox:indeterminate + .wh-checkbox-label:before
-{
-  background-color: #308fe2;
-  height:2px;
-  top:6px;
 }
 .wh-checkbox:required + .wh-checkbox-label
 {
@@ -57,10 +62,71 @@
 }
 .wh-checkbox:disabled + .wh-checkbox-label
 {
+  opacity: 0.5;
+  cursor: default;
+}
+.wh-checkbox:not(:checked):disabled + .wh-checkbox-label
+{
   background-color: #e6e6e6;
   border-color: #b3b3b3;
-  opacity: 0.5;
   background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
   background-repeat: repeat;
-  cursor: default;
+}
+
+/* Non-replaced checkboxes in checkboxlists */
+input[type="checkbox"]:not(.wh-checkbox)
+{
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 2px;
+  border: 1px solid #b3b3b3;
+  background-color: #fbfbfb;
+  cursor: pointer;
+  outline: none;
+  margin: 3px 0 0;
+
+  &:checked
+  {
+    background-color: #308fe2;
+    background-image: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg");
+    border-color: #308fe2;
+  }
+
+  &:focus
+  {
+    &::after
+    {
+      border: 1px solid white;
+      bottom: 0;
+      content: "";
+      display: block;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+  }
+
+  &:not(:checked):focus
+  {
+    border-color: $focused-border-color;
+  }
+
+  &:disabled
+  {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &:not(:checked):disabled
+  {
+    background-color: #e6e6e6;
+    border-color: #b3b3b3;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
+    background-repeat: repeat;
+  }
 }
