@@ -557,7 +557,11 @@ std::size_t S3Blob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::
             clientconfig.endpointOverride = Aws::String(blob.endpointoverride);
         Aws::Auth::AWSCredentials credentials(Aws::String(blob.accesskey), Aws::String(blob.secretkey));
 
-        Aws::S3::S3Client s3_client(credentials, clientconfig);
+        Aws::S3::S3Client s3_client(
+                credentials,
+                clientconfig,
+                Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+                true);
         Aws::S3::Model::GetObjectRequest object_request;
         object_request.SetBucket(Aws::String(blob.bucket_name));
         object_request.SetKey(Aws::String(blob.object_name));
