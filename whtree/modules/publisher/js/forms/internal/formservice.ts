@@ -19,7 +19,15 @@ export interface PublisherFormService
    * @returns Validation result
    */
   validateEmail(langcode: string, emailaddress: string)
-    : Promise<EmailValidationResult>
+    : Promise<EmailValidationResult>;
+
+  /** Get an image from a remote URL */
+  getImgFromRemoteURL(imageurl: string) : Promise<string>;
+
+  /** Get the final image URL to use */
+  getUploadedFileFinalURL(uploadurl: string) : Promise<string>;
+
+  validateEmbeddedObjects(objrefs: string[]) : Promise<{ tokill: string[] }>;
 }
 
 // const client = rpc.createClient<PublisherFormService>("publisher:forms");
