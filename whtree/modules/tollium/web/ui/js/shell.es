@@ -32,7 +32,6 @@ import './debugging/magicmenu';
 
 var EventServerConnection = require('@mod-system/js/net/eventserver');
 var JSONRPC = require('@mod-system/js/net/jsonrpc');
-var MenuComponent = require('../components/basecontrols/menu');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
@@ -99,14 +98,6 @@ class IndyShell
       return;
 
     $todd.towl = new TowlNotifications(this);
-
-    // Prevent menus (especially an application's main menu) from opening off the right side of the screen
-    MenuComponent.setOptions(
-        { horizbounds: document.body
-        , allowscrollableview: true
-        });
-
-    //require("./tabs").setupfunction();
 
     this.continueLaunch();
   }
