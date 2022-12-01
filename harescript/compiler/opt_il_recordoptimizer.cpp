@@ -606,6 +606,11 @@ void OptILRecordOptimizer::Optimize(BasicBlock *baseblock)
                         {
                                 defs[oms->value].has_unknown_access = true;
                         }
+                        ILObjectMemberInsert *omi = dynamic_cast< ILObjectMemberInsert * >(*it);
+                        if (omi)
+                        {
+                                defs[omi->value].has_unknown_access = true;
+                        }
                 }
 
                 // We destroy the reference to 'sourcedefs' with the pop_back()
