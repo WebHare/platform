@@ -165,6 +165,14 @@ dpkg -i /tmp/chrome.deb
 rm /tmp/chrome.deb
 apt-get -qy --fix-broken install
 
+CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
+CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
+REQUIRECHROMEMAJOR=108
+if (( CHROMEMAJOR < REQUIRECHROMEMAJOR )) ; then
+  echo "We picked up a too old Chrome version. Required $REQUIRECHROMEMAJOR got $CHROMEMAJOR ($CHROMEVERSION)"
+  exit 1
+fi
+
 # Setup odbc
 cat >> /etc/odbcinst.ini << HERE
 [MariaDB]
