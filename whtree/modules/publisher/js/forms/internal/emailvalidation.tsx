@@ -23,7 +23,7 @@ interface FormBase
   _reportFieldValidity: (arg0: HTMLElement) => void;
 }
 
-//FIXME share with formbsae
+//FIXME share with formbase
 interface InputWithValidationSuggestion extends HTMLInputElement
 {
   propWhValidationSuggestion : HTMLElement | null;
@@ -49,7 +49,7 @@ export async function validateField(form: FormBase, field: InputWithValidationSu
   if(!cache[key])
     cache[key] = formservice.validateEmail(getTidLanguage(), checkvalue);
 
-  //TODO should we ever clear the cache? only relevant probably if someone is on the frontend testing emails and doesn't want to refrehs
+  //TODO should we ever clear the cache? only relevant probably if someone is on the frontend testing emails and doesn't want to refresh
   const result = await cache[key];
   if(checkvalue !== field.value|| !mayValidateField(field))
     return true; //the field already changed, don't report about old errors

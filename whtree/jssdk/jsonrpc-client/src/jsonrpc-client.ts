@@ -220,7 +220,7 @@ class RPCClient
     console.groupEnd();
   }
 
-  //TODO shoul we keep this variant or replace it with an explict invokeWith
+  //TODO should we keep this variant or replace it with an explict invokeWith
   invoke(...params: unknown[])
   {
     let options;

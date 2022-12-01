@@ -39,14 +39,14 @@ const client = createRPCClient("moduleservice:servicename", {timeout: 500});
 let result2 = await client.withOptions({debug: true}).myfunction(param1, param2);
 ```
 
-You can use TypeScript to define an interface for your RPC
+You can use TypeScript to define an interface for your RPC.
 
 ```typescript
 import createRPCClient from "@webhare/jsonrpc-client";
 
 export interface MyService
 {
-  /** Validate ane mail address
+  /** Validate an e-mail address
    *
    * @param emailaddress - Address to validate
    * @returns Validation result
