@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
+import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import Keyboard from 'dompack/extra/keyboard';
 
 import "./codeedit.scss";
@@ -186,7 +186,7 @@ export default class ObjCodeEdit extends ComponentBase
       else if (scrolltop > max_scroll)
         scrolltop = max_scroll;
     }
-    ScrollMonitor.setScrollPosition(this.textarea, 0, scrolltop);
+    scrollmonitor.setScrollPosition(this.textarea, 0, scrolltop);
   }
 
   gotScrollEvent()

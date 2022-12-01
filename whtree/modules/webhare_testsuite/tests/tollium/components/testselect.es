@@ -221,7 +221,7 @@ test.registerTests(
       let textedit_selection = test.compByName("selection");
 
       let testpanel = test.compByName("componentpanel");
-      let label = testpanel.querySelector('label');
+      let label = testpanel.querySelector('input[type=checkbox]');
 
       test.click(textedit_selection.querySelector("input"));
       await test.wait("events");

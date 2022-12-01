@@ -501,6 +501,13 @@ export default class FormBase
     scrollto.scrollIntoView();
   }
 
+  /** Get the current page number
+      @param pageidx 0-based index of page to jump to */
+  getCurrentPageNumber()
+  {
+    return this._getPageState().curpage;
+  }
+
   /** Goto a specific page
       @param pageidx 0-based index of page to jump to */
   async gotoPage(pageidx)

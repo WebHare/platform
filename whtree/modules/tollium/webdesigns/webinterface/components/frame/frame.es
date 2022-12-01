@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import * as movable from 'dompack/browserfix/movable';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import KeyboardHandler from 'dompack/extra/keyboard';
-import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
+import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import $todd from "@mod-tollium/web/ui/js/support";
 //require("../common.lang.json");
@@ -114,7 +114,7 @@ export default class Frame extends ComponentBase
 
     this.node.addEventListener("focusin", evt => this._gotFocus(evt));
 
-    this.scrollmonitor = new ScrollMonitor(this.node);
+    this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
 
   _gotFocus(evt)

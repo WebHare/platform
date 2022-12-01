@@ -110,8 +110,8 @@ class ScreenProxy
       throw new Error("No such component '" + compname + "'");
 
     //ADDME support more node types than just <checkbox> and <pulldown>
-    if (el.classList.contains("wh-checkbox"))
-      return el.propTodd.getValue();
+    if (el.classList.contains("t-checkbox"))
+      return el.checked;
     if (el.nodeName.toLowerCase() == "t-textedit")
       return el.querySelector('input').value;
     if (el.nodeName.toLowerCase() == "t-textarea")
@@ -394,7 +394,7 @@ function setTodd(name, value)
   if(!toddel)
     throw new Error(`Can't find toddElement '${toddel}'`);
 
-  var textedit = toddel.querySelector('input,textarea');
+  var textedit = toddel.matches('input') ? toddel : toddel.querySelector('input,textarea');
   if(textedit)
   {
     test.fill(textedit, value);

@@ -1,78 +1,6 @@
 @import "~@mod-publisher/js/forms/styles";
 @import "~@mod-tollium/web/ui/css/settings.scss";
 
-/* checkbox and radio shared */
-.wh-checkbox
-{
-  @include wh-form-hidenativecontrol;
-}
-
-/* checkbox */
-.wh-checkbox-wrapper
-{
-  width: 16px;
-  height: 16px;
-}
-.wh-checkbox + .wh-checkbox-label
-{
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: block;
-  border-radius: 2px;
-  border: 1px solid #b3b3b3;
-  background-color: #fbfbfb;
-  background-repeat: no-repeat;
-  cursor: pointer;
-  outline: none;
-}
-
-.wh-checkbox:checked + .wh-checkbox-label
-{
-  background-color: #308fe2;
-  background-image: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg");
-  border-color: #308fe2;
-}
-.wh-checkbox:indeterminate + .wh-checkbox-label
-{
-  background-color: #308fe2;
-  border-color: #308fe2;
-}
-.wh-checkbox:focus + .wh-checkbox-label
-{
-  &::after
-  {
-    border: 1px solid white;
-    bottom: 0;
-    content: "";
-    display: block;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-  }
-}
-.wh-checkbox:focus + .wh-checkbox-label
-{
-  border-color: $focused-border-color;
-}
-.wh-checkbox:required + .wh-checkbox-label
-{
-  border-color: #fcf7c9;
-}
-.wh-checkbox:disabled + .wh-checkbox-label
-{
-  opacity: 0.5;
-  cursor: default;
-}
-.wh-checkbox:not(:checked):disabled + .wh-checkbox-label
-{
-  background-color: #e6e6e6;
-  border-color: #b3b3b3;
-  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
-  background-repeat: repeat;
-}
-
 /* Non-replaced checkboxes in checkboxlists */
 input[type="checkbox"]:not(.wh-checkbox)
 {
@@ -96,7 +24,7 @@ input[type="checkbox"]:not(.wh-checkbox)
     border-color: #308fe2;
   }
 
-  &:focus
+  &:focus-visible
   {
     &::after
     {
@@ -111,7 +39,7 @@ input[type="checkbox"]:not(.wh-checkbox)
     }
   }
 
-  &:not(:checked):focus
+  &:not(:checked):focus-visible
   {
     border-color: $focused-border-color;
   }

@@ -173,14 +173,16 @@ test.registerTests(
 
         // Test box
         let box_node = test.compByName("box!heading!cbox");
-        test.click(box_node);
+        box_node.scrollIntoView({ block: "nearest" });
+        box_node.click();
         await test.wait("ui"); // wait for enablecomponents
         test.eq("YES", status_comp.value);
         await clearState();
 
         // Test heading enabled after checking box
         let heading_node = test.compByName("heading!cbox");
-        test.click(heading_node);
+        heading_node.scrollIntoView({ block: "nearest" });
+        heading_node.click();
         await test.wait(() => status_comp.value == "YES");
         await clearState();
 

@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { qS, qSA } from 'dompack';
-import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
+import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as browser from "dompack/extra/browser";
 import * as preload from 'dompack/extra/preload';
@@ -129,8 +129,8 @@ export class RTE
       this.stylescopenode.appendChild(this.htmldiv);
       this.container.appendChild(this.stylescopenode);
 
-      this.scrollmonitor = new ScrollMonitor(this.container);
-      ScrollMonitor.saveScrollPosition(this.container);
+      this.scrollmonitor = new scrollmonitor.Monitor(this.container);
+      scrollmonitor.saveScrollPosition(this.container);
     }
     else
     {
