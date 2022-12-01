@@ -749,12 +749,8 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
                       ]
         ]
       , [ name :=     "@webhare"
-        , type :=     "directory"
-        , items :=    [ [ name := "eslint-config-defaultconfig"
-                        , type := "softlink"
-                        , target :=   MergePath(installationroot, "modules/system/data/validation/eslint-config-defaultconfig")
-                        ]
-                      ]
+        , type :=     "softlink"
+        , target :=   `${installationroot}jssdk`
         ]
         // ESLint plugins from mod::system/data/validate/eslint-config-defaultconfig/.eslintrc.json
       , [ name :=     "@typescript-eslint"

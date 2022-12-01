@@ -8,6 +8,7 @@
     "paths": {
       "dompack": [ "modules/system/js/dompack" ],
       "dompack/*": [ "modules/system/js/dompack/*" ],
+      "@webhare/*": [ "jssdk/*" ],
       "@mod-consilio/*": [ "modules/consilio/*" ],
       "@mod-publisher/*": [ "modules/publisher/*" ],
       "@mod-socialite/*": [ "modules/socialite/*" ],

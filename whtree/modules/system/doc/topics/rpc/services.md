@@ -21,8 +21,44 @@ to further require a specific permission.
 
 Setting a prefix (eg `RPC_`) helps prevent accidentally exporting callable services.
 
-## Invoking services
-The easiest way to use to services is to set up a `.rpc.json` file (this exact extension is required!) with the following contents:
+## Invoking a service from JavaScript
+You can use WebHare's builtin JSON-RPC 1.0 client. Construct the service and await:
+
+```javascript
+import createRPCClient from "@webhare/jsonrpc-client";
+
+const client = createRPCClient("moduleservice:servicename");
+let result = await client.myfunction(param1, param2);
+```
+
+You can pass options such as `debug` and `signal` (for abort) as the options parameter
+to createRPCClient, but you can also change these for just one call:
+
+```javascript
+const client = createRPCClient("moduleservice:servicename", {timeout: 500});
+let result2 = await client.withOptions({debug: true}).myfunction(param1, param2);
+```
+
+You can use TypeScript to define an interface for your RPC.
+
+```typescript
+import createRPCClient from "@webhare/jsonrpc-client";
+
+export interface MyService
+{
+  /** Validate an e-mail address
+   *
+   * @param emailaddress - Address to validate
+   * @returns Validation result
+   */
+  validateEmail(langcode: string, emailaddress: string) : Promise<boolean>;
+}
+
+const client = createRPCClient<MyService>("publisher:forms");
+```
+
+## Invoking HareScript services (rpc.json)
+You can use a `.rpc.json` file (this exact extension is required!) with the following contents to execute HareScript defined services:
 ```javascript
 { "services": [ "modulename:servicename" ] }
 ```
