@@ -22,7 +22,6 @@ Opt_ConstantsArithmatic::Opt_ConstantsArithmatic(AstCoder *coder, TypeStorage &t
 , context(context)
 , stackm(context.stackm)
 , forceconstexpr(false)
-, withcells(false)
 {
 }
 
@@ -128,6 +127,7 @@ Constant * Opt_ConstantsArithmatic::Replace(Rvalue* & obj)
 
         Constant *new_const = coder->ImConstant(obj->position, var);
         obj = new_const;
+        typestorage[obj] = stackm.GetType(var);
         Pop();
         return new_const;
 }
@@ -139,11 +139,10 @@ Constant * Opt_ConstantsArithmatic::Optimize(Rvalue* & obj)
                 Optimizable opt = Visit(obj, Empty());
                 if (opt != None)
                 {
-                        if (opt == Multiple)
+                        if (opt == Multiple || forceconstexpr)
                             return Replace(obj);
-                        else
-                            Pop();
-                        return last_single;
+                        Pop();
+                        return nullptr;
                 }
                 else if (forceconstexpr)
                 {
@@ -162,29 +161,68 @@ Constant * Opt_ConstantsArithmatic::ForceOptimize(Rvalue* & obj)
         return retval;
 }
 
-Constant * Opt_ConstantsArithmatic::ForceOptimizeWithCells(Rvalue* & obj)
-{
-        bool saved_forceconstexpr = forceconstexpr;
-        bool saved_withcells = withcells;
-        forceconstexpr = true;
-        withcells = true;
-        Constant *retval = Optimize(obj);
-        forceconstexpr = saved_forceconstexpr;
-        withcells = saved_withcells;
-        return retval;
-}
-
 Optimizable Opt_ConstantsArithmatic::V_ArrayDelete (ArrayDelete *obj, Empty)
 {
         if (obj->location.expr) Optimize(obj->location.expr);
         return None;
 }
+
 Optimizable Opt_ConstantsArithmatic::V_ArrayElementConst (ArrayElementConst *obj, Empty)
 {
-        Optimize(obj->array);
-        Optimize(obj->index);
-        return None;
+        Optimizable array_opt = Visit(obj->array, Empty());
+        Optimizable index_opt = Visit(obj->index, Empty());
+
+        if (array_opt == None)
+        {
+                // Always replace integers, cheaper to load than to calculate
+                if (index_opt != None)
+                     Replace(obj->index);
+                return None;
+        }
+
+        if (index_opt == None)
+        {
+                // Don't replace the array when array_opt == Single, may be too expensive to reload
+                if (array_opt == Multiple)
+                    Replace(obj->array);
+                else
+                    Pop();
+                return None;
+        }
+
+        // Both are optimizable
+        VarId var_array = stackm.StackPointer() - 2;
+        VarId var_index = var_array + 1;
+
+        if (!(stackm.GetType(var_array) & VariableTypes::Array))
+        {
+                errorhandler.AddErrorAt(obj->array->position, Error::TypeNotArray);
+                stackm.PopVariablesN(2);
+                return None;
+        }
+
+        if (stackm.GetType(var_index) != VariableTypes::Integer)
+        {
+                errorhandler.AddErrorAt(obj->index->position, Error::CannotConvertType, HareScript::GetTypeName(stackm.GetType(var_index)), HareScript::GetTypeName(VariableTypes::Integer));
+                stackm.PopVariablesN(2);
+                return None;
+        }
+
+        VarId dest = Push();
+        try
+        {
+                stackm.ArrayElementCopy(var_array, stackm.GetInteger(var_index), dest);
+                stackm.PopDeepVariables(2, 1);
+                return forceconstexpr ? Multiple : Single;
+        }
+        catch (VMRuntimeError &e)
+        {
+                errorhandler.AddErrorAt(obj->index->position, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
+                stackm.PopVariablesN(3);
+                return None;
+        }
 }
+
 Optimizable Opt_ConstantsArithmatic::V_ArrayElementModify (ArrayElementModify *obj, Empty)
 {
         Optimize(obj->array);
@@ -302,6 +340,8 @@ Optimizable Opt_ConstantsArithmatic::V_BinaryOperator (BinaryOperator *obj, Empt
                         Optimize(obj->lhs);
                         Optimize(obj->rhs);
                 }
+                if (is_ok)
+                    typestorage[obj] = stackm.GetType(stackm.StackPointer() - 1);
                 return is_ok ? Multiple : None;
         }
 
@@ -356,10 +396,21 @@ Optimizable Opt_ConstantsArithmatic::V_Cast(Cast *obj, Empty)
         Optimizable expr_opt = Visit(obj->expr, Empty());
 
         if (expr_opt != None) //We can implicitly convert the value
-            if (!CastOp(obj->position, obj->to_type, obj->is_explicit))
-                return None;
-            else
-                return Multiple;
+        {
+                /* Is the type the same? Then the cast can be eliminated anyway,
+                   even if we won't replace the whole expression
+                */
+                if (stackm.GetType(stackm.StackPointer() - 1) == obj->to_type)
+                {
+                        ReplacePtr(obj->expr);
+                        return expr_opt; // Don't replace with expensive constants
+                }
+
+                if (!CastOp(obj->position, obj->to_type, obj->is_explicit))
+                    return None;
+                else
+                    return Multiple;
+        }
         else
         {
                 // Eliminate casts that do nothing. If allow_parameter_cast is off, disable it
@@ -426,7 +477,6 @@ Optimizable Opt_ConstantsArithmatic::V_Constant (Constant *obj, Empty)
         if (obj->var)
         {
                 context.stackm.CopyFrom(Push(), obj->var);
-                last_single = obj;
                 return Single;
         }
         else
@@ -486,13 +536,19 @@ Optimizable Opt_ConstantsArithmatic::V_ConstantRecord (ConstantRecord *obj, Empt
                 {
                         case ConstantRecord::Item:
                         {
-                                Constant *c = Optimize(std::get<2>(itr));
-                                if (!c)
+                                Optimizable opt = Visit(std::get<2>(itr), Empty());
+                                if (opt == None)
                                 {
+                                        if (forceconstexpr)
+                                        {
+                                                forceconstexpr = false; // stop at first error
+                                                errorhandler.AddErrorAt(std::get<2>(itr)->position, Error::ExpectedConstantExpression);
+                                        }
                                         unopt.push_back(itr);
                                 }
                                 else
                                 {
+                                        Constant *c = Replace(std::get<2>(itr));
                                         if (!var)
                                         {
                                                 var = context.stackm.NewHeapVariable();
@@ -510,9 +566,14 @@ Optimizable Opt_ConstantsArithmatic::V_ConstantRecord (ConstantRecord *obj, Empt
 
                         case ConstantRecord::Ellipsis:
                         {
-                                Constant *c = Optimize(std::get<2>(itr));
-                                if (!c)
+                                Optimizable opt = Visit(std::get<2>(itr), Empty());
+                                if (opt == None)
                                 {
+                                        if (forceconstexpr)
+                                        {
+                                                forceconstexpr = false; // stop at first error
+                                                errorhandler.AddErrorAt(std::get<2>(itr)->position, Error::ExpectedConstantExpression);
+                                        }
                                         if (var)
                                         {
                                                 parts.push_back(std::make_tuple(ConstantRecord::Ellipsis, "", coder->ImConstant(varpos, var)));
@@ -527,6 +588,7 @@ Optimizable Opt_ConstantsArithmatic::V_ConstantRecord (ConstantRecord *obj, Empt
                                 }
                                 else
                                 {
+                                        Constant *c = Replace(std::get<2>(itr));
                                         if (!var)
                                         {
                                                 var = context.stackm.NewHeapVariable();
@@ -954,24 +1016,37 @@ Optimizable Opt_ConstantsArithmatic::V_RecordCellDelete (RecordCellDelete *, Emp
 }
 Optimizable Opt_ConstantsArithmatic::V_RecordColumnConst (RecordColumnConst *obj, Empty)
 {
-        Constant *c = Optimize(obj->record);
-        if (forceconstexpr && withcells && c && c->type == VariableTypes::Record)
-        {
-                ColumnNameId colid = stackm.columnnamemapper.GetMapping(obj->name);
-                VarId cell = stackm.RecordCellGetByName(c->var, colid);
+        Optimizable record_opt = Visit(obj->record, Empty());
+        if (record_opt == None)
+            return None;
 
-                if (cell)
-                {
-                        context.stackm.CopyFrom(Push(), cell);
-                        return Multiple;
-                }
-                else
-                {
-                        forceconstexpr = false;
-                        context.errorhandler.AddErrorAt(obj->position, Error::UnknownColumn, obj->name);
-                }
+        VarId arg1 = stackm.StackPointer() - 1;
+
+        // Semantic check makes obj->record is a record with casts
+        ColumnNameId colid = stackm.columnnamemapper.GetMapping(obj->name);
+        if (stackm.RecordNull(arg1))
+        {
+                forceconstexpr = false;
+                errorhandler.AddErrorAt(obj->position, Error::RecordDoesNotExist, stackm.columnnamemapper.GetReverseMapping(colid).stl_str());
+                Pop();
+                return None;
         }
-        return None;
+
+        try
+        {
+                bool found = stackm.RecordCellCopyByName(arg1, colid, arg1);
+                if (!found)
+                     stackm.RecordThrowCellNotFound(arg1, stackm.columnnamemapper.GetReverseMapping(colid).stl_str());
+                typestorage[obj] = stackm.GetType(arg1);
+                return forceconstexpr || IsBackedType(stackm.GetType(arg1)) ? Multiple : Single;
+        }
+        catch (VMRuntimeError &e)
+        {
+                forceconstexpr = false;
+                errorhandler.AddErrorAt(obj->position, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
+                Pop();
+                return None;
+        }
 }
 Optimizable Opt_ConstantsArithmatic::V_ObjectExtend(AST::ObjectExtend *obj, Empty)
 {
@@ -1100,11 +1175,8 @@ Optimizable Opt_ConstantsArithmatic::V_Variable (Variable *obj, Empty)
         {
                 Optimizable opt = Visit(obj->symbol->variabledef->constexprvalue, Empty());
 
-                // Returning Single (a single AST::Constant node) won't trigger replacement
-                if (opt == Single)
-                    opt = Multiple;
-
-                return opt;
+                // Don't auto-replace, loading a variable is usually quicker than instantiating a (big) constant
+                return opt == None ? opt : Single;
         }
         return None;
 }

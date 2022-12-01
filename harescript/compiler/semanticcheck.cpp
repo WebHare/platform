@@ -279,7 +279,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
 
                             if (it->type != VariableTypes::Blob)
                             {
-                                    Constant* c = carim->Optimize(it->null_default_value);
+                                    Constant* c = carim->ForceOptimize(it->null_default_value);
                                     if (!c)
                                         context.errorhandler.AddErrorAt(it->null_default_value->position, Error::ExpectedConstantExpression);
                                     else
@@ -291,7 +291,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
                             }
                             else
                             {
-                                    Constant* c = carim->Optimize(it->null_default_value);
+                                    Constant* c = carim->ForceOptimize(it->null_default_value);
                                     if (!c)
                                         context.errorhandler.AddErrorAt(it->null_default_value->position, Error::ExpectedConstantExpression);
                                     else if (context.stackm.GetBlob(c->var).GetLength()>0) // Internal error; non-empty blobs are impossible to make right now.
@@ -311,7 +311,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
 
                         if (it->type != VariableTypes::Blob)
                         {
-                                Constant* c = carim->Optimize(it->view_value_expr);
+                                Constant* c = carim->ForceOptimize(it->view_value_expr);
                                 if (!c)
                                     context.errorhandler.AddErrorAt(it->view_value_expr->position, Error::ExpectedConstantExpression);
                                 else
@@ -323,7 +323,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
                         }
                         else
                         {
-                                Constant* c = carim->Optimize(it->view_value_expr);
+                                Constant* c = carim->ForceOptimize(it->view_value_expr);
                                 if (!c)
                                     context.errorhandler.AddErrorAt(it->view_value_expr->position, Error::ExpectedConstantExpression);
                                 else if (context.stackm.GetBlob(c->var).GetLength()>0) // Internal error; non-empty blobs are impossible to make right now.
@@ -2327,7 +2327,7 @@ void SemanticChecker::V_SwitchStatement (SwitchStatement *obj, bool)
                         VerifyTypeWithCast(*it2, type);
                         if (!context.errorhandler.AnyErrors())
                         {
-                                if (carim->ForceOptimizeWithCells(*it2))
+                                if (carim->ForceOptimize(*it2))
                                 {
                                         Constant *value = dynamic_cast<Constant *>(*it2);
                                         if (!value)

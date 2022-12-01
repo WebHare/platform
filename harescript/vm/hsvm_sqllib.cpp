@@ -824,16 +824,24 @@ void HS_SQL_OverwriteRecord(VarId id_set, VirtualMachine *vm)
 {
         StackMachine &varmem = vm->GetStackMachine();
 
+
         VarId arg1 = HSVM_Arg(0);
         VarId arg2 = HSVM_Arg(1);
 
-        varmem.MoveFrom(id_set, arg1);
-        for (unsigned idx = 0; idx < varmem.RecordSize(arg2); ++idx)
+        if (varmem.RecordNull(arg1))
+            varmem.MoveFrom(id_set, arg2);
+        else
         {
-                ColumnNameId nameid = varmem.RecordCellNameByNr(arg2, idx);
-                varmem.CopyFrom(
-                        varmem.RecordCellCreate(id_set, nameid),
-                        varmem.RecordCellGetByName(arg2, nameid));
+                varmem.MoveFrom(id_set, arg1);
+                unsigned size = varmem.RecordSize(arg2);
+
+                for (unsigned idx = 0; idx < size; ++idx)
+                {
+                        ColumnNameId nameid = varmem.RecordCellNameByNr(arg2, idx);
+                        varmem.CopyFrom(
+                                varmem.RecordCellCreate(id_set, nameid),
+                                varmem.RecordCellGetByName(arg2, nameid));
+                }
         }
 }
 

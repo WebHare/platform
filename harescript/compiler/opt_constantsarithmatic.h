@@ -41,7 +41,6 @@ class Opt_ConstantsArithmatic: public AST::NodeVisitor<Optimizable, Empty>
         CompilerContext &context;
         StackMachine &stackm;
         bool forceconstexpr;
-        bool withcells;
 
     public:
         Opt_ConstantsArithmatic(AstCoder *coder, TypeStorage &typestorage, CompilerContext &context);
@@ -59,16 +58,8 @@ class Opt_ConstantsArithmatic: public AST::NodeVisitor<Optimizable, Empty>
             @return Returns the constant if obj is a constant after calling this function. */
         AST::Constant * ForceOptimize(AST::Rvalue* & obj);
 
-        /** Forced optimization, issue an error when an non-constant expression is encountered.
-            Also optimizes cell accesses
-            @param obj Rvalue to optimize
-            @return Returns the constant if obj is a constant after calling this function. */
-        AST::Constant * ForceOptimizeWithCells(AST::Rvalue* & obj);
-
     private:
         template <class A> A* Adopt(A* a) { context.owner.Adopt(a); return a; }
-
-        AST::Constant *last_single;
 
         void Execute(AST::Module module);
 

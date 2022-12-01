@@ -896,6 +896,8 @@ MACRO EnforceStructureTest()
                 ], [ removeunexpected := TRUE ]));
 }
 
+RECORD FUNCTION ReturnDefaultRecord() { RETURN DEFAULT RECORD; }
+
 MACRO SpreadTest()
 {
   RECORD x1 := [ b := 3 ], x2 := [ d := 5 ];
@@ -920,6 +922,8 @@ MACRO SpreadTest()
   TestEQ(CELL[], CELL[ ...DEFAULT RECORD, ...DEFAULT RECORD ]);
   TestEQ(CELL[], CELL[ ...DEFAULT RECORD, ...CELL[] ]);
   TestEQ(CELL[], CELL[ ...CELL[], ...CELL[] ]);
+  TestEQ(CELL[], CELL[ ...ReturnDefaultRecord(), ...DEFAULT RECORD ]);
+  TestEQ(CELL[], CELL[ ...DEFAULT RECORD, ...ReturnDefaultRecord() ]);
 
   TestEQ(CELL[], [ a := 1, DELETE a ]);
   TestEQ([ a := 1 ], [ a := 1, ...[v := 2], DELETE v ]);
