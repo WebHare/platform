@@ -220,17 +220,8 @@ class RPCClient
     console.groupEnd();
   }
 
-  //TODO should we keep this variant or replace it with an explict invokeWith
-  invoke(...params: unknown[])
+  invoke(method:string, params: unknown[])
   {
-    let options;
-    if(typeof params[0] == "object")
-      options = { ...this.options, ...(params.shift() as object)};
-    else
-      options = this.options;
-
-    const method = params.shift() as string;
-
     //build the URL, add profiling and function parameters where needed
     let callurl = this.url;
     if(this.addfunctionname) //simplifies log analysis, ignored by the server
@@ -240,7 +231,7 @@ class RPCClient
     const id = ++globalseqnr;
     let stack;
 
-    if(options.debug)
+    if(this.options.debug)
     {
       stack = new Error().stack;
       console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
@@ -256,10 +247,10 @@ class RPCClient
                                    , method: method
                                    , params: params || []
                                    })
-                       , keepalive: Boolean(options.keepalive)
+                       , keepalive: Boolean(this.options.keepalive)
                        };
 
-    return new ControlledCall(this, method, stack, id, options, callurl, fetchoptions).promise;
+    return new ControlledCall(this, method, stack, id, this.options, callurl, fetchoptions).promise;
   }
 }
 
@@ -282,7 +273,7 @@ class ServiceProxy<T>
     if(prop === 'withOptions') //create a withOptions function
       return (options: RPCCallOptions) => createClient<T>(this.client.url, {...this.client.options, ...options });
 
-    return (...args: unknown[]) => this.client.invoke(prop, ...args);
+    return (...args: unknown[]) => this.client.invoke(prop, args);
   }
 }
 
