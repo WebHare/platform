@@ -18,11 +18,9 @@ MACRO ConstantsTest()
   TestEQ(TRUE, testdefaultval = 0);
 
   TestAnnotatedCompile(`
-<?wh
 CONSTANT VARIANT val;
 //               ^ E:63 VARIANT
 `);
-
 }
 
 MACRO SwitchTest()
@@ -44,17 +42,16 @@ MACRO SwitchTest()
   TestEQ(9, (PTR DefFunc)());
 
 
-  CONSTANT RECORD test := [ a := 1 ];
+  CONSTANT RECORD test := [ a := 1, b := [ 3 ] ];
   CONSTANT INTEGER v2 := 2;
-  FOR (INTEGER i := 1; i <= 2; i := i + 1)
+  FOR (INTEGER i := 1; i <= 3; i := i + 1)
   {
     INTEGER c;
-    SWITCH (i) { CASE test.a { c := 1; } CASE v2 { c := 2; } }
+    SWITCH (i) { CASE test.a { c := 1; } CASE v2 { c := 2; } CASE INTEGER(test.b[0]) { c := 3; }}
     TestEQ(i, c);
   }
 
   TestAnnotatedCompile(`
-<?wh
 CONSTANT RECORD test := [ a := 1 ];
 SWITCH (1)
 {
@@ -64,19 +61,45 @@ SWITCH (1)
 `);
 
   TestAnnotatedCompile(`
-<?wh
 CONSTANT RECORD test := [ a := 1 ];
 CONSTANT INTEGER v2 := 2;
 SWITCH (1)
 {
   CASE test.b { PRINT("fail"); }
-//         ^ E:92 B
+//         ^ E:86 B A
 }
 `);
-
-
 }
+
+MACRO CompileTimeErrorTest()
+{
+  TestAnnotatedCompile(`
+CONSTANT RECORD ARRAY test := [ [ a := 1 ] ];
+PRINT(test[0].meh);
+//           ^ E:92 MEH
+PRINT(test[0].b);
+//           ^ E:86 B A
+`);
+
+  TestAnnotatedCompile(`
+CONSTANT RECORD ARRAY test := [ [ a := 1 ] ];
+PRINT(test[-1].a);
+//         ^ E:46 -1
+PRINT(test[1].a);
+//         ^ E:46 1
+`);
+
+  TestAnnotatedCompile(`
+CONSTANT RECORD ARRAY test := [ [ a := [ b := [ c := 3, d := [ 1 ] ] ] ] ];
+PRINT(test[0].a.b.c[3]);
+//               ^ E:130
+PRINT(test[0].a.b.d[1]);
+//                  ^ E:46 1
+`);
+}
+
 
 PRINT("\n === Running TestConstants\n");
 ConstantsTest();
 SwitchTest();
+CompileTimeErrorTest();

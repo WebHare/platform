@@ -431,6 +431,13 @@ STRING FUNCTION GetAnnotatedResults(STRING test, RECORD ARRAY messages)
   RETURN res;
 }
 
+STRING FUNCTION RemoveStartTag(STRING str)
+{
+  IF (str LIKE "<?wh\n*")
+    RETURN SubString(str, 5);
+  RETURN str;
+}
+
 /** Tests compilation, annotate like this:
 
 STRING test~
@@ -440,6 +447,9 @@ PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAUL
 {
   IF (TypeID(options) = TypeID(STRING))
     options := [ annotation := "" ];
+
+  IF (test NOT LIKE "*<?wh*")
+    test := "<?wh" || (test LIKE "\n*" ? "" : "\n") || test;
 
   options := ValidateOptions(
       [ annotation :=     ""
@@ -491,7 +501,7 @@ PUBLIC MACRO TestAnnotatedCompile(STRING test, VARIANT options DEFAULTSTO DEFAUL
     report := `Got unexpected warnings/errors:\n`;
 
   IF (report != "")
-    ReportError(report || `Expected:\n${test}\nGot:\n${GetAnnotatedResults(test, compileerrors)}`, compileerrors, options.annotation);
+    ReportError(report || `Expected:\n${RemoveStartTag(test)}\nGot:\n${RemoveStartTag(GetAnnotatedResults(test, compileerrors))}`, compileerrors, options.annotation);
 }
 
 PUBLIC BLOB FUNCTION OpenTestFile(STRING name)
