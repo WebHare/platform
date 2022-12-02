@@ -1,0 +1,382 @@
+<?wh
+
+LOADLIB "wh::async.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+PUBLIC OBJECT ipcparentlink;
+
+RECORD ARRAY pendingcalls;
+
+OBJECT nodeprocess;
+OBJECT nodeipclink;
+OBJECT hsjob;
+
+OBJECT startserializer;
+
+/** Starts a node process that will handle the calls
+*/
+ASYNC MACRO StartIPCNodeProcess()
+{
+  startserializer := startserializer ?? MakeCallSerializer();
+
+  OBJECT lock := AWAIT startserializer->GetRunPermission();
+  OBJECT proc, port;
+  TRY
+  {
+    IF (ObjectExists(nodeprocess))
+      RETURN;
+
+    RECORD processinfo := GetProcessInfo();
+    STRING portname := `${GenerateUFS128BitId()}-${processinfo.pid}-${processinfo.processcode}`;
+    port := CreateGlobalIPCPort(portname);
+
+    proc := CreateProcess(
+        GetWebhareConfiguration().installationroot || "node_modules/.bin/ts-node",
+        [ `--swc`, `${GetWebhareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`, portname ],
+        [ take_output := FALSE, take_errors := FALSE ]);
+    proc->share_stdout := TRUE;
+    proc->share_stderr := TRUE;
+    proc->Start();
+
+    nodeipclink := AWAIT port->AsyncAccept(AddTimeToDate(15000, GetCurrentDateTime()));
+    port->Close();
+    port := DEFAULT OBJECT;
+
+    IF (NOT ObjectExists(nodeipclink))
+      THROW NEW Exception(`JavaScript runner did not connect back to process fast enough`);
+
+    nodeprocess := proc;
+
+    HandleNodeIPCMessages();
+  }
+  CATCH
+  {
+    IF (ObjectExists(port))
+      port->Close();
+    IF (ObjectExists(proc))
+      proc->Close();
+    IF (ObjectExists(nodeipclink))
+      nodeipclink->Close();
+    nodeipclink := DEFAULT OBJECT;
+    THROW;
+  }
+  FINALLY
+    lock->Close();
+}
+
+ASYNC FUNCTION RunInvoke(RECORD task)
+{
+  FUNCTION PTR func := MakeFunctionPtr(task.func);
+  RETURN AWAIT CallFunctionPtrVA(func, task.args);
+}
+
+/** Handle an invoke call that should be executed in the local process
+    @param link Link we should reply on
+    @param cmd Command to execute
+    @param msgid Message ID to use as reply
+*/
+ASYNC MACRO HandleInvoke(OBJECT link, RECORD cmd, INTEGER64 msgid)
+{
+  TRY
+  {
+    VARIANT value := AWAIT RunInvoke(cmd);
+    IF (link->handle != 0)
+      link->SendReply(CELL
+          [ cmd := "response"
+          , value
+          ], msgid);
+  }
+  CATCH (OBJECT e)
+  {
+    IF (link->handle != 0)
+      link->SendReply(CELL
+          [ cmd := "response"
+          , error :=      e->EncodeForIPC()
+          ], msgid);
+  }
+}
+
+/** Handle an invoke call that should be routed to another VM
+    @param link Link we should reply on
+    @param cmd Command to execute
+    @param msgid Message ID to use as reply
+*/
+ASYNC MACRO HandleRemoteInvoke(OBJECT link, RECORD cmd, INTEGER64 msgid)
+{
+  // This command should only be received in the parent script, not in a runner
+  TRY
+  {
+    IF (ObjectExists(ipcparentlink))
+      THROW NEW Exception(`Got remote-invoke command in callasync runner`);
+
+    STRING lib := Tokenize(cmd.func, "#")[0];
+    BOOLEAN is_javascript := lib LIKE "*.js" OR lib LIKE "*.es" OR lib LIKE "*.ts" OR lib LIKE "*.tsx";
+
+    // Set option 'raw', so the javascript values are not decoded in this process
+    RECORD command := CELL
+        [ ...cmd
+        , cmd :=          "invoke"
+        , options :=      CELL[ ...cmd.options, raw := TRUE ]
+        ];
+
+    RECORD res;
+    IF (is_javascript)
+    {
+      IF (NOT ObjectExists(nodeprocess))
+        AWAIT StartIPCNodeProcess();
+
+      res := nodeipclink->SendMessage(command);
+    }
+    ELSE
+    {
+      IF (NOT ObjectExists(hsjob))
+        StartHSJob();
+
+      res := hsjob->ipclink->SendMessage(command);
+    }
+
+    RECORD defer := CreateDeferredPromise();
+    INSERT CELL
+        [ id :=       res.msgid
+        , defer
+        , type :=     is_javascript ? "js" : "hs"
+        , command.options
+        ] INTO pendingcalls AT END;
+
+    ProcessRemoteInvokeResult(defer.promise, link, msgid);
+  }
+  CATCH (OBJECT e)
+  {
+    IF (link->handle != 0)
+      link->SendReply(CELL
+          [ cmd := "response"
+          , error :=      e->EncodeForIPC()
+          ], msgid);
+  }
+}
+
+ASYNC MACRO ProcessRemoteInvokeResult(OBJECT promise, OBJECT link, INTEGER64 msgid)
+{
+  TRY
+  {
+    RECORD response := AWAIT promise;
+    IF (link->handle != 0)
+      link->SendReply(response, msgid);
+  }
+  CATCH (OBJECT e)
+  {
+    IF (link->handle != 0)
+      link->SendReply(CELL
+          [ cmd := "response"
+          , error :=      e->EncodeForIPC()
+          ], msgid);
+  }
+}
+
+MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+{
+  SWITCH (msg.cmd)
+  {
+    CASE "response"
+    {
+      RECORD pos := RecordLowerBound(pendingcalls, [ id := replyto ], [ "ID" ]);
+      IF (pos.found)
+      {
+        RECORD call := pendingcalls[pos.position];
+        DELETE FROM pendingcalls AT pos.position;
+
+        // Resolve with the whole response when 'raw' is on (the parent script needs to route the response to a runner)
+        IF (call.options.raw)
+          call.defer.resolve(msg);
+        ELSE IF (CellExists(msg, "error"))
+        {
+          IF (TypeID(msg.error) = TypeID(RECORD))
+            call.defer.reject(DecodeReceivedException(msg.error));
+          ELSE
+            call.defer.reject(NEW Exception(msg.error));
+        }
+        ELSE
+        {
+          // JavaScript responses are always JSON-encoded
+          IF (call.type = "js")
+            call.defer.resolve(DecodeJSON(msg.value, DEFAULT RECORD, CELL[ call.options.wrapobjects ]));
+          ELSE
+            call.defer.resolve(msg.value);
+        }
+      }
+    }
+    CASE "invoke"
+    {
+      // local invoke
+      HandleInvoke(link, msg, msgid);
+    }
+    CASE "remote-invoke"
+    {
+      // invoke that should be routed to another runner
+      HandleRemoteInvoke(link, msg, msgid);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown command ${EncodeJSON(msg.cmd)} received`);
+    }
+  }
+
+}
+
+ASYNC MACRO HandleNodeIPCMessages()
+{
+  OBJECT err;
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT nodeipclink->AsyncReceiveMessage(MAX_DATETIME);
+    IF (rec.status = "gone")
+    {
+      err := NEW Exception(`JavaScript runner process terminated without giving a response`);
+      BREAK;
+    }
+
+    TRY
+      HandleMessage(nodeipclink, rec.msg, rec.msgid, rec.replyto);
+    CATCH (OBJECT e)
+    {
+      err := e;
+      BREAK;
+    }
+  }
+
+  FOREVERY (RECORD call FROM pendingcalls)
+    IF (call.type = "js")
+      call.defer.reject(err);
+  DELETE FROM pendingcalls WHERE type = "js";
+
+  nodeipclink->Close();
+  nodeprocess->Close();
+
+  nodeipclink := DEFAULT OBJECT;
+  nodeprocess := DEFAULT OBJECT;
+}
+
+MACRO StartHSJob()
+{
+  RECORD rec := CreateJob("mod::system/scripts/internal/callrunnerhs.whscr");
+  IF (NOT ObjectExists(rec.job))
+    THROW NEW HarescriptErrorException(rec.errors);
+
+  hsjob := rec.job;
+  hsjob->Start();
+
+  HandleHSIPCMessages(hsjob->ipclink, TRUE);
+}
+
+PUBLIC ASYNC MACRO HandleHSIPCMessages(OBJECT link, BOOLEAN hasjob)
+{
+  OBJECT err;
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT link->AsyncReceiveMessage(MAX_DATETIME);
+    IF (rec.status = "gone")
+    {
+      IF (hasjob)
+      {
+        RECORD ARRAY errors := hsjob->GetErrors();
+        err := NEW HarescriptErrorException(errors);
+      }
+      ELSE
+        err := NEW Exception(`Link to asynccall script was closed`);
+      BREAK;
+    }
+
+    TRY
+      HandleMessage(link, rec.msg, rec.msgid, rec.replyto);
+    CATCH (OBJECT e)
+    {
+      err := e;
+      BREAK;
+    }
+  }
+
+  FOREVERY (RECORD rec FROM pendingcalls)
+    IF (rec.type = "hs")
+      rec.defer.reject(err);
+  DELETE FROM pendingcalls WHERE type = "hs";
+
+  link->Close();
+  IF (hasjob)
+  {
+    hsjob->Close();
+    hsjob := DEFAULT OBJECT;
+  }
+}
+
+/** Asynchronously invoke a function in another VM
+    @param func Reference to the function (in the form 'resourcename#functionname'). HareScipt and JavaScript functions are both supported.
+    @param args Arguments
+    @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored) (only for JavaScript calls)
+    @return Return value of the function
+    @topic modules/tasks
+    @public
+    @loadlib mod::system/lib/tasks.whlib
+*/
+PUBLIC ASYNC FUNCTION CallAsync(STRING func, VARIANT ARRAY args, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ wrapobjects :=      FALSE
+      ], options);
+
+  INSERT CELL raw := FALSE INTO options;
+
+  STRING lib := Tokenize(func, "#")[0];
+  BOOLEAN is_javascript := lib LIKE "*.js" OR lib LIKE "*.es" OR lib LIKE "*.ts" OR lib LIKE "*.tsx";
+
+  RECORD command := CELL
+      [ cmd :=      (ObjectExists(ipcparentlink) AND is_javascript) ? "remote-invoke" : "invoke"
+      , type :=     is_javascript ? "js" : "hs"
+      , options
+      , func
+      , args
+      ];
+
+  IF (NOT is_javascript AND ObjectExists(ipcparentlink))
+    RETURN RunInvoke(command);
+
+  RECORD defer := CreateDeferredPromise();
+
+  RECORD res;
+  IF (is_javascript)
+  {
+    IF (ObjectExists(ipcparentlink))
+      res := ipcparentlink->SendMessage(command);
+    ELSE
+    {
+      IF (NOT ObjectExists(nodeprocess))
+        AWAIT StartIPCNodeProcess();
+
+      res := nodeipclink->SendMessage(command);
+    }
+  }
+  ELSE
+  {
+    IF (NOT ObjectExists(hsjob))
+      StartHSJob();
+
+    res := hsjob->ipclink->SendMessage(command);
+  }
+
+  INSERT CELL
+      [ id :=       res.msgid
+      , defer
+      , type :=     is_javascript ? "js" : "hs"
+      , options
+      ] INTO pendingcalls AT END;
+
+  RETURN defer.promise;
+}

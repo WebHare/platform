@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
+
+
+__withinasyncrunner := TRUE;
+
+ipcparentlink := GetIPCLinkToParent();
+IF (NOT ObjectExists(ipcparentlink))
+  TerminateScriptWithError("No IPC link to parent");
+
+WaitForPromise(HandleHSIPCMessages(ipcparentlink, FALSE));

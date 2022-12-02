@@ -384,6 +384,7 @@ case $INSTR in
   "exec")
     setup_for_console
     getwhparameters
+    setup_node
 
     PROCESS="$1"
     shift
@@ -404,6 +405,7 @@ case $INSTR in
     setup_for_console
     getwhparameters
     setup_buildsystem
+    setup_node
 
     DBGARGS=();
     if [ "$1" == "--dbg" ]; then
@@ -436,6 +438,7 @@ case $INSTR in
 
     check_webhare_not_running
     setup_for_console
+    setup_node
 
     getwhparameters
     setup_webhare_envsettings
@@ -526,8 +529,8 @@ case $INSTR in
       die "Specify the script to run"
     fi
 
+    setup_node
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
-      setup_node
       BASE_DIR=$WEBHARE_DIR/node_modules
       export NODE_OPTIONS=
       SKIPVALIDATE=--swc

@@ -1,0 +1,14 @@
+<?wh
+
+LOADLIB "mod::system/lib/tasks.whlib";
+
+PUBLIC ASYNC FUNCTION CallAsyncTest(INTEGER action)
+{
+  IF (action = 3)
+    ABORT("hs-error");
+  IF (action = 4)
+    THROW NEW Exception("hs-throw");
+
+  RECORD other := AWAIT CallAsync(Resolve("asynctask.ts#callAsyncTest"), [ action ]);
+  RETURN CELL[ action, source := "hs", other ];
+}

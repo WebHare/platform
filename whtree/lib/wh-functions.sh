@@ -182,7 +182,6 @@ setup_node()
   local relpath
 
   getwhparameters
-  mkdir -p "$WEBHARE_DATAROOT/nodejs"
   export NODE_PATH=$WEBHARE_DATAROOT/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
   export WEBHARE_LOOPBACKPORT
@@ -233,6 +232,7 @@ getlog()
 exec_runscript()
 {
   getwhparameters
+  setup_node
   exec $WEBHARE_DIR/bin/runscript "$@"
   exit 255
 }

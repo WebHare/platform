@@ -1,0 +1,62 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+
+
+ASYNC FUNCTION Do(STRING ext, INTEGER action)
+{
+  STRING func := Resolve(`mod::webhare_testsuite/tests/system/tasks/asynctask.${ext}#callAsyncTest${action = -1 ? "NotFound" : ""}`);
+  RETURN AWAIT CallAsync(func, [ action ]);
+}
+
+
+RECORD ARRAY answers;
+MACRO IncGotAnswers(RECORD rec)
+{
+  INSERT rec INTO answers AT END;
+}
+
+ASYNC MACRO TestCallAsync()
+{
+  TestRejectedLike("*Cannot find library*", Do("whlibx", 0));
+  TestRejectedLike("*Cannot find module*", Do("es", 0));
+  TestRejectedLike("*Function 'CALLASYNCTESTNOTFOUND' was not found*", Do("whlib", -1));
+  TestRejectedLike("*Imported symbol mod::webhare_testsuite/tests/system/tasks/asynctask.ts#callAsyncTestNotFound is not a function, but a undefined*", Do("ts", -1));
+
+  TestRejectedLike("*terminated without giving a response", Do("whlib", 1));
+  TestRejectedLike("js-error", Do("whlib", 2));
+  TestRejectedLike("Custom error message*", Do("whlib", 3));
+  TestRejectedLike("hs-throw", Do("whlib", 4));
+
+  TestRejectedLike("*terminated without giving a response", Do("ts", 1));
+  TestRejectedLike("js-error", Do("ts", 2));
+
+  // Ensure warmup so timing-based stuff works
+  TestEQ([ action := 0, source := "hs", other := [ action := 0, source := "js" ] ], AWAIT Do("whlib", 0));
+
+  OBJECT w1;
+  FOR (INTEGER i := 0; i < 10; i := i + 1)
+  {
+    answers := RECORD[];
+    w1 := Do("whlib", 5)->Then(PTR IncGotAnswers); // Do(5) does a sleep(100) in javascript, so should return later
+    Sleep(10);
+    AWAIT Do("whlib", 0)->Then(PTR IncGotAnswers);
+    IF (i = 9 OR LENGTH(answers) = 1)
+    {
+      TestEQ(1, LENGTH(answers), `Async operation should work`);
+      BREAK;
+    }
+    AWAIT w1;
+  }
+  AWAIT w1;
+  TEstEQ(
+      [ [ action := 0, source := "hs", other := [ action := 0, source := "js" ] ]
+      , [ action := 5, source := "hs", other := [ action := 5, source := "js" ] ]
+      ], answers);
+
+
+}
+
+RunTestframework([ PTR TestCallAsync
+                 ]);
