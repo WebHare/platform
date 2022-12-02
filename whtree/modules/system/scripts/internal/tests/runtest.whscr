@@ -635,9 +635,9 @@ MACRO PrintSyntax()
   Print("  -d               Print test debug information\n");
   Print("  -e               Print test script errors\n");
   Print("  -o               Print test script output\n");
-  Print("  -q               Runs the test in quiet mode. Only error messages will be\n");
-  Print("                   displayed\n");
+  Print("  -q               Runs the test in quiet mode. Only error messages will be displayed\n");
   Print("  -p               Use processes instead of jobs\n");
+  Print("  --untilfail      Loop tests until something breaks\n");
   Print("  --breakonerror   Break on first failing test\n");
   Print("  --loop           After all test are finished, start again with first test (often combined with --breakonerror\n");
   Print("  --tag=..         Specify tags to require or exclude (eg: --tag=forms,-external)\n");
@@ -697,6 +697,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "chromeurl", type := "stringopt"]
                                     , [name := "timeout", type := "stringopt" ]
                                     , [name := "skip", type := "stringlist"]
+                                    , [name := "untilfail", type := "switch"]
                                     , [name := "breakonerror", type := "switch"]
                                     , [name := "tag", type := "stringopt"]
                                     , [name := "testtype", type := "stringlist"]
@@ -721,13 +722,14 @@ print_output := parsedargs.o;
 print_errors := parsedargs.e;
 quiet_mode := parsedargs.q;
 use_jobs := NOT parsedargs.p;
-breakonerror := parsedargs.breakonerror;
+breakonerror := parsedargs.breakonerror OR parsedargs.untilfail;
 autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
 chromeurl := parsedargs.chromeurl;
 keepsessions := parsedargs.keepsessions;
 profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
+BOOLEAN looptests := parsedargs.loop OR parsedargs.untilfail;
 IF(parsedargs.timeout != "")
 {
   testtimeout := ToInteger(parsedargs.timeout, -1);
@@ -867,7 +869,7 @@ WHILE (TRUE)
     SetConsoleExitCode(1);
   }
 
-  IF (NOT parsedargs.loop OR (Length(failed_tests)>0 AND breakonerror))
+  IF (NOT looptests OR (Length(failed_tests)>0 AND breakonerror))
     BREAK;
 }
 
