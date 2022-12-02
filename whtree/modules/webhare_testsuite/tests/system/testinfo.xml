@@ -29,5 +29,6 @@
   <test name="heavy" path="heavy/" />
   <test name="precalc" path="precalc/" />
   <test name="debugger" path="debugger/" />
+  <test name="tasks" path="tasks/" />
   <jstest file="testexclusiveaccess.es" />
 </group>
