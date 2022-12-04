@@ -789,6 +789,7 @@ STATIC OBJECTTYPE AssetPackController
                                  , modulepack.aftercompiletask
                                  , modulepack.assetbaseurl
                                  , modulepack.compatibility
+                                 , modulepack.esbuildsettings
                                  ];
 
       STRING encodedconfig := EncodeHSON(bundleconfig);

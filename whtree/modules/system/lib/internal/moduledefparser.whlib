@@ -1258,6 +1258,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
                  , aftercompiletask := ParseXMLModuleNamed(modulename, assetpacknode, "aftercompiletask")
+                 , esbuildsettings := assetpacknode->GetAttribute("esbuildsettings")
                  ] INTO assetpacks AT END;
         }
       }
