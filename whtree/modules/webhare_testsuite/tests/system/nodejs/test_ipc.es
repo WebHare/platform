@@ -1,7 +1,7 @@
 /* globals describe it */
 "use strict";
 
-const { createDeferred } = require('@mod-system/js/internal/tools.js');
+const { createDeferred } = require('@mod-system/js/internal/tools');
 const assert = require("assert");
 
 async function assertAsyncThrown(promise_returning_function, message)

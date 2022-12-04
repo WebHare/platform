@@ -2,7 +2,7 @@
 
 const Events = require("events");
 const stacktrace_parser = require("stacktrace-parser");
-const tools = require('@mod-system/js/internal/tools.js');
+const tools = require('@mod-system/js/internal/tools');
 
 class IPCLink extends Events.EventEmitter
 {
