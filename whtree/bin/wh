@@ -866,29 +866,28 @@ HERE
 
   *)
     if [[ $INSTR =~ .*:.* ]]; then
-      TARGETMODULE=${INSTR%:*}
-      SUBCOMMAND=${INSTR##*:}
-      getmoduledir MODULEDIR $TARGETMODULE
+      TARGETMODULE="${INSTR%:*}"
+      SUBCOMMAND="${INSTR##*:}"
+    else
+      TARGETMODULE=system
+      SUBCOMMAND="$INSTR"
+    fi
 
-      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" ]; then
-        exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
-      fi
-      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
-        exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
-      fi
-      if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ] || [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" ]; then
-        setup_node
-        exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" "${OPTIONS[@]}"
-      fi
+    getmoduledir MODULEDIR $TARGETMODULE
 
-      die "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"
-    else #Command not in the form 'xxx:yyy'
-      if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" ]; then
-        exec /bin/bash "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" "${OPTIONS[@]}"
-      fi
-      if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.whscr" ]; then
-        exec_runscript --workerthreads 4 "mod::system/scripts/whcommands/$INSTR.whscr" "${OPTIONS[@]}"
-      fi
+    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" ]; then
+      exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
+    fi
+    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
+      exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
+    fi
+    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" ] ; then
+      setup_node
+      exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" "${OPTIONS[@]}"
+    fi
+    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ]; then
+      setup_node
+      exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "${OPTIONS[@]}"
     fi
 
     die "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
