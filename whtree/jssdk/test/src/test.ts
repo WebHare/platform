@@ -4,6 +4,7 @@ Error.stackTraceLimit = 25;
 export {
   assert
   , eq
+  , sleep
 } from './checks';
 let testscompleted = false;
 

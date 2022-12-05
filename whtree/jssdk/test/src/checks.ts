@@ -147,7 +147,15 @@ function testAssert(actual: unknown, annotation?: Annotation) //TODO ': asserts 
 {
   testEq(true, Boolean(actual), annotation);
 }
+async function testSleep(condition: number) : Promise<void> {
+  if(condition < 0)
+    throw new Error(`Wait duration must be positive, got '${condition}'`);
+  await new Promise(resolve => setTimeout(resolve, condition));
+  return;
+}
+
 export {
   testAssert as assert
   , testEq as eq
+  , testSleep as sleep
 };

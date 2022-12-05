@@ -1,5 +1,5 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <mochanodetest file="test_manualcondition.es" />
+  <test script="test_manualcondition.ts" />
   <mochanodetest file="test_fifo.es" />
   <mochanodetest file="test_waitabletimer.es" />
   <mochanodetest file="test_ipc.es" />
