@@ -1,5 +1,5 @@
-/** An explanation must either be a simple string or a callback returning one */
-export type Explanation = string | (() => string);
+/** An Annotation must either be a simple string or a callback returning one */
+export type Annotation = string | (() => string);
 
 function myTypeOf(item: unknown) {
   if (item === undefined) return 'undefined';
@@ -101,11 +101,11 @@ function isequal(a: unknown, b: unknown) {
   }
 }
 
-function logExplanation(explanation: Explanation) {
-  if (typeof explanation == "function")
-    explanation = explanation();
+function logAnnotation(annotation: Annotation) {
+  if (typeof annotation == "function")
+    annotation = annotation();
 
-  console.error(explanation);
+  console.error(annotation);
 }
 
 function toTestableString(val: unknown): string {
@@ -119,7 +119,7 @@ function toTestableString(val: unknown): string {
   }
 }
 
-function testEq<T>(expected: T, actual: T, explanation?: Explanation) {
+function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
@@ -129,8 +129,8 @@ function testEq<T>(expected: T, actual: T, explanation?: Explanation) {
   const expected_str = toTestableString(expected);
   const actual_str = toTestableString(actual);
 
-  if (explanation)
-    logExplanation(explanation);
+  if (annotation)
+    logAnnotation(annotation);
 
   console.log("testEq fails: expected", expected_str);
   console.log("testEq fails: actual  ", actual_str);
@@ -143,9 +143,9 @@ function testEq<T>(expected: T, actual: T, explanation?: Explanation) {
   testDeepEq(expected, actual, '');
 }
 
-function testAssert(actual: unknown, explanation?: Explanation) //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+function testAssert(actual: unknown, annotation?: Annotation) //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
 {
-  testEq(true, Boolean(actual), explanation);
+  testEq(true, Boolean(actual), annotation);
 }
 export {
   testAssert as assert
