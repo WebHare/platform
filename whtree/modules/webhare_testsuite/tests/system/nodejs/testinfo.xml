@@ -1,8 +1,8 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_ipc.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
   <test script="test_waitabletimer.ts" />
-  <mochanodetest file="test_ipc.es" />
   <test script="test_utf8.ts" />
   <jstest file="testfinmath.es" />
 </group>

@@ -5,6 +5,7 @@ export {
   assert
   , eq
   , sleep
+  , throws
 } from './checks';
 let testscompleted = false;
 

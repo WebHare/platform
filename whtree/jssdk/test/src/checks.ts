@@ -147,6 +147,41 @@ function testAssert(actual: unknown, annotation?: Annotation) //TODO ': asserts 
 {
   testEq(true, Boolean(actual), annotation);
 }
+
+async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
+  try {
+    //If we got a function, execute it
+    const promiselike = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
+    //To be safe and consistently take up a tick, we'll await the return value. awaiting non-promises is otherwise safe anyway
+    await promiselike;
+
+    if (annotation)
+      logAnnotation(annotation);
+
+    throw new Error("testThrows fails: expected function to throw");
+  }
+  catch (e) {
+    if (!(e instanceof Error)) {
+      if (annotation)
+        logAnnotation(annotation);
+
+      console.error("Expected a proper Error but got:", e);
+      throw new Error("testThrows fails - didn't get an Error object");
+    }
+
+    const exceptiontext = e.toString();
+    if (!exceptiontext.toString().match(expect)) {
+      if (annotation)
+        logAnnotation(annotation);
+
+      console.log("Expected exception: ", expect.toString());
+      console.log("Got exception: ", exceptiontext);
+      throw new Error("testThrows fails - exception mismatch");
+    }
+
+    return e; //we got what we wanted - a throw!
+  }
+}
 async function testSleep(condition: number) : Promise<void> {
   if(condition < 0)
     throw new Error(`Wait duration must be positive, got '${condition}'`);
@@ -158,4 +193,5 @@ export {
   testAssert as assert
   , testEq as eq
   , testSleep as sleep
+  , testThrows as throws
 };

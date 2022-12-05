@@ -173,7 +173,7 @@ class WebHareBridge extends Events.EventEmitter
       {
         let req = this.sentmessages.find(item => item.msgid == data.msgid);
         if (req)
-          req.reject(data.what);
+          req.reject(new Error(data.what));
         return;
       }
 
