@@ -102,7 +102,7 @@ PUBLIC STATIC OBJECTTYPE TestInfoValidator EXTEND XMLValidatorBase
        enumerates nodes directly without parsing first (and we probably want to ignore Applicable anyway) */
     FOREVERY(OBJECT checknode FROM this->xml->GetElements("test[script]"))
       DELETE FROM unreferred WHERE name = checknode->GetAttribute("script");
-    FOREVERY(OBJECT checknode FROM this->xml->GetElements("jstest[file],mochanodetest[file]"))
+    FOREVERY(OBJECT checknode FROM this->xml->GetElements("jstest[file]"))
       DELETE FROM unreferred WHERE name = checknode->GetAttribute("file");
 
     FOREVERY(OBJECT checknode FROM this->xml->GetElements("test[path]"))

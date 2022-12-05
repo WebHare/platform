@@ -18,7 +18,6 @@
     "install": "^0.13.0",
     "libphonenumber-js": "^1.9.44",
     "mkdirp": "^1.0.4",
-    "mocha": "^7.1.1",
     "node-getopt": "^0.3.2",
     "rimraf": "^3.0.2",
     "sass": "^1.40.1",
