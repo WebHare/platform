@@ -18,6 +18,7 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , environment := "window"
                            , aftercompiletask := ""
                            , compatibility := "es2016"
+                           , esbuildsettings := ""
                            ];
 
 PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
@@ -58,6 +59,7 @@ PUBLIC STRING FUNCTION GetHashForBundle(RECORD requesteddesign)
                      , languages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(requesteddesign.bundleconfig.languages,"lang") ORDER BY lang)
                      , environment := requesteddesign.bundleconfig.environment
                      , aftercompiletask := requesteddesign.bundleconfig.aftercompiletask //making this part of the hash so we refire the task if it changes
+                     , esbuildsettings := requesteddesign.bundleconfig.esbuildsettings
                      ];
   STRING designhash := ToLowercase(EncodeUFS(GetMD5Hash(EncodeHSON(hashbase))));
   RETURN designhash;

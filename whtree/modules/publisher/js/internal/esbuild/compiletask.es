@@ -198,6 +198,8 @@ async function runTask(taskcontext, data)
   let start = Date.now();
   try
   {
+    if(bundle.bundleconfig.esbuildsettings)
+      esbuild_configuration = {...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
     buildresult = await esbuild.build(esbuild_configuration);
   }
   catch(e)
