@@ -191,7 +191,6 @@ setup_node()
     # absolute paths in "extends" don't seem to work
     mkdir -p "$WEBHARE_DATAROOT/webhare-config/"
     calc_dir_relpath relpath "$WEBHARE_DATAROOT/webhare-config" "$WEBHARE_DIR"
-    echo "$WEBHARE_DATAROOT" "$WEBHARE_DIR" "$relpath"
     # Mirror the NODE_PATH for path resolution
     # and make sure the 'node' types-definitions are loaded (won't be inherited, so need
     # to copy them)
