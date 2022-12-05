@@ -121,7 +121,8 @@ export class IPCListenerPort extends Events.EventEmitter
   }
 }
 
-/** Interface for the client object we present to the connecting user */
+/** Interface for the client object we present to the connecting user
+    TODO: model this more after jsonrpc-client? WOuld make it easier to deal with case insensitive HS services */
 interface WebHareServiceClient
 {
   /** Our methods */
@@ -147,7 +148,7 @@ class WebHareServiceWrapper
   constructor(port: IPCLink, response: WebHareServiceDescription)
   {
     this.port = port;
-    this.client = {};
+    this.client = { close: function() { port.close(); } };
     for(const method of response.methods)
       this.client[method.name] = (...args: unknown[]) => this.remotingFunc(method, args);
   }
@@ -191,7 +192,8 @@ type EventCallback = (event: string, data: object) => void;
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
 class WebHareBridge extends Events.EventEmitter
 {
-  waitcount = 0;
+  private _waitcount = 0;
+
   debug = false;
   gotfirstmessage = false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not fixing this yet, I wonder if it wouldn't be cleaner to swap out sentmessages/pendingrequests for IPC links and WebHareServices completely!
@@ -221,6 +223,12 @@ class WebHareBridge extends Events.EventEmitter
     this.onlinedefer = tools.createDeferred();
   }
 
+  /** Get the current number of references to the bridge */
+  get references()
+  {
+    return this._waitcount;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _closeLink(link: IPCLink)
   {
@@ -229,26 +237,26 @@ class WebHareBridge extends Events.EventEmitter
 
   updateWaitCount(nr: number)
   {
-    const newcount = this.waitcount + nr;
+    const newcount = this._waitcount + nr;
     if(newcount < 0)
       throw new Error("Wait count became negative!");
 
     //unref/ref doesn't count so we'll handle that ourselves
-    if(newcount == 0 && this.waitcount > 0)
+    if(newcount == 0 && this._waitcount > 0)
     {
       //Stop us from preventing node shutdown.
       this.socket._socket?.unref();
     }
-    else if(newcount > 0 && this.waitcount == 0)
+    else if(newcount > 0 && this._waitcount == 0)
     {
       this.socket._socket?.ref();
     }
-    this.waitcount = newcount;
+    this._waitcount = newcount;
   }
 
   private onConnected()
   {
-    if(this.waitcount == 0) //noone is caring about us right now
+    if(this._waitcount == 0) //noone is caring about us right now
       this.socket._socket.unref();
   }
 
@@ -350,9 +358,10 @@ class WebHareBridge extends Events.EventEmitter
         this.pendingrequests.filter(el => el.linkid == data.id).forEach(el => el.reject(new Error("link disconnected")));
         this.pendingrequests = this.pendingrequests.filter(el => el.linkid != data.id);
 
-        if (!this.links.delete(data.id))
+        if (!this.links.delete(data.id)) //then we probably cleaned it up earlier ?
         {
-          this.abortBridge("webhare-bridge: received disconnected for nonexisting link #" + data.id);
+          if(this.debug)
+            console.log("webhare-bridge: received disconnected for nonexisting link #" + data.id);
           return;
         }
         return;
@@ -382,6 +391,7 @@ class WebHareBridge extends Events.EventEmitter
     port._closed = true;
     this.sendMessage({ type: "closeport", id: id });
     this.ports.delete(id);
+    this.updateWaitCount(-1);
   }
 
   closeLink(id: number)
@@ -395,6 +405,7 @@ class WebHareBridge extends Events.EventEmitter
     link._closed = true;
     this.sendMessage({ type: "closelink", id: id });
     this.links.delete(id);
+    this.updateWaitCount(-1);
   }
 
   /**
@@ -521,13 +532,22 @@ class WebHareBridge extends Events.EventEmitter
   {
     const connectresult = this.sendMessage({ type: "connectport", name:name, global:Boolean(global), managed: global === "managed" });
     const link = new IPCLink(connectresult.msgid);
+    this.updateWaitCount(+1);
 
     // TODO What if we connect to an IPC Port and they already start talking before the client had a chance to resolve connectIPCPort ? Best if servers don't talk early? :)
 
     // Synchronous registration at incoming message time. Errors can be handled asynchronously
     // TODO create the IPCLink before the message is transmitted, perhaps just use the messageid for the portnumber, to fix potential races if someone talks early
     this.links.set(connectresult.msgid, link );
-    await connectresult.promise;
+    try
+    {
+      await connectresult.promise;
+    }
+    catch(e)
+    {
+      link.close();
+      throw e;
+    }
 
     return link;
   }
@@ -538,10 +558,17 @@ class WebHareBridge extends Events.EventEmitter
     this.updateWaitCount(+1);
     try
     {
-      await this.onlinedefer.promise;
       const link = await this.connectIPCPort("webhareservice:" + name, true);
-      const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
-      return (new WebHareServiceWrapper(link, description)).getClient();
+      try //if we fail after connect, we'll need to disconnect the link ourselves
+      {
+        const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
+        return (new WebHareServiceWrapper(link, description)).getClient();
+      }
+      catch(e)
+      {
+        link.close();
+        throw e;
+      }
     }
     finally
     {

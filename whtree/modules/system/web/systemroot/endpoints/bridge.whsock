@@ -99,7 +99,7 @@ RECORD FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
               : ConnectToIPCPort(data.name);
 
       IF (NOT ObjectExists(link))
-        THROW NEW Exception(`Unable to connect to ${data.managed?"managed ":data.global?"global ":""} port ${data.name}`);
+        THROW NEW Exception(`Unable to connect to ${data.managed?"managed ":data.global?"global ":""}port ${data.name}`);
 
       link->userdata :=
           CELL[ id := msgid
@@ -126,7 +126,7 @@ RECORD FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
     {
       RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
       IF (NOT pos.found)
-        THROW NEW Exception("No such link with id #" || data.id);
+        RETURN DEFAULT RECORD; //We may have already closed the link on our side (eg. unreachable port)
 
       UnregisterCallback(links[pos.position].link->userdata.cb);
       links[pos.position].link->Close();
