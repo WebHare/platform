@@ -1,0 +1,239 @@
+<?wh
+
+// This was a fork of the WebHare bridge.whsock
+// If we switch all users to this one, please note that we may no longer need the protected 'localhost' webinterface the old bridge uses
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+
+
+RECORD ARRAY ports;
+RECORD ARRAY links;
+RECORD ARRAY eventcallbacks;
+RECORD ARRAY messageidmap; //FIXME periodic cleanup
+
+INTEGER nextlinkid;
+
+OBJECT handler;
+
+IF (GetClientRemoteIP() != GetClientLocalIP())
+  ABORT("Only accepting local connections");
+
+handler := CreateWebSocketHandler();
+handler->ondata := PTR OnData;
+
+//Greet it
+RECORD config := GetWebhareConfiguration();
+RECORD moduleroots;
+FOREVERY(STRING module FROM GetInstalledModuleNames())
+  moduleroots := CellInsert(moduleroots, module, GetModuleInstallationRoot(module));
+
+SendPacket(CELL[ version := GetWebhareVersionNumber()
+               , config.varroot
+               , config.installationroot
+               , moduleroots
+               ]);
+
+handler->Run();
+
+MACRO SendPacket(RECORD data)
+{
+  handler->SendData(EncodeJSON(data));
+}
+
+MACRO OnData(STRING datapacket)
+{
+  RECORD wrapped := datapacket LIKE "hson:" ? DecodeHSON(datapacket) : DecodeJSON(datapacket);
+  IF(NOT RecordExists(wrapped))
+    THROW NEW Exception("Invalid packet received");
+
+  INTEGER64 msgid := wrapped.msgid;
+  RECORD data := wrapped.data;
+
+  TRY
+  {
+    RECORD value := ExecuteCommand(msgid, data);
+    SendPacket(CELL[ type := "response-ok", msgid, ...(RecordExists(value) ? CELL[value] : DEFAULT RECORD) ]);
+  }
+  CATCH (OBJECT e)
+  {
+    SendPacket(CELL[ type := "response-exception", msgid, what := e->what, trace :=  e->trace ]);
+  }
+}
+
+RECORD FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
+{
+  SWITCH (data.type)
+  {
+    CASE "createlistenport"
+    {
+      RECORD pos := RecordLowerBound(ports, CELL[ id := msgid ] , [ "ID" ]);
+      IF (pos.found)
+        THROW NEW Exception("Already a port with id #" || msgid);
+
+      OBJECT port := data.global ? CreateGlobalIPCPort(data.name) : CreateIPCPort(data.name);
+      port->userdata :=
+          [ id := msgid
+          , cb := RegisterHandleReadCallback(port->handle, PTR HandleIncomingConnection(port))
+          ];
+      INSERT CELL [ id := msgid, port ] INTO ports AT pos.position;
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "connectport"
+    {
+      RECORD pos := RecordLowerBound(links, CELL[ id := msgid ], [ "ID" ]);
+      IF (pos.found)
+        THROW NEW Exception("Already a link with id #" || msgid);
+
+      OBJECT link := data.managed
+          ? ConnectToManagedPort(data.name)
+          : data.global
+              ? ConnectToGlobalIPCPort(data.name)
+              : ConnectToIPCPort(data.name);
+
+      IF (NOT ObjectExists(link))
+        THROW NEW Exception(`Unable to connect to ${data.managed?"managed ":data.global?"global ":""} port ${data.name}`);
+
+      link->userdata :=
+          CELL[ id := msgid
+              , cb := RegisterHandleReadCallback(link->handle, PTR HandleIncomingData(link))
+              ];
+
+      INSERT CELL [ id := msgid, link ] INTO links AT pos.position;
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "closeport"
+    {
+      RECORD pos := RecordLowerBound(ports, data, [ "ID" ]);
+      IF (NOT pos.found)
+        THROW NEW Exception("No such port with id #" || data.id);
+
+      UnregisterCallback(ports[pos.position].port->userdata.cb);
+      ports[pos.position].port->Close();
+      DELETE FROM ports AT pos.position;
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "closelink"
+    {
+      RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
+      IF (NOT pos.found)
+        THROW NEW Exception("No such link with id #" || data.id);
+
+      UnregisterCallback(links[pos.position].link->userdata.cb);
+      links[pos.position].link->Close();
+      DELETE FROM links AT pos.position;
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "message"
+    {
+      RECORD pos := RecordLowerBound(links, data, [ "ID" ]);
+      IF (NOT pos.found)
+        THROW NEW Exception("No such link with id #" || data.id);
+
+      //FIXME how to deal with link full?
+      RECORD msg := links[pos.position].link->SendReply(data.message, data.replyto);
+      IF(msg.status = "gone")
+        THROW NEW Exception("Endpoint for link #" || data.id || " has gone");
+
+      //The IPC system doesn't allow us to self-specify IDs. So we'll record them on our side. TODO clean them up eventually, faster if we get a reply ?
+      RECORD idmappos := RecordLowerBound(messageidmap, CELL[ webhareid := msg.msgid ], ["webhareid"]);
+      INSERT CELL[ bridgeid := msgid, webhareid := msg.msgid ] INTO messageidmap AT idmappos.position;
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "broadcast"
+    {
+      BroadcastEvent(data.event, data.data);
+      RETURN DEFAULT RECORD;
+    }
+
+    CASE "registermultieventcallback"
+    {
+      RECORD pos := RecordLowerBound(eventcallbacks, CELL[ id := msgid ], [ "ID" ]);
+      IF (pos.found)
+        THROW NEW Exception("Already an event callback with id #" || msgid);
+
+      INSERT
+          [ id :=   msgid
+          , cbid := RegisterMultiEventCallback(data.event, PTR HandleIncomingEvent(msgid, #1, #2))
+          ] INTO eventcallbacks AT pos.position;
+
+      RETURN DEFAULT RECORD;
+    }
+
+    DEFAULT
+    {
+      THROW NEW Exception(`Unrecognized bridge message type '${data.type}'`);
+    }
+  }
+}
+
+MACRO HandleIncomingEvent(INTEGER64 id, STRING event, RECORD ARRAY data)
+{
+  RECORD pos := RecordLowerBound(eventcallbacks, [ id := id ], [ "ID" ]);
+  IF (pos.found)
+    SendPacket([ type := "eventcallback", id := id, event := event, data := data ]);
+}
+
+MACRO HandleIncomingConnection(OBJECT port)
+{
+  OBJECT link := port->Accept(DEFAULT DATETIME);
+  IF (ObjectExists(link))
+  {
+    nextlinkid := nextlinkid + 1;
+
+    link->userdata :=
+        [ id := nextlinkid
+        , cb := RegisterHandleReadCallback(link->handle, PTR HandleIncomingData(link))
+        ];
+
+    RECORD rec :=
+        [ id := nextlinkid
+        , link := link
+        ];
+
+    INSERT rec INTO links AT RecordUpperBound(links, rec, [ "ID"]);
+    SendPacket([ type := "port-accepted", id := port->userdata.id, link := nextlinkid ]);
+  }
+}
+
+MACRO HandleIncomingData(OBJECT link)
+{
+  RECORD res := link->ReceiveMessage(DEFAULT DATETIME);
+  IF (res.status="timeout") // spurious wakeup
+    RETURN;
+
+  IF (res.status != "ok")
+  {
+    RECORD pos := RecordLowerBound(links, link->userdata, [ "ID" ]);
+    UnregisterCallback(links[pos.position].link->userdata.cb);
+    links[pos.position].link->Close();
+    DELETE FROM links AT pos.position;
+
+    SendPacket([ type := "link-gone", id := link->userdata.id ]);
+  }
+  ELSE
+  {
+    IF(res.replyto != 0)
+    {
+      RECORD idmappos := RecordLowerBound(messageidmap, CELL[ webhareid := res.replyto ], ["webhareid"]);
+      IF(NOT idmappos.found)
+        RETURN; //FIXME what to do about a response for a message we lost track of?
+      SendPacket([ type := "link-message", id := link->userdata.id, message := res.msg, replyto := messageidmap[idmappos.position].bridgeid, msgid := res.msgid ]);
+    }
+    ELSE
+    {
+      SendPacket([ type := "link-message", id := link->userdata.id, message := res.msg, replyto := 0, msgid := res.msgid ]);
+    }
+  }
+}

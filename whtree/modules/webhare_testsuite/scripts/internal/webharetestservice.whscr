@@ -39,6 +39,15 @@ PUBLIC OBJECTTYPE ClusterTestLink EXTEND WebHareServiceProxyBase
   {
     this->EmitEvent("testevent", data);
   }
+  PUBLIC RECORD FUNCTION Ping(VARIANT arg1, VARIANT arg2)
+  {
+    RETURN CELL[ arg1, arg2 ];
+  }
+  PUBLIC ASYNC FUNCTION AsyncPing(VARIANT arg1, VARIANT arg2)
+  {
+    AWAIT CreateSleepPromise(50);
+    RETURN CELL[ arg1, arg2 ];
+  }
 >;
 
 OBJECT FUNCTION Constructor(STRING testdata)
