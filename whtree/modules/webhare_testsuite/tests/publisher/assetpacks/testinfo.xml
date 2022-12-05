@@ -1,3 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="broken-scss dependencies optimizations">
-  <mochanodetest name="test_compileerrors" file="test_compileerrors.es" />
+  <test script="test_compileerrors.ts" />
 </group>
