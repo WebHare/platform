@@ -3,6 +3,6 @@
   <mochanodetest file="test_fifo.es" />
   <mochanodetest file="test_waitabletimer.es" />
   <mochanodetest file="test_ipc.es" />
-  <mochanodetest file="test_utf8.es" />
+  <test script="test_utf8.ts" />
   <jstest file="testfinmath.es" />
 </group>
