@@ -1,7 +1,7 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
-  <mochanodetest file="test_waitabletimer.es" />
+  <test script="test_waitabletimer.ts" />
   <mochanodetest file="test_ipc.es" />
   <test script="test_utf8.ts" />
   <jstest file="testfinmath.es" />
