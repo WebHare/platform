@@ -1090,7 +1090,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       this->curform := this->formdefsfile->OpenFormDefinition("webtoolform");
       RepairFormIfNeeded(this->curform);
     }
-    this->contexts->mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := this->curform ], this->uselanguage);
+    this->contexts->mergefields := NEW MergeFieldsContext(CELL[ type := "formdef", formdef := this->curform, this->contexts->applytester ], this->uselanguage);
   }
 
   RECORD FUNCTION FormatQuestionNode(OBJECT page, OBJECT question, STRING rowkey, STRING pagerole)

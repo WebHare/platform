@@ -544,7 +544,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     {
       OBJECT formdefinition := OpenFormFileDefinition(OpenWHFSObject(this->__form.webtoolformid), [ formname := this->__form.name ]);
       RECORD mergedata := this->GetWittyResultData();
-      OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata ], this->formlanguagecode);
+      OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata, applytester := this->formcontext->targetapplytester ], this->formlanguagecode);
 
       OBJECT oldmergefields := this->formcontext->__mergefields;
       this->formcontext->__mergefields := mergefields;

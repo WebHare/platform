@@ -44,7 +44,7 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
       {
         RECORD ARRAY data := CellExists(this->source, "data") ? this->source.data.allfields : RECORD[];
         RECORD ARRAY sources;
-        RECORD ARRAY fields := this->source.formdef->ListFields([ languagecode := this->language ]);
+        RECORD ARRAY fields := this->source.formdef->ListFields(CELL[ languagecode := this->language, this->source.applytester ]);
         FOREVERY (RECORD field FROM fields)
         {
           RECORD value :=
