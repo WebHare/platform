@@ -167,9 +167,9 @@ export function empty(node: Element)
  * get the relative bound difference between two elements, and return a writable copy
  *
  * @param node - The node for which you need coordinates
- * @param relativeto - The reference point
+ * @param relativeto - Optional reference point. If not set, you just get a 'normal' coordinate object
  */
-export function getRelativeBounds(node: Element, relativeto: Element): Rect
+export function getRelativeBounds(node: Element, relativeto?: Element): Rect
 {
   if(!relativeto)
     relativeto = node.ownerDocument.documentElement;
@@ -258,18 +258,26 @@ export function getBaseURI(doc: Document | undefined)
   return doc.URL;
 }
 
+//Set up overloads for both call approaches (with and without starting element)
+export function qS<E extends Element = Element>(node_or_selector: ParentNode, selector: string) : E | null;
+export function qS<E extends Element = Element>(selector: string) : E | null;
+
 //queryselector quick wrapper
-export function qS(node_or_selector: ParentNode | string, selector?: string)
+export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string) : E | null
 {
   if(typeof node_or_selector == 'string')
-    return document.querySelector(node_or_selector);
+    return document.querySelector<E>(node_or_selector);
   else if (selector)
-    return node_or_selector.querySelector(selector);
+    return node_or_selector.querySelector<E>(selector);
   return null;
 }
 
+//Set up overloads for both call approaches (with and without starting element)
+export function qSA<E extends Element = Element>(node_or_selector: ParentNode, selector: string) : E[];
+export function qSA<E extends Element = Element>(selector: string) : E[];
+
 //queryselectorall quick wrapper
-export function qSA(node_or_selector: ParentNode | string, selector?: string): Element[]
+export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[]
 {
   if(typeof node_or_selector == 'string')
     return Array.from(document.querySelectorAll(node_or_selector));

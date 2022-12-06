@@ -11,7 +11,8 @@ export { qS, qSA, contains, closest, matches
        , before, after, replaceWith, remove, prepend, append
        , toggleClass, toggleClasses
        , setStyles
-       , getBaseURI, getRelativeBounds } from './src/tree';
+       , getBaseURI, getRelativeBounds
+       , Rect } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
 export { focus, register, registerMissed, scrollIntoView } from './src/components';
 export { debugflags, parseDebugURL, addDebugFlags, initDebug } from './src/debug';

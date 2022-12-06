@@ -143,7 +143,7 @@ test.registerTests(
         menu = test.qSA('.wh-menubar')[0];
         X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
         test.click(X04);
-        X07 = test.qSA(X04.propWhMenuSubmenu,"li").filter(li=>li.textContent.includes("X07"))[0];
+        X07 = test.qSA("li").filter(item=>item.textContent.includes('X07'))[0];
         test.click(X07);
       }
     , waits: [ 'ui' ]
@@ -157,7 +157,7 @@ test.registerTests(
         test.click(X04);
         var X05 = test.qSA(test.getOpenMenu(), "li").filter(li=>li.textContent.includes('X05'))[0];
         test.false(X05.classList.contains("hidden"));
-        test.eq(2,getDividers(X04.propWhMenuSubmenu).length);
+        test.eq(2,getDividers(test.qSA(".wh-menu.open").slice(-1)[0]).length);
 
       }
     }
