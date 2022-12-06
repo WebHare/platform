@@ -4,7 +4,6 @@ import WHBridge, { IPCLink } from "@mod-system/js/internal/bridge";
 async function testIndependentserviceThings()
 {
   await test.throws(/Unable to connect/, WHBridge.openService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
-  // TOOD?  TestEQ(true, exc EXTENDSFROM ServiceUnavailableException); - not sure if we want/desire complex exception typing in JS yet
 }
 
 async function testIPC()
@@ -72,6 +71,12 @@ async function runWebHareServiceTest_HS()
   serverinstance.close();
   test.eq(initialreferences, WHBridge.references, "And the reference should be cleaned after close");
 
+  /* TODO Do we need cross language events ?
+  //RECORD deferred := CreateDeferredPromise();
+  //serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
+  //serverinstance->EmitTestEvent([ value := 42 ]);
+  //RECORD testdata := AWAIT deferred.promise;
+  //TestEq([ value := 42 ], testdata); */
 }
 
 async function runWebHareServiceTest_JS()
@@ -103,6 +108,12 @@ async function runWebHareServiceTest_JS()
 
   test.eq({arg1:41,arg2:43}, await serverinstance.ping(41,43));
   test.eq({arg1:41,arg2:43}, await serverinstance.asyncPing(41,43));
+
+  /* TODO reenable as event source? then it would be nicer to do it like a 'real' eventSource
+  const eventwaiter = serverinstance.waitOn("testevent");
+  await serverinstance.emitTestEvent({ start: 12, add: 13});
+  test.eq(25, await eventwaiter);
+  */
 
   serverinstance.close();
 }
