@@ -65,14 +65,15 @@ type ResponsePacket = ResponseOkPacket | ResponseExceptionPacket | LinkMessagePa
 
 export class IPCLink extends Events.EventEmitter
 {
-  private id = 0;
+  private readonly id: number;
+  readonly name: string;
   _closed = false;
 
-  constructor(linkid: number)
+  constructor(linkid: number, name: string)
   {
     super();
     this.id = linkid;
-    this._closed = false;
+    this.name = name;
   }
 
   send(message: object, replyto?: number)
@@ -236,10 +237,10 @@ class WebHareBridge extends Events.EventEmitter
   */
   get ready() : Promise<void> {
     if(!this.havereadywaiter) { //Mark a waiter so nodejs doesn't abort during `await bridge.ready`
-      this.updateWaitCount(+1);
+      this.updateWaitCount(+1, "ready check");
       this.havereadywaiter = true;
       //Clear the waiter when the online promise has resolved
-      this.onlinedefer.promise.finally( () => this.updateWaitCount(-1));
+      this.onlinedefer.promise.finally( () => this.updateWaitCount(-1, "ready check"));
     }
     return this.onlinedefer.promise;
   }
@@ -250,7 +251,7 @@ class WebHareBridge extends Events.EventEmitter
     console.error("FIXME _closeLink not implemented, will leak");
   }
 
-  updateWaitCount(nr: number)
+  updateWaitCount(nr: number, reason: string)
   {
     const newcount = this._waitcount + nr;
     if(newcount < 0)
@@ -267,6 +268,9 @@ class WebHareBridge extends Events.EventEmitter
       this.socket._socket?.ref();
     }
     this._waitcount = newcount;
+
+    if(this.debug)
+      console.log(`webhare-bridge: waitcount ${nr > 0 ? '+' : ''}${nr}: ${reason} (now: ${this._waitcount})`);
   }
 
   private onConnected()
@@ -319,7 +323,7 @@ class WebHareBridge extends Events.EventEmitter
         if(this.debug)
           console.log("webhare-bridge: accepted connection on port #" + data.id  + " new link #" + data.link);
 
-        const newlink = new IPCLink(data.link);
+        const newlink = new IPCLink(data.link, `IPCLink #${data.link} incoming '${portrec.name}' connection`);
         this.links.set(data.link, newlink);
         if (!portrec._closed)
           portrec.emit("accept", newlink);
@@ -373,12 +377,8 @@ class WebHareBridge extends Events.EventEmitter
         this.pendingrequests.filter(el => el.linkid == data.id).forEach(el => el.reject(new Error("link disconnected")));
         this.pendingrequests = this.pendingrequests.filter(el => el.linkid != data.id);
 
-        if (!this.links.delete(data.id)) //then we probably cleaned it up earlier ?
-        {
-          if(this.debug)
-            console.log("webhare-bridge: received disconnected for nonexisting link #" + data.id);
-          return;
-        }
+        //If we still know of this link, close it.
+        this.links.get(data.id)?.close();
         return;
       }
 
@@ -400,13 +400,13 @@ class WebHareBridge extends Events.EventEmitter
     const port = this.ports.get(id);
     if (!port || port._closed)
     {
-      console.error("webhare-bridge: closing port #" + id + " that was already closed");
+      console.error("webhare-bridge: closing port #" + id + " that was already closed",port);
       return;
     }
     port._closed = true;
     this.sendMessage({ type: "closeport", id: id });
     this.ports.delete(id);
-    this.updateWaitCount(-1);
+    this.updateWaitCount(-1, port.name);
   }
 
   closeLink(id: number)
@@ -414,13 +414,13 @@ class WebHareBridge extends Events.EventEmitter
     const link = this.links.get(id);
     if (!link || link._closed)
     {
-      console.error("webhare-bridge: closing link #" + id + " that was already closed");
+      console.error("webhare-bridge: closing link #" + id + " that was already closed",link);
       return;
     }
     link._closed = true;
     this.sendMessage({ type: "closelink", id: id });
     this.links.delete(id);
-    this.updateWaitCount(-1);
+    this.updateWaitCount(-1, link.name);
   }
 
   /**
@@ -462,14 +462,14 @@ class WebHareBridge extends Events.EventEmitter
 
     try
     {
-      this.updateWaitCount(+1);
+      this.updateWaitCount(+1, "doRequest #" + sent.msgid);
 
       await sent.promise;
       return await defer.promise;
     }
     finally
     {
-      this.updateWaitCount(-1);
+      this.updateWaitCount(-1, "doRequest #" + sent.msgid);
     }
   }
 
@@ -535,10 +535,10 @@ class WebHareBridge extends Events.EventEmitter
   async createIPCPort(name: string, global: boolean) : Promise<IPCListenerPort>
   {
     const connectresult = this.sendMessage({ type: "createlistenport", name, global });
-    const port = new IPCListenerPort(connectresult.msgid, name);
+    const port = new IPCListenerPort(connectresult.msgid, `IPCListenerPort #${connectresult.msgid} named '${name}'`);
     this.ports.set(connectresult.msgid, port);
 
-    this.updateWaitCount(+1); //FIXME we need -1s when the port closes or throws?
+    this.updateWaitCount(+1, port.name); //FIXME we need -1s when the port closes or throws?
     await connectresult.promise;
     return port;
   }
@@ -546,14 +546,14 @@ class WebHareBridge extends Events.EventEmitter
   async connectIPCPort(name: string, global: "managed" | boolean) : Promise<IPCLink>
   {
     const connectresult = this.sendMessage({ type: "connectport", name:name, global:Boolean(global), managed: global === "managed" });
-    const link = new IPCLink(connectresult.msgid);
-    this.updateWaitCount(+1);
+    const link = new IPCLink(connectresult.msgid, `IPCLink #${connectresult.msgid} to ${name}`);
+    this.updateWaitCount(+1, link.name);
 
     // TODO What if we connect to an IPC Port and they already start talking before the client had a chance to resolve connectIPCPort ? Best if servers don't talk early? :)
 
     // Synchronous registration at incoming message time. Errors can be handled asynchronously
     // TODO create the IPCLink before the message is transmitted, perhaps just use the messageid for the portnumber, to fix potential races if someone talks early
-    this.links.set(connectresult.msgid, link );
+    this.links.set(connectresult.msgid, link);
     try
     {
       await connectresult.promise;
@@ -570,7 +570,7 @@ class WebHareBridge extends Events.EventEmitter
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
   async openService(name: string, args?: unknown[], options?: { timeout: number; })
   {
-    this.updateWaitCount(+1);
+    this.updateWaitCount(+1, "openService " +name);
     try
     {
       const link = await this.connectIPCPort("webhareservice:" + name, true);
@@ -587,7 +587,7 @@ class WebHareBridge extends Events.EventEmitter
     }
     finally
     {
-      this.updateWaitCount(-1);
+      this.updateWaitCount(-1, "openService " +name);
     }
   }
 
