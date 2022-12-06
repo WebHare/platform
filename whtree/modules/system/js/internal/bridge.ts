@@ -122,7 +122,7 @@ export class IPCListenerPort extends Events.EventEmitter
 }
 
 /** Interface for the client object we present to the connecting user
-    TODO: model this more after jsonrpc-client? WOuld make it easier to deal with case insensitive HS services */
+    TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
 interface WebHareServiceClient
 {
   /** Our methods */
