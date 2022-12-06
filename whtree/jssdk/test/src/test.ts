@@ -4,6 +4,7 @@ Error.stackTraceLimit = 25;
 export {
   assert
   , eq
+  , eqMatch
   , sleep
   , throws
 } from './checks';
