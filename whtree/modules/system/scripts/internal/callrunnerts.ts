@@ -1,5 +1,4 @@
-// @ts-ignore bridge doesn't have types yet
-import WHBridge from '../../js/wh/bridge';
+import WHBridge from '@mod-system/js/internal/bridge';
 
 interface InvokeTask {
   cmd: "invoke"
@@ -23,7 +22,6 @@ async function runInvoke(task: InvokeTask): Promise<unknown> {
 }
 
 async function connectIPC(name: string) {
-  await WHBridge.connect({ debug: false });
   try {
     const link = await WHBridge.connectIPCPort(process.argv[2], true);
     link.on("message", async (task: InvokeTask, msgid: number) => {
@@ -43,7 +41,7 @@ async function connectIPC(name: string) {
               error: {
                 type: "exception",
                 what: (e as Error).message || "Unknown error",
-                trace: WHBridge.getStructuredTrace(e)
+                trace: WHBridge.getStructuredTrace(e as Error)
               }
             }, msgid);
           }
