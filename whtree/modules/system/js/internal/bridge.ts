@@ -205,7 +205,10 @@ class WebHareBridge extends Events.EventEmitter
   eventcallbacks:Array< { id: number; callback: EventCallback } > = [];
   nextmsgid = 21000; //makes it easier to tell apart these IDs from other ids
   socket: WebSocketWithRefAccess;
-  private onlinedefer: tools.DeferredPromise<null>;
+  /** Promise to resolve when the first bridge connection has come alive and we have version info etc */
+  private onlinedefer: tools.DeferredPromise<void>;
+  /** Flag to set if someone has requested ready() */
+  private havereadywaiter = false;
   versiondata: VersionData | null = null;
 
   constructor()
@@ -213,20 +216,32 @@ class WebHareBridge extends Events.EventEmitter
     super();
 
     this.debug = whdebug.isDebugTagEnabled("bridge");
+    this.onlinedefer = tools.createDeferred<void>();
 
-    //TODO connect on demand
+    //TODO connect on demand (ie when ready or an IPC is requested)
     this.socket = new WebSocket("ws" + configuration.getRescueOrigin().substr(4) + "/.system/endpoints/bridge.whsock") as WebSocketWithRefAccess;
     this.socket.on("open", this.onConnected.bind(this));
     this.socket.on("message", this.onMessage.bind(this));
     this.socket.on("error", this.onError.bind(this));
     this.socket.on("close", this.onClose.bind(this));
-    this.onlinedefer = tools.createDeferred();
   }
 
   /** Get the current number of references to the bridge */
   get references()
   {
     return this._waitcount;
+  }
+
+  /** Get a promise that wil resolve as soon as the bridge is connected and configuration APIs are ready.
+  */
+  get ready() : Promise<void> {
+    if(!this.havereadywaiter) { //Mark a waiter so nodejs doesn't abort during `await bridge.ready`
+      this.updateWaitCount(+1);
+      this.havereadywaiter = true;
+      //Clear the waiter when the online promise has resolved
+      this.onlinedefer.promise.finally( () => this.updateWaitCount(-1));
+    }
+    return this.onlinedefer.promise;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -488,7 +503,7 @@ class WebHareBridge extends Events.EventEmitter
       console.log("webhare-bridge: connected. remote version = " + versiondata.version);
     this.versiondata=versiondata;
     new Promise(resolve => setTimeout(resolve,1500)).then( () => {
-    this.onlinedefer.resolve(null);
+      this.onlinedefer.resolve();
     });
   }
 
