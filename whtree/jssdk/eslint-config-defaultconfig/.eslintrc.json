@@ -111,7 +111,8 @@
     },
     "settings": {
         "react": {
-            "pragma": "dompack"
+            "pragma": "dompack",
+            "version": "18"
         }
     },
     "overrides": [
