@@ -139,6 +139,23 @@ getmoduledir()
   return 0
 }
 
+resolveresourcepath ()
+{
+  local FINALPATH MODNAME MODPATH
+  FINALPATH=$2
+  if [[ $FINALPATH =~ ^mod::.+/.*$ ]]; then
+    MODNAME=${FINALPATH%%/*}
+    MODNAME=${MODNAME:5}
+    getmoduledir MODPATH "$MODNAME"
+    if [ -z "$MODPATH" ]; then
+        FINALPATH=
+    else
+        FINALPATH="${MODPATH}${FINALPATH#*/}"
+    fi
+  fi
+  eval $1=\$FINALPATH
+}
+
 get_installable_moduledirs()
 {
   local XDIRS
