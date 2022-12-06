@@ -2,10 +2,11 @@ import { ESLint } from "eslint";
 
 /// Format of our incoming commands
 interface LintingCommand {
-  path: string
-  data: string
-  cwd: string
-  configfile: string
+  path: string;
+  data: string;
+  cwd: string;
+  configfile: string;
+  fix: boolean;
 }
 
 export async function handleLintingCommand(indata: LintingCommand) {
@@ -15,6 +16,7 @@ export async function handleLintingCommand(indata: LintingCommand) {
     cwd: indata.cwd,
     overrideConfigFile: indata.configfile,
     useEslintrc: false,
+    fix: indata.fix
   };
 
   const eslint = new ESLint(options);
@@ -27,5 +29,7 @@ export async function handleLintingCommand(indata: LintingCommand) {
       message: message.message,
       fatal: message.fatal || false
     })),
+    hasfixes: typeof results[0].output === "string",
+    output: Buffer.from(results[0].output || "", "utf-8").toString("base64")
   };
 }

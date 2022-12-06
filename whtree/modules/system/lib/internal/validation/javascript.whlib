@@ -1,10 +1,9 @@
 <?wh
 
 LOADLIB "wh::async.whlib";
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 
@@ -51,28 +50,36 @@ ASYNC MACRO SendProcessInput(OBJECT process, BLOB data)
   process->CloseInput();
 }
 
-ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename)
+ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  STRING diskpath := GetWebHareResourceDiskPath(resourcename);
-  STRING eslintpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/eslint");
+  options := ValidateOptions(
+      [ fix := FALSE
+      ], options);
+
+  STRING path := resourcename LIKE "*::*" ? GetWebHareResourceDiskPath(resourcename) : resourcename;
   STRING eslintrcpath := MergePath(GetWebhareConfiguration().installationroot, ".eslintrc.json");
 
-  RECORD cmd :=
-      [ path :=           diskpath
+  RECORD cmd := CELL
+      [ path
       , data :=           EncodeBase64(BlobToString(libdata))
       , cwd :=            GetWebhareConfiguration().installationroot
       , configfile :=     eslintrcpath
+      , options.fix
       ];
 
   RECORD result := AWAIT CallAsync("mod::system/js/internal/eslint.ts#handleLintingCommand", [ cmd ]);
 
-  RETURN
-      SELECT resourcename :=  resourcename
-           , message
-           , line
-           , col
-           , fatal
-        FROM result.messages;
+  RETURN CELL
+      [ messages :=
+          (SELECT resourcename :=  resourcename
+                , message
+                , line
+                , col
+                , fatal
+              FROM result.messages)
+      , result.hasfixes
+      , output :=       result.hasfixes ? StringToBlob(DecodeBase64(result.output)) : libdata
+      ];
 }
 
 PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD options)
@@ -92,7 +99,7 @@ PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD 
 
     IF (run_eslint)
     {
-      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename));
+      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename)).messages;
       errors := SELECT * FROM messages WHERE fatal;
       warnings := SELECT * FROM messages WHERE NOT fatal;
     }
@@ -387,6 +394,28 @@ RECORD FUNCTION DecodeResult(BLOB result)
       ];
 }
 
+ASYNC FUNCTION FormatSingleFile(RECORD file)
+{
+  RECORD rec := AWAIT RunESLint(file.data, file.path, [ fix := TRUE ]);
+
+  STRING dir := GetDirectoryFromPath(file.path);
+
+  RECORD cmd := CELL
+      [ basedir :=          dir
+      , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
+      , file.path
+      , data :=             EncodeBase64(BlobToString(rec.output))
+      ];
+
+  rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
+
+  RETURN CELL
+      [ ...file
+      , ...rec
+      , output :=    StringToBlob(DecodeBase64(rec.output))
+      ];
+}
+
 /** Format multiple javascript files
     @param data List of files to format
     @cell(string) data.path Path to file
@@ -403,36 +432,11 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
   // Run max 8 formatters concurrently
   OBJECT serializer := MakeCallSerializer([ maxconcurrent := 8 ]);
 
-  RECORD ARRAY scheduled;
+  OBJECT ARRAY scheduled;
   FOREVERY (RECORD file FROM data)
-  {
-    STRING dir := GetDirectoryFromPath(file.path);
+    INSERT serializer->Call(PTR FormatSingleFile, file) INTO scheduled AT END;
 
-    RECORD cmd := CELL
-        [ basedir :=          dir
-        , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
-        , file.path
-        , data :=             EncodeBase64(BlobToString(file.data))
-        ];
-
-    INSERT CELL
-        [ data :=             file
-        , result :=           serializer->Call(PTR CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]))
-        ] INTO scheduled AT END;
-  }
-
-  RECORD ARRAY results;
-  FOREVERY (RECORD rec FROM scheduled)
-  {
-    RECORD res := AWAIT rec.result;
-    INSERT CELL
-        [ ...rec.data
-        , ...res
-        , output :=    StringToBlob(DecodeBase64(res.output))
-        ] INTO results AT END;
-  }
-
-  RETURN results;
+  RETURN RECORD ARRAY(AWAIT CreatePromiseAll(scheduled));
 }
 
 /** Format a single javascript file
