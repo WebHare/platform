@@ -5,7 +5,7 @@ type ScrollStyle =
 {
   scrollTop?: number;
   scrollLeft?: number;
-}
+};
 
 const debugscrolling = false;
 
@@ -163,7 +163,7 @@ export function scrollToElement(node: HTMLElement, options?: ScrollOptions)
   animations.forEach(function(item) { item.hooksetstyles(item.to); }); //FIXME remove hooksetstyles
 }
 
-type ScrollPos = { scrollLeft?: number, scrollTop?: number };
+type ScrollPos = { scrollLeft?: number; scrollTop?: number };
 type ScrollAction =
 {
   duration: number;

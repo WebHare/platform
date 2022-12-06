@@ -1,7 +1,9 @@
 <?wh
 
+LOADLIB "wh::async.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 
@@ -9,11 +11,14 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
+LOADLIB "mod::system/lib/internal/validation/scan.whlib";
 
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
+
 
 ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
 {
@@ -45,25 +50,36 @@ ASYNC MACRO SendProcessInput(OBJECT process, BLOB data)
   process->CloseInput();
 }
 
-ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename)
+ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  STRING diskpath := GetWebHareResourceDiskPath(resourcename);
-  STRING eslintpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/eslint");
+  options := ValidateOptions(
+      [ fix := FALSE
+      ], options);
+
+  STRING path := resourcename LIKE "*::*" ? GetWebHareResourceDiskPath(resourcename) : resourcename;
   STRING eslintrcpath := MergePath(GetWebhareConfiguration().installationroot, ".eslintrc.json");
-  STRING ARRAY args := [ "-f", "json", "--no-eslintrc", "-c", eslintrcpath, "--stdin", "--stdin-filename", diskpath ];
 
-  OBJECT proc := CreateProcess(eslintpath, args, TRUE, TRUE, TRUE, FALSE);
-  //eslint looks up its plugins relative to its location
-  proc->initialworkingdirectory := GetWebhareConfiguration().installationroot;
-  proc->Start();
+  RECORD cmd := CELL
+      [ path
+      , data :=           EncodeBase64(BlobToString(libdata))
+      , cwd :=            GetWebhareConfiguration().installationroot
+      , configfile :=     eslintrcpath
+      , options.fix
+      ];
 
-  OBJECT reader := ReadWholeProcessOutput(proc);
-  AWAIT SendProcessInput(proc, libdata);
-  RECORD retval := AWAIT reader;
-  proc->Close();
+  RECORD result := AWAIT CallAsync("mod::system/js/internal/eslint.ts#handleLintingCommand", [ cmd ]);
 
-  RECORD res := EnforceStructure([ messages := [[ line := 0, "column" := 0, message := "", fatal := FALSE ]]], DecodeJSON(retval.output));
-  RETURN SELECT resourcename := resourcename, line, col := COLUMN "column", message, fatal FROM RECORD ARRAY(res.messages);
+  RETURN CELL
+      [ messages :=
+          (SELECT resourcename :=  resourcename
+                , message
+                , line
+                , col
+                , fatal
+              FROM result.messages)
+      , result.hasfixes
+      , output :=       result.hasfixes ? StringToBlob(DecodeBase64(result.output)) : libdata
+      ];
 }
 
 PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD options)
@@ -83,7 +99,7 @@ PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD 
 
     IF (run_eslint)
     {
-      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename));
+      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename)).messages;
       errors := SELECT * FROM messages WHERE fatal;
       warnings := SELECT * FROM messages WHERE NOT fatal;
     }
@@ -366,4 +382,144 @@ PUBLIC MACRO CreateModuleTSConfigFile(STRING modulename)
   BLOB tsconfigblob := EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]);
 
   StoreDiskFile(MergePath(installationroot, "tsconfig.json"), tsconfigblob, [ overwrite := TRUE ]);
+}
+
+RECORD FUNCTION DecodeResult(BLOB result)
+{
+  RECORD decoded := DecodeJSONBlob(result);
+  RETURN CELL
+      [ decoded.path
+      , decoded.error
+      , decoded.output
+      ];
+}
+
+ASYNC FUNCTION FormatSingleFile(RECORD file)
+{
+  RECORD rec := AWAIT RunESLint(file.data, file.path, [ fix := TRUE ]);
+
+  STRING dir := GetDirectoryFromPath(file.path);
+
+  RECORD cmd := CELL
+      [ basedir :=          dir
+      , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
+      , file.path
+      , data :=             EncodeBase64(BlobToString(rec.output))
+      ];
+
+  rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
+
+  RETURN CELL
+      [ ...file
+      , ...rec
+      , output :=    StringToBlob(DecodeBase64(rec.output))
+      ];
+}
+
+/** Format multiple javascript files
+    @param data List of files to format
+    @cell(string) data.path Path to file
+    @cell(blob) data.data Contents of file
+    @return Formatted files
+    @cell(string) return.path Path of formatted file
+    @cell(string) return.error If set, error message
+    @cell(blob) return.output Formatted output (if error is empty)
+*/
+PUBLIC ASYNC FUNCTION FormatJavascriptFiles(RECORD ARRAY data)
+{
+  INTEGER cmdstream := CreateStream();
+
+  // Run max 8 formatters concurrently
+  OBJECT serializer := MakeCallSerializer([ maxconcurrent := 8 ]);
+
+  OBJECT ARRAY scheduled;
+  FOREVERY (RECORD file FROM data)
+    INSERT serializer->Call(PTR FormatSingleFile, file) INTO scheduled AT END;
+
+  RETURN RECORD ARRAY(AWAIT CreatePromiseAll(scheduled));
+}
+
+/** Format a single javascript file
+    @param path Path to file
+    @param data Contents of the file
+    @return Formatted file
+    @cell(blob) return.output Formatted file
+*/
+PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data)
+{
+  RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ]);
+  IF (res[0].error != "")
+    THROW NEW Exception(`Error formatting file: ${res[0].error}`);
+  RETURN CELL[ res[0].output ];
+}
+
+/** Checks the formatting status of all files in a module
+    @param module Module to check
+    @return List of issues
+    @cell(record array) return.issues Issues
+    @cell(string) return.issues.resourcename Name fo the resource with the issue
+    @cell(integer) return.issues.line Line number
+    @cell(integer) return.issues.col Column number
+    @cell(string) return.issues.message Error message
+    @cell(string) return.issues.category Category ('error' | 'warning')
+*/
+PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
+{
+  RECORD retval :=
+      [ issues :=     RECORD[]
+      ];
+
+  RECORD ARRAY files := GetFilesToValidate([ `mod::${module}` ], [ extensions := [ ".es", "js", ".ts", ".tsx" ]]);
+
+  RECORD ARRAY toformat;
+  FOREVERY (RECORD rec FROM files)
+  {
+    IF (NOT MatchesPathMasks(rec.subpath, rec.settings.formatmasks) OR MatchesPathMasks(rec.subpath, rec.settings.formatexcludemasks))
+      CONTINUE;
+
+    BLOB data := GetDiskResource(rec.path);
+    INSERT CELL[ rec.path, data, rec.module, rec.subpath ] INTO toformat AT END;
+  }
+
+  TRY
+  {
+    RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat));
+    FOREVERY (RECORD rec FROM result)
+    {
+      IF (rec.error != "")
+      {
+        INSERT
+            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+            , line :=         1
+            , col :=          1
+            , message :=      `Formatting file caused an error: ${rec.error}`
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+        CONTINUE;
+
+      }
+      BOOLEAN ismatch := BlobToString(rec.output) = BlobToString(rec.data);
+      IF (NOT ismatch)
+      {
+        INSERT
+            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+            , line :=         1
+            , col :=          1
+            , message :=      `File hasn't been formatted correctly`
+            , category :=     "error"
+            ] INTO retval.issues AT END;
+      }
+    }
+  }
+  CATCH (OBJECT e)
+  {
+    INSERT
+        [ resourcename := `mod::${module}/moduledefinition.xml`
+        , line :=         1
+        , col :=          1
+        , message :=      `Error formatting javascript files: ${e->what}`
+        , category :=     "error"
+        ] INTO retval.issues AT END;
+  }
+  RETURN retval;
 }

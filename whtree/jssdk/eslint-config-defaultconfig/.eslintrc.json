@@ -42,7 +42,7 @@
                 "allowEmptyCatch": true
             }
         ],
-        "no-empty-function": "error",
+        "no-empty-function": "off",
         "no-eval": "error",
         "no-extend-native": "error",
         "no-extra-boolean-cast": "error",
@@ -54,11 +54,11 @@
         "no-implicit-coercion": "error",
         "no-implicit-globals": "error",
         "no-implied-eval": "error",
-        "no-invalid-this": "error",
-        "no-loop-func": "error",
-        "no-shadow": "error",
+        "no-invalid-this": "off",
+        "no-loop-func": "off",
+        "no-shadow": "off",
         "no-throw-literal": "error",
-        "no-unused-expressions": "error",
+        "no-unused-expressions": "off",
         "no-useless-call": "error",
         "no-var": "error",
         "prefer-numeric-literals": "error",
@@ -72,10 +72,7 @@
         //Things that make diffing hard
         "no-tabs": "error",
         "no-trailing-spaces": "error",
-        "semi": [
-            "error",
-            "always"
-        ],
+        "semi": "off",
         "require-yield": 0,
         "linebreak-style": 0,
         "react/no-unknown-property": 0,
@@ -91,18 +88,32 @@
                 "ts-ignore": "allow-with-description"
             }
         ],
-        "@typescript-eslint/no-empty-function":0,
+        "@typescript-eslint/member-delimiter-style": "error",
+        "@typescript-eslint/no-empty-function": "error",
+        //Need typescript parser services for this one
+        "@typescript-eslint/no-implied-eval": "off",
+        "@typescript-eslint/no-invalid-this": "error",
+        "@typescript-eslint/no-loop-func": "error",
+        "@typescript-eslint/no-shadow": "error",
+        //Need typescript parser services for this one
+        "@typescript-eslint/no-throw-literal": "off",
+        "@typescript-eslint/no-unused-expressions": "error",
         "@typescript-eslint/no-unused-vars": [
             "error", {
                 "vars": "all",
                 "args": "none"
             }
         ],
+        "@typescript-eslint/semi": [
+            "error",
+            "always"
+        ],
         "tsdoc/syntax": "error"
     },
     "settings": {
         "react": {
-            "pragma": "dompack"
+            "pragma": "dompack",
+            "version": "18"
         }
     },
     "overrides": [

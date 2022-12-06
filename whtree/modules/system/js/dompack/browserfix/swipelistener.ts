@@ -17,7 +17,7 @@ type SwipeDetectOptions =
   enablemouseswipe?: boolean;
 };
 
-type SwipePosition = { x: number, y: number }
+type SwipePosition = { x: number; y: number };
 
 type SwipeInfo =
 {

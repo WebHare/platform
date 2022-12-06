@@ -1,10 +1,10 @@
 import WHBridge from '@mod-system/js/internal/bridge';
 
 interface InvokeTask {
-  cmd: "invoke"
-  id: number
-  func: string
-  args: unknown[]
+  cmd: "invoke";
+  id: number;
+  func: string;
+  args: unknown[];
 }
 
 async function runInvoke(task: InvokeTask): Promise<unknown> {

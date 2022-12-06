@@ -771,8 +771,8 @@ class MenuBase
   }
 
   _onRefresh()
-  // eslint-disable-next-line no-empty-function
   {
+    // eslint-disable-current-line no-empty-function
   }
 
   // ---------------------------------------------------------------------------
@@ -1040,7 +1040,7 @@ class MenuList extends MenuBase
     @param forcenooverlap Whether to disallow overlap if menu doesn't fit at all (only when overlapcoords is false)
   */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we shouldn't even be returning data through a oty parameter
-    _calculatePosition(styles: any, coords: dompack.Rect, size: {x:number,y:number}, bounds:dompack.Rect, viewport:dompack.Rect, bodybounds:dompack.Rect, horizontal:boolean, preferfirst:boolean, overlapcoords: boolean)
+    _calculatePosition(styles: any, coords: dompack.Rect, size: {x:number;y:number}, bounds:dompack.Rect, viewport:dompack.Rect, bodybounds:dompack.Rect, horizontal:boolean, preferfirst:boolean, overlapcoords: boolean)
     {
       // Calc the style attrs that
       const sizeattr = horizontal ? "x" : "y";
@@ -1344,7 +1344,7 @@ class MenuList extends MenuBase
     options.direction 'down', 'right', 'up'
     options.forcenooverlap
 */
-export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement; } | HTMLElement, options?: MenuOptions)
+export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement } | HTMLElement, options?: MenuOptions)
 {
   ///@ts-ignore -- FIXME fully clean up the options
   options = { ...options };

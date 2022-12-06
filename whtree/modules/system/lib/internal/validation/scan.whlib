@@ -1,0 +1,217 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/validation/config.whlib";
+
+
+RECORD ARRAY allmoduleroots;
+
+MACRO EnsureModuleRoots()
+{
+  IF (IsDefaultValue(allmoduleroots))
+  {
+    allmoduleroots :=
+        SELECT TEMPORARY root := GetModuleInstallationRoot(module)
+             , module
+             , root :=      root
+          FROM ToRecordArray(__SYSTEM_GetInstalledModuleNames(), "module")
+      ORDER BY root;
+  }
+}
+
+RECORD ARRAY modulesettings;
+
+RECORD FUNCTION GetCachedModuleSettings(STRING module)
+{
+  RECORD pos := RecordLowerBound(modulesettings, CELL[ module ], [ "MODULE" ]);
+  IF (NOT pos.found)
+    INSERT CELL[ module, settings := GetModuleValidationConfig(module) ] INTO modulesettings AT pos.position;
+  RETURN modulesettings[pos.position].settings;
+}
+
+RECORD FUNCTION DetermineModule(STRING path)
+{
+  EnsureModuleRoots();
+  RECORD pos := RecordLowerBound(allmoduleroots, CELL[ root := path ], [ "ROOT" ]);
+  IF (pos.found OR (pos.position > 0 AND path LIKE allmoduleroots[pos.position - 1].root || "*"))
+  {
+    RECORD mod := allmoduleroots[pos.position - (pos.found?0:1)];
+    RETURN CELL[ ...mod, subpath := Substring(path, LENGTH(mod.root)) ];
+  }
+  RETURN DEFAULT RECORD;
+}
+
+STRING ARRAY FUNCTION GetFilesAndMasksToScan(STRING ARRAY files, STRING ARRAY extensions)
+{
+  EnsureModuleRoots();
+  extensions := extensions ?? [ "" ];
+
+  STRING ARRAY result;
+  IF (IsDefaultValue(files))
+  {
+    RECORD mod := DetermineModule(GetCurrentPath() || "/");
+    IF (IsValueSet(mod))
+    {
+      FOREVERY (STRING ext FROM extensions)
+        INSERT `${mod.root}*${ext}` INTO result AT END;
+    }
+    ELSE
+    {
+      STRING root := GetCurrentPath() || "/";
+      FOREVERY (STRING ext FROM extensions)
+        INSERT `${root}*${ext}` INTO result AT END;
+    }
+  }
+
+  IF (Detokenize(files, ",") = "coremodules")
+  {
+    FOREVERY (RECORD mod FROM SELECT * FROM allmoduleroots WHERE module IN whconstant_builtinmodules ORDER BY module)
+    FOREVERY (STRING ext FROM extensions)
+      INSERT `${mod.root}*${ext}` INTO result AT END;
+  }
+  ELSE FOREVERY (STRING path FROM files)
+  {
+    STRING ARRAY newfiles;
+
+    // Also allow mod:: paths
+    IF (path LIKE "mod::*")
+    {
+      STRING module := Substring(path, 5, SearchSubString(path || "/", "/") - 5);
+      path := GetModuleInstallationRoot(module) || SubString(path, LENGTH(module) + 6);
+    }
+
+    path := ResolveToAbsolutePath(path);
+    RECORD info := GetDiskFileProperties(path);
+    IF (RecordExists(info) AND info.type = 1 AND path NOT LIKE "*/")
+      path := path || "/";
+    IF (Right(path, 1) NOT IN [ "/", "*" ])
+      INSERT path INTO result AT END;
+    ELSE
+    {
+      FOREVERY (STRING ext FROM extensions)
+        INSERT `${path LIKE "*/" ? `${path}*` : path}${ext}` INTO result AT END;
+    }
+  }
+
+  RETURN result;
+}
+
+
+RECORD ARRAY FUNCTION GroupScanDirs(STRING ARRAY files)
+{
+  RECORD ARRAY dirs;
+  FOREVERY (STRING file FROM files)
+  {
+    STRING rootpath := Left(file, SearchSubString(file || "*", "*"));
+    INTEGER lastslash := SearchLastSubString(rootpath, "/") + 1;
+    STRING mask := SubString(file, lastslash);
+    rootpath := Left(rootpath, lastslash) ?? GetCurrentPath();
+
+    INSERT CELL[ rootpath, mask ] INTO dirs AT END;
+  }
+
+  dirs :=
+      SELECT rootpath
+           , masks :=     GroupedValues(mask)
+        FROM dirs
+    GROUP BY rootpath
+    ORDER BY rootpath;
+
+  RETURN dirs;
+}
+
+RECORD ARRAY FUNCTION ScanDir(STRING root, STRING subpath, STRING ARRAY pathmasks, BOOLEAN recursive)
+{
+  RECORD ARRAY entries := ReadDiskDirectory(root, "*");
+  RECORD ARRAY result;
+  FOREVERY (RECORD entry FROM entries)
+  {
+    IF (entry.name = "node_modules" OR entry.name = ".git")
+      CONTINUE;
+    IF (entry.type = 1) // directory
+    {
+      IF (recursive)
+        result := result CONCAT ScanDir(entry.path, entry.name || "/", pathmasks, recursive);
+    }
+    ELSE IF (MatchesPathMasks(subpath || entry.name, pathmasks))
+      INSERT entry INTO result AT END;
+  }
+  RETURN result;
+}
+
+RECORD ARRAY FUNCTION ScanDirs(RECORD ARRAY dirs)
+{
+  RECORD ARRAY results;
+  FOREVERY (RECORD dir FROM dirs)
+  {
+    BOOLEAN recursive;
+    FOREVERY (STRING mask FROM dir.masks)
+      IF (SearchSubString(mask, "*") != -1 OR SearchSubString(mask, "/") != -1)
+        recursive := TRUE;
+
+    results := results CONCAT ScanDir(dir.rootpath, "", dir.masks, recursive);
+  }
+  RETURN results;
+}
+
+RECORD ARRAY FUNCTION GatherModuleValidationSettings(RECORD ARRAY files)
+{
+  RECORD ARRAY results;
+  FOREVERY (RECORD rec FROM files)
+  {
+    RECORD mod := DetermineModule(rec.path);
+    IF (RecordExists(mod))
+    {
+      RECORD settings := GetCachedModuleSettings(mod.module);
+
+      INSERT CELL
+          [ ...rec
+          , mod.module
+          , mod.subpath
+          , settings
+          ] INTO results AT END;
+    }
+  }
+  RETURN results;
+}
+
+PUBLIC BOOLEAN FUNCTION MatchesPathMasks(STRING path, STRING ARRAY masks)
+{
+  FOREVERY (STRING mask FROM masks)
+    IF (path LIKE mask)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+/** Gather files to validate
+    @param paths Paths to start indexing. Accepts:
+      - 'coremodules'
+      - Absolute paths
+      - Relative paths (resolved wrt GetCurrentPath())
+      - mod::module paths
+      When a directory is passed, it is scanned recursively, giving back only the
+      specified extensions. If the path isn't a directory and ends with '*', only the specified
+      extensions are returned. Otherwise, all files that match the path glob mask are returned.
+    @cell(string) options.extensions List of extensions to return.
+    @return List of files @includecelldef %ReadDiskDirectory.return
+    @cell(string) return.module Name of the module of this file
+    @cell(record) return.settings Validation settings for this file @includecelldef #GetModuleValidationConfig.return
+*/
+PUBLIC RECORD ARRAY FUNCTION GetFilesToValidate(STRING ARRAY paths, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ extensions :=   STRING[]
+      ], options,
+      [ required := [ "extensions" ]
+      ]);
+
+  STRING ARRAY filemasks := GetFilesAndMasksToScan(paths, options.extensions);
+  RECORD ARRAY dirs := GroupScanDirs(filemasks);
+  RECORD ARRAY files := ScanDirs(dirs);
+  RETURN GatherModuleValidationSettings(files);
+}
