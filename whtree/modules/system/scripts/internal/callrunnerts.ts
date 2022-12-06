@@ -1,4 +1,6 @@
 import WHBridge from '@mod-system/js/internal/bridge';
+import * as resourcetools from '@mod-system/js/internal/resourcetools';
+
 interface InvokeTask {
   cmd: "invoke";
   id: number;
@@ -7,17 +9,7 @@ interface InvokeTask {
 }
 
 async function runInvoke(task: InvokeTask): Promise<unknown> {
-  let libraryuri = task.func.split("#")[0];
-  if (libraryuri.startsWith("mod::"))
-    libraryuri = "@mod-" + libraryuri.substring(5);
-  const funcname = task.func.split("#")[1] ?? "default";
-  const library = await import(libraryuri);
-  const func = library[funcname];
-  if (typeof func !== "function") {
-    throw new Error(`Imported symbol ${task.func} is not a function, but a ${typeof func}`);
-  }
-
-  return await func(...task.args);
+  return await (await resourcetools.loadJSFunction(task.func))(...task.args);
 }
 
 type IPCMessage = {message: InvokeTask; msgid: number};

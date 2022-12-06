@@ -91,6 +91,8 @@
   </tollium>
 
   <services>
+    <backendservice name="demoservice" handler="js/demoservice.ts#openDemoService" />
+
     <webservice name="test" transports="jsonrpc whremoting" library="lib/webservicetest.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
       <accesscheck>
         <requireright right="system:sysop"/>

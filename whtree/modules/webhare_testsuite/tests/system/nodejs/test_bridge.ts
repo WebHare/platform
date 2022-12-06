@@ -73,7 +73,42 @@ async function runWebHareServiceTest_HS()
   test.eq(initialreferences, WHBridge.references, "And the reference should be cleaned after close");
 
 }
+
+async function runWebHareServiceTest_JS()
+{
+  const initialreferences = WHBridge.references;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
+  const demoservice : any = test.assert(await WHBridge.openService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  demoservice.close();
+
+  await test.throws(/abort/, WHBridge.openService("webhare_testsuite:demoservice", ["abort"]));
+
+  test.eq(initialreferences, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
+  const serverinstance : any = await WHBridge.openService("webhare_testsuite:demoservice", ["x"]);
+  test.eq(42, await serverinstance.getLUE());
+
+  let promise = serverinstance.getAsyncLUE();
+  test.eq(42, await serverinstance.getLUE());
+  test.eq(42, await promise);
+
+  await test.throws(/Crash/, serverinstance.crash());
+
+  promise = serverinstance.getAsyncLUE();
+  const promise2 = serverinstance.getAsyncCrash();
+
+  await test.throws(/Async crash/, promise2);
+
+  test.eq({arg1:41,arg2:43}, await serverinstance.ping(41,43));
+  test.eq({arg1:41,arg2:43}, await serverinstance.asyncPing(41,43));
+
+  serverinstance.close();
+}
+
 test.run([ testIndependentserviceThings
          , testIPC
          , runWebHareServiceTest_HS
+         , runWebHareServiceTest_JS
          ], { wrdauth: false } );

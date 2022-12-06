@@ -143,9 +143,10 @@ function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   testDeepEq(expected, actual, '');
 }
 
-function testAssert(actual: unknown, annotation?: Annotation) //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+function testAssert<T>(actual: T, annotation?: Annotation) : T //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
 {
   testEq(true, Boolean(actual), annotation);
+  return actual;
 }
 
 async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
