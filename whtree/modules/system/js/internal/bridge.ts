@@ -1,7 +1,7 @@
 //This is based on Webhare's @mod-system/js/internal/bridge.ts - FIXME and that one should really be moved to internal namespace or be remove
 
 import * as Events from "events";
-// import * as stacktrace_parser from "stacktrace-parser";
+import * as stacktrace_parser from "stacktrace-parser";
 import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
@@ -595,11 +595,13 @@ class WebHareBridge extends Events.EventEmitter
       @returns Ecxeption trace
   */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getStructuredTrace(e: unknown)
+  getStructuredTrace(e: Error)
   {
-    return []; //FIXME do we want it ,and this way?
-    // var trace = stacktrace_parser.parse(e.stack);
-    // return trace.map(i => ({ filename: i.file || "", line: i.lineNumber || 1, col: i.column || 1, func: i.methodName || "" }));
+    if(!e.stack)
+      return [];
+
+    const trace = stacktrace_parser.parse(e.stack);
+    return trace.map(i => ({ filename: i.file || "", line: i.lineNumber || 1, col: i.column || 1, func: i.methodName || "" }));
   }
 }
 

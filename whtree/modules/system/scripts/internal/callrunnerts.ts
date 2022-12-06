@@ -41,7 +41,7 @@ async function connectIPC(name: string) {
               error: {
                 type: "exception",
                 what: (e as Error).message || "Unknown error",
-                trace: WHBridge.getStructuredTrace(e)
+                trace: WHBridge.getStructuredTrace(e as Error)
               }
             }, msgid);
           }
