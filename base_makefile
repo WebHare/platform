@@ -685,11 +685,7 @@ $(PREFIX)/include/hsvm_dllinterface.h: $(SRCDIR)/harescript/vm/hsvm_dllinterface
 	cp -f $< $@  #cp 1
 
 uninstall:
-ifeq ($(WHBUILD_PLATFORM),darwin)
-	-rm -rf -- $(subst .dylib,.*.dylib,$(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES)))
-else
-	-rm -rf -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
-endif
+	-rm -f -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
 
 ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file}))
 

@@ -1421,14 +1421,14 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         IF(this->owner->tolliumscreenmanager->frame->IsWindowEnabled())
           this->tolliumclick();
         ELSE
-          this->owner->tolliumcontroller->LogDebug("Ignoring click for '" || this->name || "' - the frame appears to be disabled");
+          LogDebug("tollium:componentbase", `Ignoring click for ${this->GetComponentIdentification()} - the frame appears to be disabled`);
       }
       CASE "clicklink"
       {
         IF(this->owner->tolliumscreenmanager->frame->IsWindowEnabled() AND this->onclicklink != DEFAULT FUNCTION PTR)
           this->onclicklink(data.href);
         ELSE
-          this->owner->tolliumcontroller->LogDebug("Ignoring clicklink for '" || this->name || "' - the frame appears to be disabled");
+          LogDebug("tollium:componentbase", `Ignoring clicklink for ${this->GetComponentIdentification()} - the frame appears to be disabled`);
       }
       CASE "set"
       {
