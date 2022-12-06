@@ -1,5 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <mochanodetest file="test_langjson.es" />
+  <test script="test_langjson.ts" />
   <test script="gettid.whscr" />
   <jstest file="test_gettid.es" />
 </group>

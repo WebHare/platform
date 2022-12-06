@@ -163,7 +163,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
           tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, validationconfig);
         }
 
-      CASE "jstest", "mochanodetest"
+      CASE "jstest"
         {
           OBJECT testnode := elt->GetChildElementsByTagName("testscript")->Item(0);
           IF(NOT ObjectExists(testnode))

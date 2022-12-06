@@ -2,7 +2,7 @@
 
 const Events = require("events");
 const stacktrace_parser = require("stacktrace-parser");
-const tools = require('@mod-system/js/internal/tools.js');
+const tools = require('@mod-system/js/internal/tools');
 
 class IPCLink extends Events.EventEmitter
 {
@@ -173,7 +173,7 @@ class WebHareBridge extends Events.EventEmitter
       {
         let req = this.sentmessages.find(item => item.msgid == data.msgid);
         if (req)
-          req.reject(data.what);
+          req.reject(new Error(data.what));
         return;
       }
 

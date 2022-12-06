@@ -75,20 +75,6 @@
             <xs:attributeGroup ref="TestShared" />
           </xs:complexType>
         </xs:element>
-        <xs:element name="mochanodetest">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="env" minOccurs="0" maxOccurs="unbounded">
-                <xs:complexType>
-                  <xs:attribute name="name" />
-                  <xs:attribute name="value" />
-                </xs:complexType>
-              </xs:element>
-            </xs:sequence>
-            <xs:attribute name="file" use="required" />
-            <xs:attributeGroup ref="TestShared" />
-          </xs:complexType>
-        </xs:element>
       </xs:choice>
     </xs:sequence>
     <xs:attributeGroup ref="RecursiveAttributes" />

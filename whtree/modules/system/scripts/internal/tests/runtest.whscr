@@ -116,7 +116,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 
   SWITCH (testinfo.type)
   {
-    CASE "test", "mochanodetest"
+    CASE "test"
     {
       IF ("backend" NOT IN testtypes)
         RETURN result;
@@ -182,16 +182,6 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
                     ? TRUE
                     : use_jobs;
         }
-      }
-      ELSE IF (testinfo.type = "mochanodetest")
-      {
-        runner := MergePath(GetInstallationRoot(), "bin/wh");
-        script := testinfo.testscript.scriptpath;
-
-        STRING path := GetWebHareResourceDiskPath(script);
-        STRING colors := (GetEnvironmentVariable("TERM") LIKE "*color*") ? "-c" : "-C";
-
-        arguments := [ "mocharun", colors, path ];
       }
 
       MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
