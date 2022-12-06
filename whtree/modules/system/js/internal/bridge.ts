@@ -97,6 +97,12 @@ export class IPCLink extends EventSource
         }, replyto);
   }
 
+  handleMessage(message: unknown, msgid: number) {
+    if (!this._closed) {
+      this.emit("message", { message, msgid });
+    }
+  }
+
   close()
   {
     bridge.closeLink(this.id);
@@ -119,6 +125,13 @@ export class IPCListenerPort extends EventSource
   close()
   {
     bridge.closePort(this.id);
+  }
+
+  handleNewLink(newlink: IPCLink) {
+    if (!this._closed)
+      this.emit("accept", newlink);
+    else
+      newlink.close();
   }
 }
 
@@ -324,10 +337,7 @@ class WebHareBridge
         const newlink = new IPCLink(data.link, `IPCLink #${data.link} incoming '${portrec.name}' connection`);
         this.updateWaitCount(+1, newlink.name);
         this.links.set(data.link, newlink);
-        if (!portrec._closed)
-          portrec.emit("accept", newlink);
-        else
-          newlink.close();
+        portrec.handleNewLink(newlink);
         return;
       }
 
@@ -363,10 +373,7 @@ class WebHareBridge
           this.abortBridge("webhare-bridge: received message for nonexisting port #" + data.id);
           return;
         }
-        if (!linkrec._closed)
-        {
-          linkrec.emit("message", { message: data.message, msgid: data.msgid });
-        }
+        linkrec.handleMessage(data.message, data.msgid);
         return;
       }
 

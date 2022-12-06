@@ -60,7 +60,7 @@ export default class EventSource {
       @param eventname - Event name to trigger
       @param data - Optional event data
   */
-  emit(eventname: string, data?: unknown) {
+  protected emit(eventname: string, data?: unknown) {
     for (const handlerentry of this._on_handlers) { //'of' iterates on a map copy so it doesn't get confused when handler callbacks modify the callback list
       const handler = handlerentry[1];
       if (!handler.allevents && handler.eventname != eventname)
