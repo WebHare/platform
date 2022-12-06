@@ -48,9 +48,9 @@ export interface FeedbackResult
    /** If successful, an array of available topics */
    topics?: Array<{
     /** The topic tag */
-     tag: string,
+     tag: string;
      /** The topic title */
-     title: string,
+     title: string;
    }>;
 
    /** If not succesful, an error message */
@@ -67,8 +67,8 @@ export interface ScreenshotData
     bodyContents: string;
   };
   size: {
-    width: number,
-    height: number
+    width: number;
+    height: number;
   };
   browser: string;
   device: string;

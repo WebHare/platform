@@ -88,6 +88,7 @@
                 "ts-ignore": "allow-with-description"
             }
         ],
+        "@typescript-eslint/member-delimiter-style": "error",
         "@typescript-eslint/no-empty-function": "error",
         //Need typescript parser services for this one
         "@typescript-eslint/no-implied-eval": "off",

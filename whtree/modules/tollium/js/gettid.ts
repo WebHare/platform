@@ -44,8 +44,8 @@ interface CachedTids
 {
   [module: string]:
   {
-    [language: string]: LanguageTexts
-  }
+    [language: string]: LanguageTexts;
+  };
 }
 
 type TidParam = string | number | null;
@@ -120,7 +120,7 @@ function executeCompiledTidText(text: LanguageText, params: string[], rich: bool
   return output;
 }
 
-function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: { overridelanguage?: string, html?: boolean }): string
+function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: { overridelanguage?: string; html?: boolean }): string
 {
   if(curLang=='debug')
     return '{' + tid + (params.length ? '|' + params.join('|') : '') + '}';

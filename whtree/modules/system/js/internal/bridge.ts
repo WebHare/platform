@@ -159,7 +159,7 @@ class WebHareServiceWrapper
     return this.client;
   }
 
-  private async remotingFunc(method: { name: string; }, args: unknown[])
+  private async remotingFunc(method: { name: string }, args: unknown[])
   {
     const response = await this.port.doRequest({call: method.name, args: args }) as RemoteCallResponse;
     if(response.exc)
@@ -185,7 +185,7 @@ interface WebSocketWithRefAccess extends WebSocket
   {
     ref: () => void;
     unref: () => void;
-  }
+  };
 }
 
 type EventCallback = (event: string, data: object) => void;
@@ -568,7 +568,7 @@ class WebHareBridge extends Events.EventEmitter
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
-  async openService(name: string, args?: unknown[], options?: { timeout: number; })
+  async openService(name: string, args?: unknown[], options?: { timeout: number })
   {
     this.updateWaitCount(+1, "openService " +name);
     try

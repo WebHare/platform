@@ -2,10 +2,10 @@ import * as typescriptFormat from "typescript-formatter";
 
 /// Format of our incoming commands
 interface FormattingCommand {
-  path: string
-  data: string
-  basedir: string
-  tsfmtfile: string
+  path: string;
+  data: string;
+  basedir: string;
+  tsfmtfile: string;
 }
 
 export async function handleFormattingCommand(indata: FormattingCommand) {

@@ -12,7 +12,7 @@ type EventCoordinates =
   screenY: number;
  };
 // Store data about the current move
-let moveeventdata: { target: EventTarget | null, startX: number, startY: number } | null = null;
+let moveeventdata: { target: EventTarget | null; startX: number; startY: number } | null = null;
 let lastcoordinates: EventCoordinates | null = null;
 
 // Fire a move event and return the resulting event
