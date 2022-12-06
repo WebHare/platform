@@ -119,7 +119,22 @@ testsystem:
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external system
+    - whtree/bin/wh testdocker --tag=-external,-nodejs system
+  artifacts:
+    paths:
+      - artifacts/
+    when: always
+    expire_in: 1 week
+  interruptible: true
+
+testsystem_nodejs:
+  stage: test
+  variables:
+    TESTFW_INSTALLTESTSUITE: 1
+  except:
+    - /^docs\/.*$/
+  script:
+    - whtree/bin/wh testdocker --tag=-external,nodejs system
   artifacts:
     paths:
       - artifacts/
