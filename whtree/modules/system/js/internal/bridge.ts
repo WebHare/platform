@@ -1,11 +1,11 @@
 //This is based on Webhare's @mod-system/js/internal/bridge.ts - FIXME and that one should really be moved to internal namespace or be remove
 
-import * as Events from "events";
 import * as stacktrace_parser from "stacktrace-parser";
 import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
 import * as whdebug from "./whdebug";
+import EventSource from "./eventsource";
 
 const BridgeFailureExitCode = 153;
 
@@ -63,7 +63,7 @@ interface PortAcceptedPacket extends ResponsePacketBase
 
 type ResponsePacket = ResponseOkPacket | ResponseExceptionPacket | LinkMessagePacket | LinkGonePacket | EventCallbackPacket | PortAcceptedPacket;
 
-export class IPCLink extends Events.EventEmitter
+export class IPCLink extends EventSource
 {
   private readonly id: number;
   readonly name: string;
@@ -103,7 +103,7 @@ export class IPCLink extends Events.EventEmitter
   }
 }
 
-export class IPCListenerPort extends Events.EventEmitter
+export class IPCListenerPort extends EventSource
 {
   id: number;
   name: string;
@@ -191,7 +191,7 @@ interface WebSocketWithRefAccess extends WebSocket
 type EventCallback = (event: string, data: object) => void;
 
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
-class WebHareBridge extends Events.EventEmitter
+class WebHareBridge
 {
   private _waitcount = 0;
 
@@ -214,8 +214,6 @@ class WebHareBridge extends Events.EventEmitter
 
   constructor()
   {
-    super();
-
     this.debug = whdebug.isDebugTagEnabled("bridge");
     this.onlinedefer = tools.createDeferred<void>();
 
@@ -324,6 +322,7 @@ class WebHareBridge extends Events.EventEmitter
           console.log("webhare-bridge: accepted connection on port #" + data.id  + " new link #" + data.link);
 
         const newlink = new IPCLink(data.link, `IPCLink #${data.link} incoming '${portrec.name}' connection`);
+        this.updateWaitCount(+1, newlink.name);
         this.links.set(data.link, newlink);
         if (!portrec._closed)
           portrec.emit("accept", newlink);
@@ -366,7 +365,7 @@ class WebHareBridge extends Events.EventEmitter
         }
         if (!linkrec._closed)
         {
-          linkrec.emit("message", data.message, data.msgid);
+          linkrec.emit("message", { message: data.message, msgid: data.msgid });
         }
         return;
       }
@@ -621,4 +620,5 @@ class WebHareBridge extends Events.EventEmitter
 }
 
 bridge = new WebHareBridge;
+
 export default bridge;

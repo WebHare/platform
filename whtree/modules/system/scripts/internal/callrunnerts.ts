@@ -1,5 +1,4 @@
 import WHBridge from '@mod-system/js/internal/bridge';
-
 interface InvokeTask {
   cmd: "invoke";
   id: number;
@@ -21,10 +20,14 @@ async function runInvoke(task: InvokeTask): Promise<unknown> {
   return await func(...task.args);
 }
 
+type IPCMessage = {message: InvokeTask; msgid: number};
+
 async function connectIPC(name: string) {
   try {
     const link = await WHBridge.connectIPCPort(process.argv[2], true);
-    link.on("message", async (task: InvokeTask, msgid: number) => {
+    link.on("message", async (msg) => {
+      const task = (msg as IPCMessage).message;
+      const msgid = (msg as IPCMessage).msgid;
       switch (task.cmd) {
         case "invoke": {
           try {

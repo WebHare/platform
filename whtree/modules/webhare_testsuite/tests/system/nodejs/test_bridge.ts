@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import WHBridge from "@mod-system/js/internal/bridge";
+import WHBridge, { IPCLink } from "@mod-system/js/internal/bridge";
 
 async function testIndependentserviceThings()
 {
@@ -23,6 +23,20 @@ async function testIPC()
   test.eq(initialreferences + 1, WHBridge.references);
   await test.sleep(10); //verify bridge doesn't close us bcause of 'no waiters'
 
+  const acceptportpromise = listenport.waitOn("accept");
+  const connectingport = await WHBridge.connectIPCPort('webhare_testsuite:testipc', false);
+  const acceptedport = await acceptportpromise as IPCLink;
+  test.eq(initialreferences + 3, WHBridge.references, "By the time we've received our self initiated connection, we should have 3 refs");
+
+  const messagepromise = acceptedport.waitOn("message");
+  connectingport.send({ bericht: "Moi!" });
+  const result = await messagepromise;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FIXME fix eqMembers and restore this test
+  test.eq("Moi!", (result as any).message.bericht);
+
+  connectingport.close();
+  acceptedport.close();
   listenport.close();
   test.eq(initialreferences, WHBridge.references);
 }
