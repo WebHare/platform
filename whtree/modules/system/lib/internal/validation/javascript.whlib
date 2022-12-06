@@ -68,6 +68,13 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename)
   proc->Close();
 
   RECORD res := EnforceStructure([ messages := [[ line := 0, "column" := 0, message := "", fatal := FALSE ]]], DecodeJSON(retval.output));
+  IF (retval.exitcode != 0 AND IsValueSet(retval.errors))
+  {
+    FOREVERY (STRING line FROM Tokenize(retval.errors, "\n"))
+      IF (line LIKE "Error: *")
+        INSERT [ line := 1, "column" := 1, message := SubString(line, 7), fatal := TRUE ] INTO res.messages AT END;
+  }
+
   RETURN SELECT resourcename := resourcename, line, col := COLUMN "column", message, fatal FROM RECORD ARRAY(res.messages);
 }
 
