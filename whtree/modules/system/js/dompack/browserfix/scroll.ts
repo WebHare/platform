@@ -5,7 +5,7 @@ type ScrollStyle =
 {
   scrollTop?: number;
   scrollLeft?: number;
-}
+};
 
 const debugscrolling = false;
 

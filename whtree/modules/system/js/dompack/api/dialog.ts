@@ -178,9 +178,8 @@ export class DialogBase
   }
 
   afterShow()
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- supposed to be empty but extenders can override
-  // eslint-disable-next-line no-empty-function -- supposed to be empty but extenders can override
   {
+    // eslint-disable-current @typescript-eslint/no-empty-function -- supposed to be empty but extenders can override
   }
 }
 
@@ -225,7 +224,7 @@ type DialogChoice =
   /** Override result to return if clicked (otherwise you'll just receive the title) */
   result?: string;
   className?: string;
-}
+};
 
 
 /**

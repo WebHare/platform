@@ -771,8 +771,8 @@ class MenuBase
   }
 
   _onRefresh()
-  // eslint-disable-next-line no-empty-function
   {
+    // eslint-disable-current-line no-empty-function
   }
 
   // ---------------------------------------------------------------------------
