@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "wh::promise.whlib";
+
+PUBLIC INTEGER FUNCTION Add(INTEGER lhs, INTEGER rhs)
+{
+  RETURN lhs + rhs;
+}
+PUBLIC ASYNC FUNCTION MultiplyPromise(INTEGER lhs, INTEGER rhs)
+{
+  AWAIT CreateSleepPromise(20);
+  RETURN lhs * rhs;
+}

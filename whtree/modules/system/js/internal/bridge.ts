@@ -379,14 +379,13 @@ class WebHareBridge
 
     switch (data.type)
     {
-      case "response-ok":
-      {
+      case "response-ok": {
         const req = this.sentmessages.find(item => item.msgid == data.msgid);
-        if (req)
-        {
-          this.sentmessages.splice(this.sentmessages.indexOf(req), 1);
-          req.resolve(data.value);
-        }
+        if (!req)
+          return console.error(`webhare-bridge: received response to unknown messages ${data.msgid}`);
+
+        this.sentmessages.splice(this.sentmessages.indexOf(req), 1);
+        req.resolve(data.value);
         return;
       }
       case "response-exception":
@@ -619,6 +618,21 @@ class WebHareBridge
     finally
     {
       this.updateWaitCount(-1, "openService " +name);
+    }
+  }
+
+  /** Invoke a HareScript function from the bridge. Careful: any HS error may break the bridge connection */
+  async invoke(func: string, args:unknown[]) : Promise<unknown>
+  {
+    //TODO: The 'HS error' warning above doesn't currently apply as we always use a job right now. If we change that, services.callHareScript will need to adapt!
+    this.updateWaitCount(+1, "Invoke " + func);
+    try
+    {
+      return await this.sendMessage({ type: "invoke", func, args }).promise;
+    }
+    finally
+    {
+      this.updateWaitCount(-1, "Invoke " + func);
     }
   }
 

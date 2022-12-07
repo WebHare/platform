@@ -52,6 +52,16 @@ async function testIndependentServiceThings() {
   const initialreferences = WHBridge.references;
   await test.throws(/Unable to connect/, WHBridge.openService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
   test.eq(initialreferences, WHBridge.references);
+
+  const invokereqeuest = WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]);
+  test.eq(initialreferences+1, WHBridge.references);
+  test.eq(45, await invokereqeuest);
+  test.eq(initialreferences, WHBridge.references);
+
+  await test.throws(/NOSUCHFUNCTION.*not found/, WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#NoSuchFunction", []));
+  await test.throws(/Custom.*Try to kill the bridge/, WHBridge.invoke("wh::system.whlib#ABORT", ["Try to kill the bridge through abort"]));
+  test.eq(1452, await WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#MultiplyPromise", [22, 66]), "Verify promises work AND that the bridge is still there");
+  test.eq(initialreferences, WHBridge.references);
 }
 
 async function runWebHareServiceTest_HS()
