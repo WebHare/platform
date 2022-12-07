@@ -154,12 +154,19 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
     //If we got a function, execute it
     const promiselike = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
     //To be safe and consistently take up a tick, we'll await the return value. awaiting non-promises is otherwise safe anyway
-    await promiselike;
+    const retval = await promiselike;
 
+    //If we get here, no exception occurred
     if (annotation)
       logAnnotation(annotation);
 
-    throw new Error("testThrows fails: expected function to throw");
+    console.log("Expected exception: ", expect.toString());
+    if(retval === undefined)
+      console.log("Did not get an exception or return value");
+    else
+      console.log("Instead we got: ", retval);
+
+    //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   }
   catch (e) {
     if (!(e instanceof Error)) {
@@ -182,6 +189,7 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
 
     return e; //we got what we wanted - a throw!
   }
+  throw new Error(`testThrows fails: Expected function to throw ${expect.toString()}`);
 }
 async function testSleep(condition: number) : Promise<void> {
   if(condition < 0)

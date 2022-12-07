@@ -4,6 +4,13 @@ import bridge from '@mod-system/js/internal/bridge';
 // import * as util from 'node:util';
 import * as child_process from 'node:child_process';
 
+async function testChecks() {
+  //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
+  await test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
+  await test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
+  console.log("(you can ignore the message above about expecting a fourty two exception)");
+}
+
 async function runWHTest(testname: string) : Promise<string> {
   await bridge.ready;
 
@@ -19,4 +26,6 @@ async function checkTestFailures() {
   test.eqMatch(/testEq fails/, await runWHTest("system.nodejs.meta.metatest_shouldfail") );
 }
 
-test.run([ checkTestFailures ]);
+test.run([ testChecks
+         , checkTestFailures
+         ]);
