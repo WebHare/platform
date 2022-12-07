@@ -5,6 +5,7 @@ export {
   assert
   , eq
   , eqMatch
+  , eqProps
   , sleep
   , throws
 } from './checks';

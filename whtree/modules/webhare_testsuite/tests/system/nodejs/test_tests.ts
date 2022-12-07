@@ -9,6 +9,18 @@ async function testChecks() {
   await test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
   await test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
+
+  const x_ab = { cellA: "A", cellB: "B" };
+  const x_abc = { ...x_ab, cellC: "test" };
+
+  test.eqProps(x_ab, x_ab);
+  test.eqProps(x_ab, x_abc);
+  test.eqProps(x_abc, x_ab, ["cellC"], "shouldn't throw if cellC is explicitly ignored");
+  await test.throws(/Expected property 'cellC'.*at root/, () => test.eqProps(x_abc, x_ab));
+
+  const x_abc_badb = { ...x_abc, cellB: "BAD" };
+  test.eqProps(x_abc, x_abc_badb, ["cellB"], "shouldn't throw if cellB is explicitly ignored");
+  await test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb ));
 }
 
 async function runWHTest(testname: string) : Promise<string> {
