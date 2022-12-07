@@ -1,4 +1,4 @@
-import WHBridge from '@mod-system/js/internal/bridge';
+import WHBridge, { IPCLink, IPCMessagePacket } from '@mod-system/js/internal/bridge';
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 
 interface InvokeTask {
@@ -12,14 +12,12 @@ async function runInvoke(task: InvokeTask): Promise<unknown> {
   return await (await resourcetools.loadJSFunction(task.func))(...task.args);
 }
 
-type IPCMessage = {message: InvokeTask; msgid: number};
-
-async function connectIPC(name: string) {
+function connectIPC(name: string) {
   try {
-    const link = await WHBridge.connectIPCPort(process.argv[2], true);
+    const link = new IPCLink;
     link.on("message", async (msg) => {
-      const task = (msg as IPCMessage).message;
-      const msgid = (msg as IPCMessage).msgid;
+      const task = (msg as IPCMessagePacket).message as InvokeTask;
+      const msgid = (msg as IPCMessagePacket).msgid;
       switch (task.cmd) {
         case "invoke": {
           try {
@@ -43,7 +41,8 @@ async function connectIPC(name: string) {
         }
       }
     });
-    link.on("close", () => process.exit());
+    link.on("close", () => process.exit()); //FIXME are we sure this is fired? it's not tested yet at least!
+    link.connect(process.argv[2], true);
   }
   catch (e) {
     console.error(`got error: ${e}`);

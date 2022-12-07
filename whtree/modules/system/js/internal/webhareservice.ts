@@ -1,4 +1,4 @@
-import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
+import WHBridge, { IPCListenerPort, IPCLink, IPCMessagePacket } from './bridge';
 
 /** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
     of exception.
@@ -79,9 +79,10 @@ class WebHareService //EXTEND IPCPortHandlerBase
   async _onLinkAccepted(link: IPCLink) {
     try {
       //TODO can we use something like liveapi's async event waiters?
-      const message = await link.waitOn("message") as { message: unknown; msgid: number };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this._setupLink(link, message.message as any, message.msgid);
+      const messagepromise = link.waitOn("message");
+      link.accept();
+      const packet = await messagepromise as IPCMessagePacket;
+      this._setupLink(link, packet.message as {__new: unknown[]}, packet.msgid);
     }
     catch (e) {
       console.log("_onLinkAccepted error", e);
@@ -89,12 +90,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
     }
   }
 
-  async _setupLink(link: IPCLink, msg: { status: string; __new: unknown[] }, id: number) {
-    if (msg.status == "gone") {
-      WHBridge._closeLink(link);
-      return;
-    }
-
+  async _setupLink(link: IPCLink, msg: {__new: unknown[]}, id: number) {
     try {
       if (!this._constructor)
         throw new Error("This service does not accept incoming connections");
@@ -141,6 +137,8 @@ export default async function runWebHareService(servicename: string, constructor
   if (!servicename.match(/^.+:.+$/))
     throw new Error("A service should have a <module>:<service> name");
 
-  const hostport = await WHBridge.createIPCPort("webhareservice:" + servicename, true);
-  return new WebHareService(hostport, servicename, constructor, { autorestart, restartimmediately });
+  const hostport = new IPCListenerPort;
+  const service = new WebHareService(hostport, servicename, constructor, { autorestart, restartimmediately });
+  await hostport.listen("webhareservice:" + servicename, true);
+  return service;
 }

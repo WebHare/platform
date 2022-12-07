@@ -1,42 +1,56 @@
 import * as test from "@webhare/test";
-import WHBridge, { IPCLink } from "@mod-system/js/internal/bridge";
-
-async function testIndependentserviceThings()
-{
-  await test.throws(/Unable to connect/, WHBridge.openService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
-}
+import WHBridge, { IPCLink, IPCListenerPort, IPCMessagePacket } from "@mod-system/js/internal/bridge";
 
 async function testIPC()
 {
   const initialreferences = WHBridge.references;
 
   //Attempt to connect to an nonexisting port. Verify that it keeps the bridge awake
-  const connection = WHBridge.connectIPCPort('webhare_testsuite:nosuchport', true);
-  test.eq(initialreferences + 1, WHBridge.references);
+  let out_connection = new IPCLink;
+  test.eq(initialreferences, WHBridge.references);
 
-  await test.throws(/Unable to connect to global port webhare_testsuite:nosuchport/, connection);
+  const out_connection_promise = out_connection.connect('webhare_testsuite:nosuchport', true);
+  test.eq(initialreferences + 1, WHBridge.references, "While the connection attempt is running, the bridge is busy");
+
+  await test.throws(/Unable to connect to global port webhare_testsuite:nosuchport/, out_connection_promise);
   test.eq(initialreferences, WHBridge.references, "Reference should be freed as soon as the port connection failed");
+  await test.throws(/Link.*already/, out_connection.connect('webhare_testsuite:testipc', true));
 
   //Test connect with webhare_testsuite:ipc and ping it
-  const listenport = await WHBridge.createIPCPort('webhare_testsuite:testipc', false);
+  const listenport = new IPCListenerPort;
+  test.eq(initialreferences, WHBridge.references);
+
+  const acceptportpromise = listenport.waitOn("accept");
+  await listenport.listen('webhare_testsuite:testipc', false);
+
   test.eq(initialreferences + 1, WHBridge.references);
   await test.sleep(10); //verify bridge doesn't close us bcause of 'no waiters'
 
-  const acceptportpromise = listenport.waitOn("accept");
-  const connectingport = await WHBridge.connectIPCPort('webhare_testsuite:testipc', false);
+  out_connection = new IPCLink;
+  const out_connection_msg = out_connection.waitOn("message");
+  await out_connection.connect('webhare_testsuite:testipc', false);
+  await out_connection.send({ bericht: "Moi!" }).promise;
+
   const acceptedport = await acceptportpromise as IPCLink;
+  const acceptedport_msg = acceptedport.waitOn("message");
+  await test.sleep(200); //try to race accept vs the message
+  await acceptedport.accept();
+  acceptedport.send({ bericht: "Welkom" });
+
+  test.eq("Moi!",   ((await acceptedport_msg as IPCMessagePacket).message as { bericht:string }).bericht);
+  test.eq("Welkom", ((await out_connection_msg as IPCMessagePacket).message as { bericht:string }).bericht);
+
   test.eq(initialreferences + 3, WHBridge.references, "By the time we've received our self initiated connection, we should have 3 refs");
 
-  const messagepromise = acceptedport.waitOn("message");
-  connectingport.send({ bericht: "Moi!" });
-  const result = await messagepromise;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FIXME fix eqMembers and restore this test
-  test.eq("Moi!", (result as any).message.bericht);
-
-  connectingport.close();
+  out_connection.close();
   acceptedport.close();
   listenport.close();
+  test.eq(initialreferences, WHBridge.references);
+}
+
+async function testIndependentServiceThings() {
+  const initialreferences = WHBridge.references;
+  await test.throws(/Unable to connect/, WHBridge.openService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
   test.eq(initialreferences, WHBridge.references);
 }
 
@@ -118,8 +132,8 @@ async function runWebHareServiceTest_JS()
   serverinstance.close();
 }
 
-test.run([ testIndependentserviceThings
-         , testIPC
+test.run([ testIPC
+         , testIndependentServiceThings
          , runWebHareServiceTest_HS
          , runWebHareServiceTest_JS
          ], { wrdauth: false } );
