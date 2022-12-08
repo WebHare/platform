@@ -1,4 +1,4 @@
-import WHBridge, { IPCLink, IPCMessagePacket } from '@mod-system/js/internal/bridge';
+import WHBridge, { IPCLink } from '@mod-system/js/internal/bridge';
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 
 interface InvokeTask {
@@ -16,8 +16,8 @@ function connectIPC(name: string) {
   try {
     const link = new IPCLink;
     link.on("message", async (msg) => {
-      const task = (msg as IPCMessagePacket).message as InvokeTask;
-      const msgid = (msg as IPCMessagePacket).msgid;
+      const task = msg.message as InvokeTask;
+      const msgid = msg.msgid;
       switch (task.cmd) {
         case "invoke": {
           try {

@@ -70,7 +70,12 @@ interface PortAcceptedPacket extends ResponsePacketBase
 
 type ResponsePacket = ResponseOkPacket | ResponseExceptionPacket | LinkMessagePacket | LinkGonePacket | EventCallbackPacket | PortAcceptedPacket;
 
-export class IPCLink extends EventSource
+type IPCLinkEvents = {
+  message: IPCMessagePacket;
+  close: undefined;
+};
+
+export class IPCLink extends EventSource< IPCLinkEvents >
 {
   protected id = 0;
   protected name = "";
@@ -174,7 +179,11 @@ class IPCIncomingLink extends IPCLink
   }
 }
 
-export class IPCListenerPort extends EventSource
+type IPCListenerPortEvents = {
+  accept: IPCLink;
+};
+
+export class IPCListenerPort extends EventSource< IPCListenerPortEvents >
 {
   id = 0;
   name = "";

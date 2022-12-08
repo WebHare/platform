@@ -1,4 +1,4 @@
-import WHBridge, { IPCListenerPort, IPCLink, IPCMessagePacket } from './bridge';
+import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
 
 /** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
     of exception.
@@ -73,7 +73,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
   constructor(port: IPCListenerPort, servicename: string, constructor: ConnectionConstructor, options: object) {
     this._port = port;
     this._constructor = constructor;
-    this._port.on("accept", link => this._onLinkAccepted(link as IPCLink));
+    this._port.on("accept", link => this._onLinkAccepted(link));
     this._links = [];
   }
   async _onLinkAccepted(link: IPCLink) {
@@ -81,8 +81,8 @@ class WebHareService //EXTEND IPCPortHandlerBase
       //TODO can we use something like liveapi's async event waiters?
       const messagepromise = link.waitOn("message");
       link.accept();
-      const packet = await messagepromise as IPCMessagePacket;
-      this._setupLink(link, packet.message as {__new: unknown[]}, packet.msgid);
+      const packet = await messagepromise;
+      this._setupLink(link, packet.message as { __new: unknown[] }, packet.msgid);
     }
     catch (e) {
       console.log("_onLinkAccepted error", e);
@@ -90,7 +90,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
     }
   }
 
-  async _setupLink(link: IPCLink, msg: {__new: unknown[]}, id: number) {
+  async _setupLink(link: IPCLink, msg: { __new: unknown[] }, id: number) {
     try {
       if (!this._constructor)
         throw new Error("This service does not accept incoming connections");
@@ -110,8 +110,8 @@ class WebHareService //EXTEND IPCPortHandlerBase
 
   async _onMessage(link: IPCLink, msg: unknown) {
     const parsed = msg as { message: ServiceCallMessage; msgid: number };
-    const message = parsed.message as ServiceCallMessage;
-    const replyid = parsed.msgid as number;
+    const message = parsed.message;
+    const replyid = parsed.msgid;
     try {
       const pos = this._links.findIndex(_ => _.link === link);
       const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, message.args);
