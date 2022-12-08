@@ -2,30 +2,13 @@
 */
 "use strict";
 
-let bridge = require('@mod-system/js/wh/bridge');
 let fs = require("fs");
+const services = require('@webhare/services');
 
 function encodeJSCompatibleJSON(s)
 {
   return JSON.stringify(s).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
-
-module.exports = function(source)
-{
-  let callback = this.async();
-  if (!callback)
-    return "";
-
-  this.cacheable(true);
-  let config = JSON.parse(this.query.substr(1));
-  runLangLoader(config, this.resourcePath, source).then(res =>
-    {
-      res.warnings.forEach(w => this.emitWarning(w));
-      res.errors.forEach(w => this.emitError(w));
-      res.dependencies.forEach(d => this.addDependency(d));
-      callback(null, res.output)
-    });
-};
 
 async function runLangLoader(config, resourcepath, source)
 {
@@ -164,15 +147,13 @@ async function readLanguageFile(module, language, filelist)
 
 async function getLanguageXML(modulenam, language)
 {
-  await bridge.onlinepromise;
-  let response = await bridge.invoke("mod::publisher/lib/internal/webdesign/rpcloader.whlib", "GetLanguageFile", modulenam, language);
+  let response = await services.callHareScript("mod::publisher/lib/internal/webdesign/rpcloader.whlib#GetLanguageFile", [modulenam, language]);
   return { filepath: modulenam + "|" + language, filedata: response };
 }
 
 
 async function readLanguageFileInternal(modulename, language, filelist)
 {
-  await bridge.onlinepromise;
   let response = await getLanguageXML(modulename, language);
   filelist.push(response.filedata.diskpath);
   return response;

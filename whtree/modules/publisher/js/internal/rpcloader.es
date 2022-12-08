@@ -3,13 +3,13 @@
   JSONRPC specification files. See services.md for further documentation
 */
 const fs = require('fs');
-let bridge = require('@mod-system/js/wh/bridge');
+const services = require('@webhare/services');
 
 async function generateRPCWrappers(resourcePath, rpcdata)
 {
   let rpcfile = JSON.parse(rpcdata);
   let service = rpcfile.services[0];
-  let response = await bridge.invoke("mod::publisher/lib/internal/webdesign/rpcloader.whlib", "GetServiceInfo", service);
+  let response = await services.callHareScript("mod::publisher/lib/internal/webdesign/rpcloader.whlib#GetServiceInfo", [service]);
   let dependencies = [];
   let warnings = [];
 

@@ -260,13 +260,13 @@ class WebHareServiceWrapper
 }
 
 /** Describes config info sent by HareScript as soon as we establish the connection */
-interface VersionData
+export interface VersionData
 {
   installationroot: string;
   moduleroots: { [key:string]: string };
   /** data root (FIXME stop naming it varroot!) */
-  varroot: string[];
-  version:string;
+  varroot: string;
+  version: string;
 }
 
 interface WebSocketWithRefAccess extends WebSocket
@@ -281,7 +281,7 @@ interface WebSocketWithRefAccess extends WebSocket
 type EventCallback = (event: string, data: object) => void;
 
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
-class WebHareBridge
+class WebHareBridge extends EventSource
 {
   private _waitcount = 0;
 
@@ -302,6 +302,8 @@ class WebHareBridge
 
   constructor()
   {
+    super();
+
     this.debug = whdebug.isDebugTagEnabled("bridge");
     this.onlinedefer = tools.createDeferred<void>();
 
@@ -379,14 +381,13 @@ class WebHareBridge
 
     switch (data.type)
     {
-      case "response-ok":
-      {
+      case "response-ok": {
         const req = this.sentmessages.find(item => item.msgid == data.msgid);
-        if (req)
-        {
-          this.sentmessages.splice(this.sentmessages.indexOf(req), 1);
-          req.resolve(data.value);
-        }
+        if (!req)
+          return console.error(`webhare-bridge: received response to unknown messages ${data.msgid}`);
+
+        this.sentmessages.splice(this.sentmessages.indexOf(req), 1);
+        req.resolve(data.value);
         return;
       }
       case "response-exception":
@@ -567,6 +568,7 @@ class WebHareBridge
     if(this.debug)
       console.log("webhare-bridge: connected. remote version = " + versiondata.version);
     this.versiondata=versiondata;
+    this.emit("versioninfo", this.versiondata);
     new Promise(resolve => setTimeout(resolve,1500)).then( () => {
       this.onlinedefer.resolve();
     });
@@ -619,6 +621,21 @@ class WebHareBridge
     finally
     {
       this.updateWaitCount(-1, "openService " +name);
+    }
+  }
+
+  /** Invoke a HareScript function from the bridge. Careful: any HS error may break the bridge connection */
+  async invoke(func: string, args:unknown[]) : Promise<unknown>
+  {
+    //TODO: The 'HS error' warning above doesn't currently apply as we always use a job right now. If we change that, services.callHareScript will need to adapt!
+    this.updateWaitCount(+1, "Invoke " + func);
+    try
+    {
+      return await this.sendMessage({ type: "invoke", func, args }).promise;
+    }
+    finally
+    {
+      this.updateWaitCount(-1, "Invoke " + func);
     }
   }
 

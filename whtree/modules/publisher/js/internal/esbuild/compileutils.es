@@ -1,13 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
-const bridge = require('@mod-system/js/wh/bridge');
+const services = require("@webhare/services");
 
 function resolveWebHareAssetPath(startingpoint, inpath)
 {
   if(inpath.startsWith("dompack/"))
   {
-    return path.join(bridge.getInstallationRoot(), "modules/system/js/" + inpath);
+    return services.toFSPath("mod::system/js/" + inpath);
   }
   try
   {
@@ -24,7 +24,7 @@ function resolveWebHareAssetPath(startingpoint, inpath)
     if (inpath.startsWith('@mod-'))
     {
       // The directory should exist, so we can realpath that part
-      let inpathdir = path.join(bridge.getBaseDataRoot(), "node_modules/", path.dirname(inpath));
+      let inpathdir = path.join(services.getConfig().dataroot, "node_modules/", path.dirname(inpath));
       inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
       paths = [];
     }

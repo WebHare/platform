@@ -1,6 +1,7 @@
 const fs = require('fs');
 const process = require('process');
 const bridge = require('@mod-system/js/wh/bridge');
+const services = require('@webhare/services');
 const StackTrace = require('stack-trace');
 
 let getopt = require('node-getopt/lib/getopt.js').create([
@@ -53,6 +54,8 @@ async function main()
 {
   if(debug)
     console.log("JS worker #" + workerid + " starting");
+
+  await services.ready();
 
   bridge.on("close", () => process.exit(13));
   await bridge.connect({ debug: debug});

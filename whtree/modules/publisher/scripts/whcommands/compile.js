@@ -4,7 +4,7 @@
 
    wh publisher:compile tollium:webinterface.dev
 */
-const bridge = require('@mod-system/js/wh/bridge');
+const services = require("@webhare/services");
 
 async function main(bundlename, options)
 {
@@ -12,9 +12,8 @@ async function main(bundlename, options)
   let data = { directcompile:true };
   let assetCompiler = require('@mod-publisher/js/internal/esbuild/compiletask.es');
 
-  await bridge.connect();
-  let baseconfig = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetAssetpacksBaseConfig');
-  let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', bundlename);
+  let baseconfig = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetAssetpacksBaseConfig', []);
+  let bundle = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetBundle', [bundlename]);
   console.error(bundle);
 
   data.baseconfig = baseconfig;

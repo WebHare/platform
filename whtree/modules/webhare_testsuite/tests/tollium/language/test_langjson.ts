@@ -1,6 +1,4 @@
 import * as test from '@webhare/test';
-/// @ts-ignore -- not ported yet to TS
-import bridge from '@mod-system/js/wh/bridge';
 
 import * as path from "node:path";
 /// @ts-ignore -- not ported yet to TS
@@ -73,11 +71,6 @@ async function testLangJsonParser()
     test.eq(true, output.includes(`"anothertext":"Ein anderer Text"`));
     // The output should also include 'text' from the English fallback language file
     test.eq(true, output.includes(`"text":"A text"`));
-  }
-
-  //it("finalize", async function()
-  {
-    bridge.close(); //needed so mocha can terminate
   }
 }
 

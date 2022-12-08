@@ -47,7 +47,7 @@ MACRO SendPacket(RECORD data)
   handler->SendData(EncodeJSON(data));
 }
 
-MACRO OnData(STRING datapacket)
+ASYNC MACRO OnData(STRING datapacket)
 {
   RECORD wrapped := datapacket LIKE "hson:" ? DecodeHSON(datapacket) : DecodeJSON(datapacket);
   IF(NOT RecordExists(wrapped))
@@ -58,16 +58,16 @@ MACRO OnData(STRING datapacket)
 
   TRY
   {
-    RECORD value := ExecuteCommand(msgid, data);
-    SendPacket(CELL[ type := "response-ok", msgid, ...(RecordExists(value) ? CELL[value] : DEFAULT RECORD) ]);
+    RECORD value := AWAIT ExecuteCommand(msgid, data);
+    SendPacket(CELL[ type := "response-ok", msgid, ...value ]);
   }
   CATCH (OBJECT e)
   {
-    SendPacket(CELL[ type := "response-exception", msgid, what := e->what, trace :=  e->trace ]);
+    SendPacket(CELL[ type := "response-exception", msgid, e->what, e->trace ]);
   }
 }
 
-RECORD FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
+ASYNC FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
 {
   SWITCH (data.type)
   {
@@ -146,9 +146,15 @@ RECORD FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
         THROW NEW Exception("Endpoint for link #" || data.id || " has gone");
 
       //The IPC system doesn't allow us to self-specify IDs. So we'll record them on our side. TODO clean them up eventually, faster if we get a reply ?
+      //TODO perhaps we should explicitly separate "message" and "request" - the first will ignore the msgid, the latter will explicitly wait for the reply
       RECORD idmappos := RecordLowerBound(messageidmap, CELL[ webhareid := msg.msgid ], ["webhareid"]);
       INSERT CELL[ bridgeid := msgid, webhareid := msg.msgid ] INTO messageidmap AT idmappos.position;
       RETURN DEFAULT RECORD;
+    }
+
+    CASE "invoke"
+    {
+      RETURN [ value := AWAIT CallAnyPtrVA(PTR AsyncCallFunctionFromJob, VARIANT[data.func, ...data.args]) ];
     }
 
     CASE "broadcast"
