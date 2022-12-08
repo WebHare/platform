@@ -15,7 +15,6 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testServices() {
-
   if(!serverconfig)
     throw new Error("serverconfig should be set!");
 
@@ -40,6 +39,24 @@ async function testServices() {
   ensureProperPath(serverconfig.module.system.root);
 }
 
+async function testResources() {
+  if(!serverconfig)
+    throw new Error("serverconfig should be set!");
+
+  test.eq(serverconfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
+  test.eq(serverconfig.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
+
+  //Verify final slashes handling
+  test.eq(serverconfig.module.system.root, services.toFSPath("mod::system"));
+  test.eq(serverconfig.module.system.root, services.toFSPath("mod::system/"));
+  test.eq(serverconfig.module.system.root + "lib", services.toFSPath("mod::system/lib"));
+  test.eq(serverconfig.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
+
+  test.eq(serverconfig.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
+  test.eq(serverconfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
+  test.eq(serverconfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
+}
+
 //NOTE: we take an a-typical test to help ensure noone booted services before us
 
 async function main()
@@ -50,6 +67,7 @@ async function main()
 
   test.run(
     [ testServices
+    , testResources
     ], { wrdauth: false });
 }
 

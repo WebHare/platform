@@ -1,4 +1,5 @@
 import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
+import path from "node:path";
 
 /** Promise that resolves as soon as the WebHare configuration is available */
 export function ready() : Promise<void> {
@@ -64,4 +65,35 @@ export function getConfig() : Readonly<WebHareBackendConfiguration> {
     throw new Error("WebHare services are not yet available. You may need to await services.ready()");
 
   return config;
+}
+
+/** Resolve a resource path to a filesystem path
+
+    @param resource - Path to resolve
+    @returns Absolute file system path. A succesful return does not imply the path actually exists
+    @throws If the path cannot be mapped to a filesystem path
+*/
+export function toFSPath(resource: string) {
+  const namespace = resource.substring(0,resource.indexOf("::")).toLowerCase();
+  const restpath = resource.substring(namespace.length + 2);
+
+  if(namespace == "mod" || namespace == "storage") {
+    const nextslash = restpath.indexOf('/');
+    const modulename = nextslash == -1 ? restpath : restpath.substr(0, nextslash);
+    if(modulename=="")
+      // throw new RetrieveResourceException(reportpath, "No such resource: missing module name", default let );
+      throw new Error("No such resource: missing module name");
+
+    const modinfo = getConfig().module[modulename];
+    if(!modinfo)
+      throw new Error(`No such resource: no such module '${modulename}'`);
+
+    const basedir = namespace == "mod" ? modinfo.root : `${getConfig().dataroot}storage/${modulename}/`;
+
+    if(nextslash == -1)
+      return basedir; //we'll always terminate a path like `mod::system` with a slash
+    else
+      return path.join(basedir, restpath.substring(nextslash));
+  }
+  throw new Error(`Unsupported resource path '${resource}'`);
 }
