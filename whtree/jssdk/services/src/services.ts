@@ -119,3 +119,8 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
 }
+
+export async function openBackendService(name: string, args?: unknown[], options?: { timeout: number })
+{
+  return WHBridge.openService(name, args, options);
+}

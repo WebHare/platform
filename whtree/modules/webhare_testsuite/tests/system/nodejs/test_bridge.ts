@@ -47,8 +47,6 @@ async function testIPC()
 }
 
 async function testIndependentServiceThings() {
-  await test.throws(/Unable to connect/, WHBridge.openService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
-  test.eq(0, WHBridge.references);
 
   const invokereqeuest = WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]);
   test.eq(1, WHBridge.references);
@@ -61,82 +59,6 @@ async function testIndependentServiceThings() {
   test.eq(0, WHBridge.references);
 }
 
-async function runWebHareServiceTest_HS()
-{
-  await test.throws(/Invalid/, WHBridge.openService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
-  await test.throws(/abort/, WHBridge.openService("webhare_testsuite:webhareservicetest", ["abort"]));
-
-  test.eq(0, WHBridge.references, "Failed attempts above should not have kept a pending reference");
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance : any = await WHBridge.openService("webhare_testsuite:webhareservicetest", ["x"]);
-  test.eq(1, WHBridge.references, "WHBridge.openService should immediately keep a reference open");
-  test.eq(42, await serverinstance.GETLUE());
-
-  let promise = serverinstance.GETASYNCLUE();
-  test.eq(42, await serverinstance.GETLUE());
-  test.eq(42, await promise);
-
-  await test.throws(/Crash/, serverinstance.CRASH());
-
-  promise = serverinstance.GETASYNCLUE();
-  const promise2 = serverinstance.GETASYNCCRASH();
-
-  await test.throws(/Async crash/, promise2);
-
-  test.eq({arg1:41,arg2:43}, await serverinstance.PING(41,43));
-  test.eq({arg1:41,arg2:43}, await serverinstance.ASYNCPING(41,43));
-
-  serverinstance.close();
-  test.eq(0, WHBridge.references, "And the reference should be cleaned after close");
-
-  /* TODO Do we need cross language events ?
-  //RECORD deferred := CreateDeferredPromise();
-  //serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
-  //serverinstance->EmitTestEvent([ value := 42 ]);
-  //RECORD testdata := AWAIT deferred.promise;
-  //TestEq([ value := 42 ], testdata); */
-}
-
-async function runWebHareServiceTest_JS()
-{
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const demoservice : any = test.assert(await WHBridge.openService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
-  demoservice.close();
-
-  await test.throws(/abort/, WHBridge.openService("webhare_testsuite:demoservice", ["abort"]));
-
-  test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance : any = await WHBridge.openService("webhare_testsuite:demoservice", ["x"]);
-  test.eq(42, await serverinstance.getLUE());
-
-  let promise = serverinstance.getAsyncLUE();
-  test.eq(42, await serverinstance.getLUE());
-  test.eq(42, await promise);
-
-  await test.throws(/Crash/, serverinstance.crash());
-
-  promise = serverinstance.getAsyncLUE();
-  const promise2 = serverinstance.getAsyncCrash();
-
-  await test.throws(/Async crash/, promise2);
-
-  test.eq({arg1:41,arg2:43}, await serverinstance.ping(41,43));
-  test.eq({arg1:41,arg2:43}, await serverinstance.asyncPing(41,43));
-
-  /* TODO reenable as event source? then it would be nicer to do it like a 'real' eventSource
-  const eventwaiter = serverinstance.waitOn("testevent");
-  await serverinstance.emitTestEvent({ start: 12, add: 13});
-  test.eq(25, await eventwaiter);
-  */
-
-  serverinstance.close();
-}
-
 test.run([ testIPC
          , testIndependentServiceThings
-         , runWebHareServiceTest_HS
-         , runWebHareServiceTest_JS
          ], { wrdauth: false } );
