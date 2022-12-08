@@ -289,8 +289,13 @@ interface WebSocketWithRefAccess extends WebSocket
 
 type EventCallback = (event: string, data: object) => void;
 
+type BridgeEvents = {
+  versioninfo: VersionData;
+};
+
+
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
-class WebHareBridge extends EventSource
+class WebHareBridge extends EventSource< BridgeEvents>
 {
   private _waitcount = 0;
 
@@ -583,7 +588,7 @@ class WebHareBridge extends EventSource
   }
 
   /** Register a callback to receive config updates. */
-  onConfigurationUpdate(callback: EventSourceCallback) {
+  onConfigurationUpdate(callback: EventSourceCallback<BridgeEvents, "versioninfo">) {
     this.on("versioninfo", callback);
 
     //Fire existing configurationData if available (like onDomReady's catchup) in case bridge got loaded and initialized before us
