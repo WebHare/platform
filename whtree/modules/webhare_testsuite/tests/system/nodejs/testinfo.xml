@@ -1,7 +1,6 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs">
   <test script="test_bridge.ts" />
   <test script="test_services.ts" />
-  <test script="test_ipc.ts" />
   <test script="test_bridge_from_harescript.whscr" />
   <test script="test_tests.ts" />
   <test script="test_manualcondition.ts" />
