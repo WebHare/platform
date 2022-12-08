@@ -769,7 +769,6 @@ OBJECTTYPE WebConfigBuilder
 
     STRING secureport_bindip := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP");
     STRING rescueport_bindip := GetEnvironmentVariable("WEBHARE_RESCUEPORT_BINDIP") ?? "127.0.0.1";
-    STRING loopbackport_bindip := GetEnvironmentVariable("WEBHARE_LOOPBACKPORT_BINDIP")  ?? "127.0.0.1";
 
     //Add the NGINX/reverse proxy port
     INSERT [ id := -2
@@ -809,18 +808,6 @@ OBJECTTYPE WebConfigBuilder
            , istrustedport := FALSE
            ] INTO ports AT END;
 
-    //Add the loopback port
-    INTEGER loopbackport := GetWebHareConfiguration().baseport + 4;
-    INSERT [ id := -1
-           , ip := loopbackport_bindip
-           , privatekey := ""
-           , certificatechain := ""
-           , port := loopbackport
-           , virtualhost := FALSE
-           , ciphersuite := ""
-           , istrustedport := FALSE
-           ] INTO ports AT END;
-
     RECORD ARRAY hosts := EnumerateAllWebservers(this->minimalconfig);
     DELETE FROM hosts WHERE port NOT IN INTEGER[ whwebserverconfig_virtualportid, whwebserverconfig_rescueportid, ...validports];
 
@@ -854,18 +841,6 @@ OBJECTTYPE WebConfigBuilder
            , forcehttps := FALSE
            , forcehttpsport := 0
            ] INTO hosts AT END;
-    INSERT [ id := whwebserverconfig_loopbackwebserverid
-           , outputfolder := GetModuleInstallationRoot("system") || 'web/loopback/'
-           , defaultpages := DEFAULT STRING ARRAY
-           , is_interface_webserver := FALSE
-           , hostname := '127.0.0.1'
-           , port := -1
-           , listenhosts := DEFAULT STRING ARRAY
-           , lowercasemode := TRUE
-           , forcehttps := FALSE
-           , forcehttpsport := 0
-           ] INTO hosts AT END;
-
 
     RECORD ARRAY access;
     IF(NOT this->minimalconfig)
@@ -1012,12 +987,6 @@ OBJECTTYPE WebConfigBuilder
         INSERT [ name := "Content-Security-Policy"
                , value := Substitute(csp.policy, "[webhare]", Detokenize(interfaceorigins,' '))
                ] INTO rules[#rule].addheaders AT END;
-
-    //Open up all rights to loopbacks
-    RECORD loopbackrule := this->GetBaseRule("/", webrulepriority_default, "Loopback rule");
-    loopbackrule.matchtype := 1;
-    loopbackrule.limitservers := [whwebserverconfig_loopbackwebserverid];
-    INSERT loopbackrule INTO rules AT END;
 
     rules := SELECT *
                   , data :=   CELL[ path

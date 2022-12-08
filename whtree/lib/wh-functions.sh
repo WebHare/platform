@@ -201,7 +201,6 @@ setup_node()
   getwhparameters
   export NODE_PATH=$WEBHARE_DATAROOT/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
-  export WEBHARE_LOOPBACKPORT
 
   # Make sure $WEBHARE_DATAROOT/webhare-config/tsconfig.json exists
   if [ ! -f "$WEBHARE_DATAROOT/webhare-config/tsconfig.json" ] || [ "$1" == "--force" ]; then

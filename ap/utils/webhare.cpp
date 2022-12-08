@@ -615,7 +615,6 @@ int UTF8Main(std::vector<std::string> const &args)
                 std::cout << "LOGFILEPATH=" << whconn->GetLogRoot() << "\n";
                 std::cout << "LOGFILETODAY=" << buffer << "\n";
                 std::cout << "WEBHARE_DATAROOT=" << whconn->GetBaseDataRoot() << "\n";
-                std::cout << "WEBHARE_LOOPBACKPORT=" << (whconn->GetDbaseAddr().GetPort()+4) << "\n";
                 std::cout << "WEBHARE_COMPILECACHE=" << (whconn->GetCompileCache()) << "\n";
                 return EXIT_SUCCESS;
         }

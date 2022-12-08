@@ -13,7 +13,6 @@ PUBLIC CONSTANT INTEGER whwebserverconfig_rescuewebserverid := -5;
 PUBLIC CONSTANT INTEGER whwebserverconfig_virtualportid := 0;
 
 PUBLIC CONSTANT INTEGER whwebserverconfig_proxywebserverid := -1000; //catches any usage of webhare as a proxy
-PUBLIC CONSTANT INTEGER whwebserverconfig_loopbackwebserverid := -1001; //a loopbackonly server on 127.0.0.1:13689 used by JS to connect back to us
 
 PUBLIC CONSTANT INTEGER whwebserverconfig_redirecthostoffset := -2000; //all redirecting hosts that mirror a real webserver, are offset by this index
 
