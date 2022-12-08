@@ -136,7 +136,7 @@ async function runTask(taskcontext, data)
   */
   let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/all.es")] : [])
                   , bundle.entrypoint
-                  , ...bundle.bundleconfig.extrarequires.filter(node => !!node)
+                  , ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
                   ];
 
   let outdir = path.join(bundle.outputpath,"build");
@@ -214,7 +214,7 @@ async function runTask(taskcontext, data)
       buildresult = { warnings: []
                     , errors: [{ text:  e.toString()
                                }]
-                    }
+                    };
     }
   }
 
@@ -257,7 +257,7 @@ async function runTask(taskcontext, data)
        won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
        may be sufficient to resolve some CI issues */
 
-    let mod = data.baseconfig.installedmodules.find(mod => bundle.entrypoint.startsWith(mod.root));
+    let mod = data.baseconfig.installedmodules.find(_ => bundle.entrypoint.startsWith(_.root));
     if(mod)
     {
       let localpath = bundle.entrypoint.substr(mod.root.length);
