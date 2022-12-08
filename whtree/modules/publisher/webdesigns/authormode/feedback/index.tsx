@@ -1,10 +1,9 @@
 import * as dompack from 'dompack';
 import * as storage from 'dompack/extra/storage';
 import * as dialogapi from 'dompack/api/dialog';
-import { getFeedback, initFeedback, FeedbackResult } from "@mod-publisher/js/feedback";
+import createRPCClient from "@webhare/jsonrpc-client";
+import { getFeedback, initFeedback, FeedbackSuccessResult } from "@mod-publisher/js/feedback";
 import { getTid } from "@mod-tollium/js/gettid";
-// @ts-ignore the typescript compiler doesn't support importing .rpc.json files
-import * as authorservice from "../authorservice.rpc.json";
 
 // The payload of the JSON Web Token as returned by GetFeedbackWebToken
 interface UserData
@@ -15,6 +14,14 @@ interface UserData
   email: string;
   preferred_username: string;
 }
+
+// The RPC service used to submit feedabck
+interface AuthorService {
+  submitFeedback(guid: string, form: { topic: string; remarks: string }) : Promise<{responsetext: string}>;
+}
+
+const authorservice = createRPCClient<AuthorService>("publisher:authorservice");
+
 
 // The form elements we want to address through the form.elements property
 interface FeedbackFormElements extends HTMLFormControlsCollection
@@ -28,7 +35,7 @@ let dontshowagain: HTMLInputElement | null = null;
 let feedbackToken: string | null = null;
 let userData: UserData | null = null;
 
-async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, result: FeedbackResult)
+async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, result: FeedbackSuccessResult)
 {
   //TODO prevent double submissions
   dompack.stop(event);
