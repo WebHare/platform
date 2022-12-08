@@ -531,9 +531,10 @@ case $INSTR in
 
     setup_node
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
-      BASE_DIR=$WEBHARE_DIR/node_modules
+
       export NODE_OPTIONS=
       SKIPVALIDATE=--swc
+
       while (true); do
         if [ "$1" == "--debug" ]; then
           NODE_OPTIONS=--debug
@@ -551,7 +552,10 @@ case $INSTR in
           break
         fi
       done
-      CMDLINE=("$BASE_DIR/.bin/ts-node" $SKIPVALIDATE "$@")
+
+      resolveresourcepath RESOLVEDPATH "$SCRIPT"
+      shift
+      CMDLINE=("$WEBHARE_DIR/node_modules/.bin/ts-node" $SKIPVALIDATE "$RESOLVEDPATH" "$@")
       exec "${CMDLINE[@]}"
       die Failed to invoke ts-node for $1
     else

@@ -1,17 +1,24 @@
 //This is based on Webhare's @mod-system/js/internal/bridge.ts - FIXME and that one should really be moved to internal namespace or be remove
 
-import * as Events from "events";
 import * as stacktrace_parser from "stacktrace-parser";
 import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
 import * as whdebug from "./whdebug";
+import EventSource from "./eventsource";
 
 const BridgeFailureExitCode = 153;
 
 // eslint-disable-next-line prefer-const -- making it const currently makes this file a lot more complex due to definition ordering issues
 let bridge : WebHareBridge;
 
+const links = new Map< number, IPCLink >;
+const ports = new Map< number, IPCListenerPort >;
+
+export interface IPCMessagePacket {
+  message: unknown;
+  msgid: number;
+}
 interface ResponsePacketBase
 {
   type: string;
@@ -63,17 +70,41 @@ interface PortAcceptedPacket extends ResponsePacketBase
 
 type ResponsePacket = ResponseOkPacket | ResponseExceptionPacket | LinkMessagePacket | LinkGonePacket | EventCallbackPacket | PortAcceptedPacket;
 
-export class IPCLink extends Events.EventEmitter
+export class IPCLink extends EventSource
 {
-  private readonly id: number;
-  readonly name: string;
-  _closed = false;
+  protected id = 0;
+  protected name = "";
+  private closed = false;
 
-  constructor(linkid: number, name: string)
-  {
-    super();
-    this.id = linkid;
-    this.name = name;
+  async connect(name: string, global: "managed" | boolean) : Promise<void> {
+    if(this.id)
+      throw new Error(`This IPCLink has already attempted to connect in the past`);
+
+    const connectresult = bridge.sendMessage({ type: "connectport", name:name, global:Boolean(global), managed: global === "managed" });
+    this.id = connectresult.msgid;
+    this.name = `IPCLink #${connectresult.msgid} to ${name}`;
+    bridge.updateWaitCount(+1, this.name);
+
+    links.set(connectresult.msgid, this);
+    try {
+      await connectresult.promise;
+    }
+    catch(e) {
+      this.close();
+      throw e;
+    }
+  }
+
+  close() {
+    if(this.closed)
+      return;
+
+    this.closed = true;
+    if(this.id) {
+      bridge.sendMessage({ type: "closelink", id: this.id });
+      links.delete(this.id);
+      bridge.updateWaitCount(-1, this.name);
+    }
   }
 
   send(message: object, replyto?: number)
@@ -97,28 +128,87 @@ export class IPCLink extends Events.EventEmitter
         }, replyto);
   }
 
-  close()
-  {
-    bridge.closeLink(this.id);
+  handleMessage(packet: IPCMessagePacket) {
+    if (!this.closed)
+      this.emit("message", packet);
+  }
+
+  accept() {
+    throw new Error("Cannot accept() on an outgoing link");
   }
 }
 
-export class IPCListenerPort extends Events.EventEmitter
+class IPCIncomingLink extends IPCLink
 {
-  id: number;
-  name: string;
-  _closed = false;
+  private preacceptbuffer: IPCMessagePacket[] | null;
 
-  constructor(portid:number, name:string)
+  constructor(id: number, name: string)
   {
     super();
-    this.id = portid;
+    this.id = id;
     this.name = name;
+    this.preacceptbuffer = [];
+
+    bridge.updateWaitCount(+1, name);
+    links.set(this.id, this);
   }
 
-  close()
-  {
-    bridge.closePort(this.id);
+  connect(name: string, global: "managed" | boolean) : Promise<void> {
+    throw new Error("Cannot connect() on an incoming link");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  accept() {
+    if(!this.preacceptbuffer)
+      throw new Error("Duplicate accept()");
+
+      this.preacceptbuffer.forEach(msg => super.handleMessage(msg));
+    this.preacceptbuffer = null;
+  }
+
+  handleMessage(packet: IPCMessagePacket) {
+    if(this.preacceptbuffer)
+      this.preacceptbuffer.push(packet);
+    else
+      super.handleMessage(packet);
+  }
+}
+
+export class IPCListenerPort extends EventSource
+{
+  id = 0;
+  name = "";
+  private closed = false;
+
+  async listen(name: string, global: boolean) : Promise<void> {
+    if(this.id)
+      throw new Error(`This IPCListenerPort has already attempted to listen in the past`);
+
+    const connectresult = bridge.sendMessage({ type: "createlistenport", name, global });
+    this.id = connectresult.msgid;
+    this.name = `IPCListenerPort #${connectresult.msgid} named '${name}'`;
+
+    ports.set(connectresult.msgid, this);
+    bridge.updateWaitCount(+1, this.name);
+
+    await connectresult.promise;
+  }
+
+  close() {
+    this.closed = true;
+
+    if(this.id) {
+      bridge.sendMessage({ type: "closeport", id: this.id });
+      ports.delete(this.id);
+      bridge.updateWaitCount(-1, this.name);
+    }
+  }
+
+  handleNewLink(newlink: IPCLink) {
+    if (!this.closed)
+      this.emit("accept", newlink);
+    else
+      newlink.close();
   }
 }
 
@@ -191,7 +281,7 @@ interface WebSocketWithRefAccess extends WebSocket
 type EventCallback = (event: string, data: object) => void;
 
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
-class WebHareBridge extends Events.EventEmitter
+class WebHareBridge
 {
   private _waitcount = 0;
 
@@ -201,8 +291,6 @@ class WebHareBridge extends Events.EventEmitter
   sentmessages: any[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not fixing this yet, I wonder if it wouldn't be cleaner to swap out sentmessages/pendingrequests for IPC links and WebHareServices completely!
   pendingrequests: any[] = [];
-  ports:Map< number, IPCListenerPort> = new Map;
-  links:Map< number, IPCLink> = new Map;
   eventcallbacks:Array< { id: number; callback: EventCallback } > = [];
   nextmsgid = 21000; //makes it easier to tell apart these IDs from other ids
   socket: WebSocketWithRefAccess;
@@ -214,8 +302,6 @@ class WebHareBridge extends Events.EventEmitter
 
   constructor()
   {
-    super();
-
     this.debug = whdebug.isDebugTagEnabled("bridge");
     this.onlinedefer = tools.createDeferred<void>();
 
@@ -313,7 +399,7 @@ class WebHareBridge extends Events.EventEmitter
 
       case "port-accepted":
       {
-        const portrec = this.ports.get(data.id);
+        const portrec = ports.get(data.id);
         if (!portrec)
         {
           this.abortBridge("webhare-bridge: received accept for nonexisting port #" + data.id);
@@ -323,12 +409,8 @@ class WebHareBridge extends Events.EventEmitter
         if(this.debug)
           console.log("webhare-bridge: accepted connection on port #" + data.id  + " new link #" + data.link);
 
-        const newlink = new IPCLink(data.link, `IPCLink #${data.link} incoming '${portrec.name}' connection`);
-        this.links.set(data.link, newlink);
-        if (!portrec._closed)
-          portrec.emit("accept", newlink);
-        else
-          newlink.close();
+        const newlink = new IPCIncomingLink(data.link, `IPCLink #${data.link} incoming '${portrec.name}' connection`);
+        portrec.handleNewLink(newlink);
         return;
       }
 
@@ -357,17 +439,14 @@ class WebHareBridge extends Events.EventEmitter
           return;
         }
 
-        const linkrec = this.links.get(data.id);
+        const linkrec = links.get(data.id);
         if (!linkrec)
         {
           console.log(data);
           this.abortBridge("webhare-bridge: received message for nonexisting port #" + data.id);
           return;
         }
-        if (!linkrec._closed)
-        {
-          linkrec.emit("message", data.message, data.msgid);
-        }
+        linkrec.handleMessage(data as IPCMessagePacket);
         return;
       }
 
@@ -378,7 +457,7 @@ class WebHareBridge extends Events.EventEmitter
         this.pendingrequests = this.pendingrequests.filter(el => el.linkid != data.id);
 
         //If we still know of this link, close it.
-        this.links.get(data.id)?.close();
+        links.get(data.id)?.close();
         return;
       }
 
@@ -395,32 +474,18 @@ class WebHareBridge extends Events.EventEmitter
     this.abortBridge("webhare-bridge: unexpected command " + (data as ResponsePacketBase).type);
   }
 
-  closePort(id: number)
-  {
-    const port = this.ports.get(id);
-    if (!port || port._closed)
-    {
-      console.error("webhare-bridge: closing port #" + id + " that was already closed",port);
-      return;
-    }
-    port._closed = true;
-    this.sendMessage({ type: "closeport", id: id });
-    this.ports.delete(id);
-    this.updateWaitCount(-1, port.name);
+  closePort(id: number) {
+    const port = ports.get(id);
+    if (!port)
+      return console.error("webhare-bridge: closing port #" + id + " that was already closed");
   }
 
-  closeLink(id: number)
-  {
-    const link = this.links.get(id);
-    if (!link || link._closed)
-    {
-      console.error("webhare-bridge: closing link #" + id + " that was already closed",link);
-      return;
-    }
-    link._closed = true;
-    this.sendMessage({ type: "closelink", id: id });
-    this.links.delete(id);
-    this.updateWaitCount(-1, link.name);
+  closeLink(id: number) {
+    const link = links.get(id);
+    if (!link)
+      return console.error("webhare-bridge: closing link #" + id + " that was already closed");
+
+    link.close();
   }
 
   /**
@@ -532,50 +597,16 @@ class WebHareBridge extends Events.EventEmitter
     return this.versiondata.varroot;
   }
 
-  async createIPCPort(name: string, global: boolean) : Promise<IPCListenerPort>
-  {
-    const connectresult = this.sendMessage({ type: "createlistenport", name, global });
-    const port = new IPCListenerPort(connectresult.msgid, `IPCListenerPort #${connectresult.msgid} named '${name}'`);
-    this.ports.set(connectresult.msgid, port);
-
-    this.updateWaitCount(+1, port.name); //FIXME we need -1s when the port closes or throws?
-    await connectresult.promise;
-    return port;
-  }
-
-  async connectIPCPort(name: string, global: "managed" | boolean) : Promise<IPCLink>
-  {
-    const connectresult = this.sendMessage({ type: "connectport", name:name, global:Boolean(global), managed: global === "managed" });
-    const link = new IPCLink(connectresult.msgid, `IPCLink #${connectresult.msgid} to ${name}`);
-    this.updateWaitCount(+1, link.name);
-
-    // TODO What if we connect to an IPC Port and they already start talking before the client had a chance to resolve connectIPCPort ? Best if servers don't talk early? :)
-
-    // Synchronous registration at incoming message time. Errors can be handled asynchronously
-    // TODO create the IPCLink before the message is transmitted, perhaps just use the messageid for the portnumber, to fix potential races if someone talks early
-    this.links.set(connectresult.msgid, link);
-    try
-    {
-      await connectresult.promise;
-    }
-    catch(e)
-    {
-      link.close();
-      throw e;
-    }
-
-    return link;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
+ // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
   async openService(name: string, args?: unknown[], options?: { timeout: number })
   {
     this.updateWaitCount(+1, "openService " +name);
     try
     {
-      const link = await this.connectIPCPort("webhareservice:" + name, true);
-      try //if we fail after connect, we'll need to disconnect the link ourselves
+      const link = new IPCLink;
+      try
       {
+        await link.connect("webhareservice:" + name, true);
         const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
         return (new WebHareServiceWrapper(link, description)).getClient();
       }
@@ -621,4 +652,5 @@ class WebHareBridge extends Events.EventEmitter
 }
 
 bridge = new WebHareBridge;
+
 export default bridge;

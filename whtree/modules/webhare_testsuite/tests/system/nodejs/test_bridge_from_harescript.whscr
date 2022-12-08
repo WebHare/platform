@@ -1,0 +1,64 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
+
+
+ASYNC MACRO WebHareServiceTest()
+{
+  TestAssert(ObjectExists(WaitForPromise(OpenWebHareService("webhare_testsuite:demoservice"))), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  TestThrowsLike("abort",PTR WaitForPromise(OpenWebHareService("webhare_testsuite:demoservice", [ arguments := VARIANT[ "abort" ]])));
+
+  OBJECT serverinstance := WaitForPromise(OpenWebHareService("webhare_testsuite:demoservice", [ arguments := VARIANT[ "x" ]]));
+  TestEq(42, WaitForPromise(serverinstance->GetLUE()));
+
+  OBJECT promise := serverinstance->GetAsyncLUE();
+  TestEq(42, WaitForPromise(serverinstance->GetLUE()));
+  TestEq(42, WaitForPromise(promise));
+
+  TestThrowsLike("Crash()", PTR WaitForPromise(serverinstance->Crash()));
+  promise := serverinstance->GetAsyncLUE();
+
+  OBJECT promise2 := serverinstance->GetAsyncCrash();
+  TestThrowsLike("Async crash()", PTR WaitForPromise(promise2));
+
+  /* TODO Do we need cross language events ?
+  RECORD deferred := CreateDeferredPromise();
+  serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
+  serverinstance->EmitTestEvent([ value := 42 ]);
+  RECORD testdata := AWAIT deferred.promise;
+  TestEq([ value := 42 ], testdata);
+  */
+}
+
+ASYNC MACRO SyncWebHareServiceTest()
+{
+  TestThrowsLike("abort",PTR __OpenSynchronousWebHareService("webhare_testsuite:demoservice", [ arguments := VARIANT[ "abort" ]]));
+
+  OBJECT serverinstance := __OpenSynchronousWebHareService("webhare_testsuite:demoservice",[ arguments := VARIANT[ "x" ]]);
+  TestEq(42, serverinstance->GetLUE());
+
+  TestEq(42, serverinstance->GetLUE());
+  TestEq(42, serverinstance->GetAsyncLUE());
+
+  TestThrowsLike("Crash()", PTR (serverinstance->Crash()));
+
+  TestThrowsLike("Async crash()", PTR serverinstance->GetAsyncCrash());
+
+  /* TODO Do we need cross language events ?
+  //RECORD deferred := CreateDeferredPromise();
+  //serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
+  //serverinstance->EmitTestEvent([ value := 42 ]);
+  //RECORD testdata := AWAIT deferred.promise;
+  //TestEq([ value := 42 ], testdata);
+  */
+}
+
+RunTestFramework([ PTR WebHareServiceTest
+                 , PTR SyncWebHareServiceTest
+                 ],
+                 [ usedatabase := FALSE
+                 ]);

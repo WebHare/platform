@@ -143,9 +143,10 @@ function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   testDeepEq(expected, actual, '');
 }
 
-function testAssert(actual: unknown, annotation?: Annotation) //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+function testAssert<T>(actual: T, annotation?: Annotation) : T //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
 {
   testEq(true, Boolean(actual), annotation);
+  return actual;
 }
 
 async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
@@ -189,9 +190,33 @@ async function testSleep(condition: number) : Promise<void> {
   return;
 }
 
+function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
+  if (actual.match(regexp))
+    return;
+
+  if (annotation)
+    logAnnotation(annotation);
+
+  console.log("testEqMatch fails: regex", regexp.toString());
+  // testfw.log("testEqMatch fails: regexp " + regexp.toString());
+
+  let actual_str = actual;
+  try {
+    actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual);
+  }
+  catch (ignore) {
+    //Ignoring
+  }
+  console.log("testEqMatch fails: actual  ", actual_str);
+  // testfw.log("testEqMatch fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
+
+  throw new Error("testEqMatch failed");
+}
+
 export {
   testAssert as assert
   , testEq as eq
   , testSleep as sleep
+  , testEqMatch as eqMatch
   , testThrows as throws
 };
