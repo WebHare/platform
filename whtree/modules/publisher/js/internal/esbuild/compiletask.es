@@ -117,7 +117,7 @@ function mapESBuildError(entrypoint, error)
          };
 }
 
-async function runTask(taskcontext, data)
+async function recompile(data)
 {
   await services.ready(); //TODO shouldn't callrunner.ts take care of this? we should be part of a longrunning environment?
   compileutils.resetResolveCache();
@@ -316,8 +316,7 @@ async function runTask(taskcontext, data)
   //   result.fileDependencies = Object.keys(buildresult.metafile.inputs);
   // }
 
-  taskcontext.resolveByCompletion(
-    { "name":               "compileresult"
+  return { "name":               "compileresult"
     , "bundle":             bundle.outputtag
     , errors:               buildresult.errors.map(_ => _.text).join("\n")
     , stats:                buildresult.warnings.map(_ => _.text).join("\n")
@@ -328,7 +327,7 @@ async function runTask(taskcontext, data)
     , compiletoken:         data.compiletoken
     , compiler:             "esbuild"
     // , fullrecompile
-    });
+    };
 }
 
-module.exports = runTask;
+module.exports.recompile = recompile;

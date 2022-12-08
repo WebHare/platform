@@ -24,8 +24,6 @@
 
     <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
 
-     <!-- assetpackcompile must be able to run in restore to bring up a webinterface -->
-    <ephemeraltask type="assetpackcompile" library="js/internal/esbuild/compiletask.es" priority="update" allowifrestore="true" />
      <!-- publication must be able to run in restore to bring up a webinterface -->
     <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" timeout="600000" allowifrestore="true" />
 
