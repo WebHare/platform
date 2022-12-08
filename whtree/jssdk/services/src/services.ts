@@ -97,3 +97,25 @@ export function toFSPath(resource: string) {
   }
   throw new Error(`Unsupported resource path '${resource}'`);
 }
+
+export function toResourcePath(diskpath: string, options: { allowUnmatched: true }): string | null;
+export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean} ): string;
+
+/** Resolve a filesystem path back to a resource path
+    @param diskpath - Path to resolve
+    @param options - Set allowUnmatched to prevent a throw for paths that do not map to resource name
+    @returns WebHare reosurce path. A succesful return does not imply the path actually exists, null if the path cannot be mapped
+    @throws If the path cannot be mapped to a resource path and allowUnmatched is not set
+*/
+export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean} ) {
+  //FIXME is it useful for this function to throw() if it cannot match the path? The API is rarely used but no match will be quite common! (but toFSPath)
+  for (const [modulename, moduleconfig] of Object.entries(getConfig().module)) {
+    if(diskpath.startsWith(moduleconfig.root))
+      return `mod::${modulename}/${diskpath.substring(moduleconfig.root.length)}`;
+  }
+
+  if(options?.allowUnmatched)
+    return null;
+
+  throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
+}

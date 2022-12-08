@@ -55,6 +55,23 @@ async function testResources() {
   test.eq(serverconfig.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
   test.eq(serverconfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
   test.eq(serverconfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
+
+  const systempath = serverconfig.module.system.root;
+  test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
+  await test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
+  test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
+  //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", [ allowdiskpath := TRUE ]));
+  /* TODO do we really want to support resource paths as input ?
+  test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
+  test.eq("site::a/b/test.whscr", services.toResourcePath("site::a/b/test.whscr"));
+  */
+
+  /* TODO does JS have a wh:: / whres:: usecase ?
+  test.eq("wh::internal/formatter.whlib", services.toResourcePath(systempath || "whlibs/internal/formatter.whlib"));
+  test.eq("whres::asn1/ldap.asn1", services.toResourcePath(systempath || "whres/asn1/ldap.asn1"));
+  test.eq("whres::asn1/ldap.asn1", services.toResourcePath("mod::system/whres/asn1/ldap.asn1"));
+  test.eq("wh::asn1/ldap.asn1", services.toResourcePath("mod::system/whlibs/asn1/ldap.asn1"));
+  */
 }
 
 //NOTE: we take an a-typical test to help ensure noone booted services before us
