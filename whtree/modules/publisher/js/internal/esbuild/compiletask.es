@@ -3,7 +3,8 @@ const fs = require('fs');
 const whSassPlugin = require("./plugin-sass.es");
 const whSourceMapPathsPlugin = require("./plugin-sourcemappaths.es");
 const path = require('path');
-const bridge = require('@mod-system/js/wh/bridge');
+const services = require("@webhare/services");
+
 const compileutils = require('./compileutils.es');
 const { promisify } = require('util');
 const zlib = require('zlib');
@@ -118,6 +119,7 @@ function mapESBuildError(entrypoint, error)
 
 async function runTask(taskcontext, data)
 {
+  await services.ready(); //TODO shouldn't callrunner.ts take care of this? we should be part of a longrunning environment?
   compileutils.resetResolveCache();
 
   let bundle = data.bundle;
@@ -134,7 +136,7 @@ async function runTask(taskcontext, data)
      TODO: switch to @mod- paths instead of full disk paths, a bit cleaner. even though the paths we leak into the source map are trivially guessable
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
-  let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/all.es")] : [])
+  let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [ services.toFSPath("mod::publisher/js/internal/polyfills/all.es") ] : [])
                   , bundle.entrypoint
                   , ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
                   ];
@@ -184,7 +186,7 @@ async function runTask(taskcontext, data)
       // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
       // , metafile:true
 
-      , nodePaths: [ path.join(bridge.getBaseDataRoot(),"node_modules/")
+      , nodePaths: [ services.getConfig().dataroot + "node_modules/"
                    ]
       , resolveExtensions: [".js",".es",".ts",".tsx"]
       , logLevel: data.logLevel || 'silent'

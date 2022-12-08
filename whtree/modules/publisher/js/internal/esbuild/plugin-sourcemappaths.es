@@ -4,15 +4,15 @@
 "use strict";
 
 const path = require('path');
-const bridge = require('@mod-system/js/wh/bridge');
+const services = require("@webhare/services");
 
 module.exports = (outdir) =>
  ({ name: "sourceMapTransformer"
   , setup: build =>
     {
+      const config = services.getConfig();
       build.onEnd(result =>
       {
-        const modulepaths = bridge.getModuleInstallationRoots();
         for (let file of result.outputFiles.filter(f => f.path.endsWith("/ap.js.map")))
         {
           const jsondata = JSON.parse(new TextDecoder("utf-8").decode(file.contents));
@@ -21,25 +21,23 @@ module.exports = (outdir) =>
             let fullpath = path.join(outdir, jsondata.sources[i]);
             let rewrotePath = false;
 
-            for (const mod of modulepaths)
-            {
-              if (fullpath.startsWith(mod.path))
-              {
-                fullpath = `mod::${mod.name}/${fullpath.substr(mod.path.length)}`;
-                rewrotePath = true;
-                break;
-              }
+            const attempt_toResourcePath = services.toResourcePath(fullpath, { allowUnmatched: true });
+            if(attempt_toResourcePath) {
+              fullpath = attempt_toResourcePath;
+              rewrotePath = true;
+              break;
             }
 
-            if (fullpath.startsWith(bridge.getBaseDataRoot()))
+            //FIXME should services.toResourcePath do both of these? but especially whinstallationroot:: seems suspect!!
+            if (fullpath.startsWith(config.dataroot))
             {
               rewrotePath = true;
-              fullpath = `whdata::${fullpath.substr(bridge.getBaseDataRoot().length)}`;
+              fullpath = `whdata::${fullpath.substring(config.dataroot.length)}`;
             }
-            if (fullpath.startsWith(bridge.getInstallationRoot()))
+            if (fullpath.startsWith(config.installationroot))
             {
               rewrotePath = true;
-              fullpath = `whinstallationroot::${fullpath.substr(bridge.getInstallationRoot().length)}`;
+              fullpath = `whinstallationroot::${fullpath.substring(config.installationroot.length)}`;
             }
 
             if (rewrotePath || fullpath.startsWith("/:"))

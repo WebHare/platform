@@ -13,7 +13,7 @@ PUBLIC RECORD FUNCTION GetLanguageFile(STRING module, STRING langcode)
               ];
 }
 
-PUBLIC RECORD FUNCTION JSBridge_GetServiceInfo(STRING service)
+PUBLIC RECORD FUNCTION GetServiceInfo(STRING service)
 {
   STRING modulename := Tokenize(service, ":")[0];
   STRING servicename := Substring(service, Length(modulename) + 1);

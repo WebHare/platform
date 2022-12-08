@@ -326,12 +326,7 @@ PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
   RETURN bundle;
 }
 
-PUBLIC RECORD FUNCTION JSBridge_GetAssetpacksBaseConfig()
-{
-  RETURN GetAssetpacksBaseConfig();
-}
-
-PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
+PUBLIC RECORD FUNCTION GetBundle(STRING byoutputtag)
 {
   OpenPrimary();
   RECORD bundle := SELECT * FROM GetPersistentBundles() WHERE outputtag = VAR byoutputtag;
