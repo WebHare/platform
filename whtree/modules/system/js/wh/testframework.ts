@@ -1,11 +1,14 @@
-/** @import: import * as test from "@mod-system/js/wh/testframework";
-*/
+/* eslint-disable @typescript-eslint/no-this-alias */
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/semi */
+/* eslint-disable no-var */
+/// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
 
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 
 import * as domfocus from "dompack/browserfix/focus";
-var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
+import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import jstestsrpc from '@mod-system/js/internal/jstests.rpc.json';
 
 import * as test from 'dompack/testframework';
@@ -14,6 +17,27 @@ import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import * as diff from 'diff';
 
+export
+  { canClick as canClick
+  , canClick as isElementClickable
+  , click as click
+  , sendMouseGesture as sendMouseGesture
+  , getValidatedElementFromPoint as getValidatedElementFromPoint
+  , startExternalFileDrag
+  , getCurrentDragDataStore
+  , cancelDrag
+  } from 'dompack/testframework/pointer';
+
+export
+  { waitForEvent as waitForEvent
+  , simulateTabKey as simulateTabKey
+  , focus
+  , waitUIFree
+  } from 'dompack/testframework';
+
+export
+  { generateKeyboardEvent as generateKeyboardEvent
+  } from 'dompack/testframework/keyboard';
 let module_exports;
 
 //basic test functions
@@ -142,7 +166,7 @@ function testEq(expected, actual, explanation)
 
   testDeepEq(expected, actual, '');
 }
-function testEqMatch(regexp, actual, explanation)
+function testEqMatch(regexp, actual, explanation?)
 {
   if(actual.match(regexp))
     return;
@@ -244,13 +268,13 @@ function testEqFloat(expected, actual, delta, explanation)
   }
 
   testDeepEq(expected, actual, '');
-};
+}
 
 /** Compare specific cells of two values (recursive)
-    @param expected Expected value
-    @param got Gotten value
-    @param keys Comma-separated list of members to check. Use '*' as first member to match all, and `-<cellname>` to excluded members after that.
-    @param annotation Message to display when the test fails
+    @param expected - Expected value
+    @param got - Gotten value
+    @param keys - Comma-separated list of members to check. Use '*' as first member to match all, and `-<cellname>` to excluded members after that.
+    @param annotation - Message to display when the test fails
 */
 function testEqMembers(expect, got, { keys = null, explation } = {})
 {
@@ -537,7 +561,7 @@ function getOpenMenuItem(containstext)
   let menu = getOpenMenu();
   if(!menu)
     return null;
-  let item = dompack.qSA(menu,'li').filter(item => item.textContent.includes(containstext));
+  let item = dompack.qSA(menu,'li').filter(_ => _.textContent.includes(containstext));
   if(item.length>1)
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0]||null;
@@ -617,7 +641,11 @@ function getListViewExpanded(row)
   return null;
 }
 
-function qS(node_or_selector, selector)
+//Set up overloads for both call approaches (with and without starting element)
+export function qS<E extends Element = Element>(startnode: ParentNode, selector: string) : E | null;
+export function qS<E extends Element = Element>(selector: string) : E | null;
+
+export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string) : E | null
 {
   if(typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
@@ -626,7 +654,11 @@ function qS(node_or_selector, selector)
   return iframe.contentDocument.querySelector(node_or_selector);
 }
 
-function qSA(node_or_selector, selector)
+//Set up overloads for both call approaches (with and without starting element)
+export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string) : E[];
+export function qSA<E extends Element = Element>(selector: string) : E[];
+
+export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[]
 {
   if(typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
@@ -675,7 +707,7 @@ function sleep(delay)
   return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-async function wait(waitfor, annotation)
+async function wait(waitfor, annotation?)
 {
   if(annotation && typeof annotation !== "string")
     throw new Error("wait()ing on multiple things is no longer supported");
@@ -820,11 +852,11 @@ function hasFocus(element)
 }
 
 /** Get pxl log entries
-    @param eventtypefilter Expression to match on event type
-    @return Filtered log entries, or an empty array if the log hasn't started yet*/
+    @param eventtypefilter - Expression to match on event type
+    @returns Filtered log entries, or an empty array if the log hasn't started yet*/
 function getPxlLog(eventtypefilter)
 {
-  let log = this.getWin().whPxlLog || [];
+  let log = getWin().whPxlLog || [];
   if(eventtypefilter)
     log = log.filter(evt => evt.event.match(eventtypefilter));
   return log;
@@ -835,85 +867,153 @@ function getWebhareVersionNumber()
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
 }
 
-module.exports = { registerTests: registerJSTests
-                 , getTestArgument: getTestArgument
-                 , getOpenMenu: getOpenMenu
-                 , getOpenMenuItem: getOpenMenuItem
-                 , getWindow: getWin
-                 , getDoc: getDoc
-                 , isElementClickable: pointer.canClick
-                 , canClick: pointer.canClick
-                 , setFormsapiFileElement: setFormsapiFileElement
-                 , click: pointer.click
-                 , fill: fill //note: soon in dompack but not fully compatible for some selectors
-                 , fillUpload: fillUpload
-                 , getTestSiteRoot: getTestSiteRoot
-                 , findElementWithText: findElementWithText
-                 , getWebhareVersionNumber
-                 , waitForEvent: test.waitForEvent
-                 , eq: testEq
-                 , eqFloat: testEqFloat
-                 , eqMatch: testEqMatch
-                 , eqMembers: testEqMembers
-                 , eqIn: testEqIn
-                 , eqHTML: testEqHTML
-                 , true: testTrue
-                 , false: testFalse
-                 , throws: testThrows
-                 , canFocus: canFocus
-                 , hasFocus: hasFocus
-                 , qS: qS
-                 , qSA: qSA
-                 , fail: fail
-                 , sendMouseGesture: pointer.sendMouseGesture
-                 , gesturesDone: gesturesDone
-                 , prepareUpload: prepareUpload
-                 , pressKey
-                 , getValidatedElementFromPoint: pointer.getValidatedElementFromPoint
-                 , dragTransition: dragTransition
-                 , generateKeyboardEvent: keyboard.generateKeyboardEvent
-                 , simulateTabKey: test.simulateTabKey
-                 , focus: test.focus
-                 , sleep
+const  keyboardCopyModifier        = { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
+const  keyboardLinkModifier        = { ctrl: true, shift: browser.getPlatform() != 'mac' }
+const  keyboardMultiSelectModifier = { cmd: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
 
-                 , keyboardCopyModifier:        { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
-                 , keyboardLinkModifier:        { ctrl: true, shift: browser.getPlatform() != 'mac' }
-                 , keyboardMultiSelectModifier: { cmd: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
-                 , load
-                 , wait
-                 , waitUIFree: test.waitUIFree
-                 , waitForEmails
-                 , subtest
-                 , invoke
-                 , loadPage: load //DEPRECATED
-                 , writeLogMarker
+export
+  { registerJSTests as registerTests
+  , getTestArgument as getTestArgument
+  , getOpenMenu as getOpenMenu
+  , getOpenMenuItem as getOpenMenuItem
+  , getWin as getWindow
+  , getDoc as getDoc
+  , setFormsapiFileElement as setFormsapiFileElement
+  , fill //note soon in dompack but not fully compatible for some selectors as fill
+  , fillUpload as fillUpload
+  , getTestSiteRoot as getTestSiteRoot
+  , findElementWithText as findElementWithText
+  , getWebhareVersionNumber
+  , testEq as eq
+  , testEqFloat as eqFloat
+  , testEqMatch as eqMatch
+  , testEqMembers as eqMembers
+  , testEqIn as eqIn
+  , testEqHTML as eqHTML
+  , testTrue as true
+  , testFalse as false
+  , testThrows as throws
+  , canFocus as canFocus
+  , hasFocus as hasFocus
+  , fail as fail
+  , gesturesDone as gesturesDone
+  , prepareUpload as prepareUpload
+  , pressKey
+  , dragTransition as dragTransition
+  , sleep
 
-                 , pasteHTML
-                 , wrdAuthLogout
-                 , getWin
-                 , getWrdLogoutUrl
+  , keyboardCopyModifier
+  , keyboardLinkModifier
+  , keyboardMultiSelectModifier
+  , load
+  , wait
+  , waitUIFree
+  , waitForEmails
+  , subtest
+  , invoke
+  , load as loadPage //DEPRECATED
+  , writeLogMarker
 
-                 , asyncMouseClick
-                 , asyncMouseUp
-                 , asyncMouseDown
-                 , asyncMouseMove
+  , pasteHTML
+  , wrdAuthLogout
+  , getWin
+  , getWrdLogoutUrl
 
-                 , startExternalFileDrag: pointer.startExternalFileDrag
-                 , getCurrentDragDataStore: pointer.getCurrentDragDataStore
-                 , cancelDrag: pointer.cancelDrag
+  , asyncMouseClick
+  , asyncMouseUp
+  , asyncMouseDown
+  , asyncMouseMove
 
-                 , getFileFromURL
+  , getFileFromURL
 
-                 , getListViewExpanded
-                 , getListViewHeader
-                 , getListViewRow
-                 , getPxlLog
-                 , prepareUploadTest
+  , getListViewExpanded
+  , getListViewHeader
+  , getListViewRow
+  , getPxlLog
+  , prepareUploadTest
 
-                 , addFrame
-                 , updateFrame
-                 , removeFrame
-                 , selectFrame
-                 };
+  , addFrame
+  , updateFrame
+  , removeFrame
+  , selectFrame
+  };
 
-module_exports = module.exports;
+//Also need to put it in this variable. FIXME Don't do that! but this round we're just focusing on enabling TS definitions...
+module_exports = { registerTests: registerJSTests
+  , getTestArgument: getTestArgument
+  , getOpenMenu: getOpenMenu
+  , getOpenMenuItem: getOpenMenuItem
+  , getWindow: getWin
+  , getDoc: getDoc
+  , isElementClickable: pointer.canClick
+  , canClick: pointer.canClick
+  , click: pointer.click
+  , setFormsapiFileElement: setFormsapiFileElement
+  , fill: fill //note: soon in dompack but not fully compatible for some selectors
+  , fillUpload: fillUpload
+  , getTestSiteRoot: getTestSiteRoot
+  , findElementWithText: findElementWithText
+  , getWebhareVersionNumber
+  , waitForEvent: test.waitForEvent
+  , eq: testEq
+  , eqFloat: testEqFloat
+  , eqMatch: testEqMatch
+  , eqMembers: testEqMembers
+  , eqIn: testEqIn
+  , eqHTML: testEqHTML
+  , true: testTrue
+  , false: testFalse
+  , throws: testThrows
+  , canFocus: canFocus
+  , hasFocus: hasFocus
+  , fail: fail
+  , sendMouseGesture: pointer.sendMouseGesture
+  , gesturesDone: gesturesDone
+  , prepareUpload: prepareUpload
+  , pressKey
+  , getValidatedElementFromPoint: pointer.getValidatedElementFromPoint
+  , dragTransition: dragTransition
+  , generateKeyboardEvent: keyboard.generateKeyboardEvent
+  , simulateTabKey: test.simulateTabKey
+  , focus: test.focus
+  , sleep
+
+  , keyboardCopyModifier:        { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
+  , keyboardLinkModifier:        { ctrl: true, shift: browser.getPlatform() != 'mac' }
+  , keyboardMultiSelectModifier: { cmd: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
+  , load
+  , wait
+  , waitUIFree: test.waitUIFree
+  , waitForEmails
+  , subtest
+  , invoke
+  , loadPage: load //DEPRECATED
+  , writeLogMarker
+
+  , pasteHTML
+  , wrdAuthLogout
+  , getWin
+  , getWrdLogoutUrl
+
+  , asyncMouseClick
+  , asyncMouseUp
+  , asyncMouseDown
+  , asyncMouseMove
+
+  , startExternalFileDrag: pointer.startExternalFileDrag
+  , getCurrentDragDataStore: pointer.getCurrentDragDataStore
+  , cancelDrag: pointer.cancelDrag
+
+  , getFileFromURL
+
+  , getListViewExpanded
+  , getListViewHeader
+  , getListViewRow
+  , getPxlLog
+  , prepareUploadTest
+
+  , addFrame
+  , updateFrame
+  , removeFrame
+  , selectFrame
+  };

@@ -259,7 +259,7 @@ export function getBaseURI(doc: Document | undefined)
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qS<E extends Element = Element>(node_or_selector: ParentNode, selector: string) : E | null;
+export function qS<E extends Element = Element>(startnode: ParentNode, selector: string) : E | null;
 export function qS<E extends Element = Element>(selector: string) : E | null;
 
 //queryselector quick wrapper
@@ -273,7 +273,7 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = Element>(node_or_selector: ParentNode, selector: string) : E[];
+export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string) : E[];
 export function qSA<E extends Element = Element>(selector: string) : E[];
 
 //queryselectorall quick wrapper
