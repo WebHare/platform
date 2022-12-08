@@ -260,13 +260,13 @@ class WebHareServiceWrapper
 }
 
 /** Describes config info sent by HareScript as soon as we establish the connection */
-interface VersionData
+export interface VersionData
 {
   installationroot: string;
   moduleroots: { [key:string]: string };
   /** data root (FIXME stop naming it varroot!) */
-  varroot: string[];
-  version:string;
+  varroot: string;
+  version: string;
 }
 
 interface WebSocketWithRefAccess extends WebSocket
@@ -281,7 +281,7 @@ interface WebSocketWithRefAccess extends WebSocket
 type EventCallback = (event: string, data: object) => void;
 
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
-class WebHareBridge
+class WebHareBridge extends EventSource
 {
   private _waitcount = 0;
 
@@ -302,6 +302,8 @@ class WebHareBridge
 
   constructor()
   {
+    super();
+
     this.debug = whdebug.isDebugTagEnabled("bridge");
     this.onlinedefer = tools.createDeferred<void>();
 
@@ -566,6 +568,7 @@ class WebHareBridge
     if(this.debug)
       console.log("webhare-bridge: connected. remote version = " + versiondata.version);
     this.versiondata=versiondata;
+    this.emit("versioninfo", this.versiondata);
     new Promise(resolve => setTimeout(resolve,1500)).then( () => {
       this.onlinedefer.resolve();
     });
