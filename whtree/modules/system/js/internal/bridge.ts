@@ -5,7 +5,7 @@ import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
 import * as whdebug from "./whdebug";
-import EventSource from "./eventsource";
+import EventSource, { EventCallback as EventSourceCallback } from "./eventsource";
 
 const BridgeFailureExitCode = 153;
 
@@ -567,11 +567,19 @@ class WebHareBridge extends EventSource
 
     if(this.debug)
       console.log("webhare-bridge: connected. remote version = " + versiondata.version);
+
     this.versiondata=versiondata;
     this.emit("versioninfo", this.versiondata);
-    new Promise(resolve => setTimeout(resolve,1500)).then( () => {
-      this.onlinedefer.resolve();
-    });
+    this.onlinedefer.resolve();
+  }
+
+  /** Register a callback to receive config updates. */
+  onConfigurationUpdate(callback: EventSourceCallback) {
+    this.on("versioninfo", callback);
+
+    //Fire existing configurationData if available (like onDomReady's catchup) in case bridge got loaded and initialized before us
+    if(this.versiondata)
+      callback(this.versiondata, "versioninfo");
   }
 
   getInstallationRoot()
