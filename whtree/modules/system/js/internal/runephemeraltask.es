@@ -1,6 +1,5 @@
 const fs = require('fs');
 const process = require('process');
-const bridge = require('@mod-system/js/wh/bridge');
 const services = require('@webhare/services');
 const StackTrace = require('stack-trace');
 
@@ -55,13 +54,7 @@ async function main()
   if(debug)
     console.log("JS worker #" + workerid + " starting");
 
-  await services.ready();
-
-  bridge.on("close", () => process.exit(13));
-  await bridge.connect({ debug: debug});
-
-  let managedqueuemgr = await bridge.openWebHareService("system:managedqueuemgr", { arguments: [ workerid ]});
-
+  let managedqueuemgr = await services.openBackendService("system:managedqueuemgr", [workerid]);
   if(debug)
     console.log("JS worker got queuemgr connection");
   await mainloop(managedqueuemgr);
