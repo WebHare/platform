@@ -49,7 +49,7 @@ function buildModuleInfo(moduleroots: object)
   return map;
 }
 
-WHBridge.on("versioninfo", versioninfo =>
+WHBridge.onConfigurationUpdate(versioninfo =>
 {
   //bridge versioninfo should probably just exactly follow WebHareBackendConfiguration but let's do that when we have only one bridge implementation left
   const vdata = versioninfo as VersionData;
