@@ -24,10 +24,17 @@ MACRO TestTika()
   //verify text extraction
   TestEq("Handleiding WebHare Professional", TrimWhitespace(doc->QuerySelector("h1")->textcontent));
 
-  BLOB resource := GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc");
+  //verify separate pages being returned
+  BLOB resource := GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/loremipsum.pdf");
   RECORD docrec := ParseTikaPage(resource, TRUE);
+  TestEq(10, Length(docrec.pages));
+
+  resource := GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc");
+  docrec := ParseTikaPage(resource, TRUE);
   TestEq("Handleiding WebHare Professional", docrec.title);
   TestEqLike("*In deze handleiding wordt u stap voor stap door de interface van WebHare Professional geleid.*", docrec.text);
+  // No separate pages returned for Word documents
+  TestEq(0, Length(docrec.pages));
 
   // Test if the cache file is present
   STRING hash := ToLowercase(EncodeBase16(GetHashForBlob(resource, "SHA-256")));

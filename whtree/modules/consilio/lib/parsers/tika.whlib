@@ -50,7 +50,15 @@ RECORD FUNCTION CachableParseTikaPage(BLOB file)
   IF(ObjectExists(meta_titlenode))
     parsed_page.title := meta_titlenode->GetAttribute("content");
 
-  RETURN parsed_page;
+  // Html structure: <html><body>(<div class="page">page contents</div>)*<ul>overview</ul></body></html>
+  STRING ARRAY pages;
+  FOREVERY (OBJECT node FROM doc->documentelement->QuerySelectorAll("body > div.page")->GetCurrentElements())
+  {
+    RECORD parsed := ParseHTMLPage(StringToBlob(node->outerhtml), FALSE);
+    INSERT parsed.text INTO pages AT END;
+  }
+
+  RETURN CELL[ ...parsed_page, pages ];
 }
 
 PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN _contentlinksonly_ignored)
