@@ -131,7 +131,7 @@ RECORD ARRAY FUNCTION ScanDir(STRING root, STRING subpath, STRING ARRAY pathmask
   RECORD ARRAY result;
   FOREVERY (RECORD entry FROM entries)
   {
-    IF (entry.name = "node_modules" OR entry.name = ".git")
+    IF (entry.name = "node_modules" OR entry.name = "vendor" OR entry.name LIKE ".*")
       CONTINUE;
     IF (entry.type = 1) // directory
     {
