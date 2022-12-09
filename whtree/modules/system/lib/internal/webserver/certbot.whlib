@@ -3,11 +3,11 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
@@ -49,9 +49,9 @@ PUBLIC RECORD FUNCTION RequestCertbotCertificate(STRING ARRAY hostnames, BOOLEAN
   }
 
   BLOB csr := keypair->GenerateCSR([ c := "NL", st := "OV", l := "Enschede", o := "WebHare bv", cn := hostnames[0], dnsaltnames := hostnames ]);
-  STRING servicebase := "https://cms1.webhare.com/wh_services/webhare_services/certbot/";
+  STRING servicebase := "https://services.webhare.com/wh_services/webhare_services/certbot3/";
   RECORD token := [ now := GetCurrentDatetime(), type := "system:certbot", uuid := GenerateWebserverUUID() ];
-  RECORD es := InvokeRemoteFunction(servicebase || "CreateCertificate2", csr, staging, EncryptForThisServer("system:certbot", token));
+  RECORD es := CallJSONRPC(servicebase, "CreateCertificate3", BlobToString(csr), staging, EncryptForThisServer("system:certbot", token));
   IF(NOT es.success)
     RETURN [ success := false, error := "remoteerror", errordata := es.output ];
 
@@ -74,4 +74,3 @@ PUBLIC RECORD FUNCTION RequestCertbotCertificate(STRING ARRAY hostnames, BOOLEAN
   ReloadWebhareConfig(TRUE, FALSE);
   RETURN [ success := TRUE ];
 }
-

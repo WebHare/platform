@@ -2106,3 +2106,18 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     RETURN FALSE;
   }
 >;
+
+OBJECT jsonrpcbrowser;
+
+/** Executes a JSON RPC call, allocates webbrowser as needed
+    @param url Service URL
+    @param methodname Name of the method to call
+    @param arguments Arguments
+    @return Returned value, throws on error
+*/
+PUBLIC VARIANT FUNCTION CallJSONRPC(STRING url, STRING methodname, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+{
+  IF(NOT ObjectExists(jsonrpcbrowser))
+    jsonrpcbrowser := NEW WebBrowser;
+  RETURN CallFunctionPtrVA(PTR jsonrpcbrowser->CallJSONRPC, VARIANT[url, methodname, ...arguments]);
+}
