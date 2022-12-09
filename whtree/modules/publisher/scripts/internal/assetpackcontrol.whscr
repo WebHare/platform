@@ -634,17 +634,17 @@ STATIC OBJECTTYPE AssetPackController
         STRING envkey := compiletoken || "-" || bundle.cachebreaker;
 
         // Don't use persistent cache for adhoc bundles
-        OBJECT task := ScheduleEphemeralTask("publisher:assetpackcompile",
-            [ baseconfig :=   baseconfig
+        OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.es#recompile",
+            [[ baseconfig :=   baseconfig
             , envkey :=       envkey
             , compiletoken := compiletoken
             , bundle :=       bundledata
             , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
             , getjsonstats := bundle.getjsonstats
-            ],
+            ]]);/*, FIXME what is/was this for? updateinteractive at least seems irrelevant given esbuild's speed?
             [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
             , priority :=             bundle.isdev ? "updateinteractive" : "update"
-            ]);
+            ]);*/
 
         // Store task
         UPDATE this->bundles

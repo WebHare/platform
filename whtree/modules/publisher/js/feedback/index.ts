@@ -1,9 +1,8 @@
 import { KeyValueObject, PlainValue, Properties } from "@mod-system/js/types";
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";
-// @ts-ignore the typescript compiler doesn't support importing .rpc.json files
-import * as service from "./internal/feedback.rpc.json";
 import "@mod-publisher/web/common/feedback/styles.css";
+import createRPCClient from "@webhare/jsonrpc-client";
 
 export type HighlightCallback = (node: Element) => Element;
 export type DOMFilterCallback = (node: Element) => Element;
@@ -37,25 +36,31 @@ export interface FeedbackOptions
   feedbackPromise?: () => Promise<KeyValueObject<PlainValue>>;
 }
 
-export interface FeedbackResult
-{
-  /**  If the feedback was successfully stored  */
-   success: boolean;
+export interface FeedbackSuccessResult {
+  /** If the feedback was successfully stored  */
+  success: true;
 
-   /** If successful, the feedback GUID */
-   guid?: string;
+  /** The feedback GUID */
+  guid: string;
 
-   /** If successful, an array of available topics */
-   topics?: Array<{
+  /** If successful, an array of available topics */
+  topics: Array<{
     /** The topic tag */
-     tag: string;
-     /** The topic title */
-     title: string;
-   }>;
-
-   /** If not succesful, an error message */
-   error?: string;
+    tag: string;
+    /** The topic title */
+    title: string;
+  }>;
 }
+
+export interface FeedbackFailedResult {
+  /**  If the feedback was successfully stored  */
+  success: false;
+
+  /** If not successful, an error message */
+  error: string;
+}
+
+export type FeedbackResult = FeedbackSuccessResult | FeedbackFailedResult;
 
 export interface ScreenshotData
 {
@@ -75,7 +80,13 @@ export interface ScreenshotData
   userAgent: string;
   url: string; // version 2
 }
+export interface FeedbackInfo extends ScreenshotData
 
+{
+  element: PointResult | null;
+  extraData: unknown;
+  token?: string;
+}
 export interface PointOptions
 {
   highlightCallback?: HighlightCallback;
@@ -103,6 +114,12 @@ export function initFeedback(options: FeedbackOptions): void
   feedbackOptions = { ...defaultOptions, ...options };
 }
 
+interface FeedbackService {
+  storeFeedback(pathname: string, data: FeedbackInfo) : Promise<FeedbackResult>;
+}
+
+const feedbackservice = createRPCClient<FeedbackService>("publisher:feedback");
+
 
 /**
      Get feedback
@@ -120,7 +137,7 @@ export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOpt
     const data = takeScreenshot(options.domFilterCallback, options.postFilterCallback);
     const extraData = options.feedbackPromise ? await options.feedbackPromise() : {};
     if (extraData)
-      return await service.storeFeedback(location.pathname, "unused_scope", { ...data, element, extraData, token: options.token });
+      return await feedbackservice.storeFeedback(location.pathname, { ...data, element, extraData, token: options.token });
   }
   return { success: false, error: "cancelled" };
 }

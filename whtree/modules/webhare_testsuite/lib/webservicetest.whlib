@@ -71,11 +71,6 @@ PUBLIC MACRO RPC_IReturnNothing()
 {
 }
 
-PUBLIC INTEGER FUNCTION JSBridge_ITakeNoParams()
-{
-  RETURN 42;
-}
-
 PUBLIC OBJECT FUNCTION RPC_ObjectsRule(OBJECT inobj)
 {
   RETURN inobj;

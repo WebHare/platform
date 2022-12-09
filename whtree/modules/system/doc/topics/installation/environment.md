@@ -83,10 +83,6 @@ Set the IP address binding for the rescue port (usually 13679). If not set it de
 an insecure WebHare backend interface. (Pre 5.02, WebHare would us 13688 as its rescue port because 13679 was reserved
 for the database server)
 
-### WEBHARE_LOOPBACKPORT_BINDIP
-Set the IP address binding for the loopback connections port (usually 13683). If not set it defaults to localhost. This port
-is used for internal connections between WebHare processes and allows access to the whmanager (eg. IPC, events, mutexes)
-
 ### WEBHARE_OPENSEARCH_BINDHOST
 Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it defaults to 127.0.0.1
 

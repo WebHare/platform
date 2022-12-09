@@ -11,7 +11,7 @@ import * as services from "@webhare/services";
 
 let baseconfig: unknown; //we consider this opaque data we get and pass to the compiler
 /// @ts-ignore -- not ported yet to TS
-import assetCompiler from '@mod-publisher/js/internal/esbuild/compiletask.es';
+import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask.es';
 
 //TODO these types should move to assetpackcontrol/bulder
 interface AssetPackManifest
@@ -45,15 +45,8 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean)
     fs.rmSync(bundle.outputpath, {recursive:true});
   fs.mkdirSync(bundle.outputpath);
 
-  //we need a taskcontext to invoke the assetCompiler, as it thinks its an ephemeral task runner
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any --  FIXME Get a TS description for taskcontexts. unless we switch away from ephemeraltasks
-  const taskcontext: any = {};
-  const completionpromise = new Promise( resolve => taskcontext.resolveByCompletion = resolve );
-
   const data = { directcompile:true, baseconfig, bundle };
-  assetCompiler(taskcontext, data);
-
-  const result = await completionpromise as CompileResult;
+  const result = await recompile(data) as CompileResult;
   JSON.stringify(result); //detect cycles etc;
   if(!result.haserrors)
   {
