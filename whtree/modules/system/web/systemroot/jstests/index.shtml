@@ -44,7 +44,6 @@ IF(urlbase LIKE "*/!/*")
       SendWebFile(EncodeJSONBlob(
         SELECT name :=    testname
              , url :=     "../testpage/" || testname
-             , isjs :=    testscript.scriptpath NOT LIKE "*.es"
              , args :=    testscript.args
              , tags
           FROM tests));

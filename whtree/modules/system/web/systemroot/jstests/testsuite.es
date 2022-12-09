@@ -1496,11 +1496,7 @@ class TestSuite
 
         item.url = new URL(item.url, testlisturl).toString();
 
-        li.appendChild(dompack.create("a", { href: url.toString(), textContent: item.name }));
-        if (item.isjs)
-          li.appendChild(document.createTextNode(" (.js) "));
-        else
-          li.appendChild(document.createTextNode(" "));
+        li.append(dompack.create("a", { href: url.toString(), textContent: item.name }), " ");
 
         if(item.tags.length)
           li.appendChild(dompack.create("span", { className: "tags", textContent: `(${item.tags.join(', ')}) ` }));
