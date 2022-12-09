@@ -5,7 +5,7 @@
 Template for tests:
 
 ```javascript
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 
 test.registerTests(
   [ "My test name"

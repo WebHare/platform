@@ -1,4 +1,4 @@
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 import * as maintenance from './internal/maintenance.es';
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb.es';
 

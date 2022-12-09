@@ -1,4 +1,4 @@
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 
 ///run forgot password sequence and navigate through the reset procedure
 export function testResetPassword(options)
