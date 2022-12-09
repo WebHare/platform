@@ -246,7 +246,7 @@ PUBLIC STRING FUNCTION RecursivelyFindTypeScriptFile(STRING root, STRING subpath
   RECORD ARRAY contents := ReadDiskDirectory(finalpath, "*");
   FOREVERY (RECORD rec FROM contents)
   {
-    IF (rec.name = "node_modules")
+    IF (rec.name = "node_modules" OR rec.name = "vendor" OR rec.name LIKE ".*")
       CONTINUE;
     IF (rec.name LIKE "*.ts" OR rec.name LIKE "*.tsx")
       RETURN subpath = "" ? rec.name : MergePath(subpath, rec.name);
