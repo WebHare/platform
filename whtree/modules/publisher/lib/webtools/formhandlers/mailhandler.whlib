@@ -679,7 +679,7 @@ RECORD FUNCTION CreateMergeFieldsContext(OBJECT mailcomposer, OBJECT applytester
     RETURN DEFAULT RECORD;
 
   RECORD mergedata := formresults->GetWittyResultData(result);
-  OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata ], result.languagecode);
+  OBJECT mergefields := NEW MergeFieldsContext(CELL[ type := "formdef", formdef := formdefinition, data := mergedata, applytester ], result.languagecode);
   OBJECT context := NEW EmailWidgetContext(mailcomposer, formresults->GetStorageObject(), applytester, rtdtype, FALSE);
   context->__mergefields := mergefields;
 

@@ -82,6 +82,9 @@ PUBLIC STATIC OBJECTTYPE MultiMergeField2 EXTEND ComposedFormFieldBase
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetExtraMergeFields(RECORD value)
   {
+    IF (NOT ObjectExists(this->form->formapplytester))
+      THROW NEW Exception("Form applytester should be available");
+
     STRING reversed;
     IF (RecordExists(value))
     {
