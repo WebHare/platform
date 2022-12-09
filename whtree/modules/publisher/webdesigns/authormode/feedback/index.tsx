@@ -15,7 +15,7 @@ interface UserData
   preferred_username: string;
 }
 
-// The RPC service used to submit feedabck
+// The RPC service used to submit feedback
 interface AuthorService {
   submitFeedback(guid: string, form: { topic: string; remarks: string }) : Promise<{responsetext: string}>;
 }
