@@ -953,7 +953,7 @@
         <textgroup gid="createselfsignedcert">   <!-- tolliumapps.config.keystore.createselfsignedcert -->
           <text tid="altnames">Alternatieve DNS-namen</text>
           <text tid="c">Land</text>
-          <text tid="cn">Algemene naam (host)</text>
+          <text tid="cn">Algemene naam (CN)</text>
           <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
           <text tid="l">Gemeente</text>
           <text tid="o">Organisatie</text>

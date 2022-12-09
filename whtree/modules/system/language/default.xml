@@ -1139,7 +1139,7 @@
         <textgroup gid="createselfsignedcert">   <!-- tolliumapps.config.keystore.createselfsignedcert -->
           <text tid="altnames">Alternative DNS names</text>
           <text tid="c">Country</text>
-          <text tid="cn">Common name (host)</text>
+          <text tid="cn">Common name (CN)</text>
           <text tid="createselfsignedcert">Create self-signed certificate</text>
           <text tid="l">Locality</text>
           <text tid="o">Organisation</text>
