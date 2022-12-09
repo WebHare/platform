@@ -24,3 +24,5 @@ Options to tune the validation/CI process:
 completely from validation The `why` attribute is required to explain why this file is being excluded.
 Note that excluded files are also excluded from the language's editor tid scan.
 
+Validation will ignore `node_modules` and `vendor` directories and any directory
+whose name starts with a dot.

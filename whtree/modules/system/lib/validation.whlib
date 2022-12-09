@@ -172,7 +172,7 @@ STRING ARRAY FUNCTION RecurseGetValidatableFiles(STRING basepath, RECORD validat
 
   FOREVERY(RECORD entry FROM dir_contents)
   {
-    IF(entry.name LIKE ".*" OR entry.name="node_modules")
+    IF(entry.name LIKE ".*" OR entry.name="node_modules" OR entry.name="vendor")
       CONTINUE;
 
     STRING resname := basepath || "/" || entry.name;
