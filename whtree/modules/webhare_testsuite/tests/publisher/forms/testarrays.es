@@ -291,4 +291,84 @@ test.registerTests(
       // The fieldgroup's input should have focus
       test.true(test.hasFocus(fieldgroup.querySelector("input")));
     }
+
+  , "Test adding subfields dynamically and using inter-subfield conditions"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&custom=1");
+
+      // Add two rows
+      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="contacts"] .wh-form__arrayadd');
+      test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="contacts"] .wh-form__arrayadd');
+
+      // There should be a disabled 'color' subfield
+      const color = test.qS('[name="contacts-contacts.color-0"]');
+      test.true(!!color);
+      test.true(test.canClick(color));
+      test.true(color.disabled);
+
+      // There should be an invisible 'other' subfield
+      const other = test.qS('[name="contacts-contacts.other-0"]');
+      test.true(!!other);
+      test.false(test.canClick(other));
+      test.true(other.disabled);
+      test.false(other.required);
+
+      // Check the second row as well
+      const color2 = test.qS('[name="contacts-contacts.color-1"]');
+      test.true(color2.disabled);
+      const other2 = test.qS('[name="contacts-contacts.other-1"]');
+      test.false(test.canClick(other2));
+
+      // The 'color' subfield should be enabled if the a date more than 18 years ago is entered
+      test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-0"]'), "2000-01-01");
+      await test.wait("ui");
+      test.false(color.disabled);
+      test.false(test.canClick(other));
+
+      // The 'other' subfield is visible and required if the 'other' color and the 'Female' gender options are chosen
+      test.fill(color, -1);
+      await test.wait("ui");
+      test.false(test.canClick(other));
+      test.fill(test.qS('[name="contacts-contacts.gender-0"]'), 2);
+      await test.wait("ui");
+      test.true(test.canClick(other));
+      test.false(other.disabled);
+      test.true(other.required);
+
+      // Fill the 'other' subfield and submit
+      test.fill(other, "Yellow");
+      test.click("button[type=submit]");
+      await test.wait("ui");
+
+      // The second row's 'color' and 'other' subfields should still be disabled
+      test.true(color2.disabled);
+      test.false(test.canClick(other2));
+
+      // Enable the second row's 'color' subfield
+      test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-1"]'), "2000-01-01");
+      await test.wait("ui");
+      test.false(color2.disabled);
+      test.false(test.canClick(other2));
+
+      // Disable it again
+      test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-1"]'), "2020-01-01");
+      await test.wait("ui");
+      test.true(color2.disabled);
+      test.false(test.canClick(other2));
+
+      // The first row's 'color' and 'other' subfields should still be enabled
+      test.false(color.disabled);
+      test.true(test.canClick(other));
+
+      // Remove the second row
+      test.click(test.qSA(".wh-form__arrayrow")[1].querySelector(".wh-form__arraydelete"));
+
+      // Check if the custom subfield values are returned
+      let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+      test.true(result.ok);
+      test.eqMatch(/^2000-01-01/, result.value.contacts[0].wrd_dateofbirth);
+      test.eq(-1, result.value.contacts[0].color);
+      test.eq("Yellow", result.value.contacts[0].other);
+    }
   ]);

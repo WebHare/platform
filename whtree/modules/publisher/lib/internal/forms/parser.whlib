@@ -386,3 +386,40 @@ PUBLIC RECORD ARRAY FUNCTION GatherFormComponentsFromComponent(OBJECT node, RECO
   }
   RETURN result;
 }
+
+PUBLIC RECORD FUNCTION GetComponentDefinition(STRING type, RECORD options)
+{
+  options := ValidateOptions([ match := DEFAULT RECORD
+                             , valuetype := ""
+                             , ishidden := FALSE
+                             ], options);
+
+  RECORD ARRAY comptypes := GetFormComponentDef("", type, [ nofail := TRUE ]);
+  RECORD field := basefieldstructure;
+  RECORD comptype;
+
+  FOREVERY (RECORD testtype FROM comptypes)
+    IF (AttributesMatch(options.match, testtype))
+    {
+      field := CELL[ ...field, ...options.match ];
+      comptype := testtype;
+      BREAK;
+    }
+
+  IF (NOT RecordExists(comptype))
+    comptype := comptypes[0]; // Fallback to old behaviour (treating GetFormComponentDef as RECORD FUNCTION)
+
+  field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
+  field.qname := comptype.namespace || "#" || comptype.name;
+  field.type := comptype.parsertype;
+  field.ishidden := options.ishidden;
+  IF(field.ishidden)
+  {
+    //only bother with parsing supportedvalues if we'll actually be used as a first-class field.
+    IF(comptype.supportedvaluesfunc != "")
+      field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
+    ELSE
+      field.supportedvalues := comptype.supportedvalues;
+  }
+  RETURN field;
+}
