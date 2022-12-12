@@ -2203,7 +2203,10 @@
         <text tid="availabilitytab">Beschikbaarheid</text>
         <text tid="available">Het formulier is beschikbaar</text>
         <text tid="cannotsaveresults">Dit formulier staat niet toe dat de resultaten worden vastgelegd of geëxporteerd</text>
+        <text tid="datalayer">Datalayer</text>
         <text tid="disablecaptcha">Schakel spamcontroles uit voor dit formulier</text>
+        <text tid="formid">Formulier ID</text>
+        <text tid="formid-aboutvariable">(datalayer variabele: formmeta_id)</text>
         <text tid="general">Algemeen</text>
         <text tid="overwritestoreresults">Stel bewaartermijn in op</text>
         <text tid="settings">Formulierinstellingen</text>

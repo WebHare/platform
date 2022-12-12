@@ -293,6 +293,8 @@
             </select>
             <text name="cannotsaveresults" title="" valuetid=".cannotsaveresults"/>
           </lines>
+          <heading name="datalayer" />
+          <textedit name="formid" suffixtid=".formid-aboutvariable"/>
 
           <hr name="storeresultsdivider" />
           <panel name="other_settings">
