@@ -1,34 +1,35 @@
 # OpenSearch
-Consilio can be configured to use an external OpenSearch cluster for storage.
-We also ship OpenSearch with WebHare which Consilio can use (and which will
-eventually replace its own index manager)
+WebHare ships with an embedded OpenSearch server for Consilio's usage which by default
+runs on localhost on the baseport + 6 (usually 13685).
+Consilio can also be configured to use an external OpenSearch cluster for storage.
 
 ### Useful commands
-Useful commands for the builtin OpenSearch, assuming it's running on the
-default interface http://127.0.0.1:13685/
+Useful commands for the builtin OpenSearch:
 
 ```bash
 # Check health
-curl 'http://127.0.0.1:13685/_cluster/health?pretty=true'
+wh consilio:opensearch_curl '/_cluster/health?pretty=true'
 
 # List plugins (eg to check if analysis-icu is there)
-curl 'http://127.0.0.1:13685/_cat/plugins?v'
+wh consilio:opensearch_curl '/_cat/plugins?v'
 
 # List indices
-curl 'http://127.0.0.1:13685/_cat/indices?v'
+wh consilio:opensearch_curl '/_cat/indices?v'
 
 # Get field mapping for an index
-curl 'http://127.0.0.1:13685/<indexname>/_mapping?pretty=true'
+wh consilio:opensearch_curl '/<indexname>/_mapping?pretty=true'
 
 # Delete all indices starting with myprefix__
-curl -XDELETE 'http://127.0.0.1:13685/myprefix__*'
+wh consilio:opensearch_curl -XDELETE '/myprefix__*'
 
-# Run a dashboard for your local opensearch, MacOS with homebrew:
+# Run a dashboard for your local opensearch, MacOS with homebrew. Update URLs as needed:
 brew install opensearch-dashboards
 /usr/local/opt/opensearch-dashboards/bin/opensearch-dashboards --opensearch.hosts=http://127.0.0.1:13685/
 open http://127.0.0.1:5601/
 ```
 
+You can also access OpenSearch over http://127.0.0.1:13685/ in WebHare's default configuration, but `wh consilio:opensearch_url`
+will look up the exact URL for you.
 
 
 ### Troubleshooting
