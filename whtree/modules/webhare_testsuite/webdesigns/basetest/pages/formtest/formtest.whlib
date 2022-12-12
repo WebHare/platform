@@ -795,6 +795,32 @@ PUBLIC STATIC OBJECTTYPE ArrayForm EXTEND FormBase
 
   MACRO NEW()
   {
+    IF (GetFormWebVariable("custom") = "1")
+    {
+      // Add some custom fields
+      OBJECT colorfield := ^contacts->AddSubField("select", "color");
+      colorfield->type := "pulldown";
+      colorfield->title := "Favorite color";
+      colorfield->rowkeytype := "integer";
+      colorfield->options := [ [ rowkey := 0,        title := "" ]
+                             , [ rowkey := 0xff0000, title := "Red" ]
+                             , [ rowkey := 0x00ff00, title := "Green" ]
+                             , [ rowkey := 0x0000ff, title := "Blue" ]
+                             , [ rowkey := -1,       title := "Other" ]
+                             ];
+      // Not keeping a reference for the 'other' field, we should be able to reference it through the array field
+      ^contacts->AddSubField("textedit", "other");
+      ^contacts->^other->required := TRUE;
+      ^contacts->^other->title := "Please specify";
+
+      // Add some conditions
+      colorfield->EnabledCondition := FCMatch(^contacts->^wrd_dateofbirth, "AGE>=", 18);
+      ^contacts->^other->VisibleCondition := FCAnd(
+         [ FCMatch(colorfield, "IN", [ -1 ])
+         , FCMatch(^contacts->^gender, "IN", [ 2 ])
+         ]);
+    }
+
     IF (GetFormWebVariable("prefill") = "1")
     {
       ^text->value := "prefilled name";

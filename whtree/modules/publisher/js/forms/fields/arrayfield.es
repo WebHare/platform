@@ -44,6 +44,7 @@ export default class ArrayField
     this.insertPoint.parentNode.insertBefore(newrow, this.insertPoint);
     dompack.registerMissed(this.insertPoint.previousSibling);
     this._checkValidity();
+    this.form.refreshConditions();
   }
 /* seems a unused API ?.  .. if we need to provide this, just let people pass us a row node instead of understanding IDs
   removeRow(id)
@@ -112,15 +113,19 @@ export default class ArrayField
     let rowid = node.dataset.whFormRowid;
 
     // Rename all fields to avoid duplicate field names
+    const mapping = new Map();
     for (let field of this._queryAllFields(node))
       for (let fieldnode of (field.nodes || [field.node]))
       {
+
+        // Rename fields
         fieldnode.dataset.whFormCellname = field.name.substr(this.name.length + 1);
         let subname = this.valueNode.dataset.whFormName + "-" + field.name + "-" + rowid;
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else
           fieldnode.name = subname;
+        mapping.set(field.name, subname);
 
         // Rename id's to make them unique; update the label within the field's fieldgroup to point to the new id
         if (fieldnode.id)
@@ -131,6 +136,46 @@ export default class ArrayField
             labelnode.htmlFor = fieldnode.id;
         }
       }
+
+    // Rewrite conditions after all fields have been renamed
+    for (const type of [ "visible", "enabled", "required" ])
+    {
+      for (const conditionnode of node.querySelectorAll(`[data-wh-form-${type}-if]`))
+      {
+        const condition = JSON.parse(conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`]);
+        if (this._fixupConditionRecursive(node, condition.c, mapping))
+          conditionnode.dataset[`whForm${type[0].toUpperCase() + type.slice(1)}If`] = JSON.stringify(condition);
+      }
+    }
+  }
+
+  _fixupConditionRecursive(node, condition, mapping)
+  {
+    switch (condition.matchtype)
+    {
+      case "AND":
+      case "OR":
+      {
+        let anychanges = false;
+        for (const subcondition of condition.conditions)
+          anychanges = this._fixupConditionRecursive(node, subcondition, mapping) || anychanges;
+        return anychanges;
+      }
+      case "NOT":
+      {
+        return this._fixupConditionRecursive(node, condition.condition, mapping);
+      }
+      default:
+      {
+        const newName = mapping.get(condition.field);
+        if (newName && node.querySelector(`[name="${newName}"]`))
+        {
+          condition.field = newName;
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   _removeRowNode(node)

@@ -6,6 +6,7 @@
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -63,23 +64,11 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
-    FOREVERY (RECORD subfield FROM field.subfields)
-    {
-      OBJECT newfield;
-      STRING membername := subfield.name;
-      TRY
-      {
-        subfield.name := this->name || "." || subfield.name;
-        newfield := subfield.fieldobject(form, this, subfield);
-      }
-      CATCH (OBJECT e)
-        THROW NEW Exception(`Error while instantiating field ${membername} of type ${subfield.type}: ${e->what}`, [ trace := e->trace ]);
-
-      INSERT newfield INTO this->subfields AT END;
-      MemberInsert(this, "^" || membername, FALSE, newfield);
-    }
-    this->min := field.min;
-    this->max := field.max;
+    IF (CellExists(field, "subfields"))
+      FOREVERY (RECORD subfield FROM field.subfields)
+        this->InstantiateField(subfield);
+    this->min := CellExists(field, "min") ? field.min : 0;
+    this->max := CellExists(field, "max") ? field.max : 0;
 
     IF(this->__havepreinited)
       this->__EnsurePreInit(); //rerun for the new fields, if needed
@@ -97,6 +86,23 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
   //
   // Public API
   //
+
+  PUBLIC OBJECT FUNCTION AddSubfield(STRING type, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ match := DEFAULT RECORD
+                               , valuetype := ""
+                               , ishidden := FALSE
+                               ], options);
+
+    IF(MemberExists(this, `${name}`))
+      THROW NEW Exception(`A field named '${name}' already exists`);
+    IF(options.valuetype != "")
+      options.match := CELL[ ...options.match, valuetype := options.valuetype ];
+
+    RECORD subfield := GetComponentDefinition(type, options);
+    subfield.name := name;
+    RETURN this->InstantiateField(subfield);
+  }
 
   UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
   {
@@ -130,18 +136,16 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
           outrow := this->pvt_rows[id].cells;
       }
 
+      RECORD ARRAY originalvalues;
+
       FOREVERY (OBJECT field FROM this->subfields)
       {
-        VARIANT originalvalue := field->value;
-        VARIANT cellvalue;
+        INSERT CELL[ field, field->value ] INTO originalvalues AT END;
 
         //TODO arbitrary depth support
-        OBJECT ARRAY children := field->GetChildComponents();
-        VARIANT ARRAY originalchildvalues;
-
-        FOREVERY(OBJECT child FROM children)
+        FOREVERY(OBJECT child FROM field->GetChildComponents())
         {
-          INSERT child->value INTO originalchildvalues AT END;
+          INSERT CELL[ field := child, child->value ] INTO originalvalues AT END;
           STRING childcellname := Substring(child->name, Length(this->name) + 1);
           IF(CellExists(inputrow, childcellname))
             child->UpdateFromJS(GetCell(inputrow, childcellname));
@@ -151,17 +155,13 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
         IF(CellExists(inputrow, cellname)) //we're not transparent (ie there's an actual field for us on the client, and we're receiving data for that)
           field->UpdateFromJS(GetCell(inputrow, cellname));
 
-        cellvalue := field->value;
-
-        FOREVERY(OBJECT child FROM children)
-          child->value := originalchildvalues[#child];
-
-        IF(CellExists(inputrow, cellname))
-          field->value := originalvalue; //restore - TODO we should just build up a template row for 'defaults' so we don't need to save/restore all the time
-
         outrow := CellDelete(outrow, cellname);
-        outrow := CellInsert(outrow, cellname, cellvalue);
+        outrow := CellInsert(outrow, cellname, field->value);
       }
+
+      FOREVERY(RECORD org FROM originalvalues)
+        org.field->value := org.value;
+
       INSERT CELL[ rowid := "cur" || #inputrow, cells := outrow ] INTO outrows AT END;
     }
     this->pvt_rows := outrows;
@@ -209,6 +209,7 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
   //
   // Property getters/setters
   //
+
   RECORD ARRAY FUNCTION GetValue()
   {
     RETURN SELECT AS RECORD ARRAY cells FROM this->pvt_rows;
@@ -255,5 +256,28 @@ PUBLIC STATIC OBJECTTYPE ArrayField EXTEND FormFieldBase
                  ] INTO outrows AT END;
     }
     this->pvt_rows := outrows;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION InstantiateField(RECORD field)
+  {
+    OBJECT newfield;
+    STRING membername := field.name;
+    TRY
+    {
+      field.name := this->name || "." || field.name;
+      newfield := field.fieldobject(this->form, this, field);
+    }
+    CATCH (OBJECT e)
+      THROW NEW Exception(`Error while instantiating field ${membername} of type ${field.type}: ${e->what}`, [ trace := e->trace ]);
+
+    INSERT newfield INTO this->subfields AT END;
+    MemberInsert(this, "^" || membername, FALSE, newfield);
+    RETURN newfield;
   }
 >;

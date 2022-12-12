@@ -947,34 +947,8 @@ PUBLIC STATIC OBJECTTYPE FormBase
     IF(options.valuetype != "")
       options.match := CELL[ ...options.match, valuetype := options.valuetype ];
 
-    RECORD ARRAY comptypes := GetFormComponentDef("", type, [ nofail := TRUE ]);
-    RECORD field := basefieldstructure;
-    RECORD comptype;
-
-    FOREVERY (RECORD testtype FROM comptypes)
-      IF (AttributesMatch(options.match, testtype))
-      {
-        field := CELL[ ...field, ...options.match ];
-        comptype := testtype;
-        BREAK;
-      }
-
-    IF (NOT RecordExists(comptype))
-      comptype := comptypes[0]; // Fallback to old behaviour (treating GetFormComponentDef as RECORD FUNCTION)
-
-    field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
+    RECORD field := GetComponentDefinition(type, options);
     field.name := name ?? "dynamic$" || Length(this->__formfields); //FIXME dedupe
-    field.qname := comptype.namespace || "#" || comptype.name;
-    field.type := comptype.parsertype;
-    field.ishidden := options.ishidden;
-    IF(field.ishidden)
-    {
-      //only bother with parsing supportedvalues if we'll actually be used as a first-class field.
-      IF(comptype.supportedvaluesfunc != "")
-        field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
-      ELSE
-        field.supportedvalues := comptype.supportedvalues;
-    }
 
     RETURN this->__InstantiateField(parent, field);
   }
