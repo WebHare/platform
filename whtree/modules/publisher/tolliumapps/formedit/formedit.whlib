@@ -1552,6 +1552,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^formid->value := this->node->GetAttribute("formid");
     ^formid->visible := this->contexts->formcomponentapi->showadvanced;
     ^datalayer->visible := ^formid->visible;
+    ^formid->placeholder := this->node->GetAttribute("name");
 
     this->settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
 

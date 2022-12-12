@@ -49,7 +49,6 @@ test.registerTests(
 
       let events = test.getPxlLog(/^publisher:formsubmitted/);
       test.eq(1, events.length, "Should be one submission");
-      console.log(events);
       test.eq("webtoolform", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
 
       // The thankyou node is now filled
