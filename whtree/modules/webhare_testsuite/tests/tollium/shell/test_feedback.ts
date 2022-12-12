@@ -1,6 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
 
-let setupdata, feedbackid;
+let setupdata:any, feedbackid:string;
 
 test.registerTests(
   [ async function()
@@ -24,7 +24,7 @@ test.registerTests(
       await test.wait('ui');
 
       test.click(test.qSA('t-toolbar t-button').at(-1));
-      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Settings")[0]);
+      test.click(test.qSA<HTMLLIElement>("ul.wh-menu li").filter( (li: HTMLLIElement) => li.textContent == "Settings")[0]);
       await test.wait("ui");
 
       test.setTodd('enabletolliumfeedback',true);
@@ -58,8 +58,8 @@ test.registerTests(
   , async function()
     {
       // Wait for a row to appear with the generated feedback id
-      await test.wait(() => test.qSA(`div.listrow`).filter(row => row.querySelector(".list__row__cell")?.textContent == feedbackid).length);
-      let feedbackrows = await test.waitForToddComponent('feedback');
+      await test.wait(() => test.qSA<HTMLDivElement>(`div.listrow`).filter((row:HTMLDivElement) => row.querySelector(".list__row__cell")?.textContent == feedbackid).length);
+      const feedbackrows = await test.waitForToddComponent('feedback');
       test.click(test.qSA(feedbackrows,'div.listrow')[0]);
       await test.wait('ui'); //list apparently needs this time to process the selection update
       test.clickToddToolbarButton("Properties");

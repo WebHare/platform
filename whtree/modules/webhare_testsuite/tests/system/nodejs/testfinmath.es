@@ -1,5 +1,5 @@
 import * as finmath from "@mod-system/js/util/finmath.es";
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 
 //TODO swap the test.eq arguments...
 

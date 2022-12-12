@@ -1,8 +1,12 @@
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/semi */
+/* eslint-disable no-var */
+/// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
 
 function escapeRegExp(str) {
-  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  return str.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 function isStringOrRegexpMatch(intext, pattern)
@@ -56,7 +60,7 @@ class ScreenProxy
   }
 
   /** Return the <li> node for a specific menu item
-      @param (stringarray) levels Full path to the menu item (parts of the menu names)
+      @param levels - Full path to the menu item (parts of the menu names)
   */
   getMenu(levels, { autoclickhamburger = true } = {})
   {
@@ -72,7 +76,7 @@ class ScreenProxy
       }
     }
     if(levels)
-      for(var i=0;curitem && i<levels.length;++i)
+      for(let i=0;curitem && i<levels.length;++i)
       {
         if(curitem.nodeName=='LI')
         {
@@ -418,7 +422,7 @@ function clickToddButton(buttonlabel)
   test.click(elt);
 }
 
-function clickToddToolbarButton(buttonlabel, submenulabel)
+function clickToddToolbarButton(buttonlabel, submenulabel?)
 {
   let elt = getCurrentScreen().qSA('t-toolbar t-button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
@@ -490,7 +494,7 @@ function getSelectListVisibleItems()
 }
 
 /** wait for a todd component to appear in the current screen
-    @long sometimes just waiting for a component is the easiest way to navigate app transitions */
+    sometimes just waiting for a component is the easiest way to navigate app transitions */
 export async function waitForToddComponent(name)
 {
   await test.wait(() =>

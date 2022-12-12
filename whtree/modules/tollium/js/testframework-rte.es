@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
-import * as test from './testframework.es';
+import * as test from './testframework';
 import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/snapshots';
