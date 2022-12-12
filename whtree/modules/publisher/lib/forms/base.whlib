@@ -296,6 +296,9 @@ PUBLIC STATIC OBJECTTYPE FormBase
   /// Custom data attributes
   PUBLIC RECORD formdataset;
 
+  /// Form ID (generally used for analytics)
+  PUBLIC STRING formid;
+
   /// "Previous" page link for the first form page
   PUBLIC STRING formbacklink;
 
@@ -335,6 +338,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
     this->formsubmittype := "new";
     this->__form := __passthrough;
+    this->formid :=  __passthrough.formid;
     this->formclasses := __passthrough.classes;
     this->formref := __passthrough.formref;
     __passthrough := DEFAULT RECORD;
@@ -639,7 +643,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   PUBLIC STRING FUNCTION GetFormTarget()
   {
-    STRING extformname := this->__form.externalformname;
+    STRING extformname := this->__form.name;
     INTEGER fsobj := this->formcontext->targetobject->id;
     IF(extformname LIKE "webtoolform") //FIXME don't switch by name
     {
