@@ -110,7 +110,6 @@ OBJECTTYPE Worker
         , take_output :=          TRUE
         , take_errors :=          TRUE
         , merge_output_errors :=  FALSE
-        , virtualmemorylimit :=   "8GB"
         ]);
 
     // If we got a valid process identifier, the process is running
