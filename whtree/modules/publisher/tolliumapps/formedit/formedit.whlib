@@ -1549,6 +1549,11 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     this->node := data.node;
     this->objectid := data.objectid;
 
+    ^formid->value := this->node->GetAttribute("formid");
+    ^formid->visible := this->contexts->formcomponentapi->showadvanced;
+    ^datalayer->visible := ^formid->visible;
+    ^formid->placeholder := this->node->GetAttribute("name");
+
     this->settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
 
     RECORD formsettings;
@@ -1650,6 +1655,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       instancedata.disablecaptcha := ^disablecaptcha->value;
     this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", instancedata);
 
+    this->node->SetAttribute("formid", ^formid->value);
     ^tabs->SubmitExtensions(feedback);
 
     RETURN feedback->Finish();

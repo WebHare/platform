@@ -2204,7 +2204,10 @@
         <text tid="availabilitytab">Availability</text>
         <text tid="available">The form is available</text>
         <text tid="cannotsaveresults">This form does not allow to store or export its results</text>
+        <text tid="datalayer">Datalayer</text>
         <text tid="disablecaptcha">Disable spamchecks for this form</text>
+        <text tid="formid">Form ID</text>
+        <text tid="formid-aboutvariable">(datalayer variable: formmeta_id)</text>
         <text tid="general">General</text>
         <text tid="overwritestoreresults">Set retention period to</text>
         <text tid="settings">Form settings</text>

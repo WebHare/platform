@@ -150,9 +150,8 @@ export default class FormBase
     }
 
     let pagestate = this._getPageState();
-    vars = { // TODO how to tell forms apart now that target may be random and ID is not persistent. or is URL more than enough?
-             // ds_formmeta_id: formid && formid != '-' ? formid : ''
-             ds_formmeta_session: this._formsessionid
+    vars = { ds_formmeta_id: this.node.dataset.whFormId || ''
+           , ds_formmeta_session: this._formsessionid
            , ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage)
            , ...vars
            };
@@ -166,7 +165,6 @@ export default class FormBase
     if(eventtype === null)
       return; //we were only invoked for the implicit formstarted event
 
-    // let formid = this.node.dataset.whFormId;
     pxl.sendPxlEvent(eventtype, { ...vars
                                 , dn_formmeta_time: now - this._firstinteraction
                                 , dn_formmeta_pagenum: pagestate.curpage + 1

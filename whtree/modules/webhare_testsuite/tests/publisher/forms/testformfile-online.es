@@ -31,7 +31,6 @@ test.registerTests(
       test.eq(3, pulldownoptions.length);
       test.false(pulldownoptions[0].disabled);
 
-
       let email = test.qS('input[type=email]').closest('.wh-form__fieldgroup').querySelector('.wh-form__label');
       test.eq("Email", email.textContent);
     }
@@ -47,6 +46,10 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       test.qSA('[type=submit]')[0].click(); //attempt double submission. click() avoids modality layers
       await test.wait('ui');
+
+      let events = test.getPxlLog(/^publisher:formsubmitted/);
+      test.eq(1, events.length, "Should be one submission");
+      test.eq("webtoolform", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
 
       // The thankyou node is now filled
       let thankyou = test.qSA('h1').filter(node => node.textContent=="Thank you!");

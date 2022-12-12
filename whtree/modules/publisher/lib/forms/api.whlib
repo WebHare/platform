@@ -98,8 +98,7 @@ PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, STRING formname, O
   IF(ObjectExists(openasdraft))
     webtoolformid := openasdraft->source;
 
-  RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [/* externalformname := formname
-                                                                                      , */webtoolformid := webtoolformid
+  RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := webtoolformid
                                                                                       ]);
   IF(parseresult.objectname = "")
     parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
