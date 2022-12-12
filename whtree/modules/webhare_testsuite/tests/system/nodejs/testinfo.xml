@@ -1,4 +1,4 @@
-﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs">
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="test.schema.json">
   <test script="test_bridge.ts" />
   <test script="test_services.ts" />
   <test script="test_bridge_from_harescript.whscr" />

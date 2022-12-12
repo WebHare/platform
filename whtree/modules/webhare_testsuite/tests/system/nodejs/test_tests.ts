@@ -20,17 +20,54 @@ async function testChecks() {
 
   const x_abc_badb = { ...x_abc, cellB: "BAD" };
   test.eqProps(x_abc, x_abc_badb, ["cellB"], "shouldn't throw if cellB is explicitly ignored");
-  await test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb ));
+  await test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb));
+
+  {
+
+    const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);
+    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_ts.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    await test.throws(/must NOT have additional properties/, () => v_ts.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
+    await test.throws(/must have required property 'b'/, () => v_ts.validateStructure({ a: 0 }), "missing property not detected");
+    v_ts.validateStructure({ a: 0, b: "a" });
+  }
+
+  {
+    const v_ts_allow_extra = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`, { noExtraProps: false, required: false });
+    v_ts_allow_extra.validateStructure({ a: 0, c: "1" });
+  }
+
+  {
+    const v_js = await test.loadJSONSchema({ "type": "object", "properties": { "a": { "type": "number" }, "b": { "type": "string" } }, "$schema": "http://json-schema.org/draft-07/schema#" });
+    v_js.validateStructure({ a: 0, c: "1" });
+    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_js.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+  }
+
+  {
+    const v_jsf = await test.loadJSONSchema("@mod-webhare_testsuite/tests/system/nodejs/test.schema.json");
+    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_jsf.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    await test.throws(/must NOT have additional properties/, () => v_jsf.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
+    await test.throws(/must have required property 'b'/, () => v_jsf.validateStructure({ a: 0 }), "missing property not detected");
+    v_jsf.validateStructure({ a: 0, b: "a" });
+  }
+
+
 }
 
-async function runWHTest(testname: string) : Promise<string> {
+// Referenced by file#symbol reference in the loadTSType call above
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface MyInterface {
+  a: number;
+  b: string;
+}
+
+async function runWHTest(testname: string): Promise<string> {
   await bridge.ready;
 
   /* TODO: a much better approach would use child_process.spawn and pipes, merge the stdout&stderr pipe (so there are no ordering issues) and also watch the exit code */
   return new Promise(resolve =>
-    child_process.execFile(bridge.getInstallationRoot() + "bin/wh", [ "runtest", testname ], { timeout: 30000 }, function (error, stdout, stderr) {
+    child_process.execFile(bridge.getInstallationRoot() + "bin/wh", ["runtest", testname], { timeout: 30000 }, function (error, stdout, stderr) {
       // console.log({error, stdout, stderr});
-      resolve( stdout + stderr );
+      resolve(stdout + stderr);
     }));
 }
 
@@ -38,6 +75,7 @@ async function checkTestFailures() {
   test.eqMatch(/test\.assert failed.*metatest_shouldfail.ts line 4.*Offending test: test\.assert\(Math\.random\(\) === 42\);/s, await runWHTest("system.nodejs.meta.metatest_shouldfail") );
 }
 
-test.run([ testChecks
-         , checkTestFailures
-         ]);
+test.run([
+  testChecks,
+  checkTestFailures
+]);

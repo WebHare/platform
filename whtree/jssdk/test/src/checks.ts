@@ -1,4 +1,10 @@
 import * as testsupport from "./testsupport";
+import * as fs from "fs";
+import * as node_path from "path";
+import ts from "typescript";
+import * as TJS from "typescript-json-schema";
+import Ajv, { SchemaObject, ValidateFunction } from "ajv";
+
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
@@ -327,6 +333,113 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
 export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
   if(settings.onLog)
     onLog = settings.onLog;
+}
+
+export interface TestTypeValidator {
+  validateStructure(data: unknown, annotation?: string): void;
+}
+
+interface LoadTSTypeOptions {
+  noExtraProps?: boolean;
+  required?: boolean;
+}
+
+class JSONSchemaValidator implements TestTypeValidator {
+  validate: ValidateFunction;
+  constructor(validatefunction: ValidateFunction) {
+    this.validate = validatefunction;
+  }
+  validateStructure(data: unknown, annotation?: Annotation) {
+    const valid = this.validate(data);
+    if (!valid) {
+      if (annotation)
+        logAnnotation(annotation);
+
+      let message = "";
+      if (this.validate.errors) {
+        if (this.validate.errors[0].message)
+          message = `${JSON.stringify(this.validate.errors[0].instancePath)} ${this.validate.errors[0].message}`;
+        console.log("Got structure validation errors: ", this.validate.errors);
+      }
+
+      throw new Error(`validateStructure failed - data does not conform to the structure${message ? `: ${message}` : ""}`);
+    }
+  }
+}
+
+/** Typescript parsing is slow, so cache the program */
+const programcache: Record<string, TJS.Program> = {};
+let ajv: (Ajv | null) = null;
+
+export async function loadTSType(typeref: string, options: LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
+
+  let file = typeref.split("#")[0];
+  const typename = typeref.split("#")[1];
+
+  const fileref = file;
+  if (file.startsWith("@mod-"))
+    file = require.resolve(file);
+
+  let tsconfigdir = "";
+  if (process.env["WEBHARE_DIR"] && file.startsWith(process.env["WEBHARE_DIR"]))
+    tsconfigdir = process.env["WEBHARE_DIR"];
+  else if (process.env["WEBHARE_DATAROOT"] && file.startsWith(process.env["WEBHARE_DATAROOT"]))
+    tsconfigdir = node_path.join(process.env["WEBHARE_DATAROOT"], "webhare-config");
+  else
+    throw new Error(`Cannot find relevant tsconfig.json file for ${JSON.stringify(file)}`);
+
+  let program = programcache[file];
+  if (!program) {
+    // Read and parse the configuration file
+    const { config } = ts.readConfigFile(node_path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
+    const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
+
+    // Parse file with the definition
+    program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
+
+    if (!program) {
+      throw new Error(`Could not compile file ${JSON.stringify(fileref)}`);
+    } else if (program.getSyntacticDiagnostics().length) {
+      throw new Error(`Got syntactic diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getSyntacticDiagnostics()[0].messageText} `);
+    } else if (program.getGlobalDiagnostics().length) {
+      throw new Error(`Got global diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getGlobalDiagnostics()[0].messageText} `);
+    } else if (program.getSemanticDiagnostics().length) {
+      throw new Error(`Got semantic diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getSemanticDiagnostics()[0].messageText} `);
+    }
+
+    programcache[file] = program;
+  }
+
+  const schema = TJS.generateSchema(program, typename, {
+    required: true,
+    noExtraProps: true,
+    ...options
+  });
+
+  if (!schema) {
+    throw new Error(`Could not generate a JSON schema for type ${JSON.stringify(typeref)}`);
+  }
+
+  if (!ajv)
+    ajv = new Ajv();
+
+  return new JSONSchemaValidator(ajv.compile(schema));
+}
+
+export async function loadJSONSchema(schema: string | SchemaObject): Promise<TestTypeValidator> {
+  let tocompile;
+  if (typeof schema === "string") {
+    if (schema.startsWith("@mod-"))
+      schema = require.resolve(schema);
+
+    tocompile = JSON.parse(fs.readFileSync(schema).toString("utf-8")) as SchemaObject;
+  } else
+    tocompile = schema;
+
+  if (!ajv)
+    ajv = new Ajv();
+
+  return new JSONSchemaValidator(ajv.compile(tocompile));
 }
 
 export {
