@@ -10,7 +10,7 @@ let testemail_guid;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom2", addtscustomcomp: true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom2", addtscustomcomp: true, formid: "custom form 2" });
     }
 
   , async function()
@@ -45,6 +45,10 @@ test.registerTests(
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
+
+      let events = test.getPxlLog(/^publisher:formsubmitted/);
+      test.eq(1, events.length, "Should be one submission");
+      test.eq("custom form 2", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
     }
 
   , 'Request results'

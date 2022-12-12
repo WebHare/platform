@@ -29,6 +29,7 @@ test.registerTests(
 
       let events = test.getPxlLog(/^publisher:formfailed/);
       test.eq(1, events.length, "Should be one failed page");
+      test.eq("multipagetest", events[0].data.ds_formmeta_id, "by default we'll just see the form name");
       test.eq("nextpage", events[0].data.ds_formmeta_errorsource);
       test.eq("email", events[0].data.ds_formmeta_errorfields);
       test.eq(1, events[0].data.dn_formmeta_pagenum);

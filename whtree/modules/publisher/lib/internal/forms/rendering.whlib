@@ -939,7 +939,8 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
 
 PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 {
-  RETURN [ backlink := form->formbacklink
+  RETURN [ formid := form->formid
+         , backlink := form->formbacklink
          , handler := form->formjshandler
          , target := form->GetFormTarget()
          ];
@@ -947,6 +948,8 @@ PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)
 {
   RECORD dataset;
+  IF(rendertree.formid != "")
+    INSERT CELL "wh-form-id" := rendertree.formid INTO dataset;
   IF(rendertree.backlink != "")
     INSERT CELL "wh-form-backlink" := rendertree.backlink INTO dataset;
   IF(rendertree.handler != "")

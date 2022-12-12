@@ -76,6 +76,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , emailfieldname := ""
                               , withpayment := STRING[]
                               , jshandler := ""
+                              , formid := ""
                               ];
 
 MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
@@ -706,6 +707,8 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
   IF (options.jshandler != "")
     formdef->node->SetAttribute("jshandler", options.jshandler);
+  IF (options.formid != "")
+    formdef->node->SetAttribute("formid", options.formid);
 
   OBJECT thankyoupage := formdef->GetPage(formdef->GetNumPages()-1);
 
