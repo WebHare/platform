@@ -69,7 +69,7 @@
                 prefix="RPC_"
                 primarytrans="none"
                 requirewhaccount="false"
-                transports="whremoting jsonrpc">
+                transports="jsonrpc">
       <accesscheck />
     </webservice>
 

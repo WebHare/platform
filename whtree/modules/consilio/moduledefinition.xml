@@ -27,7 +27,7 @@
                 library="lib/internal/rpc_search.whlib"
                 prefix="RPC_"
                 primarytrans="auto"
-                transports="jsonrpc whremoting">
+                transports="jsonrpc">
       <accesscheck />
     </webservice>
 
