@@ -58,33 +58,6 @@ PUBLIC RECORD FUNCTION GetWHVersionInfo()
               ];
 }
 
-PUBLIC MACRO DeleteOldSnoozes()
-{
-  IF (NOT IsDatabaseWritable())
-    RETURN;
-
-  OBJECT trans := OpenPrimary();
-  trans->BeginWork();
-
-  OBJECT wrd_type := GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES");
-  RECORD ARRAY todelete := wrd_type->RunQuery(
-      [ outputcolumns := [ "WRD_ID" ]
-      , filters := [ [ field := "UNTIL", matchtype := "<", value := AddDaysToDate(-7, GetCurrentDatetime()) ] ]
-      ]);
-
-  FOREVERY (RECORD rec FROM todelete)
-  {
-    wrd_type->GetEntity(rec.wrd_id)->DeleteEntity();
-    LogAuditEvent("system:systemmessages",
-        [ id :=                 rec.wrd_id
-        , type :=               "autodelete"
-        ]);
-
-  }
-
-  trans->CommitWork();
-}
-
 RECORD ARRAY FUNCTION RunDevelopmentChecks()
 {
   RECORD ARRAY node_issues := SELECT msg := `:Node module issue in WebHare Platform: ${error}`
@@ -208,7 +181,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   RECORD ARRAY messages;
 
   OBJECT validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib", "ValidateModules");
-  OBJECT deletetaskpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/checks/checker.whlib", "DeleteOldSnoozes");
   OBJECT asynccheckspromise := RunAsyncChecks();
 
   IF (NOT IsDatabaseWritable())
@@ -388,8 +360,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
 
   IF (GetDTAPStage() = "development")
     messages := messages CONCAT RunDevelopmentChecks();
-
-  WaitForPromise(deletetaskpromise);
 
   RECORD ARRAY snoozes :=
       SELECT *

@@ -4,6 +4,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/modules/disk.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
@@ -135,6 +136,21 @@ MACRO CleanupSocialite()
   trans->CommitWork();
 }
 
+MACRO DeleteOldSnoozes()
+{
+  trans->BeginWork();
+
+  OBJECT wrd_type := GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES");
+  RECORD ARRAY todelete := wrd_type->RunQuery(
+      [ outputcolumns := [ "WRD_ID" ]
+      , filters := [ [ field := "UNTIL", matchtype := "<", value := AddDaysToDate(-7, GetCurrentDatetime()) ] ]
+      ]);
+
+  wrd_type->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM todelete);
+  trans->CommitWork();
+}
+
+
 MACRO RunExecuteMaintenance()
 {
   IF(NOT IsRestoredWebhare())
@@ -147,6 +163,7 @@ MACRO RunExecuteMaintenance()
     CleanupWebharePrivate();
     CleanupSocialite();
     EnsureModuleStorageFolders(TRUE); //cleanup obsolete existing ones too
+    DeleteOldSnoozes();
   }
   FixupUserMgmt();
 }

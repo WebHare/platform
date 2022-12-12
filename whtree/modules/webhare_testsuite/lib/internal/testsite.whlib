@@ -942,9 +942,9 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
   IF(options.addtscustomcomp)
   {
-    OBJECT tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tscustomcomp");
-    tsfield->SetAttribute("name","tscustom");
-    tsfield->SetAttribute("title","TSCustom");
+    OBJECT tsfield2 := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tscustomcomp");
+    tsfield2->SetAttribute("name","tscustom");
+    tsfield2->SetAttribute("title","TSCustom");
   }
 
   IF (options.addaddressfield)
