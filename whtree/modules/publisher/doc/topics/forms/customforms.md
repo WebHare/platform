@@ -48,9 +48,12 @@ Create a bit of HTML/Witty to render it:
 [/component]
 ```
 
+You can use tags such as `[form.formrender]` and `[form.formallpages]` to simplify
+the rendering above. See the 'witty fields' below.
+
 Create the form handler
 ```harescript
-PUBLIC OBJECTTYPE MySubmissionForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE MySubmissionForm EXTEND FormBase
 <
   RECORD FUNCTION Submit(RECORD extradata)
   {
