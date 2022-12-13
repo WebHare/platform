@@ -22,8 +22,6 @@ estimate_buildj()
   fi
 }
 
-export -f estimate_buildj
-
 getbaseversioninfo()
 {
   local WHNUMERICVERSION
@@ -558,3 +556,5 @@ verify_webhare_version()
 
   return 0
 }
+
+export -f estimate_buildj die
