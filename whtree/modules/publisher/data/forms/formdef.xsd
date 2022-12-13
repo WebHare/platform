@@ -578,7 +578,8 @@
       <!-- only support integer now -->
       <xs:attribute name="min" type="xs:integer" />
       <xs:attribute name="max" type="xs:integer" />
-      <xs:attribute name="maxlength" type="xs:integer" />
+      <xs:attribute name="minlength" type="xs:nonNegativeInteger" />
+      <xs:attribute name="maxlength" type="xs:positiveInteger" />
       <xs:attribute name="emptyvalue" />
       <xs:attribute name="value" type="xs:string" />
       <xs:attribute name="acceptableemailmasks">
@@ -628,7 +629,7 @@
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="MapUnmapAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
-      <xs:attribute name="maxlength" type="xs:integer" />
+      <xs:attribute name="maxlength" type="xs:positiveInteger" />
       <xs:attribute name="value" type="xs:string" />
       <xs:attribute name="validationchecks" type="sc:ValidationChecks">
         <xs:annotation>
@@ -710,6 +711,8 @@
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
       <xs:attributeGroup ref="PrefixSuffixAttributes" />
+      <xs:attribute name="minlength" type="xs:nonNegativeInteger" />
+      <xs:attribute name="maxlength" type="xs:positiveInteger" />
     </xs:complexType>
   </xs:element>
 
