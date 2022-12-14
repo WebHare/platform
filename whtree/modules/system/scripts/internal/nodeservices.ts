@@ -2,7 +2,7 @@ import bridge from "@mod-system/js/internal/bridge";
 import runWebHareService from "@mod-system/js/internal/webhareservice";
 import { XMLParser } from "fast-xml-parser";
 import { readFileSync } from "fs";
-import path from "path";
+import * as path from "path";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 
 interface BackendServiceDescriptor {

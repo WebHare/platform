@@ -1,7 +1,7 @@
 import * as testsupport from "./testsupport";
 import * as fs from "fs";
 import * as node_path from "path";
-import ts from "typescript";
+import * as ts from "typescript";
 import * as TJS from "typescript-json-schema";
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
 
