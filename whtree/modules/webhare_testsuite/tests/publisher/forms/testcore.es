@@ -74,7 +74,7 @@ test.registerTests(
         test.eq(null, test.qS('#coretest-nevervisible'), 'static invisible field should be');
         test.eq(null, test.qS('#coretest-invisible'), 'dynamic invisible field should be');
         test.eq('secret', test.qS("#coretest-password").placeholder);
-        test.eq("before &lt;richtext&gt; inhoud vanuit tid after", richtext_h2.innerHTML);
+        test.eq("before &lt;richtext&gt; inhoud <i>vanuit</i> tid after", richtext_h2.innerHTML);
         test.eq("Dynamic richtext", richtext_p.innerHTML);
         test.eq(field_matchattributes_type2_false.closest(".wh-form__fieldgroup"), richtext_h2.closest(".wh-form__fieldgroup").previousSibling);
         test.true(label_namelijk, 'missing label namelijk - forms did not render extra field?');
