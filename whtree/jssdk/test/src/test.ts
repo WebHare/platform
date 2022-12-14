@@ -8,6 +8,7 @@ export {
   , eqProps
   , sleep
   , throws
+  , setupLogging
 } from './checks';
 let testscompleted = false;
 
