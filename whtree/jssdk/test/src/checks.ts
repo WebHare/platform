@@ -1,8 +1,11 @@
-import * as stacktrace_parser from "stacktrace-parser";
-import * as fs from "node:fs";
+import * as testsupport from "./testsupport";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
+
+type LoggingCallback = ( ...args:unknown[] ) => void;
+
+let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
 function myTypeOf(item: unknown) {
   if (item === undefined) return 'undefined';
@@ -11,9 +14,6 @@ function myTypeOf(item: unknown) {
   if ((item as Node).nodeName) {
     if ((item as Node).nodeType === 1) return 'element';
     if ((item as Node).nodeType === 3) return (/\S/).test((item as Node).nodeValue || '') ? 'textnode' : 'whitespace';
-  } else if (typeof (item as unknown[]).length == 'number') {
-    if ('callee' in item) return 'arguments';
-    if ('item' in item) return 'collection';
   }
 
   return typeof item;
@@ -59,8 +59,8 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
     throw new Error("Expected type: " + type_expected + " actual type: " + type_actual + (path != "" ? " at " + path : ""));
 
   if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected != actual) {
-    console.log("Expected node: ", expected);
-    console.log("Actual node:", actual);
+    onLog("Expected node: ", expected);
+    onLog("Actual node:", actual);
     throw new Error("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path != "" ? " at " + path : ""));
   }
 
@@ -135,12 +135,12 @@ function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   if (annotation)
     logAnnotation(annotation);
 
-  console.log("testEq fails: expected", expected_str);
-  console.log("testEq fails: actual  ", actual_str);
+  onLog("testEq fails: expected", expected_str);
+  onLog("testEq fails: actual  ", actual_str);
 
   if (typeof expected == "string" && typeof actual == "string") {
-    console.log("E: " + encodeURIComponent(expected));
-    console.log("A: " + encodeURIComponent(actual));
+    onLog("E: " + encodeURIComponent(expected));
+    onLog("A: " + encodeURIComponent(actual));
   }
 
   testDeepEq(expected, actual, '');
@@ -156,17 +156,12 @@ function testAssert<T>(actual: T, annotation?: Annotation) : T //TODO ': asserts
 
   const stack = (new Error).stack;
   if(stack) {
-    const badline = stacktrace_parser.parse(stack)[1];
-    if(badline?.file && badline.lineNumber) {
-      console.log(`test.assert failed in ${badline.file.split('/').slice(-1)[0]} line ${badline.lineNumber}`);
-
-      const contents = fs.readFileSync(badline.file).toString().split("\n")[badline.lineNumber - 1];
-      console.log(`Offending test: ${contents.trim()}`);
-    }
+    testsupport.reportAssertError(stack);
   }
   throw new Error("test.assert failed");
 }
 
+/** @returns The Error object thrown */
 async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
   try {
     //If we got a function, execute it
@@ -178,11 +173,11 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
     if (annotation)
       logAnnotation(annotation);
 
-    console.log("Expected exception: ", expect.toString());
+    onLog("Expected exception: ", expect.toString());
     if(retval === undefined)
-      console.log("Did not get an exception or return value");
+      onLog("Did not get an exception or return value");
     else
-      console.log("Instead we got: ", retval);
+      onLog("Instead we got: ", retval);
 
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   }
@@ -195,17 +190,17 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
       throw new Error("testThrows fails - didn't get an Error object");
     }
 
-    const exceptiontext = e.toString();
-    if (!exceptiontext.toString().match(expect)) {
+    const exceptiontext = e.message;
+    if (!exceptiontext.match(expect)) {
       if (annotation)
         logAnnotation(annotation);
 
-      console.log("Expected exception: ", expect.toString());
-      console.log("Got exception: ", exceptiontext);
+      onLog("Expected exception: ", expect.toString());
+      onLog("Got exception: ", exceptiontext);
       throw new Error("testThrows fails - exception mismatch");
     }
 
-    return e; //we got what we wanted - a throw!
+    return e; //we got what we wanted - a throw! return the Error
   }
   throw new Error(`testThrows fails: Expected function to throw ${expect.toString()}`);
 }
@@ -232,7 +227,7 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
       {
         if (expect !== actual)
         {
-          console.log({ expect, actual });
+          onLog({ expect, actual });
           throw Error(`Mismatched value at ${path}`);
         }
         return;
@@ -240,20 +235,20 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
       const expectarray = Array.isArray(expect);
       if (expectarray != Array.isArray(actual))
       {
-        console.log({ expect, actual });
+        onLog({ expect, actual });
         throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
       }
       if (expectarray)
       {
         if (!Array.isArray(actual))
         {
-          console.log({ expect, actual });
+          onLog({ expect, actual });
           throw Error(`Expected array, got object, at ${path}`);
         }
 
         if (expect.length != actual.length)
         {
-          console.log({ expect, actual });
+          onLog({ expect, actual });
           throw Error(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`);
         }
         for (let i = 0; i < expect.length; ++i)
@@ -264,7 +259,7 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
       {
         if (Array.isArray(actual))
         {
-          console.log({ expect, actual });
+          onLog({ expect, actual });
           throw Error(`Expected object, got array, at ${path}`);
         }
 
@@ -272,7 +267,7 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
 
       if (typeof actual !== "object" || !actual)
       {
-        console.log({ expect, actual });
+        onLog({ expect, actual });
         throw Error(`Mismatched value at ${path}`);
       }
 
@@ -284,7 +279,7 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
 
         if (!gotkeys.includes(key))
         {
-          console.log({ expect, actual });
+          onLog({ expect, actual });
           throw Error(`Expected property '${key}', didn't find it, at ${path}`);
         }
         eqPropsRecurse(value, (actual as {[k:string]:unknown})[key], `${path}.${key}`, ignore);
@@ -293,7 +288,7 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
     }
     default:
       if (expect !== actual) {
-        console.log({ expect, actual });
+        onLog({ expect, actual });
         throw Error(`Mismatched value at ${path}`);
       }
   }
@@ -313,7 +308,7 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   if (annotation)
     logAnnotation(annotation);
 
-  console.log("testEqMatch fails: regex", regexp.toString());
+  onLog("testEqMatch fails: regex", regexp.toString());
   // testfw.log("testEqMatch fails: regexp " + regexp.toString());
 
   let actual_str = actual;
@@ -323,10 +318,15 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   catch (ignore) {
     //Ignoring
   }
-  console.log("testEqMatch fails: actual  ", actual_str);
+  onLog("testEqMatch fails: actual  ", actual_str);
   // testfw.log("testEqMatch fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
 
   throw new Error("testEqMatch failed");
+}
+
+export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
+  if(settings.onLog)
+    onLog = settings.onLog;
 }
 
 export {

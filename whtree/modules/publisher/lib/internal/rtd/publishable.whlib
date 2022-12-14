@@ -454,7 +454,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         {
           // Replace the whole span with the resolved tid. We'll assume that that value of data-wh-gettid is a parsed tid,
           // i.e. only fully qualified tid's are valid (fixed texts should start with ":").
-          Print(EncodeHTML(GetTid(node->GetAttribute("data-wh-gettid"))));
+          // We'll trust language file developers enough to not filter this through the RTD's style cleanup
+          Print(GetHTMLTid(node->GetAttribute("data-wh-gettid")));
         }
         ELSE
         {

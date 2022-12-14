@@ -11,11 +11,21 @@ import * as domfocus from "dompack/browserfix/focus";
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import jstestsrpc from '@mod-system/js/internal/jstests.rpc.json';
 
+import * as whtest from '@webhare/test';
 import * as test from 'dompack/testframework';
 import { testDeepEq } from 'dompack/testframework/expect';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import * as diff from 'diff';
+import { Annotation } from '@webhare/test/src/checks';
+
+export
+  { eq
+  , sleep
+  , eqMatch
+  , eqProps
+  , assert
+  } from '@webhare/test';
 
 export
   { canClick as canClick
@@ -42,6 +52,8 @@ let module_exports;
 
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
+whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); }
+                    })
 
 //if(testfw && testfw.takeconsolelog)
 //  testfw.doConsoleTakeover(window);
@@ -166,24 +178,6 @@ function testEq(expected, actual, explanation)
 
   testDeepEq(expected, actual, '');
 }
-function testEqMatch(regexp, actual, explanation?)
-{
-  if(actual.match(regexp))
-    return;
-
-  if(explanation)
-    logExplanation(explanation);
-
-  console.log("testEqMatch fails: regex", regexp.toString());
-  testfw.log("testEqMatch fails: regexp " + regexp.toString());
-
-  let actual_str = actual;
-  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch(e){}
-  console.log("testEqMatch fails: actual  ", actual_str);
-  testfw.log("testEqMatch fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
-
-  throw new Error("testEqMatch failed");
-}
 
 function testEqHTML(expected, actual, explanation)
 {
@@ -270,71 +264,6 @@ function testEqFloat(expected, actual, delta, explanation)
   testDeepEq(expected, actual, '');
 }
 
-/** Compare specific cells of two values (recursive)
-    @param expected - Expected value
-    @param got - Gotten value
-    @param keys - Comma-separated list of members to check. Use '*' as first member to match all, and `-<cellname>` to excluded members after that.
-    @param annotation - Message to display when the test fails
-*/
-function testEqMembers(expect, got, { keys = null, explation } = {})
-{
-  testEqMembersRecurse(expect, got, "got", keys);
-}
-
-function testEqMembersRecurse(expect, got, path, keys, explation)
-{
-  switch (typeof expect)
-  {
-    case "undefined":   return;
-    case "object":
-    {
-      if (expect === null)
-      {
-        if (expect !== got)
-        {
-          console.log({ expect, got });
-          throw Error(`Expected ${expect}, got ${got}, at ${path}`);
-        }
-        return;
-      }
-      const expectarray = Array.isArray(expect);
-      if (expectarray != Array.isArray(got))
-      {
-        console.log({ expect, got });
-        throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
-      }
-      if (expectarray)
-      {
-        if (expect.length != got.length)
-        {
-          console.log({ expect, got });
-          throw Error(`Expected array of length ${expect.length}, got array of length ${got.length}, at ${path}`);
-        }
-        for (let i = 0; i < expect.length; ++i)
-          testEqMembersRecurse(expect[i], got[i], `${path}[${i}]`);
-        return;
-      }
-      const gotkeys = Object.keys(got);
-      for (const i of Object.entries(expect))
-      {
-        if (keys && !keys.includes[i[0]])
-          continue;
-
-        if (!gotkeys.includes(i[0]))
-        {
-          console.log({ expect, got });
-          throw Error(`Expected property ${i[0]}, didn't find it, at ${path}`);
-        }
-        testEqMembersRecurse(i[1], got[i[0]], `${path}.${i[0]}`);
-      }
-      return;
-    }
-    default:
-      if (expect !== got)
-        throw Error(`Expected ${expect}, got ${got}, at ${path}`);
-  }
-}
-
 function testTrue(actual, explanation)
 {
   testEq(true, Boolean(actual), explanation);
@@ -352,48 +281,17 @@ function fail(reason)
   throw new Error("Test failed: " + reason);
 }
 
-async function testThrowsAsync(promise, explanation)
+export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
+export async function throws(func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
+//temporay wrapper to support old-style syntax
+export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2?: Promise<unknown> | (() => unknown) | Annotation, p3?: Annotation)
 {
-  try
-  {
-    await promise;
-  }
-  catch (e)
-  {
-    return e;
-  }
+  if(p1 instanceof RegExp)
+    return await whtest.throws(p1, p2, p3);
 
-  if(explanation)
-    logExplanation(explanation);
-
-  console.trace();
-  console.log("testThrows fails: expected async function to throw");
-  testfw.log("testThrows fails: expected async function to throw");
-  throw new Error("testThrows failed for async function");
-}
-
-//test whether the specified call throws. we accept functions, promises, or functions returning promises
-function testThrows(waitfor, explanation)
-{
-  try
-  {
-    if(typeof waitfor == "function")
-      waitfor = waitfor();
-    if(waitfor && waitfor.then)  // thenable?
-      return testThrowsAsync(waitfor, explanation);
-
-    if(explanation)
-      logExplanation(explanation);
-
-    console.trace();
-    console.log("testThrows fails: expected function to throw");
-    testfw.log("testThrows fails: expected function to throw");
-  }
-  catch (e)
-  {
-    return e;
-  }
-  throw new Error("testThrows failed");
+  let exc = await whtest.throws(/.*/, p1, p2);
+  console.warn("As soon as this module supports 5.2 only, explicitly specify the throw mask. Thrown was: " + exc.toString());
+  return exc;
 }
 
 function findElementWithText(doc, tagname, text)
@@ -701,12 +599,6 @@ async function writeLogMarker(text)
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
-
-function sleep(delay)
-{
-  return new Promise(resolve => setTimeout(resolve, delay));
-}
-
 async function wait(waitfor, annotation?)
 {
   if(annotation && typeof annotation !== "string")
@@ -884,15 +776,11 @@ export
   , getTestSiteRoot as getTestSiteRoot
   , findElementWithText as findElementWithText
   , getWebhareVersionNumber
-  , testEq as eq
   , testEqFloat as eqFloat
-  , testEqMatch as eqMatch
-  , testEqMembers as eqMembers
   , testEqIn as eqIn
   , testEqHTML as eqHTML
   , testTrue as true
   , testFalse as false
-  , testThrows as throws
   , canFocus as canFocus
   , hasFocus as hasFocus
   , fail as fail
@@ -900,7 +788,6 @@ export
   , prepareUpload as prepareUpload
   , pressKey
   , dragTransition as dragTransition
-  , sleep
 
   , keyboardCopyModifier
   , keyboardLinkModifier
@@ -957,13 +844,11 @@ module_exports = { registerTests: registerJSTests
   , waitForEvent: test.waitForEvent
   , eq: testEq
   , eqFloat: testEqFloat
-  , eqMatch: testEqMatch
-  , eqMembers: testEqMembers
   , eqIn: testEqIn
   , eqHTML: testEqHTML
   , true: testTrue
   , false: testFalse
-  , throws: testThrows
+  , throws
   , canFocus: canFocus
   , hasFocus: hasFocus
   , fail: fail
@@ -976,7 +861,6 @@ module_exports = { registerTests: registerJSTests
   , generateKeyboardEvent: keyboard.generateKeyboardEvent
   , simulateTabKey: test.simulateTabKey
   , focus: test.focus
-  , sleep
 
   , keyboardCopyModifier:        { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
   , keyboardLinkModifier:        { ctrl: true, shift: browser.getPlatform() != 'mac' }

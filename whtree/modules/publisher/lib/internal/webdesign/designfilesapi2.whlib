@@ -156,17 +156,6 @@ STATIC OBJECTTYPE Resolver
     }
   }
 
-  PUBLIC MACRO AddRequire(STRING require)
-  {
-    IF(this->assetpack != "")
-      THROW NEW Exception("AddRequire cannot be used with assetpacks. You need to update the asset bundle itself");
-
-    IF(RecordExists(this->packinginfo))
-      THROW NEW Exception("Headers have already been generated, AddRequire no longer available");
-    IF(require NOT IN this->requestedbundle.bundleconfig.extrarequires)
-      INSERT require INTO this->requestedbundle.bundleconfig.extrarequires AT END;
-  }
-
   MACRO EnsurePackingInfo()
   {
     IF(RecordExists(this->packinginfo))

@@ -34,7 +34,7 @@
       <text tid="namelijk"><html:u>name</html:u>lijk</text>
       <text tid="radiotest">Radiotest</text>
       <text tid="radiotest-2">Option 2</text>
-      <text tid="richtext-tid">&lt;richtext&gt; inhoud vanuit tid</text>
+      <text tid="richtext-tid">&lt;richtext&gt; inhoud <html:i>vanuit</html:i> tid</text>
       <text tid="terms">with the <html:a href="http://www.example.net/terms">terms</html:a>.</text>
       <text tid="zwei">Z<html:i>wei</html:i></text>
     </textgroup>

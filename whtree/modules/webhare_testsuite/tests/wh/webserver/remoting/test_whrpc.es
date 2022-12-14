@@ -9,7 +9,6 @@ test.registerTests(
    {
      let rpc = new RPCClient("webhare_testsuite:testnoauth");
      let controller = new AbortController;
-     let exc;
      let call;
 
      //basic tests
@@ -22,40 +21,31 @@ test.registerTests(
      //timeout test
      test.eq({ x:42 }, await rpc.invoke('complexresultsslow', { x:42 }));
 
-     exc = await test.throws(rpc.invoke({timeout: 50}, 'complexresultsslow', { x:42 }));
-     test.eqMatch(/^RPC Timeout:/, exc.message);
+     await test.throws(/^RPC Timeout:/, rpc.invoke({timeout: 50}, 'complexresultsslow', { x:42 }));
 
-     exc = await test.throws((new RPCClient("webhare_testsuite:testnoauth", {timeout:50})).invoke('complexresultsslow', { x:42 }));
-     test.eqMatch(/^RPC Timeout:/, exc.message);
+     await test.throws(/^RPC Timeout:/, (new RPCClient("webhare_testsuite:testnoauth", {timeout:50})).invoke('complexresultsslow', { x:42 }));
 
      controller = new AbortController;
      call = rpc.invoke({ signal:controller.signal}, 'complexresultsslow', { x:42 });
      controller.abort();
-     exc = await test.throws(call);
-     test.eqMatch(/^RPC Aborted$/, exc.message);
+     await test.throws(/^RPC Aborted$/, call);
 
      //now test mixing timeout and signal...
      controller = new AbortController;
      call = rpc.invoke({ timeout:50, signal:controller.signal}, 'complexresultsslow', { x:42 });
      controller.abort();
-     exc = await test.throws(call);
-     test.eqMatch(/^RPC Aborted$/, exc.message);
+     await test.throws(/^RPC Aborted$/, call);
 
      controller = new AbortController;
      call = rpc.invoke({ timeout:50, signal:controller.signal}, 'complexresultsslow', { x:42 });
-     exc = await test.throws(call);
-     test.eqMatch(/^RPC Timeout:/, exc.message);
+     await test.throws(/^RPC Timeout:/, call);
 
      //test a crash
-     exc = await test.throws(() => rpc.invoke('crashtest','abort'));
-     test.eqMatch(/^RPC Error: /, exc.message);
-
-     exc = await test.throws(() => rpc.invoke('crashtest','throw'));
-     test.eqMatch(/^RPC Error: /, exc.message);
+     await test.throws(/^RPC Error: /, () => rpc.invoke('crashtest','abort'));
+     await test.throws(/^RPC Error: /, () => rpc.invoke('crashtest','throw'));
 
      //test a weird response
-     exc = await test.throws(() => rpc.invoke('crashtest','terminate'));
-     test.eqMatch(/^RPC Failed: /, exc.message);
+     await test.throws(/^RPC Failed: /, () => rpc.invoke('crashtest','terminate'));
    }
 
  , "Test rate limiting"
@@ -78,8 +68,7 @@ test.registerTests(
      test.eq({ x:42 }, await rpc.invoke('complexresultsslow', { x:42 }));
 
      rpc.setOptions({timeout:50});
-     let exc = await test.throws((new RPCClient("webhare_testsuite:testnoauth", {timeout:50})).invoke('complexresultsslow', { x:42 }));
-     test.eqMatch(/^RPC Timeout:/, exc.message);
+     await test.throws(/^RPC Timeout:/, (new RPCClient("webhare_testsuite:testnoauth", {timeout:50})).invoke('complexresultsslow', { x:42 }));
    }
 
  , "Use real URLS"
@@ -95,14 +84,12 @@ test.registerTests(
      test.eq('Hi', await testnoauthservice.echo('Hi'));
      test.eq({ x:42 }, await testnoauthservice.complexResultsSlow({ x:42 }));
      test.eq({ x:42 }, await testnoauthservice.invoke('complexResultsSlow', {x:42 }));
-     let exc = await test.throws(testnoauthservice.invoke({timeout:50},'complexResultsSlow', {x:42 }));
-     test.eqMatch(/^RPC Timeout:/, exc.message);
+     await test.throws(/^RPC Timeout:/, testnoauthservice.invoke({timeout:50},'complexResultsSlow', {x:42 }));
 
      //backwards compatibility... rpcResolve
      let call = testnoauthservice.complexResultsSlow({ x:42 });
      testnoauthservice.rpcResolve(call, {aborted:true});
      test.eq({aborted:true}, await call);
-
    }
 
   , "Use new JSONRPCClient"
@@ -112,13 +99,11 @@ test.registerTests(
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x:42 }, await testnoauthclient.complexResultsSlow({ x:42 }));
 
-      let exc = await test.throws(testnoauthclient.withOptions({debug:true,timeout:50}).complexResultsSlow({ x:42 }));
-      test.eqMatch(/^RPC Timeout:/, exc.message);
+      await test.throws(/^RPC Timeout:/, testnoauthclient.withOptions({debug:true,timeout:50}).complexResultsSlow({ x:42 }));
 
       let controller = new AbortController;
       let call = testnoauthclient.withOptions({ signal: controller.signal}).complexResultsSlow({ x:42 });
       controller.abort();
-      exc = await test.throws(call);
-      test.eqMatch(/^RPC Aborted/, exc.message);
+      await test.throws(/^RPC Aborted/, call);
     }
   ]);
