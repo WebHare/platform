@@ -59,6 +59,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , filename := ""
                               , addconditions := FALSE
                               , addtslinecomp := FALSE
+                              , tslinecompapplytest := FALSE
                               , addtslinecompascustom := FALSE
                               , addtscustomcomp := FALSE
                               , addaddressfield := FALSE
@@ -634,6 +635,8 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tslinecomp");
     tsfield->SetAttribute("name","tsline");
     tsfield->SetAttribute("title","TSLine");
+    IF (options.tslinecompapplytest)
+      tsfield->SetAttribute("groupclasses", "tslinecompapplytest"); // this groupclas is used to see if the applytester should be checked
   }
   IF(options.addtslinecompascustom)
   {

@@ -51,6 +51,18 @@ PUBLIC OBJECTTYPE TSLineCompField EXTEND ComposedFormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : ComposedFormFieldBase(form, parent, field)
   {
+    IF ("tslinecompapplytest" IN field.groupclasses)
+    {
+      // Check if the the 'blub' custom node with a 'blubber' value of '5' is available in the apply tester
+      IF (NOT ObjectExists(form->formapplytester))
+        THROW NEW Exception("Form applytester should be available");
+      RECORD ARRAY settings := form->formapplytester->GetCustomSettings("http://www.webhare.net/xmlns/webhare_testsuite/blub", "blub");
+      IF (NOT RecordExists(settings))
+        THROW NEW Exception("'blub' custom node should be available in form applytester");
+      IF (settings[END-1].node->GetAttribute("blubber") != "5")
+        THROW NEW Exception("'blub' custom node 'blubber' value should be '5'");
+    }
+
     this->field1 := this->CreateSubField("textedit", "field1");
     this->field1->title := "TS Field1";
     this->field2 := this->CreateSubField("textedit", "field2");

@@ -721,7 +721,7 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
 
       IF (settings.receiverfield != "")
       {
-        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD ARRAY formfields := formdefinition->ListFields(CELL[ applytester ]);
         RECORD receiverfield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.receiverfield);
         IF(RecordExists(receiverfield) AND CellExists(result.response, receiverfield.name))
           mail->mailto := GetCell(result.response, receiverfield.name);
@@ -731,14 +731,14 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
     {
       IF (settings.sendernamefield != "")
       {
-        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD ARRAY formfields := formdefinition->ListFields(CELL[ applytester ]);
         RECORD sendernamefield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.sendernamefield);
         IF(RecordExists(sendernamefield) AND CellExists(result.response, sendernamefield.name))
           mail->mailsendername := Getcell(result.response, sendernamefield.name);
       }
       IF (settings.replytofield != "")
       {
-        RECORD ARRAY formfields := formdefinition->ListFields();
+        RECORD ARRAY formfields := formdefinition->ListFields(CELL[ applytester ]);
         RECORD replytofield := SELECT * FROM formfields WHERE ToUppercase(guid) = ToUppercase(settings.replytofield);
         IF(RecordExists(replytofield) AND CellExists(result.response, replytofield.name))
           mail->replyto := GetCell(result.response, replytofield.name);

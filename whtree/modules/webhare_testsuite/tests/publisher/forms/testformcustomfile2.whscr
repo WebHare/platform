@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
@@ -511,12 +512,68 @@ ASYNC MACRO ProcessExpiredResults()
   TestEq(3, webtoolresults->GetResultsCount([ showexpiredresults := TRUE ]));
 }
 
+MACRO CustomFormApplyTest()
+{
+  BuildCustomWebtoolForm2(
+      [ addtslinecomp := TRUE
+      , tslinecompapplytest := TRUE
+      , setmailresultsfields := TRUE
+      , emailfieldname := "email"
+      ]);
+
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?prize=NissanMicra"));
+
+  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+
+  // The tslinecomp expects the applytester to be available, so it should be supplied when listing field through form definition
+  TestThrowsLike("*Form applytester should be available*", PTR webtoolform->ListFields());
+  RECORD ARRAY fields := webtoolform->ListFields([ applytester := GetApplyTesterForObject(customformfile->id) ]);
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+
+  RECORD submitrec := [ firstname := "P. Giménez & Henkie 😇"
+                      , upload := [ filename := "allstar.txt"
+                                  , link := "data:text/plain,someBODY"
+                                  ]
+                      , checkboxes := ["copt1","copt3"]
+                      , date := "2017-06-22"
+                      , address := [ country := "NL"
+                                   , street := "Hengelosestraat"
+                                   , nr_detail := "296"
+                                   , zip := "7521 AM"
+                                   , city := "Enschede"
+                                   , province := "OV" // will be ignored for NL
+                                   ]
+                      , "tsline.customselect.select" := "lang-en"
+                      , radio := ["opt"]
+                      , "reversed.text" := "Euro & €"
+                      , email := "testfw+formtest@beta.webhare.net"
+                      , prize := "ToyotaStarlet" //try to overwrite the hidden field
+                      ];
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  TestEq(1, webtoolresults->GetResultsCount());
+
+  // Test if the mail tasks have run (they list the fields as well and should supply the applytester)
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
+  RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="About Your Submission";
+  TestEq(TRUE, RecordExists(simpleconfirmmail));
+  RECORD rtdconfirmmail := SELECT * FROM mails WHERE subject="RTD with confirmation";
+  TestEq(TRUE, RecordExists(rtdconfirmmail));
+}
+
 RunTestframework([ PTR BuildForm
                  , PTR CustomForm
                  , PTR CustomForm_SuppressMail
                  , PTR CustomForm_NL
                  , PTR EditCustomForm
                  , PTR ProcessExpiredResults
+                 , PTR CustomFormApplyTest
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);
