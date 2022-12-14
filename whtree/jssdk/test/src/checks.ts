@@ -384,7 +384,7 @@ export async function loadTSType(typeref: string, options: LoadTSTypeOptions = {
   if (process.env["WEBHARE_DIR"] && file.startsWith(process.env["WEBHARE_DIR"]))
     tsconfigdir = process.env["WEBHARE_DIR"];
   else if (process.env["WEBHARE_DATAROOT"] && file.startsWith(process.env["WEBHARE_DATAROOT"]))
-    tsconfigdir = node_path.join(process.env["WEBHARE_DATAROOT"], "webhare-config");
+    tsconfigdir = process.env["WEBHARE_DATAROOT"];
   else
     throw new Error(`Cannot find relevant tsconfig.json file for ${JSON.stringify(file)}`);
 
@@ -397,14 +397,17 @@ export async function loadTSType(typeref: string, options: LoadTSTypeOptions = {
     // Parse file with the definition
     program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
 
-    if (!program) {
-      throw new Error(`Could not compile file ${JSON.stringify(fileref)}`);
-    } else if (program.getSyntacticDiagnostics().length) {
-      throw new Error(`Got syntactic diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getSyntacticDiagnostics()[0].messageText} `);
-    } else if (program.getGlobalDiagnostics().length) {
-      throw new Error(`Got global diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getGlobalDiagnostics()[0].messageText} `);
-    } else if (program.getSemanticDiagnostics().length) {
-      throw new Error(`Got semantic diagnostics compiling file ${JSON.stringify(fileref)}: ${program.getSemanticDiagnostics()[0].messageText} `);
+    const diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
+    if (diagnostics.length) {
+      const host = {
+        getCurrentDirectory: () => process.cwd(),
+        getCanonicalFileName: (path: string) => path,
+        getNewLine: () => "\n"
+      };
+
+      const message = ts.formatDiagnostics(diagnostics, host);
+      console.error(message);
+      throw new Error(`Got errors compiling file: ${JSON.stringify(fileref)}: ${message}`);
     }
 
     programcache[file] = program;

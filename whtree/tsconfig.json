@@ -14,15 +14,15 @@
       "@mod-socialite/*": [ "modules/socialite/*" ],
       "@mod-system/*": [ "modules/system/*" ],
       "@mod-tollium/*": [ "modules/tollium/*" ],
-      "@mod-webhare_testsuite/*": [ "modules/webhare_testsuite/*" ],
       "@mod-wrd/*": [ "modules/wrd/*" ]
     },
+    "target": "es2018",
+    "esModuleInterop": true
   }
 , "ts-node": {
     "compilerOptions": {
       "target": "es2022"
     },
-    "moduleResolution": "node",
-
+    "moduleResolution": "node"
   }
 }
