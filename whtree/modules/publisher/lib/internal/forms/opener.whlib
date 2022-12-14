@@ -74,7 +74,7 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
   }
   CATCH (OBJECT e)
   {
-    e->what := e->what || ` while instantiating form '${formdef.externalformname}'`;
+    e->what := e->what || ` while instantiating form '${formdef.name}'`;
     THROW;
   }
   FINALLY
