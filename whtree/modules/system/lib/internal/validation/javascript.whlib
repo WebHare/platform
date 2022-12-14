@@ -282,6 +282,8 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   // For core modules (or webhare_testsuite when present in whtree) use the whtree tsconfig.json
   STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
   STRING tsconfigpath, tsbuildinfofile;
+  STRING workingdir := GetWebhareConfiguration().installationroot;
+
   IF (modulename = "coremodules"
       OR modulename IN whconstant_builtinmodules
       OR (modulename = "webhare_testsuite" AND GetModuleInstallationRoot(modulename) LIKE GetWebhareConfiguration().installationroot || "*"))
@@ -306,6 +308,7 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
 
     CreateModuleTSConfigFile(modulename);
     tsbuildinfofile := MergePath(tsbuildinfodir, `${modulename}.tsbuildinfo`);
+    workingdir := installationroot;
   }
 
   STRING tscpath := MergePath(GetWebhareConfiguration().installationroot, "node_modules/.bin/tsc");
@@ -314,22 +317,23 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   STRING ARRAY args := [ "--project", tsconfigpath, "--noEmit", "--incremental", "--tsBuildInfoFile", tsbuildinfofile ];
 
   OBJECT proc := CreateProcess(tscpath, args, FALSE, TRUE, TRUE, FALSE);
-  proc->initialworkingdirectory := GetWebhareConfiguration().installationroot;
+  proc->initialworkingdirectory := workingdir;
   proc->Start();
 
   OBJECT reader := ReadWholeProcessOutput(proc);
   RECORD procresult := AWAIT reader;
   proc->Close();
 
-  OBJECT matcher := NEW RegEx("^modules/([^\\(]*)\\((\\d*),(\\d*)\\): (.*)$");
+  OBJECT matcher := NEW RegEx("^([^\\(]*)\\((\\d*),(\\d*)\\): (error .*)$");
 
   FOREVERY (STRING line FROM Tokenize(procresult.output, "\n"))
   {
     RECORD ARRAY match := matcher->Exec(line);
     IF (RecordExists(match))
     {
+      STRING finalpath := MergePath(workingdir, match[1].value);
       INSERT
-          [ resourcename := `mod::${match[1].value}`
+          [ resourcename := GetResourceNameFromDiskPath(finalpath) ?? finalpath
           , line :=         ToInteger(match[2].value, 1)
           , col :=          ToInteger(match[3].value, 1)
           , message :=      match[4].value
