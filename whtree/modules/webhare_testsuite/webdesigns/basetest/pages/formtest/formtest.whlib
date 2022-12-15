@@ -51,7 +51,7 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
     ELSE IF(GetWebVariable("multipage")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:multipageform")
-           , [ multipageform := this->webdesign->GetWittyDataForForm("multipagetest")
+           , [ multipageform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#multipagetest")
                ]);
     }
     ELSE IF(GetWebVariable("address") IN ["1","2"])

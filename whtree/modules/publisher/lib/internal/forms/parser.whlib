@@ -242,7 +242,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
                     , pages := RECORD[]
                     , handlers := RECORD[]
                     , name := formname
-                    , formid := formnode->GetAttribute("formid") ?? formname
+                    , formid := formnode->GetAttribute("formid") ?? formnode->GetAttribute("name")
                     , webtoolformid := options.webtoolformid
                     , objectname := ""
                     , idprefix := formnode->GetAttribute("idprefix") ?? (lookupname ?? formname) || "-"
