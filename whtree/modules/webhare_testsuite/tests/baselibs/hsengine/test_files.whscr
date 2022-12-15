@@ -363,6 +363,8 @@ MACRO MiscTest()
   TestEq(TRUE, CreateDiskDirectory(testdir || "/dir1", TRUE));
   TestEq(TRUE, CreateSoftLink(testdir || "/dir2", "dir1"));
   TestEq("dir1", ReadSoftLink(testdir || "/dir2"));
+  TestEQ(testdir || "/dir1", GetRealPath(testdir || "/dir2"));
+  TestEQ("", GetRealPath(testdir || "/dir3"));
   TestEq(FALSE, DeleteDiskDirectory(testdir|| "/dir2"));
   TestEq(TRUE, DeleteDiskFile(testdir || "/dir2"));
   TestEq(TRUE, CreateSoftLink(testdir || "/dir2", "dir1"));

@@ -689,6 +689,13 @@ std::string ReadSoftLink(std::string const &path)
         return std::string(&linkreceiver[0], &linkreceiver[len]);
 }
 
+std::string GetRealPath(std::string const &path)
+{
+        char buf[PATH_MAX] = { 0 };
+        char *retval = realpath(path.c_str(), buf);
+        return std::string(retval ? retval : "");
+}
+
 std::string GetLastOSError()
 {
         return strerror(errno);

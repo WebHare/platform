@@ -390,6 +390,11 @@ BLEXLIB_PUBLIC bool CreateNewSoftLink(std::string const &path, std::string const
 */
 BLEXLIB_PUBLIC std::string ReadSoftLink(std::string const &path);
 
+/** Returns an absolute pathname that resolves to the same directory entry as path, without using '.', '..', or symbolic links.
+    @param path File path to resolve
+    @return The resolved path name
+*/
+BLEXLIB_PUBLIC std::string GetRealPath(std::string const &path);
 
 /** Returns a string containing a description of the last OS error (errno/GetLastError)
     @return Textual representation of the last error.
