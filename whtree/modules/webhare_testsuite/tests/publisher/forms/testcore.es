@@ -241,6 +241,7 @@ test.registerTests(
         let formevents = test.getPxlLog(/^publisher:form.+/);
         test.eq(1, formevents.length, "Should be one PXL event now");
         test.eq("publisher:formstarted", formevents[0].event);
+        test.eq("coretest", formevents[0].data.ds_formmeta_id, "by default we'll just see the form name");
       }
     }
 
