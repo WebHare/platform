@@ -161,6 +161,14 @@ function testAssert<T>(actual: T, annotation?: Annotation) : T //TODO ': asserts
   throw new Error("test.assert failed");
 }
 
+/** Check if the object is probably an Error object. Can't use 'instanceof Error' as an Error might come from a different frame */
+function quacksLikeAnError(e: unknown) : e is Error
+{
+  if(!e)
+    return false;
+  return (typeof e === "object") && ("stack" in e) && ("message" in e);
+}
+
 /** @returns The Error object thrown */
 async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
   try {
@@ -182,7 +190,7 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   }
   catch (e) {
-    if (!(e instanceof Error)) {
+    if (!quacksLikeAnError(e)) {
       if (annotation)
         logAnnotation(annotation);
 
