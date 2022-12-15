@@ -1,4 +1,6 @@
 import * as stacktrace_parser from "stacktrace-parser";
+import { Definition } from "typescript-json-schema";
+import { SchemaObject } from "ajv";
 
 export function reportAssertError(stack: string)
 {
@@ -7,4 +9,16 @@ export function reportAssertError(stack: string)
   if(badline?.file && badline.lineNumber) {
     console.log(`test.assert failed in ${badline.file.split('/').slice(-1)[0]} line ${badline.lineNumber}`);
   }
+}
+
+export interface LoadTSTypeOptions {
+  noExtraProps?: boolean;
+  required?: boolean;
+}
+
+export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTypeOptions = {}): Promise<Definition> {
+  throw new Error(`Loading a JSON schema for a TypeScript type is not yet supported from the browser testing framework`);
+}
+export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject> {
+  throw new Error(`Loading JSON schema's from a file is not yet supported from the browser testing framework`);
 }

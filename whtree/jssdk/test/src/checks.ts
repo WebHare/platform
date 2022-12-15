@@ -1,9 +1,6 @@
 import * as testsupport from "./testsupport";
-import * as fs from "fs";
-import * as node_path from "path";
-import * as ts from "typescript";
-import * as TJS from "typescript-json-schema";
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
+export { LoadTSTypeOptions } from "./testsupport";
 
 
 /** An Annotation must either be a simple string or a callback returning one */
@@ -339,11 +336,6 @@ export interface TestTypeValidator {
   validateStructure(data: unknown, annotation?: string): void;
 }
 
-interface LoadTSTypeOptions {
-  noExtraProps?: boolean;
-  required?: boolean;
-}
-
 class JSONSchemaValidator implements TestTypeValidator {
   validate: ValidateFunction;
   constructor(validatefunction: ValidateFunction) {
@@ -367,61 +359,10 @@ class JSONSchemaValidator implements TestTypeValidator {
   }
 }
 
-/** Typescript parsing is slow, so cache the program */
-const programcache: Record<string, TJS.Program> = {};
 let ajv: (Ajv | null) = null;
 
-export async function loadTSType(typeref: string, options: LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
-
-  let file = typeref.split("#")[0];
-  const typename = typeref.split("#")[1];
-
-  const fileref = file;
-  if (file.startsWith("@mod-"))
-    file = require.resolve(file);
-
-  let tsconfigdir = "";
-  if (process.env["WEBHARE_DIR"] && file.startsWith(process.env["WEBHARE_DIR"]))
-    tsconfigdir = process.env["WEBHARE_DIR"];
-  else if (process.env["WEBHARE_DATAROOT"] && file.startsWith(process.env["WEBHARE_DATAROOT"]))
-    tsconfigdir = process.env["WEBHARE_DATAROOT"];
-  else
-    throw new Error(`Cannot find relevant tsconfig.json file for ${JSON.stringify(file)}`);
-
-  let program = programcache[file];
-  if (!program) {
-    // Read and parse the configuration file
-    const { config } = ts.readConfigFile(node_path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
-    const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
-
-    // Parse file with the definition
-    program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
-
-    const diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
-    if (diagnostics.length) {
-      const host = {
-        getCurrentDirectory: () => process.cwd(),
-        getCanonicalFileName: (path: string) => path,
-        getNewLine: () => "\n"
-      };
-
-      const message = ts.formatDiagnostics(diagnostics, host);
-      console.error(message);
-      throw new Error(`Got errors compiling file: ${JSON.stringify(fileref)}: ${message}`);
-    }
-
-    programcache[file] = program;
-  }
-
-  const schema = TJS.generateSchema(program, typename, {
-    required: true,
-    noExtraProps: true,
-    ...options
-  });
-
-  if (!schema) {
-    throw new Error(`Could not generate a JSON schema for type ${JSON.stringify(typeref)}`);
-  }
+export async function loadTSType(typeref: string, options: testsupport.LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
+  const schema = await testsupport.getJSONSchemaFromTSType(typeref, options);
 
   if (!ajv)
     ajv = new Ajv();
@@ -432,10 +373,7 @@ export async function loadTSType(typeref: string, options: LoadTSTypeOptions = {
 export async function loadJSONSchema(schema: string | SchemaObject): Promise<TestTypeValidator> {
   let tocompile;
   if (typeof schema === "string") {
-    if (schema.startsWith("@mod-"))
-      schema = require.resolve(schema);
-
-    tocompile = JSON.parse(fs.readFileSync(schema).toString("utf-8")) as SchemaObject;
+    tocompile = await testsupport.getJSONSchemaFromFile(schema);
   } else
     tocompile = schema;
 
