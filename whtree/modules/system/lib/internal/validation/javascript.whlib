@@ -287,7 +287,6 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
 
   IF (modulename = "coremodules"
       OR modulename IN whconstant_builtinmodules)
-      //OR (modulename = "webhare_testsuite" AND GetModuleInstallationRoot(modulename) LIKE GetWebhareConfiguration().installationroot || "*"))
   {
     tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
     tsbuildinfofile := MergePath(tsbuildinfodir, "coremodules.tsbuildinfo");
@@ -308,7 +307,6 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
       RETURN retval;
 
     BuildTSConfigFile(installationroot);
-    //CreateModuleTSConfigFile(modulename);
     tsbuildinfofile := MergePath(tsbuildinfodir, `${modulename}.tsbuildinfo`);
     workingdir := installationroot;
 
