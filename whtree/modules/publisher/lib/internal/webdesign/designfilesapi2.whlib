@@ -97,7 +97,7 @@ VARIANT FUNCTION CallAndRetryOnConnectionFailure(FUNCTION PTR fptr)
   }
 }
 
-RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
+PUBLIC RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
 {
   TRY
   {
