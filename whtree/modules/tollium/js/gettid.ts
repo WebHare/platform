@@ -8,15 +8,13 @@ Supported debug flags:
   gtd Debug get(Rich)Tid
 */
 
-interface Tag
-{
+interface Tag {
   t: "tag";
   tag: string;
   subs: string | LanguagePart[]; // These subs are parsed by DecodeLanguageText, which may return a single string
 }
 
-interface Link
-{
+interface Link {
   t: "a";
   link: string;
   linkparam: number;
@@ -24,8 +22,7 @@ interface Link
   subs: string | LanguagePart[]; // These subs are parsed by DecodeLanguageText, which may return a single string
 }
 
-interface IfParam
-{
+interface IfParam {
   t: "ifparam";
   p: number;
   value: string;
@@ -40,8 +37,7 @@ type LanguageText = string | LanguagePart[] | LanguageTexts;
 // A text, a param or a tag, link or ifparam node
 type LanguagePart = string | number | Tag | Link | IfParam;
 
-interface CachedTids
-{
+interface CachedTids {
   [module: string]:
   {
     [language: string]: LanguageTexts;
@@ -53,66 +49,49 @@ type TidParam = string | number | null;
 const allTids: CachedTids = {};
 let curLang = "";
 
-function encodeHTML(input: string)
-{
+function encodeHTML(input: string) {
   return input.split('&').join('&amp;')
-              .split('<').join('&lt;')
-              .split('>').join('&gt;')
-              .split('\n').join('<br/>');
+    .split('<').join('&lt;')
+    .split('>').join('&gt;')
+    .split('\n').join('<br/>');
 }
 
-function executeCompiledTidText(text: LanguageText, params: string[], rich: boolean)
-{
-  if(typeof text == "object" && !Array.isArray(text))
+function executeCompiledTidText(text: LanguageText, params: string[], rich: boolean) {
+  if (typeof text == "object" && !Array.isArray(text))
     text = text?.[""] as string;
   if (text == null)
     return text;
-  if(typeof text == "string")
+  if (typeof text == "string")
     return rich ? encodeHTML(text) : text;
 
   let output = '';
-  for(const tok of text)
-  {
-    if(typeof tok == "string")
-    {
+  for (const tok of text) {
+    if (typeof tok == "string") {
       output += rich ? encodeHTML(tok) : tok;
-    }
-    else if (typeof tok == "number")
-    {
-      if (tok >= 1)
-      {
-        const get_param = params?.[tok-1];
-        if(get_param)
-        {
+    } else if (typeof tok == "number") {
+      if (tok >= 1) {
+        const get_param = params?.[tok - 1];
+        if (get_param) {
           output += rich ? encodeHTML(get_param) : get_param;
         }
       }
-    }
-    else if(tok.t == "tag")
-    {
+    } else if (tok.t == "tag") {
       const sub = executeCompiledTidText(tok.subs, params, rich);
       output += rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub;
-    }
-    else  if(tok.t == "ifparam")
-    {
-      const get_param = params?.[tok.p-1] || '';
+    } else if (tok.t == "ifparam") {
+      const get_param = params?.[tok.p - 1] || '';
       output += executeCompiledTidText(get_param.toUpperCase() == tok.value.toUpperCase() ? tok.subs : tok.subselse, params, rich);
-    }
-    else if(tok.t == "a")
-    {
+    } else if (tok.t == "a") {
       const sub = executeCompiledTidText(tok.subs, params, rich);
-      if(rich)
-      {
+      if (rich) {
         let link = tok.link;
-        if(tok.linkparam > 0 && tok.linkparam <= params.length)
+        if (tok.linkparam > 0 && tok.linkparam <= params.length)
           link = params[tok.linkparam - 1];
-        if(link)
+        if (link)
           output += `<a href="${encoding.encodeValue(link)}">${sub}</a>`;
         else
           output += sub;
-      }
-      else
-      {
+      } else {
         output += sub;
       }
     }
@@ -120,12 +99,11 @@ function executeCompiledTidText(text: LanguageText, params: string[], rich: bool
   return output;
 }
 
-function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: { overridelanguage?: string; html?: boolean }): string
-{
-  if(curLang=='debug')
+function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: { overridelanguage?: string; html?: boolean }): string {
+  if (curLang == 'debug')
     return '{' + tid + (params.length ? '|' + params.join('|') : '') + '}';
 
-  if(tid[0] == '~')
+  if (tid[0] == '~')
     tid = 'tollium:tilde.' + tid.substring(1);
 
   // Convert params to string
@@ -136,25 +114,21 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
 
   // Check if the module is defined
   const module = tid.substring(0, tid.indexOf(":"));
-  if (!module || !(module in allTids))
-  {
+  if (!module || !(module in allTids)) {
     if (!wh.config.islive || domdebug.debugflags.gtd)
       console.warn("No language texts found for module '" + module + "'");
     return /*cannot find*/ text;
   }
 
   const language = options?.overridelanguage || getTidLanguage();
-  if (!(language in allTids[module]))
-  {
+  if (!(language in allTids[module])) {
     if (!wh.config.islive || domdebug.debugflags.gtd)
       console.warn("No language texts found for language '" + language + "'");
     return /*cannot find*/ text;
   }
 
-  try
-  {
-    if (domdebug.debugflags.gtd)
-    {
+  try {
+    if (domdebug.debugflags.gtd) {
       console.group(`Resolving tid '${tid}'`);
       console.info({ tid, strparams, options, language, context: allTids[module][language] });
     }
@@ -162,23 +136,19 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
     // Dig into the module gid structure
     let context: LanguageText = allTids[module][language];
     tid = tid.substring(module.length + 1);
-    if (!tid.split(".").every(part =>
-      {
-        if (typeof context == "string" || Array.isArray(context) || !(part in context))
-        {
-          console.warn("Subpart '"+ part + "' not found");
-          return false; // If not found, break 'every' loop
-        }
-        context = context[part];
-        return true;
-      }))
-    {
+    if (!tid.split(".").every(part => {
+      if (typeof context == "string" || Array.isArray(context) || !(part in context)) {
+        console.warn("Subpart '" + part + "' not found");
+        return false; // If not found, break 'every' loop
+      }
+      context = context[part];
+      return true;
+    })) {
       return /*cannot find*/ text;
     }
 
     const executed = executeCompiledTidText(context, strparams, options?.html ?? false);
-    if (executed == null)
-    {
+    if (executed == null) {
       if (domdebug.debugflags.gtd)
         console.warn(`Tid '${module}:${tid}'' is a group node`);
       return /*cannot find*/ text;
@@ -187,51 +157,40 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
       console.info("getTid", `${module}:${tid}`, strparams, executed);
 
     return executed;
-  }
-  finally
-  {
+  } finally {
     if (domdebug.debugflags.gtd)
       console.groupEnd();
   }
 }
 
-function getTid(tid: string, p1?: TidParam, p2?: TidParam, p3?: TidParam, p4?: TidParam)
-{
-  return resolveTid(tid, [ p1, p2, p3, p4 ]);
+function getTid(tid: string, p1?: TidParam, p2?: TidParam, p3?: TidParam, p4?: TidParam) {
+  return resolveTid(tid, [p1, p2, p3, p4]);
 }
 
-function getHTMLTid(tid: string, p1?: TidParam, p2?: TidParam, p3?: TidParam, p4?: TidParam)
-{
-  return resolveTid(tid, [ p1, p2, p3, p4 ], { html: true });
+function getHTMLTid(tid: string, p1?: TidParam, p2?: TidParam, p3?: TidParam, p4?: TidParam) {
+  return resolveTid(tid, [p1, p2, p3, p4], { html: true });
 }
 
-function getTidLanguage()
-{
+function getTidLanguage() {
   if (curLang)
     return curLang;
 
   // Read the document's language, if there is a DOM context
   if (typeof document != "undefined")
-    curLang = (document.documentElement.lang||'').substring(0,2);
+    curLang = (document.documentElement.lang || '').substring(0, 2);
 
   return curLang;
 }
 
-function setTidLanguage(lang: string)
-{
+function setTidLanguage(lang: string) {
   curLang = lang;
 }
 
-function tidMerge(readContext: LanguageTexts, writeContext: LanguageTexts)
-{
-  for (const key of Object.keys(readContext))
-  {
-    if (typeof readContext[key] != "object" || Array.isArray(readContext[key])) //a leaf, safe to copy
-    {
+function tidMerge(readContext: LanguageTexts, writeContext: LanguageTexts) {
+  for (const key of Object.keys(readContext)) {
+    if (typeof readContext[key] != "object" || Array.isArray(readContext[key])) { //a leaf, safe to copy
       writeContext[key] = readContext[key];
-    }
-    else
-    {
+    } else {
       if (!(key in writeContext))
         writeContext[key] = {};
       tidMerge(readContext[key] as LanguageTexts, writeContext[key] as LanguageTexts);
@@ -239,14 +198,11 @@ function tidMerge(readContext: LanguageTexts, writeContext: LanguageTexts)
   }
 }
 
-function registerTexts(module: string, language: string, tids: LanguageTexts)
-{
-  if (!(module in allTids))
-  {
+function registerTexts(module: string, language: string, tids: LanguageTexts) {
+  if (!(module in allTids)) {
     allTids[module] = {};
   }
-  if (!(language in allTids[module]))
-  {
+  if (!(language in allTids[module])) {
     allTids[module][language] = tids;
     return;
   }
@@ -254,13 +210,11 @@ function registerTexts(module: string, language: string, tids: LanguageTexts)
 }
 
 // Fill nodes with a data-texttid attribute with the translated text
-function convertElementTids(scope = document.body)
-{
+function convertElementTids(scope = document.body) {
   // Only available in a DOM context and if the DOM is ready
   if (typeof document == "undefined" || !scope)
     return;
-  Array.from(scope.querySelectorAll("*[data-texttid]")).forEach(function(node)
-  {
+  Array.from(scope.querySelectorAll("*[data-texttid]")).forEach(function(node) {
     node.textContent = getTid(node.getAttribute("data-texttid") || "");
   });
 }
@@ -276,10 +230,11 @@ Object.defineProperty(getTid, "tidLanguage", { get: getTidLanguage, set: setTidL
 getTid.html = getHTMLTid;
 
 // Export getTid as the default function, explicitly export getTid, getHTMLTid and registerTexts as well
-export { getTid as default
-       , getTid
-       , getTidLanguage
-       , getHTMLTid
-       , convertElementTids
-       , registerTexts
-       };
+export {
+  getTid as default,
+  getTid,
+  getTidLanguage,
+  getHTMLTid,
+  convertElementTids,
+  registerTexts
+};
