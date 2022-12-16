@@ -41,3 +41,10 @@ DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "tmp");
 //5.1 moved nodejs/node_modules, delete old version
 STRING oldwhdatamods := GetWebhareConfiguration().basedataroot || "nodejs/node_modules/";
 DeleteDiskDirectoryRecursive(oldwhdatamods);
+
+//5.1 moved webhare-config/tsconfig.json, delete old version
+IF (RecordExists(GetDiskFileProperties(MergePath(GetWebhareConfiguration().basedataroot, "webhare-config/tsconfig.json"))))
+{
+  DeleteDiskFile(MergePath(GetWebhareConfiguration().basedataroot, "webhare-config/tsconfig.json"));
+  DeleteDiskDirectory(MergePath(GetWebhareConfiguration().basedataroot, "webhare-config"));
+}
