@@ -97,6 +97,9 @@ IF(urlbase LIKE "*/!/*")
         {
           RECORD indicator := GetHeadersForAdhocBundle("mod::webhare_testsuite/js/testbundlecompilefailed.es");
           headers.headers := indicator.headers || headers.headers;
+
+          IF (indicator.haserrors)
+            THROW NEW Exception(`Could not compile adhoc bundle for testbundlecompilefailed.js: ${UCTruncate(indicator.errors, 500)}`);
         }
 
         RECORD data := [ printheaders := PTR Print(headers.headers)
@@ -170,6 +173,9 @@ IF (testlisturl = "")
 OBJECT testrunwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
 
 RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.es");
+IF (headers.haserrors)
+  THROW NEW Exception(`Could not compile adhoc bundle for testsuite.es: ${UCTruncate(headers.errors, 500)}`);
+
 RECORD data := [ printheaders :=    PTR Print(headers.headers)
                , mask :=            masks
                , skips :=           skips
