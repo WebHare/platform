@@ -9,6 +9,8 @@ export {
   , sleep
   , throws
   , setupLogging
+  , loadTSType
+  , loadJSONSchema
 } from './checks';
 let testscompleted = false;
 

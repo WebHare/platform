@@ -361,8 +361,7 @@ HERE
     mv $WEBHARE_DIR/modules/system/whres/buildinfo.tmp $WEBHARE_DIR/modules/system/whres/buildinfo
   fi
 
-  # always replace webhare-config/tsconfig.json at startup
-  setup_node --force
+  setup_node
 }
 
 INSTR="${1:-help}"

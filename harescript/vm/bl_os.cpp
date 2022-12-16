@@ -528,6 +528,11 @@ bool OSContext::DeleteDiskDirectory(std::string const &path, bool recurse)
         return recurse ? Blex::RemoveDirRecursive(path) : Blex::RemoveDir(path) ;
 }
 
+std::string OSContext::GetRealPath(std::string const &path)
+{
+        return Blex::GetRealPath(path);
+}
+
 Blex::FileOffset OSContext::GetFilelength(HSVM *vm,int filehandle)
 {
         FileInfo *file = GetFile(filehandle);
@@ -1197,6 +1202,12 @@ void HS_DeleteDiskDirectoryRecursive(VarId id_set, VirtualMachine *vm)
 
         HSVM_BooleanSet(*vm, id_set, context->os.DeleteDiskDirectory(HSVM_StringGetSTD(*vm, HSVM_Arg(0)),true));
 }
+void HS_GetRealPath(VarId id_set, VirtualMachine *vm)
+{
+        Baselibs::SystemContext context(vm->GetContextKeeper());
+
+        HSVM_StringSetSTD(*vm, id_set, context->os.GetRealPath(HSVM_StringGetSTD(*vm, HSVM_Arg(0))));
+}
 void HS_IsProcessRunning(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
@@ -1608,6 +1619,7 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DELETEDISKDIRECTORY::B:S",HS_DeleteDiskDirectory));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DELETEDISKDIRECTORYRECURSIVE::B:S",HS_DeleteDiskDirectoryRecursive));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DELETEDISKFILE::B:S",HS_DeleteDiskFile));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETREALPATH::S:S",HS_GetRealPath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("FLUSHOUTPUTBUFFER:::",HS_FlushOutputBuffer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISCONSOLEATERMINAL::B:",HS_IsConsoleATerminal));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISCONSOLESUPPORTAVAILABLE::B:",HS_IsConsoleSupportAvailable));

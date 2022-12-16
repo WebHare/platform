@@ -1,5 +1,5 @@
 import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
-import path from "node:path";
+import * as path from "node:path";
 
 /** Promise that resolves as soon as the WebHare configuration is available */
 export function ready() : Promise<void> {

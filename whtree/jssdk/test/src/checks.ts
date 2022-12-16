@@ -1,4 +1,7 @@
 import * as testsupport from "./testsupport";
+import Ajv, { SchemaObject, ValidateFunction } from "ajv";
+export { LoadTSTypeOptions } from "./testsupport";
+
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
@@ -335,6 +338,57 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
 export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
   if(settings.onLog)
     onLog = settings.onLog;
+}
+
+export interface TestTypeValidator {
+  validateStructure(data: unknown, annotation?: string): void;
+}
+
+class JSONSchemaValidator implements TestTypeValidator {
+  validate: ValidateFunction;
+  constructor(validatefunction: ValidateFunction) {
+    this.validate = validatefunction;
+  }
+  validateStructure(data: unknown, annotation?: Annotation) {
+    const valid = this.validate(data);
+    if (!valid) {
+      if (annotation)
+        logAnnotation(annotation);
+
+      let message = "";
+      if (this.validate.errors) {
+        if (this.validate.errors[0].message)
+          message = `${JSON.stringify(this.validate.errors[0].instancePath)} ${this.validate.errors[0].message}`;
+        console.log("Got structure validation errors: ", this.validate.errors);
+      }
+
+      throw new Error(`validateStructure failed - data does not conform to the structure${message ? `: ${message}` : ""}`);
+    }
+  }
+}
+
+let ajv: (Ajv | null) = null;
+
+export async function loadTSType(typeref: string, options: testsupport.LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
+  const schema = await testsupport.getJSONSchemaFromTSType(typeref, options);
+
+  if (!ajv)
+    ajv = new Ajv();
+
+  return new JSONSchemaValidator(ajv.compile(schema));
+}
+
+export async function loadJSONSchema(schema: string | SchemaObject): Promise<TestTypeValidator> {
+  let tocompile;
+  if (typeof schema === "string") {
+    tocompile = await testsupport.getJSONSchemaFromFile(schema);
+  } else
+    tocompile = schema;
+
+  if (!ajv)
+    ajv = new Ajv();
+
+  return new JSONSchemaValidator(ajv.compile(tocompile));
 }
 
 export {

@@ -9,6 +9,8 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 // Reset for 5.0 as 4.35 is a required update, but I'm sure there will be new poststart cleanup updates so we'll keep this script
 OpenPrimary();
+STRING dataroot := GetWebhareConfiguration().basedataroot;
+STRING installationroot := GetWebhareConfiguration().installationroot;
 
 // 5.0.0 - drop manually configured tasks
 // 5.1 update to also delete tasks not conforming to the `module.task` pattern
@@ -23,21 +25,33 @@ IF(Length(legacytasks) > 0)
 }
 
 // 5.0.0 - Cleanup stray pid files
-DeleteDiskFile(GetWebhareConfiguration().varroot || ".dbserver.pid");
-
-// 5.0.2 - Remove legacy indexmanager data files
-DeleteDiskFile(GetWebhareConfiguration().varroot || "index");
+DeleteDiskFile(MergePath(dataroot, ".dbserver.pid"));
 
 // 5.1 (for next postartcleanup-tag 'bump') - Cleanup stray pid files, other obsolete experiments
-DeleteDiskFile(GetWebhareConfiguration().varroot || "webhare.pid");
-DeleteDiskDirectoryRecursive(GetWebhareConfiguration().varroot || "dev");
-DeleteDiskFile(GetWebhareConfiguration().installationroot || ".webhare-envsettings.sh");
+DeleteDiskFile(MergePath(dataroot, "webhare.pid"));
+DeleteDiskDirectoryRecursive(MergePath(dataroot, "dev"));
+DeleteDiskFile(installationroot || ".webhare-envsettings.sh");
 //speculative cleanup - though those dirs may not be empty everywhere yet.. so only clean if already empty
-DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "log");
-DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "output");
-DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "var");
-DeleteDiskDirectory(GetWebhareConfiguration().installationroot || "tmp");
+DeleteDiskDirectory(installationroot || "log");
+DeleteDiskDirectory(installationroot || "output");
+DeleteDiskDirectory(installationroot || "var");
+DeleteDiskDirectory(installationroot || "tmp");
 
-//5.1 moved nodejs/node_modules, delete old version
-STRING oldwhdatamods := GetWebhareConfiguration().basedataroot || "nodejs/node_modules/";
-DeleteDiskDirectoryRecursive(oldwhdatamods);
+//5.2 moved nodejs, delete old version and other basedataroot junk
+DeleteDiskDirectoryRecursive(MergePath(dataroot, "nodejs"));
+
+//5.1 moved webhare-config/tsconfig.json, delete old version
+IF (RecordExists(GetDiskFileProperties(MergePath(dataroot, "webhare-config/tsconfig.json"))))
+{
+  DeleteDiskFile(MergePath(dataroot, "webhare-config/tsconfig.json"));
+  DeleteDiskDirectory(MergePath(dataroot, "webhare-config"));
+}
+
+//5.2 - *really* remove legacy indexmanager data files, 5.0.2 attempted to delete it as a file
+DeleteDiskDirectoryRecursive(MergePath(dataroot, "index"));
+
+//5.2 - no longer supported (since earlier WebHares already)
+DeleteDiskFile(MergePath(dataroot, "currentserverconfig.xml"));
+DeleteDiskFile(MergePath(dataroot, "etc/serverconfig.xml"));
+
+DeleteDiskDirectory(MergePath(dataroot, "etc")); //only delete if really empty.. what else might still be here?

@@ -627,6 +627,11 @@ PUBLIC BOOLEAN FUNCTION CreateSoftLink(STRING path, STRING linkto) __ATTRIBUTES_
     @return True on success */
 PUBLIC BOOLEAN FUNCTION CreateHardLink(STRING path, STRING linkto) __ATTRIBUTES__(EXTERNAL);
 
+/** @short Returns an absolute pathname that resolves to the same directory entry as path, without using '.', '..', or symbolic links.
+    @param path Path to resolve
+    @return Resolved absolute path name */
+PUBLIC STRING FUNCTION GetRealPath(STRING path) __ATTRIBUTES__(EXTERNAL);
+
 /** @short Convert a blob to a string
     @param data Blob to read
     @param maxlen Maximum number of bytes to convert, if -1 or unspecified, convert all blob data

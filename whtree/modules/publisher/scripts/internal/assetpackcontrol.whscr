@@ -90,6 +90,7 @@ STATIC OBJECTTYPE FilePathTranslator
 
     STRING data_nodejs := MergePath(GetWebHareConfiguration().varroot, "node_modules") || "/";
     STRING installed_nodejs := MergePath(GetWebHareConfiguration().installationroot, "node_modules") || "/";
+    STRING jssdk := MergePath(GetWebHareConfiguration().installationroot, "jssdk") || "/";
 
     modules := modules CONCAT
         [ [ module :=     "__wh"
@@ -111,6 +112,11 @@ STATIC OBJECTTYPE FilePathTranslator
           , path :=       data_nodejs
           , assetpath :=  ""
           , eventmask :=  "system:modulefolder." || data_nodejs
+          ]
+        , [ module :=     "__jssdk"
+          , path :=       jssdk
+          , assetpath :=  ""
+          , eventmask :=  "system:modulefolder." || jssdk
           ]
         ];
 
@@ -592,7 +598,7 @@ STATIC OBJECTTYPE AssetPackController
   }
 
   // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
-  // as a workaround, mark as compiling in a normal function, that retrn the async function result
+  // as a workaround, mark as compiling in a normal function, that return the async function result
   OBJECT ASYNC FUNCTION RecompileBundle(RECORD bundle)
   {
     IF (debug)

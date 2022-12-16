@@ -317,6 +317,7 @@ struct OSContext
         bool IsProcessRunning(int processid);
         bool DeleteDiskFile(std::string const &path);
         bool DeleteDiskDirectory(std::string const &path, bool recurse);
+        std::string GetRealPath(std::string const &path);
         Blex::FileOffset GetFilelength(HSVM *vm, int filehandle);
         void SetDiskFilelength(int filehandle, Blex::FileOffset filesize);
         Blex::FileOffset GetFilePointer(HSVM *vm, int filehandle);

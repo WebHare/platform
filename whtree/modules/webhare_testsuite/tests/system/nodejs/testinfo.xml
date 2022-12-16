@@ -7,6 +7,7 @@
   <test script="test_fifo.ts" />
   <test script="test_waitabletimer.ts" />
   <test script="test_utf8.ts" />
+  <test script="test_tsconfig.whscr" />
   <jstest file="testfinmath.es" />
   <test name="meta" path="meta/" />
 </group>

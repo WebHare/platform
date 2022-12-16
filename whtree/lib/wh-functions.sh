@@ -194,34 +194,10 @@ calc_dir_relpath()
 
 setup_node()
 {
-  local relpath
-
   getwhparameters
   export NODE_PATH=$WEBHARE_DATAROOT/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
-
-  # Make sure $WEBHARE_DATAROOT/webhare-config/tsconfig.json exists
-  if [ ! -f "$WEBHARE_DATAROOT/webhare-config/tsconfig.json" ] || [ "$1" == "--force" ]; then
-    # absolute paths in "extends" don't seem to work
-    mkdir -p "$WEBHARE_DATAROOT/webhare-config/"
-    calc_dir_relpath relpath "$WEBHARE_DATAROOT/webhare-config" "$WEBHARE_DIR"
-    # Mirror the NODE_PATH for path resolution
-    # and make sure the 'node' types-definitions are loaded (won't be inherited, so need
-    # to copy them)
-    cat << EOF > "$WEBHARE_DATAROOT/webhare-config/tsconfig.json"
-{ "extends": "${relpath}tsconfig.json"
-, "compilerOptions":
-  { "paths": {
-      "*": [
-        "*",
-        "$WEBHARE_DATAROOT/node_modules/*"
-      ],
-    },
-  }
-}
-EOF
-  fi
-  export TS_NODE_PROJECT="$WEBHARE_DATAROOT/webhare-config/tsconfig.json"
+  export TS_NODE_PROJECT="${WEBHARE_DATAROOT}tsconfig.json"
 }
 
 getlog()

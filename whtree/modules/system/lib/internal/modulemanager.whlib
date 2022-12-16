@@ -704,13 +704,11 @@ MACRO EnsureFileContents(STRING path, STRING content)
   }
 }
 
-PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
+PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEAN isallmodules)
 {
   STRING installationroot := GetWebhareConfiguration().installationroot;
   STRING whdataroot := GetWebhareConfiguration().basedataroot;
-  STRING whdatamods := MergePath(whdataroot, "node_modules/");
   STRING storageroot := MergePath(whdataroot, "storage");
-  CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
   // Only create links for modules where GetModuleInstallationRoot is non-empty
   RECORD ARRAY modulelinks :=
@@ -727,8 +725,94 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
            , target :=  MergePath(storageroot, module)
         FROM modulelinks;
 
-  RECORD ARRAY tocheck := modulelinks CONCAT modulestoragelinks;
+  RECORD ARRAY items := modulelinks CONCAT modulestoragelinks;
 
+  // Also add dompack and other exported modules
+  IF (isallmodules)
+  {
+    items := items CONCAT
+      [ [ name :=     "dompack"
+        , type :=     "softlink"
+        , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
+        ]
+      , [ name :=     "@types"
+        , type :=     "directory"
+        , items :=    [ [ name :=     "node"
+                        , type :=     "softlink"
+                        , target :=   installationroot || "node_modules/@types/node"
+                        ]
+                      ]
+        ]
+      , [ name :=     "@webhare"
+        , type :=     "softlink"
+        , target :=   `${installationroot}jssdk`
+        ]
+      , [ name :=     "typescript"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/typescript")
+        ]
+        // ESLint plugins from mod::system/data/validate/eslint-config-defaultconfig/.eslintrc.json
+      , [ name :=     "@typescript-eslint"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/@typescript-eslint")
+        ]
+      , [ name :=     "eslint-plugin-react"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-react")
+        ]
+      , [ name :=     "eslint-plugin-tsdoc"
+        , type :=     "softlink"
+        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-tsdoc")
+        ]
+      ];
+  }
+
+  RETURN items;
+}
+
+RECORD FUNCTION GetTSConfigPathsRecursive(RECORD ARRAY items, STRING subpath, STRING basedir)
+{
+  RECORD result;
+  FOREVERY (RECORD rec FROM items)
+    IF (rec.type = "directory")
+      result := CELL[ ...result, ...GetTSConfigPathsRecursive(rec.items, `${subpath}${rec.name}/`, basedir) ];
+    ELSE IF (rec.type = "softlink")
+    {
+      IF (RecordExists(ReadDiskDirectory(rec.target, "index.*")))
+        result := CellInsert(result, `${subpath}${rec.name}`, [ ResolveToRelativePath(basedir, rec.target) ]);
+      result := CellInsert(result, `${subpath}${rec.name}/*`, [ ResolveToRelativePath(basedir, MergePath(rec.target, "*")) ]);
+    }
+  RETURN result;
+}
+
+PUBLIC MACRO BuildTSConfigFile(STRING dir)
+{
+  STRING installationroot := GetWebhareConfiguration().installationroot;
+  RECORD ARRAY node_modules := GetDataRootNodeModules(GetInstalledModuleNames(), TRUE);
+
+  OBJECT compileroptions := NEW JSONObject;
+  compileroptions->SetProp("paths", GetTSConfigPathsRecursive(node_modules, "", dir));
+  compileroptions->SetProp("baseUrl", ".");
+
+  OBJECT tsconfig := NEW JSONObject;
+  tsconfig->SetProp("extends", ResolveToRelativePath(dir, MergePath(installationroot, "tsconfig.json")));
+  tsconfig->SetProp("compilerOptions", compileroptions);
+
+  StoreDiskFile(MergePath(dir, "tsconfig.json"), EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]), [ overwrite := TRUE ]);
+}
+
+MACRO FixDataRootTSConfig()
+{
+  STRING whdataroot := GetWebhareConfiguration().basedataroot;
+  BuildTSConfigFile(whdataroot);
+}
+
+PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
+{
+  STRING installationroot := GetWebhareConfiguration().installationroot;
+  STRING whdataroot := GetWebhareConfiguration().basedataroot;
+  STRING whdatamods := MergePath(whdataroot, "node_modules/");
+  CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
   EnsureFileContents(MergePath(whdataroot, ".eslintrc.json"),
   `{
@@ -755,41 +839,8 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 `engine-strict = true
 `);
 
-  // Also add dompack and other exported modules
-  IF (isallmodules)
-  {
-    tocheck := tocheck CONCAT
-      [ [ name :=     "dompack"
-        , type :=     "softlink"
-        , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
-        ]
-      , [ name :=     "@types"
-        , type :=     "directory"
-        , items :=    [ [ name :=     "node"
-                        , type :=     "softlink"
-                        , target :=   installationroot || "node_modules/@types/node"
-                        ]
-                      ]
-        ]
-      , [ name :=     "@webhare"
-        , type :=     "softlink"
-        , target :=   `${installationroot}jssdk`
-        ]
-        // ESLint plugins from mod::system/data/validate/eslint-config-defaultconfig/.eslintrc.json
-      , [ name :=     "@typescript-eslint"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/@typescript-eslint")
-        ]
-      , [ name :=     "eslint-plugin-react"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-react")
-        ]
-      , [ name :=     "eslint-plugin-tsdoc"
-        , type :=     "softlink"
-        , target :=   MergePath(installationroot, "node_modules/eslint-plugin-tsdoc")
-        ]
-      ];
-  }
-
+  RECORD ARRAY tocheck := GetDataRootNodeModules(modules, isallmodules);
   SyncLinks(whdatamods, tocheck, isallmodules);
+
+  FixDataRootTSConfig();
 }

@@ -433,9 +433,15 @@ if [ -n "$ADDMODULES" ]; then
 
     # Don't copy files that won't be committed due to default git ignore rules
     mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-    if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
-      echo "Failed to copy $MODULE"
-      exit 1
+    if [ -d "$MODULE/.git" ]; then
+      if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
+        echo "Failed to copy $MODULE"
+        exit 1
+      fi
+    else
+      # non-git module, just copy all
+      mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+      cp -a "$MODULE/" "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
     fi
   done
 fi

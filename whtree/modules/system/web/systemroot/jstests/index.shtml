@@ -11,8 +11,36 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
-
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
+
+
+RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint)
+{
+  RECORD requestedbundle := MakeEmptyBundle();
+  requestedbundle.basedependency := GetWebHareResourceDiskPath(entrypoint);
+  requestedbundle.adhoc := TRUE;
+  requestedbundle.bundleconfig.languages := STRING[];
+
+  STRING designhash := GetHashForBundle(requestedbundle);
+  RECORD packinginfo := GetPackingInfo(requestedbundle).value;
+
+  STRING bundlebaseurl := `/.ap/${designhash}/`;
+
+  STRING headers := `<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css"><script src="${EncodeValue(bundlebaseurl)}ap.js"></script>\n`;
+  STRING errors;
+
+  IF (packinginfo.haserrors)
+  {
+    OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+    VARIANT status := WaitForPromise(assetpackcontrol->GetBundleStatus(designhash));
+    IF (RecordExists(status))
+      errors := status.errors;
+    assetpackcontrol->CloseService();
+  }
+
+  RETURN CELL[ headers, packinginfo.haserrors, errors ];
+}
 
 
 OBJECT trans := OpenPrimary();
@@ -64,19 +92,31 @@ IF(urlbase LIKE "*/!/*")
       OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML-NI");
       IF(Length(suburltoks) <= 2)
       {
-        RECORD data := [ printheaders := DEFAULT MACRO PTR
+        RECORD headers := GetHeadersForAdhocBundle(affectedtest.testscript.scriptpath);
+        IF (headers.haserrors)
+        {
+          RECORD indicator := GetHeadersForAdhocBundle("mod::webhare_testsuite/js/testbundlecompilefailed.es");
+          headers.headers := indicator.headers || headers.headers;
+
+          IF (indicator.haserrors)
+            THROW NEW Exception(`Could not compile adhoc bundle for testbundlecompilefailed.js: ${UCTruncate(indicator.errors, 500)}`);
+        }
+
+        RECORD data := [ printheaders := PTR Print(headers.headers)
                        , hasdevmodule := IsModuleInstalled("dev")
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"
                                      , server := GetWebhareVersionNumber()
                                      ]
+                       , bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
+                                             , headers.errors
+                                             ]
                        ];
 
         //We need to generate a full page for the specified test
         AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE); //allow testscripts to do/load whatever they want (this was needed for LIVE testing, but perhaps move scriptframe CSPs to testinfo.xml instead?)
-        OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(affectedtest.testscript.scriptpath));
-        data.printheaders := PTR depsolver->printheaders(DEFAULT OBJECT,"");
+
         testwitty->RunComponent("emptytestpage", data);
         RETURN;
       }
@@ -132,9 +172,11 @@ IF (testlisturl = "")
 
 OBJECT testrunwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
 
-OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath("mod::system/web/systemroot/jstests/testsuite.es"));
+RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.es");
+IF (headers.haserrors)
+  THROW NEW Exception(`Could not compile adhoc bundle for testsuite.es: ${UCTruncate(headers.errors, 500)}`);
 
-RECORD data := [ printheaders :=    PTR depsolver->PrintHeaders(DEFAULT OBJECT,"")
+RECORD data := [ printheaders :=    PTR Print(headers.headers)
                , mask :=            masks
                , skips :=           skips
                , testlisturl :=     testlisturl

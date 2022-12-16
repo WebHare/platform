@@ -25,6 +25,7 @@ coverage.tar.gz
 /whtree/modules/system/data/shrinkwrap-var.tgz
 /whtree/modules/system/data/engines/*.jar
 /whtree/modules/system/whres/buildinfo
+/whtree/modules/webhare_testsuite/tsconfig.json
 /whtree/modules/webhare_testsuite/web/tests/temp/
 /whtree/modules/webhare_testsuite/tests/wh/hscore/xml/generated
 /whtree/modules/webhare_testsuite/webdesigns/basetest/bower_components
