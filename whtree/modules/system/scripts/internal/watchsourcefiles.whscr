@@ -157,8 +157,7 @@ STRING ARRAY extradirs :=
       FROM ToRecordArray(Tokenize(ReadRegistryKey("system.backend.development.watchdirs"), ","), "PATH")
      WHERE TrimWhitespace(path) != "";
 
-// Also watch all nodejs dirs
-INSERT MergePath(GetWebHareConfiguration().basedataroot, "nodejs") INTO watchdirs AT END;
+// Also watch all nodejs dirs and jssdk
 INSERT MergePath(GetWebHareConfiguration().installationroot, "node_modules") INTO watchdirs AT END;
 INSERT MergePath(GetWebHareConfiguration().installationroot, "jssdk") INTO watchdirs AT END;
 
