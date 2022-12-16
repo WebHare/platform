@@ -280,7 +280,7 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   IF (modulename IN whconstant_builtinmodules)
     THROW NEW Exception(`Cannot check individual core modules, use "coremodules" to check all core modules`);
 
-  // For core modules (or webhare_testsuite when present in whtree) use the whtree tsconfig.json
+  // Use the whtree tsconfig.json for core modules (but never for webhare_testsuite)
   STRING tsbuildinfodir := MergePath(GetWebhareConfiguration().ephemeralroot, "system.typescript");
   STRING tsconfigpath, tsbuildinfofile;
   STRING workingdir := GetWebhareConfiguration().installationroot;
