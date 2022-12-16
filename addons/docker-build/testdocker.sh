@@ -19,6 +19,7 @@ else
 fi
 
 version=""
+ORIGINALARGS=("$@")
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
 ALLOWSTARTUPERRORS=""
 DOCKERARGS=
@@ -257,6 +258,21 @@ if [ "$NOPULL" != "1" ]; then
     fi
   fi
 fi
+
+# Reproduce a valid command line.
+echo
+echo -n "** To run this test locally: "
+while IFS='=' read -r -d '' n v; do
+  if [[ "$n" =~ ^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS) ]]; then
+    # printf "'%s'='%s' " "$n" "$v" - more safe but 'ugly' :-)
+    printf "%s=%s " "$n" "$v"
+  fi
+done < <(env -0)
+echo -n "wh testdocker "
+#  Add --sh if it wasn't there yet
+[ -n "$ENTERSHELL" ] || echo -n "--sh "
+echo "${ORIGINALARGS[@]}"
+echo
 
 # List our configuration
 echo "Test environment variables:"

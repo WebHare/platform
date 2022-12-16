@@ -11,11 +11,12 @@ export function ready() : Promise<void> {
 
     @param func - Reference to the function (in the form 'resourcename#functionname'). HareScipt and JavaScript functions are both supported.
     @param args - Arguments
+    @param options - openPrimary
     @returns Promise resolving to the final function's value
 */
-export async function callHareScript(func: string, args: unknown[]) {
+export async function callHareScript(func: string, args: unknown[], options?: { openPrimary: boolean } ) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
-  return WHBridge.invoke(func,args);
+  return WHBridge.invoke(func, args, options);
 }
 
 export interface WebHareModuleConfiguration
