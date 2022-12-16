@@ -2,7 +2,7 @@ import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
 import * as path from "node:path";
 
 /** Promise that resolves as soon as the WebHare configuration is available */
-export function ready() : Promise<void> {
+export function ready(): Promise<void> {
   //needs to be a function so we can mark a waiter so nodejs doesn't abort during `await services.ready()`
   return WHBridge.ready;
 }
@@ -14,20 +14,19 @@ export function ready() : Promise<void> {
     @param options - openPrimary
     @returns Promise resolving to the final function's value
 */
-export async function callHareScript(func: string, args: unknown[], options?: { openPrimary: boolean } ) {
+export async function callHareScript(func: string, args: unknown[], options?: { openPrimary: boolean }) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
   return WHBridge.invoke(func, args, options);
 }
 
-export interface WebHareModuleConfiguration
-{
+export interface WebHareModuleConfiguration {
   /** Module's version */
   // version: string; // TODO
   /** Absolute path to module root data */
   root: string;
 }
 
-type WebHareModuleMap = { [name:string]: WebHareModuleConfiguration };
+type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
 
 /** Describes the configuration of a WebHare backend */
 export interface WebHareBackendConfiguration {
@@ -40,29 +39,28 @@ export interface WebHareBackendConfiguration {
   module: WebHareModuleMap;
 }
 
-let config : WebHareBackendConfiguration | null = null;
+let config: WebHareBackendConfiguration | null = null;
 
-function buildModuleInfo(moduleroots: object)
-{
+function buildModuleInfo(moduleroots: object) {
   const map: WebHareModuleMap = {};
-  for(const [modulename, data] of Object.entries(moduleroots))
+  for (const [modulename, data] of Object.entries(moduleroots))
     map[modulename] = { root: data };
   return map;
 }
 
-WHBridge.onConfigurationUpdate(versioninfo =>
-{
+WHBridge.onConfigurationUpdate(versioninfo => {
   //bridge versioninfo should probably just exactly follow WebHareBackendConfiguration but let's do that when we have only one bridge implementation left
   const vdata = versioninfo as VersionData;
-  const newconfig = { installationroot: vdata.installationroot
-                    , dataroot: vdata.varroot
-                    , module: buildModuleInfo(vdata.moduleroots)
-                    };
+  const newconfig = {
+    installationroot: vdata.installationroot,
+    dataroot: vdata.varroot,
+    module: buildModuleInfo(vdata.moduleroots)
+  };
   config = Object.freeze(newconfig);
 });
 
-export function getConfig() : Readonly<WebHareBackendConfiguration> {
-  if(!config)
+export function getConfig(): Readonly<WebHareBackendConfiguration> {
+  if (!config)
     throw new Error("WebHare services are not yet available. You may need to await services.ready()");
 
   return config;
@@ -75,23 +73,23 @@ export function getConfig() : Readonly<WebHareBackendConfiguration> {
     @throws If the path cannot be mapped to a filesystem path
 */
 export function toFSPath(resource: string) {
-  const namespace = resource.substring(0,resource.indexOf("::")).toLowerCase();
+  const namespace = resource.substring(0, resource.indexOf("::")).toLowerCase();
   const restpath = resource.substring(namespace.length + 2);
 
-  if(namespace == "mod" || namespace == "storage") {
+  if (namespace == "mod" || namespace == "storage") {
     const nextslash = restpath.indexOf('/');
     const modulename = nextslash == -1 ? restpath : restpath.substr(0, nextslash);
-    if(modulename=="")
+    if (modulename == "")
       // throw new RetrieveResourceException(reportpath, "No such resource: missing module name", default let );
       throw new Error("No such resource: missing module name");
 
     const modinfo = getConfig().module[modulename];
-    if(!modinfo)
+    if (!modinfo)
       throw new Error(`No such resource: no such module '${modulename}'`);
 
     const basedir = namespace == "mod" ? modinfo.root : `${getConfig().dataroot}storage/${modulename}/`;
 
-    if(nextslash == -1)
+    if (nextslash == -1)
       return basedir; //we'll always terminate a path like `mod::system` with a slash
     else
       return path.join(basedir, restpath.substring(nextslash));
@@ -100,7 +98,7 @@ export function toFSPath(resource: string) {
 }
 
 export function toResourcePath(diskpath: string, options: { allowUnmatched: true }): string | null;
-export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean} ): string;
+export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean }): string;
 
 /** Resolve a filesystem path back to a resource path
     @param diskpath - Path to resolve
@@ -108,20 +106,19 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
     @returns WebHare reosurce path. A succesful return does not imply the path actually exists, null if the path cannot be mapped
     @throws If the path cannot be mapped to a resource path and allowUnmatched is not set
 */
-export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean} ) {
+export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean }) {
   //FIXME is it useful for this function to throw() if it cannot match the path? The API is rarely used but no match will be quite common! (but toFSPath)
   for (const [modulename, moduleconfig] of Object.entries(getConfig().module)) {
-    if(diskpath.startsWith(moduleconfig.root))
+    if (diskpath.startsWith(moduleconfig.root))
       return `mod::${modulename}/${diskpath.substring(moduleconfig.root.length)}`;
   }
 
-  if(options?.allowUnmatched)
+  if (options?.allowUnmatched)
     return null;
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
 }
 
-export async function openBackendService(name: string, args?: unknown[], options?: { timeout: number })
-{
+export async function openBackendService(name: string, args?: unknown[], options?: { timeout: number }) {
   return WHBridge.openService(name, args, options);
 }
