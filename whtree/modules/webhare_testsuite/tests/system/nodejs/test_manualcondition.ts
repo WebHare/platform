@@ -2,8 +2,7 @@
 import ManualCondition from "@mod-system/js/internal/util/manualcondition.es";
 import * as test from "@webhare/test";
 
-async function testInitialState()
-{
+async function testInitialState() {
   const mc = new ManualCondition;
 
   //it("is not signalled according to waitSignalled", function(callback)
@@ -23,8 +22,7 @@ async function testInitialState()
   }
 }
 
-async function testGoingFromNotSignalledToSignalled()
-{
+async function testGoingFromNotSignalledToSignalled() {
   const mc = new ManualCondition;
 
   //it("fulfills the wait promise", function(callback)
@@ -46,8 +44,7 @@ async function testGoingFromNotSignalledToSignalled()
   }
 }
 
-async function testGoingFromSignalledToNotSignalled()
-{
+async function testGoingFromSignalledToNotSignalled() {
   const mc = new ManualCondition;
   mc.setSignalled(true);
 
@@ -70,4 +67,4 @@ async function testGoingFromSignalledToNotSignalled()
   }
 }
 
-test.run( [ testInitialState, testGoingFromNotSignalledToSignalled, testGoingFromSignalledToNotSignalled ] );
+test.run([testInitialState, testGoingFromNotSignalledToSignalled, testGoingFromSignalledToNotSignalled]);

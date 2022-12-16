@@ -6,4 +6,4 @@ ts2.hello();
 ts3.helloIndex();
 ts4.helloIndex();
 
-let test: number = 42;
+const test = 42;

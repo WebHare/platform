@@ -2,8 +2,7 @@
 import WaitableTimer from "@mod-system/js/internal/util/waitabletimer.es";
 import * as test from "@webhare/test";
 
-async function testInitialState()
-{
+async function testInitialState() {
   const timer = new WaitableTimer;
 
   //it("is not signalled according to waitSignalled", function(callback)
@@ -23,8 +22,7 @@ async function testInitialState()
   }
 }
 
-async function testBasicManipulation()
-{
+async function testBasicManipulation() {
   //it("isn't immediately signalled after setting", function(callback)
   {
     const timer = new WaitableTimer;
@@ -75,7 +73,7 @@ async function testBasicManipulation()
     timer.waitSignalled().then(() => fulfilled = true);
 
     await test.sleep(5);
-      test.assert(!fulfilled, "Doesn't stay fulfilled after timer expire");
+    test.assert(!fulfilled, "Doesn't stay fulfilled after timer expire");
 
     await test.sleep(50);
     test.assert(fulfilled, "Doesn't become signalled after reset");

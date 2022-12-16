@@ -5,8 +5,7 @@ import * as path from "node:path";
 import * as langparser from "@mod-tollium/js/internal/lang";
 
 // Test the lang.json parser
-async function testLangJsonParser()
-{
+async function testLangJsonParser() {
   //it("parser", async function()
   {
     const alltexts = new Map();
@@ -16,7 +15,7 @@ async function testLangJsonParser()
     const result = await langparser.readLanguageFile('webhare_testsuite', 'en', filecache);
     test.eq(true, filecache.includes(path.resolve(__dirname, "../../../../webhare_testsuite/language/default.xml")));
 
-    langparser.parseLanguageFile(alltexts.get("webhare_testsuite"), [ "test", "module"], result);
+    langparser.parseLanguageFile(alltexts.get("webhare_testsuite"), ["test", "module"], result);
 
     //we need to test that a subgroup does not include deeper groups
     test.eq("Test action", alltexts.get("webhare_testsuite").module.testaction);
@@ -36,32 +35,37 @@ async function testLangJsonParser()
 
     // groups and texts with the same name, group after first text and text after group
     const custom = {};
-    langparser.parseLanguageFile(custom, [ "test" ],
-        [ { tid: "test.group", text: "group text" }
-        , { tid: "test.group.subgroup.subtext", text: "subsub text" }
-        , { tid: "test.group.subgroup", text: "subgroup text" }
-        ]);
+    langparser.parseLanguageFile(custom, ["test"],
+      [
+        { tid: "test.group", text: "group text" },
+        { tid: "test.group.subgroup.subtext", text: "subsub text" },
+        { tid: "test.group.subgroup", text: "subgroup text" }
+      ]);
     test.eq(custom,
-        { test:
-          { group:
-            { "": "group text"
-              , "subgroup":
-              { "": "subgroup text"
-              , "subtext": "subsub text"
-              }
+      {
+        test:
+        {
+          group:
+          {
+            "": "group text",
+            "subgroup":
+            {
+              "": "subgroup text",
+              "subtext": "subsub text"
             }
           }
-        });
+        }
+      });
   }
 
   //it("fallbacklanguage", async function()
   {
     const alltexts = new Map();
-    const filecache : string[] = [];
+    const filecache: string[] = [];
 
     alltexts.set("webhare_testsuite", {});
     const result = await langparser.readLanguageFile('webhare_testsuite', 'de', filecache);
-    langparser.parseLanguageFile(alltexts.get("webhare_testsuite"), [ "testfallback" ], result);
+    langparser.parseLanguageFile(alltexts.get("webhare_testsuite"), ["testfallback"], result);
 
     test.eq(true, filecache.includes(path.resolve(__dirname, "../../../../webhare_testsuite/language/default.xml")));
     test.eq(true, filecache.includes(path.resolve(__dirname, "../../../../webhare_testsuite/language/de.xml")));
