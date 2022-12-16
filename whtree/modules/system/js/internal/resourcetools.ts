@@ -1,5 +1,5 @@
 
-export async function loadJSFunction(funcname: string) : Promise<(...args: unknown[]) => unknown> {
+export async function loadJSFunction(funcname: string): Promise<(...args: unknown[]) => unknown> {
   let libraryuri = funcname.split("#")[0];
   if (libraryuri.startsWith("mod::"))
     libraryuri = "@mod-" + libraryuri.substring(5);

@@ -1,13 +1,10 @@
 import { append, setStyles } from './tree';
 
 // This will assign the `any` type to the list of accepted attributes for elements constructed via JSX syntax.
-declare global
-{
+declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace JSX
-  {
-    interface IntrinsicElements
-    {
+  namespace JSX {
+    interface IntrinsicElements {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [eleName: string]: any;
     }
@@ -15,7 +12,7 @@ declare global
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CreateAttributes = Record< string, any >;
+type CreateAttributes = Record<string, any>;
 
 type CreateElementFunction = (attributes: CreateAttributes, _1?: null, _2?: null) => HTMLElement;
 
@@ -65,19 +62,19 @@ export function toCamel(value: string) {
 }
 
 function attrHasBooleanValue(propname: string) {
-  return ['disabled','checked','selected','readonly','multiple','ismap'].includes(propname);
+  return ['disabled', 'checked', 'selected', 'readonly', 'multiple', 'ismap'].includes(propname);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createElement(elementname: string, attributes: CreateAttributes, toattrs: boolean) {
   const node = document.createElement(elementname);
-  if(attributes) {
+  if (attributes) {
     Object.keys(attributes).forEach(attrname => {
-      if(attrname == 'events')
+      if (attrname == 'events')
         throw new Error("Use 'on' instead of 'events' in dompack.create");
-      if(attrname == 'styles')
+      if (attrname == 'styles')
         throw new Error("Use 'style' instead of 'styles' in dompack.create");
-      if(attrname == 'children') {
+      if (attrname == 'children') {
         // allow null 'children' property for jsxcreate, property delete is detrimental to performance.
         if (attributes[attrname])
           throw new Error("Use 'childNodes' instead of 'children' in dompack.create");
@@ -92,24 +89,24 @@ function createElement(elementname: string, attributes: CreateAttributes, toattr
         return void node.addEventListener(toDashed(attrname.substring(2)), value, false);
 
       if (attrname == "className" || attrname == "class") {
-        if(node.className) // already modified the class?
+        if (node.className) // already modified the class?
           throw new Error("Specify either 'className' or 'class' to dompack.create, but not both");
         setClassName(node, value);
         return;
       }
 
-      if(attrname == 'style')
+      if (attrname == 'style')
         return void setStyles(node, value);
 
-      if(attrname == 'dataset') //explicitly assign
+      if (attrname == 'dataset') //explicitly assign
         return void Object.assign(node[attrname], value);
 
-      if(attrname == 'childNodes') //append as children
+      if (attrname == 'childNodes') //append as children
         return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child != null && child !== true && child !== false));
 
-      if(toattrs && attrHasBooleanValue(attrname)) {
-        if(value)
-          node.setAttribute(attrname,"");
+      if (toattrs && attrHasBooleanValue(attrname)) {
+        if (value)
+          node.setAttribute(attrname, "");
         else
           node.removeAttribute(attrname);
         return;
@@ -138,7 +135,7 @@ function createElement(elementname: string, attributes: CreateAttributes, toattr
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
-export function create< K extends keyof HTMLElementTagNameMap >(elementname: K, attributes: CreateAttributes): HTMLElementTagNameMap[K];
+export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes: CreateAttributes): HTMLElementTagNameMap[K];
 export function create(elementname: string, attributes: CreateAttributes): HTMLElement;
 
 export function create(elementname: string, attributes: CreateAttributes) {

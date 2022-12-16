@@ -3,34 +3,31 @@ import * as domevents from './events';
 
 type RegistrationHandler = (node: Element, index?: number) => void;
 type ComponentRegistration =
-{
-  selector: string;
-  handler: RegistrationHandler;
-  index: number;
-  num: number;
-  afterdomready: boolean;
-};
+  {
+    selector: string;
+    handler: RegistrationHandler;
+    index: number;
+    num: number;
+    afterdomready: boolean;
+  };
 
 const components: ComponentRegistration[] = [];
 const map = new WeakMap();
 
 //is a node completely in the dom? if we can find a sibling anywhere, it must be closed
-function isNodeCompletelyInDom(node: Element | null)
-{
-  for(;node;node=node.parentElement)
-    if(node.nextSibling)
+function isNodeCompletelyInDom(node: Element | null) {
+  for (; node; node = node.parentElement)
+    if (node.nextSibling)
       return true;
   return false;
 }
-function processRegistration(item: Element, reg: ComponentRegistration, domready: boolean)
-{
-  if(!domready && !isNodeCompletelyInDom(item))
+function processRegistration(item: Element, reg: ComponentRegistration, domready: boolean) {
+  if (!domready && !isNodeCompletelyInDom(item))
     return; //not safe to register
 
   if (!map.has(item))
-    map.set(item, [ reg.num ]);
-  else
-  {
+    map.set(item, [reg.num]);
+  else {
     const list = map.get(item);
     if (list.includes(reg.num))
       return;
@@ -38,41 +35,31 @@ function processRegistration(item: Element, reg: ComponentRegistration, domready
   }
   reg.handler(item, reg.index++); //note: if an exception is reported from Object.handler,
 }
-function applyRegistration(reg: ComponentRegistration, startnode?: Element)
-{
+function applyRegistration(reg: ComponentRegistration, startnode?: Element) {
   const domready = domtree.isDomReady();
-  if(reg.afterdomready && !domready)
+  if (reg.afterdomready && !domready)
     return;
 
-  const items = Array.from( (startnode || document).querySelectorAll(reg.selector));
-  if(startnode && domtree.matches(startnode,reg.selector))
+  const items = Array.from((startnode || document).querySelectorAll(reg.selector));
+  if (startnode && domtree.matches(startnode, reg.selector))
     items.unshift(startnode);
 
-  items.forEach(item =>
-  {
-    try
-    {
+  items.forEach(item => {
+    try {
       processRegistration(item, reg, domready);
-    }
-    catch(e)
-    {
-      console.error("Exception handling registration of",item,"for rule",reg.selector);
-      console.log("Registration",reg);
-      if (e instanceof Error)
-      {
-        console.log(e,e.stack);
-        if (window.onerror)
-        {
+    } catch (e) {
+      console.error("Exception handling registration of", item, "for rule", reg.selector);
+      console.log("Registration", reg);
+      if (e instanceof Error) {
+        console.log(e, e.stack);
+        if (window.onerror) {
           // Send to onerror to trigger exception reporting
-          try
-          {
+          try {
             // @ts-ignore: fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
-          }
-          catch(e2){}
+          } catch (e2) { }
         }
-      }
-      else
+      } else
         console.log(e);
     }
   });
@@ -85,12 +72,11 @@ function applyRegistration(reg: ComponentRegistration, startnode?: Element)
    @param node Node to focus
    @param options.preventScroll Prevent scroll to focused element
 */
-export function focus(node: Element, options?: FocusOptions)
-{
-  if(!domevents.dispatchCustomEvent(node, 'dompack:takefocus', { bubbles: true, cancelable: true, detail: {options} }))
+export function focus(node: Element, options?: FocusOptions) {
+  if (!domevents.dispatchCustomEvent(node, 'dompack:takefocus', { bubbles: true, cancelable: true, detail: { options } }))
     return true;
 
-  if(typeof (node as HTMLElement).focus !== "function" || (node as HTMLInputElement).disabled)
+  if (typeof (node as HTMLElement).focus !== "function" || (node as HTMLInputElement).disabled)
     return false;
 
   (node as HTMLInputElement).focus(options);
@@ -102,8 +88,7 @@ export function focus(node: Element, options?: FocusOptions)
  * @param options - Scroll options
  * @deprecated invoke scrollIntoView directly  on the nodes
  */
-export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions)
-{
+export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions) {
   node.scrollIntoView(options);
   return true;
 }
@@ -120,16 +105,16 @@ export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions)
     - the index of the node (a unique counter for this selector - first is 0)
  */
 
-export function register(selector: string, handler: RegistrationHandler, options?: { afterdomready: boolean })
-{
+export function register(selector: string, handler: RegistrationHandler, options?: { afterdomready: boolean }) {
   const newreg: ComponentRegistration =
-    { selector: selector
-    , handler: handler
-    , index: 0
-    , num: components.length
-    , afterdomready: !options || options.afterdomready
-    };
-  if(components.length==0 && !domtree.isDomReady()) //first component... we'll need a ready handler
+  {
+    selector: selector,
+    handler: handler,
+    index: 0,
+    num: components.length,
+    afterdomready: !options || options.afterdomready
+  };
+  if (components.length == 0 && !domtree.isDomReady()) //first component... we'll need a ready handler
     domtree.onDomReady(() => registerMissed());
 
   components.push(newreg);
@@ -137,8 +122,7 @@ export function register(selector: string, handler: RegistrationHandler, options
 }
 
 // register any components we missed on previous scans
-export function registerMissed(startnode?: Element)
-{
+export function registerMissed(startnode?: Element) {
   const todo = components.slice(0);
   todo.forEach(item => applyRegistration(item, startnode));
 }

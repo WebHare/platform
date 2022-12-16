@@ -8,104 +8,90 @@
 const IS_NON_DIMENSIONAL = /acit|ex(?:s|g|n|p|$)|rph|ows|mnc|ntw|ine[ch]|zoo|^ord/i;
 
 export type Rect =
-{
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-  width: number;
-  height: number;
-  node?: HTMLElement;
-};
+  {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+    width: number;
+    height: number;
+    node?: HTMLElement;
+  };
 
-function generateInsertList(nodes: Array<string | Node>)
-{
-  if(nodes.length==1)
-    return typeof nodes[0]==='string' ? document.createTextNode(nodes[0]) : nodes[0];
+function generateInsertList(nodes: Array<string | Node>) {
+  if (nodes.length == 1)
+    return typeof nodes[0] === 'string' ? document.createTextNode(nodes[0]) : nodes[0];
 
   const frag = document.createDocumentFragment();
   nodes.forEach(node => frag.appendChild(typeof node === 'string' ? document.createTextNode(node) : node));
   return frag;
 }
 
-export function matches(node: Element, selector: string): boolean
-{
+export function matches(node: Element, selector: string): boolean {
   return node.matches(selector);
 }
-export function closest(node: Element, selector: string)
-{
-  if(node.closest)
+export function closest(node: Element, selector: string) {
+  if (node.closest)
     return node.closest(selector);
   //TODO: Warn about out-of-date browser?
   let testNode: Element | null = node;
-  for(;testNode&&!matches(testNode,selector);testNode=testNode.parentElement)
+  for (; testNode && !matches(testNode, selector); testNode = testNode.parentElement)
     /*iterate*/;
   return testNode;
 }
 //implements contains. TODO we only really need this on IE11, which doesn't consider a text node a child, we can probably fall back to native elsewhere ?
-export function contains(ancestor: Node, child: Node)
-{
+export function contains(ancestor: Node, child: Node) {
   if (ancestor.contains)
     return ancestor.contains(child);
   //TODO: Warn about out-of-date browser?
-  for(let testNode: Node | null = child;testNode;testNode=testNode.parentNode)
-    if(testNode===ancestor)
+  for (let testNode: Node | null = child; testNode; testNode = testNode.parentNode)
+    if (testNode === ancestor)
       return true;
   return false;
 }
 //insert a range of nodes before a node: https://dom.spec.whatwg.org/#dom-childnode-before
-export function before(node: ChildNode, ...nodes: Array<string | Node>)
-{
-  if(node.before)
-  {
+export function before(node: ChildNode, ...nodes: Array<string | Node>) {
+  if (node.before) {
     node.before(...nodes);
     return;
   }
   //TODO: Warn about out-of-date browser?
-  if(node.parentNode)
+  if (node.parentNode)
     node.parentNode.insertBefore(generateInsertList(nodes), node);
 }
 //insert a range of nodes after a node: https://dom.spec.whatwg.org/#dom-childnode-after
-export function after(node: ChildNode, ...nodes: Array<string | Node>)
-{
-  if(node.after)
-  {
+export function after(node: ChildNode, ...nodes: Array<string | Node>) {
+  if (node.after) {
     node.after(...nodes);
     return;
   }
   //TODO: Warn about out-of-date browser?
-  if(node.parentNode)
+  if (node.parentNode)
     node.parentNode.insertBefore(generateInsertList(nodes), node.nextSibling);
 }
 //replace node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-replacewith
-export function replaceWith(node: ChildNode, ...nodes: Array<string | Node>)
-{
-  if(node.replaceWith)
-  {
+export function replaceWith(node: ChildNode, ...nodes: Array<string | Node>) {
+  if (node.replaceWith) {
     node.replaceWith(...nodes);
     return;
   }
   //TODO: Warn about out-of-date browser?
-  if(node.parentNode)
+  if (node.parentNode)
     node.parentNode.replaceChild(generateInsertList(nodes), node);
 }
 //remove node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-remove
-export function remove(node: ChildNode)
-{
-  if(node.remove)
-  {
+export function remove(node: ChildNode) {
+  if (node.remove) {
     node.remove();
     return;
   }
   //TODO: Warn about out-of-date browser?
-  if(node.parentNode)
+  if (node.parentNode)
     node.parentNode.removeChild(node);
 }
 //insert nodes at start: https://dom.spec.whatwg.org/#dom-parentnode-prepend
-export function prepend(node: ParentNode, ...nodes: Array<string | Node>)
-{
-  if(node.prepend)
-  {
+export function prepend(node: ParentNode, ...nodes: Array<string | Node>) {
+  if (node.prepend) {
     node.prepend(...nodes);
     return;
   }
@@ -113,10 +99,8 @@ export function prepend(node: ParentNode, ...nodes: Array<string | Node>)
   node.insertBefore(generateInsertList(nodes), node.firstChild);
 }
 //insert nodes at end: https://dom.spec.whatwg.org/#dom-parentnode-append
-export function append(node: ParentNode, ...nodes: Array<string | Node>)
-{
-  if(node.append)
-  {
+export function append(node: ParentNode, ...nodes: Array<string | Node>) {
+  if (node.append) {
     node.append(...nodes);
     return;
   }
@@ -132,8 +116,7 @@ export function append(node: ParentNode, ...nodes: Array<string | Node>)
  * @param settoggle - true to enable, false to disable, undefined to toggle
  * @deprecated Just use classList.toggle on the node itself
  */
-export function toggleClass(node: Element, classname: string, settoggle?: boolean)
-{
+export function toggleClass(node: Element, classname: string, settoggle?: boolean) {
   node.classList.toggle(classname, settoggle);
 }
 
@@ -143,23 +126,20 @@ export function toggleClass(node: Element, classname: string, settoggle?: boolea
     @param node - Node which classes to toggle
     @param toggles - Object, all keys will be added/removed based on the truthyness of their values
  */
-export function toggleClasses(node: Element, toggles: { [key: string]: boolean })
-{
-  if (typeof(toggles) !== "object")
+export function toggleClasses(node: Element, toggles: { [key: string]: boolean }) {
+  if (typeof (toggles) !== "object")
     throw new Error("Expected an object with keys as classnames");
   Object.keys(toggles).forEach(key => node.classList[toggles[key] ? "add" : "remove"](key));
 }
 
 /* remove the contents of an existing node */
-export function empty(node: Element)
-{
-  if (node.replaceChildren)
-  {
+export function empty(node: Element) {
+  if (node.replaceChildren) {
     node.replaceChildren();
     return;
   }
   //TODO: Warn about out-of-date browser?
-  while(node.lastChild)
+  while (node.lastChild)
     node.removeChild(node.lastChild);
 }
 
@@ -169,72 +149,56 @@ export function empty(node: Element)
  * @param node - The node for which you need coordinates
  * @param relativeto - Optional reference point. If not set, you just get a 'normal' coordinate object
  */
-export function getRelativeBounds(node: Element, relativeto?: Element): Rect
-{
-  if(!relativeto)
+export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
+  if (!relativeto)
     relativeto = node.ownerDocument.documentElement;
 
   const nodecoords = node.getBoundingClientRect();
   const relcoords = relativeto.getBoundingClientRect();
-  return { top: nodecoords.top - relcoords.top
-         , left: nodecoords.left - relcoords.left
-         , right: nodecoords.right - relcoords.left
-         , bottom: nodecoords.bottom - relcoords.top
-         , width: nodecoords.width
-         , height: nodecoords.height
-         };
+  return {
+    top: nodecoords.top - relcoords.top,
+    left: nodecoords.left - relcoords.left,
+    right: nodecoords.right - relcoords.left,
+    bottom: nodecoords.bottom - relcoords.top,
+    width: nodecoords.width,
+    height: nodecoords.height
+  };
 }
 
-export function isDomReady()
-{
+export function isDomReady() {
   return document.readyState == "interactive" || document.readyState == "complete";
 }
 
 /* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions from the ready handler will not be fatal to the rest of code execution */
-export function onDomReady(callback: () => void)
-{
-  if(isDomReady())
-  {
-    try
-    {
+export function onDomReady(callback: () => void) {
+  if (isDomReady()) {
+    try {
       callback();
-    }
-    catch(e)
-    {
+    } catch (e) {
       console.error("Exception executing a domready handler");
-      if (e instanceof Error)
-      {
-        console.log(e,e.stack);
-        if (window.onerror)
-        {
+      if (e instanceof Error) {
+        console.log(e, e.stack);
+        if (window.onerror) {
           // Send to onerror to trigger exception reporting
-          try
-          {
+          try {
             // @ts-ignore fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
-          }
-          catch (e2){}
+          } catch (e2) { }
         }
-      }
-      else
+      } else
         console.log(e);
     }
-  }
-  else
+  } else
     document.addEventListener("DOMContentLoaded", callback);
 }
 
 //parse JSON data, throw with more info on parse failure
-export function getJSONAttribute<T>(node: Element, attributename: string): T | null
-{
-  try
-  {
+export function getJSONAttribute<T>(node: Element, attributename: string): T | null {
+  try {
     if (node.hasAttribute(attributename))
       return JSON.parse(node.getAttribute(attributename) as string);
-  }
-  catch(e)
-  {
-    console.error("JSON parse failure on attribute '" +attributename+ "' of node", node);
+  } catch (e) {
+    console.error("JSON parse failure on attribute '" + attributename + "' of node", node);
     throw e;
   }
   return null;
@@ -245,27 +209,25 @@ export function getJSONAttribute<T>(node: Element, attributename: string): T | n
  *
     @param doc - Document to query. Defaults to window.document
  */
-export function getBaseURI(doc: Document | undefined)
-{
-  if(!doc)
-    doc=window.document;
-  if(doc.baseURI)
+export function getBaseURI(doc: Document | undefined) {
+  if (!doc)
+    doc = window.document;
+  if (doc.baseURI)
     return doc.baseURI;
 
   const base = doc.querySelector('base');
-  if(base && base.href)
+  if (base && base.href)
     return base.href;
   return doc.URL;
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qS<E extends Element = Element>(startnode: ParentNode, selector: string) : E | null;
-export function qS<E extends Element = Element>(selector: string) : E | null;
+export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
+export function qS<E extends Element = Element>(selector: string): E | null;
 
 //queryselector quick wrapper
-export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string) : E | null
-{
-  if(typeof node_or_selector == 'string')
+export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
+  if (typeof node_or_selector == 'string')
     return document.querySelector<E>(node_or_selector);
   else if (selector)
     return node_or_selector.querySelector<E>(selector);
@@ -273,13 +235,12 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string) : E[];
-export function qSA<E extends Element = Element>(selector: string) : E[];
+export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = Element>(selector: string): E[];
 
 //queryselectorall quick wrapper
-export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[]
-{
-  if(typeof node_or_selector == 'string')
+export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
+  if (typeof node_or_selector == 'string')
     return Array.from(document.querySelectorAll(node_or_selector));
   else if (selector)
     return Array.from(node_or_selector.querySelectorAll(selector));
@@ -294,21 +255,18 @@ export function qSA<E extends Element>(node_or_selector: ParentNode | string, se
  * @param node - Node to update
  * @param value - Styles to set
  */
-export function setStyles(node: HTMLElement, value?: string | { [key: string]: string | number })
-{
+export function setStyles(node: HTMLElement, value?: string | { [key: string]: string | number }) {
   if (!value)
     node.style.cssText = '';
   else if (typeof value === 'string')
     node.style.cssText = value || '';
-  else
-  {
-    for (const [key,propvalue] of Object.entries(value))
-    {
+  else {
+    for (const [key, propvalue] of Object.entries(value)) {
       // for numbers, add 'px' if the constant isn't dimensionless (eg zIndex)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
       (node.style as any)[key] = typeof value[key] === 'number' && IS_NON_DIMENSIONAL.test(key) === false
-          ? propvalue + 'px'
-          : propvalue;
+        ? propvalue + 'px'
+        : propvalue;
     }
   }
 }
