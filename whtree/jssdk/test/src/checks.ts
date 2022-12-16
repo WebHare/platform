@@ -6,7 +6,7 @@ export { LoadTSTypeOptions } from "./testsupport";
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
 
-type LoggingCallback = ( ...args:unknown[] ) => void;
+type LoggingCallback = (...args: unknown[]) => void;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
@@ -77,8 +77,7 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
 
     for (let i = 0; i < expected.length; ++i)
       testDeepEq(expected[i], actual[i], path + "[" + i + "]");
-  }
-  else {
+  } else {
     //not the same object. same contents?
     const expectedkeys = Object.keys(expected);
     const actualkeys = Object.keys(actual);
@@ -101,8 +100,7 @@ function isequal(a: unknown, b: unknown) {
   try {
     testDeepEq(a, b, '');
     return true;
-  }
-  catch (e) {
+  } catch (e) {
     return false;
   }
 }
@@ -119,8 +117,7 @@ function toTestableString(val: unknown): string {
     return unescape(escape(val).split('%u').join('/u'));
   try {
     return JSON.stringify(val);
-  }
-  catch (ignore) {
+  } catch (ignore) {
     return "";
   }
 }
@@ -149,25 +146,23 @@ function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   testDeepEq(expected, actual, '');
 }
 
-function testAssert<T>(actual: T, annotation?: Annotation) : T //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
-{
-  if(actual)
+function testAssert<T>(actual: T, annotation?: Annotation): T { //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+  if (actual)
     return actual; //test passed is actual was 'true'
 
   if (annotation)
     logAnnotation(annotation);
 
   const stack = (new Error).stack;
-  if(stack) {
+  if (stack) {
     testsupport.reportAssertError(stack);
   }
   throw new Error("test.assert failed");
 }
 
 /** Check if the object is probably an Error object. Can't use 'instanceof Error' as an Error might come from a different frame */
-function quacksLikeAnError(e: unknown) : e is Error
-{
-  if(!e)
+function quacksLikeAnError(e: unknown): e is Error {
+  if (!e)
     return false;
   return (typeof e === "object") && ("stack" in e) && ("message" in e);
 }
@@ -185,14 +180,13 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
       logAnnotation(annotation);
 
     onLog("Expected exception: ", expect.toString());
-    if(retval === undefined)
+    if (retval === undefined)
       onLog("Did not get an exception or return value");
     else
       onLog("Instead we got: ", retval);
 
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
-  }
-  catch (e) {
+  } catch (e) {
     if (!quacksLikeAnError(e)) {
       if (annotation)
         logAnnotation(annotation);
@@ -221,82 +215,67 @@ async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | ((
     @param actual - Actual value
     @param ignore - List of properties to ignore
     @param annotation - Message to display when the test fails */
-export function eqProps<T>(expect: T, actual: T, ignore: string[] = [], annotation?: Annotation)
-{
+export function eqProps<T>(expect: T, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[], annotation?: Annotation)
-{
-  switch (typeof expect)
-  {
-    case "undefined":   return;
+function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+  switch (typeof expect) {
+    case "undefined": return;
     case "object":
-    {
-      if (expect === null)
       {
-        if (expect !== actual)
-        {
+        if (expect === null) {
+          if (expect !== actual) {
+            onLog({ expect, actual });
+            throw Error(`Mismatched value at ${path}`);
+          }
+          return;
+        }
+        const expectarray = Array.isArray(expect);
+        if (expectarray != Array.isArray(actual)) {
+          onLog({ expect, actual });
+          throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
+        }
+        if (expectarray) {
+          if (!Array.isArray(actual)) {
+            onLog({ expect, actual });
+            throw Error(`Expected array, got object, at ${path}`);
+          }
+
+          if (expect.length != actual.length) {
+            onLog({ expect, actual });
+            throw Error(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`);
+          }
+          for (let i = 0; i < expect.length; ++i)
+            eqPropsRecurse(expect[i], actual[i], `${path}[${i}]`, ignore, annotation);
+          return;
+        } else {
+          if (Array.isArray(actual)) {
+            onLog({ expect, actual });
+            throw Error(`Expected object, got array, at ${path}`);
+          }
+
+        }
+
+        if (typeof actual !== "object" || !actual) {
           onLog({ expect, actual });
           throw Error(`Mismatched value at ${path}`);
         }
+
+        const gotkeys = Object.keys(actual);
+        for (const [key, value] of Object.entries(expect)) {
+          if (ignore.includes(key))
+            continue;
+
+          if (!gotkeys.includes(key)) {
+            onLog({ expect, actual });
+            throw Error(`Expected property '${key}', didn't find it, at ${path}`);
+          }
+          eqPropsRecurse(value, (actual as { [k: string]: unknown })[key], `${path}.${key}`, ignore);
+        }
         return;
       }
-      const expectarray = Array.isArray(expect);
-      if (expectarray != Array.isArray(actual))
-      {
-        onLog({ expect, actual });
-        throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
-      }
-      if (expectarray)
-      {
-        if (!Array.isArray(actual))
-        {
-          onLog({ expect, actual });
-          throw Error(`Expected array, got object, at ${path}`);
-        }
-
-        if (expect.length != actual.length)
-        {
-          onLog({ expect, actual });
-          throw Error(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`);
-        }
-        for (let i = 0; i < expect.length; ++i)
-          eqPropsRecurse(expect[i], actual[i], `${path}[${i}]`, ignore, annotation);
-        return;
-      }
-      else
-      {
-        if (Array.isArray(actual))
-        {
-          onLog({ expect, actual });
-          throw Error(`Expected object, got array, at ${path}`);
-        }
-
-      }
-
-      if (typeof actual !== "object" || !actual)
-      {
-        onLog({ expect, actual });
-        throw Error(`Mismatched value at ${path}`);
-      }
-
-      const gotkeys = Object.keys(actual);
-      for (const [ key, value ] of Object.entries(expect))
-      {
-        if (ignore.includes(key))
-          continue;
-
-        if (!gotkeys.includes(key))
-        {
-          onLog({ expect, actual });
-          throw Error(`Expected property '${key}', didn't find it, at ${path}`);
-        }
-        eqPropsRecurse(value, (actual as {[k:string]:unknown})[key], `${path}.${key}`, ignore);
-      }
-      return;
-    }
     default:
       if (expect !== actual) {
         onLog({ expect, actual });
@@ -305,8 +284,8 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
   }
 }
 
-async function testSleep(condition: number) : Promise<void> {
-  if(condition < 0)
+async function testSleep(condition: number): Promise<void> {
+  if (condition < 0)
     throw new Error(`Wait duration must be positive, got '${condition}'`);
   await new Promise(resolve => setTimeout(resolve, condition));
   return;
@@ -325,8 +304,7 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   let actual_str = actual;
   try {
     actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual);
-  }
-  catch (ignore) {
+  } catch (ignore) {
     //Ignoring
   }
   onLog("testEqMatch fails: actual  ", actual_str);
@@ -336,7 +314,7 @@ function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
 }
 
 export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
-  if(settings.onLog)
+  if (settings.onLog)
     onLog = settings.onLog;
 }
 

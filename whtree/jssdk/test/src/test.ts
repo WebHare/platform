@@ -28,7 +28,7 @@ export async function run(tests: Array<() => unknown>, options?: object) {
 
   for (let idx = 0; idx < tests.length; ++idx) {
     const result = await tests[idx]();
-    if(typeof result !== "undefined") {
+    if (typeof result !== "undefined") {
       // this may be accidentally passing a non test-function eg testing `() => myTest` instead of `() => myTest()`
       console.error(`Unexpected return value from test #${idx} (${tests[idx].name}). Make sure tests never return anything`);
       break;

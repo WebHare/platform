@@ -520,7 +520,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
             [ resourcename := `mod::${rec.module}/${rec.subpath}`
             , line :=         1
             , col :=          1
-            , message :=      `File hasn't been formatted correctly`
+            , message :=      `File hasn't been formatted correctly - fixable using wh dev:autoformat`
             , category :=     "error"
             ] INTO retval.issues AT END;
       }
