@@ -1093,15 +1093,20 @@ std::string WHFileSystem::ReturnPath(Blex::ContextKeeper &keeper, std::string co
         if (filename.substr(0, 1) == "/")
             return filename;
 
-        HareScript::FileSystem::FilePtr file = OpenLibrary(keeper, filename);
-        if (!file)
-            return "";
+        try
+        {
+                HareScript::FileSystem::FilePtr file = OpenLibrary(keeper, filename);
+                if (!file)
+                    return "";
 
-        DirectFile *directfile = dynamic_cast<DirectFile *>(file.get());
-        if (directfile && !directfile->sourcefile.empty())
-            return directfile->sourcefile;
-
-        return "";
+                DirectFile *directfile = dynamic_cast<DirectFile *>(file.get());
+                if (directfile && !directfile->sourcefile.empty())
+                    return directfile->sourcefile;
+        }
+        catch (std::exception &e)
+        {
+        }
+        return filename;
 }
 
 std::string WHFileSystem::GetDynamicModuleFullPath(std::string const &modulename) const
