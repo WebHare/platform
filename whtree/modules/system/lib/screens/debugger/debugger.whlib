@@ -782,7 +782,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF (ObjectExists(obj))
         RETURN "whfs::" || obj->whfspath;
     }
-    RETURN GetWebHareResourceDiskPath(filename);
+    TRY
+      RETURN GetWebHareResourceDiskPath(filename);
+    CATCH (OBJECT e)
+      RETURN filename;
   }
 
   STRING FUNCTION PrettifyFile(STRING filename)
