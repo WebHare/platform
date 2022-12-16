@@ -6,7 +6,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import WHBridge from "@mod-system/js/internal/bridge"; //@webhare/services should be wrapping the bridge but we need to validate the reference counter
 
-let serverconfig : services.WebHareBackendConfiguration | null = null;
+let serverconfig: services.WebHareBackendConfiguration | null = null;
 
 function ensureProperPath(inpath: string) {
   test.eqMatch(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -14,7 +14,7 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testServices() {
-  if(!serverconfig)
+  if (!serverconfig)
     throw new Error("serverconfig should be set!");
 
   //Verify potentially higher level invoke APIs work
@@ -28,7 +28,7 @@ async function testServices() {
   test.assert(installid.length > 10);
 
   //get WebHare configuration
-  const whconfig = await services.callHareScript("mod::system/lib/configure.whlib#GetWebHareConfiguration",[]) as any;
+  const whconfig = await services.callHareScript("mod::system/lib/configure.whlib#GetWebHareConfiguration", []) as any;
   // console.log(serverconfig, whconfig);
   test.eq(whconfig.basedataroot, serverconfig.dataroot);
 
@@ -42,7 +42,7 @@ async function testServices() {
 }
 
 async function testResources() {
-  if(!serverconfig)
+  if (!serverconfig)
     throw new Error("serverconfig should be set!");
 
   test.eq(serverconfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
@@ -76,13 +76,12 @@ async function testResources() {
   */
 }
 
-async function runWebHareServiceTest_JS()
-{
-  await test.throws(/Unable to connect/, services.openBackendService("webharedev_jsbridges:nosuchservice", [ "x" ], { timeout: 300 }));
+async function runWebHareServiceTest_JS() {
+  await test.throws(/Unable to connect/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300 }));
   test.eq(0, WHBridge.references);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const demoservice : any = test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  const demoservice: any = test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
   demoservice.close();
 
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"]));
@@ -90,7 +89,7 @@ async function runWebHareServiceTest_JS()
   test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance : any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
+  const serverinstance: any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
 
   let promise = serverinstance.getAsyncLUE();
@@ -104,8 +103,8 @@ async function runWebHareServiceTest_JS()
 
   await test.throws(/Async crash/, promise2);
 
-  test.eq({arg1:41,arg2:43}, await serverinstance.ping(41,43));
-  test.eq({arg1:41,arg2:43}, await serverinstance.asyncPing(41,43));
+  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ping(41, 43));
+  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.asyncPing(41, 43));
 
   /* TODO reenable as event source? then it would be nicer to do it like a 'real' eventSource
   const eventwaiter = serverinstance.waitOn("testevent");
@@ -116,15 +115,14 @@ async function runWebHareServiceTest_JS()
   serverinstance.close();
 }
 
-async function runWebHareServiceTest_HS()
-{
+async function runWebHareServiceTest_HS() {
   await test.throws(/Invalid/, services.openBackendService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:webhareservicetest", ["abort"]));
 
   test.eq(0, WHBridge.references, "Failed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance : any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"]);
+  const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"]);
   test.eq(1, WHBridge.references, "services.openBackendService should immediately keep a reference open");
   test.eq(42, await serverinstance.GETLUE());
 
@@ -139,8 +137,8 @@ async function runWebHareServiceTest_HS()
 
   await test.throws(/Async crash/, promise2);
 
-  test.eq({arg1:41,arg2:43}, await serverinstance.PING(41,43));
-  test.eq({arg1:41,arg2:43}, await serverinstance.ASYNCPING(41,43));
+  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.PING(41, 43));
+  test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ASYNCPING(41, 43));
 
   serverinstance.close();
   test.eq(0, WHBridge.references, "And the reference should be cleaned after close");
@@ -155,17 +153,17 @@ async function runWebHareServiceTest_HS()
 
 //NOTE: we take an a-typical test to help ensure noone booted services before us
 
-async function main()
-{
+async function main() {
   await test.throws(/not yet available/, () => services.getConfig());
   await services.ready();
   serverconfig = services.getConfig();
 
   test.run(
-    [ testServices
-    , testResources
-    , runWebHareServiceTest_JS
-    , runWebHareServiceTest_HS
+    [
+      testServices,
+      testResources,
+      runWebHareServiceTest_JS,
+      runWebHareServiceTest_HS
     ], { wrdauth: false });
 }
 

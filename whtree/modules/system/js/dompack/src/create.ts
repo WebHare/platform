@@ -1,15 +1,10 @@
 import { append, setStyles } from './tree';
 
-// This will assign the `any` type to elements created by the jsx-like element constructor, for example, after the statement
-// `const divElement = <div/>;`, the `divElement` variable will have type `any`. Not sure how we can assign the correct
-// element type to the different node names, but adding `"div": HTMLDivElement;` to the `IntrinsicElements` doesn't work.
-declare global
-{
+// This will assign the `any` type to the list of accepted attributes for elements constructed via JSX syntax.
+declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace JSX
-  {
-    interface IntrinsicElements
-    {
+  namespace JSX {
+    interface IntrinsicElements {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [eleName: string]: any;
     }
@@ -17,23 +12,22 @@ declare global
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CreateElementFunction = (attributes: { [key: string]: any }, _1?: null, _2?: null) => HTMLElement;
+type CreateAttributes = Record<string, any>;
 
-function flattenArray<T>(list: T[]): T[]
-{
+type CreateElementFunction = (attributes: CreateAttributes, _1?: null, _2?: null) => HTMLElement;
+
+function flattenArray<T>(list: T[]): T[] {
   return list.reduce((acc: T[], elt) => acc.concat(Array.isArray(elt) ? flattenArray(elt) : elt), []);
 }
 
-function setClassName(node: Element, value?: string | string[] | { [key: string]: boolean })
-{
+function setClassName(node: Element, value?: string | string[] | { [key: string]: boolean }) {
   if (!value)
     node.className = '';
-  if (typeof value === 'string')
+  else if (typeof value === 'string')
     node.className = value || '';
   else if (Array.isArray(value))
     node.className = value.filter(elt => elt && typeof elt === 'string').join(" ");
-  else if (value instanceof Object)
-  {
+  else if (typeof value === "object") {
     let str = "";
     Object.keys(value).forEach((key, idx) => { if (value[key]) str += (idx ? " " : "") + key; });
     node.className = str;
@@ -52,8 +46,7 @@ const MATCH_DASH_AND_CHAR = /-([a-zA-Z])/g;
  *
  * @param value - identifier to convert
  */
-export function toDashed(value: string)
-{
+export function toDashed(value: string) {
   if (value)
     return (value.substring(0, 1) + value.substring(1).replace(MATCH_UPCASE, "-$1")).toLowerCase();
   return "";
@@ -64,30 +57,24 @@ export function toDashed(value: string)
  *
  * @param value - identifier to convert
  */
-export function toCamel(value: string)
-{
+export function toCamel(value: string) {
   return value.replace(MATCH_DASH_AND_CHAR, (_, match_1) => match_1.toUpperCase());
 }
 
-function attrHasBooleanValue(propname: string)
-{
-  return ['disabled','checked','selected','readonly','multiple','ismap'].includes(propname);
+function attrHasBooleanValue(propname: string) {
+  return ['disabled', 'checked', 'selected', 'readonly', 'multiple', 'ismap'].includes(propname);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createElement(elementname: string, attributes: { [key: string]: any }, toattrs: boolean)
-{
+function createElement(elementname: string, attributes: CreateAttributes, toattrs: boolean) {
   const node = document.createElement(elementname);
-  if(attributes)
-  {
-    Object.keys(attributes).forEach(attrname =>
-    {
-      if(attrname == 'events')
+  if (attributes) {
+    Object.keys(attributes).forEach(attrname => {
+      if (attrname == 'events')
         throw new Error("Use 'on' instead of 'events' in dompack.create");
-      if(attrname == 'styles')
+      if (attrname == 'styles')
         throw new Error("Use 'style' instead of 'styles' in dompack.create");
-      if(attrname == 'children')
-      {
+      if (attrname == 'children') {
         // allow null 'children' property for jsxcreate, property delete is detrimental to performance.
         if (attributes[attrname])
           throw new Error("Use 'childNodes' instead of 'children' in dompack.create");
@@ -101,43 +88,37 @@ function createElement(elementname: string, attributes: { [key: string]: any }, 
       else if (attrname.startsWith("on"))
         return void node.addEventListener(toDashed(attrname.substring(2)), value, false);
 
-      if (attrname == "className" || attrname == "class")
-      {
-        if(node.className) // already modified the class?
+      if (attrname == "className" || attrname == "class") {
+        if (node.className) // already modified the class?
           throw new Error("Specify either 'className' or 'class' to dompack.create, but not both");
         setClassName(node, value);
         return;
       }
 
-      if(attrname == 'style')
+      if (attrname == 'style')
         return void setStyles(node, value);
 
-      if(attrname == 'dataset') //explicitly assign
+      if (attrname == 'dataset') //explicitly assign
         return void Object.assign(node[attrname], value);
 
-      if(attrname == 'childNodes') //append as children
+      if (attrname == 'childNodes') //append as children
         return void append(node, ...attributes.childNodes.filter((child: Node | string | number | boolean | null) => child != null && child !== true && child !== false));
 
-      if(toattrs && attrHasBooleanValue(attrname))
-      {
-        if(value)
-          node.setAttribute(attrname,"");
+      if (toattrs && attrHasBooleanValue(attrname)) {
+        if (value)
+          node.setAttribute(attrname, "");
         else
           node.removeAttribute(attrname);
         return;
       }
 
-      if (toattrs && !attrname.startsWith("prop"))
-      {
-        if (value != null) // matches not null and not undefined
-        {
+      if (toattrs && !attrname.startsWith("prop")) {
+        if (value != null) { // matches not null and not undefined
           if (value && typeof value == "object")
             throw new Error("Cannot store non-null objects in attributes, use a property starting with 'prop'");
           node.setAttribute(attrname, attributes[attrname]);
         }
-      }
-      else
-      {
+      } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we don't know which keys will be set
         (node as any)[attrname] = attributes[attrname];
       }
@@ -154,27 +135,25 @@ function createElement(elementname: string, attributes: { [key: string]: any }, 
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function create(elementname: string, attributes: { [key: string]: any })
-{
+export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes: CreateAttributes): HTMLElementTagNameMap[K];
+export function create(elementname: string, attributes: CreateAttributes): HTMLElement;
+
+export function create(elementname: string, attributes: CreateAttributes) {
   return createElement(elementname, attributes, false);
 }
 
-/**
- Function to create for jsx, create elements directly (instead of virtual dom nodes).
+/** Function to create for jsx, create elements directly (instead of virtual dom nodes).
 
     import * as dompack from 'dompack';
 
     /* \@jsx dompack.jsxcreate *\/
     /* \@jsxFrag dompack.jsxfragment *\/
     your code
- *
- * @param element - Name of the element to create
- * @param childNodes - Any child nodes to add immediately
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function jsxcreate(element: string | CreateElementFunction, attributes: { [key: string]: any }, ...childNodes: Array<Node | string | number>)
-{
+
+    @param element - Name of the element to create
+    @param childNodes - Any child nodes to add immediately
+*/
+export function jsxcreate(element: string | CreateElementFunction, attributes: CreateAttributes, ...childNodes: Array<Node | string | number>) {
   // Ensure attributes
   attributes = attributes || {};
   // Flatten childnodes arrays, convert numbers to strings. Also support children property (React uses that)
@@ -190,8 +169,7 @@ export function jsxcreate(element: string | CreateElementFunction, attributes: {
   return createElement(element, attributes, true);
 }
 
-export function jsxfragment(inp: Node)
-{
+export function jsxfragment(inp: Node): DocumentFragment {
   const frag = document.createDocumentFragment();
   frag.append(...inp.childNodes);
   return frag;

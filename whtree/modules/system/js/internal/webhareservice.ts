@@ -10,9 +10,9 @@ function encodeExceptionForIPC(e: unknown) {
     what = what.substring(7); //for compatibility with HareScript exceptins
 
   return {
-    type: "exception"
-    , what: what
-    , trace: [] //TODO
+    type: "exception",
+    what: what,
+    trace: [] //TODO
   };
 }
 
@@ -38,11 +38,11 @@ function describePublicInterface(inobj: object) {
 
       methods.push({
         signdata: {
-          returntype: 1  //variant return value
-          , params
-          , excessargstype: -1
-        }
-        , name
+          returntype: 1,  //variant return value
+          params,
+          excessargstype: -1
+        },
+        name
       });
     }
   }
@@ -64,8 +64,7 @@ interface ServiceCallMessage {
   args: unknown[];
 }
 
-class WebHareService //EXTEND IPCPortHandlerBase
-{
+class WebHareService { //EXTEND IPCPortHandlerBase
   private _port: IPCListenerPort;
   private _constructor: ConnectionConstructor;
   private _links: Array<{ handler: object; link: object }>;
@@ -83,8 +82,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
       link.accept();
       const packet = await messagepromise;
       this._setupLink(link, packet.message as { __new: unknown[] }, packet.msgid);
-    }
-    catch (e) {
+    } catch (e) {
       console.log("_onLinkAccepted error", e);
       WHBridge._closeLink(link);
     }
@@ -100,8 +98,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
       link.send(describePublicInterface(handler), id);
 
       this._links.push({ handler, link });
-    }
-    catch (e) {
+    } catch (e) {
       console.log("_setupLink error", e);
       link.sendException(e as Error, id);
       WHBridge._closeLink(link);
@@ -116,8 +113,7 @@ class WebHareService //EXTEND IPCPortHandlerBase
       const pos = this._links.findIndex(_ => _.link === link);
       const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, message.args);
       link.send({ result }, replyid);
-    }
-    catch (e) {
+    } catch (e) {
       link.send({ exc: encodeExceptionForIPC(e) }, replyid);
     }
   }

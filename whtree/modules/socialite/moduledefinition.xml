@@ -13,7 +13,9 @@
       <dependency module="publisher" />
       <dependency module="tollium" />
     </packaging>
-    <validation options="nowarnings" />
+    <validation options="nowarnings">
+      <format masks="*.ts *.tsx" />
+    </validation>
   </meta>
 
   <servicemanager>

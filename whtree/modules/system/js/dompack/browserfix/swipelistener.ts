@@ -5,34 +5,32 @@ import * as dompack from "../index";
 const HAS_TOUCHEVENT = typeof TouchEvent != "undefined"; // Desktop Safari doesn't have TouchEvent
 
 const swipedetect = Symbol("dompack swipedetect");
-interface SwipeEventTarget extends EventTarget
-{
+interface SwipeEventTarget extends EventTarget {
   [key: symbol]: SwipeDetect;
 }
 
 type SwipeDetectOptions =
-{
-  threshold_distance?: number;
-  threshold_speed?: number;
-  enablemouseswipe?: boolean;
-};
+  {
+    threshold_distance?: number;
+    threshold_speed?: number;
+    enablemouseswipe?: boolean;
+  };
 
 type SwipePosition = { x: number; y: number };
 
 type SwipeInfo =
-{
-  starttime: number;
-  endtime: number;
-  start: SwipePosition;
-  end: SwipePosition;
-  target: EventTarget | null;
-  direction: string;
-};
+  {
+    starttime: number;
+    endtime: number;
+    start: SwipePosition;
+    end: SwipePosition;
+    target: EventTarget | null;
+    direction: string;
+  };
 
 type EventHandler = (event: Event) => boolean;
 
-class SwipeDetect
-{
+class SwipeDetect {
   options: SwipeDetectOptions;
   swipeinfo: SwipeInfo | null;
   node: EventTarget;
@@ -40,16 +38,16 @@ class SwipeDetect
   boundTouchMove: EventHandler;
   boundTouchEnd: EventHandler;
 
-  constructor(node: EventTarget, options?: SwipeDetectOptions)
-  {
-    if(!node)
+  constructor(node: EventTarget, options?: SwipeDetectOptions) {
+    if (!node)
       throw new Error("Invalid node passed to SwipeDetect");
 
-    this.options = { threshold_distance: 15
-                   , threshold_speed: 0.3
-                   , enablemouseswipe: true
-                   , ...options
-                   };
+    this.options = {
+      threshold_distance: 15,
+      threshold_speed: 0.3,
+      enablemouseswipe: true,
+      ...options
+    };
 
     this.swipeinfo = null;
     this.node = node;
@@ -58,43 +56,36 @@ class SwipeDetect
     this.boundTouchMove = this.onTouchMove.bind(this);
     this.boundTouchEnd = this.onTouchEnd.bind(this);
 
-    if(this.options.enablemouseswipe)
-    {
+    if (this.options.enablemouseswipe) {
       node.addEventListener("mousedown", this.boundTouchStart);
       node.addEventListener("mousemove", this.boundTouchMove);
-      node.addEventListener("mouseup",   this.boundTouchEnd);
+      node.addEventListener("mouseup", this.boundTouchEnd);
     }
-    if(this.touchEnabled())
-    {
+    if (this.touchEnabled()) {
       node.addEventListener("touchstart", this.boundTouchStart);
-      node.addEventListener("touchmove",  this.boundTouchMove);
-      node.addEventListener("touchend",   this.boundTouchEnd);
+      node.addEventListener("touchmove", this.boundTouchMove);
+      node.addEventListener("touchend", this.boundTouchEnd);
     }
   }
 
-  destroy()
-  {
-    if(this.options.enablemouseswipe)
-    {
+  destroy() {
+    if (this.options.enablemouseswipe) {
       this.node.removeEventListener("mousedown", this.boundTouchStart);
       this.node.removeEventListener("mousemove", this.boundTouchMove);
-      this.node.removeEventListener("mouseup",   this.boundTouchEnd);
+      this.node.removeEventListener("mouseup", this.boundTouchEnd);
     }
-    if(this.touchEnabled())
-    {
+    if (this.touchEnabled()) {
       this.node.removeEventListener("touchstart", this.boundTouchStart);
-      this.node.removeEventListener("touchmove",  this.boundTouchMove);
-      this.node.removeEventListener("touchend",   this.boundTouchEnd);
+      this.node.removeEventListener("touchmove", this.boundTouchMove);
+      this.node.removeEventListener("touchend", this.boundTouchEnd);
     }
   }
 
-  touchEnabled()
-  {
+  touchEnabled() {
     return ("ontouchstart" in window);
   }
 
-  onTouchStart(ev: Event)
-  {
+  onTouchStart(ev: Event) {
     let pos: SwipePosition | null = null;
     if (HAS_TOUCHEVENT && ev instanceof TouchEvent)
       pos = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
@@ -102,19 +93,19 @@ class SwipeDetect
       pos = { x: ev.pageX, y: ev.pageY };
     if (!pos)
       return true;
-    this.swipeinfo = { starttime : Date.now()
-                     , endtime   : -1
-                     , start     : pos
-                     , end       : pos
-                     , target    : ev.target
-                     , direction : ""
-                     };
+    this.swipeinfo = {
+      starttime: Date.now(),
+      endtime: -1,
+      start: pos,
+      end: pos,
+      target: ev.target,
+      direction: ""
+    };
     return true;
   }
 
-  onTouchMove(ev: Event)
-  {
-    if(!this.swipeinfo)
+  onTouchMove(ev: Event) {
+    if (!this.swipeinfo)
       return true;
     if (HAS_TOUCHEVENT && ev instanceof TouchEvent)
       this.swipeinfo.end = { x: ev.touches[0].pageX, y: ev.touches[0].pageY };
@@ -123,9 +114,8 @@ class SwipeDetect
     return true;
   }
 
-  onTouchEnd()
-  {
-    if(!this.swipeinfo)
+  onTouchEnd() {
+    if (!this.swipeinfo)
       return true;
 
     const dx = this.swipeinfo.end.x - this.swipeinfo.start.x;
@@ -136,18 +126,18 @@ class SwipeDetect
     const abs_x = Math.abs(dx);
     const abs_y = Math.abs(dy);
 
-    if(this.options.threshold_distance && this.options.threshold_speed && abs_x > this.options.threshold_distance && abs_x / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
+    if (this.options.threshold_distance && this.options.threshold_speed && abs_x > this.options.threshold_distance && abs_x / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dx > 0 ? "e" : "w";
 
-    if(this.options.threshold_distance && this.options.threshold_speed && abs_y > this.options.threshold_distance && abs_y / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
+    if (this.options.threshold_distance && this.options.threshold_speed && abs_y > this.options.threshold_distance && abs_y / (this.swipeinfo.endtime - this.swipeinfo.starttime) > this.options.threshold_speed)
       this.swipeinfo.direction += dy > 0 ? "s" : "n";
 
-    if(this.swipeinfo.direction != "")
-    {
-      dompack.dispatchCustomEvent(this.node, "dompack:swipe", { bubbles: true
-                                                              , cancelable: true
-                                                              , detail: this.swipeinfo
-                                                              });
+    if (this.swipeinfo.direction != "") {
+      dompack.dispatchCustomEvent(this.node, "dompack:swipe", {
+        bubbles: true,
+        cancelable: true,
+        detail: this.swipeinfo
+      });
 
     }
 
@@ -157,16 +147,14 @@ class SwipeDetect
 
 }
 
-export function enable(element: SwipeEventTarget, options?: SwipeDetectOptions)
-{
+export function enable(element: SwipeEventTarget, options?: SwipeDetectOptions) {
   if (element[swipedetect])
     return;
 
   element[swipedetect] = new SwipeDetect(element, options);
 }
 
-export function disable(element: SwipeEventTarget)
-{
+export function disable(element: SwipeEventTarget) {
   if (!element[swipedetect])
     return;
 

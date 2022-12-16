@@ -1,47 +1,43 @@
 /* import * as preload from 'dompack/extra/preload' */
 
 type PromiseImageResult =
-{
-  node: HTMLImageElement;
-  src: string;
-  width: number;
-  height: number;
-};
+  {
+    node: HTMLImageElement;
+    src: string;
+    width: number;
+    height: number;
+  };
 
 type PromiseScriptResult =
-{
-  node: HTMLScriptElement;
-  src: string;
-};
-
-export function promiseImage(imgsrc: string)
-{
-  return new Promise<PromiseImageResult>((resolve, reject) =>
   {
+    node: HTMLScriptElement;
+    src: string;
+  };
+
+export function promiseImage(imgsrc: string) {
+  return new Promise<PromiseImageResult>((resolve, reject) => {
     const img = new Image;
-    img.onload = () =>
-    {
-      resolve({node: img
-              ,src: img.src
-              ,width: img.naturalWidth
-              ,height: img.naturalHeight
-              });
+    img.onload = () => {
+      resolve({
+        node: img,
+        src: img.src,
+        width: img.naturalWidth,
+        height: img.naturalHeight
+      });
     };
     img.onerror = reject;
     img.src = imgsrc;
   });
 }
 
-export function promiseScript(scriptsrc: string)
-{
-  return new Promise<PromiseScriptResult>((resolve, reject) =>
-  {
+export function promiseScript(scriptsrc: string) {
+  return new Promise<PromiseScriptResult>((resolve, reject) => {
     const scripttag = document.createElement('script');
-    scripttag.onload = () =>
-    {
-      resolve( { node: scripttag
-               , src: scripttag.src
-               });
+    scripttag.onload = () => {
+      resolve({
+        node: scripttag,
+        src: scripttag.src
+      });
     };
     scripttag.onerror = reject;
     scripttag.src = scriptsrc;
@@ -50,8 +46,7 @@ export function promiseScript(scriptsrc: string)
   });
 }
 
-export function promiseCSS(src: string)
-{
+export function promiseCSS(src: string) {
   const element = document.createElement('link');
   element.type = 'text/css';
   element.rel = 'stylesheet';
@@ -62,20 +57,17 @@ export function promiseCSS(src: string)
   return retval;
 }
 
-export function promiseNewLinkNode(element: HTMLLinkElement)
-{
-  return new Promise<void>((resolve, reject) =>
-  {
+export function promiseNewLinkNode(element: HTMLLinkElement) {
+  return new Promise<void>((resolve, reject) => {
     element.onload = () => resolve();
     element.onerror = reject;
   });
 }
 
-export function promiseAssetPack(apname: string)
-{
-  const basepath = `/.ap/${apname.replace(':','.')}/ap.`;
-  if(document.querySelector(`script[src$="${CSS.escape(basepath+'js')}"`))
+export function promiseAssetPack(apname: string) {
+  const basepath = `/.ap/${apname.replace(':', '.')}/ap.`;
+  if (document.querySelector(`script[src$="${CSS.escape(basepath + 'js')}"`))
     return; //we have it already
 
-  return Promise.all([promiseScript(basepath+'js'), promiseCSS(basepath+'css')]);
+  return Promise.all([promiseScript(basepath + 'js'), promiseCSS(basepath + 'css')]);
 }

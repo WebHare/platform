@@ -7,15 +7,13 @@ import createRPCClient from "@webhare/jsonrpc-client";
 export type HighlightCallback = (node: Element) => Element;
 export type DOMFilterCallback = (node: Element) => Element;
 
-export interface UserData
-{
+export interface UserData {
   /** The user's name */
   realname: string;
   /** The user's email address */
   email: string;
 }
-export interface FeedbackOptions
-{
+export interface FeedbackOptions {
   /** Feedback token, a JSON Web Token as returned by GetFeedbackWebToken */
   token?: string;
   /** Author data */
@@ -62,8 +60,7 @@ export interface FeedbackFailedResult {
 
 export type FeedbackResult = FeedbackSuccessResult | FeedbackFailedResult;
 
-export interface ScreenshotData
-{
+export interface ScreenshotData {
   readonly version: number;
   screenshot: {
     htmlAttrs: Properties;
@@ -80,20 +77,16 @@ export interface ScreenshotData
   userAgent: string;
   url: string; // version 2
 }
-export interface FeedbackInfo extends ScreenshotData
-
-{
+export interface FeedbackInfo extends ScreenshotData {
   element: PointResult | null;
   extraData: unknown;
   token?: string;
 }
-export interface PointOptions
-{
+export interface PointOptions {
   highlightCallback?: HighlightCallback;
 }
 
-export interface PointResult
-{
+export interface PointResult {
   top: number;
   left: number;
   width: number;
@@ -109,13 +102,12 @@ let feedbackOptions: FeedbackOptions;
 
     @param options - New options
  */
-export function initFeedback(options: FeedbackOptions): void
-{
+export function initFeedback(options: FeedbackOptions): void {
   feedbackOptions = { ...defaultOptions, ...options };
 }
 
 interface FeedbackService {
-  storeFeedback(pathname: string, data: FeedbackInfo) : Promise<FeedbackResult>;
+  storeFeedback(pathname: string, data: FeedbackInfo): Promise<FeedbackResult>;
 }
 
 const feedbackservice = createRPCClient<FeedbackService>("publisher:feedback");
@@ -128,12 +120,10 @@ const feedbackservice = createRPCClient<FeedbackService>("publisher:feedback");
     @param extraOptions - Extra options, overwriting the global options
     @returns The result
  */
-export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult>
-{
+export async function getFeedback(event?: MouseEvent, extraOptions?: FeedbackOptions): Promise<FeedbackResult> {
   const options = { ...feedbackOptions, ...extraOptions };
   const element = options.addElement ? await pointAtDOM(event, { highlightCallback: options.highlightCallback }) : null;
-  if (!options.addElement || element)
-  {
+  if (!options.addElement || element) {
     const data = takeScreenshot(options.domFilterCallback, options.postFilterCallback);
     const extraData = options.feedbackPromise ? await options.feedbackPromise() : {};
     if (extraData)

@@ -4,8 +4,7 @@ import { PointOptions, PointResult, HighlightCallback } from "./index";
 
 let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
 
-export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null>
-{
+export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): Promise<PointResult | null> {
   if (deferred)
     return Promise.reject(new Error("Already pointing at DOM"));
 
@@ -23,24 +22,21 @@ export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): 
   return deferred.promise;
 }
 
-function activateDOMPointer()
-{
+function activateDOMPointer() {
   window.addEventListener("mousemove", highlightDOM, true);
   window.addEventListener("click", captureDOMNode, true);
   window.addEventListener("keydown", maybeCancelDOMPointer, true);
   document.documentElement.classList.add("wh-feedback--dompointer");
 }
 
-function deactivateDOMPointer()
-{
+function deactivateDOMPointer() {
   window.removeEventListener("mousemove", highlightDOM, true);
   window.removeEventListener("click", captureDOMNode, true);
   window.removeEventListener("keydown", maybeCancelDOMPointer, true);
   document.documentElement.classList.remove("wh-feedback--dompointer");
 }
 
-function resolveWithResult(result: PointResult | null)
-{
+function resolveWithResult(result: PointResult | null) {
   if (!deferred)
     return;
   deactivateDOMPointer();
@@ -50,16 +46,14 @@ function resolveWithResult(result: PointResult | null)
   resolve(result);
 }
 
-function maybeCancelDOMPointer(event: KeyboardEvent)
-{
+function maybeCancelDOMPointer(event: KeyboardEvent) {
   dompack.stop(event);
 
   if (event.code === "Escape" && deferred)
     resolveWithResult(null);
 }
 
-function highlightDOM(event: MouseEvent)
-{
+function highlightDOM(event: MouseEvent) {
   const hoverNode = getHoveredDOMNode(event);
   if (hoverNode) {
     const rect = hoverNode.getBoundingClientRect();
@@ -68,15 +62,12 @@ function highlightDOM(event: MouseEvent)
     highlighter.style.width = rect.width + "px";
     highlighter.style.height = rect.height + "px";
     document.body.appendChild(highlighter);
-  }
-  else
-  {
+  } else {
     highlighter.remove();
   }
 }
 
-function captureDOMNode(event: MouseEvent)
-{
+function captureDOMNode(event: MouseEvent) {
   dompack.stop(event);
 
   if (deferred) {
@@ -90,8 +81,7 @@ function captureDOMNode(event: MouseEvent)
   }
 }
 
-function getHoveredDOMNode(event: MouseEvent)
-{
+function getHoveredDOMNode(event: MouseEvent) {
   const el = document.elementFromPoint(event.clientX, event.clientY);
   return el && highlightCallback ? highlightCallback(el) : el;
 }

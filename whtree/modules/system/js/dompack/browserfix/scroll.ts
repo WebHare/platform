@@ -2,18 +2,17 @@ import * as dompack from 'dompack';
 import { Rect } from '../src/tree';
 
 type ScrollStyle =
-{
-  scrollTop?: number;
-  scrollLeft?: number;
-};
+  {
+    scrollTop?: number;
+    scrollLeft?: number;
+  };
 
 const debugscrolling = false;
 
 const clamp = function(min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
-const parsepx = function(val: string)
-{
+const parsepx = function(val: string) {
   if (val == "0")
-    return parseInt(val,10);
+    return parseInt(val, 10);
   if (!/^-?[0-9]+(\.[0-9]*)?px$/.test(val))
     throw new Error("Only 'px' unit is allowed in scrollToElement context");
   const floatVal = parseFloat(val);
@@ -22,33 +21,28 @@ const parsepx = function(val: string)
   return floatVal;
 };
 
-const addContextToRect = function(rect: Rect, context: Rect): Rect
-{
+const addContextToRect = function(rect: Rect, context: Rect): Rect {
   return (
-    { top:    rect.top - context.top
-    , right:  rect.right + context.right
-    , bottom: rect.bottom + context.bottom
-    , left:   rect.left - context.left
-    , width:  rect.width + context.left + context.right
-    , height: rect.height + context.top + context.bottom
-    , node:   rect.node
+    {
+      top: rect.top - context.top,
+      right: rect.right + context.right,
+      bottom: rect.bottom + context.bottom,
+      left: rect.left - context.left,
+      width: rect.width + context.left + context.right,
+      height: rect.height + context.top + context.bottom,
+      node: rect.node
     });
 };
 
-function aniHookSetScrollStyle(node: Element, style: ScrollStyle)
-{
-  if(node == node.ownerDocument.documentElement) //scroll its window instead
-  {
+function aniHookSetScrollStyle(node: Element, style: ScrollStyle) {
+  if (node == node.ownerDocument.documentElement) { //scroll its window instead
     const win: Window | null = node.ownerDocument.defaultView;
-    if (win)
-    {
+    if (win) {
       const setx = style.scrollLeft ?? win.scrollX ?? win.document.documentElement.scrollLeft ?? 0;
       const sety = style.scrollTop ?? win.scrollY ?? win.document.documentElement.scrollTop ?? 0;
       win.scrollTo(setx, sety);
     }
-  }
-  else
-  {
+  } else {
     console.warn('aniHookSetScrollStyle', node, style);
     /* FIXME Will we return wh-scrollable view support ?
     if (node.classList.contains('wh-scrollableview'))
@@ -69,17 +63,15 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle)
     }
     else*/
     {
-      if (style.scrollLeft != undefined)
-      {
+      if (style.scrollLeft != undefined) {
         node.scrollLeft = style.scrollLeft;
-        if(debugscrolling && node.scrollLeft != style.scrollLeft)
-          console.warn('scrollLeft update failed, wanted ' + style.scrollLeft + ' got ' + node.scrollLeft,node);
+        if (debugscrolling && node.scrollLeft != style.scrollLeft)
+          console.warn('scrollLeft update failed, wanted ' + style.scrollLeft + ' got ' + node.scrollLeft, node);
       }
-      if (style.scrollTop != undefined)
-      {
+      if (style.scrollTop != undefined) {
         node.scrollTop = style.scrollTop;
-        if(debugscrolling && node.scrollTop != style.scrollTop)
-          console.warn('scrollTop update failed, wanted ' + style.scrollTop + ' got ' + node.scrollTop,node);
+        if (debugscrolling && node.scrollTop != style.scrollTop)
+          console.warn('scrollTop update failed, wanted ' + style.scrollTop + ' got ' + node.scrollTop, node);
       }
     }
   }
@@ -88,66 +80,64 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle)
   return style;
 }
 
-const getMovedBoxes = function(boxes: Rect[], x: number, y: number)
-{
+const getMovedBoxes = function(boxes: Rect[], x: number, y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
-  boxes.forEach(function(item)
-    {
-      newboxes.push(
-        { top :     item.top + y
-        , right:    item.right + x
-        , bottom:   item.bottom + y
-        , left:     item.left + x
-        , width:    item.width
-        , height:   item.height
-        , node:     item.node
-        });
-    });
+  boxes.forEach(function(item) {
+    newboxes.push(
+      {
+        top: item.top + y,
+        right: item.right + x,
+        bottom: item.bottom + y,
+        left: item.left + x,
+        width: item.width,
+        height: item.height,
+        node: item.node
+      });
+  });
 
   return newboxes;
 };
 
-const getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number)
-{
+const getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
-  boxes.forEach(function(item)
+  boxes.forEach(function(item) {
+    const newbox =
     {
-      const newbox =
-        { top :     clamp(0, max_y, item.top)
-        , right:    clamp(0, max_x, item.right)
-        , bottom:   clamp(0, max_y, item.bottom)
-        , left:     clamp(0, max_x, item.left)
-        , width:    0
-        , height:   0
-        , node:     item.node
-        };
-      newbox.width = newbox.right - newbox.left;
-      newbox.height = newbox.bottom - newbox.top;
-      newboxes.push(newbox);
-    });
+      top: clamp(0, max_y, item.top),
+      right: clamp(0, max_x, item.right),
+      bottom: clamp(0, max_y, item.bottom),
+      left: clamp(0, max_x, item.left),
+      width: 0,
+      height: 0,
+      node: item.node
+    };
+    newbox.width = newbox.right - newbox.left;
+    newbox.height = newbox.bottom - newbox.top;
+    newboxes.push(newbox);
+  });
 
   return newboxes;
 };
 
 type ScrollOptions =
-{
-  /** X offset within node to get into view */
-  x?: number;
-  /** Y offset within node to get into view */
-  y?: number;
-  /** Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported) */
-  context?: number | string;
-  /** Parent top stop scrolling at */
-  limit?: Element;
-  /** List of nodes to explicitly allow scrolling (compensate for overflow: hidden) */
-  allownodes?: Element[];
-  /** Duration */
-  duration?: number;
-};
+  {
+    /** X offset within node to get into view */
+    x?: number;
+    /** Y offset within node to get into view */
+    y?: number;
+    /** Context pixels to use. Use number or css syntax (eg: "0 20px 30px". Only unit 'px' is supported) */
+    context?: number | string;
+    /** Parent top stop scrolling at */
+    limit?: Element;
+    /** List of nodes to explicitly allow scrolling (compensate for overflow: hidden) */
+    allownodes?: Element[];
+    /** Duration */
+    duration?: number;
+  };
 
 /**
      Scrolls elements so that a specific node is visible. If an (x,y) coordinate is given, that point is
@@ -157,21 +147,20 @@ type ScrollOptions =
     @param node - Node to get in view
     @param options - Scroll options
  */
-export function scrollToElement(node: HTMLElement, options?: ScrollOptions)
-{
+export function scrollToElement(node: HTMLElement, options?: ScrollOptions) {
   const animations = getScrollToElementAnimations(node, options);
   animations.forEach(function(item) { item.hooksetstyles(item.to); }); //FIXME remove hooksetstyles
 }
 
 type ScrollPos = { scrollLeft?: number; scrollTop?: number };
 type ScrollAction =
-{
-  duration: number;
-  target: HTMLElement;
-  from: ScrollPos;
-  to: ScrollPos;
-  hooksetstyles: (pos: ScrollPos) => void;
-};
+  {
+    duration: number;
+    target: HTMLElement;
+    from: ScrollPos;
+    to: ScrollPos;
+    hooksetstyles: (pos: ScrollPos) => void;
+  };
 
 /**
      Returns the animation needed to make a specific node visible. If an (x,y) coordinate is given, that point is
@@ -182,12 +171,11 @@ type ScrollAction =
     @param options - Scroll options
     @returns List of scroll animations (can be fed into animation timeline)
  */
-function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions)
-{
-   if(debugscrolling)
-     console.log("--------------------- Scroll to element: ",node,options);
+function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions) {
+  if (debugscrolling)
+    console.log("--------------------- Scroll to element: ", node, options);
 
-// make sure options is a valid object
+  // make sure options is a valid object
   options = options || {};
 
   // Get location within node to get into view
@@ -195,24 +183,25 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   const y = options.y || 0;
 
   // Extra context (when x & y aren't specified)
-//  var boundrec = node.getBoundingClientRect();
-//  var extra_context_right = typeof options.x != "number" ? boundrec.right - boundrec.left : 0;
-//  var extra_context_bottom = typeof options.y != "number" ? boundrec.bottom - boundrec.top : 0;
+  //  var boundrec = node.getBoundingClientRect();
+  //  var extra_context_right = typeof options.x != "number" ? boundrec.right - boundrec.left : 0;
+  //  var extra_context_bottom = typeof options.y != "number" ? boundrec.bottom - boundrec.top : 0;
 
   // Parse context string (accept CSS format eg "20px 0 30px")
   options.context = options.context || "20px";
   if (typeof options.context == "number")
-      options.context = options.context + "px";
+    options.context = options.context + "px";
 
   const contextparts = options.context.split(' ');
   const context: Rect =
-    { top:    parsepx(contextparts[0])
-    , right:  parsepx(contextparts[1] || contextparts[0])
-    , bottom: parsepx(contextparts[2] || contextparts[0])
-    , left:   parsepx(contextparts[3] || contextparts[1] || contextparts[0])
-    , width:  0
-    , height: 0
-    };
+  {
+    top: parsepx(contextparts[0]),
+    right: parsepx(contextparts[1] || contextparts[0]),
+    bottom: parsepx(contextparts[2] || contextparts[0]),
+    left: parsepx(contextparts[3] || contextparts[1] || contextparts[0]),
+    width: 0,
+    height: 0
+  };
 
   // Convert body to documentElement in options.limitnode
   if (options.limit && options.limit == options.limit.ownerDocument.body)
@@ -223,38 +212,39 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
 
   // Calculate 2 boxes - first for if context is really to big
   let boxes: Rect[] =
-    [ { top:      y - 1
-      , right:    x + 1
-      , bottom:   y + 1
-      , left:     x - 1
-      , width:    2
-      , height:   2
-      , node:     node
-      }
-    , { top:      y - context.top
-      , right:    x + context.right
-      , bottom:   y + context.bottom
-      , left:     x - context.left
-      , width:    context.left + context.right
-      , height:   context.top + context.bottom
-      , node:     node
+    [
+      {
+        top: y - 1,
+        right: x + 1,
+        bottom: y + 1,
+        left: x - 1,
+        width: 2,
+        height: 2,
+        node: node
+      },
+      {
+        top: y - context.top,
+        right: x + context.right,
+        bottom: y + context.bottom,
+        left: x - context.left,
+        width: context.left + context.right,
+        height: context.top + context.bottom,
+        node: node
       }
     ];
 
   // Add a whole element box
   boxes.push(addContextToRect(dompack.getRelativeBounds(node, node), context));
 
-//  var orgnode = node;
+  //  var orgnode = node;
   let parent: HTMLElement | null;
 
-  for (; node; node=parent)
-  {
+  for (; node; node = parent) {
     const doc = node.ownerDocument;
     const wnd = doc.defaultView;
 
-//    var parent;
-    if (node == doc.documentElement) //at the root
-    {
+    //    var parent;
+    if (node == doc.documentElement) { //at the root
       const iframe = wnd?.frameElement;
       if (!iframe)
         break;
@@ -264,35 +254,36 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     parent = node.parentElement;
     if (parent == doc.body)
       parent = doc.documentElement;
-    if(!parent)
+    if (!parent)
       return []; //we were out of the dom..
 
-    if(debugscrolling)
+    if (debugscrolling)
       console.log('pre boxes', [...boxes]);
 
     // Calculate offset of node within parent. Mootools getPosition(relative) doesn't work, sometimes
     // returns NaN and doesn't account for borders
     let position =
-        { x: node.offsetLeft - (parent == node.offsetParent ? 0 : parent.offsetLeft)
-        , y: node.offsetTop - (parent == node.offsetParent ? 0 : parent.offsetTop)
-        };
+    {
+      x: node.offsetLeft - (parent == node.offsetParent ? 0 : parent.offsetLeft),
+      y: node.offsetTop - (parent == node.offsetParent ? 0 : parent.offsetTop)
+    };
 
     if (parent.classList.contains('wh-scrollableview')) // Scrollable view
       position = { x: 0, y: 0 };
 
-    if(debugscrolling)
+    if (debugscrolling)
       console.log('iter ', node, parent, position);
 
     // Correct the box positions for the offset within the parent
     boxes = getMovedBoxes(boxes, position.x, position.y);
 
-    if(debugscrolling)
-      console.log('moved boxes', [ ...boxes ]);
+    if (debugscrolling)
+      console.log('moved boxes', [...boxes]);
 
     // For the html-tag, we also allow '' & 'visible' as scrollable
     const match_overflow_set = parent.nodeName != 'HTML'
-      ? [ "scroll", "auto" ]
-      : [ "scroll", "auto", "", "visible" ]; // "" for IE8
+      ? ["scroll", "auto"]
+      : ["scroll", "auto", "", "visible"]; // "" for IE8
 
     //var can_scroll = [ "scroll", "auto", top_default ].includes(getComputedStyle(parent,"overflow"));
     const general_scroll = getComputedStyle(parent).overflow;
@@ -304,56 +295,53 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     if (!can_scroll_y && options.allownodes)
       can_scroll_y = options.allownodes.includes(parent);
 
-    if(debugscrolling)
+    if (debugscrolling)
       console.log('can scroll', parent, 'x:', can_scroll_x, 'y:', can_scroll_y);
 
     if (!can_scroll_x && !can_scroll_y)
       continue;
 
     const clientsize = { x: parent.clientWidth, y: parent.clientHeight };
-    let scrollsize = { x: parent.scrollWidth, y:parent.scrollHeight };
-    if (parent.classList.contains('wh-scrollableview')) // Scrollable view
-    {
-      scrollsize =
-          { x:  node.offsetWidth
-          , y:  node.offsetHeight
-          };
+    let scrollsize = { x: parent.scrollWidth, y: parent.scrollHeight };
+    if (parent.classList.contains('wh-scrollableview')) { // Scrollable view
+      scrollsize = {
+        x: node.offsetWidth,
+        y: node.offsetHeight
+      };
     }
 
-    if(scrollsize.x <= clientsize.x && scrollsize.y <= clientsize.y)//nothing to scroll
+    if (scrollsize.x <= clientsize.x && scrollsize.y <= clientsize.y)//nothing to scroll
       continue;
 
     // Get current scroll
-    const scrollpos = { x: parent.scrollLeft, y:parent.scrollTop};
-    if (parent.classList.contains('wh-scrollableview')) // Scrollable view
-    {
+    const scrollpos = { x: parent.scrollLeft, y: parent.scrollTop };
+    if (parent.classList.contains('wh-scrollableview')) { // Scrollable view
       scrollpos.x = -node.offsetLeft;
       scrollpos.y = -node.offsetTop;
     }
 
-    if(debugscrolling)
-    {
+    if (debugscrolling) {
       console.log(' parent is scrollable', parent);
-      console.log(' scroll ', scrollsize.x, '/', scrollsize.y,'client ', clientsize.x, '/', clientsize.y, 'curpos:', scrollpos.x, '/', scrollpos.y);
+      console.log(' scroll ', scrollsize.x, '/', scrollsize.y, 'client ', clientsize.x, '/', clientsize.y, 'curpos:', scrollpos.x, '/', scrollpos.y);
     }
 
     const range =
-      { minleft: 0
-      , maxleft: Math.max(0, scrollsize.x - clientsize.x)
-      , mintop: 0
-      , maxtop: Math.max(0, scrollsize.y - clientsize.y)
-      };
+    {
+      minleft: 0,
+      maxleft: Math.max(0, scrollsize.x - clientsize.x),
+      mintop: 0,
+      maxtop: Math.max(0, scrollsize.y - clientsize.y)
+    };
 
     //if(debugscrolling) console.log('range pre', range);
 
-    boxes.forEach(function(item)
-      {
-        range.maxleft = clamp(range.minleft, range.maxleft, item.left);
-        range.minleft = clamp(range.minleft, range.maxleft, item.right - clientsize.x);
+    boxes.forEach(function(item) {
+      range.maxleft = clamp(range.minleft, range.maxleft, item.left);
+      range.minleft = clamp(range.minleft, range.maxleft, item.right - clientsize.x);
 
-        range.maxtop = clamp(range.mintop, range.maxtop, item.top);
-        range.mintop = clamp(range.mintop, range.maxtop, item.bottom - clientsize.y);
-      });
+      range.maxtop = clamp(range.mintop, range.maxtop, item.top);
+      range.mintop = clamp(range.mintop, range.maxtop, item.bottom - clientsize.y);
+    });
 
     //if(debugscrolling) console.log('range post', range);
 
@@ -361,31 +349,28 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     const newscrollleft = can_scroll_x ? clamp(range.minleft, range.maxleft, scrollpos.x) : scrollpos.x;
     const newscrolltop = can_scroll_y ? clamp(range.mintop, range.maxtop, scrollpos.y) : scrollpos.y;
 
-    if (debugscrolling)
-    {
+    if (debugscrolling) {
       console.log(' range', range, 'oldscroll', scrollpos.x, '/', scrollpos.y);
       console.log('  newscroll', newscrollleft, '/', newscrolltop);
     }
 
     // Only schedule an action when something changed
-    if (newscrollleft != scrollpos.x || newscrolltop != scrollpos.y)
-    {
+    if (newscrollleft != scrollpos.x || newscrolltop != scrollpos.y) {
       const action: ScrollAction =
-          { duration:      options.duration || 0
-          , target:        parent
-          , from:          {}
-          , to:            {}
-          , hooksetstyles: aniHookSetScrollStyle.bind(null, parent)
-          };
-
-      if (newscrollleft != scrollpos.x)
       {
+        duration: options.duration || 0,
+        target: parent,
+        from: {},
+        to: {},
+        hooksetstyles: aniHookSetScrollStyle.bind(null, parent)
+      };
+
+      if (newscrollleft != scrollpos.x) {
         action.from.scrollLeft = scrollpos.x;
         action.to.scrollLeft = newscrollleft;
       }
 
-      if (newscrolltop != scrollpos.y)
-      {
+      if (newscrolltop != scrollpos.y) {
         action.from.scrollTop = scrollpos.y;
         action.to.scrollTop = newscrolltop;
       }
@@ -403,7 +388,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
     boxes = getClampedBoxes(boxes, clientsize.x, clientsize.y);
 
     // Add box for parent
-    if(debugscrolling)
+    if (debugscrolling)
       console.log('parentbox', dompack.getRelativeBounds(parent, parent));
 
     boxes.push(addContextToRect(dompack.getRelativeBounds(parent, parent), context));
@@ -411,5 +396,5 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
   return actions;
 }
 
-if(debugscrolling)
+if (debugscrolling)
   console.warn("debugscrolling in @mod-system/js/dompack/browserfix/scroll is enabled");

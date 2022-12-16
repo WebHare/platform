@@ -6,46 +6,42 @@ import { isIsolated } from './storage';
 const isolatedcookies: KeyValueObject<string> = {};
 
 export type CookieOptions =
-{
-  path?: string;
-  domain?: string | null;
-  duration?: number | null;
-  secure?: boolean;
-  encode?: boolean;
-  httponly?: boolean;
-  samesite?: string;
-};
+  {
+    path?: string;
+    domain?: string | null;
+    duration?: number | null;
+    secure?: boolean;
+    encode?: boolean;
+    httponly?: boolean;
+    samesite?: string;
+  };
 
-function escapeRegExp(xx: string)
-{
+function escapeRegExp(xx: string) {
   return xx.replace(/([-.*+?^${}()|[\]\/\\])/g, '\\$1');
 }
 
 //based on mootools cookie
-class Cookie
-{
+class Cookie {
   key: string;
   options: CookieOptions;
 
-  constructor(key: string, options?: CookieOptions)
-  {
-    if(!options)
-      options={};
+  constructor(key: string, options?: CookieOptions) {
+    if (!options)
+      options = {};
 
     this.key = key;
-    this.options = { path: options.path ?? '/'
-                   , domain: options.domain ?? null
-                   , duration: options.duration ?? null
-                   , secure: options.secure ?? false
-                   , encode: options.encode ?? true
-                   , httponly: options.httponly ?? false
-                   , samesite: options.samesite ?? ''
-                   };
+    this.options = {
+      path: options.path ?? '/',
+      domain: options.domain ?? null,
+      duration: options.duration ?? null,
+      secure: options.secure ?? false,
+      encode: options.encode ?? true,
+      httponly: options.httponly ?? false,
+      samesite: options.samesite ?? ''
+    };
   }
-  write(value: string): Cookie
-  {
-    if(isIsolated())
-    {
+  write(value: string): Cookie {
+    if (isIsolated()) {
       isolatedcookies["c." + this.key] = value;
       return this;
     }
@@ -56,8 +52,7 @@ class Cookie
       value += '; domain=' + this.options.domain;
     if (this.options.path)
       value += '; path=' + this.options.path;
-    if (this.options.duration)
-    {
+    if (this.options.duration) {
       const date = new Date();
       date.setTime(date.getTime() + this.options.duration * 24 * 60 * 60 * 1000);
       value += '; expires=' + date.toUTCString();
@@ -67,23 +62,20 @@ class Cookie
     if (this.options.httponly)
       value += '; HttpOnly';
     if (this.options.samesite)
-      value += '; SameSite='+this.options.samesite;
+      value += '; SameSite=' + this.options.samesite;
 
     document.cookie = this.key + '=' + value;
     return this;
   }
-  read(): string | null
-  {
-    if(isIsolated())
+  read(): string | null {
+    if (isIsolated())
       return isolatedcookies["c." + this.key] || null;
 
     const value = document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
     return (value) ? decodeURIComponent(value[1]) : null;
   }
-  remove()
-  {
-    if(isIsolated())
-    {
+  remove() {
+    if (isIsolated()) {
       delete isolatedcookies["c." + this.key];
       return;
     }
@@ -91,29 +83,24 @@ class Cookie
   }
 }
 
-export function list()
-{
-  if(isIsolated())
+export function list() {
+  if (isIsolated())
     return Object.entries(isolatedcookies).map((entry: string[]) => ({ name: entry[0].substring(2), value: entry[1] }));
 
-  return document.cookie.split(';').map(cookie =>
-  {
+  return document.cookie.split(';').map(cookie => {
     const parts = cookie.split('=');
-    return { name: decodeURIComponent(parts[0].trim()), value:decodeURIComponent(parts[1]||'') };
+    return { name: decodeURIComponent(parts[0].trim()), value: decodeURIComponent(parts[1] || '') };
   });
 }
 
-export function write(key: string, value: string, options?: CookieOptions)
-{
+export function write(key: string, value: string, options?: CookieOptions) {
   return new Cookie(key, options).write(value);
 }
 
-export function read(key: string): string | null
-{
+export function read(key: string): string | null {
   return new Cookie(key).read();
 }
 
-export function remove(key: string, options?: CookieOptions)
-{
+export function remove(key: string, options?: CookieOptions) {
   new Cookie(key, options).remove();
 }

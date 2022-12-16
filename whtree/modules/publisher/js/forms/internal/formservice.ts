@@ -1,8 +1,7 @@
 // import * as rpc from '@mod-system/js/wh/rpc';
 import createClient from "@webhare/jsonrpc-client";
 
-export interface EmailValidationResult
-{ /** If blocked, the suggested error message */
+export interface EmailValidationResult { /** If blocked, the suggested error message */
   blocked?: string;
   /** If set, the emailaddress should be forced to this value */
   force?: string;
@@ -10,8 +9,7 @@ export interface EmailValidationResult
   suggestion?: string;
 }
 
-export interface PublisherFormService
-{
+export interface PublisherFormService {
   /** Validate an email address for validity (including against server configured correction/blacklists)
    *
    * @param langcode - Language code for messages
@@ -22,12 +20,12 @@ export interface PublisherFormService
     : Promise<EmailValidationResult>;
 
   /** Get an image from a remote URL */
-  getImgFromRemoteURL(imageurl: string) : Promise<string>;
+  getImgFromRemoteURL(imageurl: string): Promise<string>;
 
   /** Get the final image URL to use */
-  getUploadedFileFinalURL(uploadurl: string) : Promise<string>;
+  getUploadedFileFinalURL(uploadurl: string): Promise<string>;
 
-  validateEmbeddedObjects(objrefs: string[]) : Promise<{ tokill: string[] }>;
+  validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
 }
 
 // const client = rpc.createClient<PublisherFormService>("publisher:forms");

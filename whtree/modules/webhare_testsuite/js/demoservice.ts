@@ -1,41 +1,30 @@
-class ClusterTestLink
-{
-  constructor(testdata: string)
-  {
-    if(testdata == "abort")
+class ClusterTestLink {
+  constructor(testdata: string) {
+    if (testdata == "abort")
       throw new Error("abort");
   }
-  ping(arg1: unknown, arg2: unknown)
-  {
+  ping(arg1: unknown, arg2: unknown) {
     return { arg1, arg2 };
   }
-  async asyncPing(arg1: unknown, arg2: unknown)
-  {
-    await new Promise(resolve => setTimeout(resolve,50));
+  async asyncPing(arg1: unknown, arg2: unknown) {
+    await new Promise(resolve => setTimeout(resolve, 50));
     return { arg1, arg2 };
   }
-  getLUE()
-  {
+  getLUE() {
     return 42;
   }
-  async getAsyncLUE()
-  {
-    await new Promise(resolve => setTimeout(resolve,50));
+  async getAsyncLUE() {
+    await new Promise(resolve => setTimeout(resolve, 50));
     return 42;
   }
-  crash()
-  {
+  crash() {
     throw new Error("Crash()");
   }
-  async getAsyncCrash()
-  {
-    await new Promise(resolve => setTimeout(resolve,50));
-    try
-    {
+  async getAsyncCrash() {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    try {
       throw new Error("Async crash()");
-    }
-    catch (e)
-    {
+    } catch (e) {
       return Promise.reject(e);
     }
   }
@@ -46,7 +35,6 @@ class ClusterTestLink
   // }
 }
 
-export function openDemoService(testdata: string)
-{
+export function openDemoService(testdata: string) {
   return new ClusterTestLink(testdata);
 }

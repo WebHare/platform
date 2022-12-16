@@ -1,8 +1,7 @@
 import * as test from "@webhare/test";
 import WHBridge, { IPCLink, IPCListenerPort, IPCMessagePacket } from "@mod-system/js/internal/bridge";
 
-async function testIPC()
-{
+async function testIPC() {
   //Attempt to connect to an nonexisting port. Verify that it keeps the bridge awake
   let out_connection = new IPCLink;
   test.eq(0, WHBridge.references);
@@ -35,8 +34,8 @@ async function testIPC()
   await acceptedport.accept();
   acceptedport.send({ bericht: "Welkom" });
 
-  test.eq("Moi!",   ((await acceptedport_msg as IPCMessagePacket).message as { bericht:string }).bericht);
-  test.eq("Welkom", ((await out_connection_msg as IPCMessagePacket).message as { bericht:string }).bericht);
+  test.eq("Moi!", ((await acceptedport_msg as IPCMessagePacket).message as { bericht: string }).bericht);
+  test.eq("Welkom", ((await out_connection_msg as IPCMessagePacket).message as { bericht: string }).bericht);
 
   test.eq(3, WHBridge.references, "By the time we've received our self initiated connection, we should have 3 refs");
 
@@ -59,6 +58,7 @@ async function testIndependentServiceThings() {
   test.eq(0, WHBridge.references);
 }
 
-test.run([ testIPC
-         , testIndependentServiceThings
-         ], { wrdauth: false } );
+test.run([
+  testIPC,
+  testIndependentServiceThings
+], { wrdauth: false });

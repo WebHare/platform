@@ -43,8 +43,7 @@ function connectIPC(name: string) {
     });
     link.on("close", () => process.exit()); //FIXME are we sure this is fired? it's not tested yet at least!
     link.connect(process.argv[2], true);
-  }
-  catch (e) {
+  } catch (e) {
     console.error(`got error: ${e}`);
   }
 }

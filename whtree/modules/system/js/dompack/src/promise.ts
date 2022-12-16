@@ -5,8 +5,7 @@ import { DeferredPromise } from "../../types";
  *
     @returns Deferred promise
  */
-export function createDeferred<T>(): DeferredPromise<T>
-{
+export function createDeferred<T>(): DeferredPromise<T> {
   let resolve: (value: T | PromiseLike<T>) => void;
   let reject: (reason: Error) => void;
   const promise = new Promise<T>((_resolve, _reject) => { resolve = _resolve; reject = _reject; });

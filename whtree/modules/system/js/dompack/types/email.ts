@@ -4,8 +4,7 @@
 //  set_fws := " \r\n\t";
 //  set_ctext := parser->RemoveFromSet(parser->set_ascii, "()\\"); // from rfc 2822
 
-function checkPhrase(phrase: string)
-{
+function checkPhrase(phrase: string) {
   // phrase = 1*word / obs-phrase
   // word = atom / quoted-string
   // atom = [CFWS] 1*atext [CFWS]
@@ -16,71 +15,61 @@ function checkPhrase(phrase: string)
   // qcontent = qtext / quoted-pair
   // quoted-string = [CFWS] DQUOTE *([FWS] qcontent) [FWS] DQUOTE [CFWS]
 
-  for (let i = 0; i < phrase.length; )
-  {
+  for (let i = 0; i < phrase.length;) {
     while (i < phrase.length && ' \r\n\t'.indexOf(phrase[i]) != -1)
       ++i;
 
-    if (phrase[i] == '(')  // comment
-    {
+    if (phrase[i] == '(') { // comment
       ++i;
       let nesting = 1;
-      while (nesting > 0 && i < phrase.length)
-      {
+      while (nesting > 0 && i < phrase.length) {
         // accept ctext (= ascii - '()\\')
         while (i < phrase.length && '()\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
           ++i;
-        switch (phrase[i])
-        {
-        case ')': --nesting; break;
-        case '(': ++nesting; break;
-        case '\\':
-          {
-            ++i;
-            // Accept only text (ascii - '\r\n')
-            if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
-              return false;
-          } break;
-        default:
-          return false;
+        switch (phrase[i]) {
+          case ')': --nesting; break;
+          case '(': ++nesting; break;
+          case '\\':
+            {
+              ++i;
+              // Accept only text (ascii - '\r\n')
+              if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
+                return false;
+            } break;
+          default:
+            return false;
         }
         ++i;
       }
       if (nesting != 0)
         return false;
-    }
-    else if (phrase[i] == '"')
-    {
+    } else if (phrase[i] == '"') {
       // Parse quoted-string
       // Eat starting '"'
       ++i;
       let finished = false;
-      while (!finished)
-      {
+      while (!finished) {
         // Accept qtext + fws (ascii - '\t\r\n \"' + '\t\r\n ')
         while (i < phrase.length && '"\\'.indexOf(phrase[i]) == -1 && phrase.charCodeAt(i) < 128)
           ++i;
-        switch (phrase[i])
-        {
-        case '"': finished = true; break;
-        case '\\':
-          {
-            ++i;
-            // Accept only text (ascii - '\r\n')
-            if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
+        switch (phrase[i]) {
+          case '"': finished = true; break;
+          case '\\':
+            {
+              ++i;
+              // Accept only text (ascii - '\r\n')
+              if ('\r\n'.indexOf(phrase[i]) != -1 || phrase.charCodeAt(i) >= 128)
+                return false;
+            } break;
+          default:
+            {
               return false;
-          } break;
-        default:
-          {
-            return false;
-          }
+            }
         }
         // Eat ending '"' or char trailing \\
         ++i;
       }
-    }
-    else
-    {
+    } else {
       const set_atext = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'*+-/=?^_`{|}~";
       let cnt = 0;
       // Must be atom - must be non-empty or end of string please
@@ -94,10 +83,8 @@ function checkPhrase(phrase: string)
   return true;
 }
 
-function checkQuoted(word: string)
-{
-  for (let i = 1; i < word.length; ++i)
-  {
+function checkQuoted(word: string) {
+  for (let i = 1; i < word.length; ++i) {
     let ch = word[i];
     if ("\t\r\n \\\"".indexOf(ch) == -1 && word.charCodeAt(i) < 128)
       continue;
@@ -116,10 +103,8 @@ function checkQuoted(word: string)
 }
 
 
-function checkAtom(word: string)
-{
-  for (let i = 0; i < word.length; ++i)
-  {
+function checkAtom(word: string) {
+  for (let i = 0; i < word.length; ++i) {
     const ch = word[i];
 
     //Check for space & specials
@@ -134,8 +119,7 @@ function checkAtom(word: string)
 }
 
 
-function checkLocalPart(localpart: string)
-{
+function checkLocalPart(localpart: string) {
   if (localpart == "")
     return false;
 
@@ -143,8 +127,7 @@ function checkLocalPart(localpart: string)
     return checkQuoted(localpart);
 
   const words = localpart.split('.');
-  for (let i = 0; i < words.length; ++i)
-  {
+  for (let i = 0; i < words.length; ++i) {
     if (!checkAtom(words[i]))
       return false;
   }
@@ -152,17 +135,15 @@ function checkLocalPart(localpart: string)
   return true;
 }
 
-function checkDomain(domain: string)
-{
+function checkDomain(domain: string) {
   if (domain.endsWith("."))
     domain = domain.substring(0, domain.length - 1);
 
   const subdomains = domain.split(".");
-  if (subdomains.length < 2 || subdomains[subdomains.length-1].length < 2)
+  if (subdomains.length < 2 || subdomains[subdomains.length - 1].length < 2)
     return false;
 
-  for (let i = 0; i < subdomains.length; ++i)
-  {
+  for (let i = 0; i < subdomains.length; ++i) {
     const subdomain = subdomains[i];
     if (subdomain == "")
       return false;
@@ -174,14 +155,12 @@ function checkDomain(domain: string)
   return true;
 }
 
-export function isValidEmailAddress(emailaddress: string)
-{
+export function isValidEmailAddress(emailaddress: string) {
   const name_addr_check = emailaddress.split('<');
 
   // First check if we have a simple address or a name & address pair
 
-  if (name_addr_check.length == 2)
-  {
+  if (name_addr_check.length == 2) {
     if (!name_addr_check[1].endsWith('>'))
       return false;
 
@@ -194,16 +173,13 @@ export function isValidEmailAddress(emailaddress: string)
 
     const route_check = routeaddress.split(':');
 
-    if (route_check.length == 2)
-    {
+    if (route_check.length == 2) {
       emailaddress = route_check[1];
-    }
-    else if (route_check.length == 1)
+    } else if (route_check.length == 1)
       emailaddress = routeaddress;
     else
       return false;
-  }
-  else if (name_addr_check.length != 1)
+  } else if (name_addr_check.length != 1)
     return false;
 
   // Now check the simple address

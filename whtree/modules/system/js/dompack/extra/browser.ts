@@ -8,15 +8,14 @@
 /* eslint no-useless-escape: off */
 
 export type UserAgentInfo =
-{
-  name: string;
-  version: number;
-  platform: string;
-  device: "desktop" | "mobile" | "tablet" | "";
-};
+  {
+    name: string;
+    version: number;
+    platform: string;
+    device: "desktop" | "mobile" | "tablet" | "";
+  };
 
-export function parseUserAgent(ua: string): UserAgentInfo
-{
+export function parseUserAgent(ua: string): UserAgentInfo {
   ua = ua.toLowerCase();
 
   // chrome is included in the edge UA, so need to check for edge first, before checking if it's chrome.
@@ -24,19 +23,18 @@ export function parseUserAgent(ua: string): UserAgentInfo
   let UA: RegExpMatchArray | null = ua.match(/(edge|miuibrowser)[\s\/:]([\w\d\.]+)/);
   if (!UA)
     UA = ua.match(/(opera|ie|firefox|chrome|trident|crios|version)[\s\/:]([\w\d\.]+)?.*?(safari|(?:rv[\s\/:]|version[\s\/:])([\w\d\.]+)|$)/);
-  if (!UA) //try ios 11.4.1
-  {
+  if (!UA) { //try ios 11.4.1
     UA = ua.match(/; cpu os ([\d]+)/);
-    if(UA)
-      UA = ['', 'safari', UA[1] ];
+    if (UA)
+      UA = ['', 'safari', UA[1]];
   }
   if (!UA)
-    UA = ['', 'unknown', "0" ];
+    UA = ['', 'unknown', "0"];
 
-  if (UA[1] == 'trident'){
+  if (UA[1] == 'trident') {
     UA[1] = 'ie';
     if (UA[4]) UA[2] = UA[4];
-  } else if (UA[1] == 'crios'){
+  } else if (UA[1] == 'crios') {
     UA[1] = 'chrome';
   }
 
@@ -44,11 +42,12 @@ export function parseUserAgent(ua: string): UserAgentInfo
   if (platform == 'win') platform = 'windows';
 
   const ret: UserAgentInfo =
-    { name: (UA[1] == 'version') ? UA[3] : UA[1],
-      version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
-      platform: platform,
-      device: ua.match(/ipad/) ? 'tablet' : [ 'ios', 'webos', 'android' ].includes(platform) ? 'mobile' : [ 'mac', 'windows', 'linux' ].includes(platform) ? 'desktop' : ''
-    };
+  {
+    name: (UA[1] == 'version') ? UA[3] : UA[1],
+    version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
+    platform: platform,
+    device: ua.match(/ipad/) ? 'tablet' : ['ios', 'webos', 'android'].includes(platform) ? 'mobile' : ['mac', 'windows', 'linux'].includes(platform) ? 'desktop' : ''
+  };
   type IEDocument = Document & { documentMode?: number };
   const doc: IEDocument = document;
   if (ret.name == 'ie' && !ret.version && doc.documentMode)
@@ -60,23 +59,18 @@ export function parseUserAgent(ua: string): UserAgentInfo
 //module.exports =
 const browser = parseUserAgent(navigator.userAgent);
 
-export function getName()
-{
+export function getName() {
   return browser.name;
 }
-export function getVersion()
-{
+export function getVersion() {
   return browser.version;
 }
-export function getPlatform()
-{
+export function getPlatform() {
   return browser.platform;
 }
-export function getDevice()
-{
+export function getDevice() {
   return browser.device;
 }
-export function getTriplet()
-{
+export function getTriplet() {
   return browser.platform + '-' + browser.name + '-' + browser.version;
 }

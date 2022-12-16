@@ -6,8 +6,7 @@ type PreferredDirection = '' | 'right' | 'left' | 'up' | 'down';
 type ExitDirection = '' | 'left' | 'right';
 // type Position = "first" | "last" | "previous" | "next";
 
-interface MenuOptions
-{
+interface MenuOptions {
   forcenooverlap?: boolean;
   direction?: PreferredDirection;
   eventnode?: HTMLElement;
@@ -167,27 +166,24 @@ const hoverclosetimeout = 500;
 // Menus being closed in the current eventloop
 let closingmenus = [];
 
-function cleanClosingMenus()
-{
+function cleanClosingMenus() {
   closingmenus = [];
 }
 
-function getParents(node: HTMLElement)
-{
-  const retval = [ node ];
+function getParents(node: HTMLElement) {
+  const retval = [node];
   while (!(node = node.parentNode as HTMLElement) !== false)
     retval.push(node);
   return retval;
 }
 
 
-class MenuController
-{
+class MenuController {
   tookfocus = false;
   /// List of currently active menus
-  activemenus:MenuBase[] = [];
+  activemenus: MenuBase[] = [];
   /// List of menus the mouse is in
-  mousemenus:MenuBase[] = [];
+  mousemenus: MenuBase[] = [];
   /// Time at which to check if the mouse is still hovering above a menu
   checkclose = 0;
 
@@ -202,14 +198,13 @@ class MenuController
 
   touch_enabled: boolean;
 
-    // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   //
   // Constructor & destroy
   //
 
-  constructor()
-  {
-    if(dompack.debugflags.men)
+  constructor() {
+    if (dompack.debugflags.men)
       console.log("[men] initialize MenuController called");
 
     this.boundglobalmousedown = this._gotGlobalMouseDown.bind(this);
@@ -218,8 +213,7 @@ class MenuController
     this.touch_enabled = "createTouch" in document;
   }
 
-  destroy()
-  {
+  destroy() {
     this.closeAll();
   }
 
@@ -228,44 +222,38 @@ class MenuController
   // Callbacks
   //
 
-  _gotGlobalMouseDown(htmlevent: Event)
-  {
+  _gotGlobalMouseDown(htmlevent: Event) {
     //var evt = new DOMEvent(htmlevent);
     const menu = this._getMenuByElement(htmlevent.target as HTMLElement);
     if (dompack.debugflags.men)
       console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
 
-    if(menu)
+    if (menu)
       return true; //inside our menus. let it pass
 
     this.closeAll();
   }
 
-  _gotGlobalKeyPressed(htmlevent: KeyboardEvent)
-  {
+  _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
     // INV: this.activemenus.length > 0
 
     const keydata = dompack.normalizeKeyboardEventData(htmlevent);
     //Function key or possible shortcut (ctrl/alt/meta is pressed and none of the composing or arrow keys is triggering us), then close and let it be handled
-    if (keydata.key.match(/^F.+/) || ((keydata.ctrlKey || keydata.altKey || keydata.metaKey) && !keydata.key.match(/^(Control$|Alt$|Meta$|Shift$|Arrow)/)))
-    {
+    if (keydata.key.match(/^F.+/) || ((keydata.ctrlKey || keydata.altKey || keydata.metaKey) && !keydata.key.match(/^(Control$|Alt$|Meta$|Shift$|Arrow)/))) {
       this.closeAll();
       return;
     }
 
     // Global key handling
-    if(keydata.key == "Escape")
-    {
+    if (keydata.key == "Escape") {
       this.closeAll();
       htmlevent.preventDefault();
       htmlevent.stopPropagation();
       return;
     }
 
-    for (let i = this.activemenus.length - 1; i >= 0; --i)
-    {
-      if (this.activemenus[i]._handleKey(htmlevent, i == 0))
-      {
+    for (let i = this.activemenus.length - 1; i >= 0; --i) {
+      if (this.activemenus[i]._handleKey(htmlevent, i == 0)) {
         if (dompack.debugflags.men)
           console.log("[men] globalKeyDown handler captured keyboard event that was handled by a menu, cancelling the event", this.activemenus[i], htmlevent);
 
@@ -288,13 +276,11 @@ class MenuController
   // Helper functions
   //
 
-  _getMenuByElement(el: HTMLElement)
-  {
+  _getMenuByElement(el: HTMLElement) {
     return this.activemenus.find(openmenu => openmenu.el == el || openmenu.el.contains(el));
   }
 
-  clearCloseTimeout()
-  {
+  clearCloseTimeout() {
     if (this.checkclosedelay)
       clearTimeout(this.checkclosedelay);
     this.checkclosedelay = null;
@@ -307,9 +293,8 @@ class MenuController
 
   /** Takes over mouse and keyboard to control the menu
   */
-  takeSemiFocus()
-  {
-    if(this.tookfocus)
+  takeSemiFocus() {
+    if (this.tookfocus)
       return;
 
     if (dompack.debugflags.men)
@@ -322,8 +307,7 @@ class MenuController
 
   /** Releases the mouse and keyboard
   */
-  releaseSemiFocus()
-  {
+  releaseSemiFocus() {
     if (dompack.debugflags.men)
       console.log('[men] releaseSemiFocus');
 
@@ -331,8 +315,7 @@ class MenuController
   }
 
   /// Called by a menu when the mouse enters it
-  mouseEnteredMenu(menu: MenuBase)
-  {
+  mouseEnteredMenu(menu: MenuBase) {
     if (this.mousemenus.indexOf(menu) === -1)
       this.mousemenus.push(menu);
 
@@ -340,8 +323,7 @@ class MenuController
     this.clearCloseTimeout();
   }
 
-  setMenuActive(menu: MenuBase, active: boolean)
-  {
+  setMenuActive(menu: MenuBase, active: boolean) {
     const activeidx = this.activemenus.indexOf(menu);
     if (active == (activeidx != -1))
       return;
@@ -351,32 +333,27 @@ class MenuController
     else
       this.activemenus.splice(activeidx, 1);
 
-    if (this.activemenus.length == (active?1:0)) // did we change from/tone no active menus?
-    {
-      if (active) // First active menu
-      {
+    if (this.activemenus.length == (active ? 1 : 0)) { // did we change from/tone no active menus?
+      if (active) { // First active menu
         document.addEventListener("mousedown", this.boundglobalmousedown, true); //capture if possible
         document.addEventListener("keydown", this.boundglobalkeypressed, true);
 
-        if(document.activeElement?.nodeName == 'IFRAME')
-        {
+        if (document.activeElement?.nodeName == 'IFRAME') {
           //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
           (document.activeElement as HTMLElement).blur();//remove focus from iframe
-          if(!document.activeElement || document.activeElement.nodeName == 'IFRAME')
+          if (!document.activeElement || document.activeElement.nodeName == 'IFRAME')
             window.focus();
         }
 
         window.addEventListener('blur', this.boundglobalmousedown, false);
-        if(this.touch_enabled)
+        if (this.touch_enabled)
           document.addEventListener("touchstart", this.boundglobalmousedown, true); //capture if possible
-      }
-      else
-      {
+      } else {
         document.removeEventListener("mousedown", this.boundglobalmousedown, true);
         document.removeEventListener("keydown", this.boundglobalkeypressed, true);
 
         window.removeEventListener('blur', this.boundglobalmousedown, false);
-        if(this.touch_enabled)
+        if (this.touch_enabled)
           document.removeEventListener("touchstart", this.boundglobalmousedown, true); //capture if possible
 
         // All menu's are gone, no need for the close timeout anymore
@@ -389,8 +366,7 @@ class MenuController
   }
 
   /// Called by a menu when the mouse exits it
-  mouseLeftMenu(menu: MenuBase)
-  {
+  mouseLeftMenu(menu: MenuBase) {
     /* When the mouse exists all menus, in openonhover mode (but no clicks in menu!), the close delay kicks in
        A click takes semifocus, and prevents the close delay
     */
@@ -398,50 +374,46 @@ class MenuController
     if (mousemenuidx !== -1)
       this.mousemenus.splice(mousemenuidx, 1);
 
-    if(this.mousemenus.length == 0 && this.activemenus.length && !this.tookfocus) //left all menus, and not taken focus?
-    {
-    // Reset the close timeout, and set a new one
+    if (this.mousemenus.length == 0 && this.activemenus.length && !this.tookfocus) { //left all menus, and not taken focus?
+      // Reset the close timeout, and set a new one
       this.clearCloseTimeout();
       this.checkclosedelay = setTimeout(() => this._checkMenuClose(), hoverclosetimeout);
     }
   }
 
-  getEventNode()
-  {
-    if(this.eventnode)
+  getEventNode() {
+    if (this.eventnode)
       return this.eventnode;
-    if(this.activemenus.length > 0 && this.activemenus[0] instanceof MenuBar)
+    if (this.activemenus.length > 0 && this.activemenus[0] instanceof MenuBar)
       return this.activemenus[0].el;
     return document.documentElement;
   }
 
-  closeAll()
-  {
-    if(this.activemenus.length)
-     this.activemenus[0]._selectItem(null);
+  closeAll() {
+    if (this.activemenus.length)
+      this.activemenus[0]._selectItem(null);
 
-    while(this.activemenus.length)
+    while (this.activemenus.length)
       this.activemenus[0]._closeMenu();
 
     this.mousemenus = [];
     this.eventnode = null;
   }
 
-  openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIElement)
-  {
-    if(dompack.debugflags.men)
+  openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIElement) {
+    if (dompack.debugflags.men)
       console.log("[men] openSubMenu called");
 
     const ul = li.querySelector<HTMLUListElement>('ul');
-    if(!ul)
+    if (!ul)
       return;
     ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
     const submenu = ul.propWhMenu || this.createSubMenu(ul);
-    if(!submenu._fireOpenCloseEvent(true))
+    if (!submenu._fireOpenCloseEvent(true))
       return;
 
-    closingmenus=[]; //if we're back to opening menus, forget about the close list
-    submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign=='right'?'left':'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
+    closingmenus = []; //if we're back to opening menus, forget about the close list
+    submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign == 'right' ? 'left' : 'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
     this.recomputeSubSelection();
 
     //make their relations clear for users iterating through the DOM
@@ -459,36 +431,33 @@ class MenuController
       @param minwidth - Minimum menu width
       @param options - options.forcenooverlap Whether to disallow overlap of the reference element
   */
-  openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions)
-  {
-    if(dompack.debugflags.men)
+  openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection: PreferredDirection, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions) {
+    if (dompack.debugflags.men)
       console.log("[men] openAsList called");
-    if(!submenu._fireOpenCloseEvent(true))
+    if (!submenu._fireOpenCloseEvent(true))
       return;
 
-    closingmenus=[]; //if we're back to opening menus, forget about the close list
+    closingmenus = []; //if we're back to opening menus, forget about the close list
     submenu._openMenu(coords, preferreddirection, null, preferredalign, exitdirection, minwidth, options);
     this.recomputeSubSelection();
     this.takeSemiFocus();
   }
 
-  createSubMenu(ul: HTMLUListElement)
-  {
-    if(dompack.debugflags.men)
+  createSubMenu(ul: HTMLUListElement) {
+    if (dompack.debugflags.men)
       console.log("[men] createSubMenu called");
 
     const submenu = new MenuList(ul);
     return submenu;
   }
 
-  _checkMenuClose()
-  {
+  _checkMenuClose() {
     this.checkclosedelay = null;
 
-    if(dompack.debugflags.men)
-      console.log("[men] checkMenuClose, menu active: ", this.mousemenus.length?"yes":"no");
+    if (dompack.debugflags.men)
+      console.log("[men] checkMenuClose, menu active: ", this.mousemenus.length ? "yes" : "no");
 
-    if(this.mousemenus.length > 0) //still a menu active
+    if (this.mousemenus.length > 0) //still a menu active
       return;
 
     this.closeAll();
@@ -496,11 +465,9 @@ class MenuController
 
   /** Recompute which menus have subselections
   */
-  recomputeSubSelection()
-  {
+  recomputeSubSelection() {
     let foundselection = false;
-    for (let i = this.activemenus.length - 1; i >= 0; --i)
-    {
+    for (let i = this.activemenus.length - 1; i >= 0; --i) {
       this.activemenus[i].el.classList.toggle('hassubselect', foundselection);
       if (this.activemenus[i].selecteditem)
         foundselection = true;
@@ -510,8 +477,7 @@ class MenuController
 
 let controller: MenuController | null;
 
-class MenuBase
-{
+class MenuBase {
   el: HTMLElement;
   options: MenuOptions;
   /// Whether this menu is active
@@ -519,13 +485,12 @@ class MenuBase
   horizontalsubs = true;
   openedsubmenu: MenuList | null = null;
   depth = 0;
-  parentmenu: MenuBase | null  = null;
+  parentmenu: MenuBase | null = null;
   exitdirection = '';
   selecteditem: HTMLElement | null = null;
   currentalign: PreferredDirection;
 
-  constructor(el: HTMLElement, options?: MenuOptions)
-  {
+  constructor(el: HTMLElement, options?: MenuOptions) {
     this.active = false;
     this.selecteditem = null;
     this.horizontalsubs = true;
@@ -534,26 +499,25 @@ class MenuBase
     this.parentmenu = null;
     this.exitdirection = '';
     this.currentalign = '';
-    if(dompack.debugflags.men)
+    if (dompack.debugflags.men)
       console.log("[men] initialize $wh.MenuBase called");
 
-    if(!controller)
+    if (!controller)
       controller = new MenuController;
 
     this.el = el;
-    if(!this.el)
-    {
-      console.error("No such menubar node:",el);
+    if (!this.el) {
+      console.error("No such menubar node:", el);
       throw new Error("No such menubar node");
     }
     this.el.classList.add("wh-menu");
     ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
     this.el.propWhMenu = this;
 
-    if(this.el.hasAttribute("data-menu-options")) //parse these, but explicit JS options take precedence
+    if (this.el.hasAttribute("data-menu-options")) //parse these, but explicit JS options take precedence
       options = Object.assign(JSON.parse(this.el.getAttribute("data-menu-options") || ""), options);
     //@ts-ignore FIXME cleanup options first
-    this.options = { openonhover: true, ...options};
+    this.options = { openonhover: true, ...options };
 
     this._onMouseDownOnItem = this._onMouseDownOnItem.bind(this);
     this._onMouseEnter = this._onMouseEnter.bind(this);
@@ -571,8 +535,7 @@ class MenuBase
     this.el.addEventListener('wh-refresh', this._onRefresh);
   }
 
-  destroy()
-  {
+  destroy() {
     this._closeMenu();
     this.el.removeEventListener("mousedown", this._onMouseDownOnItem);
     this.el.removeEventListener("click", this._closeAfterClick, true);
@@ -591,16 +554,14 @@ class MenuBase
   // Helper functions
   //
 
-  _getMenuItems()
-  {
-    if(dompack.debugflags.men)
+  _getMenuItems() {
+    if (dompack.debugflags.men)
       console.log("[men] _getMenuItems called");
 
     return dompack.qSA<HTMLLIElement>(this.el, "li").filter(e => e.parentNode === this.el);
   }
 
-  _isOrientationVertical()
-  {
+  _isOrientationVertical() {
     return this.horizontalsubs;
   }
 
@@ -633,69 +594,59 @@ class MenuBase
   //   this._selectItem(items[pos], scroll);
   // }
 
-  _getSelectableItems()
-  {
+  _getSelectableItems() {
     // const node = this.el;
     //    return Array.from(node.childNodes).filter(node => dompack.matches(node,"li:not(.divider,.disabled,.hidden)"));
     // return node.getElements('>li:not(.divider,.disabled,.hidden)');
     throw new Error(`This code must have been unreachable? tried to Moo node.getElements...`);
   }
 
-  _fireOpenCloseEvent(isopen: boolean)
-  {
+  _fireOpenCloseEvent(isopen: boolean) {
     const eventname = isopen ? "wh:menu-open" : "wh:menu-close";
     const eventnode = controller!.getEventNode();
-    if(dompack.debugflags.men)
-      console.log("[men] dispatching " + eventname + " for ", this.el, " to " , eventnode, " tree ", getParents(eventnode));
-    return dompack.dispatchCustomEvent(eventnode, eventname, { bubbles: true, cancelable: isopen, detail: { menu: this.el, depth:this.depth }});
+    if (dompack.debugflags.men)
+      console.log("[men] dispatching " + eventname + " for ", this.el, " to ", eventnode, " tree ", getParents(eventnode));
+    return dompack.dispatchCustomEvent(eventnode, eventname, { bubbles: true, cancelable: isopen, detail: { menu: this.el, depth: this.depth } });
   }
 
-  _selectItem(li: HTMLLIElement | null, scroll?: boolean)
-  {
-    if(li && !controller!.activemenus.includes(this))
-    {
+  _selectItem(li: HTMLLIElement | null, scroll?: boolean) {
+    if (li && !controller!.activemenus.includes(this)) {
       controller!.setMenuActive(this, true);
       this.active = true;
     }
-    if(li && !controller!.mousemenus.includes(this))
+    if (li && !controller!.mousemenus.includes(this))
       controller!.mousemenus.push(this);
 
-    if(this.selecteditem)
-    {
-      if(this.openedsubmenu)
-      {
+    if (this.selecteditem) {
+      if (this.openedsubmenu) {
         this.openedsubmenu._closeMenu();
         this.openedsubmenu = null;
       }
       this.selecteditem.classList.remove("selected");
       this.selecteditem = null;
     }
-    if(!li || li.classList.contains('disabled')) //cannot be selected
-    {
+    if (!li || li.classList.contains('disabled')) { //cannot be selected
       controller!.recomputeSubSelection();
       return;
     }
 
-    if(!li.classList.contains('divider'))
-    {
+    if (!li.classList.contains('divider')) {
       this.selecteditem = li;
-      if(dompack.dispatchCustomEvent(li, 'wh:menu-selectitem', {bubbles:true, cancelable:true}))
+      if (dompack.dispatchCustomEvent(li, 'wh:menu-selectitem', { bubbles: true, cancelable: true }))
         li.classList.add("selected");
     }
 
     if (scroll)
       li.scrollIntoView();
 
-    if(li.classList.contains("hassubmenu"))
-    {
+    if (li.classList.contains("hassubmenu")) {
       this.openedsubmenu = controller!.openSubMenu(this, this.horizontalsubs, li);
     }
 
     controller!.recomputeSubSelection();
   }
 
-  _closeMenu()
-  {
+  _closeMenu() {
     this._fireOpenCloseEvent(false);
     this.active = false;
 
@@ -710,19 +661,16 @@ class MenuBase
   // Callbacks & events
   //
 
-  _onMouseEnter(event: Event)
-  {
+  _onMouseEnter(event: Event) {
     controller!.mouseEnteredMenu(this);
   }
 
-  _onMouseLeave(event: Event)
-  {
+  _onMouseLeave(event: Event) {
     controller!.mouseLeftMenu(this);
   }
 
-  _onMouseDownOnItem(event: Event)
-  {
-    const li = (event.target as HTMLElement).closest( "li");
+  _onMouseDownOnItem(event: Event) {
+    const li = (event.target as HTMLElement).closest("li");
     if (!li)
       return;
 
@@ -731,8 +679,7 @@ class MenuBase
     controller!.takeSemiFocus();
   }
 
-  _onContextMenu(event: Event)
-  {
+  _onContextMenu(event: Event) {
     //FIXME this must have been broken, mootools props!
     //if ((event.control || event.meta) && event.shift)
     //  return;
@@ -740,20 +687,18 @@ class MenuBase
     event.preventDefault();
   }
 
-  _closeAfterClick(event: Event)
-  {
+  _closeAfterClick(event: Event) {
     const li = (event.target as HTMLElement).closest("li");
     //See if the item is clickable (TODO being clickable should be 'opt in', or use <a> or something similar? can also add proper aria roles to the clickable items then)
-    if (!li || li.classList.contains("hassubmenu") || li.classList.contains("disabled")|| li.classList.contains("divider"))
+    if (!li || li.classList.contains("hassubmenu") || li.classList.contains("disabled") || li.classList.contains("divider"))
       return;
 
     //remove the menus on the next tick (don't interfere with current action)
-    setTimeout( () => controller!.closeAll());
+    setTimeout(() => controller!.closeAll());
   }
 
-  _onMouseMove(event: Event)
-  {
-    const li = (event.target as HTMLElement).closest( "li");
+  _onMouseMove(event: Event) {
+    const li = (event.target as HTMLElement).closest("li");
     if (!li)
       return;
 
@@ -770,8 +715,7 @@ class MenuBase
       this._selectItem(li);
   }
 
-  _onRefresh()
-  {
+  _onRefresh() {
     // eslint-disable-current-line no-empty-function
   }
 
@@ -781,43 +725,36 @@ class MenuBase
   //
 
   /// Handles a key event, returns whether the key has been processed
-  _handleKey(event: KeyboardEvent, topmenu: boolean)
-  {
-    if(!this.el)
+  _handleKey(event: KeyboardEvent, topmenu: boolean) {
+    if (!this.el)
       return false;
 
-    switch(event.key)
-    {
-    case 'enter':       return this._handleKeyEnter(event);
-    case 'up':          return this._handleKeyUp(event, topmenu);
-    case 'down':        return this._handleKeyDown(event, topmenu);
-    case 'left':        return this._handleKeyLeft(event, topmenu);
-    case 'right':       return this._handleKeyRight(event, topmenu);
-    case "home":        return this._handleKeyHome(event, topmenu);
-    case "end":         return this._handleKeyEnd(event, topmenu);
-    case "meta+up":     return this._handleKeyHome(event, topmenu);
-    case "meta+down":   return this._handleKeyEnd(event, topmenu);
-    default:            return false;
+    switch (event.key) {
+      case 'enter': return this._handleKeyEnter(event);
+      case 'up': return this._handleKeyUp(event, topmenu);
+      case 'down': return this._handleKeyDown(event, topmenu);
+      case 'left': return this._handleKeyLeft(event, topmenu);
+      case 'right': return this._handleKeyRight(event, topmenu);
+      case "home": return this._handleKeyHome(event, topmenu);
+      case "end": return this._handleKeyEnd(event, topmenu);
+      case "meta+up": return this._handleKeyHome(event, topmenu);
+      case "meta+down": return this._handleKeyEnd(event, topmenu);
+      default: return false;
     }
   }
 
-  _handleKeyUp(event: Event, topmenu: boolean)
-  {
+  _handleKeyUp(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyUp");
 
-    if (this._isOrientationVertical())
-    {
+    if (this._isOrientationVertical()) {
       if (!this.selecteditem && !topmenu)
         return false;
 
       // this._selectRelativeItem("previous", true);
       return true;
-    }
-    else
-    {
-      if (this.selecteditem && this.exitdirection == "top")
-      {
+    } else {
+      if (this.selecteditem && this.exitdirection == "top") {
         this._selectItem(null);
         return true;
       }
@@ -826,23 +763,18 @@ class MenuBase
     return false;
   }
 
-  _handleKeyDown(event: Event, topmenu: boolean)
-  {
+  _handleKeyDown(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyDown");
 
-    if (this._isOrientationVertical())
-    {
+    if (this._isOrientationVertical()) {
       if (!this.selecteditem && !topmenu)
         return false;
 
       // this._selectRelativeItem("next", true);
       return true;
-    }
-    else
-    {
-      if (this.openedsubmenu && !this.openedsubmenu.selecteditem)
-      {
+    } else {
+      if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
         // this.openedsubmenu._selectRelativeItem("first", true);
         return true;
       }
@@ -851,21 +783,16 @@ class MenuBase
     return false;
   }
 
-  _handleKeyLeft(event: Event, topmenu: boolean)
-  {
+  _handleKeyLeft(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyLeft");
 
-    if (this._isOrientationVertical())
-    {
-      if (this.selecteditem && this.exitdirection == "left")
-      {
+    if (this._isOrientationVertical()) {
+      if (this.selecteditem && this.exitdirection == "left") {
         this._selectItem(null);
         return true;
       }
-    }
-    else
-    {
+    } else {
       if (!this.selecteditem && !topmenu)
         return false;
 
@@ -876,21 +803,16 @@ class MenuBase
     return false;
   }
 
-  _handleKeyRight(event: Event, topmenu: boolean)
-  {
+  _handleKeyRight(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyRight");
 
-    if (this._isOrientationVertical())
-    {
-      if (this.openedsubmenu && !this.openedsubmenu.selecteditem)
-      {
+    if (this._isOrientationVertical()) {
+      if (this.openedsubmenu && !this.openedsubmenu.selecteditem) {
         // this.openedsubmenu._selectRelativeItem("first", true);
         return true;
       }
-    }
-    else
-    {
+    } else {
       if (!this.selecteditem && !topmenu)
         return false;
 
@@ -901,8 +823,7 @@ class MenuBase
     return false;
   }
 
-  _handleKeyHome(event: Event, topmenu: boolean)
-  {
+  _handleKeyHome(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyHome");
 
@@ -913,8 +834,7 @@ class MenuBase
     return true;
   }
 
-  _handleKeyEnd(event:Event, topmenu:boolean)
-  {
+  _handleKeyEnd(event: Event, topmenu: boolean) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyEnd");
 
@@ -925,8 +845,7 @@ class MenuBase
     return true;
   }
 
-  _handleKeyEnter(event:Event)
-  {
+  _handleKeyEnter(event: Event) {
     if (dompack.debugflags.men)
       console.log("[men] _handleKeyEnter");
 
@@ -938,40 +857,36 @@ class MenuBase
   }
 }
 
-export class MenuBar extends MenuBase
-{ constructor(el: HTMLElement, options: MenuOptions)
-  {
-    options = { openonhover: false, ...options};
+export class MenuBar extends MenuBase {
+  constructor(el: HTMLElement, options: MenuOptions) {
+    options = { openonhover: false, ...options };
     super(el, options);
 
     this.horizontalsubs = false;
-    if(dompack.debugflags.men)
+    if (dompack.debugflags.men)
       console.error("[men] initialize MenuBar called");
     this.el.classList.add("wh-menubar");
   }
 
-  destroy()
-  {
+  destroy() {
     this.el.classList.remove("wh-menubar");
     super.destroy();
   }
 }
 
-class MenuList extends MenuBase
-{
+class MenuList extends MenuBase {
   substitutionnode: HTMLElement | null;
-  position: { x: number; y: number} | null;
+  position: { x: number; y: number } | null;
   preferreddirection: PreferredDirection;
 
-  constructor(el: HTMLElement, options?: MenuOptions)
-  {
+  constructor(el: HTMLElement, options?: MenuOptions) {
     super(el, options);
 
     this.position = null;
     this.substitutionnode = null;
     this.currentalign = '';
     this.preferreddirection = '';
-    if(dompack.debugflags.men)
+    if (dompack.debugflags.men)
       console.log("[men] initialize MenuList called");
 
     this.el.classList.add("wh-menulist");
@@ -982,9 +897,8 @@ class MenuList extends MenuBase
   // Callbacks
   //
 
-  _onRefresh()
-  {
-    if(dompack.debugflags.men)
+  _onRefresh() {
+    if (dompack.debugflags.men)
       console.log('Menulist refresh', this.el, this.el.innerHTML);
     this._fixupDividers();
   }
@@ -996,25 +910,20 @@ class MenuList extends MenuBase
 
   /** Calculate which dividers should be visible (only between visible elements, and at most one between visible elements)
   */
-  _fixupDividers()
-  {
-    if(dompack.debugflags.men)
+  _fixupDividers() {
+    if (dompack.debugflags.men)
       console.log("[men] fixupDividers called");
 
-    let lastdivider: HTMLLIElement | null =null;
-    let anyitem=false;
+    let lastdivider: HTMLLIElement | null = null;
+    let anyitem = false;
     const items = this._getMenuItems();
 
-    items.forEach(item=>
-    {
-      if (item.classList.contains('divider'))
-      {
+    items.forEach(item => {
+      if (item.classList.contains('divider')) {
         item.classList.add('hidden');
         if (anyitem) // Ignore dividers before the first item
           lastdivider = item;
-      }
-      else if (!item.classList.contains('hidden'))
-      {
+      } else if (!item.classList.contains('hidden')) {
         if (!anyitem)
           anyitem = true;
         else if (lastdivider) // Show the last divider followed by this visible item
@@ -1039,141 +948,126 @@ class MenuList extends MenuBase
     @param overlapcoords Whether to fully overlap the coordinates (eg for the left/rigth coords when placing the menu below an element)
     @param forcenooverlap Whether to disallow overlap if menu doesn't fit at all (only when overlapcoords is false)
   */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we shouldn't even be returning data through a oty parameter
-    _calculatePosition(styles: any, coords: dompack.Rect, size: {x:number;y:number}, bounds:dompack.Rect, viewport:dompack.Rect, bodybounds:dompack.Rect, horizontal:boolean, preferfirst:boolean, overlapcoords: boolean)
-    {
-      // Calc the style attrs that
-      const sizeattr = horizontal ? "x" : "y";
-      const minattr = horizontal ? "left" : "top";
-      const maxattr = horizontal ? "right" : "bottom";
-      const csssizeattr = horizontal ? "width" : "height";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we shouldn't even be returning data through a oty parameter
+  _calculatePosition(styles: any, coords: dompack.Rect, size: { x: number; y: number }, bounds: dompack.Rect, viewport: dompack.Rect, bodybounds: dompack.Rect, horizontal: boolean, preferfirst: boolean, overlapcoords: boolean) {
+    // Calc the style attrs that
+    const sizeattr = horizontal ? "x" : "y";
+    const minattr = horizontal ? "left" : "top";
+    const maxattr = horizontal ? "right" : "bottom";
+    const csssizeattr = horizontal ? "width" : "height";
 
-      if(dompack.debugflags.men)
-        console.log("[men] _calculatePosition", horizontal ? "horizontal" : "vertical");
+    if (dompack.debugflags.men)
+      console.log("[men] _calculatePosition", horizontal ? "horizontal" : "vertical");
 
-      // Get the coordinates to use for before/after placement
-      let before_coords = overlapcoords ? coords[maxattr] : coords[minattr];
-      let after_coords = overlapcoords ? coords[minattr] : coords[maxattr];
+    // Get the coordinates to use for before/after placement
+    let before_coords = overlapcoords ? coords[maxattr] : coords[minattr];
+    let after_coords = overlapcoords ? coords[minattr] : coords[maxattr];
 
-      // Don't allow aligning outside of screen
-      before_coords = Math.min(before_coords, viewport[maxattr]);
-      after_coords = Math.max(after_coords, viewport[minattr]);
+    // Don't allow aligning outside of screen
+    before_coords = Math.min(before_coords, viewport[maxattr]);
+    after_coords = Math.max(after_coords, viewport[minattr]);
 
-      // Make sure the bounds are within the screen
-      const min_bound = Math.max(bounds[minattr], viewport[minattr]);
-      const max_bound = Math.min(bounds[maxattr], viewport[maxattr]);
+    // Make sure the bounds are within the screen
+    const min_bound = Math.max(bounds[minattr], viewport[minattr]);
+    const max_bound = Math.min(bounds[maxattr], viewport[maxattr]);
 
-      if(dompack.debugflags.men)
-        console.log("[men] corrected bounds", min_bound, max_bound);
+    if (dompack.debugflags.men)
+      console.log("[men] corrected bounds", min_bound, max_bound);
 
-      // See how much space is available (within the soft boundary)
-      const bounded_space_before = before_coords - min_bound;
-      const bounded_space_after = max_bound - after_coords;
+    // See how much space is available (within the soft boundary)
+    const bounded_space_before = before_coords - min_bound;
+    const bounded_space_after = max_bound - after_coords;
 
-      if(dompack.debugflags.men)
-        console.log("[men] bounded space", bounded_space_before, bounded_space_after);
+    if (dompack.debugflags.men)
+      console.log("[men] bounded space", bounded_space_before, bounded_space_after);
 
-      // Store the menu size (will be adjusted when the space isn't enough to fit the menu)
-      styles[csssizeattr] = size[sizeattr] + "px";
+    // Store the menu size (will be adjusted when the space isn't enough to fit the menu)
+    styles[csssizeattr] = size[sizeattr] + "px";
 
-      // See if the bounded space is enough for the preferred direction (else try the other direction)
-      for (let i = 0; i < 2; ++i)
-      {
-        if (preferfirst && bounded_space_before >= size[sizeattr])
-        {
-         if(dompack.debugflags.men)
-            console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(bodybounds[csssizeattr] - before_coords)}`);
+    // See if the bounded space is enough for the preferred direction (else try the other direction)
+    for (let i = 0; i < 2; ++i) {
+      if (preferfirst && bounded_space_before >= size[sizeattr]) {
+        if (dompack.debugflags.men)
+          console.log(`[men] setting maxattr '${maxattr}' sizeattr '${csssizeattr}' to ${(bodybounds[csssizeattr] - before_coords)}`);
 
-          styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
-          return false;
-        }
-        else if (!preferfirst && bounded_space_after >= size[sizeattr])
-        {
-         if(dompack.debugflags.men)
-           console.log(`[men] setting minattr '${minattr}' to ${after_coords}`);
+        styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
+        return false;
+      } else if (!preferfirst && bounded_space_after >= size[sizeattr]) {
+        if (dompack.debugflags.men)
+          console.log(`[men] setting minattr '${minattr}' to ${after_coords}`);
 
-          styles[minattr] = after_coords + "px";
-          return false;
-        }
-        preferfirst = !preferfirst;
+        styles[minattr] = after_coords + "px";
+        return false;
       }
-
-      // Calc the space in the entire view
-      const space_before = before_coords - viewport[minattr];
-      const space_after = viewport[maxattr] - after_coords;
-
-      if(dompack.debugflags.men)
-        console.log("[men] view spaces", space_before, space_after);
-
-      // See if the bounded space is enough for the preferred direction (else try the other direction)
-      for (let i = 0; i < 2; ++i)
-      {
-        if (preferfirst && space_before >= size[sizeattr])
-        {
-         if(dompack.debugflags.men)
-            console.log("[men] setting maxattr",maxattr,'sizeattr',sizeattr, bodybounds, before_coords);
-
-          styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
-          return false;
-        }
-        else if (!preferfirst && space_after >= size[sizeattr])
-        {
-         if(dompack.debugflags.men)
-            console.log("[men] setting minattr",minattr,after_coords);
-
-          styles[minattr] = after_coords + "px";
-          return false;
-        }
-        preferfirst = !preferfirst;
-      }
-
-      if(dompack.debugflags.men)
-        console.log("[men] no fit on both sides");
-
-      if(dompack.debugflags.men)
-        console.log("[men] minattr: ",minattr, " maxattr",maxattr,"sizeattr",sizeattr, bounds, size);
-
-      // We may overlap the coords. See if we fit within the soft boundary
-      if (bounds[maxattr] - bounds[minattr] >= size[sizeattr])
-      {
-        if(dompack.debugflags.men)
-          console.log("[men] Honour direction, stick to bound border");
-
-        if (preferfirst)
-          styles[minattr] = bounds[minattr] + "px";
-        else
-          styles[maxattr] = (bodybounds[csssizeattr] - bounds[maxattr]) + "px";
-      }
-      else if ((viewport[maxattr] - viewport[minattr]) >= size[sizeattr])
-      {
-        if(dompack.debugflags.men)
-          console.log("[men] Fits within view - honour direction, stick to view border");
-
-        if (preferfirst)
-          styles[minattr] = viewport[minattr] + "px";
-        else
-          styles[maxattr] = (bodybounds[csssizeattr] - viewport[maxattr]) + "px";
-      }
-      else
-      {
-        if(dompack.debugflags.men)
-          console.log("[men] Doesn't fit at all - stick to top. Force the max size to force scroll");
-
-        styles[minattr] = viewport[minattr] + "px";
-        styles[csssizeattr] = (viewport[maxattr] - viewport[minattr]) + "px";
-        return true;
-      }
-
-      return false;
+      preferfirst = !preferfirst;
     }
 
-    /** Dispatch menu open events, handle open animations
-  */
-  _handleMenuOpen()
-  {
-    if(dompack.debugflags.men)
-        console.log("[men] dispatching wh-menu-opened to ", this.el, " in tree ", getParents(this.el));
-    dompack.dispatchCustomEvent(this.el, "wh:menu-opened", { bubbles: true, cancelable: true, detail: { menu: this.el }});
+    // Calc the space in the entire view
+    const space_before = before_coords - viewport[minattr];
+    const space_after = viewport[maxattr] - after_coords;
+
+    if (dompack.debugflags.men)
+      console.log("[men] view spaces", space_before, space_after);
+
+    // See if the bounded space is enough for the preferred direction (else try the other direction)
+    for (let i = 0; i < 2; ++i) {
+      if (preferfirst && space_before >= size[sizeattr]) {
+        if (dompack.debugflags.men)
+          console.log("[men] setting maxattr", maxattr, 'sizeattr', sizeattr, bodybounds, before_coords);
+
+        styles[maxattr] = (bodybounds[csssizeattr] - before_coords) + "px";
+        return false;
+      } else if (!preferfirst && space_after >= size[sizeattr]) {
+        if (dompack.debugflags.men)
+          console.log("[men] setting minattr", minattr, after_coords);
+
+        styles[minattr] = after_coords + "px";
+        return false;
+      }
+      preferfirst = !preferfirst;
+    }
+
+    if (dompack.debugflags.men)
+      console.log("[men] no fit on both sides");
+
+    if (dompack.debugflags.men)
+      console.log("[men] minattr: ", minattr, " maxattr", maxattr, "sizeattr", sizeattr, bounds, size);
+
+    // We may overlap the coords. See if we fit within the soft boundary
+    if (bounds[maxattr] - bounds[minattr] >= size[sizeattr]) {
+      if (dompack.debugflags.men)
+        console.log("[men] Honour direction, stick to bound border");
+
+      if (preferfirst)
+        styles[minattr] = bounds[minattr] + "px";
+      else
+        styles[maxattr] = (bodybounds[csssizeattr] - bounds[maxattr]) + "px";
+    } else if ((viewport[maxattr] - viewport[minattr]) >= size[sizeattr]) {
+      if (dompack.debugflags.men)
+        console.log("[men] Fits within view - honour direction, stick to view border");
+
+      if (preferfirst)
+        styles[minattr] = viewport[minattr] + "px";
+      else
+        styles[maxattr] = (bodybounds[csssizeattr] - viewport[maxattr]) + "px";
+    } else {
+      if (dompack.debugflags.men)
+        console.log("[men] Doesn't fit at all - stick to top. Force the max size to force scroll");
+
+      styles[minattr] = viewport[minattr] + "px";
+      styles[csssizeattr] = (viewport[maxattr] - viewport[minattr]) + "px";
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Dispatch menu open events, handle open animations
+*/
+  _handleMenuOpen() {
+    if (dompack.debugflags.men)
+      console.log("[men] dispatching wh-menu-opened to ", this.el, " in tree ", getParents(this.el));
+    dompack.dispatchCustomEvent(this.el, "wh:menu-opened", { bubbles: true, cancelable: true, detail: { menu: this.el } });
   }
 
   // ---------------------------------------------------------------------------
@@ -1189,17 +1083,15 @@ class MenuList extends MenuBase
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
       @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
   */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions)
-  {
-    if(dompack.debugflags.men)
+  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions) {
+    if (dompack.debugflags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
     options = options || {};
 
     this._fixupDividers();
 
-    if(document.body.contains(this.el))
-    {
+    if (document.body.contains(this.el)) {
       this.substitutionnode = this.el.cloneNode(false) as HTMLElement; //create a copy with the same style/class, to avoid the ul snapping to block mode
       this.el.replaceWith(this.substitutionnode!);
     }
@@ -1207,7 +1099,7 @@ class MenuList extends MenuBase
 
     this.parentmenu = parentmenu;
     this.el.classList.remove('level-' + this.depth);
-    this.depth = parentmenu ? parentmenu.depth+1 : 1;
+    this.depth = parentmenu ? parentmenu.depth + 1 : 1;
     this.el.classList.add('level-' + this.depth);
     this.currentalign = preferredalign;
     this.preferreddirection = preferreddirection;
@@ -1217,14 +1109,15 @@ class MenuList extends MenuBase
 
     // Reset sizes before measuring
     dompack.setStyles(this.el,
-      { "height": "auto"
-      , "width": "auto"
-      , "left": "0px"
-      , "top": "0px"
-      , "bottom": "auto"
-      , "right": "auto"
-      , "max-height": "inherit"
-      , "max-width": "inherit"
+      {
+        "height": "auto",
+        "width": "auto",
+        "left": "0px",
+        "top": "0px",
+        "bottom": "auto",
+        "right": "auto",
+        "max-height": "inherit",
+        "max-width": "inherit"
       });
 
     const menubounds = this.el.getBoundingClientRect();
@@ -1232,55 +1125,53 @@ class MenuList extends MenuBase
     const size = { x: menubounds.width, y: menubounds.height };
 
 
-    size.x = Math.ceil(Math.max(size.x, minwidth||0)); //round up, because we need 110 pixels for a 109.007 wide menu.
+    size.x = Math.ceil(Math.max(size.x, minwidth || 0)); //round up, because we need 110 pixels for a 109.007 wide menu.
     size.y = Math.ceil(size.y); //round up, because we need 110 pixels for a 109.007 wide menu.
 
     // Calculate the viewport relative to the body
     let bodybounds = document.body.getBoundingClientRect();
-    bodybounds = {left:bodybounds.left, top:bodybounds.top,right:bodybounds.right,bottom:bodybounds.bottom,height:bodybounds.height,width:bodybounds.width,x:bodybounds.x,y:bodybounds.y} as DOMRect;
+    bodybounds = { left: bodybounds.left, top: bodybounds.top, right: bodybounds.right, bottom: bodybounds.bottom, height: bodybounds.height, width: bodybounds.width, x: bodybounds.x, y: bodybounds.y } as DOMRect;
     const viewsize = { x: window.innerWidth, y: window.innerHeight };
     const viewport =
-        { left:         -bodybounds.left
-        , top:          -bodybounds.top
-        , right:        -bodybounds.left + viewsize.x
-        , bottom:       -bodybounds.top + viewsize.y
-        ,width:0
-        ,height:0
-        };
+    {
+      left: -bodybounds.left,
+      top: -bodybounds.top,
+      right: -bodybounds.left + viewsize.x,
+      bottom: -bodybounds.top + viewsize.y,
+      width: 0,
+      height: 0
+    };
 
-    const bounds = {...viewport};
+    const bounds = { ...viewport };
 
     const styles =
-        { "bottom": "auto"
-        , "top": "auto"
-        , "left": "auto"
-        , "height": "auto"
-        , "width": "auto"
-        , "max-height": "inherit"
-        , "max-width": "inherit"
-        };
-
-    if (dompack.debugflags.men)
     {
+      "bottom": "auto",
+      "top": "auto",
+      "left": "auto",
+      "height": "auto",
+      "width": "auto",
+      "max-height": "inherit",
+      "max-width": "inherit"
+    };
+
+    if (dompack.debugflags.men) {
       console.log("[men] Menu coordinate data");
       console.log("[men]  target element", coords);
       console.log("[men]  menu size", size);
       console.log("[men]  bounds", bounds);
       console.log("[men]  viewport ", viewport, viewsize);
-      console.log("[men]  body bounds", {...bodybounds});
+      console.log("[men]  body bounds", { ...bodybounds });
     }
 
     // ADDME: maybe save the resulting direction and alignment in this.currentdirection and this.currentalign
-    if (preferreddirection == "left" || preferreddirection == "right" || !preferreddirection)
-    {
+    if (preferreddirection == "left" || preferreddirection == "right" || !preferreddirection) {
       // Right is preferred direction
       this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, true, preferreddirection == "left", false);
 
       // Down is preferred alignment
       this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferredalign == "up", true);
-    }
-    else
-    {
+    } else {
       this._calculatePosition(styles, coords, size, bounds, viewport, bodybounds, false, preferreddirection == "up", false);
 
       // Left is preferred alignment
@@ -1298,41 +1189,35 @@ class MenuList extends MenuBase
     this._handleMenuOpen();
   }
 
-  _closeMenu()
-  {
+  _closeMenu() {
     super._closeMenu();
     closingmenus.push(this.el);
     setTimeout(cleanClosingMenus, 0);
 
     const eventnode = controller!.getEventNode();
-    if(dompack.debugflags.men)
-        console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", eventnode, " in tree ", getParents(eventnode));
-    dompack.dispatchCustomEvent(eventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el }});
+    if (dompack.debugflags.men)
+      console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", eventnode, " in tree ", getParents(eventnode));
+    dompack.dispatchCustomEvent(eventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
     //make their relations clear for users iterating through the DOM
     ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
     const parentmenu = this.el.propWhMenuParentmenu;
-    if(parentmenu)
-    {
+    if (parentmenu) {
       ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
       this.el.propWhMenuParentmenu = null;
     }
     //this.el.fireEvent('menuclose');
 
-    if(!dompack.debugflags.meo)
-    {
+    if (!dompack.debugflags.meo) {
       this.el.classList.remove("open");
 
-      if(this.substitutionnode)
-      {
+      if (this.substitutionnode) {
         this.substitutionnode.replaceWith(this.el);
-      }
-      else
-      {
+      } else {
         this.el.remove();
       }
 
-      this.substitutionnode=null;
+      this.substitutionnode = null;
     }
   }
 }
@@ -1344,52 +1229,48 @@ class MenuList extends MenuBase
     options.direction 'down', 'right', 'up'
     options.forcenooverlap
 */
-export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement } | HTMLElement, options?: MenuOptions)
-{
+export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; target?: HTMLElement } | HTMLElement, options?: MenuOptions) {
   ///@ts-ignore -- FIXME fully clean up the options
   options = { ...options };
-  if(typeof el != 'object')
+  if (typeof el != 'object')
     throw new Error("openAt requires an object, not an #id");
 
   let coords: dompack.Rect;
-  if('pageX' in at && 'pageY' in at)
-  {
-    options!.direction="right";
-    coords = { left: at.pageX || 0, right: at.pageX || 0, top: at.pageY || 0, bottom: at.pageY || 0, width:0, height:0  };
-    if(!options!.eventnode)
+  if ('pageX' in at && 'pageY' in at) {
+    options!.direction = "right";
+    coords = { left: at.pageX || 0, right: at.pageX || 0, top: at.pageY || 0, bottom: at.pageY || 0, width: 0, height: 0 };
+    if (!options!.eventnode)
       options!.eventnode = at.target; //make sure events are injected at the click location
-  }
-  else
-  {
+  } else {
     //@ts-ignore FIXME cleanup calling synatx
     coords = dompack.getRelativeBounds(at.target || at);
-    if(!options!.direction)
-    {
-      options!.direction="right";
-      coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom, width:0, height:0 };
+    if (!options!.direction) {
+      options!.direction = "right";
+      coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom, width: 0, height: 0 };
     }
-    if(!options!.eventnode)
+    if (!options!.eventnode)
       //@ts-ignore FIXME cleanup calling synatx
       options!.eventnode = at.target || at;
   }
 
   const openoptions =
-    { direction:        options!.direction
-    , align:            options!.align
-    , exitdirection:    options!.exitdirection
+  {
+    direction: options!.direction,
+    align: options!.align,
+    exitdirection: options!.exitdirection
     //, minwidth:         options!.minwidth
-    };
+  };
 
   const eventnode = options!.eventnode;
 
   ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
   let ml = el.propWhMenu;
-  if(!ml)
+  if (!ml)
     ml = new MenuList(el); //really none of the options are actually used...
 
   controller!.closeAll();
 
-  const openaslistoptions : MenuOptions = {};
+  const openaslistoptions: MenuOptions = {};
   if ("forcenooverlap" in options!)
     openaslistoptions.forcenooverlap = options!.forcenooverlap;
 

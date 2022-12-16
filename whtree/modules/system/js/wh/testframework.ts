@@ -19,41 +19,38 @@ import * as keyboard from 'dompack/testframework/keyboard';
 import * as diff from 'diff';
 import { Annotation } from '@webhare/test/src/checks';
 
-export
-  { eq
-  , sleep
-  , eqMatch
-  , eqProps
-  , assert
-  } from '@webhare/test';
+export {
+  eq,
+  sleep,
+  eqMatch,
+  eqProps,
+  assert
+} from '@webhare/test';
 
-export
-  { canClick as canClick
-  , canClick as isElementClickable
-  , click as click
-  , sendMouseGesture as sendMouseGesture
-  , getValidatedElementFromPoint as getValidatedElementFromPoint
-  , startExternalFileDrag
-  , getCurrentDragDataStore
-  , cancelDrag
-  } from 'dompack/testframework/pointer';
+export {
+  canClick as canClick,
+  canClick as isElementClickable,
+  click as click,
+  sendMouseGesture as sendMouseGesture,
+  getValidatedElementFromPoint as getValidatedElementFromPoint,
+  startExternalFileDrag,
+  getCurrentDragDataStore,
+  cancelDrag
+} from 'dompack/testframework/pointer';
 
-export
-  { waitForEvent as waitForEvent
+export {
+  waitForEvent as waitForEvent
   , simulateTabKey as simulateTabKey
   , focus
   , waitUIFree
-  } from 'dompack/testframework';
+} from 'dompack/testframework';
 
-export
-  { generateKeyboardEvent as generateKeyboardEvent
-  } from 'dompack/testframework/keyboard';
+export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
 let module_exports;
 
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
-whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); }
-                    })
+whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } })
 
 //if(testfw && testfw.takeconsolelog)
 //  testfw.doConsoleTakeover(window);
@@ -61,18 +58,15 @@ whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...
 let callbacks = null;
 
 // Returns something like an ecmascript completion record
-function setTestSuiteCallbacks(cb)
-{
+function setTestSuiteCallbacks(cb) {
   callbacks = cb;
 }
 
-function initialize_tests(steps)
-{
+function initialize_tests(steps) {
   testfw.runTestSteps(steps, setTestSuiteCallbacks, module_exports);
 }
 
-function rewriteNodeAttributes(node)
-{
+function rewriteNodeAttributes(node) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
   // with a function that tries to keep it stable.
   var attrs = domlevel.getAllAttributes(node);
@@ -82,77 +76,66 @@ function rewriteNodeAttributes(node)
   domlevel.setAttributes(node, attrs);
 }
 
-function isequal(a, b)
-{
-  try
-  {
-    testDeepEq(a,b,'');
+function isequal(a, b) {
+  try {
+    testDeepEq(a, b, '');
     return true;
-  }
-  catch(e)
-  {
+  } catch (e) {
     return false;
   }
 }
 
-function registerJSTests(steps)
-{
+function registerJSTests(steps) {
   //get our parent test framework
-  if(!testfw)
+  if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
 
   let lasttestname, finalsteps = [];
-  for(let step of steps)
-  {
-    if(!step)
+  for (let step of steps) {
+    if (!step)
       continue;  //strip empty items. allows you to be careless with commas when commenting out tests
 
-    if(typeof step == "string")
-    {
+    if (typeof step == "string") {
       lasttestname = step;
       continue;
     }
 
-    if(typeof step == "function")
+    if (typeof step == "function")
       step = { test: step };
 
-    if(lasttestname && !step.name) //merge name into the next test for more reliable counters
-    {
+    if (lasttestname && !step.name) { //merge name into the next test for more reliable counters
       step.name = lasttestname;
       lasttestname = null;
     }
     finalsteps.push(step);
   }
-  dompack.onDomReady( () => initialize_tests(finalsteps));
+  dompack.onDomReady(() => initialize_tests(finalsteps));
 }
-function getTestArgument(idx)
-{
-  if(idx > testfw.args.length)
+function getTestArgument(idx) {
+  if (idx > testfw.args.length)
     throw new Error("No argument #" + idx);
   return testfw.args[idx];
 }
-function logExplanation(explanation)
-{
-  if(typeof explanation=="function")
-    explanation=explanation();
+function logExplanation(explanation) {
+  if (typeof explanation == "function")
+    explanation = explanation();
   console.error(explanation);
   testfw.log("* " + explanation + "\n");
 }
-function testEq(expected, actual, explanation)
-{
+function testEq(expected, actual, explanation) {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
-  if(isequal(expected,actual))
+  if (isequal(expected, actual))
     return;
 
   let expected_str = expected;
   let actual_str = actual;
 
-  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch(e){}
-  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch(e){}
+  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
+  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
 
-  if(explanation)
+  if (explanation)
     logExplanation(explanation);
 
   console.log("testEq fails: expected", expected_str);
@@ -161,15 +144,13 @@ function testEq(expected, actual, explanation)
   console.log("testEq fails: actual  ", actual_str);
   testfw.log("testEq fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
 
-  if(typeof expected == "string" && typeof actual == "string")
-  {
+  if (typeof expected == "string" && typeof actual == "string") {
     testfw.log("E: " + encodeURIComponent(expected));
     testfw.log("A: " + encodeURIComponent(actual));
 
     let str = "diff: ";
     let colors = [];
-    for (const change of diff.diffChars(actual, expected))
-    {
+    for (const change of diff.diffChars(actual, expected)) {
       str += `%c${change.value}`;
       colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
     }
@@ -179,51 +160,49 @@ function testEq(expected, actual, explanation)
   testDeepEq(expected, actual, '');
 }
 
-function testEqHTML(expected, actual, explanation)
-{
+function testEqHTML(expected, actual, explanation) {
   var fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again
-  fixer.innerHTML=expected;
-  expected=fixer.innerHTML;
-  fixer.innerHTML=actual;
-  actual=fixer.innerHTML;
-  if(expected==actual)
+  fixer.innerHTML = expected;
+  expected = fixer.innerHTML;
+  fixer.innerHTML = actual;
+  actual = fixer.innerHTML;
+  if (expected == actual)
     return;
 
   // Extra round. May fix some stuff
-  fixer.innerHTML=expected;
-  expected=fixer.innerHTML;
-  fixer.innerHTML=actual;
-  actual=fixer.innerHTML;
-  if(expected==actual)
+  fixer.innerHTML = expected;
+  expected = fixer.innerHTML;
+  fixer.innerHTML = actual;
+  actual = fixer.innerHTML;
+  if (expected == actual)
     return;
 
   // Firefox has problems with attribute ordering. Rewrite all attributes to get them in the same order.
-  fixer.innerHTML=expected;
+  fixer.innerHTML = expected;
   var list = fixer.getElementsByTagName('*');
   for (let i = 0; i < list.length; ++i)
     rewriteNodeAttributes(list[i]);
-  expected=fixer.innerHTML;
-  fixer.innerHTML=actual;
+  expected = fixer.innerHTML;
+  fixer.innerHTML = actual;
   list = fixer.getElementsByTagName('*');
   for (let i = 0; i < list.length; ++i)
     rewriteNodeAttributes(list[i]);
-  actual=fixer.innerHTML;
+  actual = fixer.innerHTML;
 
   testEq(expected, actual, explanation);
 }
 
-function testEqIn(expected_in, actual, explanation)
-{
-  for (var i=0;i<expected_in.length;++i)
-    if(isequal(expected_in[i], actual))
+function testEqIn(expected_in, actual, explanation) {
+  for (var i = 0; i < expected_in.length; ++i)
+    if (isequal(expected_in[i], actual))
       return;
 
   expected_in = unescape(escape(expected_in).split('%u').join('/u'));
   actual = unescape(escape(actual).split('%u').join('/u'));
 
-  if(explanation)
+  if (explanation)
     logExplanation(explanation);
 
   console.trace();
@@ -235,18 +214,17 @@ function testEqIn(expected_in, actual, explanation)
   throw new Error("testEqIn failed");
 }
 
-function testEqFloat(expected, actual, delta, explanation)
-{
-  if(Math.abs(expected-actual)<=delta)
+function testEqFloat(expected, actual, delta, explanation) {
+  if (Math.abs(expected - actual) <= delta)
     return;
 
   var expected_str = expected;
   var actual_str = actual;
 
-  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch(e){}
-  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch(e){}
+  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
+  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
 
-  if(explanation)
+  if (explanation)
     logExplanation(explanation);
 
   console.log("testEq fails: expected", expected_str);
@@ -255,8 +233,7 @@ function testEqFloat(expected, actual, delta, explanation)
   console.log("testEq fails: actual  ", actual_str);
   testfw.log("testEq fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
 
-  if(typeof expected == "string" && typeof actual == "string")
-  {
+  if (typeof expected == "string" && typeof actual == "string") {
     testfw.log("E: " + encodeURIComponent(expected));
     testfw.log("A: " + encodeURIComponent(actual));
   }
@@ -264,19 +241,16 @@ function testEqFloat(expected, actual, delta, explanation)
   testDeepEq(expected, actual, '');
 }
 
-function testTrue(actual, explanation)
-{
+function testTrue(actual, explanation) {
   testEq(true, Boolean(actual), explanation);
 }
 
-function testFalse(actual, explanation)
-{
+function testFalse(actual, explanation) {
   testEq(false, Boolean(actual), explanation);
 }
 
 
-function fail(reason)
-{
+function fail(reason) {
   logExplanation(reason);
   throw new Error("Test failed: " + reason);
 }
@@ -284,9 +258,8 @@ function fail(reason)
 export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
 export async function throws(func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
 //temporay wrapper to support old-style syntax
-export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2?: Promise<unknown> | (() => unknown) | Annotation, p3?: Annotation)
-{
-  if(p1 instanceof RegExp)
+export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2?: Promise<unknown> | (() => unknown) | Annotation, p3?: Annotation) {
+  if (p1 instanceof RegExp)
     return await whtest.throws(p1, p2, p3);
 
   let exc = await whtest.throws(/.*/, p1, p2);
@@ -294,52 +267,49 @@ export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2
   return exc;
 }
 
-function findElementWithText(doc, tagname, text)
-{
+function findElementWithText(doc, tagname, text) {
   var els = (doc || getDoc()).querySelectorAll(tagname);
-  for(var i=0;i<els.length;++i)
-    if(els[i].textContent == text)
+  for (var i = 0; i < els.length; ++i)
+    if (els[i].textContent == text)
       return els[i];
   return null;
 }
 
-var mousestate = { cx: 0
-                 , cy: 0
-                 , downel: null
-                 , downelrect: null
-                 , downbuttons: []
-                 , samplefreq: 50
-                 , gesturequeue: []
-                 , gesturetimeout:null
-                 , waitcallbacks:[]
-                 , lastoverel:null
-                 , cursorel:null
-                 , lastdoc:null
-                 , lastwin:null
-                 , previousclickel:null
-                 , previousclicktime:null
-                 , previousclickpos:null
-                 , dndcandidate:null
-                 , dndstate:null
-                 };
+var mousestate = {
+  cx: 0,
+  cy: 0,
+  downel: null,
+  downelrect: null,
+  downbuttons: [],
+  samplefreq: 50,
+  gesturequeue: [],
+  gesturetimeout: null,
+  waitcallbacks: [],
+  lastoverel: null,
+  cursorel: null,
+  lastdoc: null,
+  lastwin: null,
+  previousclickel: null,
+  previousclicktime: null,
+  previousclickpos: null,
+  dndcandidate: null,
+  dndstate: null
+};
 
 
-window.__waitForGestures=function(callback)
-{
-  if(mousestate.gesturequeue.length==0)
+window.__waitForGestures = function(callback) {
+  if (mousestate.gesturequeue.length == 0)
     callback();
   else
     mousestate.waitcallbacks.push(callback);
 };
 
 /// Returns a promise for when all gestures have been processed
-function gesturesDone()
-{
+function gesturesDone() {
   return new Promise(resolve => window.waitForGestures(resolve));
 }
 
-function dragTransition(pos)
-{
+function dragTransition(pos) {
   // Decelerate more than accelerate
   let transition = p => Math.pow(p, 2);
   let easeOut = 1 - transition(1 - pos);
@@ -349,131 +319,110 @@ function dragTransition(pos)
 
 window.generateKeyboardEvent = keyboard.generateKeyboardEvent;
 
-async function pressKey(key, options)
-{
-  if(!testfw.haveDevtoolsUplink())
+async function pressKey(key, options) {
+  if (!testfw.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 
-  return await testfw.sendDevtoolsRequest({type:"pressKeys", keys: keyboard.normalizeKeys(key, options), options});
+  return await testfw.sendDevtoolsRequest({ type: "pressKeys", keys: keyboard.normalizeKeys(key, options), options });
 }
 
 //ADDME non-LMB support for the non-haveDevtoolsUplink paths
-async function asyncMouseMove(x, y, options)
-{
-  if(!testfw.haveDevtoolsUplink())
-  {
-    await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx:x, clienty:y }]);
+async function asyncMouseMove(x, y, options) {
+  if (!testfw.haveDevtoolsUplink()) {
+    await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y }]);
     return;
   }
 
   y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
-  return await testfw.sendDevtoolsRequest({type:"mouseMove", x, y, options});
+  return await testfw.sendDevtoolsRequest({ type: "mouseMove", x, y, options });
 }
-async function asyncMouseDown(type, options)
-{
-  if(!testfw.haveDevtoolsUplink())
-  {
+async function asyncMouseDown(type, options) {
+  if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), down: 0 }]);
     return;
   }
-  return await testfw.sendDevtoolsRequest({type:"mouseDown", options});
+  return await testfw.sendDevtoolsRequest({ type: "mouseDown", options });
 }
-async function asyncMouseUp(type, options)
-{
-  if(!testfw.haveDevtoolsUplink())
-  {
+async function asyncMouseUp(type, options) {
+  if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), up: 0 }]);
     return;
   }
-  return await testfw.sendDevtoolsRequest({type:"mouseUp", options});
+  return await testfw.sendDevtoolsRequest({ type: "mouseUp", options });
 }
-async function asyncMouseClick(x, y, options)
-{
-  if(!testfw.haveDevtoolsUplink())
-  {
+async function asyncMouseClick(x, y, options) {
+  if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y, down: 0 }]);
     await pointer.sendMouseGesture([{ up: 0 }]);
     return;
   }
 
   y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
-  return await testfw.sendDevtoolsRequest({type:"mouseClick", x, y, options});
+  return await testfw.sendDevtoolsRequest({ type: "mouseClick", x, y, options });
 }
 
-class FakeUploadSession
-{
-  constructor(files, donecallback)
-  {
+class FakeUploadSession {
+  constructor(files, donecallback) {
     this.blobs = [];
     this.files = files;
     this.donecallback = donecallback;
     files.forEach(file => this.blobs.push(null));
   }
-  runUpload(inputnode, callback)
-  {
-    var self=this;
+  runUpload(inputnode, callback) {
+    var self = this;
     this.inputnode = inputnode;
 
-    this.files.forEach(function(file, idx)
-    {
+    this.files.forEach(function(file, idx) {
       getFileFromURL(file.url, file.filename).then(blob => self.doneUpload(blob, idx));
     });
   }
-  doneUpload(blob, idx)
-  {
-    if(this.blobs[idx])
+  doneUpload(blob, idx) {
+    if (this.blobs[idx])
       throw new Error("Duplicate upload completion for blob #" + idx);
     this.blobs[idx] = blob;
-    if(this.blobs.filter(val=>val).length < this.blobs.length) //we don't have all files yet
+    if (this.blobs.filter(val => val).length < this.blobs.length) //we don't have all files yet
       return;
 
-    dompack.dispatchCustomEvent(this.inputnode, 'wh:upload-fake', { bubbles:false, cancelable: false, detail: {files: this.blobs }});
+    dompack.dispatchCustomEvent(this.inputnode, 'wh:upload-fake', { bubbles: false, cancelable: false, detail: { files: this.blobs } });
     if (this.donecallback)
       setTimeout(() => this.donecallback(), 1);
   }
 }
 
-function prepareUploadTest(node, files, donecallback)
-{
-  if(window.top.wh_testapi_fakeupload)
+function prepareUploadTest(node, files, donecallback) {
+  if (window.top.wh_testapi_fakeupload)
     throw new Error("The window already has a pending upload");
 
-  var uploadclass = new FakeUploadSession(files,donecallback);
+  var uploadclass = new FakeUploadSession(files, donecallback);
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
 }
 
-async function prepareUpload(files)
-{
+async function prepareUpload(files) {
   let deferred = dompack.createDeferred();
   var uploadclass = new FakeUploadSession(files, function() { deferred.resolve(); });
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
   await deferred.promise;
 }
 
-function getOpenMenu()
-{
+function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
-function getOpenMenuItem(containstext)
-{
+function getOpenMenuItem(containstext) {
   let menu = getOpenMenu();
-  if(!menu)
+  if (!menu)
     return null;
-  let item = dompack.qSA(menu,'li').filter(_ => _.textContent.includes(containstext));
-  if(item.length>1)
+  let item = dompack.qSA(menu, 'li').filter(_ => _.textContent.includes(containstext));
+  if (item.length > 1)
     throw new Error("Multiple items contain the text '" + containstext + "'");
-  return item[0]||null;
+  return item[0] || null;
 }
-function getWin()
-{
+function getWin() {
   return testfw.getFrameRecord().win;
 }
-function getDoc()
-{
+function getDoc() {
   return testfw.getFrameRecord().doc;
 }
-function setFormsapiFileElement (el, filedata, filename)
-{
+function setFormsapiFileElement(el, filedata, filename) {
   //formsapi permits a hack to allow us to fake submissions to input type=file fields
   //unfortunately we can't change the type of an input element, so we'll have to recreate it
 
@@ -482,70 +431,62 @@ function setFormsapiFileElement (el, filedata, filename)
   newinput.type = 'text';
   newinput.value = filedata;
   newinput.id = el.id;
-  el.parentNode.replaceChild(newinput,el);
+  el.parentNode.replaceChild(newinput, el);
 
-//  $(el).destroy();
+  //  $(el).destroy();
 }
 
-function fill(element,newvalue)
-{
+function fill(element, newvalue) {
   element = pointer._resolveToSingleElement(element);
   element.focus();
   dompack.changeValue(element, newvalue);
 }
-function fillUpload(element, files)
-{
-  let blobs = files.map( file =>
-  {
-    if(!file.mimetype)
+function fillUpload(element, files) {
+  let blobs = files.map(file => {
+    if (!file.mimetype)
       throw new Error("Missing mimetype");
-    if(!file.filename)
+    if (!file.filename)
       throw new Error("Missing filename");
 
-    let output = new Blob([ file.data], { type: file.mimetype });
+    let output = new Blob([file.data], { type: file.mimetype });
     output.name = file.filename;
     return output;
   });
-  Object.defineProperty(element, 'files', { get: function() { return blobs; }, configurable:true});
+  Object.defineProperty(element, 'files', { get: function() { return blobs; }, configurable: true });
 }
-function getTestSiteRoot()
-{
+function getTestSiteRoot() {
   var topdoc = window.parent.document.documentElement;
-  if(!topdoc.dataset.testsiteroot)
+  if (!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");
   return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
-function getListViewHeader(text)
-{
+function getListViewHeader(text) {
   var headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
-  if(headers.length>1)
+  if (headers.length > 1)
     console.error("Multiple header matches for '" + text + "'");
-  return headers.length==1 ? headers[0] : null;
+  return headers.length == 1 ? headers[0] : null;
 }
-function getListViewRow(text) //simply reget it for every test, as list may rerender at unspecifide times
-{
+function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
   var rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
-  if(rows.length>1)
+  if (rows.length > 1)
     console.error("Multiple row matches for '" + text + "'");
-  return rows.length==1 ? rows[0] : null;
+  return rows.length == 1 ? rows[0] : null;
 }
-function getListViewExpanded(row)
-{
-  if(row.querySelector(".fa-caret-down"))
+function getListViewExpanded(row) {
+  if (row.querySelector(".fa-caret-down"))
     return true;
-  if(row.querySelector(".fa-caret-right"))
+  if (row.querySelector(".fa-caret-right"))
     return false;
   return null;
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qS<E extends Element = Element>(startnode: ParentNode, selector: string) : E | null;
-export function qS<E extends Element = Element>(selector: string) : E | null;
+export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
+export function qS<E extends Element = Element>(selector: string): E | null;
 
-export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string) : E | null
-{
-  if(typeof node_or_selector !== 'string')
+export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
+  if (typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
 
   let iframe = window.parent.document.querySelector('#testframeholder iframe');
@@ -553,55 +494,47 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string) : E[];
-export function qSA<E extends Element = Element>(selector: string) : E[];
+export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = Element>(selector: string): E[];
 
-export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[]
-{
-  if(typeof node_or_selector !== 'string')
+export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
+  if (typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
 
   let iframe = window.parent.document.querySelector('#testframeholder iframe');
   return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
 }
 
-async function invoke(libfunc, ...params)
-{
-  if(!libfunc.includes('#'))
-  {
+async function invoke(libfunc, ...params) {
+  if (!libfunc.includes('#')) {
     libfunc += '#' + params[0];
     params.shift();
-    console.warn("The two-parameter form of test.invoke() is deprecated. Replace the first two parameters with:",libfunc);
+    console.warn("The two-parameter form of test.invoke() is deprecated. Replace the first two parameters with:", libfunc);
   }
 
-  console.log(`test.invoke ${libfunc}`,params);
+  console.log(`test.invoke ${libfunc}`, params);
   let result = await jstestsrpc.invoke(libfunc, params);
-  if (typeof result == "object" && result && result.__outputtoolsdata)
-  {
-    dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles:false, cancelable: false, detail: result.__outputtoolsdata});
+  if (typeof result == "object" && result && result.__outputtoolsdata) {
+    dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles: false, cancelable: false, detail: result.__outputtoolsdata });
     delete result.__outputtoolsdata;
   }
-  console.log(`test.invoke result`,result);
+  console.log(`test.invoke result`, result);
 
   return result;
 }
-function getWrdLogoutUrl(returnurl)
-{
+function getWrdLogoutUrl(returnurl) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
-function wrdAuthLogout()
-{
+function wrdAuthLogout() {
   let redirectto = getWrdLogoutUrl(getWin().location.href);
   window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
 }
-async function writeLogMarker(text)
-{
+async function writeLogMarker(text) {
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
-async function wait(waitfor, annotation?)
-{
-  if(annotation && typeof annotation !== "string")
+async function wait(waitfor, annotation?) {
+  if (annotation && typeof annotation !== "string")
     throw new Error("wait()ing on multiple things is no longer supported");
 
   return await callbacks.executeWait(waitfor);
@@ -610,50 +543,40 @@ async function wait(waitfor, annotation?)
 // email: The email address to look for
 // options.timeout: The timeout in ms, defaults to 0 (don't wait)
 // options.count: The number of emails to wait for, defaults to 1
-async function waitForEmails(email, options)
-{
+async function waitForEmails(email, options) {
   return await testfw.waitForEmails(email, options);
 }
 
-async function subtest(name)
-{
+async function subtest(name) {
   callbacks.subtest(name);
 }
 
-async function addFrame(name, { width })
-{
+async function addFrame(name, { width }) {
   return callbacks.setFrame(name, "add", { width });
 }
 
-async function updateFrame(name, { width })
-{
+async function updateFrame(name, { width }) {
   return callbacks.setFrame(name, "update", { width });
 }
 
-async function removeFrame(name)
-{
+async function removeFrame(name) {
   return callbacks.setFrame(name, "delete");
 }
 
-async function selectFrame(name)
-{
+async function selectFrame(name) {
   return callbacks.setFrame(name, "select");
 }
 
-async function load(page)
-{
-  if(typeof page != "string")
-  {
-    console.error(`test.load expects a string, got`,page);
+async function load(page) {
+  if (typeof page != "string") {
+    console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);
   }
 
   let topwhdebug = new URL(top.location.href).searchParams.get("wh-debug");
-  if(topwhdebug !== null) //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
-  {
+  if (topwhdebug !== null) { //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
     let gotourl = new URL(page);
-    if(gotourl.searchParams.get("wh-debug") === null)
-    {
+    if (gotourl.searchParams.get("wh-debug") === null) {
       gotourl.searchParams.set("wh-debug", topwhdebug);
       page = gotourl.toString();
     }
@@ -663,8 +586,7 @@ async function load(page)
   await wait("load");
 }
 
-function pasteHTML(content)
-{
+function pasteHTML(content) {
   let target = domfocus.getCurrentlyFocusedElement();
   let htmltext = typeof content == 'string' ? content : content.innerHTML;
 
@@ -672,43 +594,38 @@ function pasteHTML(content)
      only firefox is said to implement clipboard currently so we'll create a plain event */
   let evt = target.ownerDocument.createEvent('Event');
 
-  let cpdata = { types: [ 'text/html' ]
-               , getData: type =>
-                 {
-                   if(type != 'text/html')
-                     return null;
-                   return htmltext;
-                 }
-               };
+  let cpdata = {
+    types: ['text/html'],
+    getData: type => {
+      if (type != 'text/html')
+        return null;
+      return htmltext;
+    }
+  };
 
   evt.initEvent('paste', true, true);
   Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
 
   let dodefault = target.dispatchEvent(evt);
-  if(dodefault)
-  {
+  if (dodefault) {
     console.error("FIXME: default action!");
   }
   return dodefault;
 }
 
-async function getFileFromURL(url, filename)
-{
+async function getFileFromURL(url, filename) {
   const defer = dompack.createDeferred();
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
 
   xhr.responseType = 'blob';
-  xhr.onload = function(e)
-  {
+  xhr.onload = function(e) {
     console.log('onload', this, e, this.response);
-    if (this.status == 200)
-    {
+    if (this.status == 200) {
       // Create a blob with the response's Content-Type as file type
-      const file = createFileObject([ this.response ], filename, { type: this.response.type });
+      const file = createFileObject([this.response], filename, { type: this.response.type });
       defer.resolve(file);
-    }
-    else
+    } else
       defer.reject(new Error(`Error ${this.status} retrieving ${url}`));
   };
   xhr.onerror = function(e) { defer.reject(new Error(`Error ${e} retrieving ${url}`)); };
@@ -716,14 +633,10 @@ async function getFileFromURL(url, filename)
   return defer.promise;
 }
 
-function createFileObject(data, name, opts)
-{
-  try
-  {
+function createFileObject(data, name, opts) {
+  try {
     return new File(data, name, opts);
-  }
-  catch (e)
-  {
+  } catch (e) {
     // IE 11 workaround, it does not have a File constructor. Use a blob and add a filename
     const file = new Blob(data, opts);
     file.name = name;
@@ -731,14 +644,12 @@ function createFileObject(data, name, opts)
   }
 }
 
-function canFocus(element)
-{
+function canFocus(element) {
   element = pointer._resolveToSingleElement(element);
   return domfocus.canFocusTo(element);
 }
 
-function hasFocus(element)
-{
+function hasFocus(element) {
   element = pointer._resolveToSingleElement(element);
   return element == domfocus.getActiveElement(element.ownerDocument);
 }
@@ -746,25 +657,23 @@ function hasFocus(element)
 /** Get pxl log entries
     @param eventtypefilter - Expression to match on event type
     @returns Filtered log entries, or an empty array if the log hasn't started yet*/
-function getPxlLog(eventtypefilter)
-{
+function getPxlLog(eventtypefilter) {
   let log = getWin().whPxlLog || [];
-  if(eventtypefilter)
+  if (eventtypefilter)
     log = log.filter(evt => evt.event.match(eventtypefilter));
   return log;
 }
 
-function getWebhareVersionNumber()
-{
+function getWebhareVersionNumber() {
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
 }
 
-const  keyboardCopyModifier        = { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
-const  keyboardLinkModifier        = { ctrl: true, shift: browser.getPlatform() != 'mac' }
-const  keyboardMultiSelectModifier = { cmd: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
+const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
+const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' }
+const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
 
-export
-  { registerJSTests as registerTests
+export {
+  registerJSTests as registerTests
   , getTestArgument as getTestArgument
   , getOpenMenu as getOpenMenu
   , getOpenMenuItem as getOpenMenuItem
@@ -823,81 +732,82 @@ export
   , updateFrame
   , removeFrame
   , selectFrame
-  };
+};
 
 //Also need to put it in this variable. FIXME Don't do that! but this round we're just focusing on enabling TS definitions...
-module_exports = { registerTests: registerJSTests
-  , getTestArgument: getTestArgument
-  , getOpenMenu: getOpenMenu
-  , getOpenMenuItem: getOpenMenuItem
-  , getWindow: getWin
-  , getDoc: getDoc
-  , isElementClickable: pointer.canClick
-  , canClick: pointer.canClick
-  , click: pointer.click
-  , setFormsapiFileElement: setFormsapiFileElement
-  , fill: fill //note: soon in dompack but not fully compatible for some selectors
-  , fillUpload: fillUpload
-  , getTestSiteRoot: getTestSiteRoot
-  , findElementWithText: findElementWithText
-  , getWebhareVersionNumber
-  , waitForEvent: test.waitForEvent
-  , eq: testEq
-  , eqFloat: testEqFloat
-  , eqIn: testEqIn
-  , eqHTML: testEqHTML
-  , true: testTrue
-  , false: testFalse
-  , throws
-  , canFocus: canFocus
-  , hasFocus: hasFocus
-  , fail: fail
-  , sendMouseGesture: pointer.sendMouseGesture
-  , gesturesDone: gesturesDone
-  , prepareUpload: prepareUpload
-  , pressKey
-  , getValidatedElementFromPoint: pointer.getValidatedElementFromPoint
-  , dragTransition: dragTransition
-  , generateKeyboardEvent: keyboard.generateKeyboardEvent
-  , simulateTabKey: test.simulateTabKey
-  , focus: test.focus
+module_exports = {
+  registerTests: registerJSTests,
+  getTestArgument: getTestArgument,
+  getOpenMenu: getOpenMenu,
+  getOpenMenuItem: getOpenMenuItem,
+  getWindow: getWin,
+  getDoc: getDoc,
+  isElementClickable: pointer.canClick,
+  canClick: pointer.canClick,
+  click: pointer.click,
+  setFormsapiFileElement: setFormsapiFileElement,
+  fill: fill, //note: soon in dompack but not fully compatible for some selectors
+  fillUpload: fillUpload,
+  getTestSiteRoot: getTestSiteRoot,
+  findElementWithText: findElementWithText,
+  getWebhareVersionNumber,
+  waitForEvent: test.waitForEvent,
+  eq: testEq,
+  eqFloat: testEqFloat,
+  eqIn: testEqIn,
+  eqHTML: testEqHTML,
+  true: testTrue,
+  false: testFalse,
+  throws,
+  canFocus: canFocus,
+  hasFocus: hasFocus,
+  fail: fail,
+  sendMouseGesture: pointer.sendMouseGesture,
+  gesturesDone: gesturesDone,
+  prepareUpload: prepareUpload,
+  pressKey,
+  getValidatedElementFromPoint: pointer.getValidatedElementFromPoint,
+  dragTransition: dragTransition,
+  generateKeyboardEvent: keyboard.generateKeyboardEvent,
+  simulateTabKey: test.simulateTabKey,
+  focus: test.focus,
 
-  , keyboardCopyModifier:        { alt: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
-  , keyboardLinkModifier:        { ctrl: true, shift: browser.getPlatform() != 'mac' }
-  , keyboardMultiSelectModifier: { cmd: browser.getPlatform()=='mac', ctrl: browser.getPlatform() != 'mac' }
-  , load
-  , wait
-  , waitUIFree: test.waitUIFree
-  , waitForEmails
-  , subtest
-  , invoke
-  , loadPage: load //DEPRECATED
-  , writeLogMarker
+  keyboardCopyModifier: { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
+  keyboardLinkModifier: { ctrl: true, shift: browser.getPlatform() != 'mac' },
+  keyboardMultiSelectModifier: { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
+  load,
+  wait,
+  waitUIFree: test.waitUIFree,
+  waitForEmails,
+  subtest,
+  invoke,
+  loadPage: load, //DEPRECATED
+  writeLogMarker,
 
-  , pasteHTML
-  , wrdAuthLogout
-  , getWin
-  , getWrdLogoutUrl
+  pasteHTML,
+  wrdAuthLogout,
+  getWin,
+  getWrdLogoutUrl,
 
-  , asyncMouseClick
-  , asyncMouseUp
-  , asyncMouseDown
-  , asyncMouseMove
+  asyncMouseClick,
+  asyncMouseUp,
+  asyncMouseDown,
+  asyncMouseMove,
 
-  , startExternalFileDrag: pointer.startExternalFileDrag
-  , getCurrentDragDataStore: pointer.getCurrentDragDataStore
-  , cancelDrag: pointer.cancelDrag
+  startExternalFileDrag: pointer.startExternalFileDrag,
+  getCurrentDragDataStore: pointer.getCurrentDragDataStore,
+  cancelDrag: pointer.cancelDrag,
 
-  , getFileFromURL
+  getFileFromURL,
 
-  , getListViewExpanded
-  , getListViewHeader
-  , getListViewRow
-  , getPxlLog
-  , prepareUploadTest
+  getListViewExpanded,
+  getListViewHeader,
+  getListViewRow,
+  getPxlLog,
+  prepareUploadTest,
 
-  , addFrame
-  , updateFrame
-  , removeFrame
-  , selectFrame
-  };
+  addFrame,
+  updateFrame,
+  removeFrame,
+  selectFrame
+};

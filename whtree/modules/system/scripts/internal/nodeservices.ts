@@ -20,24 +20,24 @@ function gatherBackendServices() {
 
   for (const module of bridge.getModuleInstallationRoots()) {
     const parsedmodule = parser.parse(readFileSync(path.join(module.path, "moduledefinition.xml")));
-    for(const service of parsedmodule.module.services?.backendservice ?? [])
-      services.push( { fullname: `${module.name}:${service["@name"]}`
-                     , handler: `mod::${module.name}/${service["@handler"]}`
-                     });
+    for (const service of parsedmodule.module.services?.backendservice ?? [])
+      services.push({
+        fullname: `${module.name}:${service["@name"]}`,
+        handler: `mod::${module.name}/${service["@handler"]}`
+      });
   }
 
   return services;
 }
 
-async function buildServiceClient(service: BackendServiceDescriptor, args: unknown[])
-{
+async function buildServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
   const client = await (await resourcetools.loadJSFunction(service.handler))(...args);
   return client;
 }
 
 async function main() {
   const services = gatherBackendServices();
-  for(const service of services)
+  for (const service of services)
     runWebHareService(service.fullname, (...args) => buildServiceClient(service, args));
 }
 
