@@ -9,43 +9,40 @@ import "./authormode.scss";
 import "./authormode.lang.json";
 
 
-function reportIssue(event: MouseEvent, addElement: boolean)
-{
+function reportIssue(event: MouseEvent, addElement: boolean) {
   dompack.stop(event);
   runFeedbackReport(event, addElement);
 }
 
-function focusFirstAction()
-{
+function focusFirstAction() {
   (document.querySelector("wh-authorbar a") as HTMLElement)?.focus();
 }
 
-function setupAuthorMode()
-{
+function setupAuthorMode() {
   console.log("[authormode] activating");
 
   document.body.append(
     <wh-authorbar>
-      <div class="wh-authorbar__title" onClick={focusFirstAction}>{ getTid("publisher:site.authormode.title") }</div>
+      <div class="wh-authorbar__title" onClick={focusFirstAction}>{getTid("publisher:site.authormode.title")}</div>
       <div class="wh-authorbar__actions">
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
-            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{ getTid("publisher:site.authormode.openinwebhare") }</a>
+            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{getTid("publisher:site.authormode.openinwebhare")}</a>
           </li>
         </ul>
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
-            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{ getTid("publisher:site.authormode.feedback-specific") }</a>
+            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{getTid("publisher:site.authormode.feedback-specific")}</a>
           </li>
           <li class="wh-authorbar__action">
-            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{ getTid("publisher:site.authormode.feedback-general") }</a>
+            <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{getTid("publisher:site.authormode.feedback-general")}</a>
           </li>
         </ul>
       </div>
     </wh-authorbar>);
 
   //no positioning selected?
-  if(!document.documentElement.matches('.wh-authorbar--left,.wh-authorbar--right'))
+  if (!document.documentElement.matches('.wh-authorbar--left,.wh-authorbar--right'))
     document.documentElement.classList.add('wh-authorbar--right');
 }
 
