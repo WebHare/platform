@@ -6,7 +6,9 @@
       <dependency module="system" />
       <dependency module="wrd" />
     </packaging>
-    <validation options="nowarnings" />
+    <validation options="nowarnings">
+      <format masks="*.ts *.tsx" />
+    </validation>
   </meta>
 
   <servicemanager>

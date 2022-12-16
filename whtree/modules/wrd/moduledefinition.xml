@@ -5,7 +5,9 @@
     <packaging>
       <dependency module="system" />
     </packaging>
-    <validation options="nowarnings" />
+    <validation options="nowarnings">
+      <format masks="*.ts *.tsx" />
+    </validation>
   </meta>
 
   <publisher>

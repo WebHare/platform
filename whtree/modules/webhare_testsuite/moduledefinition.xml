@@ -12,6 +12,7 @@
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
       <eslint mask="nosuch.js" />
+      <format masks="*.ts *.tsx" />
     </validation>
   </meta>
 
