@@ -23,11 +23,11 @@ function flattenArray<T>(list: T[]): T[] {
 function setClassName(node: Element, value?: string | string[] | { [key: string]: boolean }) {
   if (!value)
     node.className = '';
-  if (typeof value === 'string')
+  else if (typeof value === 'string')
     node.className = value || '';
   else if (Array.isArray(value))
     node.className = value.filter(elt => elt && typeof elt === 'string').join(" ");
-  else if (value instanceof Object) {
+  else if (typeof value === "object") {
     let str = "";
     Object.keys(value).forEach((key, idx) => { if (value[key]) str += (idx ? " " : "") + key; });
     node.className = str;
