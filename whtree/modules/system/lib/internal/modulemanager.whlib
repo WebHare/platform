@@ -797,6 +797,7 @@ PUBLIC MACRO BuildTSConfigFile(STRING dir)
   OBJECT tsconfig := NEW JSONObject;
   tsconfig->SetProp("extends", ResolveToRelativePath(dir, MergePath(installationroot, "tsconfig.json")));
   tsconfig->SetProp("compilerOptions", compileroptions);
+  tsconfig->SetProp("exclude", VARIANT[]);
 
   StoreDiskFile(MergePath(dir, "tsconfig.json"), EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]), [ overwrite := TRUE ]);
 }
