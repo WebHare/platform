@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as stacktrace_parser from "stacktrace-parser";
-import * as node_path from "path";
+import * as path from "path";
 import ts from "typescript";
 import { SchemaObject } from "ajv";
 import * as TJS from "typescript-json-schema";
@@ -43,7 +43,7 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
   let program = programcache[file];
   if (!program) {
     // Read and parse the configuration file
-    const { config } = ts.readConfigFile(node_path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
+    const { config } = ts.readConfigFile(path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
     const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
 
     // Parse file with the definition
@@ -53,7 +53,7 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
     if (diagnostics.length) {
       const host = {
         getCurrentDirectory: () => process.cwd(),
-        getCanonicalFileName: (path: string) => path,
+        getCanonicalFileName: (fileName: string) => fileName,
         getNewLine: () => "\n"
       };
 
@@ -84,4 +84,3 @@ export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject>
 
   return JSON.parse(fs.readFileSync(file).toString("utf-8")) as SchemaObject;
 }
-
