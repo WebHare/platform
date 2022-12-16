@@ -1,0 +1,11 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD options)
+{
+  IF(CellExists(options,'openprimary') AND options.openprimary)
+    OpenPrimary();
+  RETURN CallAnyPtrVA(MakeFunctionPtr(func), args);
+}

@@ -154,7 +154,7 @@ ASYNC FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
 
     CASE "invoke"
     {
-      RETURN [ value := AWAIT CallAnyPtrVA(PTR AsyncCallFunctionFromJob, VARIANT[data.func, ...data.args]) ];
+      RETURN [ value := AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", data.func, data.args, data.options) ];
     }
 
     CASE "broadcast"

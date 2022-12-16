@@ -647,13 +647,13 @@ class WebHareBridge extends EventSource< BridgeEvents>
   }
 
   /** Invoke a HareScript function from the bridge. Careful: any HS error may break the bridge connection */
-  async invoke(func: string, args:unknown[]) : Promise<unknown>
+  async invoke(func: string, args:unknown[], options?: { openPrimary: boolean } ) : Promise<unknown>
   {
     //TODO: The 'HS error' warning above doesn't currently apply as we always use a job right now. If we change that, services.callHareScript will need to adapt!
     this.updateWaitCount(+1, "Invoke " + func);
     try
     {
-      return await this.sendMessage({ type: "invoke", func, args }).promise;
+      return await this.sendMessage({ type: "invoke", func, args, options: options || {} }).promise;
     }
     finally
     {
