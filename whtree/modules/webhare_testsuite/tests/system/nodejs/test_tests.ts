@@ -43,7 +43,7 @@ async function testChecks() {
   }
 
   {
-    const v_jsf = await test.loadJSONSchema("@mod-webhare_testsuite/tests/system/nodejs/test.schema.json");
+    const v_jsf = await test.loadJSONSchema("@mod-webhare_testsuite/tests/system/nodejs/data/test.schema.json");
     await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_jsf.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
     await test.throws(/must NOT have additional properties/, () => v_jsf.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
     await test.throws(/must have required property 'b'/, () => v_jsf.validateStructure({ a: 0 }), "missing property not detected");
