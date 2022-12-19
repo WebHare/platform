@@ -104,6 +104,10 @@
       <accesscheck>
       </accesscheck>
     </webservice>
+    <webservice name="testnoauthjs" transports="jsonrpc" service="js/jsonrpc/service.ts#TestNoAuthJS">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
 
     <webservice name="sharedtests" transports="jsonrpc" library="lib/sharedtests.whlib" prefix="RPC_">
       <accesscheck>

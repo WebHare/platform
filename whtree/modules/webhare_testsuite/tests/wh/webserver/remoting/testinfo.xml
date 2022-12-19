@@ -5,4 +5,5 @@
   <test script="test_restapi.whscr" />
   <test script="test_whremoting.whscr" />
   <jstest file="test_whrpc.es" />
+  <jstest file="test_whrpc2.ts" />
 </group>

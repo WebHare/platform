@@ -2500,8 +2500,8 @@
 
           <xs:attribute name="name" type="Name" use="required" />
           <xs:attribute name="transports" type="RPCTransports" use="required" />
-          <xs:attribute name="library" type="xs:string" use="required" />
-          <xs:attribute name="prefix" type="Name" use="required">
+          <xs:attribute name="library" type="xs:string" />
+          <xs:attribute name="prefix" type="Name">
             <xs:annotation>
               <xs:documentation>Export only PUBLIC APIs whose name starts with this prefix. The prefix is removed in the exported name. Usually `RPC_`</xs:documentation>
             </xs:annotation>
@@ -2514,7 +2514,11 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-
+          <xs:attribute name="service">
+            <xs:annotation>
+              <xs:documentation>Path to JavaScript service object implementing the service</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
           <xs:attribute name="crossdomainorigins">
             <xs:annotation>
               <xs:documentation>

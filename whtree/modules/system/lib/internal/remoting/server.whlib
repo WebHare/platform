@@ -15,7 +15,9 @@ LOADLIB "mod::system/lib/internal/remoting/rpclibhandler.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 
 
 // Methods which are allowed in HTTP access control requests (uppercase!)
@@ -499,6 +501,12 @@ PUBLIC MACRO RunRequest(RECORD ARRAY errors, STRING error_groupid, BOOLEAN isweb
   IF (GetRequestMethod() = "OPTIONS")
   {
     AddHTTPHeader("Allow", Detokenize(accesscontrol_allowedmethods, ", "), FALSE);
+  }
+  ELSE IF(servicedef.service != "")
+  {
+    //service object. pass through to javascript
+    OBJECT call := CallAsync("mod::system/js/internal/jsonrpccaller.ts#JSONAPICall", VARIANT[servicedef, EncodeWebRequestForJS()]);
+    ExecuteWebResponse(waitforpromise(call));
   }
   ELSE
   {

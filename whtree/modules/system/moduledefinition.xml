@@ -2104,6 +2104,7 @@ The full base URL on which this site will be published, calculated by combining 
   </publisher>
 
   <services>
+    <backendservice name="demoservice" handler="js/internal/jsonrpcservice.ts#openJSONRPCService" />
     <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
