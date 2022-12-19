@@ -9,5 +9,6 @@
   <test script="test_utf8.ts" />
   <test script="test_tsconfig.whscr" />
   <jstest file="testfinmath.es" />
+  <test script="test_whmanager_conn.ts" />
   <test name="meta" path="meta/" />
 </group>
