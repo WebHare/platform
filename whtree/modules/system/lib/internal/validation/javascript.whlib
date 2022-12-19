@@ -77,7 +77,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
                 , line
                 , col
                 , fatal
-              FROM result.messages)
+             FROM result.messages)
       , result.hasfixes
       , output :=       result.hasfixes ? StringToBlob(DecodeBase64(result.output)) : libdata
       ];
@@ -424,10 +424,20 @@ ASYNC FUNCTION FormatSingleFile(RECORD file)
 
   rec := AWAIT CallAsync("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", [ cmd ]);
 
+  BLOB output;
+  IF (rec.output != cmd.data AND rec.error = "")
+  {
+    // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
+    RECORD eslintres := AWAIT RunESLint(StringToBlob(DecodeBase64(rec.output)), file.path, [ fix := TRUE ]);
+    output := eslintres.output;
+  }
+  ELSE
+    output := StringToBlob(DecodeBase64(rec.output));
+
   RETURN CELL
       [ ...file
       , ...rec
-      , output :=    StringToBlob(DecodeBase64(rec.output))
+      , output
       ];
 }
 

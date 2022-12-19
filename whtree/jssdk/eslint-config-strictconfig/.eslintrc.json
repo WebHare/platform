@@ -170,6 +170,10 @@
                     "error",
                     "last"
                 ],
+                "eol-last": [
+                    "error",
+                    "always"
+                ],
                 "object-curly-newline": [
                     "error",
                     {
