@@ -139,6 +139,15 @@ MACRO TestJSONRPC()
   TestEq("*", testfw->browser->GetResponseHeader("X-Test-Header"));
 }
 
+MACRO TestJSONRPC_JS()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+  TestEq(TRUE, DoRPCCall("http://" || EncodeURL(testfw->GetUserLogin("sysop"))
+                                    || ":" || EncodeURL(testfw->GetUserPassword("sysop"))
+                                    || "@127.0.0.1:" || port.portnumber
+                                    || "/wh_services/webhare_testsuite/testnoauthjs", "validateEmail", "nl","keesje@webhare.dev"));
+}
+
 MACRO TestOrigin()
 {
   RECORD port := testfw->GetLocalhostWebinterface();
@@ -159,6 +168,7 @@ MACRO TestOrigin()
 RunTestFramework([ PTR TestBadRequest
                  , PTR TestJSONRPC
                  , PTR TestOrigin
+                 , PTR TestJSONRPC_JS
                  ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

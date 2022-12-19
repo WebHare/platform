@@ -260,6 +260,7 @@ PUBLIC RECORD FUNCTION ParseWebServiceDefinitionNode(STRING modulename, OBJECT s
       , require_whauth :=     require_whauth
       , transports :=         ParseXSList(servicenode->GetAttribute("transports"))
       , library :=            libpath
+      , service :=            MakeAbsoluteResourcePath("mod::" || modulename || "/", servicenode->GetAttribute("service"))
       , crossdomainorigins := crossdomainorigins != "" ? Tokenize(crossdomainorigins, " ") : DEFAULT STRING ARRAY
       , addheaders :=         DEFAULT RECORD ARRAY
       , checkandvm :=         checkandvm

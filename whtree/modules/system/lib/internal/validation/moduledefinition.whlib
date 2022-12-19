@@ -176,7 +176,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       IF(IsNodeApplicableToThisWebHare(webservice))
       {
         STRING lib := MakeAbsoluteResourcePath(this->respath, webservice->GetAttribute("library"));
-        IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
+        IF(lib != "" AND NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
         {
           IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
             this->AddWarning(webservice, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path - dev:rewrite can fix this!)");

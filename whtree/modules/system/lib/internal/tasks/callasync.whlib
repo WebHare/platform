@@ -10,6 +10,7 @@ LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 
 PUBLIC OBJECT ipcparentlink;
@@ -43,8 +44,11 @@ ASYNC MACRO StartIPCNodeProcess()
         GetWebhareConfiguration().installationroot || "node_modules/.bin/ts-node",
         [ `--swc`, `${GetWebhareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`, portname ],
         [ take_output := FALSE, take_errors := FALSE ]);
-    proc->share_stdout := TRUE;
-    proc->share_stderr := TRUE;
+    IF(NOT IsRequest()) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
+    {
+      proc->share_stdout := TRUE;
+      proc->share_stderr := TRUE;
+    }
     proc->Start();
 
     nodeipclink := AWAIT port->AsyncAccept(AddTimeToDate(15000, GetCurrentDateTime()));

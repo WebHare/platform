@@ -1,0 +1,8 @@
+export interface MyService {
+  /** Validate an e-mail address
+   *
+   * @param emailaddress - Address to validate
+   * @returns Validation result
+   */
+  validateEmail(langcode: string, emailaddress: string): Promise<boolean>;
+}
