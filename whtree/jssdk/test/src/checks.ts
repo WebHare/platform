@@ -122,7 +122,7 @@ function toTestableString(val: unknown): string {
   }
 }
 
-function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
+export function eq<T>(expected: T, actual: T, annotation?: Annotation) {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
@@ -146,7 +146,7 @@ function testEq<T>(expected: T, actual: T, annotation?: Annotation) {
   testDeepEq(expected, actual, '');
 }
 
-function testAssert<T>(actual: T, annotation?: Annotation): T { //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+export function assert<T>(actual: T, annotation?: Annotation): T { //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
   if (actual)
     return actual; //test passed is actual was 'true'
 
@@ -168,7 +168,7 @@ function quacksLikeAnError(e: unknown): e is Error {
 }
 
 /** @returns The Error object thrown */
-async function testThrows(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
+export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
   try {
     //If we got a function, execute it
     const promiselike = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
@@ -284,14 +284,14 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
   }
 }
 
-async function testSleep(condition: number): Promise<void> {
+export async function sleep(condition: number): Promise<void> {
   if (condition < 0)
     throw new Error(`Wait duration must be positive, got '${condition}'`);
   await new Promise(resolve => setTimeout(resolve, condition));
   return;
 }
 
-function testEqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
+export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   if (actual.match(regexp))
     return;
 
@@ -409,11 +409,3 @@ export async function wait(waitfor: (() => boolean | PromiseLike<boolean>) | Pro
     }
   }
 }
-
-export {
-  testAssert as assert,
-  testEq as eq,
-  testSleep as sleep,
-  testEqMatch as eqMatch,
-  testThrows as throws,
-};
