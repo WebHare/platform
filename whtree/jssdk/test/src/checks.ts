@@ -1,4 +1,5 @@
 import * as testsupport from "./testsupport";
+import * as diff from 'diff';
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
 export { LoadTSTypeOptions } from "./testsupport";
 
@@ -141,6 +142,14 @@ export function eq<T>(expected: T, actual: T, annotation?: Annotation) {
   if (typeof expected == "string" && typeof actual == "string") {
     onLog("E: " + encodeURIComponent(expected));
     onLog("A: " + encodeURIComponent(actual));
+
+    let str = "diff: ";
+    const colors = [];
+    for (const change of diff.diffChars(actual, expected)) {
+      str += `%c${change.value}`;
+      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
+    }
+    console.log(str, ...colors);
   }
 
   testDeepEq(expected, actual, '');

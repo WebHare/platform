@@ -16,7 +16,6 @@ import * as test from 'dompack/testframework';
 import { testDeepEq } from 'dompack/testframework/expect';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
-import * as diff from 'diff';
 import { Annotation } from '@webhare/test/src/checks';
 
 export {
@@ -146,14 +145,6 @@ function testEq(expected, actual, explanation) {
   if (typeof expected == "string" && typeof actual == "string") {
     testfw.log("E: " + encodeURIComponent(expected));
     testfw.log("A: " + encodeURIComponent(actual));
-
-    let str = "diff: ";
-    let colors = [];
-    for (const change of diff.diffChars(actual, expected)) {
-      str += `%c${change.value}`;
-      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
-    }
-    console.log(str, ...colors);
   }
 
   testDeepEq(expected, actual, '');
