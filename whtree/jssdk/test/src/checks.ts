@@ -369,9 +369,9 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
   return new JSONSchemaValidator(ajv.compile(tocompile));
 }
 
-export async function wait(waitfor: number | (() => boolean | PromiseLike< boolean >) | PromiseLike< unknown >, options?: Annotation | { timeout?: number; annotation?: Annotation }) {
+export async function wait(waitfor: number | (() => boolean | PromiseLike<boolean>) | PromiseLike<unknown>, options?: Annotation | { timeout?: number; annotation?: Annotation }) {
   if (typeof options == "string" || typeof options == "function")
-  options = { annotation: options };
+    options = { annotation: options };
 
   const { timeout = 60000, annotation } = options ?? {};
 
@@ -404,7 +404,7 @@ export async function wait(waitfor: number | (() => boolean | PromiseLike< boole
       }, timeout);
     });
     try {
-      await Promise.race([ waitfor, timeoutpromise ]);
+      await Promise.race([waitfor, timeoutpromise]);
     } finally {
       if (cb)
         clearTimeout(cb);

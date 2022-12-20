@@ -11,17 +11,17 @@ type BridgeEvents = {
     name: string;
     data: unknown;
   };
-  systemconfig: Record< string, unknown >;
+  systemconfig: Record<string, unknown>;
 };
 
 class Bridge extends EventSource<BridgeEvents> {
   private conn: WHManagerConnection;
-  private _systemconfig: Record< string, unknown > | null;
-  private _ready: DeferredPromise< void >;
+  private _systemconfig: Record<string, unknown> | null;
+  private _ready: DeferredPromise<void>;
 
   constructor() {
     super();
-    this._ready = createDeferred< void >();
+    this._ready = createDeferred<void>();
     this._systemconfig = null;
     this.conn = new WHManagerConnection;
     this.conn.on("data", data => this.gotData(data));
@@ -68,7 +68,7 @@ class Bridge extends EventSource<BridgeEvents> {
       case WHMResponseOpcode.RegisterProcessResult: {
         const decoded = hsmarshalling.readMarshalPacket(data.systemconfigdata);
         if (typeof decoded == "object" && decoded)
-          this._systemconfig = decoded as Record< string, unknown >;
+          this._systemconfig = decoded as Record<string, unknown>;
         this._ready.resolve();
       } break;
     }
