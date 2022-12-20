@@ -16,6 +16,16 @@ Transports can be one or more of
 
 You would generally use `whremoting` for services invoked from HareScript and `jsonrpc` for services invoked from JavaScript.
 
+You can also have your services backed by a JavaScript implementation by using the `service=` attribute:
+```xml
+  <services>
+    <webservice name="servicename" transports="jsonrpc" service="myservice.ts#serviceobject">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+  </services>
+```
+
 You can set requirewhaccount="true" to require users of the RPC to have a WebHare account. `<accesscheck/>` can then be used
 to further require a specific permission.
 
