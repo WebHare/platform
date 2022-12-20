@@ -6,16 +6,13 @@
       {
         font: 10pt Helvetica, Arial;
       }
-      th,td
-      {
-        padding:3px;
-      }
       p
       {
         margin:1em 0;
       }
       th,td
       {
+        padding:3px;
         vertical-align: top;
         text-align:left;
         font-weight: normal;
@@ -47,6 +44,30 @@
         text-align: left;
         empty-cells: show;
       }
+
+      .resultheader
+      {
+        font-weight: bold;
+      }
+
+      @media only screen and (max-device-width: 619px),
+       screen and (max-width: 619px)
+      {
+        .resulttable
+        {
+          width: 100%;
+        }
+        .resultheader, .resultvalue, .groupheader
+        {
+          display: block;
+          padding: 3px 0;
+        }
+        .resultheader
+        {
+          padding-top: 5px;
+        }
+      }
+
     </style>
   </head>
   <body>
