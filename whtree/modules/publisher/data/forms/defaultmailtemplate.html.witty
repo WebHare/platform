@@ -49,17 +49,23 @@
       {
         width: 100%;
       }
-      .resultheader, .resultvalue, .groupheader
-      {
-        text-align: left;
-        vertical-align: top;
-        display: block;
-        padding: 3px 0;
-      }
       .resultheader
       {
         font-weight: bold;
-        padding-top: 5px;
+      }
+
+      @media only screen and (max-device-width: 619px),
+       screen and (max-width: 619px)
+      {
+        .resultheader, .resultvalue, .groupheader
+        {
+          display: block;
+          padding: 3px 0;
+        }
+        .resultheader
+        {
+          padding-top: 5px;
+        }
       }
 
     </style>
