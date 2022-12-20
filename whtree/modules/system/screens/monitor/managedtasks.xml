@@ -4,6 +4,7 @@
 
   <screen name="panel" gid=".panel" title="">
     <actions>
+      <action name="updatefilter" onexecute="doupdatefilter" tid="~apply" />
       <action name="flush" onexecute="doflush" />
       <action name="reschedule" onexecute="doreschedule">
         <enableon source="managedtasks" min="1" checkflags="canreschedule" />
@@ -32,6 +33,19 @@
     </compositions>
 
     <body spacers="none">
+      <panel borders="bottom" spacers="left right">
+        <line>
+          <textedit name="taskmask" defaultbutton="updatefilterbutton" placeholdertid=".taskmask-placeholder" />
+          <select name="taskfilter" type="pulldown" defaultbutton="updatefilterbutton">
+            <option rowkey="pending" />
+            <option rowkey="completed" />
+            <option rowkey="future" />
+            <option rowkey="all" />
+          </select>
+          <spacer width="1pr" />
+          <button name="updatefilterbutton" action="updatefilter" tid="~apply" />
+        </line>
+      </panel>
       <grid height="1pr">
         <cell width="1pr">
           <panel height="1pr">
@@ -61,9 +75,7 @@
             </list>
           </panel>
         </cell>
-        <cell layout="left" spacers="left right">
-          <checkbox name="showcompletedtasks" labeltid=".showcompletedtasks" onchange="RefreshDashboardPanel" title="" />
-          <checkbox name="showscheduledtasks" labeltid=".showscheduledtasks" onchange="RefreshDashboardPanel" title="" />
+        <cell layout="left" spacers="top left right">
           <button width="1pr" action="view" />
           <button width="1pr" action="flush" />
           <button width="1pr" action="delete" />

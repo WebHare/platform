@@ -866,10 +866,18 @@
           <text tid="creationdate">Queued at</text>
           <text tid="flush">Retry all now</text>
           <text tid="nextattempt">Next attempt</text>
+          <text tid="notaskmask">Enter a task mask or '*' to show all tasks</text>
+          <text tid="notaskmatching">No tasks matching mask '<param p="1"/>'</text>
           <text tid="reschedule">Duplicate and reschedule task</text>
           <text tid="showcompletedtasks">Show completed tasks</text>
           <text tid="showscheduledtasks">Show scheduled tasks</text>
-          <text tid="status">Status</text>
+          <text tid="taskfilter">Show</text>
+          <text tid="taskfilter-all">All tasks</text>
+          <text tid="taskfilter-completed">Completed tasks</text>
+          <text tid="taskfilter-future">Future tasks</text>
+          <text tid="taskfilter-pending">Pending tasks</text>
+          <text tid="taskmask">Type mask</text>
+          <text tid="taskmask-placeholder">eg system:* or wrd:deletatask</text>
           <text tid="tasktype">Task type</text>
         </textgroup>
       </textgroup>

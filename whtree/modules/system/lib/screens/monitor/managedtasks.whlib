@@ -23,12 +23,27 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   MACRO Init()
   {
+    this->DoUpdateFilter();
   }
 
   PUBLIC MACRO OnMessage(RECORD message)
   {
-    IF (CellExists(message, "TASKID") AND message.taskid > 0)
-      ^managedtasks->value := message.taskid;
+    IF (CellExists(message, "TAG"))
+    {
+      ^taskmask->value := message.tag;
+      ^taskfilter->value := "pending";
+      this->DoUpdateFilter();
+    }
+  }
+
+  MACRO DoUpdateFilter()
+  {
+    IF(^taskmask->value = "")
+      ^managedtasks->empty := this->GetTid(".notaskmask");
+    ELSE
+      ^managedtasks->empty := this->GetTid(".notaskmatching", ^taskmask->value);
+
+    this->RefreshDashboardPanel();
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -91,7 +106,16 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
+    IF(^taskmask->value = "")
+    {
+      ^managedtasks->rows := RECORD[];
+      RETURN;
+    }
+
     DATETIME now := GetCurrentDateTime();
+    BOOLEAN filter := ^taskfilter->value != "all";
+    BOOLEAN showcompleted := ^taskfilter->value IN ["completed"];
+    BOOLEAN showscheduled := ^taskfilter->value IN ["future"];
 
     RECORD ARRAY rows := SELECT rowkey := managedtasks.id
                               , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
@@ -104,8 +128,11 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
                               , isscheduled := notbefore > now
                               , canreschedule := finished != DEFAULT DATETIME OR nextattempt != DEFAULT DATETIME
                            FROM system.managedtasks
-                          WHERE (^showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME)
-                            AND (^showscheduledtasks->value ? TRUE : managedtasks.notbefore < now);
+                          WHERE tasktype LIKE ^taskmask->value
+                                AND (filter AND showcompleted ? managedtasks.finished != DEFAULT DATETIME : TRUE)
+                                AND (filter AND NOT showcompleted ? managedtasks.finished = DEFAULT DATETIME : TRUE)
+                                AND (filter AND showscheduled ? managedtasks.notbefore > now : TRUE)
+                                AND (filter AND NOT showscheduled ? managedtasks.notbefore <= now : TRUE);
 
     rows := SELECT *
                  , status := GetTaskStatusIcon(rows)
