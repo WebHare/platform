@@ -249,11 +249,6 @@ function testFalse(actual, explanation) {
 }
 
 
-function fail(reason) {
-  logExplanation(reason);
-  throw new Error("Test failed: " + reason);
-}
-
 export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
 export async function throws(func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
 //temporay wrapper to support old-style syntax
@@ -542,8 +537,28 @@ async function wait(waitfor, annotation?) {
 // email: The email address to look for
 // options.timeout: The timeout in ms, defaults to 0 (don't wait)
 // options.count: The number of emails to wait for, defaults to 1
-async function waitForEmails(email, options) {
-  return await testfw.waitForEmails(email, options);
+
+interface RetrieveEmailOptions {
+  /** If TRUE, don't remove emails from queue */
+  peekonly?: boolean;
+  /** options.timeout Timeout in milliseconds, max 60000 */
+  timeout?: number;
+  /** options.count Number of mails expected within the timeout. Defaults to 1 */
+  count?: number;
+  /** options.returnallmail Return all mail, not up to 'count'. */
+  returnallmail?: boolean;
+  /** options.scanaheaduntil If set, also look at future tasks until this date */
+  scanaheaduntil?: Date | string;
+}
+
+async function waitForEmails(addressmask: string, options?: RetrieveEmailOptions) {
+  let emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options);
+  for (const email of emails) {
+    email.doc = document.createElement('div');
+    email.doc.style.display = "none";
+    email.doc.innerHTML = email.html;
+  }
+  return emails;
 }
 
 async function subtest(name) {
@@ -676,7 +691,6 @@ export {
   , getTestArgument as getTestArgument
   , getOpenMenu as getOpenMenu
   , getOpenMenuItem as getOpenMenuItem
-  , getWin as getWindow
   , getDoc as getDoc
   , setFormsapiFileElement as setFormsapiFileElement
   , fill //note soon in dompack but not fully compatible for some selectors as fill
@@ -691,7 +705,6 @@ export {
   , testFalse as false           //deprecated! use test.assert(!...) in 5.2+
   , canFocus as canFocus
   , hasFocus as hasFocus
-  , fail as fail
   , gesturesDone as gesturesDone
   , prepareUpload as prepareUpload
   , pressKey

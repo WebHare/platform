@@ -353,6 +353,16 @@ MACRO DispatchCallbacks()
   }
 }
 
+RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ peekonly := FALSE
+                              , timeout := 0
+                              , count := 1
+                              , returnallmail := FALSE
+                              , scanaheaduntil := DEFAULT DATETIME
+                              ], options);
+  RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil, options.returnallmail);
+}
 
 STATIC OBJECTTYPE TestFramework
 <
@@ -1366,13 +1376,7 @@ STATIC OBJECTTYPE TestFramework
   */
   PUBLIC RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ peekonly := FALSE
-                               , timeout := 0
-                               , count := 1
-                               , returnallmail := FALSE
-                               , scanaheaduntil := DEFAULT DATETIME
-                               ], options);
-    RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil, options.returnallmail);
+    RETURN ExtractAllMailFor(recipient, options);
   }
 
   MACRO DoWHFSCleanUP()
@@ -2432,4 +2436,11 @@ PUBLIC RECORD FUNCTION TestInvoke_WriteLogMarker(STRING text)
 {
   WriteLogMarker(text);
   RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD ARRAY FUNCTION TestInvoke_ExtractAllMailFor(STRING emailaddress, RECORD options)
+{
+  OBJECT trans := OpenPrimary();
+  options := EnforceStructure([ scanaheaduntil := DEFAULT DATETIME ], options);
+  RETURN ExtractAllMailFor(emailaddress,options);
 }

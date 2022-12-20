@@ -192,7 +192,7 @@ window.$app = $app;
 window.$screen = $screen;
 
 function getCurrentApp() {
-  return new AppProxy(test.getWindow(), test.getWindow().__todd.applicationstack.at(-1));
+  return new AppProxy(test.getWin(), test.getWin().__todd.applicationstack.at(-1));
 }
 function getCurrentScreen() {
   return getCurrentApp().getActiveScreen();

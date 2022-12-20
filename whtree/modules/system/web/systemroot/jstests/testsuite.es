@@ -952,49 +952,6 @@ class TestFramework
     return deferred.promise;
   }
 
-  async waitForEmails(email, options)
-  {
-    options = { timeout: 0, count: 1, returnallmail: false, scanaheaduntil: null, ...options };
-    if(options.scanaheaduntil instanceof Date)
-      options.scanaheaduntil = options.scanaheaduntil.toISOString();
-    else if(!options.scanaheaduntil)
-      options.scanaheaduntil = "";
-
-    let emails = await testservice.retrieveEmails(email, options.timeout, options.count, options.scanaheaduntil, options.returnallmail);
-    for (let email of emails)
-    {
-      email.doc = this.scriptframedoc.createElement('div');
-      email.doc.style.display="none";
-      email.doc.innerHTML = email.html;
-    }
-    return emails;
-  }
-
-  async executeStepEmail(step)
-  {
-    var email = typeof step.email == "function" ? step.email() : step.email;
-    let timeout = step.emailtimeout || 0;
-    let count = step.emailcount || 1;
-    let returnallmail = step.returnallmail || false;
-
-    let results = await testservice.retrieveEmails(email, timeout, count, returnallmail);
-    return this.processStepEmailResults(step, results);
-  }
-
-  processStepEmailResults(step,emails)
-  {
-    emails.forEach(email =>
-    {
-      email.doc = this.scriptframedoc.createElement('div');
-      email.doc.style.display="none";
-      email.doc.innerHTML = email.html;
-    });
-
-    var retval = step.emailhandler(emails);
-    if (retval)
-      throw new Error("emailhandler returned result, that is not supported anymore");
-  }
-
   /// Calls a wait functions, if it fails, request a re-test on the next animation frame
   repeatedFunctionTestIterate(func, deferred)
   {
