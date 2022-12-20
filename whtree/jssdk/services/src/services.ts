@@ -1,4 +1,5 @@
 import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
+export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import * as path from "node:path";
 
 /** Promise that resolves as soon as the WebHare configuration is available */

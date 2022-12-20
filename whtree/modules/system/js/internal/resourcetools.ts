@@ -1,3 +1,4 @@
+import { registerAsDynamicLoadingLibrary } from "./hmr";
 
 export async function loadJSFunction(funcname: string): Promise<(...args: unknown[]) => unknown> {
   let libraryuri = funcname.split("#")[0];
@@ -13,3 +14,5 @@ export async function loadJSFunction(funcname: string): Promise<(...args: unknow
 
   return func;
 }
+
+registerAsDynamicLoadingLibrary(module);

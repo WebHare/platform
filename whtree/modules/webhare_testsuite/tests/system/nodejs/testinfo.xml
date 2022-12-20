@@ -1,4 +1,4 @@
-﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs">
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="hmrlibs">
   <test script="test_bridge.ts" />
   <test script="test_services.ts" />
   <test script="test_bridge_from_harescript.whscr" />
@@ -10,5 +10,6 @@
   <test script="test_tsconfig.whscr" />
   <jstest file="testfinmath.es" />
   <test script="test_whmanager_conn.ts" />
+  <test script="test_hmr.ts" />
   <test name="meta" path="meta/" />
 </group>

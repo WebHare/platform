@@ -4,6 +4,7 @@ import { XMLParser } from "fast-xml-parser";
 import { readFileSync } from "fs";
 import * as path from "path";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
+import * as hmr from "@mod-system/js/internal/hmr";
 
 interface BackendServiceDescriptor {
   fullname: string;
@@ -41,4 +42,5 @@ async function main() {
     runWebHareService(service.fullname, (...args) => buildServiceClient(service, args));
 }
 
+hmr.activate();
 bridge.ready.then(main);

@@ -2,6 +2,7 @@ import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
 import { WHMRequestOpcode, WHMResponseOpcode } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
+import { registerAsNonReloadableLibrary } from "../hmrinternal";
 import { DeferredPromise } from "../types";
 import { createDeferred } from "../tools";
 
@@ -86,3 +87,5 @@ class Bridge extends EventSource<BridgeEvents> {
 const bridge: Bridge = new Bridge;
 
 export default bridge;
+
+registerAsNonReloadableLibrary(module);
