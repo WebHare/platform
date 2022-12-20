@@ -369,10 +369,51 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
   return new JSONSchemaValidator(ajv.compile(tocompile));
 }
 
+export async function wait(waitfor: (() => boolean | PromiseLike<boolean>) | PromiseLike<unknown>, options?: Annotation | { timeout?: number; annotation?: Annotation }) {
+  if (typeof options == "string" || typeof options == "function")
+    options = { annotation: options };
+
+  const { timeout = 60000, annotation } = options ?? {};
+
+  // TypeScript can't see that the timeout can modify gottimeout, so use a function to read it
+  let gottimeout = false;
+  function gotTimeout() { return gottimeout; }
+
+  if (typeof waitfor == "function") {
+    const timeout_cb = setTimeout(() => gottimeout = true, timeout);
+    while (!gotTimeout()) {
+      if (await waitfor()) {
+        if (!gotTimeout())
+          clearTimeout(timeout_cb);
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+    if (annotation)
+      logAnnotation(annotation);
+    throw new Error(`test.wait timed out after ${timeout} ms`);
+  } else {
+    let cb;
+    const timeoutpromise = new Promise((_, reject) => {
+      cb = setTimeout(() => {
+        cb = null;
+        reject(new Error(`test.wait timed out after ${timeout} ms`));
+      }, timeout);
+    });
+    try {
+      await Promise.race([waitfor, timeoutpromise]);
+    } finally {
+      if (cb)
+        clearTimeout(cb);
+    }
+  }
+}
+
 export {
-  testAssert as assert
-  , testEq as eq
-  , testSleep as sleep
-  , testEqMatch as eqMatch
-  , testThrows as throws
+  testAssert as assert,
+  testEq as eq,
+  testSleep as sleep,
+  testEqMatch as eqMatch,
+  testThrows as throws,
 };

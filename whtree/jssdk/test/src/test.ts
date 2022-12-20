@@ -2,15 +2,16 @@
 Error.stackTraceLimit = 25;
 
 export {
-  assert
-  , eq
-  , eqMatch
-  , eqProps
-  , sleep
-  , throws
-  , setupLogging
-  , loadTSType
-  , loadJSONSchema
+  assert,
+  eq,
+  eqMatch,
+  eqProps,
+  sleep,
+  throws,
+  setupLogging,
+  wait,
+  loadTSType,
+  loadJSONSchema
 } from './checks';
 let testscompleted = false;
 

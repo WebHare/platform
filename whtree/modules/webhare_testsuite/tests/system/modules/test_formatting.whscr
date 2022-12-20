@@ -1,0 +1,32 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
+
+
+ASYNC MACRO TestTypeScriptFormatting()
+{
+
+  TestEQ(
+"function test(): void {\n" ||
+"  /*\n" ||
+"  uitgecomment\n" ||
+"\n" ||
+"  allemaal\n" ||
+"  */\n" ||
+"}\n", BlobToString((AWAIT FormatJavascriptFile("mod::system/test.ts", StringToBlob(
+`function test(): void {
+/*
+uitgecomment
+
+allemaal
+*/
+}`))).output));
+
+}
+
+RunTestframework([ PTR TestTypeScriptFormatting
+                 ], [ usedatabase := FALSE
+                    ]);

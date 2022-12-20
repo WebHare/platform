@@ -7,4 +7,5 @@
   <test script="test_dashboard.whscr" />
   <test script="test_profiler.whscr" />
   <test script="test_nodechecks.whscr" />
+  <test script="test_formatting.whscr" />
 </group>
