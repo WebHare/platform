@@ -45,10 +45,6 @@
         empty-cells: show;
       }
 
-      .resulttable
-      {
-        width: 100%;
-      }
       .resultheader
       {
         font-weight: bold;
@@ -57,6 +53,10 @@
       @media only screen and (max-device-width: 619px),
        screen and (max-width: 619px)
       {
+        .resulttable
+        {
+          width: 100%;
+        }
         .resultheader, .resultvalue, .groupheader
         {
           display: block;
