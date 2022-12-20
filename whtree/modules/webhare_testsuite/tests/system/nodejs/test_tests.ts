@@ -53,13 +53,6 @@ async function testChecks() {
 
   {
     const start = Date.now();
-    await test.wait(5);
-    const waited = Date.now() - start;
-    test.assert(waited >= 5, `test.wait(5) didn't wait at least 5ms, but ${waited}ms`);
-  }
-
-  {
-    const start = Date.now();
     await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => false, { timeout: 10 }));
     const waited = Date.now() - start;
     test.assert(waited >= 10, `test.wait didn't wait at least 10ms, but ${waited}ms`);
