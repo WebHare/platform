@@ -212,7 +212,7 @@ test.registerTests(
   , "Expansion of previews when started in disabled mode"
   , async function()
     {
-      await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
 
       //processing embedded object
       test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'
@@ -230,7 +230,7 @@ test.registerTests(
       {
         // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
         // fixed by added a bogus br after it
-        await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
+        await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
 
         //processing embedded object
         test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'

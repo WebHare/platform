@@ -706,7 +706,6 @@ export {
   , waitForEmails
   , subtest
   , invoke
-  , load as loadPage //DEPRECATED
   , writeLogMarker
 
   , pasteHTML
