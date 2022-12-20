@@ -108,13 +108,13 @@ test.registerTests(
         // Test list celledit
         let list_node = test.compByName("list");
         test.click(list_node.querySelector(".listrow"));
-        await test.wait(500); // prevent doubleclick
+        await test.sleep(500); // prevent doubleclick
         test.click(list_node.querySelector(".listrow"));
         await test.wait("ui");
         await test.pressKey("Escape");
         await test.wait("ui");
         test.eq("NO", status_comp.value);
-        await test.wait(500); // otherwise next click won't register?
+        await test.sleep(500); // otherwise next click won't register?
         test.click(list_node.querySelector(".listrow"));
         await test.wait("ui");
         await test.pressKey("Enter");
@@ -196,7 +196,7 @@ test.registerTests(
         // Test tagedit
         let tagedit_node = test.compByName("tagedit").querySelector("input");
         test.fill(tagedit_node, "some text");
-        await test.wait(250);
+        await test.sleep(250);
         // Just typing some text doesn't make the field dirty
         test.eq("NO", status_comp.value);
         await test.pressKey("Enter");

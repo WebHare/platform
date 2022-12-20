@@ -25,7 +25,7 @@ test.registerTests(
       // STORY: paste of entiry paragraph at end of table cell broke the table into two subtables
       let rte = win.rte.getEditor();
       let body = rte.getContentBodyNode();
-      await test.wait(10);
+      await test.sleep(10);
       body.focus();
 
       rtetest.setStructuredContent(win, `<table class="table wh-rtd__table" style="width: 200px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 199px;"></colgroup><tbody>` +

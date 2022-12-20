@@ -207,13 +207,13 @@ test.registerTests(
 
       // rpc when release during operation
       res = test.invoke("mod::webhare_testsuite/webdesigns/basetest/pages/exclusiveaccesstest/exclusiveaccesstest.whlib#TestLockToken", datatoken, true);
-      await test.wait(100); // wait for the mutex in the RPC lock
+      await test.sleep(100); // wait for the mutex in the RPC lock
       test.click("#releaselock");
       await test.wait(() => test.qS("#status").textContent == "Lock not taken");
 
       // restart lock, should not get it until the RPC finishes
       test.click("#startexclusiveaccesstest");
-      await test.wait(100); // should not have gotten the lock after waiting
+      await test.sleep(100); // should not have gotten the lock after waiting
       test.assert(test.qS('html.dompack--busymodal')); // modal busy while waiting for the lock
       test.assert(test.qS("#status").textContent !== "Got lock");
 

@@ -17,7 +17,7 @@ test.registerTests(
         // replace 'Kop', the chrome/safari/edge way
         rtetest.setRTESelection(win, rte, { startContainer: body, startOffset: 0, endContainer: body, endOffset: 1 });
         await test.wait("events");
-        await test.wait(10);
+        await test.sleep(10);
 
         await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
                                             { typesdata: { "text/html": "<span>paste_1<span>" }

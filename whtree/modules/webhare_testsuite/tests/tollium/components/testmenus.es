@@ -85,7 +85,7 @@ test.registerTests(
         test.click(X03);
 
         //should still have hover status but not selected
-        await test.wait(1);
+        await test.sleep(1);
         test.assert(!X03.classList.contains("selected"));
       }
     , waits: [ 'ui' ]

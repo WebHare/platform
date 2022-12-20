@@ -27,14 +27,14 @@ test.registerTests(
         //just changing country on an empty field used to trigger a validation, and then a "Ongeldige postcode"
         test.fill("#addressform-address\\.country", "BE");
         testNoLookup("address");
-        await test.wait(50);
+        await test.sleep(50);
 
         //ensure nothing has the lookup class
         testNoLookup("address");
 
         test.fill("#addressform-address\\.country", "NL");
         testNoLookup("address");
-        await test.wait(50);
+        await test.sleep(50);
 
         //still on lookups
         testNoLookup("address");
@@ -62,7 +62,7 @@ test.registerTests(
         test.fill("#addressform-address\\.zip", "1000");
         testNoLookup("address");
 
-        await test.wait(50);
+        await test.sleep(50);
         testNoLookup("address");
       }
 

@@ -138,7 +138,7 @@ test.registerTests(
 
       test.clickToddButton('OK');
       await test.wait('ui');
-      await test.wait(100); // wait for dashboard to appear
+      await test.sleep(100); // wait for dashboard to appear
 
       test.click(test.qS("#dashboard-logout"));
       await test.wait('ui');

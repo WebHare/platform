@@ -16,10 +16,10 @@ test.registerTests(
       test.focus('#coretest-requiredradio-x');
 
       test.sendMouseGesture([ { el: test.qS('#coretest-requiredradio-y'), down: 0 }]);
-      await test.wait(25); //give any async updates a chance to interfere
+      await test.sleep(25); //give any async updates a chance to interfere
       test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
       test.sendMouseGesture([ { up: 0 } ]);
-      await test.wait(25); //give any async updates a chance to interfere
+      await test.sleep(25); //give any async updates a chance to interfere
       test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
     }
 
