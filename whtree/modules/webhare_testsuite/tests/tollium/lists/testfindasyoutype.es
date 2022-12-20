@@ -10,10 +10,10 @@ test.registerTests(
     , test: async function()
       {
         await test.pressKey('1');
-        test.true(test.getCurrentScreen().getListRow("list","<1>").classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow("list","<1>").classList.contains("wh-list__row--selected"));
         await test.pressKey(['0','9']);
 
-        test.true(test.getCurrentScreen().getListRow("list","<109>").classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow("list","<109>").classList.contains("wh-list__row--selected"));
       }
     }
   , { name: "select <8>"
@@ -26,8 +26,8 @@ test.registerTests(
     , test: async function()
       {
         let listrow = test.getCurrentScreen().getListRow("list","<8>");
-        test.true(listrow, 'listrow with <8> not available/visible');
-        test.true(listrow.classList.contains("wh-list__row--selected"));
+        test.assert(listrow, 'listrow with <8> not available/visible');
+        test.assert(listrow.classList.contains("wh-list__row--selected"));
         await test.pressKey(['4']);
       }
     , waits: [ 2500 ] // Above find as you type timeout (2000)
@@ -41,21 +41,21 @@ test.registerTests(
   , { name: "test selection <4>, select <44>"
     , test: async function()
       {
-        test.true(test.getCurrentScreen().getListRow("list","<4>").classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow("list","<4>").classList.contains("wh-list__row--selected"));
         await test.pressKey(['4']);
       }
     }
   , { name: "test selection <44>, select <41> (with backspace + 1)"
     , test: async function()
       {
-        test.true(test.getCurrentScreen().getListRow("list","<44>").classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow("list","<44>").classList.contains("wh-list__row--selected"));
         await test.pressKey(['Backspace','1']);
       }
     }
   , { name: "test selection <41>"
     , test: async function()
       {
-        test.true(test.getCurrentScreen().getListRow("list","<41>").classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow("list","<41>").classList.contains("wh-list__row--selected"));
       }
     }
   ]);

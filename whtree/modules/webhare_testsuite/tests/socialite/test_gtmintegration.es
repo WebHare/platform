@@ -77,11 +77,11 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_integration=script&gtmplugin_launch=manual&ga4_integration=none');
       await new Promise(resolve => window.setTimeout(resolve, 200)); //give GTM time to not appear
 
-      test.false(test.getWin().webharetestcontainer);
-      test.true(test.qS(".mydialog"));
+      test.assert(!test.getWin().webharetestcontainer);
+      test.assert(test.qS(".mydialog"));
       test.eq(undefined, test.getWin().gtm_consent);
-      test.false(test.getWin().got_consent_analytics);
-      test.false(test.getWin().got_consent_remarketing);
+      test.assert(!test.getWin().got_consent_analytics);
+      test.assert(!test.getWin().got_consent_remarketing);
 
       test.throws(test.getWin().hasConsent);
 
@@ -96,33 +96,33 @@ test.registerTests(
       test.eq("analytics", test.getWin().gtm_consent);
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
       test.throws(test.getWin().hasConsent);
-      test.false(test.getWin().hasConsent("remarketing"));
-      test.true(test.getWin().hasConsent("analytics"));
-      test.true(test.getWin().got_consent_analytics);
-      test.false(test.getWin().got_consent_remarketing);
+      test.assert(!test.getWin().hasConsent("remarketing"));
+      test.assert(test.getWin().hasConsent("analytics"));
+      test.assert(test.getWin().got_consent_analytics);
+      test.assert(!test.getWin().got_consent_remarketing);
 
       //reload, should not show cookiebar
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual&ga4_integration=none');
       await waitForGTM();
       test.eq("analytics", test.getWin().gtm_consent);
-      test.false(test.qS(".mydialog"));
+      test.assert(!test.qS(".mydialog"));
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
-      test.false(test.getWin().hasConsent("remarketing"));
-      test.true(test.getWin().hasConsent("analytics"));
-      test.true(test.getWin().got_consent_analytics);
-      test.false(test.getWin().got_consent_remarketing);
+      test.assert(!test.getWin().hasConsent("remarketing"));
+      test.assert(test.getWin().hasConsent("analytics"));
+      test.assert(test.getWin().got_consent_analytics);
+      test.assert(!test.getWin().got_consent_remarketing);
 
       //revoke consent
       test.getWin().revokeConsent();
-      test.false(test.getWin().hasConsent("analytics"));
+      test.assert(!test.getWin().hasConsent("analytics"));
       test.eq("denied", test.getDoc().documentElement.dataset.whConsent);
       test.eq("denied", test.getWin().gtm_event_consent, "event should have triggered dynamic change");
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual&ga4_integration=none');
       await waitForGTM();
       test.eq("denied", test.getWin().gtm_consent);
-      test.false(test.qS(".mydialog"));
+      test.assert(!test.qS(".mydialog"));
       test.eq("denied", test.getDoc().documentElement.dataset.whConsent);
-      test.false(test.getWin().hasConsent("remarketing"));
+      test.assert(!test.getWin().hasConsent("remarketing"));
 
       //test more specific settings
       test.getWin().whResetConsent();
@@ -133,10 +133,10 @@ test.registerTests(
 
       test.eq("analytics remarketing", test.getWin().gtm_consent);
       test.eq("analytics remarketing", test.getDoc().documentElement.dataset.whConsent);
-      test.true(test.getWin().hasConsent("remarketing"));
-      test.true(test.getWin().hasConsent("analytics"));
-      test.true(test.getWin().got_consent_analytics);
-      test.true(test.getWin().got_consent_remarketing);
+      test.assert(test.getWin().hasConsent("remarketing"));
+      test.assert(test.getWin().hasConsent("analytics"));
+      test.assert(test.getWin().got_consent_analytics);
+      test.assert(test.getWin().got_consent_remarketing);
 
     }
   ]);

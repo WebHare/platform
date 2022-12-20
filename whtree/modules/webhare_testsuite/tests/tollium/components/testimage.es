@@ -12,8 +12,8 @@ test.registerTests(
 
         test.eq(300, img.naturalWidth);
         test.eq(300, img.naturalHeight);
-        test.true(img.closest('.t-image--clickable'));
-        test.false(test.compByName('image').classList.contains('todd--disabled'));
+        test.assert(img.closest('.t-image--clickable'));
+        test.assert(!test.compByName('image').classList.contains('todd--disabled'));
         test.eq("0.75", getComputedStyle(img).opacity);
 
         // Update placeholder
@@ -71,7 +71,7 @@ test.registerTests(
   , { name: 'preparesecondtopclick'
     , test: function(doc,win)
       {
-        test.true(test.compByName('image').classList.contains('todd--disabled'),"Expected image to be disabled after I05 changed the action");
+        test.assert(test.compByName('image').classList.contains('todd--disabled'),"Expected image to be disabled after I05 changed the action");
         var img = test.compByName('image').querySelector('img');
         test.sendMouseGesture([ { el: img, down: 0, x: 9, y: 15 }
                               , { el: img, up: 0, x: 9, y: 15 }
@@ -96,7 +96,7 @@ test.registerTests(
         test.eq(focused_pre_click, doc.activeElement, "Click on image with action shouldn't change focus");
 
         await test.wait('ui');
-        test.false(test.compByName('image').classList.contains('todd--disabled'));
+        test.assert(!test.compByName('image').classList.contains('todd--disabled'));
         textarea = test.compByName('log').querySelector('textarea');
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717', textarea.value);
 
@@ -109,7 +109,7 @@ test.registerTests(
   , { name: 'preparebottomclickwithoutaction'
     , test: async function(doc,win)
       {
-        test.false(test.compByName('image').classList.contains('todd--disabled'), 'removing action should unlink image from disabling-by-action');
+        test.assert(!test.compByName('image').classList.contains('todd--disabled'), 'removing action should unlink image from disabling-by-action');
         test.click(test.compByName('action2checkbox'));
 
         var img = test.compByName('image').querySelector('img');
@@ -127,7 +127,7 @@ test.registerTests(
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717\ncallback2 1004 717', textarea.value);
 
         var img = test.compByName('image');
-        test.true(img.classList.contains('t-image--clickable'));
+        test.assert(img.classList.contains('t-image--clickable'));
 
         // Clear onclick
         test.click(test.getMenu(['I07']));
@@ -142,7 +142,7 @@ test.registerTests(
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717\ncallback2 1004 717', textarea.value);
 
         var img = test.compByName('image');
-        test.false(img.classList.contains('t-image--clickable'));
+        test.assert(!img.classList.contains('t-image--clickable'));
       }
     }
 

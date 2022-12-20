@@ -185,10 +185,10 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
+        test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
         test.eq('jantje@example.com', test.qS('#dashboard-user-name').textContent);
-        test.true(getAppInStartMenuByName('Publisher'),"should be able to see the publisher");
-        test.true(test.canClick('#dashboard-logout'));
+        test.assert(getAppInStartMenuByName('Publisher'),"should be able to see the publisher");
+        test.assert(test.canClick('#dashboard-logout'));
       }
     }
   , { name: "login as pietje"
@@ -197,9 +197,9 @@ test.registerTests(
     }
   , async function(doc,win)
     {
-      test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
+      test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
       test.eq('Pietje', test.qS('#dashboard-user-name').textContent);
-      test.false(getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
+      test.assert(!getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
 
       //click personal settings, mostly to check impersonation really worked
       test.click("#dashboard-user");
@@ -227,7 +227,7 @@ test.registerTests(
      //logout refreshes, and then we need to wait for tollium to get online
   , { test: function(doc,win)
       {
-        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     }
   , { name: "to the requiresysop page"
@@ -269,7 +269,7 @@ test.registerTests(
      //logout refreshes, and then we need to wait for tollium to get online
   , { test: function(doc,win)
       {
-        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     }
   , { loadpage: function(doc,win) { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; }
@@ -286,7 +286,7 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true(test.qS('#success'));
+        test.assert(test.qS('#success'));
       }
     }
   , { loadpage: function(doc,win) { return webroot + 'portal1/?language=en'; }
@@ -308,7 +308,7 @@ test.registerTests(
     }
   , { test: function(doc,win)
       {
-        test.true(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
+        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     }
   ]

@@ -157,7 +157,7 @@ test.registerTests(
         test.subtest("Backspace in list after embedded object");
         rtetest.setStructuredContent(win, `<div class="wh-rtd-embeddedobject" data-instanceid="test456" data-innerhtml-contents='"Ik ben niet editbaar:test456"'></div><ol class="ordered"><li>"(*0*)a"</li></ol>`, { verify: false });
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
-        test.true(rte.getContentBodyNode().querySelector("li")); // should not delete the li
+        test.assert(rte.getContentBodyNode().querySelector("li")); // should not delete the li
 
         // Backspace in empty paragraph after empty paragraph and embedded object caused wrong cursor pos in chrome
         test.subtest("Backspace in list after embedded object");

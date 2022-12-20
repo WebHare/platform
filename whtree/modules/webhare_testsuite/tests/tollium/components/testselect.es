@@ -18,7 +18,7 @@ test.registerTests(
       {
         var testpanel = test.compByName("componentpanel");
         var select = testpanel.querySelector('select');
-        test.true(test.canClick(select), 'and should be clickable');
+        test.assert(test.canClick(select), 'and should be clickable');
         savefirstwidth = select.getBoundingClientRect().width;
       }
     }
@@ -30,11 +30,11 @@ test.registerTests(
         var select = testpanel.querySelector('select');
         var label = test.qSA(testpanel,"t-text").filter(text=>text.textContent.includes('<title:select>'))[0];
 
-        test.false(select.disabled);
-        test.true(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should be to the right of its label');
+        test.assert(!select.disabled);
+        test.assert(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should be to the right of its label');
         test.fill(select,'second');
 
-        test.true(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should still be to the right of its label');
+        test.assert(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should still be to the right of its label');
         test.eq(savefirstwidth, select.getBoundingClientRect().width, 'element should still be same size after selecting second option');
       }
     }
@@ -44,7 +44,7 @@ test.registerTests(
       {
         var testpanel = test.compByName("componentpanel");
         var select = testpanel.querySelector('select');
-        test.true(select.disabled);
+        test.assert(select.disabled);
         test.eq(2,select.options.length);
       }
     }
@@ -64,7 +64,7 @@ test.registerTests(
       {
         var testpanel = test.compByName("componentpanel");
         var select = testpanel.querySelector('select');
-        test.false(select.disabled);
+        test.assert(!select.disabled);
       }
     }
 
@@ -77,10 +77,10 @@ test.registerTests(
       let select = testpanel.querySelector('select');
 
       test.click(textedit_selection.querySelector("input"));
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(select);
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
 
     // ---------------------------------------------------------------------------
@@ -109,8 +109,8 @@ test.registerTests(
   , { name: 'enabletargets_set_1'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
       }
     , waits: [ "ui" ]
@@ -127,16 +127,16 @@ test.registerTests(
   , { name: 'enabletargets_test_both_disabled'
     , test:function(doc,win)
       {
-        test.true(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.true(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
   , test.testClickTolliumLabel('Another long option, but the second')
   , { name: 'enabletargets_test_both_enabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
 
@@ -150,11 +150,11 @@ test.registerTests(
 
       test.click(textedit_selection.querySelector("input"));
       await test.wait("events");
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
       await test.wait("events");
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
 
     // ---------------------------------------------------------------------------
@@ -169,8 +169,8 @@ test.registerTests(
   , { name: 'enabletargets_set_1'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
       }
     , waits: [ "ui" ]
@@ -186,32 +186,32 @@ test.registerTests(
   , { name: 'enabletargets_test_both_disabled'
     , test:function(doc,win)
       {
-        test.true(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.true(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
   , test.testClickTolliumLabel('A very long first option')
   , { name: 'enabletargets_test_first_enabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.true(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
   , test.testClickTolliumLabel('Another long option, but the second')
   , { name: 'enabletargets_test_both_enabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
   , test.testClickTolliumLabel('A very long first option')
   , { name: 'enabletargets_test_first_enabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly, "Enablecomponents of second checkbox should override the enablecomponents of the first");
-        test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly, "Enablecomponents of second checkbox should override the enablecomponents of the first");
+        test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
 
@@ -225,11 +225,11 @@ test.registerTests(
 
       test.click(textedit_selection.querySelector("input"));
       await test.wait("events");
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
       await test.wait("events");
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
 
     // ---------------------------------------------------------------------------
@@ -244,14 +244,14 @@ test.registerTests(
   , { name: 'checkboxlist_enabletest_disabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("componentpanel").querySelector("input").disabled);
+        test.assert(!test.compByName("componentpanel").querySelector("input").disabled);
       }
     }
   , test.testClickTolliumLabel('Enabled')
   , { name: 'checkboxlist_enabletest_disabled'
     , test:function(doc,win)
       {
-        test.true(test.compByName("componentpanel").querySelector("input").disabled);
+        test.assert(test.compByName("componentpanel").querySelector("input").disabled);
       }
     }
 
@@ -262,8 +262,8 @@ test.registerTests(
   , { name: 'checkboxlist_enabletargets_test_both_disabled'
     , test:function(doc,win)
       {
-        test.true(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.true(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
 
@@ -278,8 +278,8 @@ test.registerTests(
   , { name: 'checkboxlist_enabletargets_test_first_enabled'
     , test:function(doc,win)
       {
-        test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-        test.true(test.compByName("enableontarget2").querySelector("input").readOnly);
+        test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+        test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     }
 
@@ -294,8 +294,8 @@ test.registerTests(
   , 'checkboxlist_enabletargets_test_first_enabled'
   , async function(doc,win)
     {
-      test.false(test.compByName("enableontarget1").querySelector("input").readOnly);
-      test.false(test.compByName("enableontarget2").querySelector("input").readOnly);
+      test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
+      test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
     }
 
   , async function(doc,win)
@@ -308,10 +308,10 @@ test.registerTests(
 
       test.click(textedit_selection.querySelector("input"));
       await test.wait("events");
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
       await test.wait("events");
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
   ]);

@@ -126,13 +126,13 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '"(*0*)he(*1*)y "<b>"bold"</b>" text"');
         rtetest.setRTESelection(win, rte, rtetest.getRTESelection(win, rte));
         rtetest.testEqSelHTMLEx(win, '"(*0*)he(*1*)y "<b>"bold"</b>" text"');
-        test.false(rte.getSelectionState().hasTextStyle('b'));
+        test.assert(!rte.getSelectionState().hasTextStyle('b'));
 
         rte.selectNodeInner(body.childNodes[1]);
         rtetest.testEqSelHTMLEx(win, '"hey "<b>"(*0*)bold(*1*)"</b>" text"');
         rtetest.setRTESelection(win, rte, rtetest.getRTESelection(win, rte));
         rtetest.testEqSelHTMLEx(win, '"hey "<b>"(*0*)bold(*1*)"</b>" text"');
-        test.true(rte.getSelectionState().hasTextStyle('b'));
+        test.assert(rte.getSelectionState().hasTextStyle('b'));
 
         rte.setContentsHTML('<B>this text a b<I>old</I> text</B>');
         body = rte.getContentBodyNode();
@@ -142,12 +142,12 @@ test.registerTests(
                                , endOffset: 2
                                });
         rtetest.testEqSelHTMLEx(win, '<B>"this text a b"<I>"(*0*)old(*1*)"</I>" text"</B>');
-        test.true(rte.getSelectionState().hasTextStyle('i'));
-        test.true(rte.getSelectionState().hasTextStyle('b'));
+        test.assert(rte.getSelectionState().hasTextStyle('i'));
+        test.assert(rte.getSelectionState().hasTextStyle('b'));
         rtetest.setRTESelection(win, rte, rtetest.getRTESelection(win, rte));
         rtetest.testEqSelHTMLEx(win, '<B>"this text a b"<I>"(*0*)old(*1*)"</I>" text"</B>');
-        test.true(rte.getSelectionState().hasTextStyle('i'));
-        test.true(rte.getSelectionState().hasTextStyle('b'));
+        test.assert(rte.getSelectionState().hasTextStyle('i'));
+        test.assert(rte.getSelectionState().hasTextStyle('b'));
 
         rte.setContentsHTML('<B>this text a b<I>old</I> text</B>');
         body = rte.getContentBodyNode();
@@ -158,10 +158,10 @@ test.registerTests(
                                , endOffset: 4
                                });
         rtetest.testEqSelHTMLEx(win, '<B>"t(*0*)his(*1*) text a b"<I>"old"</I>" text"</B>');
-        test.false(rte.getSelectionRange().isCollapsed());
+        test.assert(!rte.getSelectionRange().isCollapsed());
         rte.collapseSelection(true);
         rtetest.testEqSelHTMLEx(win, '<B>"t(*0*)(*1*)his text a b"<I>"old"</I>" text"</B>');
-        test.true(rte.getSelectionRange().isCollapsed());
+        test.assert(rte.getSelectionRange().isCollapsed());
         rte.insertTextAtCursor('x');
         rtetest.setRTESelection(win, rte,  { startContainer: t1
                                , startOffset: 1
@@ -171,7 +171,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<B>"t(*0*)xhis(*1*) text a b"<I>"old"</I>" text"</B>');
 
         rte.collapseSelection();
-        test.true(rte.getSelectionRange().isCollapsed());
+        test.assert(rte.getSelectionRange().isCollapsed());
         rtetest.testEqSelHTMLEx(win, '<B>"txhis(*0*)(*1*) text a b"<I>"old"</I>" text"</B>');
         rte.insertTextAtCursor('x');
         rtetest.setRTESelection(win, rte,  { startContainer: t1
@@ -278,10 +278,10 @@ test.registerTests(
 
         /* ADDME should also work with simple cursor positioning ?
         rte.setCursor(body.getElementsByTagName('b')[0],2);
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
         rte.setCursor(body.getElementsByTagName('img')[0],2);
-        test.true(rte.getSelectionState().propstarget);
+        test.assert(rte.getSelectionState().propstarget);
         */
 
         rtetest.setRTESelection(win, rte, {startContainer:body.childNodes[1], startOffset:4, endContainer:body.childNodes[1], endOffset:8});
@@ -291,20 +291,20 @@ test.registerTests(
           + ' een "<a id="anchor" name="anchor">"anchor"</a>" '
           + ' en een img in een link "<a id="link2" href="../link2"><img id="img2" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" /></a>');
 
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
         rtetest.setRTESelection(win, rte, {startContainer:body, startOffset:2, endContainer:body, endOffset:3});
-        test.true(rte.getSelectionState().propstarget);
+        test.assert(rte.getSelectionState().propstarget);
         test.eq("IMG", rte.getSelectionState().propstarget.tagName);
 
         // When settings selection at start of link text, browser puts selection outside of link
         rte.setCursor(test.qS('#link').firstChild,0);
         //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
 
         rte.setCursor(test.qS('#link').firstChild,1);
-        test.true(rte.getSelectionState().propstarget);
+        test.assert(rte.getSelectionState().propstarget);
 
         win.apropshandler = function(targetid,target)
                             {
@@ -315,10 +315,10 @@ test.registerTests(
         test.eq(null, win.apropshandler); //ensure it was invoked
 
         rte.setCursor(test.qS('#anchor').firstChild,0);
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
         rte.setCursor(test.qS('#link2'),0);
-        test.false(rte.getSelectionState().propstarget); //as we're positioned _before_ the image, only <a href matches, so it's okay
+        test.assert(!rte.getSelectionState().propstarget); //as we're positioned _before_ the image, only <a href matches, so it's okay
 
         rtetest.setRTESelection(win, rte, {startContainer:test.qS('#link2')
                          ,startOffset:0
@@ -329,7 +329,7 @@ test.registerTests(
         //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(selrange.getAncestorElement(), rte.getSelectionRange()));
 
         var state = rte.getSelectionState();
-        test.true(state.propstarget);
+        test.assert(state.propstarget);
         test.eq("IMG", rte.getSelectionState().propstarget.tagName);
 
         win.imgpropshandler = function(targetid,target)
@@ -752,7 +752,7 @@ test.registerTests(
       {
         var rte=win.rte.getEditor();
         win.rte.setValue('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
-        test.false(win.rte.isDirty());
+        test.assert(!win.rte.isDirty());
 
         let body = rte.getContentBodyNode();
         rtetest.setRTESelection(win, rte,  { startContainer: body.childNodes[0].firstChild
@@ -763,9 +763,9 @@ test.registerTests(
     //    WHRTE.log('selection #1:');
         rtetest.getRTESelection(win, rte); // FIXME: remove, only used for showing state by debug statements
         test.eq( false, rte.getSelectionState().hyperlink);
-        test.false(win.rte.isDirty());
+        test.assert(!win.rte.isDirty());
         win.rte.insertHyperlink('http://www.b-lex.nl/', { target: '_blank' });
-        test.true(win.rte.isDirty());
+        test.assert(win.rte.isDirty());
 
     //    WHRTE.log('selection #2:');
         rtetest.getRTESelection(win, rte); // FIXME: remove, only used for showing state by debug statements
@@ -779,10 +779,10 @@ test.registerTests(
                                , endContainer: body.childNodes[1].firstChild.firstChild
                                , endOffset: 'but'.length
                                });
-        test.true(rte.getSelectionState().hyperlink);
+        test.assert(rte.getSelectionState().hyperlink);
 
         win.rte.clearDirty();
-        test.false(win.rte.isDirty());
+        test.assert(!win.rte.isDirty());
 
         //Execute a properties action on the RTE, and capture it
         let propsevent = rtetest.getNextAction();
@@ -795,7 +795,7 @@ test.registerTests(
         test.eq('http://www.b-lex.nl/', targetinfo.link);
         test.eq('_blank', targetinfo.target);
         win.rte.updateTarget(result.detail.actiontarget, { link: 'http://www.example.net/' });
-        test.true(win.rte.isDirty());
+        test.assert(win.rte.isDirty());
 
         test.eq( true, rte.getSelectionState().hyperlink);
         test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p><a href="http://www.example.net/" target="_blank">but sometimes</a> they don\'t make sense</p><p>refrigerator</p>'
@@ -803,7 +803,7 @@ test.registerTests(
 
         win.rte.clearDirty();
         win.rte.updateTarget(result.detail.actiontarget, { destroy: true });
-        test.true(win.rte.isDirty());
+        test.assert(win.rte.isDirty());
 
         test.eq( false, rte.getSelectionState().hyperlink);
         test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'

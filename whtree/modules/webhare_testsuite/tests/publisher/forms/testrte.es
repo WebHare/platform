@@ -10,11 +10,11 @@ function verifyBeagleVideo()
   test.eq(2, rtebody.querySelectorAll('p').length);
 
   let embobj = rtebody.querySelector('div.wh-rtd-embeddedobject');
-  test.true(embobj);
-  test.true(embobj.textContent.toUpperCase().includes("8 WEEKS OLD"));
+  test.assert(embobj);
+  test.assert(embobj.textContent.toUpperCase().includes("8 WEEKS OLD"));
 
-  test.true(embobj.querySelector('.wh-rtd-deletebutton'));
-  test.false(embobj.querySelector('.wh-rtd-editbutton'));
+  test.assert(embobj.querySelector('.wh-rtd-deletebutton'));
+  test.assert(!embobj.querySelector('.wh-rtd-editbutton'));
 }
 
 function verifyImage()
@@ -73,12 +73,12 @@ test.registerTests(
       test.eq(1, rtebody.querySelectorAll('p').length);
       test.eq('Changed content', rtebody.querySelectorAll('p')[0].textContent);
 
-      test.false(test.qS('html.dompack--busymodal'));
+      test.assert(!test.qS('html.dompack--busymodal'));
       test.click(test.qS('.prefillbutton'));
-      test.true(test.qS('html.dompack--busymodal'));
+      test.assert(test.qS('html.dompack--busymodal'));
 
       await test.wait('ui');
-      test.false(test.qS('html.dompack--busymodal'));
+      test.assert(!test.qS('html.dompack--busymodal'));
 
       test.eq(1, rtebody.querySelectorAll('p').length);
       test.eq('Initial state', rtebody.querySelectorAll('p')[0].textContent);
@@ -157,15 +157,15 @@ test.registerTests(
     , test: async function()
       {
         test.click(test.qS('#rtdtest-enablefields'));
-        test.false(test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
+        test.assert(!test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
         let rtenode = test.qS('[data-wh-form-name="rtd"] .wh-rtd__stylescope');
-        test.true(rtenode.classList.contains("wh-rtd--disabled"));
+        test.assert(rtenode.classList.contains("wh-rtd--disabled"));
 
         test.click(test.qS('#rtdtest-enablefields'));
-        test.true(test.qS('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
+        test.assert(test.qS('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
 
-        test.false(rtenode.classList.contains("wh-rtd--disabled"));
+        test.assert(!rtenode.classList.contains("wh-rtd--disabled"));
       }
     }
 
@@ -179,7 +179,7 @@ test.registerTests(
         await test.wait('ui');
 
         let rtdgroup = test.qS('#rtdtest-rtd').closest('.wh-form__fieldgroup');
-        test.true(rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
+        test.assert(rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
         let uploadpromise = test.prepareUpload(
@@ -193,7 +193,7 @@ test.registerTests(
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
-        test.false(rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
+        test.assert(!rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }
     }
 

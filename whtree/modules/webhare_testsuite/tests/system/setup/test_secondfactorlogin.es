@@ -184,7 +184,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in
-      test.true(!!test.qS("#dashboard-logout"));
+      test.assert(!!test.qS("#dashboard-logout"));
 
       // logout
       test.click(test.qS("#dashboard-logout"));
@@ -210,7 +210,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in
-      test.true(!!test.qS("#dashboard-logout"));
+      test.assert(!!test.qS("#dashboard-logout"));
 
       // logout
       test.click(test.qS("#dashboard-logout"));

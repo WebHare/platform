@@ -13,7 +13,7 @@ test.registerTests(
 
         // Check if the inline block is visible
         var inlineblock = holder.querySelector("t-inlineblock");
-        test.true(inlineblock);
+        test.assert(inlineblock);
 
         // There should be 4 texts visible (3 titles, 1 text value)
         var texts = holder.querySelectorAll("t-text");

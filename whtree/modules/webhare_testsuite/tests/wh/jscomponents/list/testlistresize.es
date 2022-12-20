@@ -13,7 +13,7 @@ test.registerTests(
         var mycell = Array.from(row.children).filter(node=>node.nodeName=='SPAN')[4];
 
         test.sendMouseGesture([ { el: mycell } ]);
-        test.true(mycell.offsetWidth < mycell.scrollWidth, '#4 cell should be overflowing');
+        test.assert(mycell.offsetWidth < mycell.scrollWidth, '#4 cell should be overflowing');
         test.eq("the fourth cell", mycell.getAttribute("title"));
 
         //now resize it. the resize handle should be between the two headers
@@ -26,8 +26,8 @@ test.registerTests(
                               , { el: mycell }
                               ]);
 
-        test.false(mycell.offsetWidth < mycell.scrollWidth, '#4 cell should no longer be overflowing');
-        test.false(mycell.title);
+        test.assert(!mycell.offsetWidth < mycell.scrollWidth, '#4 cell should no longer be overflowing');
+        test.assert(!mycell.title);
       }
     }
   ]);

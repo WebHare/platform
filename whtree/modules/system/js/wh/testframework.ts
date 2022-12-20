@@ -687,8 +687,8 @@ export {
   , testEqFloat as eqFloat
   , testEqIn as eqIn
   , testEqHTML as eqHTML
-  , testTrue as true
-  , testFalse as false
+  , testTrue as true             //deprecated! use test.assert(...) in 5.2+
+  , testFalse as false           //deprecated! use test.assert(!...) in 5.2+
   , canFocus as canFocus
   , hasFocus as hasFocus
   , fail as fail

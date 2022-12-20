@@ -25,11 +25,11 @@ test.registerTests(
     {
       await test.load(setupdata.url);
 
-      test.true(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should see 'new' text");
-      test.false(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should not see 'change' text");
-      test.false(test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should see 'new' text");
+      test.assert(!test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should not see 'change' text");
+      test.assert(!test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
 
       test.eq(1, test.qSA('[name="tscustom.sub"]').length, "There should be just one tscustom.sub!");
@@ -40,7 +40,7 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      test.true(test.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
+      test.assert(test.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
       test.eq("Kies de 2e optie. Sub: filledsub", test.qS('[data-wh-form-group-for="tscustom"] .wh-form__error').textContent);
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
@@ -54,8 +54,8 @@ test.registerTests(
   , 'Request results'
   , async function()
     {
-      test.true(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
       // Check if the first name is merged into the thankyou text
       test.eqMatch(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
@@ -93,20 +93,20 @@ test.registerTests(
       await test.load(editlink);
 
       let namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
-      test.true(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should see 'change' text");
-      test.false(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should not see 'new' text");
-      test.false(test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
+      test.assert(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should see 'change' text");
+      test.assert(!test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should not see 'new' text");
+      test.assert(!test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
 
       test.eq('Joe', namefield.value);
       test.eq(testemail, emailfield.value);
-      test.false(test.qS('[name="tscustom"][value="val1"]').checked);
-      test.true(test.qS('[name="tscustom"][value="val2"]').checked);
+      test.assert(!test.qS('[name="tscustom"][value="val1"]').checked);
+      test.assert(test.qS('[name="tscustom"][value="val2"]').checked);
       test.eq('filledsub', test.qS('[name="tscustom.sub"]').value);
       test.eq('TextAreaVulling', test.qS('[name="textarea"]').value);
 
       namefield.value = 'Jim';
 
-      test.true(emailfield.disabled, 'email field should be disabled');
+      test.assert(emailfield.disabled, 'email field should be disabled');
       //but we'll hack our way around it!
       emailfield.value = testemail2; //should be ignored by the form itself
 
@@ -153,8 +153,8 @@ test.registerTests(
     {
       await test.load(editlink + "?cancel=1");
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should  see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should  see thankyou_cancelled text");
     }
   ]);
 

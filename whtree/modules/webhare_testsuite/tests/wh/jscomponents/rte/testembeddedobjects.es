@@ -113,7 +113,7 @@ test.registerTests(
         var rte=test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' } ));
 
@@ -122,8 +122,8 @@ test.registerTests(
         test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>',body.childNodes[0].outerHTML);
         test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>',body.childNodes[2].outerHTML);
 
-        test.true(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
-        test.true(rte.getSelectionState().propstarget);
+        test.assert(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
+        test.assert(rte.getSelectionState().propstarget);
       }
     }
 
@@ -134,7 +134,7 @@ test.registerTests(
       const body = rte.getContentBodyNode();
 
       rte.selectNodeOuter(body.childNodes[0]);
-      test.false(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
+      test.assert(!body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
 
       //open context menu
       test.click(body.childNodes[1], { button: 2 });
@@ -174,7 +174,7 @@ test.registerTests(
         var rte=test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
-        test.false(rte.getSelectionState().propstarget);
+        test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' } ));
 
@@ -184,7 +184,7 @@ test.registerTests(
         test.eq('Dit is een paragraaf tekst waar ',body.childNodes[0].childNodes[0].textContent);
         test.eq(' een object ingevoegd gaat worden',body.childNodes[0].childNodes[2].textContent);
 
-        test.true(rte.getSelectionState().propstarget);
+        test.assert(rte.getSelectionState().propstarget);
 
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)(*1*) HIER een object ingevoegd gaat worden"</p>');
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: getInlineElementPreview(<span>De <b>inhoud</b></span>), title: 'title', embedtype: 'inline' } ));
@@ -205,7 +205,7 @@ test.registerTests(
       rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length-1 });
       await test.pressKey("Delete");
       test.eq('"Dit is een paragraaf tekst waar(*0*)(*1*)"', rtetest.getHTML(body.childNodes[0].childNodes[0]));
-      test.true(body.childNodes[0].childNodes[1].matches(".wh-rtd-embeddedobject--inline")); //should not be killed
+      test.assert(body.childNodes[0].childNodes[1].matches(".wh-rtd-embeddedobject--inline")); //should not be killed
       test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
     }
 

@@ -10,13 +10,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.false(label);
+        test.assert(!label);
         // The boxcheck's label should not be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.false(label);
+        test.assert(!label);
         // The newbox's label should not be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.false(label);
+        test.assert(!label);
         // No texts should be visible
         var texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
@@ -39,13 +39,13 @@ test.registerTests(
         // The uploadfield's label should be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
         console.log(label);
-        test.true(label);
+        test.assert(label);
         // The boxcheck's label should be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.true(label);
+        test.assert(label);
         // The newbox's label should not be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.false(label);
+        test.assert(!label);
         // There should be 4 texts visible: uploadfield's title, uploadfield's value, boxcheck's header and boxcheck's content
         var texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
@@ -67,13 +67,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.false(label);
+        test.assert(!label);
         // The boxcheck's label should not be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.false(label);
+        test.assert(!label);
         // The newbox's label should not be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.false(label);
+        test.assert(!label);
         // No texts should be visible
         var texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
@@ -95,13 +95,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.true(label);
+        test.assert(label);
         // The boxcheck's label should be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.true(label);
+        test.assert(label);
         // The newbox's label should not be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.false(label);
+        test.assert(!label);
         // There should be 4 texts visible: uploadfield's title, uploadfield's value, boxcheck's header and boxcheck's content
         var texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
@@ -123,13 +123,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.true(label);
+        test.assert(label);
         // The boxcheck's label should not be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.false(label);
+        test.assert(!label);
         // The newbox's label should be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.true(label);
+        test.assert(label);
         // There should be 4 texts visible: uploadfield's title, uploadfield's value, newbox's header and newbox's content
         var texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);
@@ -151,13 +151,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.false(label);
+        test.assert(!label);
         // The boxcheck's label should not be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.false(label);
+        test.assert(!label);
         // The newbox's label should not be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.false(label);
+        test.assert(!label);
         // No texts should be visible
         var texts = holder.querySelectorAll("t-text");
         test.eq(0, texts.length);
@@ -179,13 +179,13 @@ test.registerTests(
         var holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         var label = holder.querySelector('[data-name$="#linelabel"]');
-        test.true(label);
+        test.assert(label);
         // The boxcheck's label should not be visible
         label = holder.querySelector('[data-name*="boxcheck"]');
-        test.false(label);
+        test.assert(!label);
         // The newbox's label should be visible
         label = holder.querySelector('[data-name*="fragment1"]');
-        test.true(label);
+        test.assert(label);
         // There should be 4 texts visible: uploadfield's title, uploadfield's value, boxcheck's header and boxcheck's content
         var texts = holder.querySelectorAll("t-text");
         test.eq(4, texts.length);

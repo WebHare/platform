@@ -53,7 +53,7 @@ test.registerTests(
       await test.wait('ui');
 
       var dimensions = test.compByName('fragment1!dimensions');
-      test.true(dimensions);
+      test.assert(dimensions);
       test.eq("600X150", dimensions.textContent.replace(/[^0-9]/, "X"));
     }
   ]);

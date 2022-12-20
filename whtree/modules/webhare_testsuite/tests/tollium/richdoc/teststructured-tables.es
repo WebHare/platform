@@ -35,7 +35,7 @@ test.registerTests(
         test.click(menu.querySelector('li[data-col="2"][data-row="2"]'));
 
         var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-        test.true(table, "A 2x2 table should be created");
+        test.assert(table, "A 2x2 table should be created");
 
         // Set content for visual inspection
         var p_nodes = table.querySelectorAll("td p");
@@ -44,7 +44,7 @@ test.registerTests(
 
         test.eq(2,table.querySelectorAll("tr").length);
         test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader, .wh-rtd--hascolheader").length, 'none of our hcol/vcol classes may exist yet');
-        test.true(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, it didn't receive its normal 50/50 styling at table insertion");
+        test.assert(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, it didn't receive its normal 50/50 styling at table insertion");
       }
     }
 
@@ -68,7 +68,7 @@ test.registerTests(
       await test.wait('ui');
 
       let table = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode table");
-      test.true(table.classList.contains("othertable"));
+      test.assert(table.classList.contains("othertable"));
       test.eq("This is a test caption", table.querySelector("caption").textContent);
 
       test.eq(2,table.querySelectorAll("tr").length);
@@ -77,7 +77,7 @@ test.registerTests(
 
       var nodes = table.querySelectorAll("td,th");
       test.eq("th", nodes[0].nodeName.toLowerCase());
-      test.true(nodes[0].classList.contains("redpill"));
+      test.assert(nodes[0].classList.contains("redpill"));
       test.eq("th", nodes[1].nodeName.toLowerCase());
       test.eq("td", nodes[2].nodeName.toLowerCase());
       test.eq("td", nodes[3].nodeName.toLowerCase());
@@ -146,7 +146,7 @@ test.registerTests(
         var rtenode = test.compByName('structured');
         var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
 
-        test.true(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, the table lost its styling after rewriting");
+        test.assert(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, the table lost its styling after rewriting");
         test.click(table.querySelector("td"), { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));
       }
@@ -259,6 +259,6 @@ test.registerTests(
       test.clickTolliumButton("Yes"); //confirm it!
       await test.wait('ui');
 
-      test.false(driver.qS("table"));
+      test.assert(!driver.qS("table"));
     }
   ]);

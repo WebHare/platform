@@ -20,7 +20,7 @@ test.registerTests(
         let bodytop = body.getBoundingClientRect().top;
         let editareatop = body.closest('.wh-rtd__html').getBoundingClientRect().top;
         if (!body.classList.contains("wh-rtd__body--safariscrollfix"))
-          test.true((bodytop - editareatop) >= 8, "editareatop=" + editareatop + ", bodytop=" + bodytop + ", must be at least 8px margin");
+          test.assert((bodytop - editareatop) >= 8, "editareatop=" + editareatop + ", bodytop=" + bodytop + ", must be at least 8px margin");
         table = body.getElementsByTagName('table')[0];
       }
     }

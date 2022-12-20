@@ -1,4 +1,4 @@
-import * as test from "@mod-system/js/wh/testframework";
+  import * as test from "@mod-system/js/wh/testframework";
 
 let testinfo;
 
@@ -36,7 +36,7 @@ test.registerTests(
       test.eq(1, test.qSA("#slot1holder .accontent-widget-trailer").length); //should also be cloned
       // The content widget beacon should not have been triggered (wait a bit as beacons aren't triggered immediately)
       await test.sleep(100);
-      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
+      test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
       // This is the first visit, show Widget 2.B
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
@@ -47,26 +47,26 @@ test.registerTests(
         [ test.qSA("#slot1holder .accontent-widget-trailer")[0].textContent.trim()
         , test.qSA("#slot2holder .accontent-widget-trailer")[0].textContent.trim()
         ];
-      test.true(trailers.includes('Trailer! 1 widget(s) in DOM'));
-      test.true(trailers.includes('Trailer! 2 widget(s) in DOM'));
+      test.assert(trailers.includes('Trailer! 1 widget(s) in DOM'));
+      test.assert(trailers.includes('Trailer! 2 widget(s) in DOM'));
     }
 
   , "beacons"
   , async function()
     {
       // Set and reset the student beacon
-      test.true(test.getWin().dataLayer);
+      test.assert(test.getWin().dataLayer);
       test.click("#setstudentbeacon");
       await test.wait(() => test.qSA("#currentbeacons div").length == 1);
-      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
+      test.assert(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
       test.click("#clearstudentbeacon");
       await test.wait(() => test.qSA("#currentbeacons div").length == 1);
-      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:clear-user-beacon' && _.whUserBeacon == "is-student"));
+      test.assert(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:clear-user-beacon' && _.whUserBeacon == "is-student"));
 
       // Load the beacon document, which should set the employee beacon
       await test.load(testinfo.beacondoc + "/?wh-debug=bac");
 
-      test.true(test.getWin().dataLayer);
+      test.assert(test.getWin().dataLayer);
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-employee"));
     }
 
@@ -84,10 +84,10 @@ test.registerTests(
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.A", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
-      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
+      test.assert(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
       // The content widget beacon should not have been triggered (wait a bit as beacons aren't triggered immediately)
       await test.sleep(100);
-      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
+      test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
       // This is still the first visit (session hasn't changed yet)
       test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
@@ -123,17 +123,17 @@ test.registerTests(
   , async function()
     {
       // The thank you page beacon hasn't been triggered yet
-      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
+      test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
 
       // Load the form page
       await test.load(testinfo.beaconform + "?wh-debug=bac");
 
       // Wait for the employee beacon to be triggered
-      test.true(test.getWin().dataLayer);
+      test.assert(test.getWin().dataLayer);
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-employee"));
 
       // The thank you page beacon still shoudn't have been triggered yet
-      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
+      test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
 
       // Submit the form
       test.click(test.qS("button[type=submit]"));
@@ -172,10 +172,10 @@ test.registerTests(
       await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
 
       // Set and reset the student beacon
-      test.true(test.getWin().dataLayer);
+      test.assert(test.getWin().dataLayer);
       test.click("#setstudentbeacon");
       await test.wait(300);
       test.eq(0, test.qSA("#currentbeacons div").length);
-      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
+      test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
     }
   ]);

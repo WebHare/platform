@@ -103,7 +103,7 @@ test.registerTests(
         test.eqMatch(/^cid:/, imgs[2].src, 'remote img src failed (upload/download failure?)');
         // The CID url's should be the same; they're the same filetransfer.shtml url (should be recognized by $todd.ObjLayout.isMyFileTransferURL)
         test.eq(imgs[0].src,imgs[1].src);
-        test.true(imgs[1].src != imgs[2].src);
+        test.assert(imgs[1].src != imgs[2].src);
 
         test.clickTolliumButton("Cancel");
       }
@@ -151,9 +151,9 @@ test.registerTests(
         test.eq(5,range.end.offset);
         test.eq('A',range.start.element.parentNode.tagName);
         test.eq('http://www.example.net/',range.start.element.parentNode.href);
-        test.false(range.start.element.parentNode.hasAttribute("target"));
+        test.assert(!range.start.element.parentNode.hasAttribute("target"));
 
-        test.false(rte.getButtonNode('a-href').classList.contains('disabled'),'a-href should not be disabled');
+        test.assert(!rte.getButtonNode('a-href').classList.contains('disabled'),'a-href should not be disabled');
         test.click(rte.getButtonNode('a-href'));
       }
     , waits: [ 'ui' ]
@@ -177,7 +177,7 @@ test.registerTests(
         let rte = rtetest.getRTE(win, 'editor');
         let link = rte.qSA("a[href]")[0];
         test.eq('http://www.example.com/', link.href);
-        test.false(link.hasAttribute("target"));
+        test.assert(!link.hasAttribute("target"));
 
         //Verify the link's presence
         test.eq(1, rte.qSA('a[href="http://www.example.com/"]').length);
@@ -225,7 +225,7 @@ test.registerTests(
       await test.wait("ui");
 
       let plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
-      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> <URL:mailto:a.hendriks@example.net> Postbus") !== -1);
+      test.assert(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> <URL:mailto:a.hendriks@example.net> Postbus") !== -1);
 
       test.clickTolliumButton("Cancel");
       await test.wait("ui");
@@ -237,7 +237,7 @@ test.registerTests(
       await test.wait("ui");
 
       plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
-      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
+      test.assert(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
       let plaintextlen = test.compByName('len').querySelector('input').value;
 
       test.clickTolliumButton("Cancel");
@@ -253,7 +253,7 @@ test.registerTests(
       await test.wait("ui");
 
       plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
-      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
+      test.assert(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
       plaintextlen = test.compByName('len').querySelector('input').value;
 
       test.clickTolliumButton("Cancel");

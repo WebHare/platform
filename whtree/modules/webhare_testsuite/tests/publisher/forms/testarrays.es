@@ -11,7 +11,7 @@ test.registerTests(
 
       // Check the form handler
       let formhandler = FormBase.getForNode(test.qS("form"));
-      test.true(formhandler, "no formhandler available");
+      test.assert(formhandler, "no formhandler available");
 
       // Check the empty value
       let result = await formhandler.getFormValue();
@@ -81,11 +81,11 @@ test.registerTests(
       test.eq(2, result.contacts.length);
       test.eq("array name", result.contacts[0].name);
       test.eq("another name", result.contacts[1].name);
-      test.true(result.contacts[1].photo);
+      test.assert(result.contacts[1].photo);
       test.eq("portrait_8.jpg", result.contacts[1].photo.filename);
 
       // No more rows can be added
-      test.false(test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
+      test.assert(!test.canClick("[data-wh-form-group-for=contacts] .wh-form__arrayadd"));
 
 
       test.click(test.qS("button[type=submit]"));
@@ -96,13 +96,13 @@ test.registerTests(
       {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-        test.true(result.ok);
+        test.assert(result.ok);
         result = result.value;
         test.eq("still not array", result.text);
         test.eq(2, result.contacts.length);
         test.eq("array name", result.contacts[0].name);
         test.eq("another name", result.contacts[1].name);
-        test.true(result.contacts[1].photo);
+        test.assert(result.contacts[1].photo);
         test.eq("portrait_8.jpg", result.contacts[1].photo.filename);
         // These properties are added after the image has been processed on the server
         test.eq(600, result.contacts[1].photo.width);
@@ -120,7 +120,7 @@ test.registerTests(
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
         test.eq("another name", result.contacts[0].name);
-        test.true(result.contacts[0].photo);
+        test.assert(result.contacts[0].photo);
         test.eq("portrait_8.jpg", result.contacts[0].photo.filename);
 
         // Delete the last row
@@ -134,7 +134,7 @@ test.registerTests(
 
         // The form should not be valid
         result = await formhandler.validate();
-        test.false(result.valid);
+        test.assert(!result.valid);
 
         // Try to submit, which should fail as there should at least be 1 row
         test.click(test.qS("button[type=submit]"));
@@ -145,7 +145,7 @@ test.registerTests(
 
         // The form should now be valid
         result = await formhandler.validate();
-        test.true(result.valid);
+        test.assert(result.valid);
 
         test.click(test.qS("button[type=submit]"));
       }
@@ -155,12 +155,12 @@ test.registerTests(
       {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-        test.true(result.ok);
+        test.assert(result.ok);
         result = result.value;
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
         test.eq("", result.contacts[0].name);
-        test.false(result.contacts[0].photo);
+        test.assert(!result.contacts[0].photo);
       }
     }
   , { test: async function()
@@ -173,7 +173,7 @@ test.registerTests(
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
         test.eq("first contact", result.contacts[0].name);
-        test.true(result.contacts[0].photo);
+        test.assert(result.contacts[0].photo);
         test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
 
         // Add a row
@@ -205,7 +205,7 @@ test.registerTests(
       {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-        test.true(result.ok);
+        test.assert(result.ok);
         result = result.value;
         test.eq("no longer prefilled", result.text);
         test.eq(1, result.contacts.length);
@@ -227,7 +227,7 @@ test.registerTests(
       await test.wait("ui");
 
       let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-      test.true(result.ok);
+      test.assert(result.ok);
       test.eq(42, result.value.contacts[0].myobject);
       test.eq(43, result.value.contacts[1].myobject);
     }
@@ -262,18 +262,18 @@ test.registerTests(
       await test.wait("ui");
 
       let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-      test.true(result.ok);
+      test.assert(result.ok);
 
       test.eq("Name #1", result.value.customarray[0].name);
-      test.false(result.value.customarray[0].customcomp.c1);
-      test.true(result.value.customarray[0].customcomp.c2);
+      test.assert(!result.value.customarray[0].customcomp.c1);
+      test.assert(result.value.customarray[0].customcomp.c2);
       test.eq("Sub #1", result.value.customarray[0].customcomp.subvalue);
       // test.eq("lang-nl", result.value.customarray[0].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 1", result.value.customarray[0].twolevel.field2);
 
       test.eq("Name #2", result.value.customarray[1].name);
-      test.true(result.value.customarray[1].customcomp.c1);
-      test.false(result.value.customarray[1].customcomp.c2);
+      test.assert(result.value.customarray[1].customcomp.c1);
+      test.assert(!result.value.customarray[1].customcomp.c2);
       test.eq("Sub #2", result.value.customarray[1].customcomp.subvalue);
       // test.eq("abc", result.value.customarray[1].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 2", result.value.customarray[1].twolevel.field2);
@@ -289,7 +289,7 @@ test.registerTests(
       // Click the fieldgroup's label
       test.click(fieldgroup.querySelector("label"));
       // The fieldgroup's input should have focus
-      test.true(test.hasFocus(fieldgroup.querySelector("input")));
+      test.assert(test.hasFocus(fieldgroup.querySelector("input")));
     }
 
   , "Test adding subfields dynamically and using inter-subfield conditions"
@@ -303,38 +303,38 @@ test.registerTests(
 
       // There should be a disabled 'color' subfield
       const color = test.qS('[name="contacts-contacts.color-0"]');
-      test.true(!!color);
-      test.true(test.canClick(color));
-      test.true(color.disabled);
+      test.assert(!!color);
+      test.assert(test.canClick(color));
+      test.assert(color.disabled);
 
       // There should be an invisible 'other' subfield
       const other = test.qS('[name="contacts-contacts.other-0"]');
-      test.true(!!other);
-      test.false(test.canClick(other));
-      test.true(other.disabled);
-      test.false(other.required);
+      test.assert(!!other);
+      test.assert(!test.canClick(other));
+      test.assert(other.disabled);
+      test.assert(!other.required);
 
       // Check the second row as well
       const color2 = test.qS('[name="contacts-contacts.color-1"]');
-      test.true(color2.disabled);
+      test.assert(color2.disabled);
       const other2 = test.qS('[name="contacts-contacts.other-1"]');
-      test.false(test.canClick(other2));
+      test.assert(!test.canClick(other2));
 
       // The 'color' subfield should be enabled if the a date more than 18 years ago is entered
       test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-0"]'), "2000-01-01");
       await test.wait("ui");
-      test.false(color.disabled);
-      test.false(test.canClick(other));
+      test.assert(!color.disabled);
+      test.assert(!test.canClick(other));
 
       // The 'other' subfield is visible and required if the 'other' color and the 'Female' gender options are chosen
       test.fill(color, -1);
       await test.wait("ui");
-      test.false(test.canClick(other));
+      test.assert(!test.canClick(other));
       test.fill(test.qS('[name="contacts-contacts.gender-0"]'), 2);
       await test.wait("ui");
-      test.true(test.canClick(other));
-      test.false(other.disabled);
-      test.true(other.required);
+      test.assert(test.canClick(other));
+      test.assert(!other.disabled);
+      test.assert(other.required);
 
       // Fill the 'other' subfield and submit
       test.fill(other, "Yellow");
@@ -342,31 +342,31 @@ test.registerTests(
       await test.wait("ui");
 
       // The second row's 'color' and 'other' subfields should still be disabled
-      test.true(color2.disabled);
-      test.false(test.canClick(other2));
+      test.assert(color2.disabled);
+      test.assert(!test.canClick(other2));
 
       // Enable the second row's 'color' subfield
       test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-1"]'), "2000-01-01");
       await test.wait("ui");
-      test.false(color2.disabled);
-      test.false(test.canClick(other2));
+      test.assert(!color2.disabled);
+      test.assert(!test.canClick(other2));
 
       // Disable it again
       test.fill(test.qS('[name="contacts-contacts.wrd_dateofbirth-1"]'), "2020-01-01");
       await test.wait("ui");
-      test.true(color2.disabled);
-      test.false(test.canClick(other2));
+      test.assert(color2.disabled);
+      test.assert(!test.canClick(other2));
 
       // The first row's 'color' and 'other' subfields should still be enabled
-      test.false(color.disabled);
-      test.true(test.canClick(other));
+      test.assert(!color.disabled);
+      test.assert(test.canClick(other));
 
       // Remove the second row
       test.click(test.qSA(".wh-form__arrayrow")[1].querySelector(".wh-form__arraydelete"));
 
       // Check if the custom subfield values are returned
       let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-      test.true(result.ok);
+      test.assert(result.ok);
       test.eqMatch(/^2000-01-01/, result.value.contacts[0].wrd_dateofbirth);
       test.eq(-1, result.value.contacts[0].color);
       test.eq("Yellow", result.value.contacts[0].other);

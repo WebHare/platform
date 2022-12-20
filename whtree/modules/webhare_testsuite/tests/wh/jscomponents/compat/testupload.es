@@ -12,7 +12,7 @@ test.registerTests(
   , { name: 'testupload'
     , wait: function(doc,win,callback)
       {
-        test.false(!window.Blob);
+        test.assert(!!window.Blob);
 
         // Create a blob
         var blob1 = new Blob([ '1234'  ], { type: "text/plain" });
@@ -72,7 +72,7 @@ test.registerTests(
   , { name: 'testmegafile'
     , wait: function(doc,win,callback)
       {
-        test.false(!window.Blob);
+        test.assert(!!window.Blob);
 
         // Make 2 strings 64MB in length
         var megafile_1 = '12345678';

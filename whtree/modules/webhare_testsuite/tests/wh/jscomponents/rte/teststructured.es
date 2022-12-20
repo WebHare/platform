@@ -30,9 +30,9 @@ test.registerTests(
       {
         let rte = win.rte.getEditor();
         var bodynode = rte.getContentBodyNode();
-        test.true(bodynode.className.indexOf('html-class') == -1);
-        test.true(bodynode.className.indexOf('body-class') != -1);
-        test.true(bodynode.parentNode.className.indexOf('html-class') != -1);
+        test.assert(bodynode.className.indexOf('html-class') == -1);
+        test.assert(bodynode.className.indexOf('body-class') != -1);
+        test.assert(bodynode.parentNode.className.indexOf('html-class') != -1);
       }
     }
   , { name: 'verifybodymargin'
@@ -70,8 +70,8 @@ test.registerTests(
 
         // Image button should be disabled, as 'img' is not permitted here
         var imgbutton = test.qSA('span.wh-rtd-button[data-button=img]')[0];
-        test.true(imgbutton!=null, "No image button");
-        test.true(imgbutton.classList.contains('disabled'), "Image button is not disabled");
+        test.assert(imgbutton!=null, "No image button");
+        test.assert(imgbutton.classList.contains('disabled'), "Image button is not disabled");
       }
     }
 
@@ -317,11 +317,11 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<h1 class="heading1">"(*0*)(*1*)Kop"</h1><p class="mystyle">"in mijn "<a href="http://b-lex.nl/">"stijl"</a>"."</p>');
 
         let selectstate = rte.getSelectionState();
-        test.true(selectstate.blockstyle!==null);
+        test.assert(selectstate.blockstyle!==null);
         test.eq('HEADING1', selectstate.blockstyle.tag);
-        test.true(selectstate.limited.textstyles.includes('u'));
-        test.false(selectstate.limited.textstyles.includes('b'));
-        test.false(selectstate.limited.textstyles.includes('a-href'));
+        test.assert(selectstate.limited.textstyles.includes('u'));
+        test.assert(!selectstate.limited.textstyles.includes('b'));
+        test.assert(!selectstate.limited.textstyles.includes('a-href'));
 
         //select the first P. request the current state
         var p = body.getElementsByTagName("P")[0];
@@ -331,20 +331,20 @@ test.registerTests(
 
         //verify that the 'a' was properly copied into the P after whitelisting
         var p_a = p.getElementsByTagName("A")[0];
-        test.true(p_a !== null);
+        test.assert(p_a !== null);
         test.eq("http://b-lex.nl/", p_a.href);
-        test.false(p_a.hasAttribute("trash"));
+        test.assert(!p_a.hasAttribute("trash"));
         test.eq('stijl', p_a.firstChild.nodeValue);
 
         selectstate = rte.getSelectionState();
-        test.true(selectstate.blockstyle!==null);
+        test.assert(selectstate.blockstyle!==null);
         test.eq('MYSTYLE', selectstate.blockstyle.tag);
         rtetest.testEqSelHTMLEx(win, '<h1 class="heading1">"Kop"</h1><p class="mystyle">"in mijn "<a href="http://b-lex.nl/">"stijl"</a>"(*0*)(*1*)."</p>');
 
         //let's make it a Normal style
         let prestate = rtetest.getPreActionState(rte);
-        test.true(rte.setSelectionBlockStyle("NORMAL"));
-        test.true(selectstate.limited.textstyles.includes('a-href'));
+        test.assert(rte.setSelectionBlockStyle("NORMAL"));
+        test.assert(selectstate.limited.textstyles.includes('a-href'));
         await rtetest.testUndoRedo(rte, prestate);
 
         //selection should now extend over the entire paragraph
@@ -364,7 +364,7 @@ test.registerTests(
         rtetest.setStructuredContent(win, withtable);
         rte.selectNodeInner(rte.getContentBodyNode());
         prestate = rtetest.getPreActionState(rte);
-        test.true(rte.setSelectionBlockStyle("heading1"));
+        test.assert(rte.setSelectionBlockStyle("heading1"));
         range = rte.getSelectionRange();
         await rtetest.testUndoRedo(rte, prestate);
 
@@ -522,7 +522,7 @@ test.registerTests(
         rte.executeHardEnter();
         await rtetest.testUndoRedo(rte, prestate);
 
-        test.true(h1.nextSibling.hasAttribute("class"));
+        test.assert(h1.nextSibling.hasAttribute("class"));
         test.eq("h2", h1.nextSibling.nodeName.toLowerCase());
         test.eq("heading2", h1.nextSibling.className);
         test.eq("p", h1.nextSibling.nextSibling.nodeName.toLowerCase());
@@ -1065,7 +1065,7 @@ test.registerTests(
 
         //the selector should be behind the image
         test.eq(-1, imglocator.compare(range.start));
-        test.true(range.isCollapsed());
+        test.assert(range.isCollapsed());
 
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" class="pietje wh-rtd__img--floatleft">'});
@@ -1076,7 +1076,7 @@ test.registerTests(
 
         //the selector should be behind the image
         test.eq(-1, imglocator.compare(range.start));
-        test.true(range.isCollapsed());
+        test.assert(range.isCollapsed());
 
         // Paste into lists
         locators = rtetest.setStructuredContent(win,  '<ul class="unordered"><li><i>"a(*0*)(*1*)"</i></li></ul>');
@@ -1214,7 +1214,7 @@ test.registerTests(
         // Select new style, wattch focus going back to rte
         test.fill(select, "MYSTYLE");
         await test.sleep(1);
-        test.false(doc.activeElement === select, "Focus should have gone back to rte");
+        test.assert(doc.activeElement !== select, "Focus should have gone back to rte");
       }
     }
 

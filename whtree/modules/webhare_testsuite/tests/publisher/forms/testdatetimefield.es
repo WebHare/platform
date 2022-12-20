@@ -31,15 +31,15 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
 
       //the fields inside the select controls should be initially disabled but not required
-      test.true(test.qS("#datetimeform-choice_date").disabled);
-      test.false(test.qS("#datetimeform-choice_date").required);
-      test.true(test.qS("#datetimeform-choice_time").disabled);
-      test.false(test.qS("#datetimeform-choice_time").required);
+      test.assert(test.qS("#datetimeform-choice_date").disabled);
+      test.assert(!test.qS("#datetimeform-choice_date").required);
+      test.assert(test.qS("#datetimeform-choice_time").disabled);
+      test.assert(!test.qS("#datetimeform-choice_time").required);
 
-      test.true(test.qS("#datetimeform-choice_date~* input").disabled);
-      test.false(test.qS("#datetimeform-choice_date~* input").required);
-      test.true(test.qS("#datetimeform-choice_time~* input").disabled);
-      test.false(test.qS("#datetimeform-choice_time~* input").required);
+      test.assert(test.qS("#datetimeform-choice_date~* input").disabled);
+      test.assert(!test.qS("#datetimeform-choice_date~* input").required);
+      test.assert(test.qS("#datetimeform-choice_time~* input").disabled);
+      test.assert(!test.qS("#datetimeform-choice_time~* input").required);
 
       let now = new Date;
       let dayfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[1]; //fixme properly find day fieldin any locale
@@ -89,25 +89,25 @@ test.registerTests(
       test.eq("15", secondfield_sec.value);
 
       //test disabling the date
-      test.false(test.qS("[name=dateofbirth]").disabled);
-      test.false(test.qS("[name=time]").disabled);
+      test.assert(!test.qS("[name=dateofbirth]").disabled);
+      test.assert(!test.qS("[name=time]").disabled);
 
       test.qS("[name=dateofbirth]").disabled=true;
       test.qS("[name=time]").disabled=true;
       await test.wait('tick'); //wait for the observer to disable the rest
 
-      test.true(dayfield.disabled);
-      test.true(hourfield.disabled);
+      test.assert(dayfield.disabled);
+      test.assert(hourfield.disabled);
 
       test.qS("[name=dateofbirth]").disabled=false;
       test.qS("[name=time]").disabled=false;
       await test.wait('tick');
 
-      test.false(dayfield.disabled);
-      test.false(hourfield.disabled);
+      test.assert(!dayfield.disabled);
+      test.assert(!hourfield.disabled);
 
       //clear current value - date
-      test.true(true, test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--required'), "Field should be marked as required");
+      test.assert(true, test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--required'), "Field should be marked as required");
       test.eq("2018-06-01", test.qS("#datetimeform-dateofbirth").value);
       test.eq(1, datechangeevents, "should still be at one event");
       dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[1],'');
@@ -119,7 +119,7 @@ test.registerTests(
       test.eq(2, datechangeevents, "keeping it invalid should not be a change #2");
 
       //clear current value - time
-      test.true(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
+      test.assert(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
       test.eq("07:09", test.qS("#datetimeform-time").value);
       test.eq(1, timechangeevents, "should still be at one event");
       dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[1],'');
@@ -130,8 +130,8 @@ test.registerTests(
 
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('tick');
-      test.true(test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
-      test.true(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--error'), "Time field should be in error state");
+      test.assert(test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
+      test.assert(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--error'), "Time field should be in error state");
 
       //Test that we can type a date
       test.eq(2, datechangeevents, "#changes should still be 2");
@@ -210,7 +210,7 @@ test.registerTests(
 
       test.eq(1, test.qSA(".datetime__picker__day--today").length, "should be only one 'TODAY'");
       test.eq(1, test.qSA(".datetime__picker__day--selected").length, "should be only one selected");
-      test.true(test.qS(".datetime__picker__day--today").classList.contains("datetime__picker__day--selected"), "TODAY should be SELECTED");
+      test.assert(test.qS(".datetime__picker__day--today").classList.contains("datetime__picker__day--selected"), "TODAY should be SELECTED");
 
       //changing the date should update the date picker
       test.qS('[name=dateofbirth]').value="2014-02-01";
@@ -220,10 +220,10 @@ test.registerTests(
       test.eq(1, test.qSA(".datetime__picker__day--selected").length, "should be only one selected");
       test.eq(0, test.qSA(".datetime__picker__day--today").length, "Today should be out of sight");
 
-      test.true(test.qS("[data-wh-datepicker-date='2014-01-27']").classList.contains("datetime__picker__day--othermonth"));
-      test.false(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--othermonth"));
-      test.true(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--selected"));
-      test.true(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--sat"));
+      test.assert(test.qS("[data-wh-datepicker-date='2014-01-27']").classList.contains("datetime__picker__day--othermonth"));
+      test.assert(!test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--othermonth"));
+      test.assert(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--selected"));
+      test.assert(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--sat"));
 
       //test next month
       test.click('.datetime__picker__previous');
@@ -242,11 +242,11 @@ test.registerTests(
 
       //clicking outside the datepicker should kill it
       test.click('h1');
-      test.false(test.qS('.datetime__picker'));
+      test.assert(!test.qS('.datetime__picker'));
 
       //reopen it
       test.click('[name=dateofbirth] + * .datetime__togglepicker');
-      test.true(test.qS('.datetime__picker'));
+      test.assert(test.qS('.datetime__picker'));
 
       test.eq(0, changeevents);
 
@@ -254,7 +254,7 @@ test.registerTests(
       test.click(test.qS("[data-wh-datepicker-date='2014-02-13']"));
       test.eq('2014-02-13', test.qS('[name=dateofbirth]').value);
       test.eq(1, changeevents);
-      test.false(test.qS('.datetime__picker'));
+      test.assert(!test.qS('.datetime__picker'));
     }
 
   , "Test focus datepicker day"
@@ -279,7 +279,7 @@ test.registerTests(
 
       //Close datepicker with Escape key
       await test.pressKey('Escape');
-      test.false(test.qS('.datetime__picker'));
+      test.assert(!test.qS('.datetime__picker'));
    }
 
   , "Test weeknumbers"
@@ -296,7 +296,7 @@ test.registerTests(
       //resetting it should reset the value AND close the picker
       test.click('[data-wh-form-group-for="dateofbirth"] .datetime__reset');
       test.eq("", test.qS("#datetimeform-time").value);
-      test.false(test.qS('.datetime__picker'));
+      test.assert(!test.qS('.datetime__picker'));
     }
 
   , "Test keyboard for date field"
@@ -441,7 +441,7 @@ test.registerTests(
 
       //backspace AGAIN should move to DAY field.. BUT set the cursor to the end
       await test.pressKey('Backspace');
-      test.true(hourfield, test.getDoc().activeElement);
+      test.assert(hourfield, test.getDoc().activeElement);
       test.eq('2', test.getDoc().activeElement.value);
 
       // TODO add suport for pasting time

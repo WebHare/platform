@@ -77,7 +77,7 @@ test.registerTests(
         var selection = rte.getEditor().getSelectionRange();
 
         let htmlcode = selection.querySelectorAll(testblock ? "div" : "span").filter(el => el.matches(".wh-rtd__preview__htmlcode"))[0];
-        test.true(htmlcode);
+        test.assert(htmlcode);
         test.eq("<b>bolded object</b>", htmlcode.textContent);
         test.eq(1, selection.querySelectorAll("*").filter(n => n.classList.contains('wh-rtd-embeddedobject')).length);
 
@@ -147,7 +147,7 @@ test.registerTests(
 
         let pasteblock = document.createElement("div");
         let firstblock = rte.qS('div.wh-rtd-embeddedobject').cloneNode(true);
-        test.true(firstblock.dataset.instanceref != '');
+        test.assert(firstblock.dataset.instanceref != '');
 
         //corrupt the instance ref to make it look like it's from a different source
         firstblock.dataset.instanceref = firstblock.dataset.instanceref.substr(0,15) + 'gggg' + firstblock.dataset.instanceref.substr(19);
@@ -230,16 +230,16 @@ test.registerTests(
         test.eq(4, embobj.length);
 
         // doubleclick should not crash (we used to target the embobj directly for doubleclicks, but that no longer works now since pointer events fix)
-        test.false(test.canClick(embobj[2]));
+        test.assert(!test.canClick(embobj[2]));
         test.click(embobj[0]);
         test.click(embobj[0]);
         await test.wait("ui");
-        test.true(test.compByName('fragment1!rtdleft'));
+        test.assert(test.compByName('fragment1!rtdleft'));
         test.clickTolliumButton("OK");
         await test.wait("ui");
 
         test.eq(4, rte.qSA("div.wh-rtd-embeddedobject").length);
-        test.true(rte.qSA("div.wh-rtd-embeddedobject")[0].classList.contains("wh-rtd-embeddedobject--selected"));
+        test.assert(rte.qSA("div.wh-rtd-embeddedobject")[0].classList.contains("wh-rtd-embeddedobject--selected"));
         test.eq(1, rte.qSA(".wh-rtd-embeddedobject--selected").length, "ONLY the toplevel embobj should have the selected class..");
       }
     }
@@ -252,7 +252,7 @@ test.registerTests(
 
         let myembobj = rte.qSA("div.wh-rtd-embeddedobject")[0];
         test.click(myembobj);
-        test.true(myembobj.classList.contains("wh-rtd-embeddedobject--selected"));
+        test.assert(myembobj.classList.contains("wh-rtd-embeddedobject--selected"));
 
         //TODO use direct selection for copy, but it doesn't take focus yet
 

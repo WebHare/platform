@@ -23,7 +23,7 @@ test.registerTests(
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 
       let emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
-      test.true(emailgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
       test.eqMatch(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
 
@@ -35,7 +35,7 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq(3, getFormRPCRequests().length, "Should have only added a RPC for the submit, email was already ok");
-      test.true(test.qS('[data-wh-form-pagerole="thankyou"]').classList.contains('wh-form__page--visible'), "thankyou page must be visible now");
+      test.assert(test.qS('[data-wh-form-pagerole="thankyou"]').classList.contains('wh-form__page--visible'), "thankyou page must be visible now");
     }
 
   , 'Check smart email field BLOCKING ON FOCUS'

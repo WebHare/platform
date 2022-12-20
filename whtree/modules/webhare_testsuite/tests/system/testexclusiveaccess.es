@@ -214,13 +214,13 @@ test.registerTests(
       // restart lock, should not get it until the RPC finishes
       test.click("#startexclusiveaccesstest");
       await test.wait(100); // should not have gotten the lock after waiting
-      test.true(test.qS('html.dompack--busymodal')); // modal busy while waiting for the lock
-      test.false(test.qS("#status").textContent == "Got lock");
+      test.assert(test.qS('html.dompack--busymodal')); // modal busy while waiting for the lock
+      test.assert(test.qS("#status").textContent !== "Got lock");
 
       await test.invoke("mod::webhare_testsuite/webdesigns/basetest/pages/exclusiveaccesstest/exclusiveaccesstest.whlib#Resume");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
-      test.false(test.qS('html.dompack--busymodal'));
+      test.assert(!test.qS('html.dompack--busymodal'));
       test.click("#releaselock");
-      test.false(test.qS("#status").textContent == "Lock not taken");
+      test.assert(test.qS("#status").textContent !== "Lock not taken");
     }
   ]);

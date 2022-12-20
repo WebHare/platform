@@ -61,7 +61,7 @@ test.registerTests(
       test.getDoc().cookie=`wh-debug-overrideip=${us_ip}; path=/`;
       let ipinfo = await test.getWin().geoip_getIPInfo({cachedays:0});
       test.eq("US", ipinfo.countrycode);
-      test.false(ipinfo.countryname);
+      test.assert(!ipinfo.countryname);
 
       ipinfo = await test.getWin().geoip_getIPInfo({countrylang:'nl'});
       test.eq("US", ipinfo.countrycode);

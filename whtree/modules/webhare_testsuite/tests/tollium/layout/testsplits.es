@@ -25,8 +25,8 @@ test.registerTests(
         var splitleft = test.compByName("split_left");
         var splitright = test.compByName("split_right");
 
-        test.true(splitleft != null);
-        test.true(splitright != null);
+        test.assert(splitleft != null);
+        test.assert(splitright != null);
 
         test.eq(480, splitleft.offsetHeight);
         test.eq(480, splitright.offsetHeight);

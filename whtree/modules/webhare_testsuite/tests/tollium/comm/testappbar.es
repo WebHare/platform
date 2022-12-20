@@ -23,8 +23,8 @@ test.registerTests(
 
         var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
-        test.true(closer);
-        test.true(test.isElementClickable(closer));
+        test.assert(closer);
+        test.assert(test.isElementClickable(closer));
 
         test.click(test.getMenu(['X06']));
       }
@@ -48,12 +48,12 @@ test.registerTests(
 
         var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
-        test.true(closer);
-        test.true(test.isElementClickable(closer));
+        test.assert(closer);
+        test.assert(test.isElementClickable(closer));
 
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
         test.click(closer);
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
         await test.pressKey('Escape');
       }
 //        test.click(test.getMenu(['X05']));
@@ -76,13 +76,13 @@ test.registerTests(
         /* opening a noclose window currently -does not- disable the closer on the parent */
         var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
-        test.true(closer);
-        test.true(test.isElementClickable(closer),'closer (x) should be clickable');
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(closer);
+        test.assert(test.isElementClickable(closer),'closer (x) should be clickable');
+        test.assert(!test.getCurrentApp().isBusy());
         test.click(closer);
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
         await test.pressKey('Escape');
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
       }
     }
 
@@ -103,8 +103,8 @@ test.registerTests(
       {
         var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
-        test.true(closer);
-        test.false(test.isElementClickable(closer));
+        test.assert(closer);
+        test.assert(!test.isElementClickable(closer));
         test.click(test.getMenu(['X07']));
       }
     , waits: [ 'ui' ]

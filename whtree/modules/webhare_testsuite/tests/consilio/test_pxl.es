@@ -60,7 +60,7 @@ test.registerTests(
         // Test identifier
         url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "1" });
         vars = new URL(url).searchParams;
-        test.false(vars.has("pi"));
+        test.assert(!vars.has("pi"));
         url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "0" });
         vars = new URL(url).searchParams;
         test.assert(vars.has("pi"));
@@ -69,12 +69,12 @@ test.registerTests(
         pxl.setPxlOptions({ donottrack: "1" });
         url = pxl.makePxlUrl(baseurl, "test");
         vars = new URL(url).searchParams;
-        test.false(vars.has("pi"));
+        test.assert(!vars.has("pi"));
 
         pxl.setPxlOptions({ donottrack: "0" });
         url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "1" });
         vars = new URL(url).searchParams;
-        test.false(vars.has("pi"));
+        test.assert(!vars.has("pi"));
         url = pxl.makePxlUrl(baseurl, "test");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pi"));
@@ -127,7 +127,7 @@ test.registerTests(
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("lorem:ipsum", vars.get("pe"));
-        test.false(vars.has("pxl_d"));
+        test.assert(!vars.has("pxl_d"));
         test.assert(vars.has("pxl_o"));*/
       }
     }
@@ -161,7 +161,7 @@ test.registerTests(
         url = new URL("https://example.org" + lines[0]);
         test.assert(url.searchParams.has("pe"));
         test.eq(pxlEvent, url.searchParams.get("pe"));
-        test.false(url.searchParams.has("pi"));
+        test.assert(!url.searchParams.has("pi"));
 
         // Send an event with data
         startTime = new Date();
@@ -171,7 +171,7 @@ test.registerTests(
         url = new URL("https://example.org" + lines[0]);
         test.assert(url.searchParams.has("pe"));
         test.eq(pxlEvent, url.searchParams.get("pe"));
-        test.false(url.searchParams.has("pi"));
+        test.assert(!url.searchParams.has("pi"));
         test.assert(url.searchParams.has("ds_1"));
         test.eq(pxlId, url.searchParams.get("ds_1"));
         test.assert(url.searchParams.has("dn_fun"));

@@ -25,7 +25,7 @@ test.registerTests(
         test.eq('1',test.compByName('onchangeoverlayscount').textContent, 'first overlay appeared');
 
         let focused = test.getDoc().activeElement;
-        test.true(focused.classList.contains('t-image__overlay'), 'overlay should be focused after creation');
+        test.assert(focused.classList.contains('t-image__overlay'), 'overlay should be focused after creation');
         test.click(test.compByName('buttonreadoverlays'));
         await test.wait('ui');
 

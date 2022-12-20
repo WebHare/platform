@@ -9,7 +9,7 @@ test.registerTests(
       {
         test.eq(2, test.qSA('.t-apptab').length);
 
-        test.true(test.getCurrentScreen().getNode().textContent.includes("Hello, World"));
+        test.assert(test.getCurrentScreen().getNode().textContent.includes("Hello, World"));
         test.click(test.compByName('remote'));
       }
     , waits: [ 'ui' ]
@@ -22,7 +22,7 @@ test.registerTests(
         test.eq(2, test.qSA('.t-apptab').length);
 
         //we shouldn't be busy
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
 
         //there should be THREE windows, as we started the windowtest as a subapp
         test.eq(3, test.qSA(".t-screen").length);
@@ -33,7 +33,7 @@ test.registerTests(
 
         //see if it can open the lineair subwindows properly
         test.click(test.getMenu(['N01','B02']));
-        //FIXME implement busy handling: test.true(test.getCurrentApp().isBusy());
+        //FIXME implement busy handling: test.assert(test.getCurrentApp().isBusy());
       }
     , waits: [ 'ui' ]
     }
@@ -41,7 +41,7 @@ test.registerTests(
     , test:function(doc,win)
       {
         test.eq(4, test.qSA(".t-screen").length);
-        test.true(test.getMenu(['M01','A02'])!=null); //check if M01 A02 exists, then assume all is good
+        test.assert(test.getMenu(['M01','A02'])!=null); //check if M01 A02 exists, then assume all is good
         test.getCurrentScreen().clickCloser();
       }
     , waits: [ 'ui' ]
@@ -50,7 +50,7 @@ test.registerTests(
     , test:function(doc,win)
       {
         test.eq(4, test.qSA(".t-screen").length);
-        test.false(test.getMenu(['M01','A02'])!=null);
+        test.assert(!test.getMenu(['M01','A02'])!=null);
         test.click(test.getCurrentScreen().qS('t-button'));
       }
     , waits: [ 'ui' ]

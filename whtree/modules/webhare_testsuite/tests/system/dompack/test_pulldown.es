@@ -21,10 +21,10 @@ test.registerTests(
     let oldx=ridiculous_replacement.getBoundingClientRect().left;
 
     test.eq("Should always open down", alwaysopendown_replacement.querySelector(".selectlist__current").textContent);
-    test.false(alwaysopendown_replacement.querySelector(".selectlist__current").classList.contains("copyclass"), "We don't copy classes to current");
-    test.false(alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-wh-form-placeholder"), "We dont' copy dataset 1-on-1 to current either");
+    test.assert(!alwaysopendown_replacement.querySelector(".selectlist__current").classList.contains("copyclass"), "We don't copy classes to current");
+    test.assert(!alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-wh-form-placeholder"), "We dont' copy dataset 1-on-1 to current either");
     test.eq("", alwaysopendown_replacement.querySelector(".selectlist__current").getAttribute("data-optionvalue"), "But we DO copy the option value to a different name");
-    test.true(alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-option-wh-form-placeholder"), "AND we copy any data attributes the option value to a different name #2");
+    test.assert(alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-option-wh-form-placeholder"), "AND we copy any data attributes the option value to a different name #2");
     test.click(alwaysopendown_replacement); //opens
 
     test.eq(0,alwaysopendown_replacement.getBoundingClientRect().top);
@@ -46,7 +46,7 @@ test.registerTests(
     test.eq("2", test.qS('#alwaysopendown').value);
     test.eq("Two", alwaysopendown_replacement.querySelector(".selectlist__current").textContent);
     test.eq("2", alwaysopendown_replacement.querySelector(".selectlist__current").getAttribute("data-optionvalue"), "Check option value copy");
-    test.false(alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-option-wh-form-placeholder"), "#2 is not the placeholder so the attribute should be gone again");
+    test.assert(!alwaysopendown_replacement.querySelector(".selectlist__current").hasAttribute("data-option-wh-form-placeholder"), "#2 is not the placeholder so the attribute should be gone again");
 
     test.eq(false, visibleitems[0].classList.contains("copyclass"), "copyclass did not get copied");
     test.eq(true, visibleitems[0].classList.contains("copy2"));

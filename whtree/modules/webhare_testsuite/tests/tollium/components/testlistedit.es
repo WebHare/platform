@@ -30,7 +30,7 @@ test.registerTests(
   , { name: "add_4_check"
     , test:function(doc,win)
       {
-        test.true(test.getCurrentScreen().getListRow('comp!list', /4/));
+        test.assert(test.getCurrentScreen().getListRow('comp!list', /4/));
       }
     }
 
@@ -63,8 +63,8 @@ test.registerTests(
   , { name: "rename_3a_check"
     , test:function(doc,win)
       {
-        test.false(test.getCurrentScreen().getListRow('comp!list', /3a/));
-        test.true(test.getCurrentScreen().getListRow('comp!list', /3/));
+        test.assert(!test.getCurrentScreen().getListRow('comp!list', /3a/));
+        test.assert(test.getCurrentScreen().getListRow('comp!list', /3/));
       }
     }
 
@@ -93,7 +93,7 @@ test.registerTests(
   , { name: "delete_5_check"
     , test:function(doc,win)
       {
-        test.false(test.getCurrentScreen().getListRow('comp!list', /5/));
+        test.assert(!test.getCurrentScreen().getListRow('comp!list', /5/));
       }
     }
 
@@ -110,7 +110,7 @@ test.registerTests(
       {
         var line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         var line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
-        test.true((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
+        test.assert((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
 
         test.clickTolliumButton("Up");
       }
@@ -121,10 +121,10 @@ test.registerTests(
       {
         var line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         var line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
-        test.false((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
+        test.assert(!(line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
 
         var elt = test.getTolliumButton("Up");
-        test.true(elt.className.match(/disabled/));
+        test.assert(elt.className.match(/disabled/));
       }
     }
 
@@ -146,7 +146,7 @@ test.registerTests(
       {
         var line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         var line_4 = test.getCurrentScreen().getListRow('comp!list', /4/);
-        test.true((line_4.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
+        test.assert((line_4.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
       }
     }
   ]);

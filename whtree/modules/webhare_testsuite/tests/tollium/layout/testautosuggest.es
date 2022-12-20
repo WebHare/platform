@@ -17,7 +17,7 @@ test.registerTests(
       test.click(test.compByName('legacystatic'));
       await test.waitUIFree();
 
-      test.true(test.getOpenSelectList(),"expecting immediate open on legacy comboboxes");
+      test.assert(test.getOpenSelectList(),"expecting immediate open on legacy comboboxes");
       test.eq("6", test.getSelectListVisibleItems()[0].textContent);
       test.click(test.getSelectListVisibleItems()[0]);
 
@@ -45,9 +45,9 @@ test.registerTests(
   , async function()
     {
       test.click(test.compByName('combo'));
-      test.false(test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
+      test.assert(!test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
 
-      test.false(test.getOpenSelectList());
+      test.assert(!test.getOpenSelectList());
       test.click(test.compByName('enablecombo'));
       await test.waitUIFree();
     }
@@ -57,9 +57,9 @@ test.registerTests(
     {
       test.click(test.compByName('combo'));
       test.fill(test.compByName('combo').querySelector("input"),"COMBO");
-      test.true(test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
+      test.assert(test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
       await test.waitUIFree();
-      test.true(test.getOpenSelectList());
+      test.assert(test.getOpenSelectList());
       test.eq(2, test.getSelectListVisibleItems().length);
       test.eq("Combo1", test.getSelectListVisibleItems()[0].textContent);
       test.eq("I Haz Combo2", test.getSelectListVisibleItems()[1].textContent);
@@ -75,7 +75,7 @@ test.registerTests(
      {
        test.click(test.compByName('combodynamic'));
        test.fill(test.compByName('combodynamic').querySelector("input"),"Test");
-       test.true(test.compByName('combodynamic').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
+       test.assert(test.compByName('combodynamic').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
        await test.waitUIFree();
 
        test.eq("Test1", test.getSelectListVisibleItems()[0].textContent);
@@ -90,15 +90,15 @@ test.registerTests(
    , async function()
      {
        await test.pressKey('Tab'); //moves to tagedit
-       test.false(test.getOpenSelectList(), "Tab should close current selectlist");
+       test.assert(!test.getOpenSelectList(), "Tab should close current selectlist");
 
        test.fill(test.compByName('tagedit').querySelector("input"),"test");
-       test.true(test.compByName('tagedit').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
+       test.assert(test.compByName('tagedit').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
        await test.waitUIFree();
 
        test.click(test.getSelectListVisibleItems()[1]);
        await test.waitUIFree();
-       test.true(test.hasFocus(test.compByName('tagedit').querySelector("input")),"Focus back to input after selecting an item");
+       test.assert(test.hasFocus(test.compByName('tagedit').querySelector("input")),"Focus back to input after selecting an item");
 
        test.eq(['test2'], getTags(test.compByName('tagedit')));
 
@@ -107,7 +107,7 @@ test.registerTests(
        await test.waitUIFree();
 
        test.eq(['test2','c'], getTags(test.compByName('tagedit')));
-       test.true(test.hasFocus(test.compByName('tagedit').querySelector("input")),"Focus back to input after selecting an item");
+       test.assert(test.hasFocus(test.compByName('tagedit').querySelector("input")),"Focus back to input after selecting an item");
 
        // test.eq("test1", test.getSelectListVisibleItems()[0].textContent);
        // test.fill(test.compByName('tagedit').querySelector("input"),"test15");
@@ -122,12 +122,12 @@ test.registerTests(
        test.click(test.compByName('tageditrestrict').querySelector("input"));
 
        test.fill(test.compByName('tageditrestrict').querySelector("input"),"test");
-       test.true(test.compByName('tageditrestrict').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
+       test.assert(test.compByName('tageditrestrict').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
        await test.waitUIFree();
 
        test.click(test.getSelectListVisibleItems()[1]);
        await test.waitUIFree();
-       test.true(test.hasFocus(test.compByName('tageditrestrict').querySelector("input")),"Focus back to input after selecting an item");
+       test.assert(test.hasFocus(test.compByName('tageditrestrict').querySelector("input")),"Focus back to input after selecting an item");
 
        test.eq(['test2'], getTags(test.compByName('tageditrestrict')));
 
@@ -136,7 +136,7 @@ test.registerTests(
        await test.waitUIFree();
 
        test.eq(['test2'], getTags(test.compByName('tageditrestrict')), '"c" blocked by restriction');
-       test.true(test.hasFocus(test.compByName('tageditrestrict').querySelector("input")),"Focus back to input after selecting an item");
+       test.assert(test.hasFocus(test.compByName('tageditrestrict').querySelector("input")),"Focus back to input after selecting an item");
 
        // test.eq("test1", test.getSelectListVisibleItems()[0].textContent);
        // test.fill(test.compByName('tagedit').querySelector("input"),"test15");

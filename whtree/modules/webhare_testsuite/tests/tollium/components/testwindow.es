@@ -32,12 +32,12 @@ test.registerTests(
 
         //var menu = activewindow[0].getElement('.wh-menubar');
         var N01 = test.getMenu(['N01']); //shouldn't be here
-        test.false(N01!=null);
+        test.assert(!N01!=null);
         var M01 = test.getMenu(['M01']); //shoud be here
-        test.true(M01!=null);
+        test.assert(M01!=null);
 
         //Test for existence of the text in the disappearing panel
-        test.true(activewindow[0].textContent.includes("Test <text> node"));
+        test.assert(activewindow[0].textContent.includes("Test <text> node"));
 
         //Let's play with the embeddable frames option
         test.click(test.getMenu(['M01','A05'])); //embed a window
@@ -52,7 +52,7 @@ test.registerTests(
         test.eq(1,activewindow.length);
 
         //Test for disapperance of the text in the disappearing panel
-        test.false(activewindow[0].textContent.includes("Test <text> node"));
+        test.assert(!activewindow[0].textContent.includes("Test <text> node"));
 
         var thetext = test.compByName("body").querySelector("t-text");
         test.eq('#2', thetext.textContent);
@@ -83,8 +83,8 @@ test.registerTests(
       var activewindow = test.qSA('.t-screen.active');
       test.eq(1,activewindow.length);
 
-      test.false(activewindow[0].textContent.includes("Test <text> node"));
-      test.true(activewindow[0].textContent.includes("A new line"), 'new line should have appeared!');
+      test.assert(!activewindow[0].textContent.includes("Test <text> node"));
+      test.assert(activewindow[0].textContent.includes("A new line"), 'new line should have appeared!');
 
       test.clickToddButton("B01 Add line");//ensure button is still there by clicking it
       await test.wait('ui');
@@ -99,8 +99,8 @@ test.registerTests(
         test.eq(3, test.qSA('#mainarea .t-screen').length); //if this test returns '4', the intermediate window wasn't killed
 
         var menu = activewindow[0].querySelector('.wh-menubar');
-        test.false(menu.textContent.includes("M01 Actions"), "M01 shouldn't be here, N01 should. Did the window close? ");
-        test.true(menu.textContent.includes("N01 Actions"));
+        test.assert(!menu.textContent.includes("M01 Actions"), "M01 shouldn't be here, N01 should. Did the window close? ");
+        test.assert(menu.textContent.includes("N01 Actions"));
 
         //Find the close button. There should be only one button in the window, so it should be easy to find..
         var buttons = activewindow[0].querySelectorAll('t-button');

@@ -19,7 +19,7 @@ test.registerTests(
         var button = holder.querySelector("t-button");
         var title = button.querySelector("span");
         test.eq("WWWWWWWWWW WWWWWWWWWW WWWWWWWWWWW", title.textContent, 'got the wrong button/span?');
-        test.true(title.getBoundingClientRect().right < button.getBoundingClientRect().right, 'title right is OUTSIDE button right - its clipped!');
+        test.assert(title.getBoundingClientRect().right < button.getBoundingClientRect().right, 'title right is OUTSIDE button right - its clipped!');
       }
     }
   ]);

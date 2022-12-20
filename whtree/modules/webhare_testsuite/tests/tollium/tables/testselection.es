@@ -140,33 +140,33 @@ test.registerTests(
         test.click(test.qSA('textarea')[0]);
         await test.wait("events");
 
-        test.false(hasFocus(node_tbl));
+        test.assert(!hasFocus(node_tbl));
         test.click(node_tbl.querySelector('[data-todd-cellpos="1:2"]'));
         await test.wait("events");
 
-        test.true(hasFocus(node_tbl));
+        test.assert(hasFocus(node_tbl));
 
         // click on selectable element when other element has focus
         test.click(test.compByName("list").querySelector(".listrow span"));
         await test.wait("events");
-        test.false(hasFocus(node_tbl));
-        test.true(test.compByName("button").classList.contains("todd--disabled"));
+        test.assert(!hasFocus(node_tbl));
+        test.assert(test.compByName("button").classList.contains("todd--disabled"));
 
         test.click(node_tbl.querySelector('[data-todd-cellpos="1:2"]'));
         await test.wait("events");
-        test.true(hasFocus(node_tbl));
-        test.false(test.compByName("button").classList.contains("todd--disabled"));
+        test.assert(hasFocus(node_tbl));
+        test.assert(!test.compByName("button").classList.contains("todd--disabled"));
 
         // click on non-selectable element when other element has focus
         test.click(test.compByName("list").querySelector(".listrow span"));
         await test.wait("events");
-        test.false(hasFocus(node_tbl));
-        test.true(test.compByName("button").classList.contains("todd--disabled"));
+        test.assert(!hasFocus(node_tbl));
+        test.assert(test.compByName("button").classList.contains("todd--disabled"));
 
         test.click(node_tbl.querySelector('[data-todd-cellpos="1:2"]'));
         await test.wait("events");
-        test.true(hasFocus(node_tbl));
-        test.false(test.compByName("button").classList.contains("todd--disabled"));
+        test.assert(hasFocus(node_tbl));
+        test.assert(!test.compByName("button").classList.contains("todd--disabled"));
 
       }
     }

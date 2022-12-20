@@ -9,21 +9,21 @@ test.registerTests(
 
       test.click('[data-dialog-counter="0"] button.opendialognoinputs');
       test.eq(false, test.hasFocus('#inputfield2')); //should remove focus...
-      test.false(test.canClick('[data-dialog-counter="0"] button.opendialog'));
-      test.true(test.canClick('[data-dialog-counter="1"] button.opendialog'));
+      test.assert(!test.canClick('[data-dialog-counter="0"] button.opendialog'));
+      test.assert(test.canClick('[data-dialog-counter="1"] button.opendialog'));
       test.click('[data-dialog-counter="1"] button.opendialog');
-      test.false(test.canClick('[data-dialog-counter="0"] button.opendialog'));
-      test.false(test.canClick('[data-dialog-counter="1"] button.opendialog'));
-      test.true(test.canClick('[data-dialog-counter="2"] button.opendialog'));
+      test.assert(!test.canClick('[data-dialog-counter="0"] button.opendialog'));
+      test.assert(!test.canClick('[data-dialog-counter="1"] button.opendialog'));
+      test.assert(test.canClick('[data-dialog-counter="2"] button.opendialog'));
 
       await test.wait( () => test.hasFocus('#textedit2'), 'focus should be on the inner textedit');
       await test.pressKey('Tab');
-      test.true(test.hasFocus('#button_return1_2'));
+      test.assert(test.hasFocus('#button_return1_2'));
       await test.pressKey('Tab');
       await test.pressKey('Tab');
-      test.true(test.hasFocus('#button_opendialog_2'));
+      test.assert(test.hasFocus('#button_opendialog_2'));
       await test.pressKey('Tab');
-      test.true(test.hasFocus('#textedit2'));
+      test.assert(test.hasFocus('#textedit2'));
 
       test.eq(0, test.qS("#dialoglog").childNodes.length);
 

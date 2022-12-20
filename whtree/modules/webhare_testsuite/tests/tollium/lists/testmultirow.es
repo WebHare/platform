@@ -11,7 +11,7 @@ test.registerTests(
         var baselist = test.compByName("layout");
         let senderheader = test.qSA(baselist, '.listheader span').filter(span=>span.textContent.includes("Sender"))[0]
         test.click(senderheader);
-        test.true(senderheader.classList.contains("sortascending"), 'looks like sender column didnt get selected for sort');
+        test.assert(senderheader.classList.contains("sortascending"), 'looks like sender column didnt get selected for sort');
       }
     }
   , { name: 'footer'

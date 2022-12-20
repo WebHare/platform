@@ -43,15 +43,15 @@ test.registerTests(
       {
         /* Study the list! It should be sorted like this:
            Row #1, Row #1.1, Row #2, Row #3 */
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top);
 
         // Test if highlighted class is present
         let rownode = test.getCurrentScreen().getListRow('staticlist','Row #1|');
-        test.true(rownode != null);
-        test.true(rownode.classList.contains("highlighted"));
+        test.assert(rownode != null);
+        test.assert(rownode.classList.contains("highlighted"));
       }
     }
 
@@ -60,19 +60,19 @@ test.registerTests(
       {
         //should be initially selected
         let listrow = test.getCurrentScreen().getListRow('staticlist','Row #2|');
-        test.true(listrow.classList.contains("wh-list__row--selected"));
+        test.assert(listrow.classList.contains("wh-list__row--selected"));
         //should have 'grayedout' class
-        test.true(listrow.classList.contains("rowclass-grayedout"));
+        test.assert(listrow.classList.contains("rowclass-grayedout"));
 
         var M02 = test.getMenu(['M01','M02']);
-        test.true(M02.classList.contains('disabled'));
+        test.assert(M02.classList.contains('disabled'));
         var B01 = test.compByName("forevenbutton");
-        test.true(B01.classList.contains('todd--disabled'));
+        test.assert(B01.classList.contains('todd--disabled'));
 
         var M03 = test.getMenu(['M01','M03']);
-        test.false(M03.classList.contains('disabled'));
+        test.assert(!M03.classList.contains('disabled'));
         var B02 = test.compByName("foroddbutton");
-        test.false(B02.classList.contains('todd--disabled'));
+        test.assert(!B02.classList.contains('todd--disabled'));
 
         //Select the first row
         test.click(test.getCurrentScreen().getListRow('staticlist','Row #1|'));
@@ -85,15 +85,15 @@ test.registerTests(
         test.eq('1', test.compByName("staticlistselection").textContent); //we didn't even touch it...
 
         //Row #1.1 is initially expanded, check for visibility
-        test.true(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #1|')));
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #1|')));
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
 
         // Must have selected class
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
 
         //Row #2.1 is not initially expanded, and should NOT be visible
-        test.false(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
-        test.false(test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
+        test.assert(!getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
+        test.assert(!test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
 
         var staticlist = test.compByName("staticlist");
         var cells = getListRowCells(staticlist, "Row #1|");
@@ -112,19 +112,19 @@ test.registerTests(
         test.eq("Row #2 doesn't care", cells[2].textContent);
 
         //Expanding a row should not change the selection
-        test.true( test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
-        test.false(test.getCurrentScreen().getListRow('staticlist','Row #2|').classList.contains("wh-list__row--selected"));
+        test.assert( test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
+        test.assert(!test.getCurrentScreen().getListRow('staticlist','Row #2|').classList.contains("wh-list__row--selected"));
 
         //Row #2.1 should be there now
-        test.true(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
 
         //collapse row #1
         clickRowExpander(test.getCurrentScreen().getListRow('staticlist','Row #1|'));
-        test.false(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #1|')));
-        test.true(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
-        test.false(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
+        test.assert(!getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #1|')));
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
+        test.assert(!test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2.1') != null);
 
         cells = getListRowCells(staticlist, "Row #1|");
         test.eq("Row #1 is collapsed", cells[2].textContent);
@@ -141,19 +141,19 @@ test.registerTests(
 
         //check button/menu
         var M02 = test.getMenu(['M01','M02']);
-        test.false(M02.classList.contains('disabled'));
+        test.assert(!M02.classList.contains('disabled'));
         var B01 = test.compByName("forevenbutton");
-        test.false(B01.classList.contains('todd--disabled'));
+        test.assert(!B01.classList.contains('todd--disabled'));
 
         var M03 = test.getMenu(['M01','M03']);
-        test.true(M03.classList.contains('disabled'));
+        test.assert(M03.classList.contains('disabled'));
         var B02 = test.compByName("foroddbutton");
-        test.true(B02.classList.contains('todd--disabled'));
+        test.assert(B02.classList.contains('todd--disabled'));
 
         var M05 = test.getMenu(['M01','M05']);
-        test.false(M05.classList.contains('disabled'));
+        test.assert(!M05.classList.contains('disabled'));
         var B05 = test.compByName("forevenbutton2");
-        test.false(B05.classList.contains('todd--disabled'));
+        test.assert(!B05.classList.contains('todd--disabled'));
 
         //test.click(B05); //racy on IE/Edge
         test.sendMouseGesture( [ { el: B05, down:0, x:"50%", y:"50%" }
@@ -167,8 +167,8 @@ test.registerTests(
     , test: function(doc,win)
       {
         //this should have selected and expanded Row#1.1
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1').classList.contains("wh-list__row--selected"));
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.1').classList.contains("wh-list__row--selected"));
         test.eq('2', test.compByName("staticlistselection").textContent); //we didn't even touch it...
       }
     }
@@ -179,19 +179,19 @@ test.registerTests(
         var spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Integer column"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
         test.click(spancol);
-        test.true(spancol.classList.contains("sortascending"));
+        test.assert(spancol.classList.contains("sortascending"));
         test.click(spancol);
-        test.true(spancol.classList.contains("sortdescending"));
+        test.assert(spancol.classList.contains("sortdescending"));
 
         /* Study the list! It should be sorted like this:
            Row #3, Row #2, Row #2.2, Row #2.1, Row #1, Row #1.2, Row #1.1 */
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2.2').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2.1').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #2.1').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #4|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #3|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2.2').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #2.1').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #2.1').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #1.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #1.1').getBoundingClientRect().top);
       }
     , waits:["ui"]
     }
@@ -209,19 +209,19 @@ test.registerTests(
     , test: function(doc,win)
       {
         test.eq(0, test.qSA('.listheader span').filter(span=>span.textContent.includes("Text col (asc)")).length);//should not be there, list is not sortable
-        test.true(test.getCurrentScreen().getListRow('dynamiclist','haschildren 10').getBoundingClientRect().top < test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').getBoundingClientRect().top); //should retain original order
+        test.assert(test.getCurrentScreen().getListRow('dynamiclist','haschildren 10').getBoundingClientRect().top < test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').getBoundingClientRect().top); //should retain original order
 
 
-        test.true(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 10')), 'expected children10 to be expanded');
-        test.false(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 10')), 'expected children10 to be expanded');
+        test.assert(!getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
 
         //select nochildren row
         test.click(test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10'));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
+        test.assert( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
 
         clickRowExpander(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20'));
         //the feedback should be immediate..
-        test.true(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
       }
     //, waits:["ui"]
     , waits: [ function() { return test.getCurrentScreen().getListRow('dynamiclist','haschildren 30') != null; } ]
@@ -233,11 +233,11 @@ test.registerTests(
       {
         //FIXME Inspecting the JSON output, it looks like the entire list is re-sent by Tollium in NG mode (old Todd is better). should only send new rows...
 
-        test.true(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
-        test.false(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
+        test.assert(!getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
 
         //should still be selected
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
+        test.assert( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
         test.eq('11', test.compByName("dynamiclistselection").textContent); //we didn't even touch it...
 
         //test multi selection
@@ -249,10 +249,10 @@ test.registerTests(
   , { name: 'dynamictree-multiselect'
     , test: function(doc,win)
       {
-        test.true(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
-        test.false(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 20').classList.contains("wh-list__row--selected"));
+        test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
+        test.assert(!getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
+        test.assert( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
+        test.assert( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 20').classList.contains("wh-list__row--selected"));
         test.eq('11 21', test.compByName("dynamiclistselection").textContent);
       }
     }
@@ -261,29 +261,29 @@ test.registerTests(
     , test:function(doc,win)
       {
         var ctxtmenu = test.qS('.toddContextMenu');
-        test.true(ctxtmenu == null);
+        test.assert(ctxtmenu == null);
 
         test.sendMouseGesture([{el:test.getCurrentScreen().getListRow('staticlist','Row #2|'), down:2}
                               ,{up:2}
                               ]);
         ctxtmenu = test.getOpenMenu();
-        test.false(ctxtmenu == null);
+        test.assert(ctxtmenu);
 
         //odd and something should be available (note: failing these test may also point to focus issues, if the list isn't receiving focus at contextmenu click)
         var MC01 = test.qSA(ctxtmenu,"li").filter(li => li.textContent.includes('MC01'))[0];
         var MC02 = test.qSA(ctxtmenu,"li").filter(li => li.textContent.includes('MC02'))[0];
         var MC03 = test.qSA(ctxtmenu,"li").filter(li => li.textContent.includes('MC03'))[0];
-        test.false(MC01);
-        test.true(MC02);
-        test.true(MC03);
+        test.assert(!MC01);
+        test.assert(MC02);
+        test.assert(MC03);
 
         //ensure that the divider there is invisible
         var divider = ctxtmenu.querySelector("li.divider");
-        test.true(divider.classList.contains('hidden'));
+        test.assert(divider.classList.contains('hidden'));
 
         //move the mouse to option MC02. it should hover and be auto selected (as the menu is active)
         test.sendMouseGesture([{el:MC02}]);
-        test.true(MC02.classList.contains('selected'));
+        test.assert(MC02.classList.contains('selected'));
 
         //select option MC03
         test.click(MC03); //'do something'
@@ -303,10 +303,10 @@ test.registerTests(
        // focusdependentactions
         test.click(test.getCurrentScreen().getListRow('staticlist','Row #1.2'));
         var B05 = test.compByName("forevenbutton2");
-        test.false(B05.classList.contains('todd--disabled'));
+        test.assert(!B05.classList.contains('todd--disabled'));
 
         var M05 = test.getMenu(['M01','M05']);
-        test.false(M05.classList.contains('disabled'));
+        test.assert(!M05.classList.contains('disabled'));
         test.click(M05);
       }
     , waits: [ 'ui' ]
@@ -371,7 +371,7 @@ test.registerTests(
   , { name: 'empty text is shown but empty'
     , test: function(doc,win)
       {
-        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01','M08']));
@@ -382,7 +382,7 @@ test.registerTests(
   , { name: 'empty text is shown and non-empty'
     , test: function(doc,win)
       {
-        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01','M08']));
@@ -393,7 +393,7 @@ test.registerTests(
   , { name: 'empty text is changed, multiline'
     , test: function(doc,win)
       {
-        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
         // Show some lines again
@@ -405,7 +405,7 @@ test.registerTests(
   , { name: 'empty text is hidden again'
     , test: function(doc,win)
       {
-        test.true(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.assert(test.qSA('.emptytextholder')[0].offsetHeight == 0);
       }
     }
 
@@ -419,20 +419,20 @@ test.registerTests(
         spancol = test.qSA('.listheader span').filter(span=>span.textContent.includes("Integer column"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
         test.click(spancol);
-        test.true(spancol.classList.contains("sortascending"));
+        test.assert(spancol.classList.contains("sortascending"));
 
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #001').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #003').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #001').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #003').getBoundingClientRect().top);
 
         test.click(spancol);
-        test.true(spancol.classList.contains("sortdescending"));
+        test.assert(spancol.classList.contains("sortdescending"));
 
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #150').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #151').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #151').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #149').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #149').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #152').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #152').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #148').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #150').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #151').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #151').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #149').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #149').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #152').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #152').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #148').getBoundingClientRect().top);
 
         // Init sort by ordering
         test.click(test.getMenu(['M01','M09']));
@@ -448,10 +448,10 @@ test.registerTests(
         spancol = test.qSA('.listheader span').filter(span=>span.textContent.includes("Integer column"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
 
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #001').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #003').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #001').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #299').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #002').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top);
+        test.assert(test.getCurrentScreen().getListRow('staticlist','Row #298').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist','Row #003').getBoundingClientRect().top);
       }
     }
 

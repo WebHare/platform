@@ -35,7 +35,7 @@ test.registerTests(
       await test.load(test.getCompTestPage('datetime', { title: '' }));
       await test.wait("ui");
 
-      test.true(test.compByName("thecomponent$*").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
+      test.assert(test.compByName("thecomponent$*").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
 
       // test onselect call after user change
       setDate(test.compByName("thecomponent$*"), "13-01-2017");
@@ -71,8 +71,8 @@ test.registerTests(
       test.click(test.compByName("componentpanel").querySelector('.tollium__datetime__togglepicker'));
 
       let picker = test.qS('.tollium__datetime__picker');
-      test.true(picker);
-      test.true(picker.getBoundingClientRect().right <= test.getDoc().body.getBoundingClientRect().right, "datepicker must be inside screen");
+      test.assert(picker);
+      test.assert(picker.getBoundingClientRect().right <= test.getDoc().body.getBoundingClientRect().right, "datepicker must be inside screen");
     }
 
   , "Test bottom aligned datetime"
@@ -84,8 +84,8 @@ test.registerTests(
       test.click(test.compByName("componentpanel").querySelector('.tollium__datetime__togglepicker'));
 
       let picker = test.qS('.tollium__datetime__picker');
-      test.true(picker);
-      test.true(picker.getBoundingClientRect().bottom <= test.compByName("thecomponent$*").getBoundingClientRect().top,
+      test.assert(picker);
+      test.assert(picker.getBoundingClientRect().bottom <= test.compByName("thecomponent$*").getBoundingClientRect().top,
                 `datepicker must be above component. datepicker bottom ${picker.getBoundingClientRect().bottom} comp top ${test.compByName("thecomponent$*").getBoundingClientRect().top}`);
     }
 
@@ -101,7 +101,7 @@ test.registerTests(
       test.click(test.compByName("componentpanel").querySelector('.tollium__datetime__togglepicker'));
 
       let picker = test.qS('.tollium__datetime__picker');
-      test.true(picker);
+      test.assert(picker);
       test.eq("7", picker.querySelector(".tollium__datetime__picker__monthselect").value);
       test.eq("2021", picker.querySelector(".tollium__datetime__picker__yearselect").value);
     }
@@ -126,7 +126,7 @@ test.registerTests(
       setTime(ti1, '8:19');
 
       var ti6 = test.compByName('ti6!dt'); //datetime with minute precision
-      test.true(ti6.classList.contains('required'));
+      test.assert(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
 
       var midnight = test.compByName('midnight!dt'); //datetime with minute precision
@@ -233,16 +233,16 @@ test.registerTests(
   , async function()
     {
       let dt1 = test.compByName('dt1'); //datetime with minute precision
-      test.true(dt1.querySelector('[type=date]').value);
+      test.assert(dt1.querySelector('[type=date]').value);
 
       test.click(dt1.querySelector('.tollium__datetime__togglepicker'));
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
 
       //Test none button
       let nonebutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/None/))[0];
-      test.true(nonebutton);
+      test.assert(nonebutton);
       test.click(nonebutton);
-      test.false(dt1.querySelector('[type=date]').value);
+      test.assert(!dt1.querySelector('[type=date]').value);
       test.eq(0, test.qSA('.tollium__datetime__picker').length);
 
       //Test today button
@@ -250,30 +250,30 @@ test.registerTests(
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
 
       let todaybutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/Today/))[0];
-      test.true(todaybutton);
+      test.assert(todaybutton);
       test.click(todaybutton);
 
       //reopen the datepicker to confirm today selection...
       test.eq(0, test.qSA('.tollium__datetime__picker').length);
       test.click(dt1.querySelector('.tollium__datetime__togglepicker'));
       test.eq(1, test.qSA('.tollium__datetime__picker').length);
-      test.true(dt1.querySelector('[type=date]').value);
-      test.true(test.qS(".tollium__datetime__picker__day--today").classList.contains("tollium__datetime__picker__day--selected"), "TODAY should be SELECTED");
+      test.assert(dt1.querySelector('[type=date]').value);
+      test.assert(test.qS(".tollium__datetime__picker__day--today").classList.contains("tollium__datetime__picker__day--selected"), "TODAY should be SELECTED");
 
       //Test cancel button
       let cancelbutton = test.qSA(".tollium__datetime__picker button").filter(button => button.textContent.match(/Cancel/))[0];
-      test.true(cancelbutton);
+      test.assert(cancelbutton);
       test.click(cancelbutton);
 
       test.eq(0, test.qSA('.tollium__datetime__picker').length);
-      test.true(dt1.querySelector('[type=date]').value);
+      test.assert(dt1.querySelector('[type=date]').value);
     }
 
   , 'updownkeys'
   , async function(doc,win)
     {
       var ti6 = test.compByName('ti6!dt'); //datetime with minute precision
-      test.true(ti6.classList.contains('required'));
+      test.assert(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
 
       setTime(ti6, '01:01:01.001');
@@ -482,7 +482,7 @@ test.registerTests(
   , async function()
     {
       let alternatedefault = test.compByName('alternatedefault');
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       let dt3 = test.compByName('dt3');
       let dt2 = test.compByName('dt2');
@@ -490,13 +490,13 @@ test.registerTests(
       await test.wait("events");
 
       test.click(dt3.querySelector(".tollium__datetime__day"));
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
 
       test.click(dt2.querySelector(".tollium__datetime__day"));
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(dt3.querySelector(".tollium__datetime__hour"));
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
 
   ]);
