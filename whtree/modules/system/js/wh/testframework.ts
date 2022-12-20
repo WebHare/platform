@@ -46,7 +46,6 @@ export {
 } from 'dompack/testframework';
 
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
-let module_exports;
 
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
@@ -63,7 +62,7 @@ function setTestSuiteCallbacks(cb) {
 }
 
 function initialize_tests(steps) {
-  testfw.runTestSteps(steps, setTestSuiteCallbacks, module_exports);
+  testfw.runTestSteps(steps, setTestSuiteCallbacks);
 }
 
 function rewriteNodeAttributes(node) {
@@ -732,82 +731,4 @@ export {
   , updateFrame
   , removeFrame
   , selectFrame
-};
-
-//Also need to put it in this variable. FIXME Don't do that! but this round we're just focusing on enabling TS definitions...
-module_exports = {
-  registerTests: registerJSTests,
-  getTestArgument: getTestArgument,
-  getOpenMenu: getOpenMenu,
-  getOpenMenuItem: getOpenMenuItem,
-  getWindow: getWin,
-  getDoc: getDoc,
-  isElementClickable: pointer.canClick,
-  canClick: pointer.canClick,
-  click: pointer.click,
-  setFormsapiFileElement: setFormsapiFileElement,
-  fill: fill, //note: soon in dompack but not fully compatible for some selectors
-  fillUpload: fillUpload,
-  getTestSiteRoot: getTestSiteRoot,
-  findElementWithText: findElementWithText,
-  getWebhareVersionNumber,
-  waitForEvent: test.waitForEvent,
-  eq: testEq,
-  eqFloat: testEqFloat,
-  eqIn: testEqIn,
-  eqHTML: testEqHTML,
-  true: testTrue,
-  false: testFalse,
-  throws,
-  canFocus: canFocus,
-  hasFocus: hasFocus,
-  fail: fail,
-  sendMouseGesture: pointer.sendMouseGesture,
-  gesturesDone: gesturesDone,
-  prepareUpload: prepareUpload,
-  pressKey,
-  getValidatedElementFromPoint: pointer.getValidatedElementFromPoint,
-  dragTransition: dragTransition,
-  generateKeyboardEvent: keyboard.generateKeyboardEvent,
-  simulateTabKey: test.simulateTabKey,
-  focus: test.focus,
-
-  keyboardCopyModifier: { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
-  keyboardLinkModifier: { ctrl: true, shift: browser.getPlatform() != 'mac' },
-  keyboardMultiSelectModifier: { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
-  load,
-  wait,
-  waitUIFree: test.waitUIFree,
-  waitForEmails,
-  subtest,
-  invoke,
-  loadPage: load, //DEPRECATED
-  writeLogMarker,
-
-  pasteHTML,
-  wrdAuthLogout,
-  getWin,
-  getWrdLogoutUrl,
-
-  asyncMouseClick,
-  asyncMouseUp,
-  asyncMouseDown,
-  asyncMouseMove,
-
-  startExternalFileDrag: pointer.startExternalFileDrag,
-  getCurrentDragDataStore: pointer.getCurrentDragDataStore,
-  cancelDrag: pointer.cancelDrag,
-
-  getFileFromURL,
-
-  getListViewExpanded,
-  getListViewHeader,
-  getListViewRow,
-  getPxlLog,
-  prepareUploadTest,
-
-  addFrame,
-  updateFrame,
-  removeFrame,
-  selectFrame
 };

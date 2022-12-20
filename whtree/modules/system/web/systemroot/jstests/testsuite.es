@@ -1296,14 +1296,11 @@ class TestFramework
     }
   }
 
-  runTestSteps(steps, setcallbacksfunc, testexports)
+  runTestSteps(steps, setcallbacksfunc)
   {
     if(this.currentsteps)
       return console.error("Multiple teststeps received");
     this.setcallbacksfunc = setcallbacksfunc;
-
-    //for debugging, offer access to 'test' and 'testfw' in the main frame
-    window.test = testexports;
 
     this.currentsteps = steps;
     this.guaranteeTestNames(this.currentsteps);
