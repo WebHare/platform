@@ -16,7 +16,7 @@ PUBLIC INTEGER FUNCTION GetTaskStatusIcon(RECORD task)
   RETURN task.isscheduled ? 7 : task.isrunning ? 6 : task.iscancelled ? 4 : task.lasterrors != "" ? 2 : task.finished != DEFAULT DATETIME ? 3 : 1;
 }
 
-PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
+PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 <
   INTEGER ARRAY runningtasks;
   BOOLEAN queryloopactive;
@@ -28,7 +28,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   PUBLIC MACRO OnMessage(RECORD message)
   {
     IF (CellExists(message, "TASKID") AND message.taskid > 0)
-      this->managedtasks->value := message.taskid;
+      ^managedtasks->value := message.taskid;
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -39,19 +39,19 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   /** @short This monitor has been activated, start refreshing */
   UPDATE PUBLIC MACRO EnableRefresh()
   {
-    this->listener->enabled := TRUE;
+    ^listener->enabled := TRUE;
     this->RunQueryActiveTaskListLoop();
   }
   /** @short This monitor has been deactivated, stop refreshing */
   UPDATE PUBLIC MACRO DisableRefresh()
   {
-    this->listener->enabled := FALSE;
+    ^listener->enabled := FALSE;
   }
 
   ASYNC MACRO RunQueryActiveTaskListLoop()
   {
     // Update list of running task every second while the listener is active, refresh list when it changes
-    IF (this->queryloopactive OR NOT this->listener->enabled)
+    IF (this->queryloopactive OR NOT ^listener->enabled)
       RETURN;
 
     this->queryloopactive := TRUE;
@@ -60,7 +60,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
       OBJECT taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", [ arguments := VARIANT[ -1 ] ]);
       TRY
       {
-        WHILE (this->listener->enabled)
+        WHILE (^listener->enabled)
         {
           RECORD ARRAY runningtasks := AWAIT taskservice->GetRunningTasks();
 
@@ -104,8 +104,8 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
                               , isscheduled := notbefore > now
                               , canreschedule := finished != DEFAULT DATETIME OR nextattempt != DEFAULT DATETIME
                            FROM system.managedtasks
-                          WHERE (this->showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME)
-                            AND (this->showscheduledtasks->value ? TRUE : managedtasks.notbefore < now);
+                          WHERE (^showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME)
+                            AND (^showscheduledtasks->value ? TRUE : managedtasks.notbefore < now);
 
     rows := SELECT *
                  , status := GetTaskStatusIcon(rows)
@@ -115,7 +115,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
     // ADDME: refresh when next scheduled item becomes runnable (refresh won't be triggered
     // when executing a long-running task)
 
-    this->managedtasks->rows := rows;
+    ^managedtasks->rows := rows;
   }
 
   MACRO OnManagedTaskEvent(RECORD ARRAY events)
@@ -134,7 +134,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   MACRO DoView()
   {
-    OBJECT diag := this->LoadScreen(".managedtask", [ id := this->managedtasks->value[0] ]);
+    OBJECT diag := this->LoadScreen(".managedtask", [ id := ^managedtasks->value[0] ]);
     diag->RunModal();
   }
   MACRO DoReschedule()
@@ -147,7 +147,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
     RECORD ARRAY tasks :=
         SELECT id, finished, nextattempt
           FROM system.managedtasks
-         WHERE id IN this->managedtasks->value;
+         WHERE id IN ^managedtasks->value;
 
     INTEGER ARRAY finished_ids := SELECT AS INTEGER ARRAY id FROM tasks WHERE finished != DEFAULT DATETIME;
     INTEGER ARRAY pending_ids := SELECT AS INTEGER ARRAY id FROM tasks WHERE finished = DEFAULT DATETIME AND nextattempt != DEFAULT DATETIME;
@@ -163,7 +163,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
       RETURN;
 
     OBJECT work := this->BeginWork();
-    DeleteManagedTasks(this->managedtasks->value);
+    DeleteManagedTasks(^managedtasks->value);
     work->Finish();
   }
 >;
