@@ -23,10 +23,7 @@ dompack.addDebugFlags(['myflag']);
 ```
 
 ## Allowing to set debugflags on the url (?dompack-debug=flag,flag,flag or #dompak-debug)
-```
-import * as dompack from 'dompack';
-dompack.parseDebugURL('dompack-debug');
-```
+Debugflags from the URL are automatically implemented by @webhare/env
 
 For every flag set using parseDebugURL, a dompack--debug-<flagname> class is
 applied to the `<html>` element
