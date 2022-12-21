@@ -1,4 +1,4 @@
-import * as dompack from 'dompack';
+import * as env from "@webhare/env";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
 let globalseqnr = 1;
@@ -22,8 +22,12 @@ export interface RPCCallOptions {
 }
 
 function getDebugAppend() {
-  const urldebugvar = new URL(window.location.href).searchParams.get("wh-debug");
-  return urldebugvar ? '?wh-debug=' + encodeURIComponent(urldebugvar) : '';
+  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+    const urldebugvar = new URL(window.location.href).searchParams.get("wh-debug");
+    if (urldebugvar)
+      return '?wh-debug=' + encodeURIComponent(urldebugvar);
+  }
+  return '';
 }
 
 type Stack = unknown;
@@ -45,7 +49,6 @@ class ControlledCall {
   constructor(client: RPCClient, method: string, stack: Stack, id: number, options: RPCCallOptions, callurl: string, fetchoptions: RequestInit) {
     this.client = client;
     this.options = options;
-
 
     // if(options.timeout || options.signal) //as long as rpcResolve exists, we'll ALWAYS need to setup a controller
     {
@@ -83,7 +86,7 @@ class ControlledCall {
         response = await fetchpromise;
         if (response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           const retryafter = parseInt(response.headers.get("Retry-After") || "");
-          if (this.options.debug)
+          if (this.client.debug)
             console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
 
           await new Promise(resolve => setTimeout(resolve, retryafter * 1000));
@@ -93,7 +96,7 @@ class ControlledCall {
         break;
       }
     } catch (exception) {
-      if (this.options.debug)
+      if (this.client.debug)
         console.log(`[rpc] #${id} Exception invoking '${method}'`, exception);
 
       if (this.aborted)
@@ -107,10 +110,10 @@ class ControlledCall {
     let jsonresponse;
     try {
       jsonresponse = await response.json();
-      if (this.options.debug)
+      if (this.client.debug)
         console.log(`[rpc] #${id} Received response to '${method}'`, jsonresponse);
     } catch (exception) {
-      if (this.options.debug)
+      if (this.client.debug)
         console.warn(`[rpc] #${id} Response was not valid JSON`, exception);
     }
 
@@ -146,28 +149,27 @@ class RPCClient {
   addfunctionname: boolean;
   urlappend: string;
   options: RPCCallOptions;
+  whservicematch: RegExpMatchArray | null;
 
   constructor(url: string, options?: RPCCallOptions) {
     this.options = {
       timeout: 0,
-      debug: dompack.debugflags.rpc,
+      debug: false,
       ...options
     };
 
-    let whservicematch;
-    if (url) {
-      whservicematch = url.match(/^([a-z0-9_]+):([a-z0-9_]+)$/);
-      if (whservicematch)
-        this.url = `${location.origin}/wh_services/${whservicematch[1]}/${whservicematch[2]}`;
-      else
-        this.url = url;
-    } else {
-      this.url = location.href;  //invoke ourselves directly if no path specified
-    }
+    if (!url)
+      throw new Error(`You must specify either a WebHare service name or a full URL`);
 
+    this.url = url;
+    this.whservicematch = this.url.match(/^([a-z0-9_]+):([a-z0-9_]+)$/);
     //if shorthand syntax is used, we know we're talking to our local webhare. add function names and the profiling flag if needed
-    this.addfunctionname = this.options.addfunctionname !== undefined ? this.options.addfunctionname : Boolean(whservicematch);
-    this.urlappend = this.options.urlappend !== undefined ? this.options.urlappend : whservicematch ? getDebugAppend() : "";
+    this.addfunctionname = this.options.addfunctionname !== undefined ? this.options.addfunctionname : Boolean(this.whservicematch);
+    this.urlappend = this.options.urlappend !== undefined ? this.options.urlappend : this.whservicematch ? getDebugAppend() : "";
+  }
+
+  get debug() {
+    return this.options.debug || env.flags.rpc;
   }
 
   setOptions(options: RPCCallOptions) {
@@ -193,9 +195,17 @@ class RPCClient {
     console.groupEnd();
   }
 
+  //calculate the final URL. delayed here so services can be created on import (getDefaultRPCBase may require waiting for service.ready)
+  private getURL() {
+    if (this.whservicematch)
+      return `${env.getDefaultRPCBase()}wh_services/${this.whservicematch[1]}/${this.whservicematch[2]}`;
+    else
+      return this.url;
+  }
+
   invoke(method: string, params: unknown[]) {
     //build the URL, add profiling and function parameters where needed
-    let callurl = this.url;
+    let callurl = this.getURL();
     if (this.addfunctionname) //simplifies log analysis, ignored by the server
       callurl += `/${method}`;
     callurl += this.urlappend;
@@ -203,7 +213,7 @@ class RPCClient {
     const id = ++globalseqnr;
     let stack;
 
-    if (this.options.debug) {
+    if (this.debug) {
       stack = new Error().stack;
       console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
     }

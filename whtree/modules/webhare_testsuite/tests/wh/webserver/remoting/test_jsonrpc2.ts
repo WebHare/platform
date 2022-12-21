@@ -1,6 +1,7 @@
 import * as test from '@webhare/test';
 import * as services from '@webhare/services';
 import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
+import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 
 async function testRPCCaller() {
   await services.ready();
@@ -29,4 +30,13 @@ async function testRPCCaller() {
   test.eq({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(callres.body));
 }
 
-test.run([testRPCCaller]);
+async function testTypedClient() {
+  await services.ready();
+  test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
+  test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
+}
+
+test.run([
+  testRPCCaller,
+  testTypedClient
+]);
