@@ -680,7 +680,7 @@
           <text tid="creationdate">Ingepland op</text>
           <text tid="flush">Alles nu opnieuw proberen</text>
           <text tid="nextattempt">Volgende poging</text>
-          <text tid="notaskmask">Voer een takmasker in of '*' voor alle taken</text>
+          <text tid="notaskmask">Voer een taakmasker in of '*' voor alle taken</text>
           <text tid="notaskmatching">Geen taken die corresponderen met masker '<param p="1"/>'</text>
           <text tid="reschedule">Dupliceer en plan taak opnieuw in</text>
           <text tid="showcompletedtasks">Toon voltooide taken</text>
