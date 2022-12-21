@@ -37,7 +37,7 @@ test.registerTests(
       await test.pressKey('Tab');
 
       let emailgroup = test.qS('#coretest-email').closest('.wh-form__fieldgroup');
-      test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to be in error mode now");
+      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to be in error mode now");
       test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
 
       await new Promise(resolve => setTimeout(resolve,50)); //small delay to make sure no odd event handlers/focus change is iinterecept us
@@ -51,12 +51,12 @@ test.registerTests(
       test.fill('#coretest-email', 'advocado@beta.webhare.net');
       await test.wait('ui');
       test.eq('', emailgroup.querySelector('.wh-form__error').textContent);
-      test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
       //but now we should again warn immediately about errors
       await test.pressKey('@');
       test.eq('Dit is geen geldig e-mailadres.', emailgroup.querySelector('.wh-form__error').textContent);
-      test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'));
     }
 
   , 'Test required/focus behavior of additional fields inside radio groups'
@@ -64,13 +64,13 @@ test.registerTests(
     {
       test.click("#coretest-radiotest-5");
       test.click("#coretest-opt5_textedit");
-      test.false(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
-      test.false(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
+      test.assert(!test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
+      test.assert(!test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
       test.click("#coretest-number"); //focus something else
       //now we should see the error classes appear!
       await test.wait('ui');
-      test.true(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
-      test.true(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"));
+      test.assert(test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
+      test.assert(test.qS("#coretest-opt5_textedit").closest(".wh-form__fieldgroup").matches(".wh-form__fieldgroup--error"));
     }
 
   , 'Test number field'
@@ -110,10 +110,10 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
 
-      test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
       test.click('#coretest-showradioy'); //hid e Y
 
-      test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
       test.click('#coretest-showradioy'); //show Y
 
       setRequiredFields(); //sets all fields (note: selects X)
@@ -149,7 +149,7 @@ test.registerTests(
       test.eq("client", formevents[1].data.ds_formmeta_errorsource);
 
       let checkboxgroup = test.qS('#coretest-checkboxes-2').closest('.wh-form__fieldgroup');
-      test.true(test.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
+      test.assert(test.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
       test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
       test.click('#coretest-checkboxes-3'); //deselecting #3
@@ -167,19 +167,19 @@ test.registerTests(
       test.eq('Kies minimaal 1 item.', checkboxgroup.querySelector('.wh-form__error').textContent);
       let result = await formhandler.validate(checkboxgroup);
       test.eq(checkboxgroup, result.firstfailed);
-      test.true(result.failed.length==1);
+      test.assert(result.failed.length==1);
 
       delete checkboxgroup.dataset.whMin; // Removing required number of selected checkboxes
       result = await formhandler.validate(checkboxgroup);
       test.eq(null, result.firstfailed);
-      test.true(result.failed.length==0);
+      test.assert(result.failed.length==0);
 
       test.click('#coretest-checkboxesvisible');
       test.qS('#coreformsubmitresponse').textContent='';
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
 
-      test.true(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
+      test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
 
       formevents = test.getPxlLog(/^publisher:form.*$/);
       test.eq(3, formevents.length, "Should be three PXL events now - one for start, one for failure and one for submission");
@@ -198,7 +198,7 @@ test.registerTests(
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
 
-      test.true(test.qS('[data-wh-form-group-for="textarea"]').classList.contains("wh-form__fieldgroup--error"), "should have failed serverside");
+      test.assert(test.qS('[data-wh-form-group-for="textarea"]').classList.contains("wh-form__fieldgroup--error"), "should have failed serverside");
     }
 
   ,'Test server side errors'
@@ -220,31 +220,31 @@ test.registerTests(
                       + `  Add the URL ${test.getWin().location.origin}/webhare-testsuite.site/* to the "Never Do Anything" list\n\n`);
         throw new Error("YOUR PASSWORD MANAGER CHANGED THE PASSWORD! disable it!");
       }
-      test.true(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
       await test.pressKey('Tab');
-      test.true(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"), "should still have error state after tab");
+      test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"), "should still have error state after tab");
       await test.pressKey('Tab', { shiftKey: true });
       test.qS("#coretest-number").focus();
-      test.true(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"), "should still have error state after focus");
+      test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"), "should still have error state after focus");
 
       //change it, immediately clears the error
       test.fill("#coretest-password", "secret!");
-      test.false(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
 
       //submit that, fails again
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.true(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
 
       //now set a _different_ field to allow the password
       test.qS("#coretest-number").focus();
       test.fill("#coretest-number", "-2");
 
       //stil in error, but should go OUT of error after submission
-      test.true(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.false(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
     }
 
   , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
@@ -260,50 +260,50 @@ test.registerTests(
         result = await formhandler.validate([]); //empty set
 
         let emailgroup = test.qS('#coretest-email').closest('.wh-form__fieldgroup');
-        test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+        test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
         //if we set an error before we start validating...
         formhandler.setFieldError(test.qS('#coretest-email'), 'bad email field');
         //...don't show it. this is more consistent with html5 rendering
-        test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
-        test.false(emailgroup.querySelector('.wh-form__error'));
+        test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
+        test.assert(!emailgroup.querySelector('.wh-form__error'));
 
         //but if we force show it...
         formhandler.setFieldError(test.qS('#coretest-email'), 'really bad email field', { reportimmediately: true });
-        test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'));
         test.eq('really bad email field', emailgroup.querySelector('.wh-form__error').textContent);
 
         //and we can hide it
         formhandler.setFieldError(test.qS('#coretest-email'), '');
-        test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+        test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
         test.eq('', emailgroup.querySelector('.wh-form__error').textContent);
 
         result = await formhandler.validate(emailgroup);
         test.eq(test.qS('#coretest-email'), result.firstfailed);
-        test.true(result.failed.length==1);
-        test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error');
+        test.assert(result.failed.length==1);
+        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error');
         test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
 
         //test HTML5 custom validation
         result = await formhandler.validate(test.qS('#coretest-setvalidator'));
-        test.false(result.valid, 'setvalidator should be seen as invalid');
+        test.assert(!result.valid, 'setvalidator should be seen as invalid');
         test.eq(test.qS('#coretest-setvalidator'), result.firstfailed);
-        test.true(result.failed.length==1);
+        test.assert(result.failed.length==1);
 
         //test custom errors
         test.qS('#coretest-email').value='klaas@example.org';
         result = await formhandler.validate(emailgroup);
-        test.true(result.valid);
-        test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should not be marked as error');
+        test.assert(result.valid);
+        test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should not be marked as error');
 
         formhandler.setFieldError(test.qS('#coretest-email'), 'bad email field', { reportimmediately: true });
-        test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error after explicit setFieldError');
+        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error after explicit setFieldError');
 
         result = await formhandler.validate(emailgroup);
-        test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'revalidation may not clear explicit errors, as they have no callback to restore erros');
+        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'),'revalidation may not clear explicit errors, as they have no callback to restore erros');
 
         formhandler.setFieldError(test.qS('#coretest-email'), null);
-        test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be unmarked as error');
+        test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be unmarked as error');
         test.qS('#coretest-email').value='';
 
         // Test disabling by condition clearing validation errors
@@ -311,10 +311,10 @@ test.registerTests(
         test.click(test.qS('#coretest-condition_not_required'));
         test.click(test.qS('#coretest-condition_not_enabled'));
         await test.wait('ui');
-        test.true(test.qS('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
+        test.assert(test.qS('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
         test.fill("#coretest-condition_not", false);
         await test.wait('ui');
-        test.false(test.qS('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
+        test.assert(!test.qS('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
       }
     }
 
@@ -325,15 +325,15 @@ test.registerTests(
     , test: function (doc,win)
       {
         win.scrollTo(0,doc.documentElement.scrollHeight - win.innerHeight);
-        test.false(test.canClick(test.qS('#coretest-email')), '#coretest-email should be out of sight');
+        test.assert(!test.canClick(test.qS('#coretest-email')), '#coretest-email should be out of sight');
         test.click(test.qS('.validatebutton'));
       }
     , waits: ['ui']
     }
   , { test: function (doc,win)
       {
-        test.true(test.canClick(test.qS('#coretest-email')), '#coretest-email should be back in of sight');
-        test.true(test.hasFocus(test.qS('#coretest-email')),'#coretest-email should have focus');
+        test.assert(test.canClick(test.qS('#coretest-email')), '#coretest-email should be back in of sight');
+        test.assert(test.hasFocus(test.qS('#coretest-email')),'#coretest-email should have focus');
       }
     }
 
@@ -344,13 +344,13 @@ test.registerTests(
   , async function (doc,win)
     {
       let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
-      test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
 
-      test.true(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
+      test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
       //make sure parlsey isn't causing injection errors
       test.eq("R<a>am", setvalidatorgroup.querySelector('.wh-form__error').textContent);
     }
@@ -362,13 +362,13 @@ test.registerTests(
   , async function (doc,win)
     {
       let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
-      test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
       test.click(test.qS('.validatebutton'));
       await test.wait('ui');
 
-      test.true(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
+      test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
     }
 
   , { name: 'Test rich validation errors'
@@ -378,14 +378,14 @@ test.registerTests(
   , async function (doc,win)
     {
       let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
-      test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
       test.fill(test.qS('#coretest-setvalidator'),'richerror');
       test.click(test.qS('.validatebutton'));
       await test.wait('ui');
 
-      test.true(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
+      test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
       test.eq("Rich Error", setvalidatorgroup.querySelector('.wh-form__error').textContent);
       test.eq("Rich Error", setvalidatorgroup.querySelector('.wh-form__error a').textContent);
     }
@@ -397,11 +397,11 @@ test.registerTests(
     {
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.true(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'));
+      test.assert(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'));
       test.click(test.qS('#coretest-requiredradio-y'));
       await test.wait('ui');
 
-      test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'), "Error should be cleared immediately");
+      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'), "Error should be cleared immediately");
     }
 
     //load the page without initial checkboxes selected
@@ -409,10 +409,10 @@ test.registerTests(
 
   , async function()
     {
-      test.false(test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.true(test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
     }
 
   , 'Test async validation with SetupValidator'

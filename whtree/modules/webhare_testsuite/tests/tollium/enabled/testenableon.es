@@ -12,7 +12,7 @@ test.registerTests(
         // The action should be disabled initially, because there is no selection yet
         var button_node = test.compByName('subwindowbutton');
         var button_comp = button_node.propTodd;
-        test.false(button_comp.getEnabled());
+        test.assert(!button_comp.getEnabled());
 
         // Select the list item
         var list_node = test.compByName('subwindowlist');
@@ -28,7 +28,7 @@ test.registerTests(
         // The action should be enabled now
         var button_node = test.compByName('subwindowbutton');
         var button_comp = button_node.propTodd;
-        test.true(button_comp.getEnabled());
+        test.assert(button_comp.getEnabled());
 
         // Click the button to open the window
         test.click(button_node);
@@ -52,7 +52,7 @@ test.registerTests(
         // The action should still be enabled
         var button_node = test.compByName('subwindowbutton');
         var button_comp = button_node.propTodd;
-        test.true(button_comp.getEnabled());
+        test.assert(button_comp.getEnabled());
 
         // Click the button to open the window
         test.click(button_node);
@@ -86,7 +86,7 @@ test.registerTests(
         // The action should still be enabled
         var button_node = test.compByName('subwindowbutton');
         var button_comp = button_node.propTodd;
-        test.true(button_comp.getEnabled());
+        test.assert(button_comp.getEnabled());
       }
     }
 

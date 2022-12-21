@@ -17,8 +17,8 @@ test.registerTests(
   , { name:"login"
     , test:function(doc,win)
       {
-        test.false(test.qS('#isloggedin').checked);
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.eq('', test.qS('#js_fullname').value);
         test.fill(test.qS('#login'), 'pietjefrontend@beta.webhare.net');
         test.click(test.qS('#loginbutton'));
@@ -28,8 +28,8 @@ test.registerTests(
   , { test:function(doc,win)
       {
         test.eq('login failed', test.qS('#status').textContent);
-        test.false(test.qS('#isloggedin').checked);
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.fill(test.qS('#password'), 'fout');
         test.click(test.qS('#loginbutton'));
       }
@@ -38,8 +38,8 @@ test.registerTests(
   , { test:function(doc,win)
       {
         test.eq('login failed', test.qS('#status').textContent);
-        test.false(test.qS('#isloggedin').checked);
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.fill(test.qS('#password'), 'secret');
         test.click(test.qS('#loginbutton'));
       }
@@ -47,8 +47,8 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true(test.qS('#isloggedin').checked);
-        test.true(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
+        test.assert(test.qS('#isloggedin').checked);
+        test.assert(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     }
@@ -59,8 +59,8 @@ test.registerTests(
       let cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
       let cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')[1];
 
-      test.true(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
-      test.true(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
+      test.assert(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
+      test.assert(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
 
       //kill cookie_c
       test.getDoc().cookie = wrdconfig.cookiename + "_c" + "=---;path=/";
@@ -73,16 +73,16 @@ test.registerTests(
       await test.wait( () => test.qS('#isloggedin'));
 
       //verify session restoration
-      test.true(test.qS('#isloggedin').checked);
-      test.true(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
+      test.assert(test.qS('#isloggedin').checked);
+      test.assert(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
       test.eq('Pietje Tester', test.qS('#js_fullname').value);
 
       //verify the cookies look sane. if not, we may have misunderstood it (TODO check that session id didn't even change, then cross-server login session sharing is more viable?)
       cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
       cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')[1];
 
-      test.true(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
-      test.true(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
+      test.assert(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
+      test.assert(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
     }
   , { name:"Set new user details"
     , test:function(doc,win)
@@ -96,7 +96,7 @@ test.registerTests(
   , { name:"verify userdetails"
     , test:function(doc,win)
       {
-        test.true(test.qS('#isloggedin').checked);
+        test.assert(test.qS('#isloggedin').checked);
         test.eq('Klaas Testertje', test.qS('#js_fullname').value);
       }
     }
@@ -104,8 +104,8 @@ test.registerTests(
   , { test:function(doc,win)
       {
         //resetting the WRD schema immediately clears all state
-        test.false(test.qS('#isloggedin').checked);
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.eq('', test.qS('#js_fullname').value);
       }
     }
@@ -127,8 +127,8 @@ test.registerTests(
   , { name: "reset password proper mail"
     , test:function(doc,win)
       {
-        test.false(test.qS('#isloggedin').checked);
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.fill(test.qS('#resetlogin'), 'pietjefrontend@beta.webhare.net');
         test.click(test.qS('#passwordresetbutton'));
       }
@@ -145,8 +145,8 @@ test.registerTests(
   , { name:"verify autologin after setting new password"
     , test:function(doc,win)
       {
-        test.true(test.qS('#isloggedin').checked);
-        test.true(test.qS('#js_isloggedin').checked, 'not loggedin in JS. redirection loop?');
+        test.assert(test.qS('#isloggedin').checked);
+        test.assert(test.qS('#js_isloggedin').checked, 'not loggedin in JS. redirection loop?');
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     }
@@ -160,7 +160,7 @@ test.registerTests(
   , { name:"verify static"
     , test:function(doc,win)
       {
-        test.true(test.qS('#js_isloggedin').checked, "Expected to be still logged in");
+        test.assert(test.qS('#js_isloggedin').checked, "Expected to be still logged in");
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
         test.click(test.qSA('button').filter(button=>button.textContent=='JS Logout')[0]);
       }
@@ -169,7 +169,7 @@ test.registerTests(
   , { name:"verify static logout and relogin"
     , test:function(doc,win)
       {
-        test.false(test.qS('#js_isloggedin').checked);
+        test.assert(!test.qS('#js_isloggedin').checked);
         test.eq('', test.qS('#js_fullname').value);
 
         test.fill(test.qS('#login'), 'pietjefrontend@beta.webhare.net');
@@ -180,7 +180,7 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true(test.qS('#js_isloggedin').checked);
+        test.assert(test.qS('#js_isloggedin').checked);
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     }

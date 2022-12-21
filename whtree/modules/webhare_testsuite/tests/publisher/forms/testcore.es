@@ -27,7 +27,7 @@ test.registerTests(
         test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");
 
         let form = test.qS("#coreform");
-        test.true(form.action.startsWith("javascript:"), "Action should be JavaScript");
+        test.assert(form.action.startsWith("javascript:"), "Action should be JavaScript");
 
         let richtext_h2 = test.qS(".wh-form__fields .wh-form__richtext h2");
         let richtext_p = test.qS(".wh-form__fields .wh-form__richtext p");
@@ -77,31 +77,31 @@ test.registerTests(
         test.eq("before &lt;richtext&gt; inhoud <i>vanuit</i> tid after", richtext_h2.innerHTML);
         test.eq("Dynamic richtext", richtext_p.innerHTML);
         test.eq(field_matchattributes_type2_false.closest(".wh-form__fieldgroup"), richtext_h2.closest(".wh-form__fieldgroup").previousSibling);
-        test.true(label_namelijk, 'missing label namelijk - forms did not render extra field?');
+        test.assert(label_namelijk, 'missing label namelijk - forms did not render extra field?');
         test.eq("<u>name</u>lijk", label_namelijk.innerHTML);
         test.eq(1, field_namelijk.length, 'namelijk must appear exactly once');
-        test.true(field_namelijk[0], 'missing field namelijk - forms did not render extra field?');
-        test.true(label_option3, 'missing option3 - forms did not update?');
-        test.false(label_option3.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 3 shouldn't be marked as having a subfield");
-        test.true(label_option1.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 1 should be marked as having a subfield");
-        test.true(label_option5.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 5 should be marked as having a subfield");
+        test.assert(field_namelijk[0], 'missing field namelijk - forms did not render extra field?');
+        test.assert(label_option3, 'missing option3 - forms did not update?');
+        test.assert(!label_option3.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 3 shouldn't be marked as having a subfield");
+        test.assert(label_option1.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 1 should be marked as having a subfield");
+        test.assert(label_option5.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 5 should be marked as having a subfield");
         //test.eq(1, field_opt5.minLength); //TODO: minlength is never actually used?
         test.eq(123, field_opt5.maxLength);
 
-        test.true(field_radioboolean_dare, 'missing field radioboolean_dare');
-        test.true(field_pulldowntest, 'missing field pulldown');
+        test.assert(field_radioboolean_dare, 'missing field radioboolean_dare');
+        test.assert(field_pulldowntest, 'missing field pulldown');
         test.eq('Maak een selectie', field_pulldowntest.querySelector("option").textContent);
-        test.true(field_text.disabled);
-        test.true(field_radio1.required, 'radio1 must be required!');
-        test.true(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--required"));
-        test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"), "Should NOT be initially validated");
-        test.true(label_requiredradio, 'need to find requiredradio');
+        test.assert(field_text.disabled);
+        test.assert(field_radio1.required, 'radio1 must be required!');
+        test.assert(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--required"));
+        test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"), "Should NOT be initially validated");
+        test.assert(label_requiredradio, 'need to find requiredradio');
         let twcustomselectgroup = label_twcustomselect.closest('.wh-form__fieldgroup');
-        test.true(twcustomselectgroup.classList.contains("wh-testsuite-twolevel-groupclasses"));
-        test.true(twcustomselectgroup.classList.contains("wh-testsuite-customselect-groupclasses"));
+        test.assert(twcustomselectgroup.classList.contains("wh-testsuite-twolevel-groupclasses"));
+        test.assert(twcustomselectgroup.classList.contains("wh-testsuite-customselect-groupclasses"));
         test.eq('TW Customselect', label_twcustomselect.textContent);
         test.eq('with the terms.', label_terms.textContent);
-        test.true(label_terms.querySelector('a'), 'must have hyperlink in "agree terms" label');
+        test.assert(label_terms.querySelector('a'), 'must have hyperlink in "agree terms" label');
         test.eq('http://www.example.net/terms', label_terms.querySelector('a').href);
         test.eq('Required&;Radio', label_requiredradio.textContent); //should not be decoded
         test.eq('<b>Disabled</b> pulldown', label_disabledpulldown.innerHTML);
@@ -117,68 +117,68 @@ test.registerTests(
         test.eq('21', field_namelijk[0].value);
         test.eq('coretest-radiotestnamelijk', field_namelijk[0].id);
         test.eq('false', field_radioboolean_dare.value);
-        test.true(field_radioboolean_dare.checked);
+        test.assert(field_radioboolean_dare.checked);
         test.eq('radio', field_radioboolean_dare.type);
 
-        test.true(field_pulldowntest.required);
+        test.assert(field_pulldowntest.required);
         test.eq('1764', field_pulldowntest.querySelector('optgroup').dataset.universe);
         test.eq(3, field_pulldowntest.querySelector('optgroup').childNodes.length, 'first optgroup (below 5) should have 3 elements');
         test.eq('test-x', field_pulldowntest.options[1].dataset.x);
         test.eq('{"z":42}', field_pulldowntest.options[1].dataset.y_y);
         test.eq('red', field_pulldown2test.value); //not sure if this is cross browser yet?
-        test.false(field_pulldowntest.options[2].disabled);
+        test.assert(!field_pulldowntest.options[2].disabled);
         test.eq('2', field_pulldowntest.options[2].value);
-        test.true(field_pulldowntest.options[3].disabled);
+        test.assert(field_pulldowntest.options[3].disabled);
         test.eq('', field_pulldowntest.options[3].value); //disabled option lose their values so 'required' works
 
         test.eq("PlaceHolder", test.qS("#coretest-setvalidator").placeholder);
         test.eq("Type a text in this area", test.qS("textarea[name=textarea]").placeholder);
 
-        test.true(field_shadetest.disabled, "shade of green should be disabled initially");
+        test.assert(field_shadetest.disabled, "shade of green should be disabled initially");
         test.fill(field_pulldown2test, "green");
-        test.false(field_shadetest.disabled, "shade of green should be enabled now");
+        test.assert(!field_shadetest.disabled, "shade of green should be enabled now");
         test.fill(field_pulldown2test, "red");
-        test.true(field_shadetest.disabled, "shade of green should be disabled again");
+        test.assert(field_shadetest.disabled, "shade of green should be disabled again");
 
-        test.true(test.qS('[name=shade2]').disabled, 'should be initially disabled, confused JS code broke that');
+        test.assert(test.qS('[name=shade2]').disabled, 'should be initially disabled, confused JS code broke that');
 
         let field_pulldowntest_options = field_pulldowntest.querySelectorAll('option');
-        test.true(field_pulldowntest_options[0].selected);
-        test.true(field_pulldowntest_options[0].disabled);
+        test.assert(field_pulldowntest_options[0].selected);
+        test.assert(field_pulldowntest_options[0].disabled);
         test.eq('', field_pulldowntest_options[0].value);
 
-        test.true(test.qS('#coretest-email').required);
-        test.true(test.qS('#coretest-email').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
-        test.true(test.qS('#coretest-radiotest-3').required);
-        test.true(test.qS('#coretest-radiotest-3').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
+        test.assert(test.qS('#coretest-email').required);
+        test.assert(test.qS('#coretest-email').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
+        test.assert(test.qS('#coretest-radiotest-3').required);
+        test.assert(test.qS('#coretest-radiotest-3').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
 
-        test.true(test.qS("[data-wh-form-group-for=checkboxes]").classList.contains("wh-form__fieldgroup--required"), "checkbox group should be marked as required, as min=1");
+        test.assert(test.qS("[data-wh-form-group-for=checkboxes]").classList.contains("wh-form__fieldgroup--required"), "checkbox group should be marked as required, as min=1");
 
         test.eq('1900-01-01', test.qS('#coretest-dateofbirth').min);
         test.eq(datetime.getISOLocalDate(new Date(Date.now() + 2*86400*1000)), test.qS('#coretest-dateofbirth').value);
         test.eq(datetime.getISOLocalDate(new Date(Date.now() + 5*86400*1000)), test.qS('#coretest-dateofbirth').max);
 
-        test.true(field_dateofbirth.closest('.wh-form__fieldgroup').classList.contains('ut-dateofbirth'));
+        test.assert(field_dateofbirth.closest('.wh-form__fieldgroup').classList.contains('ut-dateofbirth'));
 
         //test group dataset
         test.eq('rabbit', test.qS('#coretest-email').closest('.wh-form__fieldgroup').dataset.bunny);
         test.eq({y:false}, JSON.parse(test.qS('.radioboolean').dataset.x));
 
-        test.true(field_disabledpulldown);
-        test.true(field_disabledpulldown.disabled);
-        test.false(field_disabledpulldown.options[0].disabled);
+        test.assert(field_disabledpulldown);
+        test.assert(field_disabledpulldown.disabled);
+        test.assert(!field_disabledpulldown.options[0].disabled);
         test.eq('touch', field_disabledpulldown.value);
         test.eq("", test.qS('#coreformsubmitresponse').textContent, "expected no submission");
 
-        test.true(field_address_country);
+        test.assert(field_address_country);
         test.eq('', field_address_country.value); // Empty initially
         test.fill(field_address_country, "NL");
         field_address_street.scrollIntoView();
-        test.true(test.canClick(field_address_street), "street should be available");
-        test.false(test.canClick(field_address_province), "province should not be available");
+        test.assert(test.canClick(field_address_street), "street should be available");
+        test.assert(!test.canClick(field_address_province), "province should not be available");
         test.fill(field_address_country, "BE");
-        test.true(test.canClick(field_address_street), "street should still be available");
-        test.true(test.canClick(field_address_province), "province should now be available");
+        test.assert(test.canClick(field_address_street), "street should still be available");
+        test.assert(test.canClick(field_address_province), "province should now be available");
 
         // fill in BE address
         test.fill(field_address_country, "NL");
@@ -188,55 +188,55 @@ test.registerTests(
         test.fill(field_address_city, "Enschede");
 
         test.getWin().scrollTo(0,field_condition_or_1.getBoundingClientRect().top);
-        test.false(test.canClick(field_condition_or_visible), "condition OR textedit initially not visible");
+        test.assert(!test.canClick(field_condition_or_visible), "condition OR textedit initially not visible");
         field_condition_or_1.click();
-        test.true(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of checkbox 1");
+        test.assert(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of checkbox 1");
         field_condition_or_1.click();
-        test.false(test.canClick(field_condition_or_visible), "condition OR textedit not visible again");
+        test.assert(!test.canClick(field_condition_or_visible), "condition OR textedit not visible again");
         field_condition_or_2.click();
-        test.true(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of checkbox 2");
+        test.assert(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of checkbox 2");
         field_condition_or_2.click();
-        test.false(test.canClick(field_condition_or_visible), "condition OR textedit no longer visible");
-        field_condition_or_1.click();
-        field_condition_or_2.click();
-        test.true(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of both checkbox 1 and checkbox 2");
+        test.assert(!test.canClick(field_condition_or_visible), "condition OR textedit no longer visible");
         field_condition_or_1.click();
         field_condition_or_2.click();
-        test.false(test.canClick(field_condition_or_visible), "condition OR textedit finally not visible");
+        test.assert(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of both checkbox 1 and checkbox 2");
+        field_condition_or_1.click();
+        field_condition_or_2.click();
+        test.assert(!test.canClick(field_condition_or_visible), "condition OR textedit finally not visible");
 
-        test.false(test.canClick(field_condition_and_visible), "condition AND textedit initially not visible");
+        test.assert(!test.canClick(field_condition_and_visible), "condition AND textedit initially not visible");
         field_condition_and_1.click();
-        test.false(test.canClick(field_condition_and_visible), "condition AND textedit not visible because of checkbox 2");
+        test.assert(!test.canClick(field_condition_and_visible), "condition AND textedit not visible because of checkbox 2");
         field_condition_and_2.click();
-        test.true(test.canClick(field_condition_and_visible), "condition AND textedit now visible because of both checkbox 1 and checkbox 2");
+        test.assert(test.canClick(field_condition_and_visible), "condition AND textedit now visible because of both checkbox 1 and checkbox 2");
         field_condition_and_1.click();
-        test.false(test.canClick(field_condition_and_visible), "condition AND textedit not visible because of checkbox 1");
+        test.assert(!test.canClick(field_condition_and_visible), "condition AND textedit not visible because of checkbox 1");
         field_condition_and_2.click();
-        test.false(test.canClick(field_condition_and_visible), "condition AND textedit finally not visible");
+        test.assert(!test.canClick(field_condition_and_visible), "condition AND textedit finally not visible");
 
-        test.false(field_condition_not_enabled.required);
-        test.false(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled initially not enabled");
-        test.false(field_condition_not_enabled.required, "condition NOT textedit-enabled initially not required");
-        test.false(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
-        test.false(field_condition_not_required.required, "condition NOT textedit-required initially not required");
-        test.false(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
+        test.assert(!field_condition_not_enabled.required);
+        test.assert(!test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled initially not enabled");
+        test.assert(!field_condition_not_enabled.required, "condition NOT textedit-enabled initially not required");
+        test.assert(!field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
+        test.assert(!field_condition_not_required.required, "condition NOT textedit-required initially not required");
+        test.assert(!field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
         field_condition_not.click();
-        test.true(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled now enabled because of checkbox");
-        test.true(field_condition_not_enabled.required, "condition NOT textedit-enabled now required");
-        test.true(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
-        test.true(field_condition_not_required.required, "condition NOT textedit-required now required");
-        test.true(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
-        test.true(field_condition_not_enabled.required);
+        test.assert(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled now enabled because of checkbox");
+        test.assert(field_condition_not_enabled.required, "condition NOT textedit-enabled now required");
+        test.assert(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
+        test.assert(field_condition_not_required.required, "condition NOT textedit-required now required");
+        test.assert(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
+        test.assert(field_condition_not_enabled.required);
         field_condition_not.click();
-        test.false(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled finally not enabled");
-        test.false(field_condition_not_enabled.required, "condition NOT textedit-enabled no longer required");
-        test.false(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
-        test.false(field_condition_not_required.required, "condition NOT textedit-required no longer required");
-        test.false(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
+        test.assert(!test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled finally not enabled");
+        test.assert(!field_condition_not_enabled.required, "condition NOT textedit-enabled no longer required");
+        test.assert(!field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
+        test.assert(!field_condition_not_required.required, "condition NOT textedit-required no longer required");
+        test.assert(!field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
 
-        test.true(field_matchattributes_type1.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type1"));
-        test.true(field_matchattributes_type2_true.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-true"));
-        test.true(field_matchattributes_type2_false.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-false"));
+        test.assert(field_matchattributes_type1.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type1"));
+        test.assert(field_matchattributes_type2_true.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-true"));
+        test.assert(field_matchattributes_type2_false.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-false"));
 
         let formevents = test.getPxlLog(/^publisher:form.+/);
         test.eq(1, formevents.length, "Should be one PXL event now");
@@ -261,12 +261,12 @@ test.registerTests(
     , test: async function()
       {
         let formhandler = FormBase.getForNode(test.qS('#coreform'));
-        test.true(formhandler, 'no formhandler available');
+        test.assert(formhandler, 'no formhandler available');
 
         //test the form APIs
         let radioopts = formhandler.getOptions('radioboolean');
         test.eq(2, radioopts.length);
-        test.true(radioopts[0].fieldline);
+        test.assert(radioopts[0].fieldline);
         test.eq('coretest-radioboolean-true', radioopts[0].inputnode.id);
 
         let opts = formhandler.getSelectedOptions('radioboolean');
@@ -280,28 +280,28 @@ test.registerTests(
         test.eq('false', formhandler.getValue('radioboolean'));
 
         let radiotestfieldgroup = formhandler.getFieldGroup('radiotest');
-        test.true(radiotestfieldgroup);
-        test.true(radiotestfieldgroup.classList.contains('wh-form__fieldgroup--radiogroup'));
-        test.false(radiotestfieldgroup.classList.contains("wh-form__fieldgroup--horizontal"));
+        test.assert(radiotestfieldgroup);
+        test.assert(radiotestfieldgroup.classList.contains('wh-form__fieldgroup--radiogroup'));
+        test.assert(!radiotestfieldgroup.classList.contains("wh-form__fieldgroup--horizontal"));
         test.eq(0, radiotestfieldgroup.querySelectorAll(".wh-form__optiondata--horizontal").length);
         test.eq(4, radiotestfieldgroup.querySelectorAll(".wh-form__optiondata--vertical").length);
         test.eq(4, radiotestfieldgroup.querySelectorAll(".wh-form__optiondata.wh-form__optiondata--vertical").length);
 
         let emailfieldgroup = formhandler.getFieldGroup('email');
-        test.true(emailfieldgroup);
-        test.true(emailfieldgroup.classList.contains('wh-form__fieldgroup--textedit'));
+        test.assert(emailfieldgroup);
+        test.assert(emailfieldgroup.classList.contains('wh-form__fieldgroup--textedit'));
 
         test.eq(null, formhandler.getFieldGroup('bestaatniet'));
 
         let horizontalgroup = formhandler.getFieldGroup('horizontalradio');
-        test.true(horizontalgroup.classList.contains("wh-form__fieldgroup--horizontal"));
+        test.assert(horizontalgroup.classList.contains("wh-form__fieldgroup--horizontal"));
         test.eq(0, horizontalgroup.querySelectorAll(".wh-form__optiondata--vertical").length);
         test.eq(2, horizontalgroup.querySelectorAll(".wh-form__optiondata--horizontal").length);
         test.eq(2, horizontalgroup.querySelectorAll(".wh-form__optiondata.wh-form__optiondata--horizontal").length);
 
         //test retrieving the api. should not return the unnamed fields
         let result = await formhandler.getFormValue();
-        test.false("" in result);
+        test.assert(!("" in result));
       }
     }
 
@@ -312,11 +312,11 @@ test.registerTests(
         let label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
         let label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
 
-        test.true(label_option1, 'missing option1');
-        test.true(label_namelijk, 'missing namelijk');
+        test.assert(label_option1, 'missing option1');
+        test.assert(label_namelijk, 'missing namelijk');
 
         //'namelijk' should be right of option1
-        test.true(label_option1.getBoundingClientRect().right <= label_namelijk.getBoundingClientRect().left, "'namelijk' should be to the right of 'option1'");
+        test.assert(label_option1.getBoundingClientRect().right <= label_namelijk.getBoundingClientRect().left, "'namelijk' should be to the right of 'option1'");
       }
     }
   , async function()
@@ -325,30 +325,30 @@ test.registerTests(
       let field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
 
       let formnode = test.qS('#coreform');
-      test.false((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
       label_option4.click();
       test.click('#coretest-requiredradio-x');
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
-      test.false((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
       field_pulldowntest.selectedIndex=2;
       test.eq('2', field_pulldowntest.value);
-      test.false((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
       test.fill(test.qS('#coretest-agree'), true);
-      test.false((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
       test.fill(test.qS('#coretest-setvalidator'), 'raam');
-      test.false((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
       test.fill(test.qS('#coretest-setvalidator'), 'roos');
-      test.true((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert((await FormBase.getForNode(formnode).validate()).valid);
 
       test.fill(test.qS('#coretest-dateofbirth'), '2099-01-01');
-      test.false((await FormBase.getForNode(formnode).validate()).valid, 'Date checkValidity failed (perhaps the date validation polyfill broke)');
+      test.assert(!(await FormBase.getForNode(formnode).validate()).valid, 'Date checkValidity failed (perhaps the date validation polyfill broke)');
 
       test.fill(test.qS('#coretest-dateofbirth'), '1979-06-13');
-      test.true((await FormBase.getForNode(formnode).validate()).valid);
+      test.assert((await FormBase.getForNode(formnode).validate()).valid);
       test.fillUpload(test.qS('#coretest-upload'), [{filename: 'test.txt', mimetype: 'application/octet-stream', data:'This is a text file'}]);
 
       let field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
@@ -379,7 +379,7 @@ test.registerTests(
 
         let serverresponse = JSON.parse(test.qS('#coreformsubmitresponse').textContent);
 
-        test.false(serverresponse.form["address.city"]);
+        test.assert(!serverresponse.form["address.city"]);
         test.eq("Enschede", serverresponse.form.address.city);
 
         test.eq(43, serverresponse.ok);
@@ -394,7 +394,7 @@ test.registerTests(
         test.eq(0, serverresponse.form.upload.width);
 
         test.eq(0, serverresponse.form.number);
-        test.false(serverresponse.form.radioboolean);
+        test.assert(!serverresponse.form.radioboolean);
         test.eq('blue', serverresponse.form.pulldown2test);
         test.eq('1979-06-13T00:00:00.000Z', serverresponse.form.dateofbirth);
       }
@@ -404,7 +404,7 @@ test.registerTests(
   , async function()
     {
       let passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
-      test.false(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      test.assert(!passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
       test.eq(null, passwordgroup.querySelector('.wh-form__error') );
 
       test.fill(test.qS('#coretest-password'),' secret');
@@ -414,10 +414,10 @@ test.registerTests(
       test.eq("", test.qS('#coreformsubmitresponse').textContent, "expected no submission");
 
       passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
-      test.true(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      test.assert(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
       let errors = passwordgroup.querySelector('.wh-form__error');
-      test.true(errors);
+      test.assert(errors);
       test.eq("'secret' is a bad password", errors.textContent);
 
       //trigger global error popup
@@ -469,13 +469,13 @@ test.registerTests(
       test.click('#submitbutton');
       await test.wait('ui');
 
-      test.true(test.qS('[data-wh-form-group-for="number"]').classList.contains("wh-form__fieldgroup--error"), "number should be in error");
+      test.assert(test.qS('[data-wh-form-group-for="number"]').classList.contains("wh-form__fieldgroup--error"), "number should be in error");
       test.fill('input[name=number]','0');
       test.fill('input[name=numberemptyvalue]','');
 
       test.click('#submitbutton');
       await test.wait('ui');
-      test.true(test.qS('[data-wh-form-group-for="numberemptyvalue"]').classList.contains("wh-form__fieldgroup--error"), "numberemptyvalue should be in error");
+      test.assert(test.qS('[data-wh-form-group-for="numberemptyvalue"]').classList.contains("wh-form__fieldgroup--error"), "numberemptyvalue should be in error");
 
       test.fill('input[name=numberemptyvalue]','0');
       test.click('#submitbutton');
@@ -505,12 +505,12 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
       test.eq("joop@beta.webhare.net", test.qS('[name=email]').value);
       test.eq("", test.qS('[name=text]').value);
-      test.true(test.qS('[name="radiotest"][value="5"]').checked);
-      test.true(test.qS('[name=opt5_select] [value=BANK2]').selected);
+      test.assert(test.qS('[name="radiotest"][value="5"]').checked);
+      test.assert(test.qS('[name=opt5_select] [value=BANK2]').selected);
       test.eq("opt5", test.qS('[name=opt5_textedit]').value);
-      test.false(test.qS('[name=checkboxes][value="1"]').checked);
-      test.true(test.qS('[name=checkboxes][value="2"]').checked);
-      test.true(test.qS('[name=checkboxes][value="3"]').checked);
+      test.assert(!test.qS('[name=checkboxes][value="1"]').checked);
+      test.assert(test.qS('[name=checkboxes][value="2"]').checked);
+      test.assert(test.qS('[name=checkboxes][value="3"]').checked);
 
       //Fill the remaining required fields so we can submit
       quickFillDefaultRequiredFields();
@@ -526,7 +526,7 @@ test.registerTests(
     {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
       test.qS("#globalform .wh-form__button--previous").scrollIntoView();
-      test.true(test.canClick('#globalform .wh-form__button--previous'), "'previous' button should be available with a backlink");
+      test.assert(test.canClick('#globalform .wh-form__button--previous'), "'previous' button should be available with a backlink");
       test.click('.wh-form__button--previous');
       await test.wait("load");
       test.eq("Welcome to the testsite", test.qS("#content p").textContent);

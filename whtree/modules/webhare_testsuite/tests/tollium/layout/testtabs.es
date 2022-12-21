@@ -22,7 +22,7 @@ test.registerTests(
   , { name: 'launchappholder'
     , test:function(doc,win)
       {
-        test.false(test.canClick(test.compByName('tabs')));
+        test.assert(!test.canClick(test.compByName('tabs')));
         var A01 = test.getMenu(['M01','A01']);
         test.click(A01);
       }
@@ -32,7 +32,7 @@ test.registerTests(
   , { name: 'clicktab'
     , test:function(doc,win)
       {
-        test.true(test.isElementClickable(test.compByName('tabs')));
+        test.assert(test.isElementClickable(test.compByName('tabs')));
 
         //verify the tabs properly all got the same szie (the 400x350 max)
         var tab1 = test.compByName('tab1');
@@ -49,7 +49,7 @@ test.registerTests(
         //verify tab2 is the selected tab
         var activetab = getActiveTab(test.compByName('tabs'));
         var tab2label = getTabSheetLabel(activetab);
-        test.true(tab2label.offsetWidth>=25); //regression: it didn't size
+        test.assert(tab2label.offsetWidth>=25); //regression: it didn't size
         test.eq('Tab 2', tab2label.textContent);
         test.eq('tab2', test.compByName('selectedtab').textContent);
 
@@ -83,13 +83,13 @@ test.registerTests(
         test.eq('Stacked tab 1', getActiveTab(test.compByName('stackedtabs')).querySelector('.label').textContent);
 
         var tabs = getTabs(test.compByName('stackedtabs'));
-        test.true(tabs[0].classList.contains('active'));
-        test.false(tabs[1].classList.contains('active'));
+        test.assert(tabs[0].classList.contains('active'));
+        test.assert(!tabs[1].classList.contains('active'));
         test.click(tabs[1]); //stackedtabs1
 
         tabs = getTabs(test.compByName('stackedtabs'));
-        test.false(tabs[0].classList.contains('active'));
-        test.true(tabs[1].classList.contains('active'));
+        test.assert(!tabs[0].classList.contains('active'));
+        test.assert(tabs[1].classList.contains('active'));
 
         test.fill(test.compByName('texteditstack2').querySelector('input'), 'Test Twee');
       }
@@ -148,8 +148,8 @@ test.registerTests(
     , test:function(doc,win)
       {
         var tabs = getTabs(test.compByName('stackedtabs'));
-        test.false(tabs[0].classList.contains('active'));
-        test.true(tabs[1].classList.contains('active'));
+        test.assert(!tabs[0].classList.contains('active'));
+        test.assert(tabs[1].classList.contains('active'));
       }
     }
 
@@ -159,7 +159,7 @@ test.registerTests(
       {
         var tablabel = test.qSA('*[data-tab$=":untitledtab"]')[0];
         test.click(tablabel, {x:5,y:5});
-        test.true(test.isElementClickable(test.compByName('untitledtabtext')));
+        test.assert(test.isElementClickable(test.compByName('untitledtabtext')));
       }
     }
   , //the menu shouldn't be here yet...
@@ -167,7 +167,7 @@ test.registerTests(
     , test:function(doc,win)
       {
         var tablabel = test.compByName('tabs').querySelector('.nav-tabs');
-        test.false(test.isElementClickable(tablabel));
+        test.assert(!test.isElementClickable(tablabel));
 
         test.click(test.getMenu(['M01','A02']));
       }
@@ -177,10 +177,10 @@ test.registerTests(
   , async function(doc,win)
     {
         var tablabel = test.compByName('tabs').querySelector('.nav-tabs');
-        test.true(test.isElementClickable(tablabel), 'nav pulldown should have appeared');
+        test.assert(test.isElementClickable(tablabel), 'nav pulldown should have appeared');
         test.click(tablabel);
 
-        test.true(test.getOpenMenu());
+        test.assert(test.getOpenMenu());
         var openedmenu = test.getOpenMenu();
 
         test.eq(4, openedmenu.querySelectorAll("li").length); // 4 tabs
@@ -188,14 +188,14 @@ test.registerTests(
         test.eq(Math.ceil(tablabel.getBoundingClientRect().right), Math.ceil(openedmenu.getBoundingClientRect().right), 'we also expect this menu to be right aligned against the nav-tabs button');
 
         var tab3 = test.qSA(openedmenu,'li').filter(li=>li.textContent.includes("long name for tab 3"))[0];
-        test.true(tab3, "No menu item named '... long name for tab 3'");
+        test.assert(tab3, "No menu item named '... long name for tab 3'");
 
         test.click(tab3);
         await test.wait(() => !test.getOpenMenu()); //menu should closed
         await test.wait('ui');
         var tabs = getTabs(test.compByName('tabs'));
-        test.true(tabs[3].classList.contains("active"));
-        test.true(test.isElementClickable(tabs[3]));
+        test.assert(tabs[3].classList.contains("active"));
+        test.assert(test.isElementClickable(tabs[3]));
         test.eq('tab3', test.compByName('selectedtab').textContent);
     }
 

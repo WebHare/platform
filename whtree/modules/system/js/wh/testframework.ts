@@ -13,10 +13,8 @@ import jstestsrpc from '@mod-system/js/internal/jstests.rpc.json';
 
 import * as whtest from '@webhare/test';
 import * as test from 'dompack/testframework';
-import { testDeepEq } from 'dompack/testframework/expect';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
-import * as diff from 'diff';
 import { Annotation } from '@webhare/test/src/checks';
 
 export {
@@ -46,14 +44,10 @@ export {
 } from 'dompack/testframework';
 
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
-let module_exports;
 
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
 whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } })
-
-//if(testfw && testfw.takeconsolelog)
-//  testfw.doConsoleTakeover(window);
 
 let callbacks = null;
 
@@ -63,7 +57,7 @@ function setTestSuiteCallbacks(cb) {
 }
 
 function initialize_tests(steps) {
-  testfw.runTestSteps(steps, setTestSuiteCallbacks, module_exports);
+  testfw.runTestSteps(steps, setTestSuiteCallbacks);
 }
 
 function rewriteNodeAttributes(node) {
@@ -78,14 +72,14 @@ function rewriteNodeAttributes(node) {
 
 function isequal(a, b) {
   try {
-    testDeepEq(a, b, '');
+    test.eq(a, b, '');
     return true;
   } catch (e) {
     return false;
   }
 }
 
-function registerJSTests(steps) {
+export function registerTests(steps) {
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
@@ -111,7 +105,7 @@ function registerJSTests(steps) {
   }
   dompack.onDomReady(() => initialize_tests(finalsteps));
 }
-function getTestArgument(idx) {
+export function getTestArgument(idx) {
   if (idx > testfw.args.length)
     throw new Error("No argument #" + idx);
   return testfw.args[idx];
@@ -122,45 +116,8 @@ function logExplanation(explanation) {
   console.error(explanation);
   testfw.log("* " + explanation + "\n");
 }
-function testEq(expected, actual, explanation) {
-  if (arguments.length < 2)
-    throw new Error("Missing argument to test.eq");
 
-  if (isequal(expected, actual))
-    return;
-
-  let expected_str = expected;
-  let actual_str = actual;
-
-  try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
-  try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
-
-  if (explanation)
-    logExplanation(explanation);
-
-  console.log("testEq fails: expected", expected_str);
-  testfw.log("testEq fails: expected " + (typeof expected_str == "string" ? "'" + expected_str + "'" : expected_str));
-
-  console.log("testEq fails: actual  ", actual_str);
-  testfw.log("testEq fails: actual " + (typeof actual_str == "string" ? "'" + actual_str + "'" : actual_str));
-
-  if (typeof expected == "string" && typeof actual == "string") {
-    testfw.log("E: " + encodeURIComponent(expected));
-    testfw.log("A: " + encodeURIComponent(actual));
-
-    let str = "diff: ";
-    let colors = [];
-    for (const change of diff.diffChars(actual, expected)) {
-      str += `%c${change.value}`;
-      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
-    }
-    console.log(str, ...colors);
-  }
-
-  testDeepEq(expected, actual, '');
-}
-
-function testEqHTML(expected, actual, explanation) {
+export function eqHTML(expected, actual, explanation) {
   var fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again
@@ -191,10 +148,10 @@ function testEqHTML(expected, actual, explanation) {
     rewriteNodeAttributes(list[i]);
   actual = fixer.innerHTML;
 
-  testEq(expected, actual, explanation);
+  test.eq(expected, actual, explanation);
 }
 
-function testEqIn(expected_in, actual, explanation) {
+export function eqIn(expected_in, actual, explanation) {
   for (var i = 0; i < expected_in.length; ++i)
     if (isequal(expected_in[i], actual))
       return;
@@ -214,7 +171,7 @@ function testEqIn(expected_in, actual, explanation) {
   throw new Error("testEqIn failed");
 }
 
-function testEqFloat(expected, actual, delta, explanation) {
+export function eqFloat(expected, actual, delta, explanation) {
   if (Math.abs(expected - actual) <= delta)
     return;
 
@@ -238,22 +195,17 @@ function testEqFloat(expected, actual, delta, explanation) {
     testfw.log("A: " + encodeURIComponent(actual));
   }
 
-  testDeepEq(expected, actual, '');
+  test.eq(expected, actual);
 }
 
 function testTrue(actual, explanation) {
-  testEq(true, Boolean(actual), explanation);
+  test.eq(true, Boolean(actual), explanation);
 }
 
 function testFalse(actual, explanation) {
-  testEq(false, Boolean(actual), explanation);
+  test.eq(false, Boolean(actual), explanation);
 }
 
-
-function fail(reason) {
-  logExplanation(reason);
-  throw new Error("Test failed: " + reason);
-}
 
 export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
 export async function throws(func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error>;
@@ -267,7 +219,7 @@ export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2
   return exc;
 }
 
-function findElementWithText(doc, tagname, text) {
+export function findElementWithText(doc, tagname, text) {
   var els = (doc || getDoc()).querySelectorAll(tagname);
   for (var i = 0; i < els.length; ++i)
     if (els[i].textContent == text)
@@ -275,41 +227,12 @@ function findElementWithText(doc, tagname, text) {
   return null;
 }
 
-var mousestate = {
-  cx: 0,
-  cy: 0,
-  downel: null,
-  downelrect: null,
-  downbuttons: [],
-  samplefreq: 50,
-  gesturequeue: [],
-  gesturetimeout: null,
-  waitcallbacks: [],
-  lastoverel: null,
-  cursorel: null,
-  lastdoc: null,
-  lastwin: null,
-  previousclickel: null,
-  previousclicktime: null,
-  previousclickpos: null,
-  dndcandidate: null,
-  dndstate: null
-};
-
-
-window.__waitForGestures = function(callback) {
-  if (mousestate.gesturequeue.length == 0)
-    callback();
-  else
-    mousestate.waitcallbacks.push(callback);
-};
-
 /// Returns a promise for when all gestures have been processed
-function gesturesDone() {
+export function gesturesDone() {
   return new Promise(resolve => window.waitForGestures(resolve));
 }
 
-function dragTransition(pos) {
+export function dragTransition(pos) {
   // Decelerate more than accelerate
   let transition = p => Math.pow(p, 2);
   let easeOut = 1 - transition(1 - pos);
@@ -317,9 +240,7 @@ function dragTransition(pos) {
   return easeOut * easeInOut;
 }
 
-window.generateKeyboardEvent = keyboard.generateKeyboardEvent;
-
-async function pressKey(key, options) {
+export async function pressKey(key, options) {
   if (!testfw.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 
@@ -327,7 +248,7 @@ async function pressKey(key, options) {
 }
 
 //ADDME non-LMB support for the non-haveDevtoolsUplink paths
-async function asyncMouseMove(x, y, options) {
+export async function asyncMouseMove(x, y, options) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y }]);
     return;
@@ -336,21 +257,21 @@ async function asyncMouseMove(x, y, options) {
   y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
   return await testfw.sendDevtoolsRequest({ type: "mouseMove", x, y, options });
 }
-async function asyncMouseDown(type, options) {
+export async function asyncMouseDown(type, options) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), down: 0 }]);
     return;
   }
   return await testfw.sendDevtoolsRequest({ type: "mouseDown", options });
 }
-async function asyncMouseUp(type, options) {
+export async function asyncMouseUp(type, options) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), up: 0 }]);
     return;
   }
   return await testfw.sendDevtoolsRequest({ type: "mouseUp", options });
 }
-async function asyncMouseClick(x, y, options) {
+export async function asyncMouseClick(x, y, options) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y, down: 0 }]);
     await pointer.sendMouseGesture([{ up: 0 }]);
@@ -389,7 +310,7 @@ class FakeUploadSession {
   }
 }
 
-function prepareUploadTest(node, files, donecallback) {
+export function prepareUploadTest(node, files, donecallback) {
   if (window.top.wh_testapi_fakeupload)
     throw new Error("The window already has a pending upload");
 
@@ -397,17 +318,17 @@ function prepareUploadTest(node, files, donecallback) {
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
 }
 
-async function prepareUpload(files) {
+export async function prepareUpload(files) {
   let deferred = dompack.createDeferred();
   var uploadclass = new FakeUploadSession(files, function() { deferred.resolve(); });
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
   await deferred.promise;
 }
 
-function getOpenMenu() {
+export function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
-function getOpenMenuItem(containstext) {
+export function getOpenMenuItem(containstext) {
   let menu = getOpenMenu();
   if (!menu)
     return null;
@@ -416,13 +337,13 @@ function getOpenMenuItem(containstext) {
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0] || null;
 }
-function getWin() {
+export function getWin() {
   return testfw.getFrameRecord().win;
 }
-function getDoc() {
+export function getDoc() {
   return testfw.getFrameRecord().doc;
 }
-function setFormsapiFileElement(el, filedata, filename) {
+export function setFormsapiFileElement(el, filedata, filename) {
   //formsapi permits a hack to allow us to fake submissions to input type=file fields
   //unfortunately we can't change the type of an input element, so we'll have to recreate it
 
@@ -436,12 +357,12 @@ function setFormsapiFileElement(el, filedata, filename) {
   //  $(el).destroy();
 }
 
-function fill(element, newvalue) {
+export function fill(element, newvalue) {
   element = pointer._resolveToSingleElement(element);
   element.focus();
   dompack.changeValue(element, newvalue);
 }
-function fillUpload(element, files) {
+export function fillUpload(element, files) {
   let blobs = files.map(file => {
     if (!file.mimetype)
       throw new Error("Missing mimetype");
@@ -454,26 +375,26 @@ function fillUpload(element, files) {
   });
   Object.defineProperty(element, 'files', { get: function() { return blobs; }, configurable: true });
 }
-function getTestSiteRoot() {
+export function getTestSiteRoot() {
   var topdoc = window.parent.document.documentElement;
   if (!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");
   return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
-function getListViewHeader(text) {
+export function getListViewHeader(text) {
   var headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
   if (headers.length > 1)
     console.error("Multiple header matches for '" + text + "'");
   return headers.length == 1 ? headers[0] : null;
 }
-function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
+export function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
   var rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
   if (rows.length > 1)
     console.error("Multiple row matches for '" + text + "'");
   return rows.length == 1 ? rows[0] : null;
 }
-function getListViewExpanded(row) {
+export function getListViewExpanded(row) {
   if (row.querySelector(".fa-caret-down"))
     return true;
   if (row.querySelector(".fa-caret-right"))
@@ -505,7 +426,7 @@ export function qSA<E extends Element>(node_or_selector: ParentNode | string, se
   return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
 }
 
-async function invoke(libfunc, ...params) {
+export async function invoke(libfunc, ...params) {
   if (!libfunc.includes('#')) {
     libfunc += '#' + params[0];
     params.shift();
@@ -522,18 +443,18 @@ async function invoke(libfunc, ...params) {
 
   return result;
 }
-function getWrdLogoutUrl(returnurl) {
+export function getWrdLogoutUrl(returnurl) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
-function wrdAuthLogout() {
+export function wrdAuthLogout() {
   let redirectto = getWrdLogoutUrl(getWin().location.href);
   window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
 }
-async function writeLogMarker(text) {
+export async function writeLogMarker(text) {
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
-async function wait(waitfor, annotation?) {
+export async function wait(waitfor, annotation?) {
   if (annotation && typeof annotation !== "string")
     throw new Error("wait()ing on multiple things is no longer supported");
 
@@ -543,31 +464,51 @@ async function wait(waitfor, annotation?) {
 // email: The email address to look for
 // options.timeout: The timeout in ms, defaults to 0 (don't wait)
 // options.count: The number of emails to wait for, defaults to 1
-async function waitForEmails(email, options) {
-  return await testfw.waitForEmails(email, options);
+
+interface RetrieveEmailOptions {
+  /** If TRUE, don't remove emails from queue */
+  peekonly?: boolean;
+  /** options.timeout Timeout in milliseconds, max 60000 */
+  timeout?: number;
+  /** options.count Number of mails expected within the timeout. Defaults to 1 */
+  count?: number;
+  /** options.returnallmail Return all mail, not up to 'count'. */
+  returnallmail?: boolean;
+  /** options.scanaheaduntil If set, also look at future tasks until this date */
+  scanaheaduntil?: Date | string;
 }
 
-async function subtest(name) {
+export async function waitForEmails(addressmask: string, options?: RetrieveEmailOptions) {
+  let emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options);
+  for (const email of emails) {
+    email.doc = document.createElement('div');
+    email.doc.style.display = "none";
+    email.doc.innerHTML = email.html;
+  }
+  return emails;
+}
+
+export async function subtest(name) {
   callbacks.subtest(name);
 }
 
-async function addFrame(name, { width }) {
+export async function addFrame(name, { width }) {
   return callbacks.setFrame(name, "add", { width });
 }
 
-async function updateFrame(name, { width }) {
+export async function updateFrame(name, { width }) {
   return callbacks.setFrame(name, "update", { width });
 }
 
-async function removeFrame(name) {
+export async function removeFrame(name) {
   return callbacks.setFrame(name, "delete");
 }
 
-async function selectFrame(name) {
+export async function selectFrame(name) {
   return callbacks.setFrame(name, "select");
 }
 
-async function load(page) {
+export async function load(page) {
   if (typeof page != "string") {
     console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);
@@ -586,7 +527,7 @@ async function load(page) {
   await wait("load");
 }
 
-function pasteHTML(content) {
+export function pasteHTML(content) {
   let target = domfocus.getCurrentlyFocusedElement();
   let htmltext = typeof content == 'string' ? content : content.innerHTML;
 
@@ -613,7 +554,7 @@ function pasteHTML(content) {
   return dodefault;
 }
 
-async function getFileFromURL(url, filename) {
+export async function getFileFromURL(url, filename) {
   const defer = dompack.createDeferred();
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
@@ -644,12 +585,12 @@ function createFileObject(data, name, opts) {
   }
 }
 
-function canFocus(element) {
+export function canFocus(element) {
   element = pointer._resolveToSingleElement(element);
   return domfocus.canFocusTo(element);
 }
 
-function hasFocus(element) {
+export function hasFocus(element) {
   element = pointer._resolveToSingleElement(element);
   return element == domfocus.getActiveElement(element.ownerDocument);
 }
@@ -657,157 +598,22 @@ function hasFocus(element) {
 /** Get pxl log entries
     @param eventtypefilter - Expression to match on event type
     @returns Filtered log entries, or an empty array if the log hasn't started yet*/
-function getPxlLog(eventtypefilter) {
+export function getPxlLog(eventtypefilter) {
   let log = getWin().whPxlLog || [];
   if (eventtypefilter)
     log = log.filter(evt => evt.event.match(eventtypefilter));
   return log;
 }
 
-function getWebhareVersionNumber() {
+export function getWebhareVersionNumber() {
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
 }
 
-const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
-const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' }
-const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
+export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
+export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' }
+export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
 
 export {
-  registerJSTests as registerTests
-  , getTestArgument as getTestArgument
-  , getOpenMenu as getOpenMenu
-  , getOpenMenuItem as getOpenMenuItem
-  , getWin as getWindow
-  , getDoc as getDoc
-  , setFormsapiFileElement as setFormsapiFileElement
-  , fill //note soon in dompack but not fully compatible for some selectors as fill
-  , fillUpload as fillUpload
-  , getTestSiteRoot as getTestSiteRoot
-  , findElementWithText as findElementWithText
-  , getWebhareVersionNumber
-  , testEqFloat as eqFloat
-  , testEqIn as eqIn
-  , testEqHTML as eqHTML
-  , testTrue as true
-  , testFalse as false
-  , canFocus as canFocus
-  , hasFocus as hasFocus
-  , fail as fail
-  , gesturesDone as gesturesDone
-  , prepareUpload as prepareUpload
-  , pressKey
-  , dragTransition as dragTransition
-
-  , keyboardCopyModifier
-  , keyboardLinkModifier
-  , keyboardMultiSelectModifier
-  , load
-  , wait
-  , waitUIFree
-  , waitForEmails
-  , subtest
-  , invoke
-  , load as loadPage //DEPRECATED
-  , writeLogMarker
-
-  , pasteHTML
-  , wrdAuthLogout
-  , getWin
-  , getWrdLogoutUrl
-
-  , asyncMouseClick
-  , asyncMouseUp
-  , asyncMouseDown
-  , asyncMouseMove
-
-  , getFileFromURL
-
-  , getListViewExpanded
-  , getListViewHeader
-  , getListViewRow
-  , getPxlLog
-  , prepareUploadTest
-
-  , addFrame
-  , updateFrame
-  , removeFrame
-  , selectFrame
-};
-
-//Also need to put it in this variable. FIXME Don't do that! but this round we're just focusing on enabling TS definitions...
-module_exports = {
-  registerTests: registerJSTests,
-  getTestArgument: getTestArgument,
-  getOpenMenu: getOpenMenu,
-  getOpenMenuItem: getOpenMenuItem,
-  getWindow: getWin,
-  getDoc: getDoc,
-  isElementClickable: pointer.canClick,
-  canClick: pointer.canClick,
-  click: pointer.click,
-  setFormsapiFileElement: setFormsapiFileElement,
-  fill: fill, //note: soon in dompack but not fully compatible for some selectors
-  fillUpload: fillUpload,
-  getTestSiteRoot: getTestSiteRoot,
-  findElementWithText: findElementWithText,
-  getWebhareVersionNumber,
-  waitForEvent: test.waitForEvent,
-  eq: testEq,
-  eqFloat: testEqFloat,
-  eqIn: testEqIn,
-  eqHTML: testEqHTML,
-  true: testTrue,
-  false: testFalse,
-  throws,
-  canFocus: canFocus,
-  hasFocus: hasFocus,
-  fail: fail,
-  sendMouseGesture: pointer.sendMouseGesture,
-  gesturesDone: gesturesDone,
-  prepareUpload: prepareUpload,
-  pressKey,
-  getValidatedElementFromPoint: pointer.getValidatedElementFromPoint,
-  dragTransition: dragTransition,
-  generateKeyboardEvent: keyboard.generateKeyboardEvent,
-  simulateTabKey: test.simulateTabKey,
-  focus: test.focus,
-
-  keyboardCopyModifier: { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
-  keyboardLinkModifier: { ctrl: true, shift: browser.getPlatform() != 'mac' },
-  keyboardMultiSelectModifier: { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' },
-  load,
-  wait,
-  waitUIFree: test.waitUIFree,
-  waitForEmails,
-  subtest,
-  invoke,
-  loadPage: load, //DEPRECATED
-  writeLogMarker,
-
-  pasteHTML,
-  wrdAuthLogout,
-  getWin,
-  getWrdLogoutUrl,
-
-  asyncMouseClick,
-  asyncMouseUp,
-  asyncMouseDown,
-  asyncMouseMove,
-
-  startExternalFileDrag: pointer.startExternalFileDrag,
-  getCurrentDragDataStore: pointer.getCurrentDragDataStore,
-  cancelDrag: pointer.cancelDrag,
-
-  getFileFromURL,
-
-  getListViewExpanded,
-  getListViewHeader,
-  getListViewRow,
-  getPxlLog,
-  prepareUploadTest,
-
-  addFrame,
-  updateFrame,
-  removeFrame,
-  selectFrame
+  testTrue as true             //deprecated! use test.assert(...) in 5.2+
+  , testFalse as false         //deprecated! use test.assert(!...) in 5.2+
 };

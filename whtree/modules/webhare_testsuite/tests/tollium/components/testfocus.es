@@ -30,7 +30,7 @@ test.registerTests(
   , { name: 'focus1'
     , test: async function()
       {
-        test.true(test.getDoc().hasFocus(), "This test requires the browser to have focus");
+        test.assert(test.getDoc().hasFocus(), "This test requires the browser to have focus");
 
         //ADDME also test the Tollium hasFocus() calls
         test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
@@ -73,7 +73,7 @@ test.registerTests(
   , async function(doc,win)
     {
       test.eq(2, test.qSA('.t-screen').length);
-      test.true(test.getCurrentScreen().getNode().contains(doc.activeElement)); //make sure focus is in the expected window
+      test.assert(test.getCurrentScreen().getNode().contains(doc.activeElement)); //make sure focus is in the expected window
       test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
 
       await test.pressKey('Tab');
@@ -85,7 +85,7 @@ test.registerTests(
       await test.pressKey('Tab', { shiftKey: true });
       await test.pressKey('Tab', { shiftKey: true });
       await test.pressKey('Tab', { shiftKey: true });
-      test.true(domfocus.getCurrentlyFocusedElement().ownerDocument != doc);
+      test.assert(domfocus.getCurrentlyFocusedElement().ownerDocument != doc);
       //and come back!
       await test.pressKey('Tab');
       await test.pressKey('Tab');
@@ -204,7 +204,7 @@ test.registerTests(
     {
       //the RTE should NOT have focus
       test.eq(2, test.qSA('.t-screen').length);
-      test.true(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
+      test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
       test.eqMatch(/:rte$/,getToddFocusedComponent());
       test.getCurrentScreen().clickCloser();
       await test.waitUIFree();
@@ -216,7 +216,7 @@ test.registerTests(
       test.click(test.getMenu(['M01','A05']));
       await test.waitUIFree();
       test.eq(2, test.qSA('.t-screen').length);
-      test.true(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
+      test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
       test.eqMatch(/:rte$/,getToddFocusedComponent());
     }
   ]);

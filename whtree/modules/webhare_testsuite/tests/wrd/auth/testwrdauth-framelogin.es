@@ -10,7 +10,7 @@ async function tryProtectedURL(gotourl)
 
   await test.load(gotourl);
   await test.wait('ui');
-  test.true(test.getCurrentScreen().getToddElement("loginname"), "cannot find login field? did we log out?");
+  test.assert(test.getCurrentScreen().getToddElement("loginname"), "cannot find login field? did we log out?");
 
   // "Login"
   await test.load(webroot + 'portal1/?app=publisher(/WebHare%20testsuite%20site%20-%20alt%20host)');

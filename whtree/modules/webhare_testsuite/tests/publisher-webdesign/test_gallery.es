@@ -16,14 +16,14 @@ test.registerTests(
       test.click(test.qSA('.wh-gallery__image')[1]);
 
       let modalcontainer = test.qS(".wh-gallery-modal");
-      test.true(modalcontainer);
+      test.assert(modalcontainer);
 
       await test.wait( () => test.qSA(".wh-gallery-modal__image--selected").length == 1);
       let currentimage = test.qS(".wh-gallery-modal__image--selected");
-      test.true(test.canClick(currentimage));
+      test.assert(test.canClick(currentimage));
 
-      test.false(modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
-      test.false(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
+      test.assert(!modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
+      test.assert(!modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
       //unfortunately the current positioning method can't actually ensure we round to the proper coordinates due to the padding-top trick
       test.eqFloat(450, currentimage.getBoundingClientRect().width, 0.1);
       test.eqFloat(600, currentimage.getBoundingClientRect().height, 0.1);
@@ -32,15 +32,15 @@ test.registerTests(
 
       await test.wait( () => test.qSA(".wh-gallery-modal__image--selected").length == 1);
       currentimage = test.qS(".wh-gallery-modal__image--selected");
-      test.true(test.canClick(currentimage));
-      test.false(modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
-      test.true(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
+      test.assert(test.canClick(currentimage));
+      test.assert(!modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
+      test.assert(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
       test.eqFloat(428, currentimage.getBoundingClientRect().width, 0.1);
       test.eqFloat(284, currentimage.getBoundingClientRect().height, 0.1);
 
       await test.pressKey('Escape');
       await test.wait( () => !test.qS(".wh-gallery-modal"));
-      test.true(images[2].contains(test.getDoc().activeElement));
+      test.assert(images[2].contains(test.getDoc().activeElement));
 
       test.click(images[2]);
       modalcontainer = await test.wait( () => test.qS(".wh-gallery-modal"));
@@ -52,7 +52,7 @@ test.registerTests(
       currentimage = test.qS(".wh-gallery-modal__image--selected");
       test.eqFloat(600, currentimage.getBoundingClientRect().width, 0.1);
       test.eqFloat(450, currentimage.getBoundingClientRect().height, 0.1);
-      test.true(modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
-      test.false(modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
+      test.assert(modalcontainer.classList.contains("wh-gallery-modal--firstslide"));
+      test.assert(!modalcontainer.classList.contains("wh-gallery-modal--lastslide"));
     }
   ]);

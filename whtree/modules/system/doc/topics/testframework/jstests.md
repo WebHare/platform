@@ -32,14 +32,14 @@ Common test actions:
   test.fill(inputradionode, true);
 
   // Test a value (with optional annotation)
-  test.true(searchbutton, 'Expecting the search button to exist');
+  test.assert(searchbutton, 'Expecting the search button to exist');
   test.eq('ExpectedButtonText', searchbutton.textContent);
 
   // Keyboard: Press 's' key ('ArrowUp' for up, 'Tab' for tab ...)
   await test.pressKey('s');
 
   // Special tests
-  test.true(test.canClick(node)); //can we click on the node? (it's visible, not covered)
+  test.assert(test.canClick(node)); //can we click on the node? (it's visible, not covered)
 
   // Navigate to a page relative to the current siteroot, and wait for it to load
   await test.load(test.getTestSiteRoot() + 'mysubfolder/mysubfile');

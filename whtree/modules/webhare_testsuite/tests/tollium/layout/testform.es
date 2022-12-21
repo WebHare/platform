@@ -29,14 +29,14 @@ test.registerTests(
         var emptytextline = emptytext.parentNode.closest('div');
         var settextline = settext.parentNode.closest('div');
 
-        test.true(emptytext.offsetHeight>=8);
+        test.assert(emptytext.offsetHeight>=8);
 //        console.log("#1", emptytext, settext);
         test.eq(settextline.offsetHeight,emptytextline.offsetHeight); //must have same height
-        test.true(settext.offsetWidth >= settext.scrollWidth, "#settext scrollWidth > offsetWidth - the text is being truncated!");
+        test.assert(settext.offsetWidth >= settext.scrollWidth, "#settext scrollWidth > offsetWidth - the text is being truncated!");
 
         var settextlinelabel = settextline.querySelector('t-text.label');
-        test.true(settextlinelabel.offsetWidth>20); //label should be there
-        test.true(settextlinelabel.offsetHeight>8); //label should be there
+        test.assert(settextlinelabel.offsetWidth>20); //label should be there
+        test.assert(settextlinelabel.offsetHeight>8); //label should be there
 
         //long and nolabel should be aligned
         test.eq(longlabeltext.getBoundingClientRect().left, settext.getBoundingClientRect().left);
@@ -47,7 +47,7 @@ test.registerTests(
         test.eq(longlabeltext.getBoundingClientRect().top + 28, nolabeltext.getBoundingClientRect().top, 'nolabel should be 28px below longlabel');
 
         var longlabellabel = test.qSA("t-text").filter(text=>text.textContent.includes('a longer label'))[0];
-        test.true(longlabellabel.getBoundingClientRect().right <= longlabeltext.getBoundingClientRect().left);
+        test.assert(longlabellabel.getBoundingClientRect().right <= longlabeltext.getBoundingClientRect().left);
 
         //the wrapping/cr versions are exactly twice the text of the nolabeltext, and should in the end have the same sizes (one implicitly through wordwrap)
         //Rob: FireFox makes the multiline text a pixel wider, though
@@ -58,11 +58,11 @@ test.registerTests(
         test.eq(0, (test.compByName('layouttest_splitrow2').getBoundingClientRect().top - test.compByName('snappedpanel').getBoundingClientRect().top) % test.getGridVsize(), 'splitrow2 and nolabeltext_wrapped did not align to the grid');
 
         //no overlapping
-        test.true(nolabeltext_wrapped.getBoundingClientRect().bottom <= nolabeltext_crs.getBoundingClientRect().top, 'nolabeltext_wrapped and nolabeltext_crs overlapped (' + nolabeltext_wrapped.getBoundingClientRect().bottom + "," + nolabeltext_crs.getBoundingClientRect().top + ')');
+        test.assert(nolabeltext_wrapped.getBoundingClientRect().bottom <= nolabeltext_crs.getBoundingClientRect().top, 'nolabeltext_wrapped and nolabeltext_crs overlapped (' + nolabeltext_wrapped.getBoundingClientRect().bottom + "," + nolabeltext_crs.getBoundingClientRect().top + ')');
 
         //no overlapping
         var longest_text = longlabellabel.parentNode.nextSibling.querySelector('t-text');
-        test.true(longest_text.getBoundingClientRect().right <= longlabellabel.parentNode.getBoundingClientRect().right, "text extends out of line, right is " + longest_text.getBoundingClientRect().right + ', max was ' + longlabellabel.parentNode.getBoundingClientRect().right );
+        test.assert(longest_text.getBoundingClientRect().right <= longlabellabel.parentNode.getBoundingClientRect().right, "text extends out of line, right is " + longest_text.getBoundingClientRect().right + ', max was ' + longlabellabel.parentNode.getBoundingClientRect().right );
       }
     }
 
@@ -94,7 +94,7 @@ test.registerTests(
 
         var cells = test.qSA("t-text").filter(text=>text.textContent.includes('cell'));
         test.eq(3, cells.length); //3 cells
-        test.true(cells[0].getBoundingClientRect().right < cells[1].getBoundingClientRect().left, "expected a spacer between the grid cells");
+        test.assert(cells[0].getBoundingClientRect().right < cells[1].getBoundingClientRect().left, "expected a spacer between the grid cells");
 
         test.eq(aligntest.getBoundingClientRect().left, cells[0].getBoundingClientRect().left, "leftmost cell of grid should NOT have a spacer before it and align with the text above (" + aligntest.getBoundingClientRect().left + "," + cells[0].getBoundingClientRect().left + ")");
       }

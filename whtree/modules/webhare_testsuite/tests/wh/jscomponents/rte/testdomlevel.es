@@ -159,8 +159,8 @@ test.registerTests(
           var range = new Range(locators[0], locators[1]);
           range.normalize(rte.getContentBodyNode());
 
-          test.true(range.start.equals(locators[2]));
-          test.true(range.end.equals(locators[3]));
+          test.assert(range.start.equals(locators[2]));
+          test.assert(range.end.equals(locators[3]));
         }
       }
     }
@@ -190,37 +190,37 @@ test.registerTests(
 
         // Test moveToParent
         var loc = locators[1].clone();
-        test.true(loc.moveToParent(false));
-        test.true(loc.equals(locators[0]));
+        test.assert(loc.moveToParent(false));
+        test.assert(loc.equals(locators[0]));
 
         loc = locators[2].clone();
-        test.false(loc.moveToParent(false));
-        test.true(loc.equals(locators[2]));
+        test.assert(!loc.moveToParent(false));
+        test.assert(loc.equals(locators[2]));
 
         loc = locators[3].clone();
-        test.true(loc.moveToParent(false));
-        test.true(loc.equals(locators[4]));
+        test.assert(loc.moveToParent(false));
+        test.assert(loc.equals(locators[4]));
 
         loc = locators[2].clone();
-        test.true(loc.moveToParent(false, true));
-        test.true(loc.equals(locators[0]));
+        test.assert(loc.moveToParent(false, true));
+        test.assert(loc.equals(locators[0]));
 
         loc = locators[2].clone();
-        test.true(loc.moveToParent(true, true));
-        test.true(loc.equals(locators[4]));
+        test.assert(loc.moveToParent(true, true));
+        test.assert(loc.equals(locators[4]));
 
         // Test ascend
-        test.true(locators[0].equals(locators[1].clone().ascend(italicnode)));
-        test.true(locators[2].equals(locators[2].clone().ascend(italicnode)));
-        test.true(locators[4].equals(locators[3].clone().ascend(italicnode)));
+        test.assert(locators[0].equals(locators[1].clone().ascend(italicnode)));
+        test.assert(locators[2].equals(locators[2].clone().ascend(italicnode)));
+        test.assert(locators[4].equals(locators[3].clone().ascend(italicnode)));
 
-        test.true(locators[0].equals(locators[1].clone().ascend(italicnode, false, true)));
-        test.true(locators[0].equals(locators[2].clone().ascend(italicnode, false, true)));
-        test.true(locators[4].equals(locators[3].clone().ascend(italicnode, false, true)));
+        test.assert(locators[0].equals(locators[1].clone().ascend(italicnode, false, true)));
+        test.assert(locators[0].equals(locators[2].clone().ascend(italicnode, false, true)));
+        test.assert(locators[4].equals(locators[3].clone().ascend(italicnode, false, true)));
 
-        test.true(locators[0].equals(locators[1].clone().ascend(italicnode, true, true)));
-        test.true(locators[4].equals(locators[2].clone().ascend(italicnode, true, true)));
-        test.true(locators[4].equals(locators[3].clone().ascend(italicnode, true, true)));
+        test.assert(locators[0].equals(locators[1].clone().ascend(italicnode, true, true)));
+        test.assert(locators[4].equals(locators[2].clone().ascend(italicnode, true, true)));
+        test.assert(locators[4].equals(locators[3].clone().ascend(italicnode, true, true)));
       }
     }
 
@@ -355,7 +355,7 @@ test.registerTests(
             if (last > match)
             {
               console.log('ordering fail', i, richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), { afrom: locators[i - 1], ato: locators[last], bfrom: locators[i], bto: locators[match] }));
-              test.true(false);
+              test.assert(false);
             }
 
             if (start != -1)
@@ -403,8 +403,8 @@ test.registerTests(
           if (leftfail || rightfail)
             console.log('fail', i, leftfail, rightfail, richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), { locator: locators[i], mrange: mrange, gotleft: lcopy, gotright: rcopy, expectleft: lrange, expectright: rrange, tfv: tfv }));
 
-          test.false(leftfail);
-          test.false(rightfail);
+          test.assert(!leftfail);
+          test.assert(!rightfail);
         }
       }
     }
@@ -620,8 +620,8 @@ test.registerTests(
         var res = domlevel.combineNodes(locators[0], locators[2].element, locators, utest.item);
         testEqHTMLEx('<i>(*0*)(*1*)(*2*)"(*3*)a(*4*)"(*5*)<b>(*6*)</b>(*7*)</i>', rte.getContentBodyNode(), locators);
         test.eq(locators[0].element, res.node);
-        test.true(res.locator.equals(locators[0]));
-        test.true(res.afterlocator.equals(locators[5]));
+        test.assert(res.locator.equals(locators[0]));
+        test.assert(res.afterlocator.equals(locators[5]));
         utest.test();
 
         rte.setContentsHTML('<i><b>ab</b></i>');
@@ -631,8 +631,8 @@ test.registerTests(
         res = domlevel.combineNodes(locators[0], locators[1].element, locators, utest.item);
         testEqHTMLEx('<i>(*0*)(*1*)"(*2*)a(*3*)b(*4*)"(*5*)(*6*)</i>', rte.getContentBodyNode(), locators);
         test.eq(locators[0].element, res.node);
-        test.true(res.locator.equals(locators[0]));
-        test.true(res.afterlocator.equals(locators[5]));
+        test.assert(res.locator.equals(locators[0]));
+        test.assert(res.afterlocator.equals(locators[5]));
         utest.test();
 
         rte.setContentsHTML('<i><b>ab</b></i>');

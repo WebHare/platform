@@ -18,18 +18,18 @@ test.registerTests(
       let thankyou = test.qSA('.wh-form__page[data-wh-form-pagerole="thankyou"] .wh-form__fieldgroup[data-wh-form-group-for="thankyou"] .wh-form__richtext');
       test.eq(1, thankyou.length, "Cannot find thankyou node");
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
-      test.false(test.canClick(thankyou[0]), "Thankyou node should not be visible");
-      test.false(thankyou[0].closest('form').dataset.whFormResultguid);
+      test.assert(!test.canClick(thankyou[0]), "Thankyou node should not be visible");
+      test.assert(!thankyou[0].closest('form').dataset.whFormResultguid);
 
       let pulldownoptions = test.qSA('[name=requiredpulldownfield] option');
       test.eq(3, pulldownoptions.length);
-      test.true(pulldownoptions[0].disabled);
+      test.assert(pulldownoptions[0].disabled);
 
       test.qS('[name=requiredpulldownfield]').value = pulldownoptions[1].value;
 
       pulldownoptions = test.qSA('[name=optionalpulldownfield] option');
       test.eq(3, pulldownoptions.length);
-      test.false(pulldownoptions[0].disabled);
+      test.assert(!pulldownoptions[0].disabled);
 
       let email = test.qS('input[type=email]').closest('.wh-form__fieldgroup').querySelector('.wh-form__label');
       test.eq("Email", email.textContent);
@@ -54,10 +54,10 @@ test.registerTests(
       // The thankyou node is now filled
       let thankyou = test.qSA('h1').filter(node => node.textContent=="Thank you!");
       test.eq(1, thankyou.length, "Cannot find thankyou node");
-      test.true(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
-      test.false(test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
+      test.assert(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
+      test.assert(!test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
 
-      test.true(thankyou[0].closest('form').dataset.whFormResultguid);
+      test.assert(thankyou[0].closest('form').dataset.whFormResultguid);
 
       await test.wait( () => Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").length == 1);
       let lastsubmitevent = Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").at(-1);
@@ -100,6 +100,6 @@ test.registerTests(
       result = await test.getWin().formrpc_submitForm(target, { requiredpulldownfield: "yes", nosuchfield: 42 } );
       test.eq(true, result.success);
       test.eq([], result.errors);
-      test.true(result.result.resultsguid.length > 10);
+      test.assert(result.result.resultsguid.length > 10);
     }
   ]);

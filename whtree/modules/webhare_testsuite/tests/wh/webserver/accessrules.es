@@ -111,8 +111,8 @@ test.registerTests(
   , { name: 'protected page location test'
     , test:function(doc,win)
       {
-        test.true(win.location.href.match(/staticprotected/));
-        test.true(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+        test.assert(win.location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
       }
     }
 /*  , { name: 'test variable clear' //the authentication rules have gotten out of the way, so see if URLs are still fixed
@@ -125,8 +125,8 @@ test.registerTests(
   , { name: 'protected page location varclear test'
     , test:function(doc,win)
       {
-        test.true(win.location.href.match(/staticprotected/));
-        test.true(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+        test.assert(win.location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
       }
     }*/
   , { name: "reset my session for staticprotected"
@@ -141,8 +141,8 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true(win.location.href.match(/staticprotected/));
-        test.true(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+        test.assert(win.location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
       }
     }
 
@@ -185,8 +185,8 @@ test.registerTests(
   , { name: 'protected page location test'
     , test:function(doc,win)
       {
-        test.true(win.location.href.match(/staticprotected2/));
-        test.true(/THE PROTECTED CONTENT/.exec(doc.body.textContent));
+        test.assert(win.location.href.match(/staticprotected2/));
+        test.assert(/THE PROTECTED CONTENT/.exec(doc.body.textContent));
       }
     }
 

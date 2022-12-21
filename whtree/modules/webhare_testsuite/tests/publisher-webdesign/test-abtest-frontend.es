@@ -30,10 +30,10 @@ test.registerTests(
       // The thankyou node is now filled
       let thankyou = test.qSA('h1').filter(node => node.textContent=="Thank you!");
       test.eq(1, thankyou.length, "Cannot find thankyou node");
-      test.true(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
-      test.false(test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
+      test.assert(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
+      test.assert(!test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
 
-      test.true(thankyou[0].closest('form').dataset.whFormResultguid);
+      test.assert(thankyou[0].closest('form').dataset.whFormResultguid);
     }
 
   , 'Process mail'

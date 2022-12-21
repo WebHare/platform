@@ -80,7 +80,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         let el = test.getCurrentScreen().getListRow('samlproviders!entities','SP');
-        test.true(el, 'the row with the SP should be in the list');
+        test.assert(el, 'the row with the SP should be in the list');
       }
     }
 
@@ -112,11 +112,11 @@ test.registerTests(
   , { name: "test logged in into portal-sp with idp account"
     , test: function(doc, win)
       {
-        test.true(win.location.href.match(/portal-sp/));
+        test.assert(win.location.href.match(/portal-sp/));
         test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
-        test.true(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
+        test.assert(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
         test.click(test.qS("#dashboard-logout"));
       }
     , waits: [ "ui" ]
@@ -147,11 +147,11 @@ test.registerTests(
   , { name: "test logged in into portal-sp with idp account"
     , test: function(doc, win)
       {
-        test.true(win.location.href.match(/portal-sp/));
+        test.assert(win.location.href.match(/portal-sp/));
         test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
-        test.false(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
+        test.assert(!test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
       }
     }
 
@@ -164,7 +164,7 @@ test.registerTests(
         await test.load(webroot + 'test-saml/portal-idp/?wrdauth_logincontrol=' + encodeURIComponent(logincontrol));
 
         // test redirect worked
-        test.true(/test-saml\/portal-sp/.exec(win.location.href), "Should have redirected to portal-sp site");
+        test.assert(/test-saml\/portal-sp/.exec(win.location.href), "Should have redirected to portal-sp site");
       }
     }
 

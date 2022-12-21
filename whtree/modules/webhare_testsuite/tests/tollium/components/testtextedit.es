@@ -15,7 +15,7 @@ test.registerTests(
       // make sure the subbuttons are visible
       let ttextedit = textedit.closest("t-textedit");
       let tbutton = ttextedit.querySelector("t-button");
-      test.true(tbutton);
+      test.assert(tbutton);
     }
 
   , "Test inline autocorrection" //#522
@@ -57,18 +57,18 @@ test.registerTests(
       test.fill(textedit,"1");
       await test.wait("ui");
       test.focus(textedit);
-      test.true(counter.classList.contains("wh-counter--haveminvalue"));
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--haveminvalue"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
 
       test.fill(textedit,"1234");
       await test.wait("ui");
 
-      test.false(counter.classList.contains("wh-counter--underflow"));
+      test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       // empty is not an error wrd minlength is set but not required
       test.fill(textedit,"");
       await test.wait("ui");
-      test.false(counter.classList.contains("wh-counter--underflow"));
+      test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       test.click(test.compByTitle("Required"));
       await test.wait("events");
@@ -78,7 +78,7 @@ test.registerTests(
       textedit = textedit_comp.querySelector("input");
       counter = textedit_comp.querySelector(".wh-counter");
 
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
       test.eq("0/4+", counter.textContent);
       test.fill(textedit,"123");
       test.eq("3/4+", counter.textContent);
@@ -96,7 +96,7 @@ test.registerTests(
 
       test.fill(textedit,"");
       test.eq("0/4 - 6", counter.textContent);
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
 
       test.fill(test.compByTitle("minlength").querySelector("input"), "-1");
       test.clickTolliumButton("Read"); //force immediate state transfer

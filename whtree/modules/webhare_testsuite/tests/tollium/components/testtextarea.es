@@ -25,10 +25,10 @@ test.registerTests(
       let node = testpanel.querySelector('textarea');
 
       test.click(textedit_selection.querySelector("input"));
-      test.false(alternatedefault.classList.contains("default"));
+      test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(node);
-      test.true(alternatedefault.classList.contains("default"));
+      test.assert(alternatedefault.classList.contains("default"));
     }
 
   , "Test min/max-length, counter" //TODO combine with testtextedit?  almost the same...
@@ -49,18 +49,18 @@ test.registerTests(
       test.fill(textedit,"1");
       await test.wait("ui");
       test.focus(textedit);
-      test.true(counter.classList.contains("wh-counter--haveminvalue"));
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--haveminvalue"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
 
       test.fill(textedit,"1234");
       await test.wait("ui");
 
-      test.false(counter.classList.contains("wh-counter--underflow"));
+      test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       // empty is not an error wrd minlength is set but not required
       test.fill(textedit,"");
       await test.wait("ui");
-      test.false(counter.classList.contains("wh-counter--underflow"));
+      test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       test.click(test.compByTitle("Required"));
       await test.wait("events");
@@ -70,7 +70,7 @@ test.registerTests(
       textedit = textedit_comp.querySelector("textarea");
       counter = textedit_comp.querySelector(".wh-counter");
 
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
       test.eq("0/4+", counter.textContent);
       test.fill(textedit,"123");
       test.eq("3/4+", counter.textContent);
@@ -88,7 +88,7 @@ test.registerTests(
 
       test.fill(textedit,"");
       test.eq("0/4 - 6", counter.textContent);
-      test.true(counter.classList.contains("wh-counter--underflow"));
+      test.assert(counter.classList.contains("wh-counter--underflow"));
 
       test.fill(test.compByTitle("minlength").querySelector("input"), "-1");
       test.clickTolliumButton("Read"); //force immediate state transfer

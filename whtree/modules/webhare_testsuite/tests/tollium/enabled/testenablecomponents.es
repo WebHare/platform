@@ -12,17 +12,17 @@ test.registerTests(
         var box_checkbox_node = test.qSA(".t-checkbox")[1];
         var box_checkbox_comp = box_checkbox_node.propTodd;
 
-        test.false(box_checkbox_comp.getEnabled());
+        test.assert(!box_checkbox_comp.getEnabled());
 
         // Everything in the box should be disabled too
         var textedit_node = test.compByName('boxedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         textedit_node = test.compByName('selectedit');
         textedit_comp = textedit_node.propTodd;
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         // Toggle the 'control box' checkbox, enabling the box
         var checkbox_node = test.qSA(".t-checkbox")[0];
@@ -37,11 +37,11 @@ test.registerTests(
         var textedit_node = test.compByName('boxedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         textedit_node = test.compByName('selectedit');
         textedit_comp = textedit_node.propTodd;
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var checkbox_node = test.qSA(".t-checkbox")[1];
         test.click(checkbox_node);
@@ -54,7 +54,7 @@ test.registerTests(
       {
         var textedit_node = test.compByName('boxedit');
         var textedit_comp = textedit_node.propTodd;
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var pulldown_node = test.qSA("select")[1];
         test.fill(pulldown_node, 'enabled');
@@ -68,7 +68,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
         console.log(textedit_comp);
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
       }
     }
 
@@ -82,7 +82,7 @@ test.registerTests(
         var textedit_node = test.getCurrentScreen().getParent().getToddElement('boxedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var button_node = test.qSA("t-button")[0];
         test.click(button_node);
@@ -97,7 +97,7 @@ test.registerTests(
         var textedit_node = test.compByName('boxedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var checkbox_node = test.qSA(".t-checkbox")[0];
         test.click(checkbox_node);
@@ -112,7 +112,7 @@ test.registerTests(
         var textedit_node = test.compByName('boxedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
       }
     }
 
@@ -126,7 +126,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
@@ -141,7 +141,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[2];
         test.click(radio_node);
@@ -156,7 +156,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
@@ -171,7 +171,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[0];
         test.click(radio_node);
@@ -186,7 +186,7 @@ test.registerTests(
         var textedit_node = test.compByName('selectedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
@@ -201,7 +201,7 @@ test.registerTests(
         var textedit_node = test.compByName('groupedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
@@ -216,7 +216,7 @@ test.registerTests(
         var textedit_node = test.compByName('groupedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[5];
         test.click(radio_node);
@@ -231,7 +231,7 @@ test.registerTests(
         var textedit_node = test.compByName('groupedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
@@ -246,7 +246,7 @@ test.registerTests(
         var textedit_node = test.compByName('groupedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.true(textedit_comp.getEnabled());
+        test.assert(textedit_comp.getEnabled());
 
         var radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
@@ -261,7 +261,7 @@ test.registerTests(
         var textedit_node = test.compByName('groupedit');
         var textedit_comp = textedit_node.propTodd;
 
-        test.false(textedit_comp.getEnabled());
+        test.assert(!textedit_comp.getEnabled());
       }
     }
 

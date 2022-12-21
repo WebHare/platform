@@ -12,7 +12,7 @@ test.registerTests(
 
       let field_namelijk = test.qSA("input[name=radiotestnamelijk]");
       test.eq('coretest-radiotestnamelijk', field_namelijk[0].id);
-      test.true(field_namelijk[0].disabled, 'coretest-radiotestnamelijk should be initially disabled');
+      test.assert(field_namelijk[0].disabled, 'coretest-radiotestnamelijk should be initially disabled');
 
       test.fill(test.qS('#coretest-email'),'testconditionalfields@beta.webhare.net');
       test.fill(test.qS('#coretest-setvalidator'),'test');
@@ -26,7 +26,7 @@ test.registerTests(
       test.qS("#coreformsubmitresponse").textContent = '';
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.true(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
+      test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
 
       test.qS("#coreformsubmitresponse").textContent = '';
 
@@ -38,7 +38,7 @@ test.registerTests(
       test.fill(test.qS('#coretest-radiotestnamelijk'),'23');
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
-      test.true(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit #2");
+      test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit #2");
     }
 
   , async function()
@@ -56,9 +56,9 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.false(disabled_options.includes("1"));
-        test.true(disabled_options.includes("2"));
-        test.false(disabled_options.includes("3"));
+        test.assert(!disabled_options.includes("1"));
+        test.assert(disabled_options.includes("2"));
+        test.assert(!disabled_options.includes("3"));
       }
 
       // enable 2
@@ -73,9 +73,9 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.false(disabled_options.includes("1"));
-        test.false(disabled_options.includes("2"));
-        test.false(disabled_options.includes("3"));
+        test.assert(!disabled_options.includes("1"));
+        test.assert(!disabled_options.includes("2"));
+        test.assert(!disabled_options.includes("3"));
       }
 
       // disable 2 and 3
@@ -91,9 +91,9 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.false(disabled_options.includes("1"));
-        test.true(disabled_options.includes("2"));
-        test.true(disabled_options.includes("3"));
+        test.assert(!disabled_options.includes("1"));
+        test.assert(disabled_options.includes("2"));
+        test.assert(disabled_options.includes("3"));
       }
     }
   ]);

@@ -9,7 +9,7 @@ test.registerTests(
 
       let holder = test.compByName("componentpanel");
       let tagedit = holder.querySelector("input");
-      test.true(tagedit);
+      test.assert(tagedit);
 
       let tags = holder.querySelectorAll('.wh-tagedit-tag');
 
@@ -54,13 +54,13 @@ test.registerTests(
       test.click(holder.querySelectorAll('.wh-tagedit-tag')[0]);
       test.eq('abc', holder.querySelector('.wh-tagedit-tag.wh-tagedit-selected').textContent);
       await test.pressKey('Tab');
-      test.true(test.hasFocus(holder.querySelector(".wh-tagedit-input")));
+      test.assert(test.hasFocus(holder.querySelector(".wh-tagedit-input")));
 
       await test.pressKey('Backspace');
       tags = holder.querySelectorAll('.wh-tagedit-tag');
       test.eq(2, tags.length);
-      test.false(tags[0].classList.contains('wh-tagedit-selected'));
-      test.true(tags[1].classList.contains('wh-tagedit-selected'));
+      test.assert(!tags[0].classList.contains('wh-tagedit-selected'));
+      test.assert(tags[1].classList.contains('wh-tagedit-selected'));
 
       await test.pressKey('Backspace');
       tags = holder.querySelectorAll('.wh-tagedit-tag');
@@ -73,7 +73,7 @@ test.registerTests(
   , async function()
     {
       let holder = test.compByName("componentpanel");
-      test.true(test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be there");
+      test.assert(test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be there");
       await test.pressKey("X");
       test.eq('x', holder.querySelector(".wh-tagedit-input").value, "the 'x' should have landed");
 
@@ -81,7 +81,7 @@ test.registerTests(
       await test.wait('ui');
 
       holder = test.compByName("componentpanel");
-      test.true(holder.querySelector(".wh-tagedit").classList.contains("disabled"));
-      test.false(test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be gone");
+      test.assert(holder.querySelector(".wh-tagedit").classList.contains("disabled"));
+      test.assert(!test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be gone");
     }
   ]);

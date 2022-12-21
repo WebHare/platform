@@ -11,10 +11,10 @@ test.registerTests(
         var boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
         var italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 
-        test.true(boldbutton!=null);
-        test.false(italicbutton!=null);
-        test.false(boldbutton.classList.contains('disabled'));
-        test.false(boldbutton.classList.contains('active'));
+        test.assert(boldbutton!=null);
+        test.assert(!italicbutton!=null);
+        test.assert(!boldbutton.classList.contains('disabled'));
+        test.assert(!boldbutton.classList.contains('active'));
 
         console.log('send focus');
         win.givefocus();
@@ -25,19 +25,19 @@ test.registerTests(
 
         // Add bold
         test.click(boldbutton);
-        test.true(boldbutton.classList.contains('active'));
+        test.assert(boldbutton.classList.contains('active'));
 
         // Remove it
         test.click(boldbutton);
-        test.false(boldbutton.classList.contains('active'));
+        test.assert(!boldbutton.classList.contains('active'));
 
         rtetest.setRawStructuredContent(win,'<b>"a(*0*)"</b>');
 
-        test.true(boldbutton.classList.contains('active'));
+        test.assert(boldbutton.classList.contains('active'));
 
         // Remove bold
         test.click(boldbutton);
-        test.false(boldbutton.classList.contains('active'));
+        test.assert(!boldbutton.classList.contains('active'));
       }
     }
   ]);

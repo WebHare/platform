@@ -8,7 +8,7 @@ function testBackground(doc, win)
 {
   // Check the background image dimensions by loading the background image url into an img element
   var preview = test.compByName("fragment1!preview");
-  test.true(preview);
+  test.assert(preview);
   var backgrounds = getComputedStyle(preview).backgroundImage.split("url(");
   test.eq(3, backgrounds.length); // empty, uploaded image, checkered background
   testimg = doc.createElement("img");
@@ -33,11 +33,11 @@ var TestImageEditor =
       {
         // Test if the image editor screen is now opened
         var editor = test.qS("t-custom[data-name='imageeditor']");
-        test.true(editor);
+        test.assert(editor);
         var toolbar = editor.querySelector(".wh-toolbar");
-        test.true(toolbar);
+        test.assert(toolbar);
         var surface = editor.querySelector(".wh-image-surface");
-        test.true(surface);
+        test.assert(surface);
       }
     }
 
@@ -51,7 +51,7 @@ var TestImageEditor =
 
         // Resize the cropbox
         var cropbox = editor.querySelector(".wh-cropbox");
-        test.true(cropbox);
+        test.assert(cropbox);
 
         var coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 4, clienty: coords.top + 4 }
@@ -83,7 +83,7 @@ var TestImageEditor =
       {
         // Check if the image size hasn't changed (it's set by the tollium backend based on the uploaded blob)
         var dimensions = test.compByName('fragment1!dimensions');
-        test.true(dimensions);
+        test.assert(dimensions);
         test.eq("1024X768", dimensions.textContent.replace(/[^0-9]/, "X"));
 
         test.click(test.compByName("fragment1!editbutton"));
@@ -101,7 +101,7 @@ var TestImageEditor =
 
         // Resize the cropbox
         var cropbox = editor.querySelector(".wh-cropbox");
-        test.true(cropbox);
+        test.assert(cropbox);
 
         var coords = cropbox.getBoundingClientRect();
         test.sendMouseGesture([ { doc: doc, down: 0, clientx: coords.left + 4, clienty: coords.top + 4 }
@@ -133,11 +133,11 @@ var TestImageEditor =
       {
         // Check if the image size is set correctly (it's set by the tollium backend based on the uploaded blob)
         var dimensions = test.compByName('fragment1!dimensions');
-        test.true(dimensions);
+        test.assert(dimensions);
         test.eq("367X241", dimensions.textContent.replace(/[^0-9]/, "X"));
 
         var filename = test.compByName('fragment1!filename');
-        test.true(filename);
+        test.assert(filename);
         test.eq("imgeditfile.jpg", filename.textContent); // The ".jpeg" extension will be rewritten to ".jpg"
       }
     }
@@ -160,11 +160,11 @@ var TestImageEditor =
       {
         // Test if the image editor screen is now opened
         var editor = test.qS("t-custom[data-name='imageeditor']");
-        test.true(editor);
+        test.assert(editor);
         var toolbar = editor.querySelector(".wh-toolbar");
-        test.true(toolbar);
+        test.assert(toolbar);
         var surface = editor.querySelector(".wh-image-surface");
-        test.true(surface);
+        test.assert(surface);
       }
     }
 
@@ -172,11 +172,11 @@ var TestImageEditor =
   , async function()
     {
       let filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Apply Filters'))[0];
-      test.true(filterbutton);
+      test.assert(filterbutton);
       test.click(filterbutton);
 
       let invertbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Invert'))[0];
-      test.true(invertbutton);
+      test.assert(invertbutton);
       test.click(invertbutton);
       await test.wait('ui');
 
@@ -203,11 +203,11 @@ test.registerTests(
   , { name: "button status"
     , test: function(doc, win)
       {
-        test.true(test.compByName("fragment1!uploadbutton"));
-        test.true(test.compByName("fragment1!publisherbutton"));
-        test.false(test.compByName("fragment1!editbutton"));
-        test.false(test.compByName("fragment1!downloadbutton"));
-        test.false(test.compByName("fragment1!clearbutton"));
+        test.assert(test.compByName("fragment1!uploadbutton"));
+        test.assert(test.compByName("fragment1!publisherbutton"));
+        test.assert(!test.compByName("fragment1!editbutton"));
+        test.assert(!test.compByName("fragment1!downloadbutton"));
+        test.assert(!test.compByName("fragment1!clearbutton"));
       }
     }
 
@@ -230,7 +230,7 @@ test.registerTests(
   , { test:function(doc,win)
       {
         console.log(doc.querySelectorAll("t-button"));
-        test.true(test.compByName("fragment1!editbutton"));
+        test.assert(test.compByName("fragment1!editbutton"));
         test.click(test.compByName("fragment1!editbutton"));
       }
     , waits: [ "ui" ]
@@ -241,13 +241,13 @@ test.registerTests(
   , "Button status"
   , async function()
     {
-      test.false(test.compByName("fragment1!uploadbutton"));
-      test.false(test.compByName("fragment1!publisherbutton"));
-      test.true(test.compByName("fragment1!editbutton"));
+      test.assert(!test.compByName("fragment1!uploadbutton"));
+      test.assert(!test.compByName("fragment1!publisherbutton"));
+      test.assert(test.compByName("fragment1!editbutton"));
       test.click(test.compByName("fragment1!otherbutton"));
-      test.true(test.canClick(test.getOpenMenuItem('Replace by upload')));
-      test.true(test.canClick(test.getOpenMenuItem('Download')));
-      test.true(test.canClick(test.getOpenMenuItem('Properties')));
+      test.assert(test.canClick(test.getOpenMenuItem('Replace by upload')));
+      test.assert(test.canClick(test.getOpenMenuItem('Download')));
+      test.assert(test.canClick(test.getOpenMenuItem('Properties')));
     }
 
   , "Set properties"
@@ -262,14 +262,14 @@ test.registerTests(
       await test.wait('ui');
 
       var filename = test.compByName('fragment1!filename');
-      test.true(filename);
+      test.assert(filename);
       test.eq("img2.jpg", filename.textContent);
     }
 
   , { name: "visibility"
     , test: function(doc, win)
       {
-        test.true(test.compByName("fragment1!preview"));
+        test.assert(test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       }
     , waits: [ "ui" ]
@@ -277,7 +277,7 @@ test.registerTests(
 
   , { test: function(doc, win)
       {
-        test.false(test.compByName("fragment1!preview"));
+        test.assert(!test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       }
     , waits: [ "ui" ]
@@ -296,11 +296,11 @@ test.registerTests(
   , { name: "button status"
     , test: function(doc, win)
       {
-        test.false(test.compByName("fragment1!uploadbutton"));
-        test.false(test.compByName("fragment1!publisherbutton"));
-        test.true(test.compByName("fragment1!editbutton"));
-        //test.true(test.compByName("fragment1!downloadbutton"));
-        //test.true(test.compByName("fragment1!clearbutton"));
+        test.assert(!test.compByName("fragment1!uploadbutton"));
+        test.assert(!test.compByName("fragment1!publisherbutton"));
+        test.assert(test.compByName("fragment1!editbutton"));
+        //test.assert(test.compByName("fragment1!downloadbutton"));
+        //test.assert(test.compByName("fragment1!clearbutton"));
 
         test.click(test.compByName("visible"));
       }
@@ -309,11 +309,11 @@ test.registerTests(
 
   , { test: function(doc, win)
       {
-        test.false(test.compByName("fragment1!uploadbutton"));
-        test.false(test.compByName("fragment1!publisherbutton"));
-        test.false(test.compByName("fragment1!editbutton"));
-        //test.false(test.compByName("fragment1!downloadbutton"));
-        //test.false(test.compByName("fragment1!clearbutton"));
+        test.assert(!test.compByName("fragment1!uploadbutton"));
+        test.assert(!test.compByName("fragment1!publisherbutton"));
+        test.assert(!test.compByName("fragment1!editbutton"));
+        //test.assert(!test.compByName("fragment1!downloadbutton"));
+        //test.assert(!test.compByName("fragment1!clearbutton"));
 
         test.click(test.compByName("visible"));
       }
@@ -333,15 +333,15 @@ test.registerTests(
   , { name: "imgedit status"
     , test: function(doc, win)
       {
-        test.true(test.compByName("fragment1!uploadbutton"));
-        test.true(test.compByName("fragment1!publisherbutton"));
-        test.false(test.compByName("fragment1!editbutton"));
-        //test.false(test.compByName("fragment1!downloadbutton"));
-        //test.false(test.compByName("fragment1!clearbutton"));
+        test.assert(test.compByName("fragment1!uploadbutton"));
+        test.assert(test.compByName("fragment1!publisherbutton"));
+        test.assert(!test.compByName("fragment1!editbutton"));
+        //test.assert(!test.compByName("fragment1!downloadbutton"));
+        //test.assert(!test.compByName("fragment1!clearbutton"));
 
         // Check the background image, there should be only one (the placeholder)
         var preview = test.compByName("fragment1!preview");
-        test.true(preview);
+        test.assert(preview);
         var backgrounds = getComputedStyle(preview).backgroundImage.split("url(");
         test.eq(2, backgrounds.length);
       }
@@ -361,7 +361,7 @@ test.registerTests(
     , test: async function(doc, win)
       {
         var testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'TestPages');
-        test.true(testpagerow);
+        test.assert(testpagerow);
         test.click(testpagerow);
         await test.wait('ui');
 

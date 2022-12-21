@@ -58,7 +58,7 @@ test.registerTests(
         {
           success = true;
         }
-        test.true(success, "expected an exception distributing 1398 pixels");
+        test.assert(success, "expected an exception distributing 1398 pixels");
       }
     }
   ]);

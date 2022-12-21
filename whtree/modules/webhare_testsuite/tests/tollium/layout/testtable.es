@@ -20,7 +20,7 @@ test.registerTests(
       {
         // The screen should show up
         var cell_left = test.compByName('cell_left');
-        test.true(cell_left);
+        test.assert(cell_left);
       }
     }
   ]);

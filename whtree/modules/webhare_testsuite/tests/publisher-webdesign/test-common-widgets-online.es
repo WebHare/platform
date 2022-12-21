@@ -11,9 +11,9 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + "testpages/simpletest/");
       let videowidget = test.qS("#content > div");
-      test.true(videowidget.classList.contains("wh-video"));
-      test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
-      test.false(videowidget.classList.contains("wh-requireconsent"));
+      test.assert(videowidget.classList.contains("wh-video"));
+      test.assert(videowidget.classList.contains("wh-video--aspect_16_9"));
+      test.assert(!videowidget.classList.contains("wh-requireconsent"));
       test.eq({network: "youtube",id:"BAf7lcYEXag","title":"The Beloved Hound: The Beagle | Dogs 101"}, JSON.parse(videowidget.dataset.video));
       await test.wait(() => test.qSA("iframe[allowfullscreen]").length == 1);
     }
@@ -23,11 +23,11 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + "testpages/v2videotest/");
       let videowidget = test.qS("#content > div");
-      test.true(videowidget.classList.contains("wh-video"));
-      test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
-      test.false(videowidget.classList.contains("wh-requireconsent"));
+      test.assert(videowidget.classList.contains("wh-video"));
+      test.assert(videowidget.classList.contains("wh-video--aspect_16_9"));
+      test.assert(!videowidget.classList.contains("wh-requireconsent"));
       test.eq({network: "youtube",id:"BAf7lcYEXag","title":"The Beloved Hound: The Beagle | Dogs 101"}, JSON.parse(videowidget.dataset.whVideo));
-      test.true(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT wait for click!");
+      test.assert(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT wait for click!");
       test.click(videowidget);
       await test.wait(() => test.qSA("iframe[allowfullscreen]").length == 1);
     }
@@ -38,24 +38,24 @@ test.registerTests(
       forceResetConsent();
       await test.load(test.getTestSiteRoot() + "testpages/consenttest/");
       let videowidget = test.qS("#content > div");
-      test.true(videowidget.classList.contains("wh-video"));
-      test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
-      test.true(videowidget.classList.contains("wh-requireconsent"));
-      // test.true(videowidget.dataset.wh.contains("wh-requireconsent"));
+      test.assert(videowidget.classList.contains("wh-video"));
+      test.assert(videowidget.classList.contains("wh-video--aspect_16_9"));
+      test.assert(videowidget.classList.contains("wh-requireconsent"));
+      // test.assert(videowidget.dataset.wh.contains("wh-requireconsent"));
       test.eq({network: "youtube",id:"BAf7lcYEXag","title":"The Beloved Hound: The Beagle | Dogs 101"}, JSON.parse(videowidget.dataset.whVideo));
 
-      test.true(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT wait for consent!");
+      test.assert(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT wait for consent!");
       test.click('[data-messagebox-result="analytics"]');
       await test.sleep(100); //give async handlers from messagebox time to settle
       test.click(videowidget);
 
-      test.true(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT deny because of consent!");
+      test.assert(test.qSA("iframe[allowfullscreen]").length == 0, "video did NOT deny because of consent!");
       await test.sleep(1000); //give async handlers from messagebox time to settle
       test.click('[data-messagebox-result="remarketing"]');
       await test.sleep(1000); //give async handlers from messagebox time to settle
       test.click(videowidget);
 
-      test.true(test.qSA("iframe[allowfullscreen]").length == 1, "video did NOT start to play!");
+      test.assert(test.qSA("iframe[allowfullscreen]").length == 1, "video did NOT start to play!");
     }
 
   ]);

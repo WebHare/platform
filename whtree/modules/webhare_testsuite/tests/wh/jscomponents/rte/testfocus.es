@@ -21,7 +21,7 @@ test.registerTests(
 //        var rtenode = new Element('div');
 //        var myrte = new win.$wh.Rich.FreeEditor(rtenode);
 //        var sel = myrte.getSelectionState();
-//        test.false(sel.haveselection);
+//        test.assert(!sel.haveselection);
       }
     }
 
@@ -43,7 +43,7 @@ test.registerTests(
 
         test.qS('#store').focus();
         test.eq(test.qS('#store'), doc.activeElement);
-        test.false(rte.hasFocus());
+        test.assert(!rte.hasFocus());
         rte.takeFocus();
         //rte.delayedTakeFocus();
       }
@@ -55,18 +55,18 @@ test.registerTests(
       {
         var rte = win.rte.getEditor();
 
-        test.true(rte.hasFocus());
+        test.assert(rte.hasFocus());
         test.eq('DIV', doc.activeElement.nodeName);
 
         rte.selectNodeInner(rte.getContentBodyNode().getElementsByTagName('b')[0]);
-        test.true(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
+        test.assert(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
         win.rte.setEnabled(false);
 
-        test.true( !!win.rte.getBody().closest('.wh-rtd--disabled'));
-        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
+        test.assert( !!win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--readonly'));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
         test.eq(null, win.rte.getEditor());
-        test.false(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
+        test.assert(!test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
       }
     }
 
@@ -75,15 +75,15 @@ test.registerTests(
       {
         win.rte.setEnabled(true);
 
-        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
-        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--readonly'));
 
 /*
-        test.true(win.rte.getEditor(), "We appear to not have an actual editor (didn't reconnect?)");
+        test.assert(win.rte.getEditor(), "We appear to not have an actual editor (didn't reconnect?)");
 */
         //make sure setenabled(true) didn't ruin selection after sleep..
         rtetest.testEqSelHTMLEx(win, std_contents);
-        test.true(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
+        test.assert(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
       }
     }
 
@@ -92,8 +92,8 @@ test.registerTests(
       {
         win.rte.setReadonly(true);
 
-        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
-        test.true( !!win.rte.getBody().closest('.wh-rtd--readonly'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.assert( !!win.rte.getBody().closest('.wh-rtd--readonly'));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
         test.eq(null, win.rte.getEditor());
       }
@@ -104,10 +104,10 @@ test.registerTests(
       {
         win.rte.setReadonly(false);
 
-        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
-        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.assert(!win.rte.getBody().closest('.wh-rtd--readonly'));
 
-        test.true(win.rte.getEditor()); // make sure we have an editor
+        test.assert(win.rte.getEditor()); // make sure we have an editor
 
         //make sure setenabled(true) didn't ruin selection after sleep..
         rtetest.testEqSelHTMLEx(win, std_contents);
@@ -127,7 +127,7 @@ test.registerTests(
         //console.log('post setcursor', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), { range: rte.getSelectionRange() }));
 
         var sel = rte.getSelectionState();
-        test.true(sel.hasTextStyle('b'));
+        test.assert(sel.hasTextStyle('b'));
         test.qS('#holder').style.display="none";
       }
     , allowevents:true
@@ -139,7 +139,7 @@ test.registerTests(
       {
         var rte = win.rte.getEditor();
         var sel = rte.getSelectionState();
-        test.true(sel.hasTextStyle('b'));
+        test.assert(sel.hasTextStyle('b'));
         rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
 
         // Cursor selection doesn't work here on IE 8

@@ -17,10 +17,10 @@ test.registerTests(
 
       test.sendMouseGesture([ { el: test.qS('#coretest-requiredradio-y'), down: 0 }]);
       await test.wait(25); //give any async updates a chance to interfere
-      test.false(test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
       test.sendMouseGesture([ { up: 0 } ]);
       await test.wait(25); //give any async updates a chance to interfere
-      test.false(test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
     }
 
   , 'Test validation executing on radio after focus loss'
@@ -37,7 +37,7 @@ test.registerTests(
       test.click('#coretest-pulldowntest');
       await test.wait('ui');
 
-      test.true(test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
+      test.assert(test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
     }
   ]);
 

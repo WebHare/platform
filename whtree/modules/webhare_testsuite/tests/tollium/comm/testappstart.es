@@ -9,7 +9,7 @@ test.registerTests(
       await test.wait('ui');
       test.eq(2, test.qSA('.t-apptab').length);
       test.eq(1, test.qSA('.t-apptab--activeapp').length);
-      test.true(test.qSA('.t-screen.active').length == 1);
+      test.assert(test.qSA('.t-screen.active').length == 1);
       test.eq('app_0_0', test.getDoc().title);
 
       // Start app with target {test:1}
@@ -31,8 +31,8 @@ test.registerTests(
         test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.true(tabs[1].textContent.includes('app_0_0'));
-        test.true(tabs[2].textContent.includes('app_1_1'));
+        test.assert(tabs[1].textContent.includes('app_0_0'));
+        test.assert(tabs[2].textContent.includes('app_1_1'));
 
         // Send message to self {target: 1}
         test.click(test.getMenu(['X03']));
@@ -53,8 +53,8 @@ test.registerTests(
         test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.true(tabs[1].textContent.includes('app_0_0'));
-        test.true(tabs[2].textContent.includes('app_1_2'));
+        test.assert(tabs[1].textContent.includes('app_0_0'));
+        test.assert(tabs[2].textContent.includes('app_1_2'));
 
         // Switch to app 0
         test.click(tabs[1]);
@@ -91,8 +91,8 @@ test.registerTests(
         test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.true(tabs[1].textContent.includes('app_0_0'));
-        test.true(tabs[2].textContent.includes('app_1_3'));
+        test.assert(tabs[1].textContent.includes('app_0_0'));
+        test.assert(tabs[2].textContent.includes('app_1_3'));
       }
     }
 
@@ -105,11 +105,11 @@ test.registerTests(
         test.eq(3, test.qSA('.appcanvas').length);
         test.eq(3, test.qSA('.t-apptab').length);
         //and the app can't be busy!
-        test.false(test.getCurrentApp().isBusy());
+        test.assert(!test.getCurrentApp().isBusy());
 
         //we should have a crash dialog here now
         let errorlist = test.compByName("errorlist").querySelector("textarea");
-        test.true(errorlist.value.includes("DoAbortApp requested"));
+        test.assert(errorlist.value.includes("DoAbortApp requested"));
         test.eq(0, errorlist.scrollTop); //used to scroll halfway
 
         //if so, let's close the dialog

@@ -12,7 +12,7 @@ test.registerTests(
       driver.setSelection(driver.body.firstChild);
 
       //outside table, td-class should be disabled
-      test.true(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
+      test.assert(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
 
       /* The table looks something like this:
          +-----------------+
@@ -32,7 +32,7 @@ test.registerTests(
       var ps = tds[0].getElementsByTagName('p');
       driver.setSelection(ps[0]);
 
-      test.false(test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
+      test.assert(!test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
 
       test.eq(1, ps.length);
@@ -48,8 +48,8 @@ test.registerTests(
       test.eq(3, test.qS("select[data-button=td-class]").options.length);
       test.fill("select[data-button=td-class]", "red");
 
-      test.true(tds[0].classList.contains("red"));
-      test.false(tds[0].classList.contains("blue"));
+      test.assert(tds[0].classList.contains("red"));
+      test.assert(!tds[0].classList.contains("blue"));
 
 
       test.eq('normal', ps[0].className);
@@ -61,17 +61,17 @@ test.registerTests(
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
 
       test.fill("select[data-button=td-class]", "blue");
-      test.false(tds[1].classList.contains("red"));
-      test.true(tds[1].classList.contains("blue"));
+      test.assert(!tds[1].classList.contains("red"));
+      test.assert(tds[1].classList.contains("blue"));
 
       driver.setSelection(tds[0].querySelector('p')); //select bottomleft cell
       test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
-      test.true(tds[0].classList.contains("red"));
-      test.false(tds[0].classList.contains("blue"));
+      test.assert(tds[0].classList.contains("red"));
+      test.assert(!tds[0].classList.contains("blue"));
 
       test.fill("select[data-button=td-class]", "");
-      test.false(tds[0].classList.contains("red"));
-      test.false(tds[0].classList.contains("blue"));
+      test.assert(!tds[0].classList.contains("red"));
+      test.assert(!tds[0].classList.contains("blue"));
 
       //Test editing a cell through the properties action
       let cellaction = await driver.executeProperties();
@@ -94,10 +94,10 @@ test.registerTests(
 
       //reget the bottom left cell
       let secondrow = driver.qS('table > tbody > tr + tr');
-      test.true(secondrow);
+      test.assert(secondrow);
       test.eq('TH',secondrow.childNodes[0].nodeName);
       test.eq('TD',secondrow.childNodes[1].nodeName);
-      test.true(secondrow.childNodes[0].classList.contains('red'));
+      test.assert(secondrow.childNodes[0].classList.contains('red'));
 
       await test.wait(1); //need to give RTD time to update the <select>
       test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
@@ -122,34 +122,34 @@ test.registerTests(
         var coords = table.getBoundingClientRect();
         var el = test.getValidatedElementFromPoint(doc, coords.right, coords.top + 5, true);
 
-        test.true(el, "column and row resizer");
-        test.true(el.classList.contains('wh-tableeditor-resize-col'), "column and row resizer class 1");
-        test.true(el.classList.contains('wh-tableeditor-resize-table'), "column and row resizer class 2");
+        test.assert(el, "column and row resizer");
+        test.assert(el.classList.contains('wh-tableeditor-resize-col'), "column and row resizer class 1");
+        test.assert(el.classList.contains('wh-tableeditor-resize-table'), "column and row resizer class 2");
 
         el = test.getValidatedElementFromPoint(doc, coords.left + driver.qS('table tr+tr th').offsetWidth, coords.top + 10, true);
-        test.true(el, "column resizer rowspanned");
-        test.false(el.classList.contains('wh-tableeditor-resize-col'), "column resizer rowspanned class 1");
-        test.false(el.classList.contains('wh-tableeditor-resize-row'), "column resizer rowspanned class 2");
-        test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer rowspanned class 3");
+        test.assert(el, "column resizer rowspanned");
+        test.assert(!el.classList.contains('wh-tableeditor-resize-col'), "column resizer rowspanned class 1");
+        test.assert(!el.classList.contains('wh-tableeditor-resize-row'), "column resizer rowspanned class 2");
+        test.assert(!el.classList.contains('wh-tableeditor-resize-table'), "column resizer rowspanned class 3");
 
         var tryx = coords.left + driver.qS('table tr+tr th').offsetWidth;
         var tryy = coords.bottom - 10;
 
         el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
-        test.true(el, "column resizer");
-        test.true(el.classList.contains('wh-tableeditor-resize-col'), "column resizer class 1");
-        test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer class 2");
+        test.assert(el, "column resizer");
+        test.assert(el.classList.contains('wh-tableeditor-resize-col'), "column resizer class 1");
+        test.assert(!el.classList.contains('wh-tableeditor-resize-table'), "column resizer class 2");
 
         el = test.getValidatedElementFromPoint(doc, coords.left + 10, coords.top + table.getElementsByTagName('tr')[0].offsetHeight, true);
-        test.true(el, "row resizer");
-        test.true(el.classList.contains('wh-tableeditor-resize-row'), "row resizer class 1");
-        test.false(el.classList.contains('wh-tableeditor-resize-table'), "row resizer class 2");
+        test.assert(el, "row resizer");
+        test.assert(el.classList.contains('wh-tableeditor-resize-row'), "row resizer class 1");
+        test.assert(!el.classList.contains('wh-tableeditor-resize-table'), "row resizer class 2");
 
         el = test.getValidatedElementFromPoint(doc, coords.left + 10, coords.bottom - 2, true);
-        test.true(el, "row and table resizer");
+        test.assert(el, "row and table resizer");
 
-        test.true(el.classList.contains('wh-tableeditor-resize-row'), "row and table resizer class 1");
-        test.true(el.classList.contains('wh-tableeditor-resize-table'), "row and table resizer class 2");
+        test.assert(el.classList.contains('wh-tableeditor-resize-row'), "row and table resizer class 1");
+        test.assert(el.classList.contains('wh-tableeditor-resize-table'), "row and table resizer class 2");
       }
     }
 
@@ -197,7 +197,7 @@ test.registerTests(
 
         let colgroups = rte.getContentBodyNode().querySelectorAll('col');
         test.eq(4, colgroups.length);
-        test.true(parseInt(colgroups[1].style.width)<40); //properly inserted and smallest
+        test.assert(parseInt(colgroups[1].style.width)<40); //properly inserted and smallest
       }
     }
 
@@ -213,13 +213,13 @@ test.registerTests(
         test.eq(4, trs.length);
 
         //Adding a row should not change our selection
-        test.true(extendfromcell == rte.getSelectionRange().getAncestorElement().closest('td'));
+        test.assert(extendfromcell == rte.getSelectionRange().getAncestorElement().closest('td'));
 
         let newtd = trs[1].cells[2];
         test.eq("", newtd.textContent, "new cell must be empty");
-        test.true(newtd.classList.contains("wh-rtd__tablecell"), 'new cell must be proper');
+        test.assert(newtd.classList.contains("wh-rtd__tablecell"), 'new cell must be proper');
         test.eq(1, newtd.colSpan);
-        test.false(newtd.hasAttribute("colspan"), 'no need to explicitly set the colspan attribute');
+        test.assert(!newtd.hasAttribute("colspan"), 'no need to explicitly set the colspan attribute');
       }
     }
 
@@ -233,7 +233,7 @@ test.registerTests(
 
         let trs = rte.getContentBodyNode().querySelectorAll('tr');
         let newtd = trs[2].cells[2];
-        test.true(newtd.offsetHeight < 50, "shouldn't have copied height from original row");
+        test.assert(newtd.offsetHeight < 50, "shouldn't have copied height from original row");
       }
     }
 
@@ -395,7 +395,7 @@ test.registerTests(
       let cellaction = await driver.executeProperties();
       driver.rte.updateTarget(cellaction.detail.actiontarget, { removetable: true });
 
-      test.false(driver.qS("table"));
+      test.assert(!driver.qS("table"));
     }
 
   ]);

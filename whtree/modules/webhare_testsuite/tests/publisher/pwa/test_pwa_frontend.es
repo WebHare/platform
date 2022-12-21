@@ -81,17 +81,17 @@ test.registerTests(
     {
       let exclusionresult = await(await test.getWin().fetch("../exclusiontestpage/")).json();
       let exclusionresult2 = await(await test.getWin().fetch("../exclusiontestpage/")).json();
-      test.true(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #1");
+      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #1");
 
       exclusionresult = await(await test.getWin().fetch("../exclusiontestpage/?test")).json();
       exclusionresult2 = await(await test.getWin().fetch("../exclusiontestpage/?test")).json();
-      test.true(exclusionresult2.now != exclusionresult.now, "Parameters should not matter in exclusion list");
-      test.true(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #2");
+      test.assert(exclusionresult2.now != exclusionresult.now, "Parameters should not matter in exclusion list");
+      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #2");
 
       exclusionresult = await(await test.getWin().fetch("../exclusiontestpage/#test")).json();
       exclusionresult2 = await(await test.getWin().fetch("../exclusiontestpage/#test")).json();
-      test.true(exclusionresult2.now != exclusionresult.now, "Hashes should not matter in exclusion list");
-      test.true(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #3");
+      test.assert(exclusionresult2.now != exclusionresult.now, "Hashes should not matter in exclusion list");
+      test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #3");
 
       let cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event == 'miss');
       test.eq([], cachemissses, "Fetches must not have caused miss-es in the log");

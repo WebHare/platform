@@ -9,8 +9,8 @@ test.registerTests(
   , { test: async(dom, win) =>
       {
         // initial state
-        test.false(test.compByName("button1").querySelector("input").checked);
-        test.false(test.compByName("button2").querySelector("input").checked);
+        test.assert(!test.compByName("button1").querySelector("input").checked);
+        test.assert(!test.compByName("button2").querySelector("input").checked);
 
         test.click(test.compByName("readvaluebutton"));
         await test.wait("ui");
@@ -25,7 +25,7 @@ test.registerTests(
         test.click(test.compByName("writevaluebutton"));
         await test.wait("ui");
 
-        test.true(test.compByName("button2").querySelector("input").checked);
+        test.assert(test.compByName("button2").querySelector("input").checked);
 
         test.click(test.compByName("listenonchange"));
         await test.wait("ui");

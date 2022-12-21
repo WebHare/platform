@@ -67,13 +67,13 @@ test.registerTests(
                                   ]);
 
       // require the droptarget--hover on the list body
-      test.true(clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
       // drop it
       await test.sendMouseGesture([ { el: clist, up: 0 } ]);
 
       // droptarget--hover should be gone
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
 
       await test.wait("ui");
 
@@ -86,12 +86,12 @@ test.registerTests(
                                   ]);
 
       // require the droptarget--hover on the table cell
-      test.true(ctable.querySelector("td.droptarget--hover"));
+      test.assert(ctable.querySelector("td.droptarget--hover"));
 
       await test.sendMouseGesture([ { el: ctable, up: 0, delay: gesture_time }
                                   ]);
 
-      test.false(ctable.querySelector("td.droptarget--hover"));
+      test.assert(!ctable.querySelector("td.droptarget--hover"));
 
       await test.wait("ui");
 
@@ -103,12 +103,12 @@ test.registerTests(
                                   , { el: cpanel, delay: gesture_time }
                                   ]);
 
-      test.true(cpanel.classList.contains("droptarget--hover"));
+      test.assert(cpanel.classList.contains("droptarget--hover"));
 
       await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
                                   ]);
 
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 
@@ -122,34 +122,34 @@ test.registerTests(
                                   , { el: clist, delay: gesture_time }
                                   ]);
 
-      test.true(clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
       await test.sendMouseGesture([ { el: ctable, delay: gesture_time }
                                   ]);
 
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
-      test.true(ctable.querySelector("td.droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(ctable.querySelector("td.droptarget--hover"));
 
       await test.sendMouseGesture([ { el: cpanel, delay: gesture_time }
                                   ]);
 
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
-      test.false(ctable.querySelector("td.droptarget--hover"));
-      test.true(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(!ctable.querySelector("td.droptarget--hover"));
+      test.assert(cpanel.classList.contains("droptarget--hover"));
 
       await test.sendMouseGesture([ { el: ctable, delay: gesture_time }
                                   ]);
 
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
-      test.true(ctable.querySelector("td.droptarget--hover"));
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(ctable.querySelector("td.droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.sendMouseGesture([ { el: clist, up: 0, delay: gesture_time }
                                   ]);
 
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
-      test.false(ctable.querySelector("td.droptarget--hover"));
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(!ctable.querySelector("td.droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 
@@ -160,13 +160,13 @@ test.registerTests(
                                   , { el: cpanel, delay: gesture_time }
                                   ]);
 
-      test.true(cpanel.classList.contains("droptarget--hover"));
+      test.assert(cpanel.classList.contains("droptarget--hover"));
       test.eq("copy", test.getCurrentDragDataStore().currentDragOperation);
 
       await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
                                   ]);
 
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 
@@ -179,13 +179,13 @@ test.registerTests(
                                   , { el: cpanel, delay: gesture_time }
                                   ]);
 
-      test.true(cpanel.classList.contains("droptarget--hover"));
+      test.assert(cpanel.classList.contains("droptarget--hover"));
       test.eq("link", test.getCurrentDragDataStore().currentDragOperation);
 
       await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
                                   ]);
 
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 
@@ -208,13 +208,13 @@ test.registerTests(
                                   ]);
 
       // require the droptarget--hover on the list body
-      test.true(clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
       // drop it
       await test.sendMouseGesture([ { el: clist, up: 0 } ]);
 
       // droptarget--hover should be gone
-      test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
+      test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
 
       await test.wait("ui");
 
@@ -230,13 +230,13 @@ test.registerTests(
                                   ]);
 
       // require the droptarget--hover on the table body
-      test.true(ctable.querySelector("td.droptarget--hover"));
+      test.assert(ctable.querySelector("td.droptarget--hover"));
 
       // drop it
       await test.sendMouseGesture([ { el: ctable, up: 0 } ]);
 
       // droptarget--hover should be gone
-      test.false(ctable.querySelector("td.droptarget--hover"));
+      test.assert(!ctable.querySelector("td.droptarget--hover"));
 
       await test.wait("ui");
 
@@ -252,13 +252,13 @@ test.registerTests(
                                   ]);
 
       // require the droptarget--hover on the panel body
-      test.true(cpanel.classList.contains("droptarget--hover"));
+      test.assert(cpanel.classList.contains("droptarget--hover"));
 
       // drop it
       await test.sendMouseGesture([ { el: cpanel, up: 0 } ]);
 
       // droptarget--hover should be gone
-      test.false(cpanel.classList.contains("droptarget--hover"));
+      test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 

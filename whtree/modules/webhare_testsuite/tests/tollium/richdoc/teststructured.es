@@ -37,7 +37,7 @@ test.registerTests(
 
         // Must have an instance
         instanceref = test.qS(rte.editnode, '.wh-rtd-embeddedobject').dataset.instanceref || '';
-        test.true(instanceref != '');
+        test.assert(instanceref != '');
 
         //select the paragraph
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -108,7 +108,7 @@ test.registerTests(
         var rawcode = rtetest.getRawHTMLCode(win);
 
         // Instance id should not have changed on the backend site
-        test.true(rawcode.indexOf(instanceid) != -1);
+        test.assert(rawcode.indexOf(instanceid) != -1);
 
         let comparecode = rawcode.replace('data-instanceid="' +instanceid, 'data-instanceref="' + encodeValue(instanceref));
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should no longer be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
@@ -139,7 +139,7 @@ test.registerTests(
       await test.wait("ui");
 
       var code = rtetest.getRawHTMLCode(test.getWin());
-      test.true(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
+      test.assert(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
       test.getCurrentScreen().clickCloser();
       await test.wait("ui");
     }
@@ -155,14 +155,14 @@ test.registerTests(
       await test.wait("ui");
 
       test.eq(1, rte.qSA("img").length);
-      test.false(rte.qS("img").hasAttribute("width"), "images without explicit width/height settings shouldn't have width/height");
-      test.false(rte.qS("img").hasAttribute("height"), "images without explicit width/height settings shouldn't have width/height");
+      test.assert(!rte.qS("img").hasAttribute("width"), "images without explicit width/height settings shouldn't have width/height");
+      test.assert(!rte.qS("img").hasAttribute("height"), "images without explicit width/height settings shouldn't have width/height");
 
       test.clickTolliumButton("Edit raw html");
       await test.wait("ui");
 
       var code = rtetest.getRawHTMLCode(test.getWin());
-      test.true(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
+      test.assert(code.indexOf('src="cid:') != -1); //should contain a cid: and not a pending loader  (ADDME better test possible whether the image actually transferred?)
       test.getCurrentScreen().clickCloser();
       await test.wait("ui");
     }
@@ -242,7 +242,7 @@ test.registerTests(
         test.eq(null, imgnode.getAttribute("width"));
         test.eq("A", imgnode.parentNode.nodeName.toUpperCase());
         test.eq("http://b-lex.nl/nieuws/", imgnode.parentNode.href);
-        test.false(imgnode.getAttribute("alt"));
+        test.assert(!imgnode.getAttribute("alt"));
       }
     , waits: [ 'ui' ]
     }
@@ -278,7 +278,7 @@ test.registerTests(
         var rte = rtetest.getRTE(win,'structured');
         var anode = rte.qSA('a')[1];
         test.eq("http://webhare.net/", anode.href);
-        test.false(anode.hasAttribute("target"));
+        test.assert(!anode.hasAttribute("target"));
         test.eq("Hier", anode.firstChild.nodeValue);
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
       }
@@ -367,7 +367,7 @@ test.registerTests(
 
         // new p?
         test.eq("p", body.lastElementChild.nodeName.toLowerCase());
-        test.false(body.lastElementChild === firstp);
+        test.assert(body.lastElementChild !== firstp);
       }
     , waits: [ "ui" ] //give dirty event time to process
     }
@@ -510,7 +510,7 @@ test.registerTests(
       let rte = rtetest.getRTE(test.getWin(),'structured');
       let selection = rte.getEditor().getSelectionRange();
       let img = selection.querySelectorAll("img")[0];
-      test.true(img);
+      test.assert(img);
       test.eq('428', img.getAttribute("width"));
       test.eq('284', img.getAttribute("height"));
     }

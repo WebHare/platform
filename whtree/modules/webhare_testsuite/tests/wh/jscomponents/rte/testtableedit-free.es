@@ -493,7 +493,7 @@ test.registerTests(
         last_td.scrollIntoView();
 
         // See if we really scrolled
-        test.true(rte.getContentBodyNode().parentNode.scrollTop > 100);
+        test.assert(rte.getContentBodyNode().parentNode.scrollTop > 100);
 
         // Resize the table, making it wider
         var coords = getRoundedCoordinates(table);

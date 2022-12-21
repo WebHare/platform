@@ -14,11 +14,11 @@ test.registerTests(
 
       await test.load(setupdata.url);
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       test.fill(test.qSA("input[type=text]")[0], "Pietje & Henkie");
       test.fill(test.qSA("input[type=email]")[0], testemail);
@@ -30,15 +30,15 @@ test.registerTests(
   , "Request results"
   , async function()
     {
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);
@@ -60,14 +60,14 @@ test.registerTests(
     {
       await test.load(confirmlink);
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("confirm", formresult.submittype);
       test.eq("final", formresult.status);
@@ -78,9 +78,9 @@ test.registerTests(
   , async function()
     {
       await test.load(confirmlink);
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
     }
 
   , "Process results mail"
@@ -98,11 +98,11 @@ test.registerTests(
     {
       await test.load(setupdata.url);
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       test.fill(test.qSA("input[type=text]")[0], "Pietje & Henkie");
       test.fill(test.qSA("input[type=email]")[0], testemail);
@@ -114,15 +114,15 @@ test.registerTests(
   , "Request results"
   , async function()
     {
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("change", formresult.submittype);
       test.eq("pending", formresult.status);
@@ -144,14 +144,14 @@ test.registerTests(
     {
       await test.load(confirmlink);
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
 
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("confirm", formresult.submittype);
       test.eq("final", formresult.status);
@@ -173,11 +173,11 @@ test.registerTests(
     {
       await test.load(setupdata.url + "?testduplicate=1");
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       test.fill(test.qSA("input[type=text]")[0], "Pietje & Henkie");
       test.fill(test.qSA("input[type=email]")[0], testemail);
@@ -189,15 +189,15 @@ test.registerTests(
   , "Request results"
   , async function()
     {
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);
@@ -219,14 +219,14 @@ test.registerTests(
     {
       await test.load(confirmlink);
 
-      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
-      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
-      test.true(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
 
       let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom2", allowpending: true });
-      test.true(formresult.response);
+      test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);

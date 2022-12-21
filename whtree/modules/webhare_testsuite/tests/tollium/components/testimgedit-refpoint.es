@@ -34,11 +34,11 @@ test.registerTests(
       let refpoint = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button")
                          .filter(button => button.textContent.includes('Reference Point'))[0];
       test.click(refpoint);
-      test.false(test.qS(".wh-refbox-pointer"), 'no pointer yet...');
+      test.assert(!test.qS(".wh-refbox-pointer"), 'no pointer yet...');
       test.click('.wh-image-surface', { x:346, y:17}); //top visible part of the picture
 
       let pointer = test.qS(".wh-refbox-pointer");
-      test.true(pointer, 'refbox pointer should be there');
+      test.assert(pointer, 'refbox pointer should be there');
       test.clickTolliumButton("OK");
 
     }

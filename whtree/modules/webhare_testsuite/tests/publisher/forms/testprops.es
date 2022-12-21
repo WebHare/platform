@@ -14,7 +14,7 @@ test.registerTests(
   , { name: 'Study page fields'
     , test: function()
       {
-        test.true(test.qS("#dynamictest-myradio-15").disabled);
+        test.assert(test.qS("#dynamictest-myradio-15").disabled);
       }
     }
   ]);
