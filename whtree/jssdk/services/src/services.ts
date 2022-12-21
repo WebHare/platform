@@ -35,6 +35,8 @@ export interface WebHareBackendConfiguration {
   installationroot: string;
   /** Absolute path to WebHare data root, ending with a slash. Usually /opt/whdata/ */
   dataroot: string;
+  /** URL to the primary WebHare interface */
+  backendurl: string;
 
   //not sure if we really need ALL those other paths we used to have
   module: WebHareModuleMap;
@@ -55,6 +57,7 @@ WHBridge.onConfigurationUpdate(versioninfo => {
   const newconfig = {
     installationroot: vdata.installationroot,
     dataroot: vdata.varroot,
+    backendurl: vdata.backendurl,
     module: buildModuleInfo(vdata.moduleroots)
   };
   config = Object.freeze(newconfig);

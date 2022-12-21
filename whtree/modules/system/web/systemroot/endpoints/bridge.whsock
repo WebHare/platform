@@ -38,6 +38,7 @@ SendPacket(CELL[ version := GetWebhareVersionNumber()
                , config.varroot
                , config.installationroot
                , moduleroots
+               , backendurl := GetPrimaryWebhareInterfaceURL()
                ]);
 
 handler->Run();

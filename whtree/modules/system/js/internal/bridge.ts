@@ -252,6 +252,7 @@ class WebHareServiceWrapper {
 export interface VersionData {
   installationroot: string;
   moduleroots: { [key: string]: string };
+  backendurl: string;
   /** data root (FIXME stop naming it varroot!) */
   varroot: string;
   version: string;
