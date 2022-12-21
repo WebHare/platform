@@ -3,11 +3,11 @@ import * as envsupport from "./envsupport";
 /// An object with string keys and typed values
 interface WellKnownFlags {
   /** Log RPcs */
-  rpc: boolean;
+  rpc?: true;
   /** Autoprofile */
-  apr: boolean;
+  apr?: true;
 }
-type DebugFlags = WellKnownFlags & { [key: string]: boolean };
+type DebugFlags = WellKnownFlags & { [key: string]: true };
 
 export const flags: DebugFlags = envsupport.getWHDebugFlags() as DebugFlags;
 
