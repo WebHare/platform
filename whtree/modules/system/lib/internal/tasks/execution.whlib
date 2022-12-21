@@ -13,13 +13,14 @@ LOADLIB "mod::system/lib/tasks.whlib";
 CONSTANT INTEGER failreschedule := 15 * 60 * 1000;
 CONSTANT INTEGER restartdelay := 1000;
 
-OBJECT FUNCTION PrepareTask(RECORD taskinfo, BOOLEAN debug)
+OBJECT FUNCTION PrepareTask(RECORD taskinfo, BOOLEAN debug, RECORD setmeta)
 {
   OBJECT taskrunner := MakeObject(taskinfo.objectname);
   IF(NOT taskrunner EXTENDSFROM ManagedTaskBase)
     THROW NEW Exception(`Objecttype '${taskinfo.objectname}' does not extend from ManagedTaskBase`);
 
   taskrunner->debug := debug;
+  taskrunner->__taskmeta := setmeta;
   IF(debug)
     Print("Preparing task of type " || taskinfo.tasktype || "\n");
 
@@ -45,8 +46,7 @@ RECORD FUNCTION ExecuteTask(OBJECT taskrunner, RECORD taskinfo)
 
 PUBLIC RECORD FUNCTION ExecuteEphemeralTask(RECORD taskinfo, BOOLEAN debug)
 {
-  OBJECT taskrunner := PrepareTask(taskinfo, debug);
-  taskrunner->__taskmeta := [ taskid := 0 ];
+  OBJECT taskrunner := PrepareTask(taskinfo, debug, [ taskid := 0 ]);
 
   RECORD resolution := ExecuteTask(taskrunner, taskinfo);
   BOOLEAN hadworkopen := GetPrimary()->IsWorkOpen();
@@ -70,7 +70,7 @@ PUBLIC RECORD FUNCTION ExecuteEphemeralTask(RECORD taskinfo, BOOLEAN debug)
 PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
 {
   OBJECT trans := GetPrimary();
-  OBJECT taskrunner := PrepareTask(taskinfo, debug);
+  OBJECT taskrunner := PrepareTask(taskinfo, debug, [ taskid := taskinfo.dbid ]);
 
   IF (taskrunner->mutex != "")
     trans->BeginLockedWork(taskrunner->mutex);
@@ -80,7 +80,6 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
   IF(NOT RecordExists(SELECT FROM system_internal.managedtasks WHERE id=taskinfo.dbid))
     THROW NEW Exception("Task suddenly disppeared!");
 
-  taskrunner->__taskmeta := [ taskid := taskinfo.dbid ];
   RECORD resolution := ExecuteTask(taskrunner, taskinfo);
 
   IF(resolution.type="restart")
