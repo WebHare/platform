@@ -30,10 +30,6 @@ export function addDebugFlags(flags: string[]) {
     console.log('[dompack] debugging flags: ' + Object.keys(debugflags).join(', '));
 }
 
-export function initDebug() {
-  //no-op but there are still external callers which need fixing
-}
-
 //initialize debugging support (read debugflags etc)
 parseDebugURL('wh-debug');
 
