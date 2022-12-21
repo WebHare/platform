@@ -1,0 +1,14 @@
+{
+  "name": "@webhare/env",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/env.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "WebHare bv",
+  "license": "MIT",
+  "browser": {
+    "src/envsupport": "./src/envsupport-browser.ts"
+  }
+}

@@ -58,6 +58,8 @@ async function testResources() {
   test.eq(serverconfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
   test.eq(serverconfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
 
+  test.eqMatch(/^https?:.*/, serverconfig.backendurl);
+
   const systempath = serverconfig.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
   await test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));

@@ -1,10 +1,10 @@
 //This is based on Webhare's @mod-system/js/internal/bridge.ts - FIXME and that one should really be moved to internal namespace or be remove
 
+import * as envbackend from "@webhare/env/src/envbackend";
 import * as stacktrace_parser from "stacktrace-parser";
 import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
-import * as whdebug from "./whdebug";
 import EventSource, { EventCallback as EventSourceCallback } from "./eventsource";
 
 const BridgeFailureExitCode = 153;
@@ -252,6 +252,7 @@ class WebHareServiceWrapper {
 export interface VersionData {
   installationroot: string;
   moduleroots: { [key: string]: string };
+  backendurl: string;
   /** data root (FIXME stop naming it varroot!) */
   varroot: string;
   version: string;
@@ -294,7 +295,7 @@ class WebHareBridge extends EventSource<BridgeEvents> {
   constructor() {
     super();
 
-    this.debug = whdebug.isDebugTagEnabled("bridge");
+    this.debug = envbackend.getWHDebugFlags().bridge;
     this.onlinedefer = tools.createDeferred<void>();
 
     //TODO connect on demand (ie when ready or an IPC is requested)
