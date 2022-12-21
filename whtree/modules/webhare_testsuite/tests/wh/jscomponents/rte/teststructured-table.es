@@ -99,7 +99,7 @@ test.registerTests(
       test.eq('TD',secondrow.childNodes[1].nodeName);
       test.assert(secondrow.childNodes[0].classList.contains('red'));
 
-      await test.wait(1); //need to give RTD time to update the <select>
+      await test.sleep(1); //need to give RTD time to update the <select>
       test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
     }
 

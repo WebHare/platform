@@ -34,6 +34,6 @@ test.registerTests(
       test.eq("Bok", test.compByName("selectedrows").textContent);
       test.eq("email", test.compByName("selectedcolumns").textContent);
 
-      await test.wait(500); // Prevent double click
+      await test.sleep(500); // Prevent double click
     }
   ]);

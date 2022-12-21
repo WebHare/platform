@@ -174,7 +174,7 @@ test.registerTests(
       // Set and reset the student beacon
       test.assert(test.getWin().dataLayer);
       test.click("#setstudentbeacon");
-      await test.wait(300);
+      await test.sleep(300);
       test.eq(0, test.qSA("#currentbeacons div").length);
       test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
     }

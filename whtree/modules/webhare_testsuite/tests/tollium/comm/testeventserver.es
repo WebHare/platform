@@ -58,7 +58,7 @@ test.registerTests(
 
       await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
       await test.wait('ui');
-      await test.wait(3000);//wait 3 secs for any notes to appear.. there's no safe duration
+      await test.sleep(3000);//wait 3 secs for any notes to appear.. there's no safe duration
     }
   , { name: 'no duplicate events form last test?'
     , test:function(doc,win)

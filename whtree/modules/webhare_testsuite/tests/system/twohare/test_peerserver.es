@@ -22,7 +22,7 @@ test.registerTests(
       await test.wait("ui");
 
       // Wait for login page to appear
-      await test.wait(200);
+      await test.sleep(200);
       test.setTodd('loginname', setupdata.sysopuser);
       test.setTodd('password', setupdata.sysoppassword);
       test.clickToddButton('Login');
@@ -61,7 +61,7 @@ test.registerTests(
                           }
              },"*");
 
-          await test.wait(100);
+          await test.sleep(100);
         }
 
         test.getDoc().body.removeChild(overlay);
@@ -74,7 +74,7 @@ test.registerTests(
       test.clickToddButton("Connect");
       await test.wait("ui");
 
-      await test.wait(300); //the test.focus below wasn't enough, for some reason focus doesn't get set. workaround that race..
+      await test.sleep(300); //the test.focus below wasn't enough, for some reason focus doesn't get set. workaround that race..
 
       test.clickToddButton("Select folder");
       await test.wait("ui");

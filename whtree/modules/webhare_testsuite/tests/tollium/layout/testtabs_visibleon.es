@@ -24,7 +24,7 @@ test.registerTests(
       var tabs = getTabs(test.compByName('tabs'));
       test.click(tabs[0]);
 
-      await test.wait(100); //FIXME wait('ui') should have worked
+      await test.sleep(100); //FIXME wait('ui') should have worked
 
       test.eq('tab1', test.compByName('selectedtab').textContent);
 

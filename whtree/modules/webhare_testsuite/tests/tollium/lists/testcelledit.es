@@ -18,7 +18,7 @@ test.registerTests(
       // There should not be a textedit
       test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
 
-      await test.wait(500); // Prevent double click
+      await test.sleep(500); // Prevent double click
     }
 
   , { name: "not editing"
