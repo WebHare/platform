@@ -347,7 +347,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   FOREVERY(RECORD stucktask FROM stucktasks)
   {
     INSERT [ msg := ":Task '" || stucktask.tag || "' has errors: " || UCLeft(Tokenize(stucktask.error,"\n")[0],120)
-           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
+           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", tag := stucktask.tag ]
            ]
            INTO messages AT END;
   }

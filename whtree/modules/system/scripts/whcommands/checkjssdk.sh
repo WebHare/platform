@@ -24,5 +24,5 @@ if ! node_modules/.bin/tsfmt $TSFMTOPTIONS --no-tslint --no-editorconfig --no-vs
   RETVAL=1
 fi
 
-[ "$RETVAL" != "0" ] && [ "$FIX" == "0" ] && echo "Use \`wh checkjds --fix\` to automatically fix as much as possible"
+[ "$RETVAL" != "0" ] && [ "$FIX" == "0" ] && echo "Use \`wh checkjssdk --fix\` to automatically fix as much as possible"
 exit $RETVAL
