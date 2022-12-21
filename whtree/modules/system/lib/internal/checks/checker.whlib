@@ -255,11 +255,11 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   {
     IF(task = "system:outgoingmail")
       INSERT [ msg := ":Mailqueue is stuck"
-             , jumpto := [ app := "system:dashboard", panel := "system:managedtasks" ]
+             , jumpto := [ app := "system:dashboard", panel := "system:mailqueue" ]
              ] INTO messages AT END;
     ELSE
       INSERT [ msg := `:Task of type '${task}' is stuck`
-             , jumpto := [ app := "system:dashboard", panel := "system:managedtasks" ]
+             , jumpto := [ app := "system:dashboard", panel := "system:managedtasks", tag := task ]
              ] INTO messages AT END;
   }
 
@@ -347,7 +347,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   FOREVERY(RECORD stucktask FROM stucktasks)
   {
     INSERT [ msg := ":Task '" || stucktask.tag || "' has errors: " || UCLeft(Tokenize(stucktask.error,"\n")[0],120)
-           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", tag := stucktask.tag ]
+           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
            ]
            INTO messages AT END;
   }
