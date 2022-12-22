@@ -21,7 +21,7 @@ LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
-PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 < // -----------------------------------------------------------------------------
   //
   // Global variables and such
@@ -52,8 +52,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->ConfigurePrefsTab();
     this->LoadFavorites();
 
-    this->username->value := this->contexts->user->login;
-    this->username->readonly := TRUE;
+    ^username->value := this->contexts->user->login;
+    ^username->readonly := TRUE;
     this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
 
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
@@ -65,32 +65,32 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF(this->contexts->userapi->wrdschema->accountemailtag = ""
        OR this->contexts->userapi->wrdschema->accountlogintag = this->contexts->userapi->wrdschema->accountemailtag)
     {
-      this->username->composition := DEFAULT OBJECT;
-      this->username->visible := FALSE;
+      ^username->composition := DEFAULT OBJECT;
+      ^username->visible := FALSE;
     }
     ELSE
     {
-      this->username->cellname := this->contexts->userapi->wrdschema->accountemailtag;
+      ^username->cellname := this->contexts->userapi->wrdschema->accountemailtag;
     }
 
-    this->userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, this->contexts->user->entityid);
+    ^userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, this->contexts->user->entityid);
 
     RECORD unitinfo;
 
     RECORD locale := this->contexts->user->GetLocale();
 
-    this->language->SetValueIfValid(locale.language);
-    this->timezone->SetValueIfValid(locale.timezone);
-    this->decimalsep->SetValueIfValid(locale.decimalseparator);
-    this->thousandsep->SetValueIfValid(locale.thousandseparator);
-    this->browsertitleprefix->value := this->contexts->user->GetRegistryKey("system.prefs.browsertitleprefix", "");
+    ^language->SetValueIfValid(locale.language);
+    ^timezone->SetValueIfValid(locale.timezone);
+    ^decimalsep->SetValueIfValid(locale.decimalseparator);
+    ^thousandsep->SetValueIfValid(locale.thousandseparator);
+    ^browsertitleprefix->value := this->contexts->user->GetRegistryKey("system.prefs.browsertitleprefix", "");
 
     ^showdeveloperapps->visible := this->contexts->user->HasRight("system:sysop");
     ^showdeveloperapps->value := this->contexts->user->GetRegistryKey("system.prefs.showdeveloperapps", GetDtapStage() = "development");
 
     // These settings (decimal sep, thousand sep and background) can only be changed by the sysop and the user himself
     OBJECT dlg := this->LoadScreen(".notificationsettings", [ parentframe := this->frame ]);
-    this->notificationstab->contents := dlg;
+    ^notificationstab->contents := dlg;
     this->notificationsubmit := PTR dlg->Submit;
     this->frame->onmessage := PTR this->OnMessage;
 
@@ -104,8 +104,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO GotInterval()
   {
-    IF (ObjectExists(this->notificationstab->contents))
-      this->notificationstab->contents->GotInterval();
+    IF (ObjectExists(^notificationstab->contents))
+      ^notificationstab->contents->GotInterval();
   }
 
   MACRO OnMessage(RECORD message)
@@ -114,7 +114,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     {
       OBJECT tab := GetMember(this, message.opentab);
       IF (ObjectExists(tab))
-        this->usertabs->selectedtab := tab;
+        ^usertabs->selectedtab := tab;
     }
   }
 
@@ -133,10 +133,10 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     BOOLEAN passwordexpired, passwordabouttoexpire, passwordrequire2fa;
     TRY
     {
-      RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(this->userobj->wrdentity->id);
+      RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(^userobj->wrdentity->id);
       IF (usereditpolicy.passwordvalidationchecks != "")
       {
-        RECORD authsettings := this->userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->wrdschema->accountpasswordtag);
+        RECORD authsettings := ^userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->wrdschema->accountpasswordtag);
 
         IF (IsValueSet(authsettings)
             AND IsValueSet(authsettings.passwords)
@@ -207,37 +207,37 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginUnvalidatedWork();
-    this->userinfopage->ValidateValue(work);
+    ^userinfopage->ValidateValue(work);
 
-    IF (this->decimalsep->value = this->thousandsep->value)
+    IF (^decimalsep->value = ^thousandsep->value)
       work->AddError(GetTid("system:sysmgmt.decimalsepandthousandsepmustdiffer"));
 
-    this->userobj->StoreEntity(work);
+    ^userobj->StoreEntity(work);
 
-    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
+    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", ^browsertitleprefix->value);
 
     IF (MemberExists(this->tolliumcontroller, "webunloadtext"))
-      this->tolliumcontroller->webunloadtext := this->showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
+      this->tolliumcontroller->webunloadtext := ^showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
 
     STRING oldlanguage := this->contexts->user->GetLocale().language;
-    this->contexts->user->SetLocale([ language := this->language->value
-                                    , timezone := this->timezone->value
-                                    , decimalseparator := this->decimalsep->value
-                                    , thousandseparator := this->thousandsep->value
+    this->contexts->user->SetLocale([ language := ^language->value
+                                    , timezone := ^timezone->value
+                                    , decimalseparator := ^decimalsep->value
+                                    , thousandseparator := ^thousandsep->value
                                     ]);
-    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", this->browsertitleprefix->value);
+    this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", ^browsertitleprefix->value);
 
-    IF (this->notificationstab->visible)
+    IF (^notificationstab->visible)
       this->notificationsubmit();
 
-    IF(this->language->value != oldlanguage)
-      work->AddWarning(GetTidForLanguage(this->language->value, "system:userrights.dialogues.languagechanged"));
+    IF(^language->value != oldlanguage)
+      work->AddWarning(GetTidForLanguage(^language->value, "system:userrights.dialogues.languagechanged"));
 
     IF(^showdeveloperapps->visible)
       this->contexts->user->SetRegistryKey("system.prefs.showdeveloperapps", ^showdeveloperapps->value);
 
     //get the original rows, but overwrite the title inside them
-    RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM this->shortcuts->value;
+    RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM ^shortcuts->value;
     this->contexts->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
 
     IF(NOT work->Finish())
@@ -260,7 +260,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     RECORD ARRAY favorites := this->contexts->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
     RECORD ARRAY allapps := GetAllApplications(this->contexts->user);
 
-    this->shortcuts->value := SELECT app := (SELECT AS STRING title FROM allapps WHERE name = favorites.app) ?? favorites.app
+    ^shortcuts->value := SELECT app := (SELECT AS STRING title FROM allapps WHERE name = favorites.app) ?? favorites.app
                                    , title
                                    , row := favorites //just save the original nrow
                                 FROM favorites
@@ -277,11 +277,11 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   {
     RECORD prefs := CollectUserPreferenceOptions(this->tolliumcontroller);
 
-    this->language->options := prefs.languages;
+    ^language->options := prefs.languages;
     //FIXME this->timeformat->options := prefs.timeformats;
     //FIXME this->dateformat->options := prefs.dateformats;
-    this->decimalsep->options := prefs.decimalseps;
-    this->thousandsep->options := prefs.thousandseps;
+    ^decimalsep->options := prefs.decimalseps;
+    ^thousandsep->options := prefs.thousandseps;
   }
 
   MACRO DoResetWarnings()
