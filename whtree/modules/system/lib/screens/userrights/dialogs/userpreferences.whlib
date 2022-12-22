@@ -292,7 +292,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       RETURN;
 
     OBJECT work := this->BeginWork();
-    this->user->DeleteRegistryNode("tollium.dialogresult");
+    this->contexts->user->DeleteRegistryNode("tollium.dialogresult");
     work->AddWarning(this->GetTid(".settingswerereset"));
     work->Finish();
   }
@@ -303,7 +303,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       RETURN;
 
     OBJECT work := this->BeginWork();
-    this->user->DeleteRegistryNode("tollium.savestate");
+    this->contexts->user->DeleteRegistryNode("tollium.savestate");
     work->AddWarning(this->GetTid(".settingswerereset"));
     work->Finish();
   }
