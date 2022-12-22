@@ -27,6 +27,19 @@ function getTestRoots()
   return { win: cw, doc: cw.document, html: cw.document.documentElement, body: cw.document.body };
 }
 
+//Find best location to highlight, skipping internal files
+function findBestStackLocation(stacktrace) {
+  let filtered = stacktrace.filter(({ filename }) =>
+      !filename.endsWith("/ap.js") &&
+      !filename.endsWith("/testframework.es") &&
+      !filename.endsWith("/testframework-rte.es") &&
+      !filename.endsWith("/checks.ts") &&
+      !filename.includes("/dompack/testframework/") &&
+      !filename.endsWith("/testsuite.es"));
+
+  return filtered[0] || null;
+}
+
 class TestFramework
 {
   constructor()
@@ -641,16 +654,9 @@ class TestFramework
       });
       document.documentElement.classList.add('testframework--havefullerror');
 
-      let filtered = stacktrace.filter(({ filename }) =>
-          !filename.endsWith("/ap.js") &&
-          !filename.endsWith("/testframework.es") &&
-          !filename.endsWith("/testframework-rte.es") &&
-          !filename.includes("/dompack/testframework/") &&
-          !filename.endsWith("/testsuite.es"));
-
-      if (filtered.length)
-      {
-        lognode.textContent = `Location: ${filtered[0].filename}:${filtered[0].line}:${filtered[0].col}`;
+      let bestlocation = findBestStackLocation(stacktrace);
+      if (bestlocation) {
+        lognode.textContent = `Location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`;
         this.updateTestState();
       }
     });
@@ -670,17 +676,9 @@ class TestFramework
         console.log(`${el.filename}:${el.line}:${el.col}`);
       });
 
-      let filtered = stackframes.filter(({ filename }) =>
-          !filename.endsWith("/ap.js") &&
-          !filename.endsWith("/testframework.es") &&
-          !filename.endsWith("/testframework-rte.es") &&
-          !filename.includes("/dompack/testframework/") &&
-          !filename.endsWith("/testsuite.es"));
-
-      if (filtered.length)
-      {
-        console.warn(`Wait location: ${filtered[0].filename}:${filtered[0].line}:${filtered[0].col}`);
-      }
+      let bestlocation = findBestStackLocation(stackframes);
+      if (bestlocation)
+        console.warn(`Wait location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`);
     }
 
     // Swallow exception if in reportid mode unless running just one test (ADDME: abort the current test and move to the next test in reportid mode, but never run further steps)
