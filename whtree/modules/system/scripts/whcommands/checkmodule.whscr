@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "debug", type := "switch" ]
                               , [ name := "nowarnings", type := "switch" ]
+                              , [ name := "hidehints", type := "switch" ]
                               , [ name := "color", type := "switch" ]
                               , [ name := "doc", type := "switch" ]
                               , [ name := "onlytids", type := "switch" ]
@@ -91,6 +92,7 @@ FOREVERY(STRING modname FROM checklist)
               , args.filemask
               , args.color
               , args.nowarnings
+              , args.hidehints
               , documentation := args.doc
               , checktypescript
               ]);

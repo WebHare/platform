@@ -26,6 +26,7 @@
     <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
     <test name="coremodules" script="mod::system/scripts/whcommands/checkmodule.whscr">
       <arg value="--async" />
+      <arg value="--hidehints" />
       <arg value="coremodules" />
       <!-- <arg value="webhare_testsuite" />   we're pretty far from fully validating ourselves... so we'll stick to testinfo.xml -->
     </test>

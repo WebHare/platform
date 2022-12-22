@@ -615,7 +615,7 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module"
     # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
-    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule --filemask '*' --color "$TESTINGMODULENAME" ; then
+    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule --filemask '*' --hidehints --color "$TESTINGMODULENAME" ; then
       testfail "wh checkmodule failed"
     fi
 
