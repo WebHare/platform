@@ -108,6 +108,8 @@ async function runWebHareServiceTest_JS() {
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ping(41, 43));
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.asyncPing(41, 43));
 
+  test.eq({ arg1: 45, arg2: { contact: { contactNo: "C1" } } }, await serverinstance.ping(45, { contact: { contactNo: "C1" } }));
+
   /* TODO reenable as event source? then it would be nicer to do it like a 'real' eventSource
   const eventwaiter = serverinstance.waitOn("testevent");
   await serverinstance.emitTestEvent({ start: 12, add: 13});
