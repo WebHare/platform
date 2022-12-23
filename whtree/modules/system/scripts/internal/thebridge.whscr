@@ -1,0 +1,52 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+STATIC OBJECTTYPE BridgeConnection
+<
+  MACRO NEW()
+  {
+  }
+
+  PUBLIC ASYNC FUNCTION invokeAnyFunction(STRING funcname, VARIANT ARRAY args, RECORD options)
+  {
+    RETURN AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", funcname, args, options);
+  }
+
+  PUBLIC RECORD FUNCTION GetConfig()
+  {
+    //Greet it
+    RECORD config := GetWebhareConfiguration();
+    RECORD moduleroots;
+    FOREVERY(STRING module FROM GetInstalledModuleNames())
+      moduleroots := CellInsert(moduleroots, module, [ root := GetModuleInstallationRoot(module)]);
+
+    RECORD configpacket :=
+      [ installationroot := config.installationroot
+      , dataroot := config.varroot
+      , backendurl := GetPrimaryWebhareInterfaceURL()
+      , module := moduleroots
+      ];
+
+    RETURN configpacket;
+  }
+>;
+
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW BridgeConnection;
+}
+
+BOOLEAN debug := PickFirst(GetConsoleArguments()) = "--debug";
+
+OpenPrimary();
+
+//TODO it'd be better if we supported codeupdates, and had a way to detach when updated and send new connections a new version of the service. probably requires servicemanager to be able to 'start when requested'
+RunWebHareService("system:thebridge", PTR Constructor, [ autorestart := debug ]);

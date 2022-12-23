@@ -1,11 +1,19 @@
-import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
+import WHBridge from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import * as path from "node:path";
+export { openBackendService } from "./backendservice";
+import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
+export { WebHareBackendConfiguration } from "./bridgeservice";
+
+let configresolve: (() => void) | null = null;
+const configpromise = new Promise(resolve => configresolve = resolve as (() => void));
 
 /** Promise that resolves as soon as the WebHare configuration is available */
-export function ready(): Promise<void> {
+export async function ready(): Promise<void> {
   //needs to be a function so we can mark a waiter so nodejs doesn't abort during `await services.ready()`
-  return WHBridge.ready;
+  await WHBridge.ready;
+  //we also need the configuration promise to be ready..
+  await configpromise;
 }
 
 /** Asynchronously invoke a HareScript fuction
@@ -15,52 +23,18 @@ export function ready(): Promise<void> {
     @param options - openPrimary
     @returns Promise resolving to the final function's value
 */
-export async function callHareScript(func: string, args: unknown[], options?: { openPrimary: boolean }) {
+export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
-  return WHBridge.invoke(func, args, options);
-}
-
-export interface WebHareModuleConfiguration {
-  /** Module's version */
-  // version: string; // TODO
-  /** Absolute path to module root data */
-  root: string;
-}
-
-type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
-
-/** Describes the configuration of a WebHare backend */
-export interface WebHareBackendConfiguration {
-  /** Absolute path to WebHare installation, ending with a slash, eg /opt/wh/whtree/ */
-  installationroot: string;
-  /** Absolute path to WebHare data root, ending with a slash. Usually /opt/whdata/ */
-  dataroot: string;
-  /** URL to the primary WebHare interface */
-  backendurl: string;
-
-  //not sure if we really need ALL those other paths we used to have
-  module: WebHareModuleMap;
+  return (await getBridgeService()).INVOKEANYFUNCTION(func, args, options || {});
 }
 
 let config: WebHareBackendConfiguration | null = null;
 
-function buildModuleInfo(moduleroots: object) {
-  const map: WebHareModuleMap = {};
-  for (const [modulename, data] of Object.entries(moduleroots))
-    map[modulename] = { root: data };
-  return map;
-}
-
-WHBridge.onConfigurationUpdate(versioninfo => {
-  //bridge versioninfo should probably just exactly follow WebHareBackendConfiguration but let's do that when we have only one bridge implementation left
-  const vdata = versioninfo as VersionData;
-  const newconfig = {
-    installationroot: vdata.installationroot,
-    dataroot: vdata.varroot,
-    backendurl: vdata.backendurl,
-    module: buildModuleInfo(vdata.moduleroots)
-  };
+WHBridge.onConfigurationUpdate(async () => {
+  const newconfig = await (await getBridgeService()).GETCONFIG();
   config = Object.freeze(newconfig);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- it has to be set at initialization.
+  configresolve!();
 });
 
 export function getConfig(): Readonly<WebHareBackendConfiguration> {
@@ -121,14 +95,4 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
     return null;
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
-}
-
-/** Open a WebHare backend service
- *  @param name - Service name (a module:service pair)
- *  @param args - Arguments to pass to the constructor
- *  @param options - timeout: Maximum time to wait for the service to come online (default: 30sec)
- *                   linger: If true, service requires an explicit close() and will keep the process running
- */
-export async function openBackendService(name: string, args?: unknown[], options?: { timeout?: number; linger?: boolean }) {
-  return WHBridge.openService(name, args, options);
 }

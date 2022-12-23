@@ -46,6 +46,8 @@ class JSONRPCError extends Error {
 export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
   let id: number | null = null;
   //FIXME reload (only) when code updates
+  await services.ready();
+
   try {
     const theapi = await import(services.toFSPath(servicedef.service.split('#')[0]));
     const objectname = servicedef.service.split('#')[1];

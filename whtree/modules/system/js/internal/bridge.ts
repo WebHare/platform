@@ -6,7 +6,6 @@ import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
 import EventSource, { EventCallback as EventSourceCallback } from "./eventsource";
-import { ServiceCallMessage, WebHareServiceDescription } from "./types";
 
 const BridgeFailureExitCode = 153;
 
@@ -220,59 +219,8 @@ export class IPCListenerPort extends EventSource<IPCListenerPortEvents> {
   }
 }
 
-/** Interface for the client object we present to the connecting user
-    TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
-interface WebHareServiceClient {
-  /** Our methods */
-  [key: string]: (...args: unknown[]) => unknown;
-}
-
-interface RemoteCallResponse {
-  result?: unknown;
-  exc?: { what: string };
-}
-
-class WebHareServiceWrapper {
-  private readonly port: IPCLink;
-  readonly isjs: boolean;
-  private readonly client: WebHareServiceClient;
-
-  constructor(port: IPCLink, response: WebHareServiceDescription) {
-    this.port = port;
-    this.client = { close: function() { port.close(); } };
-    this.isjs = response.isjs || false;
-    for (const method of response.methods)
-      this.client[method.name] = (...args: unknown[]) => this.remotingFunc(method, args);
-  }
-
-  getClient() {
-    return this.client;
-  }
-
-  private async remotingFunc(method: { name: string }, args: unknown[]) {
-    const calldata: ServiceCallMessage = { call: method.name };
-    if (this.isjs)
-      calldata.jsargs = JSON.stringify(args);
-    else
-      calldata.args = args;
-
-    const response = await this.port.doRequest(calldata) as RemoteCallResponse;
-    if (response.exc)
-      throw new Error(response.exc.what);
-    else if (this.isjs)
-      return JSON.parse(response.result as string);
-    else
-      return response.result;
-  }
-}
-
 /** Describes config info sent by HareScript as soon as we establish the connection */
 export interface VersionData {
-  installationroot: string;
-  moduleroots: { [key: string]: string };
-  backendurl: string;
-  /** data root (FIXME stop naming it varroot!) */
-  varroot: string;
   version: string;
 }
 
@@ -561,60 +509,6 @@ class WebHareBridge extends EventSource<BridgeEvents> {
     //Fire existing configurationData if available (like onDomReady's catchup) in case bridge got loaded and initialized before us
     if (this.versiondata)
       callback(this.versiondata, "versioninfo");
-  }
-
-  getInstallationRoot() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.installationroot;
-  }
-  getModuleInstallationRoot(module: string) {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.moduleroots[module] || null;
-  }
-  getModuleInstallationRoots() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return Object.entries(this.versiondata.moduleroots).map(([name, path]) => ({ name, path }));
-  }
-  getBaseDataRoot() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.varroot;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
-  async openService(name: string, args?: unknown[], options?: { timeout?: number; linger?: boolean }) {
-    //TODO openService could also be a higher level API (eg in services.ts, built on top of IPC)
-    this.updateWaitCount(+1, "openService " + name);
-    try {
-      const link = new IPCLink;
-      try {
-        await link.connect("webhareservice:" + name, true);
-        const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
-        if (!options?.linger)
-          link.dropReference();
-
-        return (new WebHareServiceWrapper(link, description)).getClient();
-      } catch (e) {
-        link.close();
-        throw e;
-      }
-    } finally {
-      this.updateWaitCount(-1, "openService " + name);
-    }
-  }
-
-  /** Invoke a HareScript function from the bridge. Careful: any HS error may break the bridge connection */
-  async invoke(func: string, args: unknown[], options?: { openPrimary: boolean }): Promise<unknown> {
-    //TODO: The 'HS error' warning above doesn't currently apply as we always use a job right now. If we change that, services.callHareScript will need to adapt!
-    this.updateWaitCount(+1, "Invoke " + func);
-    try {
-      return await this.sendMessage({ type: "invoke", func, args, options: options || {} }).promise;
-    } finally {
-      this.updateWaitCount(-1, "Invoke " + func);
-    }
   }
 
   broadcastEvent(event: string, data?: unknown) {
