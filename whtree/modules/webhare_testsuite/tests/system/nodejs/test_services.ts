@@ -64,6 +64,10 @@ async function testResources() {
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
   await test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
   test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
+
+  test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
+  test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
+
   //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", [ allowdiskpath := TRUE ]));
   /* TODO do we really want to support resource paths as input ?
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
