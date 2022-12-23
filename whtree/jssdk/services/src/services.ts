@@ -123,6 +123,12 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
 }
 
-export async function openBackendService(name: string, args?: unknown[], options?: { timeout: number }) {
+/** Open a WebHare backend service
+ *  @param name - Service name (a module:service pair)
+ *  @param args - Arguments to pass to the constructor
+ *  @param options - timeout: Maximum time to wait for the service to come online (default: 30sec)
+ *                   linger: If true, service requires an explicit close() and will keep the process running
+ */
+export async function openBackendService(name: string, args?: unknown[], options?: { timeout?: number; linger?: boolean }) {
   return WHBridge.openService(name, args, options);
 }

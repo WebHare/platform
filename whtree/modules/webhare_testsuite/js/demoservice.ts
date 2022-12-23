@@ -28,6 +28,9 @@ class ClusterTestLink {
       return Promise.reject(e);
     }
   }
+  async _invisible() {
+    return true;
+  }
   // TODO? do we still need this?
   // emitTestEvent(data)
   // {

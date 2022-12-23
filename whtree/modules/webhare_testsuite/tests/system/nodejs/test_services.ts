@@ -79,20 +79,21 @@ async function testResources() {
 }
 
 async function runWebHareServiceTest_JS() {
-  await test.throws(/Unable to connect/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300 }));
+  await test.throws(/Unable to connect/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
   test.eq(0, WHBridge.references);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const demoservice: any = test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
-  demoservice.close();
+  test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
 
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"]));
-
   test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance: any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
+
+  test.assert(!serverinstance._invisible, "Should not see _prefixed APIs");
 
   let promise = serverinstance.getAsyncLUE();
   test.eq(42, await serverinstance.getLUE());
@@ -116,7 +117,14 @@ async function runWebHareServiceTest_JS() {
   test.eq(25, await eventwaiter);
   */
 
+  test.eq(0, WHBridge.references, "Our version of the demoservice wasn't lingering, so no references");
   serverinstance.close();
+  test.eq(0, WHBridge.references, "and close() should have no effect");
+
+  const secondinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"], { linger: true });
+  test.eq(1, WHBridge.references, "With linger, we take a reference");
+  secondinstance.close();
+  test.eq(0, WHBridge.references, "With linger, we take a reference");
 }
 
 async function runWebHareServiceTest_HS() {
@@ -126,7 +134,7 @@ async function runWebHareServiceTest_HS() {
   test.eq(0, WHBridge.references, "Failed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"]);
+  const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
   test.eq(1, WHBridge.references, "services.openBackendService should immediately keep a reference open");
   test.eq(42, await serverinstance.GETLUE());
 
