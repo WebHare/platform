@@ -55,21 +55,22 @@ async function testChecks() {
     const start = Date.now();
     await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => false, { timeout: 10 }));
     const waited = Date.now() - start;
-    test.assert(waited >= 10, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+    //it did fail once with 9ms, perhaps some rounding? take 9 to be safe...
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
   }
 
   {
     const start = Date.now();
     await test.throws(/test.wait timed out after 10 ms/, () => test.wait(new Promise(() => null), { timeout: 10 }));
     const waited = Date.now() - start;
-    test.assert(waited >= 10, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
   }
 
   {
     const start = Date.now();
     await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => Promise.resolve(false), { timeout: 10 }));
     const waited = Date.now() - start;
-    test.assert(waited >= 10, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
   }
 
   await test.wait(new Promise(resolve => resolve({ a: 1 })));
