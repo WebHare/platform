@@ -6,6 +6,7 @@ import * as configuration from './configuration';
 import WebSocket from "ws";
 import * as tools from "./tools";
 import EventSource, { EventCallback as EventSourceCallback } from "./eventsource";
+import { ServiceCallMessage, WebHareServiceDescription } from "./types";
 
 const BridgeFailureExitCode = 153;
 
@@ -220,17 +221,15 @@ interface RemoteCallResponse {
   exc?: { what: string };
 }
 
-interface WebHareServiceDescription {
-  methods: Array<{ name: string }>;
-}
-
 class WebHareServiceWrapper {
-  port: IPCLink;
-  private client: WebHareServiceClient;
+  private readonly port: IPCLink;
+  readonly isjs: boolean;
+  private readonly client: WebHareServiceClient;
 
   constructor(port: IPCLink, response: WebHareServiceDescription) {
     this.port = port;
     this.client = { close: function() { port.close(); } };
+    this.isjs = response.isjs || false;
     for (const method of response.methods)
       this.client[method.name] = (...args: unknown[]) => this.remotingFunc(method, args);
   }
@@ -240,9 +239,17 @@ class WebHareServiceWrapper {
   }
 
   private async remotingFunc(method: { name: string }, args: unknown[]) {
-    const response = await this.port.doRequest({ call: method.name, args: args }) as RemoteCallResponse;
+    const calldata: ServiceCallMessage = { call: method.name };
+    if (this.isjs)
+      calldata.jsargs = JSON.stringify(args);
+    else
+      calldata.args = args;
+
+    const response = await this.port.doRequest(calldata) as RemoteCallResponse;
     if (response.exc)
       throw new Error(response.exc.what);
+    else if (this.isjs)
+      return JSON.parse(response.result as string);
     else
       return response.result;
   }

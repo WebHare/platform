@@ -24,6 +24,9 @@ OBJECTTYPE CheckerObject
 
   MACRO AddIssue(RECORD issue, STRING category)
   {
+    IF(category = "hint" AND this->options.hidehints)
+      RETURN;
+
     IF(this->validateconfig.futuremodule AND category = "error")
       category := "warning";
     ELSE IF(this->validateconfig.nowarnings AND category = "warning")
@@ -94,6 +97,7 @@ OBJECTTYPE CheckerObject
                                      , color := FALSE
                                      , documentation := FALSE
                                      , nowarnings := FALSE
+                                     , hidehints := FALSE
                                      , checktypescript := TRUE
                                      ], options);
 

@@ -17,3 +17,20 @@ export type DeferredPromise<T> =
     resolve: (value: T | PromiseLike<T>) => void;
     reject: (reason: Error) => void;
   };
+
+export interface ServiceCallMessage {
+  /** invoked method */
+  call: string;
+  /** arguments */
+  args?: unknown[];
+  /** js encoded args */
+  jsargs?: string;
+}
+
+export interface WebHareServiceDescription {
+  isjs?: boolean;
+  methods: Array<{
+    name: string;
+    signdata: { returntype: number; params: object[]; excessargstype: number };
+  }>;
+}

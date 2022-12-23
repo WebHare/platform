@@ -1,4 +1,5 @@
 import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
+import { ServiceCallMessage, WebHareServiceDescription } from './types';
 
 /** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
     of exception.
@@ -18,8 +19,8 @@ function encodeExceptionForIPC(e: unknown) {
 
 
 //Describe a JS public interface in a HS compatible way
-function describePublicInterface(inobj: object) {
-  const methods: object[] = [];
+function describePublicInterface(inobj: object): WebHareServiceDescription {
+  const methods = [];
 
   //iterate to top and discover all methods
   for (; inobj; inobj = Object.getPrototypeOf(inobj)) {
@@ -46,7 +47,7 @@ function describePublicInterface(inobj: object) {
       });
     }
   }
-  return { methods };
+  return { isjs: true, methods };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- never[] doesn't work here, it confuses the actual calls to runWebHareService
@@ -56,13 +57,6 @@ interface ServiceConnection {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
-
-interface ServiceCallMessage {
-  /** invoked method */
-  call: string;
-  /** arguments */
-  args: unknown[];
-}
 
 class WebHareService { //EXTEND IPCPortHandlerBase
   private _port: IPCListenerPort;
@@ -111,8 +105,9 @@ class WebHareService { //EXTEND IPCPortHandlerBase
     const replyid = parsed.msgid;
     try {
       const pos = this._links.findIndex(_ => _.link === link);
-      const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, message.args);
-      link.send({ result }, replyid);
+      const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
+      const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, args);
+      link.send({ result: message.jsargs ? JSON.stringify(result) : result }, replyid);
     } catch (e) {
       link.send({ exc: encodeExceptionForIPC(e) }, replyid);
     }
