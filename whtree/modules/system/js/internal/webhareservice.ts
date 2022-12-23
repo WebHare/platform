@@ -32,10 +32,14 @@ function describePublicInterface(inobj: object): WebHareServiceDescription {
       if (name === 'constructor' || name[0] === '_')
         continue; //no need to explain the constructor, it's already been invoked. and skip 'private' functions
 
-      const params: object[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cleanup later, creating interfaces this way is ugly anyway
-      for (let i = 0; i < (inobj as any)[name].length; ++i)
-        params.push({ type: 1, has_default: true }); //pretend all params to be variants
+      const method = (inobj as any)[name];
+      if (typeof method !== 'function')
+        continue; //we only expose real functions, not variables, constants etc
+
+      const params: object[] = [];
+      for (let i = 0; i < method.length; ++i) //iterate arguments of method
+        params.push({ type: 1, has_default: true }); //pretend all arguments to be VARIANTs in HareScript
 
       methods.push({
         signdata: {

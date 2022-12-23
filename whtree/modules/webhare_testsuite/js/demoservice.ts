@@ -1,4 +1,9 @@
 class ClusterTestLink {
+  dummy = 42;
+  // null-likes completely broke interface description earlier, so test them specifically
+  aNull = null;
+  anUndefined = undefined;
+
   constructor(testdata: string) {
     if (testdata == "abort")
       throw new Error("abort");

@@ -93,7 +93,8 @@ async function runWebHareServiceTest_JS() {
   const serverinstance: any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
 
-  test.assert(!serverinstance._invisible, "Should not see _prefixed APIs");
+  test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
+  test.assert(serverinstance.dummy === undefined, "Should not see variables");
 
   let promise = serverinstance.getAsyncLUE();
   test.eq(42, await serverinstance.getLUE());
