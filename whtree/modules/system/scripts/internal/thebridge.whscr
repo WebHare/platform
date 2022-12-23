@@ -3,7 +3,9 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 
@@ -16,6 +18,24 @@ STATIC OBJECTTYPE BridgeConnection
   PUBLIC ASYNC FUNCTION invokeAnyFunction(STRING funcname, VARIANT ARRAY args, RECORD options)
   {
     RETURN AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", funcname, args, options);
+  }
+
+  PUBLIC RECORD FUNCTION GetConfig()
+  {
+    //Greet it
+    RECORD config := GetWebhareConfiguration();
+    RECORD moduleroots;
+    FOREVERY(STRING module FROM GetInstalledModuleNames())
+      moduleroots := CellInsert(moduleroots, module, [ root := GetModuleInstallationRoot(module)]);
+
+    RECORD configpacket :=
+      [ installationroot := config.installationroot
+      , dataroot := config.varroot
+      , backendurl := GetPrimaryWebhareInterfaceURL()
+      , module := moduleroots
+      ];
+
+    RETURN configpacket;
   }
 >;
 

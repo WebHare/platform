@@ -1,4 +1,4 @@
-import bridge from "@mod-system/js/internal/bridge";
+import * as services from "@webhare/services";
 import runWebHareService from "@mod-system/js/internal/webhareservice";
 import { XMLParser } from "fast-xml-parser";
 import { readFileSync } from "fs";
@@ -12,23 +12,23 @@ interface BackendServiceDescriptor {
 }
 
 function gatherBackendServices() {
-  const services: BackendServiceDescriptor[] = [];
+  const backendservices: BackendServiceDescriptor[] = [];
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@",
     isArray: (name, jpath, isLeafNode, isAttribute) => ["backendservice"].includes(name)
   });
 
-  for (const module of bridge.getModuleInstallationRoots()) {
-    const parsedmodule = parser.parse(readFileSync(path.join(module.path, "moduledefinition.xml")));
+  for (const [module, config] of Object.entries(services.getConfig().module)) {
+    const parsedmodule = parser.parse(readFileSync(path.join(config.root, "moduledefinition.xml")));
     for (const service of parsedmodule.module.services?.backendservice ?? [])
-      services.push({
-        fullname: `${module.name}:${service["@name"]}`,
-        handler: `mod::${module.name}/${service["@handler"]}`
+      backendservices.push({
+        fullname: `${module}:${service["@name"]}`,
+        handler: `mod::${module}/${service["@handler"]}`
       });
   }
 
-  return services;
+  return backendservices;
 }
 
 async function buildServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
@@ -37,10 +37,10 @@ async function buildServiceClient(service: BackendServiceDescriptor, args: unkno
 }
 
 async function main() {
-  const services = gatherBackendServices();
-  for (const service of services)
+  const backendservices = gatherBackendServices();
+  for (const service of backendservices)
     runWebHareService(service.fullname, (...args) => buildServiceClient(service, args));
 }
 
 hmr.activate();
-bridge.ready.then(main);
+services.ready().then(main);

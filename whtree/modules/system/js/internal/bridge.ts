@@ -221,11 +221,6 @@ export class IPCListenerPort extends EventSource<IPCListenerPortEvents> {
 
 /** Describes config info sent by HareScript as soon as we establish the connection */
 export interface VersionData {
-  installationroot: string;
-  moduleroots: { [key: string]: string };
-  backendurl: string;
-  /** data root (FIXME stop naming it varroot!) */
-  varroot: string;
   version: string;
 }
 
@@ -514,27 +509,6 @@ class WebHareBridge extends EventSource<BridgeEvents> {
     //Fire existing configurationData if available (like onDomReady's catchup) in case bridge got loaded and initialized before us
     if (this.versiondata)
       callback(this.versiondata, "versioninfo");
-  }
-
-  getInstallationRoot() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.installationroot;
-  }
-  getModuleInstallationRoot(module: string) {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.moduleroots[module] || null;
-  }
-  getModuleInstallationRoots() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return Object.entries(this.versiondata.moduleroots).map(([name, path]) => ({ name, path }));
-  }
-  getBaseDataRoot() {
-    if (!this.versiondata)
-      throw new Error("Requesting WebHare configuration data before the link was established");
-    return this.versiondata.varroot;
   }
 
   broadcastEvent(event: string, data?: unknown) {

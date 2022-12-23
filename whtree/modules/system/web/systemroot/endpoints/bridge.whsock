@@ -28,17 +28,7 @@ IF (GetClientRemoteIP() != GetClientLocalIP())
 handler := CreateWebSocketHandler();
 handler->ondata := PTR OnData;
 
-//Greet it
-RECORD config := GetWebhareConfiguration();
-RECORD moduleroots;
-FOREVERY(STRING module FROM GetInstalledModuleNames())
-  moduleroots := CellInsert(moduleroots, module, GetModuleInstallationRoot(module));
-
 SendPacket(CELL[ version := GetWebhareVersionNumber()
-               , config.varroot
-               , config.installationroot
-               , moduleroots
-               , backendurl := GetPrimaryWebhareInterfaceURL()
                ]);
 
 handler->Run();
@@ -151,11 +141,6 @@ ASYNC FUNCTION ExecuteCommand(INTEGER64 msgid, RECORD data)
       RECORD idmappos := RecordLowerBound(messageidmap, CELL[ webhareid := msg.msgid ], ["webhareid"]);
       INSERT CELL[ bridgeid := msgid, webhareid := msg.msgid ] INTO messageidmap AT idmappos.position;
       RETURN DEFAULT RECORD;
-    }
-
-    CASE "invoke"
-    {
-      RETURN [ value := AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", data.func, data.args, data.options) ];
     }
 
     CASE "broadcast"
