@@ -73,6 +73,7 @@ export class IPCLink extends EventSource<IPCLinkEvents> {
   protected id = 0;
   protected name = "";
   private closed = false;
+  private unreferenced = false;
 
   async connect(name: string, global: "managed" | boolean): Promise<void> {
     if (this.id)
@@ -92,7 +93,18 @@ export class IPCLink extends EventSource<IPCLinkEvents> {
     }
   }
 
+  /** Drop reference to the bridge. Prevents this link from stopping process shutdown */
+  dropReference() {
+    if (this.unreferenced || this.closed)
+      return;
+
+    this.unreferenced = true;
+    if (this.id)
+      bridge.updateWaitCount(-1, this.name);
+  }
+
   close() {
+    this.dropReference();
     if (this.closed)
       return;
 
@@ -100,7 +112,6 @@ export class IPCLink extends EventSource<IPCLinkEvents> {
     if (this.id) {
       bridge.sendMessage({ type: "closelink", id: this.id });
       links.delete(this.id);
-      bridge.updateWaitCount(-1, this.name);
     }
   }
 
@@ -574,13 +585,17 @@ class WebHareBridge extends EventSource<BridgeEvents> {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- FIXME implement timeout
-  async openService(name: string, args?: unknown[], options?: { timeout: number }) {
+  async openService(name: string, args?: unknown[], options?: { timeout?: number; linger?: boolean }) {
+    //TODO openService could also be a higher level API (eg in services.ts, built on top of IPC)
     this.updateWaitCount(+1, "openService " + name);
     try {
       const link = new IPCLink;
       try {
         await link.connect("webhareservice:" + name, true);
         const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
+        if (!options?.linger)
+          link.dropReference();
+
         return (new WebHareServiceWrapper(link, description)).getClient();
       } catch (e) {
         link.close();
