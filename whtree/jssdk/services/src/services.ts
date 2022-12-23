@@ -1,6 +1,7 @@
 import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import * as path from "node:path";
+export { openBackendService } from "./backendservice";
 
 /** Promise that resolves as soon as the WebHare configuration is available */
 export function ready(): Promise<void> {
@@ -121,14 +122,4 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
     return null;
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
-}
-
-/** Open a WebHare backend service
- *  @param name - Service name (a module:service pair)
- *  @param args - Arguments to pass to the constructor
- *  @param options - timeout: Maximum time to wait for the service to come online (default: 30sec)
- *                   linger: If true, service requires an explicit close() and will keep the process running
- */
-export async function openBackendService(name: string, args?: unknown[], options?: { timeout?: number; linger?: boolean }) {
-  return WHBridge.openService(name, args, options);
 }
