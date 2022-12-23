@@ -2,6 +2,7 @@ import WHBridge, { VersionData } from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import * as path from "node:path";
 export { openBackendService } from "./backendservice";
+import { getBridgeService, InvokeOptions } from "./bridgeservice";
 
 /** Promise that resolves as soon as the WebHare configuration is available */
 export function ready(): Promise<void> {
@@ -16,9 +17,9 @@ export function ready(): Promise<void> {
     @param options - openPrimary
     @returns Promise resolving to the final function's value
 */
-export async function callHareScript(func: string, args: unknown[], options?: { openPrimary: boolean }) {
+export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
-  return WHBridge.invoke(func, args, options);
+  return (await getBridgeService()).INVOKEANYFUNCTION(func, args, options || {});
 }
 
 export interface WebHareModuleConfiguration {

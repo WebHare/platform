@@ -235,6 +235,9 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
       , [ name :=     "system:nodeservices"
         , cmdline :=  "wh run mod::system/scripts/internal/nodeservices.ts"
         ]
+      , [ name :=     "system:thebridge"
+        , cmdline :=  "runscript mod::system/scripts/internal/thebridge.whscr"
+        ]
       ];
 
   IF (NOT ReadRegistryKey("system.backend.development.manualdebugmgr"))

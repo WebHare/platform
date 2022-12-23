@@ -45,20 +45,4 @@ async function testIPC() {
   test.eq(0, WHBridge.references);
 }
 
-async function testIndependentServiceThings() {
-
-  const invokereqeuest = WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]);
-  test.eq(1, WHBridge.references);
-  test.eq(45, await invokereqeuest);
-  test.eq(0, WHBridge.references);
-
-  await test.throws(/NOSUCHFUNCTION.*not found/, WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#NoSuchFunction", []));
-  await test.throws(/Custom.*Try to kill the bridge/, WHBridge.invoke("wh::system.whlib#ABORT", ["Try to kill the bridge through abort"]));
-  test.eq(1452, await WHBridge.invoke("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#MultiplyPromise", [22, 66]), "Verify promises work AND that the bridge is still there");
-  test.eq(0, WHBridge.references);
-}
-
-test.run([
-  testIPC,
-  testIndependentServiceThings
-], { wrdauth: false });
+test.run([testIPC], { wrdauth: false });
