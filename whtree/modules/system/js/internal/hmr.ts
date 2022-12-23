@@ -1,7 +1,6 @@
 import { handleModuleInvalidation } from "./hmrinternal";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate } from "./hmrinternal";
-import bridge from "@mod-system/js/internal/bridge";
-import * as jssdkservices from "@webhare/services";
+import * as services from "@webhare/services";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 
 // non-bridge stuff is placed into hmrinternal so it can be loaded first (bridge also registers as non-reloadable)
@@ -15,8 +14,8 @@ async function gotEvent({ name, data }: { name: string; data: unknown }) {
       if (resource.startsWith("direct::"))
         resource = resource.substring(8);
       else {
-        await bridge.ready;
-        resource = jssdkservices.toFSPath(resource);
+        await services.ready();
+        resource = services.toFSPath(resource);
       }
 
       handleModuleInvalidation(resource);
