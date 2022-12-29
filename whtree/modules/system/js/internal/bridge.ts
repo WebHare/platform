@@ -102,16 +102,19 @@ export class IPCLink extends EventSource<IPCLinkEvents> {
       bridge.updateWaitCount(-1, this.name);
   }
 
-  close() {
+  _disconnectLink() {
     this.dropReference();
     if (this.closed)
-      return;
+      return false;
 
     this.closed = true;
-    if (this.id) {
+    links.delete(this.id);
+    return true;
+  }
+
+  close() {
+    if (this._disconnectLink()) //wasn't closed yet
       bridge.sendMessage({ type: "closelink", id: this.id });
-      links.delete(this.id);
-    }
   }
 
   send(message: object, replyto?: number) {
@@ -399,7 +402,7 @@ class WebHareBridge extends EventSource<BridgeEvents> {
           this.pendingrequests = this.pendingrequests.filter(el => el.linkid != data.id);
 
           //If we still know of this link, close it.
-          links.get(data.id)?.close();
+          links.get(data.id)?._disconnectLink();
           return;
         }
 
