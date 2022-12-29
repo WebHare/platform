@@ -5,6 +5,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import WHBridge from "@mod-system/js/internal/bridge"; //@webhare/services should be wrapping the bridge but we need to validate the reference counter
+import { getBridgeManagerLink, getBridgeInstanceID } from "@webhare/services/src/bridgemgrlink";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -129,7 +130,7 @@ async function runWebHareServiceTest_JS() {
   const secondinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"], { linger: true });
   test.eq(1, WHBridge.references, "With linger, we take a reference");
   secondinstance.close();
-  test.eq(0, WHBridge.references, "With linger, we take a reference");
+  test.eq(0, WHBridge.references, "and close() should drop that reference");
 }
 
 async function runWebHareServiceTest_HS() {
@@ -168,8 +169,15 @@ async function runWebHareServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
-//NOTE: we take an a-typical test to help ensure noone booted services before us
+async function testBridgeManager() {
+  const mylink = await test.wait(async () => {
+    const connections = await (await getBridgeManagerLink()).listConnections();
+    return connections.find(_ => _.instance == getBridgeInstanceID());
+  });
+  test.eqMatch(/test_services.ts$/, mylink.script);
+}
 
+//NOTE: we take an a-typical test run approach to help ensure noone booted services before us
 async function main() {
   await test.throws(/not yet available/, () => services.getConfig());
   await services.ready();
@@ -180,7 +188,8 @@ async function main() {
       testServices,
       testResources,
       runWebHareServiceTest_JS,
-      runWebHareServiceTest_HS
+      runWebHareServiceTest_HS,
+      testBridgeManager
     ], { wrdauth: false });
 }
 

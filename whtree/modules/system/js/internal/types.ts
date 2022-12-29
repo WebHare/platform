@@ -34,3 +34,17 @@ export interface WebHareServiceDescription {
     signdata: { returntype: number; params: object[]; excessargstype: number };
   }>;
 }
+
+export interface BridgeDescription {
+  /** bridge unique ID, in case a process opens multiple connections */
+  instance: string;
+  /** Process ID */
+  pid: number;
+  /** Interpreter eg node*/
+  interpreter: string;
+  /** And the script that's running */
+  script: string;
+}
+export interface BridgeManagerLink {
+  listConnections(): Promise<BridgeDescription[]>;
+}

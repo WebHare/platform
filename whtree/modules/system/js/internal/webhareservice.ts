@@ -1,8 +1,7 @@
 import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
 import { ServiceCallMessage, WebHareServiceDescription } from './types';
 
-/** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
-    of exception.
+/** Encode into a record for transfer over IPC.
     @returns Encoded exception
 */
 function encodeExceptionForIPC(e: unknown) {
