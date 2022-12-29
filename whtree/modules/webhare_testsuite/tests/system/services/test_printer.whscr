@@ -153,6 +153,24 @@ MACRO TestPDFFromBlob()
   testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
 }
 
+MACRO TestPDFFromBlobWithFonts()
+{
+  BLOB data := GetWebhareResource("mod::webhare_testsuite/web/resources/tests/fontfaceload/index.html");
+  BLOB dashttf := GetWebhareResource("mod::webhare_testsuite/web/resources/tests/fontfaceload/dash.ttf");
+
+  RECORD result := GeneratePDFFromFile(WrapBlob(data,"pdf.html"), [ printbackground := FALSE
+                                                                  , embeddedfiles := [[ href := "dash.ttf"
+                                                                                      , contenttype := "font/ttf"
+                                                                                      , data := dashttf
+                                                                                      ]
+                                                                                     ]
+                                                                  ]);
+  RECORD ARRAY images := ExportPDFToImages(result.data);
+
+  TestEq(1,Length(images));
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/fontfaceload-pdf.png"), [ maxmse := 50, resizeimgifneeded := TRUE ]);
+}
+
 MACRO TestScreenshots()
 {
   testfw->BeginWork();
@@ -202,11 +220,17 @@ MACRO TestScreenshots()
   TestEqLike("*TypeError*", test.log[1].message); //originally "*TypeError: *is not a function*" but i got "TypeError: undefined is not a constructor (evaluating 'a.boem()')"
   TestEQLike("exception", test.log[2].level);
   TestEQLike("*uncaught promise rejection*", test.log[2].message);
+
+  url := ResolveToAbsoluteURL(testsite->webroot, "/tollium_todd.res/webhare_testsuite/tests/fontfaceload/");
+  Print("screenshotting " || url || "\n");
+  test := GenerateBrowserScreenshot(url);
+  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/fontfaceload.png"), [ maxmse := 50, annotation := url ]);
 }
 
 RunTestframework([ PTR TestPDFs
                  , PTR TestWittyDialog
                  , PTR TestPDFFromURL
                  , PTR TestPDFFromBlob
+                 , PTR TestPDFFromBlobWithFonts
                  , PTR TestScreenshots
                  ]);
