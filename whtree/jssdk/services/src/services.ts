@@ -44,26 +44,36 @@ export function getConfig(): Readonly<WebHareBackendConfiguration> {
   return config;
 }
 
+export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
+export function toFSPath(diskpath: string, options?: { allowUnmatched: boolean }): string;
+
 /** Resolve a resource path to a filesystem path
 
     @param resource - Path to resolve
     @returns Absolute file system path. A succesful return does not imply the path actually exists
     @throws If the path cannot be mapped to a filesystem path
 */
-export function toFSPath(resource: string) {
+export function toFSPath(resource: string, options?: { allowUnmatched: boolean }) {
   const namespace = resource.substring(0, resource.indexOf("::")).toLowerCase();
   const restpath = resource.substring(namespace.length + 2);
 
   if (namespace == "mod" || namespace == "storage") {
     const nextslash = restpath.indexOf('/');
     const modulename = nextslash == -1 ? restpath : restpath.substr(0, nextslash);
-    if (modulename == "")
-      // throw new RetrieveResourceException(reportpath, "No such resource: missing module name", default let );
+    if (modulename == "") {
+      if (options?.allowUnmatched)
+        return null;
+
       throw new Error("No such resource: missing module name");
+    }
 
     const modinfo = getConfig().module[modulename];
-    if (!modinfo)
+    if (!modinfo) {
+      if (options?.allowUnmatched)
+        return null;
+
       throw new Error(`No such resource: no such module '${modulename}'`);
+    }
 
     const basedir = namespace == "mod" ? modinfo.root : `${getConfig().dataroot}storage/${modulename}/`;
 
@@ -72,6 +82,9 @@ export function toFSPath(resource: string) {
     else
       return path.join(basedir, restpath.substring(nextslash));
   }
+
+  if (options?.allowUnmatched)
+    return null;
   throw new Error(`Unsupported resource path '${resource}'`);
 }
 

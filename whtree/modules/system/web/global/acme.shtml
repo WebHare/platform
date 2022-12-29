@@ -5,7 +5,7 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 STRING servicebase := "https://services.webhare.com/wh_services/webhare_services/certbot3/";
 STRING torequest := Tokenize(GetRequestURL(),".well-known/acme-challenge/")[1];
-STRING response := CallJSONRPC(servicebase || "GetChallenge3", torequest);
+STRING response := CallJSONRPC(servicebase, "GetChallenge3", torequest);
 IF(Length(response)=0)
   AbortWithHTTPError(404);
 Print(response);

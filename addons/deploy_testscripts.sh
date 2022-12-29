@@ -6,6 +6,11 @@ if [ -z "$WHBUILD_BUILDBOTPASSWORD" ]; then
   exit 1
 fi
 
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/testmodule.sh https://cms.webhare.dev/webdav/publisher/scripts/testmodule.sh
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/testdocker.sh https://cms.webhare.dev/webdav/publisher/scripts/testdocker.sh
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/../whtree/lib/wh-functions.sh https://cms.webhare.dev/webdav/publisher/scripts/wh-functions.sh
+if ! ( curl --fail --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/testmodule.sh https://cms.webhare.dev/webdav/publisher/scripts/testmodule.sh &&
+       curl --fail --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/testdocker.sh https://cms.webhare.dev/webdav/publisher/scripts/testdocker.sh &&
+       curl --fail --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/../whtree/lib/wh-functions.sh https://cms.webhare.dev/webdav/publisher/scripts/wh-functions.sh ) ; then
+  echo "Upload failed"
+  exit 1
+fi
+
+exit 0

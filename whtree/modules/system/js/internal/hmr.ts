@@ -7,21 +7,20 @@ import whbridge from "@mod-system/js/internal/whmanager/bridge";
 
 async function gotEvent({ name, data }: { name: string; data: unknown }) {
   if (name.startsWith("system:modulefolder.") && typeof data == "object" && data) {
-    let resource = (data as { resourcename?: string })?.resourcename;
+    let resource = (data as { resourcename?: string })?.resourcename ?? null;
     if (!resource)
       return;
-    try {
-      if (resource.startsWith("direct::"))
-        resource = resource.substring(8);
-      else {
-        await services.ready();
-        resource = services.toFSPath(resource);
-      }
 
-      handleModuleInvalidation(resource);
-    } catch (e) {
-      return;
+    if (resource.startsWith("direct::"))
+      resource = resource.substring(8);
+    else {
+      await services.ready();
+      resource = services.toFSPath(resource, { allowUnmatched: true });
+      if (!resource)
+        return;
     }
+
+    handleModuleInvalidation(resource);
   }
 }
 

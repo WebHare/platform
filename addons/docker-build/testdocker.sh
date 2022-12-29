@@ -131,11 +131,15 @@ while true; do
   fi
 done
 
+IMPLICITARGS=()
 if [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
+    TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
+    IMPLICITARGS+=("$TESTINGMODULENAME")
   else
     TESTINGMODULE="${1%%.*}"
+    TESTINGMODULENAME="$TESTINGMODULE"
     shift
     if [ -z "$TESTINGMODULE" ]; then
       echo "Please specify a testmodule to run"
@@ -271,7 +275,7 @@ done < <(env -0)
 echo -n "wh testdocker "
 #  Add --sh if it wasn't there yet
 [ -n "$ENTERSHELL" ] || echo -n "--sh "
-echo "${ORIGINALARGS[@]}"
+echo "${ORIGINALARGS[@]}" "${IMPLICITARGS[@]}"
 echo
 
 # List our configuration
@@ -345,7 +349,6 @@ if [ -n "$ISMODULETEST" ]; then
     echo Cannot find $TESTINGMODULEDIR/moduledefinition.xml
     exit 1
   fi
-  TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
   fi
@@ -614,8 +617,11 @@ if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
     # assetpack compiles are much more complex and may rely on siteprofiles etc working, so it's best to find any validation errors first.
     # besides, the assetpack compile should run in the background and validation may take a while, so this parallelizes more
     echo "$(date) Check module"
-    # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
-    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule --filemask '*' --hidehints --color "$TESTINGMODULENAME" ; then
+    CHECKMODULEOPTS=""
+    if is_atleast_version 5.2.0-dev ; then
+      CHECKMODULEOPTS="--hidehints"
+    fi
+    if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh checkmodule $CHECKMODULEOPTS --color "$TESTINGMODULENAME" ; then
       testfail "wh checkmodule failed"
     fi
 
