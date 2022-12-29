@@ -241,6 +241,12 @@ type BridgeEvents = {
   versioninfo: VersionData;
 };
 
+interface SentMessage {
+  msgid: number;
+  resolve: (resolution?: unknown) => void;
+  reject: (error: Error) => void;
+  trace?: string;
+}
 
 //TODO we don't really create multiple bridges. should we allow that or should we just stop bothering and have one global connection?
 class WebHareBridge extends EventSource<BridgeEvents> {
@@ -249,7 +255,7 @@ class WebHareBridge extends EventSource<BridgeEvents> {
   debug = false;
   gotfirstmessage = false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not fixing this yet, I wonder if it wouldn't be cleaner to swap out sentmessages/pendingrequests for IPC links and WebHareServices completely!
-  sentmessages: any[] = [];
+  sentmessages: SentMessage[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not fixing this yet, I wonder if it wouldn't be cleaner to swap out sentmessages/pendingrequests for IPC links and WebHareServices completely!
   pendingrequests: any[] = [];
   eventcallbacks: Array<{ id: number; callback: EventCallback }> = [];
@@ -343,8 +349,14 @@ class WebHareBridge extends EventSource<BridgeEvents> {
       case "response-exception":
         {
           const req = this.sentmessages.find(item => item.msgid == data.msgid);
-          if (req)
-            req.reject(new Error(data.what));
+          if (!req)
+            return console.error(`webhare-bridge: received exception '${data.what}' to unknown messages ${data.msgid}`);
+
+          if (this.debug)
+            console.log(`webhare-bridge: rejecting request with error '${data.what}' made here`, req.trace);
+
+          this.sentmessages.splice(this.sentmessages.indexOf(req), 1);
+          req.reject(new Error(data.what));
           return;
         }
 
@@ -438,12 +450,14 @@ class WebHareBridge extends EventSource<BridgeEvents> {
   sendMessage(data: object) {
     const msgid = ++this.nextmsgid;
 
-    let rec;
     const promise = new Promise((resolve, reject) => {
-      rec = { msgid, resolve, reject };
+      const rec: SentMessage = { msgid, resolve, reject };
+      if (this.debug)
+        rec.trace = (new Error).stack;
+
+      this.sentmessages.push(rec);
+      this.transmit({ msgid, data });
     });
-    this.sentmessages.push(rec);
-    this.transmit({ msgid, data });
 
     return { msgid, promise };
   }
