@@ -208,6 +208,10 @@ MACRO TestThroughFormValueAPI()
                       ,[ name := pmfield.options[1].subfields[0].name, value := "DPB" ]
                       ]);
 
+  RECORD savevalue := form->^pm->value;
+  form->^pm->value := DEFAULT RECORD; //Crashed at one point. shouldnt!
+  form->^pm->value := savevalue;
+
   TestEqMembers([ issuer := "DPB"
                 , paymentoptiontag := "WITHISSUER"
                 ], form->^pm->value, '*');
