@@ -208,7 +208,10 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     IF(NOT ObjectExists(this->paymentmethodselect) AND RecordExists(value))
       THROW NEW Exception("Must configure payment API settings before setting a value. This may be triggered by a deleted form");
 
-    RECORD toselect := SELECT * FROM this->paymentoptions WHERE paymentprovider = value.paymentprovider AND paymentoptiontag = value.paymentoptiontag;
+    RECORD toselect;
+    IF(RecordExists(value))
+      toselect := SELECT * FROM this->paymentoptions WHERE paymentprovider = value.paymentprovider AND paymentoptiontag = value.paymentoptiontag;
+
     IF(NOT RecordExists(toselect))
     {
       this->paymentmethodselect->selection := DEFAULT RECORD;
