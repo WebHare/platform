@@ -12,4 +12,18 @@ program.command('connections')
     console.table(connections);
   });
 
+program.command('inspect')
+  .description('Enable inspector and return settings')
+  .argument('<instance>', 'Instance to connect to')
+  .action(async (instance: string) => {
+    const inspectorinfo = await (await getBridgeManagerLink()).enableInspector(instance);
+    if (inspectorinfo) {
+      console.log("Inspector URL: " + inspectorinfo.url);
+      console.log("Locally you should see the session on chrome://inspect/#devices");
+    } else {
+      console.error("Failed to open an inspector");
+      process.exit(1);
+    }
+  });
+
 program.parse();

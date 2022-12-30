@@ -35,6 +35,9 @@ export interface WebHareServiceDescription {
   }>;
 }
 
+export interface InspectorSettings {
+  url: string;
+}
 export interface BridgeDescription {
   /** bridge unique ID, in case a process opens multiple connections */
   instance: string;
@@ -46,5 +49,13 @@ export interface BridgeDescription {
   script: string;
 }
 export interface BridgeManagerLink {
+  /** List all bridge connections */
   listConnections(): Promise<BridgeDescription[]>;
+  /** Enable inspector and get its connection settings for a specific proces */
+  enableInspector(instance: string): Promise<InspectorSettings | null>;
+}
+
+export interface BridgeClientLink {
+  /** Enable inspector and get its connection settings for a specific proces */
+  enableInspector(): Promise<InspectorSettings | null>;
 }
