@@ -378,7 +378,10 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
   return new JSONSchemaValidator(ajv.compile(tocompile));
 }
 
-export async function wait(waitfor: (() => boolean | PromiseLike<boolean>) | PromiseLike<unknown>, options?: Annotation | { timeout?: number; annotation?: Annotation }) {
+//We want to make clear ('assert') that wait will not return falsy values
+type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
+
+export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
   if (typeof options == "string" || typeof options == "function")
     options = { annotation: options };
 
@@ -391,10 +394,11 @@ export async function wait(waitfor: (() => boolean | PromiseLike<boolean>) | Pro
   if (typeof waitfor == "function") {
     const timeout_cb = setTimeout(() => gottimeout = true, timeout);
     while (!gotTimeout()) {
-      if (await waitfor()) {
+      const result = await waitfor();
+      if (result) {
         if (!gotTimeout())
           clearTimeout(timeout_cb);
-        return;
+        return result as unknown as WaitRetVal<T>;
       }
 
       await new Promise(resolve => setTimeout(resolve, 1));
@@ -411,7 +415,7 @@ export async function wait(waitfor: (() => boolean | PromiseLike<boolean>) | Pro
       }, timeout);
     });
     try {
-      await Promise.race([waitfor, timeoutpromise]);
+      return await Promise.race([waitfor, timeoutpromise]) as WaitRetVal<T>;
     } finally {
       if (cb)
         clearTimeout(cb);

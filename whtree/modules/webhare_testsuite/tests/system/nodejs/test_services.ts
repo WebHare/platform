@@ -5,6 +5,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import WHBridge from "@mod-system/js/internal/bridge"; //@webhare/services should be wrapping the bridge but we need to validate the reference counter
+import { getBridgeManagerLink, getBridgeInstanceID } from "@webhare/services/src/bridgemgrlink";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -129,7 +130,24 @@ async function runWebHareServiceTest_JS() {
   const secondinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"], { linger: true });
   test.eq(1, WHBridge.references, "With linger, we take a reference");
   secondinstance.close();
-  test.eq(0, WHBridge.references, "With linger, we take a reference");
+  test.eq(0, WHBridge.references, "and close() should drop that reference");
+}
+
+async function testDisconnects() {
+  const instance1 = await services.openBackendService("webhare_testsuite:demoservice", ["instance1"], { linger: true });
+  const instance2 = await services.openBackendService("webhare_testsuite:demoservice", ["instance2"], { linger: true });
+
+  //Send a message to instance 1 and immediately disconnect it. then try instance 2 and see if the service got killed because we dropped the outgoing line
+  instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
+  await test.sleep(1); //give the command time to be flushed
+  instance1.close(); //kill the link
+
+  await test.sleep(100); //give the demoservice time to answer. we know it's a racy test so it might give false positives..
+  // verify the services stil lwork
+  test.eq(42, await instance2.getAsyncLUE());
+  instance2.close(); //kill the second link
+
+  test.eq(0, WHBridge.references);
 }
 
 async function runWebHareServiceTest_HS() {
@@ -168,8 +186,21 @@ async function runWebHareServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
-//NOTE: we take an a-typical test to help ensure noone booted services before us
+async function testBridgeManager() {
+  const bridgemgrlink = await getBridgeManagerLink();
+  const mylink = await test.wait(async () => {
+    const connections = await bridgemgrlink.listConnections();
+    return connections.find(_ => _.instance == getBridgeInstanceID());
+  });
 
+  test.eqMatch(/test_services.ts$/, mylink.script);
+
+  const inspectsettings_1 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
+  const inspectsettings_2 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
+  test.eq(inspectsettings_1, inspectsettings_2, "Verify inspector settings are reused after first call");
+}
+
+//NOTE: we take an a-typical test run approach to help ensure noone booted services before us
 async function main() {
   await test.throws(/not yet available/, () => services.getConfig());
   await services.ready();
@@ -180,7 +211,8 @@ async function main() {
       testServices,
       testResources,
       runWebHareServiceTest_JS,
-      runWebHareServiceTest_HS
+      runWebHareServiceTest_HS,
+      testBridgeManager
     ], { wrdauth: false });
 }
 

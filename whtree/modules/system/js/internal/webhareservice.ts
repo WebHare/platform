@@ -1,8 +1,14 @@
 import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
 import { ServiceCallMessage, WebHareServiceDescription } from './types';
 
-/** Encode into a record for transfer over IPC. Use RegisterReceivedExceptionType to register decoders for other types
-    of exception.
+interface WebHareServiceOptions {
+  autorestart?: boolean;
+  restartimmediately?: boolean;
+  //TODO __droplistenerreference is now a hack for the incoming bridgemgmt service which should either become permanent or go away once bridge uses IPClinks for that
+  __droplistenerreference?: boolean;
+}
+
+/** Encode into a record for transfer over IPC.
     @returns Encoded exception
 */
 function encodeExceptionForIPC(e: unknown) {
@@ -66,12 +72,14 @@ class WebHareService { //EXTEND IPCPortHandlerBase
   private _port: IPCListenerPort;
   private _constructor: ConnectionConstructor;
   private _links: Array<{ handler: object; link: object }>;
+  private _options: WebHareServiceOptions;
 
-  constructor(port: IPCListenerPort, servicename: string, constructor: ConnectionConstructor, options: object) {
+  constructor(port: IPCListenerPort, servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
     this._port = port;
     this._constructor = constructor;
     this._port.on("accept", link => this._onLinkAccepted(link));
     this._links = [];
+    this._options = options;
   }
   async _onLinkAccepted(link: IPCLink) {
     try {
@@ -94,6 +102,8 @@ class WebHareService { //EXTEND IPCPortHandlerBase
       const handler = await this._constructor(...msg.__new);
       link.on("message", _ => this._onMessage(link, _));
       link.send(describePublicInterface(handler), id);
+      if (this._options.__droplistenerreference)
+        link.dropReference();
 
       this._links.push({ handler, link });
     } catch (e) {
@@ -128,12 +138,18 @@ class WebHareService { //EXTEND IPCPortHandlerBase
      - autorestart: Automatically restart the service if the source code has changed. Defaults to TRUE
      - restartimmediately: Immediately restart the service even if we stil have open connections. Defaults to FALSE
 */
-export default async function runWebHareService(servicename: string, constructor: ConnectionConstructor, { autorestart, restartimmediately } = { autorestart: true, restartimmediately: false }) {
+export default async function runWebHareService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
+  options = { autorestart: true, restartimmediately: false, __droplistenerreference: false, ...options };
   if (!servicename.match(/^.+:.+$/))
     throw new Error("A service should have a <module>:<service> name");
 
   const hostport = new IPCListenerPort;
-  const service = new WebHareService(hostport, servicename, constructor, { autorestart, restartimmediately });
+  const service = new WebHareService(hostport, servicename, constructor, options);
+
   await hostport.listen("webhareservice:" + servicename, true);
+
+  if (options.__droplistenerreference)
+    hostport.dropReference();
+
   return service;
 }

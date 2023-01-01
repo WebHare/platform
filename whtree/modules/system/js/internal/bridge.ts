@@ -68,12 +68,24 @@ type IPCLinkEvents = {
   close: undefined;
 };
 
-export class IPCLink extends EventSource<IPCLinkEvents> {
+class IPCOBjectBase<EventsType extends Record<string, unknown>> extends EventSource<EventsType> {
   protected id = 0;
-  protected name = "";
-  private closed = false;
+  name = "";
+  protected closed = false;
   private unreferenced = false;
 
+  /** Drop reference to the bridge. Prevents this link from stopping process shutdown */
+  dropReference() {
+    if (this.unreferenced || this.closed)
+      return;
+
+    this.unreferenced = true;
+    if (this.id)
+      bridge.updateWaitCount(-1, this.name);
+  }
+
+}
+export class IPCLink extends IPCOBjectBase<IPCLinkEvents> {
   async connect(name: string, global: "managed" | boolean): Promise<void> {
     if (this.id)
       throw new Error(`This IPCLink has already attempted to connect in the past`);
@@ -90,16 +102,6 @@ export class IPCLink extends EventSource<IPCLinkEvents> {
       this.close();
       throw e;
     }
-  }
-
-  /** Drop reference to the bridge. Prevents this link from stopping process shutdown */
-  dropReference() {
-    if (this.unreferenced || this.closed)
-      return;
-
-    this.unreferenced = true;
-    if (this.id)
-      bridge.updateWaitCount(-1, this.name);
   }
 
   _disconnectLink() {
@@ -185,11 +187,7 @@ type IPCListenerPortEvents = {
   accept: IPCLink;
 };
 
-export class IPCListenerPort extends EventSource<IPCListenerPortEvents> {
-  id = 0;
-  name = "";
-  private closed = false;
-
+export class IPCListenerPort extends IPCOBjectBase<IPCListenerPortEvents> {
   async listen(name: string, global: boolean): Promise<void> {
     if (this.id)
       throw new Error(`This IPCListenerPort has already attempted to listen in the past`);
@@ -205,12 +203,12 @@ export class IPCListenerPort extends EventSource<IPCListenerPortEvents> {
   }
 
   close() {
+    this.dropReference();
     this.closed = true;
 
     if (this.id) {
       bridge.sendMessage({ type: "closeport", id: this.id });
       ports.delete(this.id);
-      bridge.updateWaitCount(-1, this.name);
     }
   }
 
