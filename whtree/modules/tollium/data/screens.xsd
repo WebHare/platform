@@ -3590,7 +3590,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="borders" type="BordersSpacers">
+    <xs:attribute name="borders" type="BordersSpacers" default="default">
       <xs:annotation>
         <xs:documentation>A space separated list of borders to enable.</xs:documentation>
       </xs:annotation>

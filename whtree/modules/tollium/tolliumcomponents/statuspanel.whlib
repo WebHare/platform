@@ -18,6 +18,9 @@ PUBLIC STATIC OBJECTTYPE StatusPanel EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(def);
     this->type := def.type;
+    IF(NOT def.borders.usedefault)
+      ^panel->borders := def.borders;
+    ^panel->spacers := def.spacers;
   }
 
   UPDATE MACRO PreInitComponent()
