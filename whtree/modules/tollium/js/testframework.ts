@@ -18,8 +18,11 @@ function isStringOrRegexpMatch(intext, pattern) {
 }
 
 class AppProxy {
-  constructor(win, toddapp) {
-    this.win = win;
+  /** @deprecated Use test.getWin() / test.getDoc() / test.qS(A) */
+  get win() {
+    return test.getWin();
+  }
+  constructor(toddapp) {
     this.app = toddapp;
   }
   getNumOpenScreens() {
@@ -182,17 +185,13 @@ class ScreenProxy {
   }
 }
 
-function $app(win) {
-  return new AppProxy(win, win.__todd.applicationstack.at(-1));
-}
 function $screen(win) {
   return getCurrentApp().getActiveScreen();
 }
-window.$app = $app;
 window.$screen = $screen;
 
 function getCurrentApp() {
-  return new AppProxy(test.getWin(), test.getWin().__todd.applicationstack.at(-1));
+  return new AppProxy(test.getWin().__todd.applicationstack.at(-1));
 }
 function getCurrentScreen() {
   return getCurrentApp().getActiveScreen();

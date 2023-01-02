@@ -79,7 +79,9 @@ export default class ObjCodeEdit extends ComponentBase
             { this.textarea = <textarea wrap="off"
                                         spellcheck="false"
                                         style={{ marginLeft: this.linenumberswidth + 2 }}
-                                        on={{ scroll: event => this.gotScrollEvent(event) }}
+                                        on={{ scroll: event => this.gotScrollEvent(event),
+                                              input: event => this.gotInput(event)
+                                            }}
                                         />
             }
           </t-codeedit>;
@@ -187,6 +189,10 @@ export default class ObjCodeEdit extends ComponentBase
         scrolltop = max_scroll;
     }
     scrollmonitor.setScrollPosition(this.textarea, 0, scrolltop);
+  }
+
+  gotInput(ev) {
+    this.setDirty();
   }
 
   gotScrollEvent()
