@@ -633,9 +633,10 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
       RETURN DEFAULT RECORD;
 
     this->formdoc->NormalizeDocument();
-    RETURN [ formtext := this->formdoc->GetDocumentBlob(TRUE)
+    RETURN [ text := this->formdoc->GetDocumentBlob(TRUE)
            , instances := this->instances
            , links := (SELECT tag, linkref FROM this->links ORDER BY tag)
+           , type := "publisher:formdefinition"
            ];
   }
 
@@ -648,8 +649,8 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
     this->formdoc := DEFAULT OBJECT;
     data := __ValidateRichDocumentLike(data, FALSE, FALSE);
 
-    IF(RecordExists(data) AND Length(data.formtext) > 0)
-      this->formdoc := MakeXMLDocument(data.formtext);
+    IF(RecordExists(data) AND Length(data.text) > 0)
+      this->formdoc := MakeXMLDocument(data.text);
     IF(NOT ObjectExists(this->formdoc))
       this->formdoc := NEW XMLDomImplementation->CreateDocument(xmlns_forms, "formdefinitions", DEFAULT OBJECT);
 

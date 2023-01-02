@@ -73,7 +73,7 @@ MACRO ComplexInstancesAndDrafts()
   TestEq(TRUE, ObjectExists(testfile));
 
   OBJECT autosave := CreateDraft(testfile, testfile->id, FALSE);
-  RECORD testform := [ formtext := StringToBlob(`
+  RECORD testform := [ text := StringToBlob(`
       <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
         <form name="webtoolform">
           <page>
@@ -81,6 +81,7 @@ MACRO ComplexInstancesAndDrafts()
           </page>
         </form>
       </formdefinitions>`)
+                     , type := "publisher:formdefinition"
                      , instances := [[ instanceid := 'Yl98JQ8ztbgW3-KdqLzYBA'
                                      , data := [ whfstype := 'http://www.webhare.net/xmlns/publisher/richdocumentfile'
                                                , data := [ htmltext := StringToBlob(`<html><body><p class="normal">asdf def</p></body></html>`) ]

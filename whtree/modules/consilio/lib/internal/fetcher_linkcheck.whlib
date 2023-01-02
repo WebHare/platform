@@ -271,7 +271,7 @@ PUBLIC MACRO ProcessLinkCheckedSettings(INTEGER64 ARRAY all_lc_settings)
   FOREVERY (RECORD setting FROM tocheck)
   {
     RECORD ARRAY links;
-    IF(setting.setting IN [ "RD1", "FD1" ] AND setting.ordering=0)
+    IF((setting.setting IN [ "RD1", "FD1" ] OR setting.setting LIKE "CD1:*") AND setting.ordering=0)
     {
       // Parse the HTML blob
       RECORD parsed := ParseHTMLPage(setting.blobdata, TRUE);
@@ -294,10 +294,7 @@ PUBLIC MACRO ProcessLinkCheckedSettings(INTEGER64 ARRAY all_lc_settings)
     {
       STRING rawdata := TrimWhitespace(setting.setting);
 
-      IF (rawdata != ""
-          AND rawdata NOT LIKE "#*" // hash-only links can't be checked
-          AND rawdata != "RD1"
-          AND rawdata != "FD1") //process all links, not just valid links. but skip "RD1" (the RTD itself) and "FD1" (the form file itself)
+      IF (rawdata != "" AND rawdata NOT LIKE "#*") // hash-only links can't be checked
       {
         INSERT
             [ link := rawdata

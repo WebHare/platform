@@ -631,6 +631,12 @@
              supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend" />
   </apply>
 
+  <apply>
+    <to type="all" pathmask="*/markdown/*" />
+    <denyfiletype typemask="*" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/markdownfile" />
+  </apply>
+
   <!-- override login page for staticlogin -->
   <apply>
     <to type="all" pathmask="/staticlogin/*" />

@@ -205,7 +205,7 @@
       <!-- Because the default value is 0 and the default should be "use the server default retention period", the value -1 (or
          any value < 0) is used to signify 0 days (don't store at all) -->
       <integer name="storeresults" />
-      <formdefinition name="data" />
+      <composeddocument name="data" />
       <boolean name="unavailable" />
       <richdocument name="unavailabletext" />
       <record name="fixformoptions" />  <!-- archived original remapping in case we ever need it. at some point we can drop this member -->

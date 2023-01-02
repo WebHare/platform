@@ -28,7 +28,7 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->data := data.data;
-    ^source->value := BlobToString(this->data.formtext);
+    ^source->value := BlobToString(this->data.text);
 
     IF(data.validateimmediately)
       this->ValidateIt();
@@ -51,12 +51,12 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginFeedback();
 
-    RECORD data := [ ...this->data, formtext := StringToBlob(^source->value) ];
+    RECORD data := [ ...this->data, text := StringToBlob(^source->value) ];
     OBJECT formdefsfile := CreateNewFormdefinitionsFile();
 
     this->errors := DEFAULT RECORD ARRAY;
     ^source->markers := DEFAULT RECORD ARRAY;
-    RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]);
+    RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.text ]);
 
     RECORD ARRAY validationerrors := SELECT * FROM validation.errors WHERE line >= 1 AND resourcename = "whfs::dummy.formdef.xml";
     RECORD ARRAY othererrors := SELECT * FROM validation.errors WHERE NOT (line >= 1 AND resourcename = "whfs::dummy.formdef.xml");

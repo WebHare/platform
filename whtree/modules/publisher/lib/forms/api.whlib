@@ -66,7 +66,7 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
         // Open the form definitions file by resource path
         BLOB formdefxml := GetWebHareResource(formdefs.path);
         OBJECT formdeffile := CreateNewFormdefinitionsFile();
-        formdeffile->ImportFromRecord([ formtext := formdefxml ], [ resourcename := formdefs.path ]);
+        formdeffile->ImportFromRecord([ text := formdefxml, type := "publisher:formdefinition" ], [ resourcename := formdefs.path ]);
         formdef := formdeffile->OpenFormDefinition(formname);
       }
       CATCH (OBJECT e)

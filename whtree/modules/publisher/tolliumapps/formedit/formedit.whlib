@@ -1155,7 +1155,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       TRY
       {
         RECORD data := this->formdefsfile->ExportAsRecord();
-        RECORD ARRAY validationerrors := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]).errors;
+        RECORD ARRAY validationerrors := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.text ]).errors;
         IF(Length(validationerrors) > 0)
           THROW NEW Exception(validationerrors[0].message);
 

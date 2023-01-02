@@ -624,7 +624,7 @@
           <xs:element type="SimpleMember" name="whfsrefarray" />
           <xs:element type="SimpleMember" name="stringarray" />
           <xs:element type="SimpleMember" name="richdocument" />
-          <xs:element type="SimpleMember" name="formdefinition" />
+          <xs:element type="SimpleMember" name="composeddocument" />
           <xs:element type="SimpleMember" name="formcondition" />
           <xs:element type="SimpleMember" name="intextlink" />
           <xs:element type="SimpleMember" name="instance" />
@@ -667,6 +667,7 @@
 
   <xs:simpleType name="MemberTypes">
     <xs:restriction base="xs:string">
+      <!-- we will no longer add new valus here as we can just use <composeddocument name=".."/> etc -->
       <xs:enumeration value="boolean" />
       <xs:enumeration value="datetime" />
       <xs:enumeration value="integer" />
@@ -679,8 +680,6 @@
       <xs:enumeration value="whfsrefarray" />
       <xs:enumeration value="stringarray" />
       <xs:enumeration value="richdocument" />
-      <xs:enumeration value="formdefinition" />
-      <xs:enumeration value="formcondition" />
       <xs:enumeration value="intextlink" />
       <xs:enumeration value="instance" /><!-- instance of a specific contenttype -->
       <xs:enumeration value="url" />

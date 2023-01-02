@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test name="rtd"       path="rtd/" />
+  <test name="markdown" path="markdown/" />
   <test name="blit"       path="blit/" />
   <test name="components" path="components/" />
   <test name="filemanager" path="filemanager/" />
