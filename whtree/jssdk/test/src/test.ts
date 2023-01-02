@@ -22,10 +22,21 @@ function onTestExit(exitCode: number) {
   }
 }
 
+interface ProcessUndocumented {
+  getActiveResourcesInfo(): string[];
+}
+
+function dumpHandlesAndRequests() {
+  // ADDME: use something like why-is-node-running to get and dump all stuff
+  const p: ProcessUndocumented = process as unknown as ProcessUndocumented;
+  console.error('\nTest process is not shutting down after tests, there are probably still active handles or requests');
+  console.error('Active resource types:', p.getActiveResourcesInfo());
+  process.exit(1);
+}
+
 export async function run(tests: Array<() => unknown>, options?: object) {
   //TODO register once in case we're loaded as a module ?
   process.on("exit", onTestExit);
-
 
   for (let idx = 0; idx < tests.length; ++idx) {
     const result = await tests[idx]();
@@ -36,4 +47,5 @@ export async function run(tests: Array<() => unknown>, options?: object) {
     }
   }
   testscompleted = true;
+  setTimeout(() => dumpHandlesAndRequests(), 60000).unref();
 }
