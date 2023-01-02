@@ -351,12 +351,13 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
     IF (RecordExists(match))
     {
       STRING finalpath := MergePath(workingdir, match[1].value);
-      INSERT
-          [ resourcename := GetResourceNameFromDiskPath(finalpath) ?? finalpath
+      STRING resourcename := GetResourceNameFromDiskPath(finalpath) ?? finalpath;
+      INSERT CELL
+          [ resourcename
           , line :=         ToInteger(match[2].value, 1)
           , col :=          ToInteger(match[3].value, 1)
           , message :=      match[4].value
-          , category :=     "error"
+          , category :=     resourcename LIKE "*/vendor/*" ? "hint" : "error"
           ] INTO retval.issues AT END;
     }
   }
@@ -374,29 +375,6 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   }
 
   RETURN retval;
-}
-
-/** Creates a tsconfig.json file in the root directory of the specified module
-    @param modulename Name of the module
-*/
-PUBLIC MACRO CreateModuleTSConfigFile(STRING modulename)
-{
-  IF (modulename IN whconstant_builtinmodules)
-    THROW NEW Exception(`Cannot generate tsconfig.json for webhare core modules`);
-
-  STRING installationroot := GetModuleInstallationRoot(modulename);
-  STRING base_tsconfig_path := MergePath(GetWebhareConfiguration().basedataroot, "tsconfig.json");
-
-  OBJECT compileroptions := NEW JSONObject;
-  compileroptions->SetProp("baseUrl", ".");
-
-  OBJECT tsconfig := NEW JSONObject;
-  tsconfig->SetProp("extends", ResolveToRelativePath(installationroot, base_tsconfig_path));
-  tsconfig->SetProp("compilerOptions", compileroptions);
-
-  BLOB tsconfigblob := EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]);
-
-  StoreDiskFile(MergePath(installationroot, "tsconfig.json"), tsconfigblob, [ overwrite := TRUE ]);
 }
 
 RECORD FUNCTION DecodeResult(BLOB result)
