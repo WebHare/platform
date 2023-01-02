@@ -65,6 +65,7 @@
       <datetime name="datetime" title="datetime" type="datetime" dirtylistener="dirtylistener" />
       <time name="time" title="time" dirtylistener="dirtylistener" />
       <imgedit name="imgedit" title="imgedit" dirtylistener="dirtylistener" width="1pr" height="4gr"/>
+      <codeedit name="code" dirtylistener="dirtylistener" />
       <text title="rte" labelfor="rte" />
       <richarea name="rte" type="html" dirtylistener="dirtylistener" />
       <text name="lonelydirtystatus" title="lonelydirty?" width="1pr" />

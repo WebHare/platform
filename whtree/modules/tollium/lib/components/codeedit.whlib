@@ -28,6 +28,7 @@ PUBLIC OBJECTTYPE TolliumCodeEdit EXTEND TolliumComponentBase
   MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
 
     this->type := "javascript";
     this->readonly := FALSE;

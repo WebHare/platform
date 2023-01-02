@@ -285,10 +285,9 @@ class ToddCompBase
     this.dirtylistener = dirtylistener;
   }
 
-  setDirty()
-  {
-    if (this.dirtylistener)
-      this.dirtylistener.setDirtyComponent(this);
+  /** @returns True if this call made the component transition from clean to dirty and someone was listening to it */
+  setDirty() {
+    return this.dirtylistener?.setDirtyComponent(this);
   }
 
   doCopyToClipboard()

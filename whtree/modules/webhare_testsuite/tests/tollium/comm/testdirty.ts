@@ -252,6 +252,12 @@ test.registerTests(
       test.eq("YES", status_comp.value);
       await clearState();
 
+      // Test codeedit
+      const codeedit_node = test.compByName("code").querySelector("textarea");
+      test.fill(codeedit_node, "some text");
+      await test.wait(() => status_comp.value == "YES");
+      await clearState();
+
       // Test RTE
       const rte_comp = rtetest.getRTE(test.getCurrentApp().win, "rte");
       const rte_selection = rte_comp.getEditor().getSelectionRange();

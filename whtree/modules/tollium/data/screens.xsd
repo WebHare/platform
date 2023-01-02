@@ -3203,6 +3203,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="sc:Errorlabel" />
     <xs:attributeGroup ref="Required" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
 
     <xs:attribute name="value" type="xs:string">
       <xs:annotation>

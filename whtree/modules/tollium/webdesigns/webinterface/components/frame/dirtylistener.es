@@ -67,13 +67,14 @@ export default class DirtyListener extends ComponentBase
     }
   }
 
-  setDirtyComponent(comp)
-  {
-    if (this.checkcomponents.get(comp.name) !== true)
-    {
-      this.checkcomponents.set(comp.name, true);
-      this.queueMessage("dirtycomponent", { component: comp.name });
-    }
+  /** @returns True if this call made the component transition from clean to dirty */
+  setDirtyComponent(comp) {
+    if (this.checkcomponents.get(comp.name) === true)
+      return false; //already dirty
+
+    this.checkcomponents.set(comp.name, true);
+    this.queueMessage("dirtycomponent", { component: comp.name });
+    return true;
   }
 
 /****************************************************************************************************************************
