@@ -244,12 +244,12 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
     {
       contents :=
          CELL[ ...dbinfo_baserow
-             , name := "formtext"
-             , data := Length(rtd.formtext) || ' bytes'
+             , name := "composeddocument: " || rtd.type
+             , data := Length(rtd.text) || ' bytes'
              , rowkey := mybasename || 'formtext'
              , candownload := TRUE
              , canpreview := TRUE
-             , original := [ filename := "formtext.html", mimetype := "text/html", data := rtd.formtext ]
+             , original := [ filename := "text", mimetype := "application/octetstream", data := rtd.text ]
              , type := "blob"
              ];
     }

@@ -178,7 +178,15 @@ PUBLIC RECORD FUNCTION __ValidateRichDocumentLike(RECORD inrichdoc, BOOLEAN isrt
   IF(isrtd)
     baserec := CELL[...baserec, htmltext := DEFAULT BLOB];
   ELSE
-    baserec := CELL[...baserec, formtext := DEFAULT BLOB];
+  {
+    IF(CellExists(inrichdoc, 'formtext'))
+      THROW NEW Exception(`Received a 'formtext' but it should now be just 'text' with a type of 'publisher:formdefinition'`);
+    IF(NOT CellExists(inrichdoc, 'type'))
+    ELSE IF(inrichdoc.type NOT IN ["publisher:formdefinition"]) //we might allow more/any types in the future, but to catch errors we'll limit for now.
+      THROW NEW Exception(`Composed documents require a 'type'`);
+      THROW NEW Exception(`Unrecognized type '${inrichdoc.type}'`);
+    baserec := CELL[...baserec, text := DEFAULT BLOB, type := ""];
+  }
 
   inrichdoc := ValidateOptions(baserec, inrichdoc);
 

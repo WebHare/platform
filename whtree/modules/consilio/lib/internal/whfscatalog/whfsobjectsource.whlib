@@ -425,7 +425,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objectid)
       IF (RecordExists(instancedata.data))
       {
         RECORD ARRAY allcomponents := GetSearchableFormComponents();
-        OBJECT xmldoc := MakeXMLDocument(instancedata.data.formtext, "utf-8", TRUE);
+        OBJECT xmldoc := MakeXMLDocument(instancedata.data.text, "utf-8", TRUE);
         OBJECT ARRAY containernodes :=
             xmldoc->GetElementsByTagNameNS(xmlns_forms, "page")->GetCurrentElements()
             CONCAT

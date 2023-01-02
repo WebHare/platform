@@ -452,7 +452,7 @@ STATIC OBJECTTYPE WHFSType
         {
           RECORD root := SELECT * FROM curset WHERE ordering=0;
           BOOLEAN isrtd := memberrec.type = 15; //rtd
-          IF( RecordExists(root) AND root.setting = (isrtd ? "RD1" : "FD1")) //version indicator
+          IF( RecordExists(root))
           {
             newval := [ embedded := DEFAULT RECORD ARRAY
                       , links := DEFAULT RECORD ARRAY
@@ -460,8 +460,8 @@ STATIC OBJECTTYPE WHFSType
                       ];
             IF(isrtd)
               newval := CELL[...newval, htmltext := root.blobdata ];
-            ELSE
-              newval := CELL[...newval, formtext := root.blobdata ];
+            ELSE //Pre WH 5.2 formdefinitions are encoded with "FD1" in their setting
+              newval := CELL[...newval, text := root.blobdata, type := root.setting LIKE "CD1:*" ? Substring(root.setting,4) : "publisher:formdefinition" ];
 
             FOREVERY(RECORD setting FROM curset)
             {
@@ -890,8 +890,8 @@ STATIC OBJECTTYPE WHFSType
 
           IF(RecordExists(newval))
           {
-            STRING versionindicator := isrtd ? "RD1" : "FD1";
-            BLOB storetext := isrtd ? newval.htmltext : newval.formtext;
+            STRING versionindicator := isrtd ? "RD1" : "CD1:" || newval.type;
+            BLOB storetext := isrtd ? newval.htmltext : newval.text;
             any_nondefault := TRUE;
 
             INTEGER64 rootnodeid := SELECT AS INTEGER64 id FROM current_member_settings WHERE ordering=0;
