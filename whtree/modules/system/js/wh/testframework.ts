@@ -240,7 +240,7 @@ export function dragTransition(pos) {
   return easeOut * easeInOut;
 }
 
-export async function pressKey(key, options) {
+export async function pressKey(key, options?) {
   if (!testfw.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 

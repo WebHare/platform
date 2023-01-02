@@ -9,6 +9,6 @@
   <jstest file="testappstart.es" />
   <jstest file="testeventserver.es" />
   <test script="testsvg.whscr" />
-  <jstest file="testdirty.es" />
+  <jstest file="testdirty.ts" />
   <test script="testdirty-hs.whscr" />
 </group>
