@@ -731,7 +731,15 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
   IF (isallmodules)
   {
     items := items CONCAT
-      [ [ name :=     "dompack"
+      [ [ name :=     ".bin"
+        , type :=     "directory"
+        , items :=    [ [ name :=     "tsc"
+                        , type :=     "softlink"
+                        , target :=   installationroot || "node_modules/.bin/tsc"
+                        ]
+                      ]
+        ]
+      , [ name :=     "dompack"
         , type :=     "softlink"
         , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
         ]
