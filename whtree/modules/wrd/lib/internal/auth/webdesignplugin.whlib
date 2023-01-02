@@ -1054,7 +1054,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions( [ secret := DEFAULT RECORD
                                 , verifierstart := ""
                                 , data := DEFAULT RECORD
-                                , lifetime := 0
+                                , lifetime_minutes := this->passwordresetlifetime
                                 ], options);
 
     IF(NOT IsAbsoluteURL(baseurl, FALSE))
@@ -1067,7 +1067,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     STRING verifier := GeneratePassword(options.verifierstart, 12, FALSE);
     //resetlifetime is in minutes, so 60000 to get to msecs
-    DATETIME until := AddTimeToDate( (this->passwordresetlifetime % (24*60)) * 60000, AddDaystoDate(this->passwordresetlifetime / (24*60), now));
+    DATETIME until := AddTimeToDate( (options.lifetime_minutes % (24*60)) * 60000, AddDaystoDate(options.lifetime_minutes / (24*60), now));
     RECORD data :=
         [ v := verifier
         , e := entityid
@@ -1241,12 +1241,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , data := DEFAULT RECORD
                                , logdata := DEFAULT RECORD
                                , skipauditlog := FALSE
+                               , lifetime_minutes := this->passwordresetlifetime
                                ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
 
     IF(options.routerpage != "")
       baseurl := UpdateURLVariables( GetWRDPagesCleanURL([ currenturl := baseurl ]), [ wrd_pwdaction := options.routerpage ]);
 
-    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart, options.data ]);
+    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart, options.data, options.lifetime_minutes ]);
     IF (NOT RecordExists(retval))
       RETURN DEFAULT RECORD;
 
