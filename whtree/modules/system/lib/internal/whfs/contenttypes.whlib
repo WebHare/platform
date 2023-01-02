@@ -448,7 +448,7 @@ STATIC OBJECTTYPE WHFSType
           IF(Length(curset)>=1)
             newval := AnyTypeFromString(curset[0].setting, memberrec.type);
         }
-        CASE 15,20 //richdocument, formdefinition
+        CASE 15,20 //richdocument, composeddocument
         {
           RECORD root := SELECT * FROM curset WHERE ordering=0;
           BOOLEAN isrtd := memberrec.type = 15; //rtd
@@ -859,7 +859,7 @@ STATIC OBJECTTYPE WHFSType
           // Delete non-matched old settings
           killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN unmatched_ids;
         }
-        CASE 15,20 //Rich document, formdefinition
+        CASE 15,20 //Rich document, composeddocument
         {
           /* Rich documents are stored as follows:
              fs_settings { setting: "RD1" (version indicator, for future use), blobdata: html doc, ordering: 0 }
