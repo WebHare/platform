@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         library="editmarkdown.whlib"
+         gid="tolliumapps.editmarkdown">
+
+  <screen name="mdeditor" title="">
+    <compositions>
+      <dirtylistener name="dirtylistener" ondirty="ondirty" />
+    </compositions>
+    <body>
+      <codeedit name="markdowntext" height="1pr" dirtylistener="dirtylistener" />
+    </body>
+  </screen>
+
+</screens>

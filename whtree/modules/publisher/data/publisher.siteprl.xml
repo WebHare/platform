@@ -471,6 +471,7 @@
     <members>
       <composeddocument name="data" />
     </members>
+    <setobjecteditor name="publisher:editmarkdown" separateapp="true" supportsversioning="true" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/markdown.whlib#RenderMarkdown" />
   </filetype>
 
