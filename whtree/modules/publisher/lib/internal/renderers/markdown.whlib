@@ -1,19 +1,16 @@
 <?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/markdown.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 PUBLIC STATIC OBJECTTYPE RenderMarkdown EXTEND StaticPageBase
 <
-  MACRO NEW(OBJECT contentobject)
-  : StaticPageBase(contentobject)
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
   {
-  }
-  UPDATE PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
-  {
-  }
-  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
-  {
-  }
-  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
-  {
+    RECORD content := this->contentobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data;
+    IF(RecordExists(content))
+      RETURN PTR Print(RenderMarkdownToHTML(ParseMarkDown(BlobToString(content.text))));
+    ELSE
+      RETURN DEFAULT MACRO PTR;
   }
 >;
