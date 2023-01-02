@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/markdown.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
@@ -10,6 +11,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 
 OBJECT richdocumentfile_type;
+OBJECT markdownfile_type;
 
 /** @short An object that provides search information for publisher search
 */
@@ -31,7 +33,7 @@ PUBLIC STATIC OBJECTTYPE SearchProviderBase
   }
 >;
 
-PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
+PUBLIC STATIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
   {
@@ -48,5 +50,21 @@ PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
       RETURN DEFAULT RECORD ARRAY;
 
     RETURN [ WrapBlob(content.htmltext, "richdocumentfile.html") ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MarkdownSearchProvider EXTEND SearchProviderBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
+  {
+    IF (NOT ObjectExists(markdownfile_type))
+      markdownfile_type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/markdownfile");
+
+    RECORD data := markdownfile_type->GetInstanceData(objid);
+    IF (NOT RecordExists(data) OR NOT RecordExists(data.data))
+      RETURN DEFAULT RECORD ARRAY;
+
+    STRING text := RenderMarkdownToHTML(ParseMarkDown(BlobToString(data.data.text)));
+    RETURN [ WrapBlob(StringToBlob(text), "markdown.html") ];
   }
 >;

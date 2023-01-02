@@ -467,6 +467,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/markdownfile"
             kind="virtualfile"
             icon="tollium:files/text_plain"
+            searchcontentprovider="publisher:markdown"
             tid="publisher:filetypes.markdownfile">
     <members>
       <composeddocument name="data" />
