@@ -18,6 +18,7 @@ export function reportAssertError(stack: string) {
 export interface LoadTSTypeOptions {
   noExtraProps?: boolean;
   required?: boolean;
+  ignoreErrors?: boolean;
 }
 
 /** Typescript parsing is slow, so cache the program */
@@ -50,7 +51,7 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
     program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
 
     const diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
-    if (diagnostics.length) {
+    if (diagnostics.length && !options.ignoreErrors) {
       const host = {
         getCurrentDirectory: () => process.cwd(),
         getCanonicalFileName: (fileName: string) => fileName,
