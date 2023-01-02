@@ -579,11 +579,6 @@ case $INSTR in
     fi
     ;;
 
-  "republish")
-    check_webhare_running
-    runscript --workerthreads 4 mod::publisher/scripts/internal/publishing.whscr --measure "$@"
-    ;;
-
   "terminate")
     check_webhare_running
     kill `pgrep -f $WEBHARE_DIR/bin`

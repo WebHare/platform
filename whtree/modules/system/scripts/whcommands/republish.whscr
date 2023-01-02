@@ -1,15 +1,18 @@
 ﻿<?wh
 
+// syntax: [--measure] <objectid>[...]
+// short: Republish the selected file(s), specified by id
+
+
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/execution.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queuemgr.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
-
 
 LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
 
@@ -21,9 +24,6 @@ LOADLIB "mod::publisher/lib/internal/publication/publish.whlib";
 // Main code
 //
 
-
-// Redirect normal output to error output
-RedirectOutputTo(2);
 
 RECORD ARRAY vars :=
   [ [ name := "measure",       type := "switch", defaultvalue := FALSE ]
@@ -43,20 +43,20 @@ IF (NOT RecordExists(arguments))
 }
 
 measure := arguments.measure;
-IF(measure)
-  SetupFunctionProfiling("publisher:publishing.whscr", Detokenize(arguments.files, " "));
-
 publishing_debug := arguments.debug;
 
 // Parse parameters
 INTEGER ARRAY my_files;
 
+OBJECT trans := OpenPrimary();
+RECORD taskinfo := SELECT * FROM GetAllTaskTypeInfo().tasktypes WHERE ephemeral = TRUE AND tasktype = "publisher:publication";
+DATETIME total_start := GetCurrentDateTime();
+
 FOREVERY (STRING file FROM arguments.files)
 {
   INTEGER fileid := ToInteger(file, 0);
-  IF (fileid <= 0)
+  IF (fileid <= 0) //looks like a path
   {
-    OBJECT trans := OpenPrimary();
     OBJECT fileobj := OpenWHFSObjectByPath(file);
     IF(ObjectExists(fileobj) AND NOT fileobj->isfolder)
       fileid := fileobj->id;
@@ -68,33 +68,24 @@ FOREVERY (STRING file FROM arguments.files)
     SetConsoleExitCode(1); // EXIT_FAILURE
     RETURN;
   }
-  INSERT fileid INTO my_files AT END;
-}
-
-BOOLEAN debug := arguments.debug;
-
-DATETIME total_start := GetCurrentDateTime();
-
-//IDs are given on the command line
-WHILE (LENGTH(my_files) > 0)
-{
-  INTEGER fileid := my_files[0];
-  DELETE FROM my_files AT 0;
 
   DATETIME start := GetCurrentDateTime();
+  RECORD executeinfo := GetTaskExecuteInfo([ queueid := "ephemeral"
+                                           , isephemeral := TRUE
+                                           , tasktype := "publisher:publication"
+                                           , taskdata := [ task := [ id := fileid ]]
+                                           , options := DEFAULT RECORD
+                                           ], taskinfo);
+  RECORD res := ExecuteEphemeralTask(executeinfo, publishing_debug);
+  IF(res.type != "taskdone")
+    ABORT(res);
 
-  OpenPrimary();
-  SetErrorContextInfo([ source := "publisher:publishing", id := fileid ]);
-  INTEGER status := (NEW Reader)->Run(fileid, measure);
-  GetPrimary()->Close();
-
+  PrintTo(1, "STATUS:" || res.result.status || "\n");
   IF (measure)
   {
     INTEGER msecsdiff := GetDatetimeDifference(start, GetCurrentDateTime()).msecs;
     PrintTo(1,"Publication time:" || FormatMoney(msecsdiff / 1000m, 3, ".", "", TRUE) || " seconds\n");
   }
-
-  PrintTo(1, "STATUS:" || status || "\n");
 }
 
 IF (measure)
@@ -102,6 +93,3 @@ IF (measure)
   INTEGER msecsdiff := GetDatetimeDifference(total_start, GetCurrentDateTime()).msecs;
   PRINT("Total publication time:" || FormatMoney(msecsdiff / 1000m, 3, ".", "", TRUE) || " seconds\n");
 }
-
-SetConsoleExitCode(0);
-RETURN;
