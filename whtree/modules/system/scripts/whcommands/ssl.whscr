@@ -160,15 +160,24 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
   CASE "addprivatekey"
   {
     ParseSubArgs(
-        [ [ name := "rawkeyname", type := "switch", required := TRUE  ]
+        [ [ name := "replace", type := "switch"  ]
+        , [ name := "rawkeyname", type := "switch", required := TRUE  ]
         , [ name := "hostname", type := "param", required := TRUE ]
         , [ name := "filename", type := "param", required := TRUE ]
-        ], "Syntax: wh ssl addprivatekey --rawkeyname name filename\n");
+        ], "Syntax: wh ssl addprivatekey [ --replace ] --rawkeyname name filename\n");
 
     IF (NOT cmdargs.rawkeyname)
       THROW NEW Exception(`Keys can only be added by using a rawkeyname`);
 
     GetPrimary()->BeginWork();
+    OBJECT existingkey := OpenKeyPairByName(cmdargs.hostname);
+    IF (ObjectExists(existingkey))
+    {
+      IF (NOT cmdargs.replace)
+        THROW NEW Exception(`Key ${cmdargs.hostname} already exists`);
+      existingkey->RecycleSelf();
+    }
+
     BLOB keydata := ReadArgFile(cmdargs.filename);
     CreateKeyPair(cmdargs.hostname, keydata);
     GetPrimary()->CommitWork();

@@ -731,7 +731,15 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
   IF (isallmodules)
   {
     items := items CONCAT
-      [ [ name :=     "dompack"
+      [ [ name :=     ".bin"
+        , type :=     "directory"
+        , items :=    [ [ name :=     "tsc"
+                        , type :=     "softlink"
+                        , target :=   installationroot || "node_modules/.bin/tsc"
+                        ]
+                      ]
+        ]
+      , [ name :=     "dompack"
         , type :=     "softlink"
         , target :=   `${GetModuleInstallationRoot("system")}js/dompack`
         ]
@@ -797,9 +805,14 @@ PUBLIC MACRO BuildTSConfigFile(STRING dir)
   OBJECT tsconfig := NEW JSONObject;
   tsconfig->SetProp("extends", ResolveToRelativePath(dir, MergePath(installationroot, "tsconfig.json")));
   tsconfig->SetProp("compilerOptions", compileroptions);
-  tsconfig->SetProp("exclude", VARIANT[]);
+  tsconfig->SetProp("exclude", VARIANT[ "**/vendor/**" ]);
 
-  StoreDiskFile(MergePath(dir, "tsconfig.json"), EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]), [ overwrite := TRUE ]);
+  STRING tsconfigpath := MergePath(dir, "tsconfig.json");
+  BLOB tsconfigblob := EncodeJSONBlob(tsconfig, DEFAULT RECORD, [ formatted := TRUE ]);
+
+  BLOB existing := GetDiskResource(tsconfigpath, [ allowmissing := TRUE ]);
+  IF (BlobToString(existing) != BlobToString(tsconfigblob))
+    StoreDiskFile(tsconfigpath, tsconfigblob, [ overwrite := TRUE ]);
 }
 
 MACRO FixDataRootTSConfig()
