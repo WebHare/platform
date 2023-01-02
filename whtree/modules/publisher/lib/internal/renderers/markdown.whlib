@@ -1,0 +1,19 @@
+<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE RenderMarkdown EXTEND StaticPageBase
+<
+  MACRO NEW(OBJECT contentobject)
+  : StaticPageBase(contentobject)
+  {
+  }
+  UPDATE PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
+  {
+  }
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+  }
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+  }
+>;

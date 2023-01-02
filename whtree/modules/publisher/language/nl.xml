@@ -830,6 +830,7 @@
     <text tid="javascript">JavaScript-bestand</text>
     <text tid="languagefile">Taalbestand</text>
     <text tid="library">Bibliotheekbestand</text>
+    <text tid="markdownfile">Markdown document</text>
     <text tid="mp3audiofile">MP3-audiobestand</text>
     <text tid="msword">Word-document</text>
     <text tid="msworddownload">Downloadbaar Word-document</text>

@@ -464,6 +464,16 @@
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD" />
   </filetype>
 
+  <filetype namespace="http://www.webhare.net/xmlns/publisher/markdownfile"
+            kind="virtualfile"
+            icon="tollium:files/text_plain"
+            tid="publisher:filetypes.markdownfile">
+    <members>
+      <composeddocument name="data" />
+    </members>
+    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/markdown.whlib#RenderMarkdown" />
+  </filetype>
+
   <filetype namespace="http://www.webhare.net/xmlns/publisher/msworddownload"
             kind="rawfile"
             extensions=".doc"

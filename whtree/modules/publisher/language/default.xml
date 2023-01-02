@@ -830,6 +830,7 @@
     <text tid="javascript">JavaScript File</text>
     <text tid="languagefile">Language file</text>
     <text tid="library">Library</text>
+    <text tid="markdownfile">Markdown document</text>
     <text tid="mp3audiofile">MP3 Audio File</text>
     <text tid="msword">Word Document</text>
     <text tid="msworddownload">Downloadable Word Document</text>

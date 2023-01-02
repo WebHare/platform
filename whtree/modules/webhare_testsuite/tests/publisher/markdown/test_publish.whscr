@@ -1,0 +1,23 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO PublishFiles()
+{
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "markdown" ]);
+  OBJECT mdempty := testloc->CreateFile([ name := "mdempty", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE]);
+  testfw->CommitWork();
+
+  testfw->WaitForPublishCompletion(testloc->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(mdempty->url));
+}
+
+RunTestframework([ PTR PublishFiles
+                 ]);
