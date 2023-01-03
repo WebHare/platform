@@ -41,6 +41,9 @@ interface FsObjectRow {
   scandata: string;
   title: string;
   type: number;
+
+  //manually added
+  link: string;
 }
 
 class WHFSObject {
@@ -48,6 +51,7 @@ class WHFSObject {
 
   get isFile() { return !this.dbrecord.isfolder; }
   get isFolder() { return !this.dbrecord.isfolder; }
+  get link() { return this.dbrecord.link; }
 
   constructor(dbrecord: FsObjectRow) {
     this.dbrecord = dbrecord;
@@ -149,7 +153,7 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
 
   let dbrecord;
   if (location > 0) //FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
-    dbrecord = (await sql`select * from system.fs_objects where id=${location}`) as FsObjectRow[];
+    dbrecord = (await sql`select *,webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link from system.fs_objects where id=${location}`) as FsObjectRow[];
 
   if (!dbrecord?.[0]) {
     if (!allowmissing)
