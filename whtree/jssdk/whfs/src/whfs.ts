@@ -44,14 +44,17 @@ interface FsObjectRow {
 
   //manually added
   link: string;
+  whfspath: string;
 }
 
 class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
 
+  get id() { return this.dbrecord.id; }
   get isFile() { return !this.dbrecord.isfolder; }
   get isFolder() { return !this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
+  get whfspath() { return this.dbrecord.whfspath; }
 
   constructor(dbrecord: FsObjectRow) {
     this.dbrecord = dbrecord;
@@ -89,26 +92,25 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
   if (fullpath[0] == '/') //starting at an absolute point?
     limitparent = now; //then we can't move past that point
 
+  if (startingpoint == 0 && fullpath.startsWith('whfs::'))
+    fullpath = fullpath.substring(6);
+
   const pathtoks = fullpath.split('/');
   for (let i = 0; i < pathtoks.length; ++i) {
     const tok = pathtoks[i];
     let trynew = 0;
-    /*
 
-        IF(i = 0 AND now = 0 AND tok LIKE "site::*")
-        {
-          trynew := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(Substring(tok,6));
-          IF(trynew = 0)
-            RETURN [ id := -1, leftover := fullpath, route := route ];
+    if (i == 0 && now == 0 && tok.startsWith("site::")) {
+      trynew = (await sql`select id from system.sites where upper(name) = upper(${tok.substring(6)})`)[0]?.id ?? 0;
+      if (!trynew)
+        return { id: -1, leftover: fullpath, route };
 
-          limitparent := trynew;
-          now := trynew;
-          INSERT now INTO route AT END;
-          CONTINUE;
-        }
-        IF(i = 0 AND now = 0 AND tok LIKE "whfs::*")
-          tok := Substring(tok,6);
-    */
+      limitparent = trynew;
+      now = trynew;
+      route.push(now);
+      continue;
+    }
+
     if (!tok || tok === '.')
       continue;
 
@@ -121,7 +123,10 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
         trynew = now;  //don't leave a site when using site:: paths
       }
     } else {
-      trynew = (await sql`select id from system.fs_objects where parent=${now} and upper(name) = upper(${tok})`)[0]?.id ?? 0;
+      //as parent = 0 is stored as 'null', we need a different comparison there
+      trynew = (await sql`select id from system.fs_objects
+                                    where (case when ${now} = 0 then (parent is null) else (parent=${now}) end)
+                                          and upper(name) = upper(${tok})`)[0]?.id ?? 0;
       if (!trynew)
         return { id: now, leftover: pathtoks.slice(i).join('/'), route };
       route.push(trynew);
@@ -153,7 +158,10 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
 
   let dbrecord;
   if (location > 0) //FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
-    dbrecord = (await sql`select *,webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link from system.fs_objects where id=${location}`) as FsObjectRow[];
+    dbrecord = (await sql`select *
+                               , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link
+                               , webhare_proc_fs_objects_whfspath(id,isfolder) as whfspath
+                            from system.fs_objects where id=${location}`) as FsObjectRow[];
 
   if (!dbrecord?.[0]) {
     if (!allowmissing)
@@ -205,4 +213,12 @@ export async function openSite(site: number | string, options?: { allowMissing: 
       throw new Error(`No such site ${formatPathOrId(site)}`);
 
   return new Site(match[0]);
+}
+
+export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;
+export async function openFile(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
+
+/** Open a file */
+export async function openFile(path: number | string, options?: { allowMissing: boolean }) {
+  return openWHFSObject(0, path, true, options?.allowMissing ?? false, "");
 }

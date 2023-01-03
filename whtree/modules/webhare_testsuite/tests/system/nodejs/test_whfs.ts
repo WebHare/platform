@@ -19,6 +19,11 @@ async function testWHFS() {
   test.assert(markdownfile);
   test.assert(markdownfile.isFile);
   test.eq(testsite.webroot + "TestPages/markdownpage/", markdownfile.link);
+
+  //Compare other opening routes
+  test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
+  test.eq(markdownfile.id, (await whfs.openFile(markdownfile.id)).id);
+  test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfspath)).id);
 }
 
 test.run([testWHFS]);
