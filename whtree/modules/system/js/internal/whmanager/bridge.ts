@@ -285,7 +285,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       port: port1,
       global: global || false
     }, [port1]);
-    return new IPCEndPointImpl(`${id} - origin`, port2, "connecting");
+    return new IPCEndPointImpl(`${id} - origin`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
   }
 }
 
@@ -466,6 +466,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
           reg.port.postMessage({
             type: IPCPortControlMessageType.IncomingLink,
+            id: `remote ${data.linkid}`,
             port: port2
           }, [port2]);
           this.initLinkHandling(data.portname, data.linkid, data.msgid, port1);
@@ -581,6 +582,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         if (reg) {
           reg.port.postMessage({
             type: IPCPortControlMessageType.IncomingLink,
+            id: message.id,
             port: message.port
           }, [message.port]);
           return;

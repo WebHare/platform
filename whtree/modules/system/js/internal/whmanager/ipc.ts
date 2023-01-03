@@ -130,13 +130,19 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   /** Defer used to wait for connection results */
   private defer?: DeferredPromise<void>;
 
-  private refs;
+  /** Reference tracker
+  */
+  private refs: RefTracker;
 
-  constructor(id: string, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting") {
+  /// Port this link is connecting to (for mode == connecting)
+  private connectporttitle?: string;
+
+  constructor(id: string, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting", connectporttitle?: string) {
     super();
     this.id = id;
     this.port = port;
     this.mode = mode;
+    this.connectporttitle = connectporttitle;
     this.port.on("message", (message) => this.handleControlMessage(message));
     this.port.on("close", () => { this.handleControlMessage({ type: IPCEndPointImplControlMessageType.Close }); });
     this.refs = new RefTracker(() => this.port.ref(), () => this.port.unref(), { initialref: true });
@@ -219,7 +225,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
 
     for (const [, { reject }] of this.requests)
       reject(new Error(`Request is cancelled, link was closed`));
-    this.defer?.reject(new Error(`Could not connect to remote port`));
+    this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
   }
 
   send(message: SendType, replyto?: bigint): bigint {

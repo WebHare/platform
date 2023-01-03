@@ -87,8 +87,8 @@ async function testBridge() {
 
   // STORY: connect to nonexisting port
   {
-    test.throws(/Could not connect to remote port/, bridge.connect("a").activate());
-    test.throws(/Could not connect to remote port/, bridge.connect("a:a", { global: true }).activate());
+    test.throws(/Could not connect to local port "a"/, bridge.connect("a").activate());
+    test.throws(/Could not connect to global port "a:a"/, bridge.connect("a:a", { global: true }).activate());
   }
 }
 
