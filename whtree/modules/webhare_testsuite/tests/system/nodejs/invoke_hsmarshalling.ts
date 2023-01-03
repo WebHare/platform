@@ -1,4 +1,4 @@
-import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 
 export function decodeEncode(data: string) {
@@ -13,4 +13,10 @@ export function decodeEncodePacket(data: string) {
 
   const result = writeMarshalPacket(readMarshalPacket(buf));
   return result.toString("hex");
+}
+
+export function decodePacketEncodeHSON(data: string) {
+  const buf = Buffer.from(data, 'hex');
+
+  return encodeHSON(readMarshalPacket(buf));
 }

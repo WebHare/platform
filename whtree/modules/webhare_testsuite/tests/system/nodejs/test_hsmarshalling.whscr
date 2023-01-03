@@ -38,6 +38,7 @@ ASYNC MACRO TestMarshalling()
   VARIANT totest :=
     [ i := 1
     , ra := [ [ f := 4.4f, s := "", bt := TRUE, bf := FALSE, d := MakeDateTime(2000, 1, 2, 3, 4, 5, 6), b := StringToBlob("blob") ] ]
+    , more := [ dd := DEFAULT DATETIME, ds := MakeDateFromParts(0, 1), dm := MAX_DATETIME ]
     ];
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
@@ -47,6 +48,10 @@ ASYNC MACRO TestMarshalling()
   encoded := EncodeBase16(BlobToString(CreateMarshalData(totest)));
   res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeEncode"), VARIANT[ encoded ]);
   TestEQ(encoded, ToUppercase(res));
+
+  encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
+  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodePacketEncodeHSON"), VARIANT[ encoded ]);
+  TestEQ(EncodeHSON(totest), res);
 }
 
 RunTestFrameWork(
