@@ -43,12 +43,6 @@ trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
 
-//temporary upgrade path
-IF(ObjectExists(OpenSiteByName("WebHare testsuite site")))
-  OpenSiteByName("WebHare testsuite site")->rootobject->UpdateMetadata([name := "webhare_testsuite.testsite"]);
-IF(ObjectExists(OpenSiteByName("WebHare testsuite site - alt host")))
-  OpenSiteByName("WebHare testsuite site - alt host")->rootobject->UpdateMetadata([name := "webhare_testsuite.althost"]);
-
 OBJECT testsite := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontents := TRUE
                                                                 , webdesign := "webhare_testsuite:basetest"
                                                                 ]);
@@ -256,6 +250,13 @@ staticpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocument
                         ]);
 testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE ]);
+markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
+  [ data := [ type := "publisher:markdown"
+            , text := StringToBlob(`## Markdown file\nThis is a marked down file`)
+            ]
+  ]);
 
 testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);

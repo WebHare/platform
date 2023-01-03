@@ -3,6 +3,7 @@
   <test script="test_services.ts" />
   <test script="test_bridge_from_harescript.whscr" />
   <test script="test_tests.ts" />
+  <test script="test_whfs.ts" />
   <test script="test_whdb.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
