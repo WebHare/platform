@@ -116,6 +116,7 @@ type ToMainBridgeMessage = {
 } | {
   type: ToMainBridgeMessageType.ConnectLink;
   name: string;
+  id: string;
   port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
   global: boolean;
 } | {
@@ -276,13 +277,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   connect<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, { global }: { global?: boolean } = {}): IPCEndPoint<SendType, ReceiveType> {
     const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+    const id = generateBase64UniqueID();
     this.port.postMessage({
       type: ToMainBridgeMessageType.ConnectLink,
       name,
+      id: `${id} - remote`,
       port: port1,
       global: global || false
     }, [port1]);
-    return new IPCEndPointImpl(port2, "connecting");
+    return new IPCEndPointImpl(`${id} - origin`, port2, "connecting");
   }
 }
 

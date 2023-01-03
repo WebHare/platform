@@ -1,10 +1,10 @@
-//import { MessageChannel, MessagePort } from 'node:worker_threads';
 import EventSource from "../eventsource";
 import { createDeferred, DeferredPromise } from "../tools";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
 import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';
 import { RefTracker } from "./refs";
+import { generateBase64UniqueID } from "../util/crypto";
 
 
 const logmessages = false;
@@ -99,6 +99,9 @@ export type IPCEndPointImplControlMessage = {
 };
 
 export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCEndPointEvents<ReceiveType>> implements IPCEndPoint<SendType, ReceiveType> {
+  /** id for logging */
+  private id: string;
+
   /** Counter for message id generation */
   private msgidcounter = BigInt(0);
 
@@ -122,15 +125,16 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
       - "connecting": This endpoint initiated the connection (was connecting when created)
       - "accepting": This endpoint accepted the connection (was accepting the connection when created)
    */
-  private mode;
+  private mode: "direct" | "connecting" | "accepting";
 
   /** Defer used to wait for connection results */
   private defer?: DeferredPromise<void>;
 
   private refs;
 
-  constructor(port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting") {
+  constructor(id: string, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting") {
     super();
+    this.id = id;
     this.port = port;
     this.mode = mode;
     this.port.on("message", (message) => this.handleControlMessage(message));
@@ -144,7 +148,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
 
   handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean) {
     if (logmessages)
-      console.log(`link ctrl msg`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] }, { isqueueitem });
+      console.log(`ipclink ${this.id} ctrl msg`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] }, { isqueueitem });
     if (this.closed)
       return;
     // handle connectresult immediately, don't let it go through the queue
@@ -284,6 +288,7 @@ export type IPCPortControlMessage = {
   success: boolean;
 } | {
   type: IPCPortControlMessageType.IncomingLink;
+  id: string;
   port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
 };
 
@@ -331,7 +336,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
           this.defer.reject(new Error(`Port name ${JSON.stringify(this.name)} was already registered`));
       } break;
       case IPCPortControlMessageType.IncomingLink: {
-        const link = new IPCEndPointImpl<SendType, ReceiveType>(ctrlmsg.port, "accepting");
+        const link = new IPCEndPointImpl<SendType, ReceiveType>(ctrlmsg.id, ctrlmsg.port, "accepting");
         this.handleItem(link);
       } break;
     }
@@ -384,5 +389,6 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
 */
 export function createIPCEndPointPair<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord>(): [IPCEndPoint<SendType, ReceiveType>, IPCEndPoint<ReceiveType, SendType>] {
   const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
-  return [new IPCEndPointImpl(port1, "direct"), new IPCEndPointImpl(port2, "direct")];
+  const id = generateBase64UniqueID();
+  return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
 }
