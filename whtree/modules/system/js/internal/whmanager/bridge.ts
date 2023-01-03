@@ -56,7 +56,7 @@ interface Bridge extends EventSource<BridgeEvents> {
       @param logname - Name of the log file
       @param logline - Line to log
   */
-  log(logname: string, logline: string): Promise<void>;
+  log(logname: string, logline: string): void;
 
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
   */
@@ -69,7 +69,6 @@ enum ToLocalBridgeMessageType {
   SystemConfig,
   Event,
   SendEventResult,
-  LogResult,
   FlushLogResult,
 }
 
@@ -83,10 +82,6 @@ type ToLocalBridgeMessage = {
   data: ArrayBuffer;
 } | {
   type: ToLocalBridgeMessageType.SendEventResult;
-  requestid: number;
-  success: boolean;
-} | {
-  type: ToLocalBridgeMessageType.LogResult;
   requestid: number;
   success: boolean;
 } | {
@@ -121,7 +116,6 @@ type ToMainBridgeMessage = {
   global: boolean;
 } | {
   type: ToMainBridgeMessageType.Log;
-  requestid: number;
   logname: string;
   logline: string;
 } | {
@@ -145,7 +139,6 @@ class LocalBridge extends EventSource<BridgeEvents> {
   reftracker: RefTracker;
 
   pendingeventsends = new Map<number, () => void>;
-  pendinglogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
 
   constructor(initdata: LocalBridgeInitData) {
@@ -186,16 +179,6 @@ class LocalBridge extends EventSource<BridgeEvents> {
           reg();
         }
       } break;
-      case ToLocalBridgeMessageType.LogResult: {
-        const reg = this.pendinglogs.get(message.requestid);
-        if (reg) {
-          this.pendinglogs.delete(message.requestid);
-          if (message.success)
-            reg.resolve();
-          else
-            reg.reject(new Error(`Logging failed, no connection to the whmanager`));
-        }
-      } break;
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
         if (logmessages)
@@ -229,22 +212,12 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }
   }
 
-  async log(logname: string, logline: string): Promise<void> {
-    const requestid = ++this.requestcounter;
-    const lock = this.reftracker.getLock();
-    try {
-      await new Promise<void>((resolve, reject) => {
-        this.pendinglogs.set(requestid, { resolve, reject });
-        this.port.postMessage({
-          type: ToMainBridgeMessageType.Log,
-          requestid,
-          logname,
-          logline
-        });
-      });
-    } finally {
-      lock.release();
-    }
+  log(logname: string, logline: string): void {
+    this.port.postMessage({
+      type: ToMainBridgeMessageType.Log,
+      logname,
+      logline
+    });
   }
 
   async flushLog(logname: string | "*"): Promise<void> {
@@ -607,6 +580,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         });
       } break;
       case ToMainBridgeMessageType.Log: {
+        // this keeps the bridge alive until the current connection attempt has finished
         await this.ready();
         if (this.connectionactive) {
           this.sendData({
@@ -615,13 +589,9 @@ class MainBridge extends EventSource<BridgeEvents> {
             logline: message.logline
           });
         }
-        port.postMessage({
-          type: ToLocalBridgeMessageType.LogResult,
-          requestid: message.requestid,
-          success: this.connectionactive
-        });
       } break;
       case ToMainBridgeMessageType.FlushLog: {
+        // this keeps the bridge alive until the current connection attempt has finished
         await this.ready();
         if (this.connectionactive) {
           const requestid = this.allocateRequestId();
