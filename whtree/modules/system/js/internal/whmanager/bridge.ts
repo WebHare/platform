@@ -10,6 +10,9 @@ import { IPCPort, IPCEndPoint, IPCPortControlMessage, IPCEndPointImplControlMess
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
 
+export { IPCPort, IPCEndPoint } from "./ipc";
+export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
+
 
 const logpackets = false;
 const logmessages = false;

@@ -37,10 +37,15 @@ class FIFO<T> {
 }
 
 async function testBridge() {
-  await bridge.log("system:debug", "js bridge test");
-  await bridge.flushLog("system:debug");
 
-  // FIXME: test if log item was correctly delivered
+  // Logging
+  {
+    await bridge.log("system:debug", "js bridge test");
+    await bridge.flushLog("system:debug");
+    // FIXME: test if log item was correctly delivered
+  }
+
+  // Story: connect to local port
   {
     const port = bridge.createPort("a");
     const clink = bridge.connect("a");
@@ -78,6 +83,12 @@ async function testBridge() {
       replyto: sendres
     }, await gl_fifo.asyncShift());
     test.eq(null, await gl_fifo.asyncShift());
+  }
+
+  // STORY: connect to nonexisting port
+  {
+    test.throws(/Could not connect to remote port/, bridge.connect("a").activate());
+    test.throws(/Could not connect to remote port/, bridge.connect("a:a", { global: true }).activate());
   }
 }
 

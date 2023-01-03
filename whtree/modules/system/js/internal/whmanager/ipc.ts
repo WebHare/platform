@@ -4,6 +4,7 @@ import { createDeferred, DeferredPromise } from "../tools";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
 import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';
+import { RefTracker } from "./refs";
 
 
 const logmessages = false;
@@ -73,6 +74,9 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
       @returns Message, or throws an exception when the message contains one.
   */
   parseExceptions(message: ReceiveType | IPCExceptionMessage): ReceiveType;
+
+  /** Drop the reference on this endpoint, so the node process won't keep running when this endpoint hasn't been closed yet */
+  dropReference(): void;
 }
 
 export enum IPCEndPointImplControlMessageType {
@@ -123,12 +127,15 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   /** Defer used to wait for connection results */
   private defer?: DeferredPromise<void>;
 
+  private refs;
+
   constructor(port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting") {
     super();
     this.port = port;
     this.mode = mode;
     this.port.on("message", (message) => this.handleControlMessage(message));
     this.port.on("close", () => { this.handleControlMessage({ type: IPCEndPointImplControlMessageType.Close }); });
+    this.refs = new RefTracker(() => this.port.ref(), () => this.port.unref(), { initialref: true });
 
     // If this is a link created by 'connect', init a defer that waits on the connection resukt
     if (mode == "connecting")
@@ -176,7 +183,13 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.mode == "accepting")
       this.port.postMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });
     else if (this.mode == "connecting") {
-      await this.defer?.promise;
+      try {
+        await this.defer?.promise;
+      } catch (e) {
+        // re-throw the error so the stack trace points to the invocation of activate()
+        throw new Error((e as Error).message);
+      }
+
     }
     Promise.resolve(true).then(() => this.emitQueue());
   }
@@ -236,11 +249,16 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.sendInternal(message, replyto);
   }
 
-  doRequest(message: SendType): Promise<unknown> {
+  async doRequest(message: SendType): Promise<unknown> {
     const msgid = this.send(message);
     const defer = createDeferred<unknown>();
     this.requests.set(msgid, defer);
-    return defer.promise;
+    try {
+      return await defer.promise;
+    } catch (e) {
+      // re-throw the error so the stack trace points to the invocation of activate()
+      throw new Error((e as Error).message);
+    }
   }
 
   parseExceptions(message: ReceiveType | IPCExceptionMessage): ReceiveType {
@@ -249,6 +267,10 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
       throw new Error(exceptionmessage.__exception.what);
     }
     return message;
+  }
+
+  dropReference() {
+    this.refs.dropInitialReference();
   }
 }
 
@@ -316,8 +338,13 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   }
 
   async activate() {
-    await this.defer.promise;
-    Promise.resolve(true).then(() => this.emitQueue());
+    try {
+      await this.defer.promise;
+      Promise.resolve(true).then(() => this.emitQueue());
+    } catch (e) {
+      // re-throw the error so the stack trace points to the invocation of activate()
+      throw new Error((e as Error).message);
+    }
   }
 
   emitQueue() {
