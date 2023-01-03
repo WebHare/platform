@@ -38,6 +38,54 @@ STRING FUNCTION GetDatabaseWHLIB(OBJECT trans, STRING schemaname)
   RETURN hs_schemadef;
 }
 
+STRING FUNCTION GetInterfaceName(STRING tablename)
+{
+  //TODO allow tabledefinitions to explicitly suggest the interface names ?
+  STRING finalname; //snakecase to initialcaps:
+  FOREVERY(STRING tok FROM Tokenize(tablename,"_"))
+    finalname := finalname || ToUppercase(Left(tok,1)) || Substring(tok,1);
+
+  IF(finalname LIKE "*s")
+    finalname := Left(finalname, Length(finalname)-1); //eliminate plural
+  RETURN finalname || "Row";
+}
+
+STRING FUNCTION GetTSType(RECORD col)
+{
+  IF(col.data_type LIKE "varchar(*")
+    RETURN "string";
+
+  SWITCH(col.data_type) //TODO timestamp & blob
+  {
+    CASE "int4", "int8"
+    {
+      RETURN "number";
+    }
+    CASE "bool"
+    {
+      RETURN "boolean";
+    }
+    DEFAULT
+    {
+      RETURN col.data_type;
+    }
+  }
+}
+
+STRING FUNCTION GetTSInterfaces(OBJECT trans, STRING schemaname)
+{
+  STRING interfaces;
+  FOREVERY(RECORD tablerec FROM SELECT * FROM trans->GetTableListing(schemaname) ORDER BY table_name)
+  {
+    interfaces := interfaces || `interface ${GetInterfaceName(tablerec.table_name)} {\n`;
+    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
+    FOREVERY(RECORD col FROM columns)
+      interfaces := interfaces || `  ${col.column_name}: ${GetTSType(col)};\n`;
+    interfaces := interfaces || `}\n\n`;
+  }
+
+  RETURN interfaces;
+}
 
 STRING FUNCTION ExplainConstraints(RECORD tabledef, RECORD columnrec)
 {
@@ -153,6 +201,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       ^columns->rows := DEFAULT RECORD ARRAY;
       ^indices->rows := DEFAULT RECORD ARRAY;
       ^databasewhlib->value := GetDatabaseWHLIB(GetPrimary(), curitem.schema_name);
+      ^interfaces->value := GetTSInterfaces(GetPrimary(), curitem.schema_name);
       RETURN;
     }
 
