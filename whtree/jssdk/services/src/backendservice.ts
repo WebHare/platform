@@ -1,5 +1,5 @@
-import { IPCLink } from "@mod-system/js/internal/bridge";
 import { ServiceCallMessage, WebHareServiceDescription } from "@mod-system/js/internal/types";
+import bridge, { IPCEndPoint } from "@mod-system/js/internal/whmanager/bridge";
 
 /** Interface for the client object we present to the connecting user
     TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
@@ -13,14 +13,21 @@ interface RemoteCallResponse {
   exc?: { what: string };
 }
 
+type ServiceInitMessage = {
+  __new: unknown[];
+};
+
+type ServiceIPCEndPoint = IPCEndPoint<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | RemoteCallResponse>;
+
+
 class WebHareServiceWrapper {
-  private readonly port: IPCLink;
+  private readonly link: ServiceIPCEndPoint;
   readonly isjs: boolean;
   private readonly client: WebHareServiceClient;
 
-  constructor(port: IPCLink, response: WebHareServiceDescription) {
-    this.port = port;
-    this.client = { close: function() { port.close(); } };
+  constructor(link: ServiceIPCEndPoint, response: WebHareServiceDescription) {
+    this.link = link;
+    this.client = { close: function() { link.close(); } };
     this.isjs = response.isjs || false;
     for (const method of response.methods)
       this.client[method.name] = (...args: unknown[]) => this.remotingFunc(method, args);
@@ -37,7 +44,7 @@ class WebHareServiceWrapper {
     else
       calldata.args = args;
 
-    const response = await this.port.doRequest(calldata) as RemoteCallResponse;
+    const response = await this.link.doRequest(calldata) as RemoteCallResponse;
     if (response.exc)
       throw new Error(response.exc.what);
     else if (this.isjs)
@@ -59,18 +66,15 @@ export interface BackendServiceOptions {
  *                   linger: If true, service requires an explicit close() and will keep the process running
  */
 export async function openBackendService(name: string, args?: unknown[], options?: BackendServiceOptions) {
-  //FIXME implement timeout
-  const link = new IPCLink;
-  try {
-    await link.connect("webhareservice:" + name, true);
-    const description = await link.doRequest({ __new: args ?? [] }) as WebHareServiceDescription;
-    if (!options?.linger)
-      link.dropReference();
+  const link = bridge.connect<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | RemoteCallResponse>("webhareservice:" + name, { global: true });
+  const result = link.doRequest({ __new: args ?? [] }) as Promise<WebHareServiceDescription>;
+  await link.activate();
 
-    return (new WebHareServiceWrapper(link, description)).getClient();
-  } catch (e) {
-    link.close();
-    throw e;
-  }
+  const description = await result;
+
+  if (!options?.linger)
+    link.dropReference();
+
+  return (new WebHareServiceWrapper(link, description)).getClient();
 }
 
