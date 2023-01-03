@@ -467,10 +467,12 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/markdownfile"
             kind="virtualfile"
             icon="tollium:files/text_plain"
+            searchcontentprovider="publisher:markdown"
             tid="publisher:filetypes.markdownfile">
     <members>
       <composeddocument name="data" />
     </members>
+    <setobjecteditor name="publisher:editmarkdown" separateapp="true" supportsversioning="true" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/markdown.whlib#RenderMarkdown" />
   </filetype>
 

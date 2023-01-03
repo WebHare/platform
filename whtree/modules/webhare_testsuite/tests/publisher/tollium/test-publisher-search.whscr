@@ -14,7 +14,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-OBJECT linksrtdfile, lisartdfile, sysoptestfolder, lisatestfolder;
+OBJECT linksrtdfile, lisartdfile, lisamarkdownfile, sysoptestfolder, lisatestfolder;
 STRING todaysuniqueword := GeneratePassword("Grosse", 22);
 
 MACRO PrepIt()
@@ -25,6 +25,7 @@ MACRO PrepIt()
   lisatestfolder := GetTestsuiteTempFolder()->EnsureFolder([name:="forlisa"]);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT markdowntype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/markdownfile");
 
   linksrtdfile := sysoptestfolder->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
   richdoctype->SetInstanceData(linksrtdfile->id,
@@ -39,6 +40,13 @@ MACRO PrepIt()
       [ data := [ htmltext := StringToBlob('<html><head></head><body>'
                                      || `<p class="normal"><a href="http://www.example.net/link42/">Link 42</a> YY${todaysuniqueword} ZZ${todaysuniqueword}</p>`
                                      || '</body></html>')
+                ]
+      ]);
+
+  lisamarkdownfile := lisatestfolder->CreateFile([name := "markdown", type := markdowntype->id, publish:=FALSE ]);
+  markdowntype->SetInstanceData(lisamarkdownfile->id,
+      [ data := [ type := "publisher:markdown"
+                , text := StringToBlob(`# Markdown\nThis is [link 43](http://www.example.net/link43) and word up: MD${todaysuniqueword}`)
                 ]
       ]);
 
@@ -79,6 +87,19 @@ ASYNC MACRO Search()
   RECORD ARRAY rows := TT("filelist")->rows;
   TestEq(1,Length(rows));
   TestEq(linksrtdfile->id, rows[0].rowkey);
+
+  searchscreen->SetFilterData(
+      [ filters :=
+          [ [ type := "publisher:text"
+            , value := [ textquery := "MD" || todaysuniqueword ]
+            ]
+          ]
+      ]);
+
+  TT("filelist")->filter->TolliumClick();
+  rows := TT("filelist")->rows;
+  TestEq(1,Length(rows));
+  TestEq(lisamarkdownfile->id, rows[0].rowkey);
 
   //=== Search by filetype
   searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";

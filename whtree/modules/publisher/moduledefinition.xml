@@ -981,6 +981,7 @@
   <publisher>
     <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" />
     <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" />
+    <objecteditor name="editmarkdown" documenteditor="tolliumapps/editmarkdown/editmarkdown.xml" supportsreadonly="true" />
     <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlib#runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" screen="texteditor.main" />
@@ -1085,6 +1086,7 @@
     <searchcontentprovider name="rtd" objectname="lib/search/searchproviders.whlib#RichDocumentSearchProvider" version="1.0.0" />
     <!-- The form contentprovider parses webtool forms and their widget version and can be used for custom form types -->
     <searchcontentprovider name="webtoolform" objectname="lib/internal/forms/searchprovider.whlib#WebtoolFormProvider" version="1.0.0" />
+    <searchcontentprovider name="markdown" objectname="lib/search/searchproviders.whlib#MarkdownSearchProvider" version="1.0.0" />
 
     <!-- Publisher search fields for documents with draft support (richdocuments and form files) -->
     <indexfield fieldfunc="mod::consilio/lib/internal/whfscatalog/whfsobjectsource.whlib#getitemfield" name="hasdraft"/>

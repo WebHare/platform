@@ -1,0 +1,54 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "markdown" ]);
+  testfw->CommitWork();
+}
+
+ASYNC MACRO CreateMDFile()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "markdown/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Markdown document";
+  TestEq(TRUE, RecordExists(TT("types")->selection));
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+  TT(":Name")->value:="md1";
+
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //confirm dialog and create the file and
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //exit publisher
+
+  //edit the file
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "markdown/md1" ], target := DEFAULT RECORD ]));
+  TT("doceditor")->contents->^markdowntext->value := "# Heya\nThis is marked down!\n";
+  TT("doceditor")->contents->^dirtylistener->SetDirty();
+
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  TTClick(":Save");
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+
+  OBJECT mdfile := GetTestsuiteTempFolder()->OpenByPath("markdown/md1");
+  TestEq(DEFAULT RECORD, mdfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data);
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  TestEq("# Heya\nThis is marked down!", BlobToString(mdfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data.text));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //exit editor
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR CreateMDFile
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
