@@ -9,6 +9,7 @@ import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
 import { IPCPort, IPCEndPoint, IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
+import { generateBase64UniqueID } from "../util/crypto";
 
 export { IPCPort, IPCEndPoint } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -61,6 +62,7 @@ interface Bridge extends EventSource<BridgeEvents> {
   */
   flushLog(logname: string | "*"): Promise<void>;
 }
+
 
 
 enum ToLocalBridgeMessageType {
@@ -127,8 +129,13 @@ type ToMainBridgeMessage = {
   logname: string;
 };
 
+type LocalBridgeInitData = {
+  id: string;
+  port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
+};
 
 class LocalBridge extends EventSource<BridgeEvents> {
+  id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
   requestcounter = 0;
   systemconfig: Record<string, unknown>;
@@ -140,9 +147,10 @@ class LocalBridge extends EventSource<BridgeEvents> {
   pendinglogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
 
-  constructor(port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>) {
+  constructor(initdata: LocalBridgeInitData) {
     super();
-    this.port = port;
+    this.id = initdata.id;
+    this.port = initdata.port;
     this.systemconfig = {};
     this._ready = createDeferred<void>();
     this.port.on("message", (message) => this.handleControlMessage(message));
@@ -157,7 +165,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   handleControlMessage(message: ToLocalBridgeMessage) {
     if (logmessages)
-      console.log(`localbridge: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
+      console.log(`localbridge ${this.id}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
     switch (message.type) {
       case ToLocalBridgeMessageType.SystemConfig: {
         this.systemconfig = message.systemconfig;
@@ -190,7 +198,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
         if (logmessages)
-          console.log(this.pendingflushlogs, reg);
+          console.log(`localbridge ${this.id}: pending flush logs`, this.pendingflushlogs, reg);
         if (reg) {
           this.pendingflushlogs.delete(message.requestid);
           if (message.success)
@@ -290,7 +298,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   connectionactive = false;
   connectcounter = 0;
   connectionfailedtimeout?: NodeJS.Timer;
-  localbridges = new Set<TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>>;
+  localbridges = new Set<{ id: string; port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage> }>;
   _ready = createDeferred<void>();
   _conntimeout?: NodeJS.Timer;
 
@@ -302,7 +310,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   linkidcounter = 0;
   links = new Map<number, { name: string; port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage> }>;
 
-  requestcounter = 0;
+  requestcounter = 34000; // start here to aid debugging
   flushlogrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
 
   systemconfig: Record<string, unknown>;
@@ -353,8 +361,8 @@ class MainBridge extends EventSource<BridgeEvents> {
       port.close();
     }
     this.links.clear();
-    for (const port of this.localbridges) {
-      port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false });
+    for (const bridge of this.localbridges) {
+      bridge.port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false });
     }
   }
 
@@ -389,7 +397,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     switch (data.opcode) {
       case WHMResponseOpcode.IncomingEvent: {
         for (const localbridge of this.localbridges)
-          localbridge.postMessage({
+          localbridge.port.postMessage({
             type: ToLocalBridgeMessageType.Event,
             name: data.eventname,
             data: bufferToArrayBuffer(data.eventdata)
@@ -414,8 +422,8 @@ class MainBridge extends EventSource<BridgeEvents> {
           if (this.systemconfig.debugconfig)
             updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
         }
-        for (const port of this.localbridges) {
-          port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig });
+        for (const bridge of this.localbridges) {
+          bridge.port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig });
         }
       } break;
       case WHMResponseOpcode.SystemConfig: {
@@ -505,9 +513,9 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
   }
 
-  async gotLocalBridgeMessage(port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>, message: ToMainBridgeMessage) {
+  async gotLocalBridgeMessage(id: string, port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>, message: ToMainBridgeMessage) {
     if (logmessages)
-      console.log(`mainbridge: message from localbridge`, { ...message, type: ToMainBridgeMessageType[message.type] });
+      console.log(`${this.bridgename}: message from local bridge ${id}`, { ...message, type: ToMainBridgeMessageType[message.type] });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
         await this.ready();
@@ -665,26 +673,31 @@ class MainBridge extends EventSource<BridgeEvents> {
     });
   }
 
-  gotLocalBridgeClose(port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>) {
-    this.localbridges.delete(port);
+  gotLocalBridgeClose(id: string, port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>) {
+    if (logmessages)
+      console.log(`${this.bridgename}: local bridge ${id} closed`);
+    for (const bridge of this.localbridges)
+      if (bridge.port === port)
+        this.localbridges.delete(bridge);
   }
 
-  getLocalHandlerPort(): TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage> {
+  getLocalHandlerInitData(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>();
-    port1.on("message", (msg) => this.gotLocalBridgeMessage(port1, msg));
-    port1.on("close", () => this.gotLocalBridgeClose(port1));
-    this.localbridges.add(port1);
+    const id = generateBase64UniqueID();
+    port1.on("message", (msg) => this.gotLocalBridgeMessage(id, port1, msg));
+    port1.on("close", () => this.gotLocalBridgeClose(id, port1));
+    this.localbridges.add({ id, port: port1 });
     port1.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig });
     // Do not want these ports to keep the event loop running.
     port1.unref();
     port2.unref();
-    return port2;
+    return { id, port: port2 };
   }
 }
 
 const mainbridge = new MainBridge;
 
-const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerPort());
+const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
 
 const bridge: Bridge = bridgeimpl;
 export default bridge;
