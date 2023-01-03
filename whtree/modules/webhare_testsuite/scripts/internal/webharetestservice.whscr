@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
@@ -53,6 +55,40 @@ PUBLIC OBJECTTYPE ClusterTestLink EXTEND WebHareServiceProxyBase
 OBJECT FUNCTION Constructor(STRING testdata)
 {
   RETURN NEW ClusterTestLink(testdata);
+}
+
+
+OBJECT extraport := CreateGlobalIPCPort("webhare_testsuite:globalport");
+HandleExtraPort(extraport);
+PRINT("Registered port\n");
+
+ASYNC MACRO HandleExtraPort(OBJECT port)
+{
+  WHILE (TRUE)
+  {
+    OBJECT link := AWAIT port->AsyncAccept(MAX_DATETIME);
+    PRINT(`New link on globalport\n`);
+    HandleLink(link);
+  }
+}
+
+ASYNC MACRO HandleLink(OBJECT link)
+{
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT link->AsyncReceiveMessage(MAX_DATETIME);
+    PRINT(`Data on globalport link\n` || AnyToString(rec, "tree"));
+    IF (rec.status = "gone")
+      RETURN;
+    SWITCH (rec.msg.type)
+    {
+      CASE "sendreply"
+      {
+        link->SendReply([ type := "reply" ], rec.msgid);
+        link->Close();
+      }
+    }
+  }
 }
 
 RunWebHareService("webhare_testsuite:webhareservicetest", PTR Constructor);

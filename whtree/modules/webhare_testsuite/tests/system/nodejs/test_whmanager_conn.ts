@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import { WHManagerConnection, WHMRequestOpcode, WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
-import { readMarshalPacket, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { readMarshalData, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 
 async function testRPCs() {
@@ -93,14 +93,14 @@ async function testRPCs() {
     conn.send({
       opcode: WHMRequestOpcode.SendEvent,
       eventname: "webhare_testsuite:testevent",
-      eventdata: writeMarshalPacket(testdata)
+      eventdata: writeMarshalData(testdata)
     });
     for (; ;) {
       const eventresults = await extractResponses(WHMResponseOpcode.IncomingEvent);
       let foundevent;
       for (const event of eventresults)
         if (event.eventname === "webhare_testsuite:testeventbounce") {
-          test.eq(testdata, readMarshalPacket(event.eventdata));
+          test.eq(testdata, readMarshalData(event.eventdata));
           foundevent = true;
           break;
         }

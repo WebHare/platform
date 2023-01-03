@@ -37,7 +37,7 @@ export enum WHMResponseOpcode {
 export type WHMRequest_SendEvent = {
   opcode: WHMRequestOpcode.SendEvent;
   eventname: string;
-  eventdata: Buffer;
+  eventdata: Buffer | ArrayBuffer;
 };
 export type WHMRequest_RegisterPort = {
   opcode: WHMRequestOpcode.RegisterPort;
@@ -74,7 +74,7 @@ export type WHMRequest_SendMessageOverLink = {
   msgid: bigint;
   replyto: bigint;
   islastpart: boolean;
-  messagedata: Buffer;
+  messagedata: Buffer | ArrayBuffer;
 };
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;
@@ -112,7 +112,7 @@ export type WHMRequest_FlushLog = {
 };
 export type WHMRequest_SetSystemConfig = {
   opcode: WHMRequestOpcode.SetSystemConfig;
-  systemconfigdata: Buffer;
+  systemconfigdata: Buffer | ArrayBuffer;
 };
 
 export type WHMRequest = WHMRequest_SendEvent |

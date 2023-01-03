@@ -33,11 +33,15 @@ export enum VariableType {
   BlobArray = 0xc0,
 }
 
-export function readMarshalPacket(buffer: Buffer) {
+const MarshalFormatType = 2;
+const MarshalPacketFormatType = 3;
+
+
+export function readMarshalData(buffer: Buffer) {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU8();
-  if (version !== 2) // FIXME: support largeblobs mode
-    throw new Error(`Unsupported marshal format type: connect with the same Webhare version`);
+  if (version !== MarshalFormatType) // FIXME: support largeblobs mode
+    throw new Error(`Unsupported marshal format type #${version}`);
 
   const columns: string[] = [];
 
@@ -48,24 +52,71 @@ export function readMarshalPacket(buffer: Buffer) {
   }
 
   const type = buf.readU8() as VariableType;
-  const retval = marshalReadInternal(buf, type, columns);
+  const retval = marshalReadInternal(buf, type, columns, null);
   if (buf.readpos != buf.length)
     throw new Error(`Garbage at end of marshalling packet`);
   return retval;
 }
 
-function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[]): unknown {
+export function readMarshalPacket(buffer: Buffer) {
+  const buf = new LinearBufferReader(buffer);
+  const version = buf.readU32();
+  if (version !== MarshalFormatType) // FIXME: support largeblobs mode
+    throw new Error(`Unsupported marshal format type #${version}`);
+
+  const columnsize = buf.readU32();
+  const datasize = buf.readU32();
+  const totalblobsize = buf.readBigU64();
+
+  const columns: string[] = [];
+
+  if (columnsize) {
+    buf.readpos = 20;
+    const columncount = buf.readU32();
+    for (let i = 0; i < columncount; ++i) {
+      const colsize = buf.readU8();
+      columns.push(buf.readRaw(colsize).toString("utf-8").toLowerCase());
+    }
+    if (buf.readpos != 20 + columnsize)
+      throw new Error(`Error in marshalling packet: incorrect column section size`);
+  }
+
+
+  const blobs: Uint8Array[] = [];
+  if (totalblobsize) {
+    buf.readpos = 20 + columnsize + datasize;
+    const blobcount = buf.readU32();
+    for (let idx = 0; idx < blobcount; ++idx) {
+      const blobsize = buf.readBigU64();
+      blobs.push(buf.readRaw(Number(blobsize)));
+    }
+    if (buf.readpos != 20 + columnsize + datasize + Number(totalblobsize))
+      throw new Error(`Error in marshalling packet: incorrect blob section size`);
+  }
+
+  buf.readpos = 20 + columnsize;
+  const dataformat = buf.readU8();
+  if (dataformat != MarshalPacketFormatType)
+    throw new Error(`Error in marshalling packet: Invalid data format`);
+  const type = buf.readU8() as VariableType;
+  const retval = marshalReadInternal(buf, type, columns, blobs);
+  if (buf.readpos != 20 + columnsize + datasize)
+    throw new Error(`Error in marshalling packet: incorrect data section size`);
+  return retval;
+}
+
+function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Uint8Array[] | null): unknown {
   if (type & 0x80) {
     const eltcount = buf.readU32();
     const retval: unknown[] = [];
     if (type == VariableType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
         const subtype = buf.readU8() as VariableType;
-        retval.push(marshalReadInternal(buf, subtype, columns));
+        retval.push(marshalReadInternal(buf, subtype, columns, blobs));
       }
     } else {
       for (let i = 0; i < eltcount; ++i) {
-        retval.push(marshalReadInternal(buf, type & ~0x80, columns));
+        retval.push(marshalReadInternal(buf, type & ~0x80, columns, blobs));
       }
     }
     return retval;
@@ -96,7 +147,14 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       return buf.readString();
     }
     case VariableType.Blob: {
-      return buf.readBinary();
+      if (blobs) {
+        const blobid = buf.readU32();
+        if (!blobid)
+          return new Uint8Array();
+        else
+          return blobs[blobid - 1];
+      } else
+        return buf.readBinary();
     }
     case VariableType.FunctionRecord: {
       throw new Error(`Cannot decode FUNCTIONRECORD yet`); // FIXME?
@@ -111,7 +169,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
         if (namenr >= columns.length)
           throw new Error(`Corrupt marshal packet: column name nr out of range`);
         const subtype = buf.readU8() as VariableType;
-        retval[columns[namenr]] = marshalReadInternal(buf, subtype, columns);
+        retval[columns[namenr]] = marshalReadInternal(buf, subtype, columns, blobs);
       }
       return retval;
     }
@@ -127,11 +185,15 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
   }
 }
 
-export function writeMarshalPacket(value: unknown): Buffer {
+export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: boolean } = {}): Buffer {
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
-  writeMarshalPacketInternal(value, datawriter, columns, null);
+  const visited = new Set<object>;
+  const blobs = onlySimple ? [] : null;
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, visited);
+  if (blobs && blobs.length)
+    throw new Error(`Cannot include Buffers or types arrays in in this mode`);
 
   const startwriter = new LinearBufferWriter();
   startwriter.writeU8(2);
@@ -146,6 +208,49 @@ export function writeMarshalPacket(value: unknown): Buffer {
   }
 
   return Buffer.concat([startwriter.finish(), datawriter.finish()]);
+}
+
+export function writeMarshalPacket(value: unknown): Buffer {
+
+  const columns = new Map<string, number>();
+
+  const datawriter = new LinearBufferWriter();
+  const visited = new Set<object>;
+  const blobs: Uint8Array[] = [];
+  datawriter.writeU8(MarshalPacketFormatType);
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, visited);
+
+  const columnwriter = new LinearBufferWriter();
+  columnwriter.writeU32(columns.size);
+  for (const [key] of [...columns.entries()].sort((a, b) => a[1] - b[1])) {
+    const strbuf = Buffer.from(key, "utf-8");
+    if (strbuf.length > 64)
+      throw new Error(`Key too long: ${JSON.stringify(key)}`);
+    columnwriter.writeU8(strbuf.length);
+    columnwriter.writeRaw(strbuf);
+  }
+
+  const blobwriter = new LinearBufferWriter();
+  if (blobs.length) {
+
+    blobwriter.writeU32(blobs.length);
+    for (const blob of blobs) {
+      blobwriter.writeU64(BigInt(blob.byteLength));
+      blobwriter.writeRaw(blob);
+    }
+  }
+
+  const data_column = columnwriter.finish();
+  const data_data = datawriter.finish();
+  const data_blob = blobwriter.finish();
+
+  const startwriter = new LinearBufferWriter();
+  startwriter.writeU32(MarshalFormatType);
+  startwriter.writeU32(data_column.byteLength);
+  startwriter.writeU32(data_data.byteLength);
+  startwriter.writeU64(BigInt(data_blob.byteLength));
+
+  return Buffer.concat([startwriter.finish(), data_column, data_data, data_blob]);
 }
 
 function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
@@ -177,7 +282,7 @@ function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (value instanceof Uint8Array)
+      if (value instanceof Uint8Array || value instanceof ArrayBuffer)
         return VariableType.Blob;
       if (value instanceof Date)
         return VariableType.DateTime;
@@ -206,17 +311,21 @@ function determineType(value: unknown): VariableType {
   }
 }
 
-function writeMarshalPacketInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, type: VariableType | null) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, visited: Set<object>) {
   if (type === null) {
     type = determineType(value);
     writer.writeU8(type);
   }
   if (type & VariableType.Array) {
+    if (visited.has(value as unknown[]))
+      throw new Error(`Detected a circular reference`);
+    visited.add(value as unknown[]);
+
     const len = (value as unknown[]).length;
     writer.writeU32(len);
     const subtype = type == VariableType.VariantArray ? null : type & ~VariableType.Array;
     for (let i = 0; i < len; ++i) {
-      writeMarshalPacketInternal((value as unknown[])[i], writer, columns, subtype);
+      writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, visited);
     }
     return;
   }
@@ -252,6 +361,10 @@ function writeMarshalPacketInternal(value: unknown, writer: LinearBufferWriter, 
       if (value === null)
         writer.writeS32(-1);
       else {
+        if (visited.has(value as object))
+          throw new Error(`Detected a circular reference`);
+        visited.add(value as object);
+
         const entries = Object.entries(value as object);
         writer.writeS32(entries.length);
         for (const [key, subvalue] of entries) {
@@ -261,8 +374,21 @@ function writeMarshalPacketInternal(value: unknown, writer: LinearBufferWriter, 
             columns.set(key.toUpperCase(), columnid);
           }
           writer.writeU32(columnid);
-          writeMarshalPacketInternal(subvalue, writer, columns, null);
+          writeMarshalDataInternal(subvalue, writer, columns, blobs, null, visited);
         }
+      }
+    } break;
+    case VariableType.Blob: {
+      const uint8array = new Uint8Array(value as (Uint8Array | ArrayBuffer));
+      if (blobs) {
+        if (uint8array.byteLength == 0)
+          writer.writeU32(0);
+        else {
+          blobs.push(uint8array);
+          writer.writeU32(blobs.length);
+        }
+      } else {
+        writer.writeBinary(uint8array);
       }
     } break;
     default: {
@@ -270,3 +396,9 @@ function writeMarshalPacketInternal(value: unknown, writer: LinearBufferWriter, 
     }
   }
 }
+
+export type SimpleMarshallableData = boolean | null | string | number | Date | { [key in string]: SimpleMarshallableData } | SimpleMarshallableData[];
+export type SimpleMarshallableRecord = null | { [key in string]: SimpleMarshallableData };
+
+export type IPCMarshallableData = boolean | null | string | number | Date | ArrayBuffer | Uint8Array | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
+export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };

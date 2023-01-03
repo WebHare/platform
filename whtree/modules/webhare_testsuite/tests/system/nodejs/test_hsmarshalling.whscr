@@ -1,0 +1,56 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+BLOB FUNCTION ParseBufferRecord(RECORD res)
+{
+  TestEQ(res.type, "Buffer");
+  INTEGER s := CreateStream();
+  FOREVERY (INTEGER i FROM res.data)
+    PrintTo(s, ByteToString(i));
+  RETURN MakeBlobFromStream(s);
+}
+
+BLOB FUNCTION CreateMarshalData(VARIANT data)
+{
+  INTEGER str := CreateStream();
+  __HS_MARSHALWRITETO(str, data);
+  RETURN MakeBlobFromStream(str);
+}
+
+BLOB FUNCTION CreatePacketMarshalData(VARIANT data)
+{
+  INTEGER str := CreateStream();
+  __HS_MARSHALPACKETWRITETO(str, data);
+  RETURN MakeBlobFromStream(str);
+}
+
+ASYNC MACRO TestMarshalling()
+{
+  STRING res;
+  STRING encoded;
+
+  VARIANT totest :=
+    [ i := 1
+    , ra := [ [ f := 4.4f, s := "", bt := TRUE, bf := FALSE, d := MakeDateTime(2000, 1, 2, 3, 4, 5, 6), b := StringToBlob("blob") ] ]
+    ];
+
+  encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
+  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeEncodePacket"), VARIANT[ encoded ]);
+  TestEQ(encoded, ToUppercase(res));
+
+  encoded := EncodeBase16(BlobToString(CreateMarshalData(totest)));
+  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeEncode"), VARIANT[ encoded ]);
+  TestEQ(encoded, ToUppercase(res));
+}
+
+RunTestFrameWork(
+    [ PTR TestMarshalling()
+    ],
+    [ usedatabase := FALSE
+    ]);
