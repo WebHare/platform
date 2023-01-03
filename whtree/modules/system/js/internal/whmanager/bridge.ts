@@ -10,6 +10,7 @@ import { IPCPort, IPCEndPoint, IPCPortControlMessage, IPCEndPointImplControlMess
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
+import * as stacktrace_parser from "stacktrace-parser";
 
 export { IPCPort, IPCEndPoint } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -46,10 +47,31 @@ interface Bridge extends EventSource<BridgeEvents> {
   get ready(): Promise<void>;
   get systemconfig(): unknown;
 
+  /** Returns the current group id */
+  getGroupId(): string;
+
+  /** Send an event
+      @param eventname - Name of the event
+      @param eventdata - Event data
+  */
   sendEvent(eventname: string, eventdata: BridgeEventData): Promise<void>;
 
+  /** Create an IPC port
+      @typeParam SendType - Type of data that can be sent over the link
+      @typeParam ReceiveType - Type of data that can be received over the link
+      @param name - Name of the port
+      @param options - Port creation options
+      @returns IPC port
+  */
   createPort<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, options?: CreatePortOptions): IPCPort<SendType, ReceiveType>;
 
+  /** Create an IPC port
+      @typeParam SendType - Type of data that can be sent over the link
+      @typeParam ReceiveType - Type of data that can be received over the link
+      @param name - Name of the port to connect to
+      @param options - Connection options
+      @returns IPC link endpoint. Messages can be sent immediately.
+  */
   connect<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, options?: ConnectOptions): IPCEndPoint<SendType, ReceiveType>;
 
   /** Write a line to a log file
@@ -61,9 +83,12 @@ interface Bridge extends EventSource<BridgeEvents> {
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
   */
   flushLog(logname: string | "*"): Promise<void>;
+
+  /** Log an error to the notice log
+      @param e - Error to log
+  */
+  logError(e: Error): void;
 }
-
-
 
 enum ToLocalBridgeMessageType {
   SystemConfig,
@@ -157,6 +182,10 @@ class LocalBridge extends EventSource<BridgeEvents> {
     return this._ready.promise.then(() => lock.release());
   }
 
+  getGroupId() {
+    return this.id;
+  }
+
   handleControlMessage(message: ToLocalBridgeMessage) {
     if (logmessages)
       console.log(`localbridge ${this.id}: message from mainbridge`, { ...message, type: ToLocalBridgeMessageType[message.type] });
@@ -218,6 +247,38 @@ class LocalBridge extends EventSource<BridgeEvents> {
       logname,
       logline
     });
+  }
+
+  encodeJavaScriptException(e: Error, options: {
+    script?: string;
+    contextinfo?: hsmarshalling.IPCMarshallableRecord;
+  }) {
+    const trace = stacktrace_parser.parse(e?.stack ?? "");
+    const data = {
+      script: options.script ?? require.main?.filename ?? "",
+      trace: trace.map(entry => ({
+        filename: entry.file,
+        line: entry.lineNumber,
+        col: entry.column,
+        functionname: entry.methodName
+      })),
+      error: e.message,
+      browser: { name: "nodejs" },
+      contextinfo: options.contextinfo ?? null,
+      type: "javascript-error"
+    };
+    return hsmarshalling.encodeHSON(data);
+  }
+
+  logError(e: Error, options?: {
+    groupid?: string;
+    script?: string;
+    info?: string;
+    contextinfo?: hsmarshalling.IPCMarshallableRecord;
+  }) {
+    options = options || {};
+    const groupid = options.groupid ?? this.getGroupId();
+    this.log("system:notice", `ts-node\tERROR\t${groupid}\t\tjavascript-error\t${this.encodeJavaScriptException(e, options)}`);
   }
 
   async flushLog(logname: string | "*"): Promise<void> {
@@ -678,3 +739,7 @@ const bridge: Bridge = bridgeimpl;
 export default bridge;
 
 registerAsNonReloadableLibrary(module);
+
+process.on('uncaughtExceptionMonitor', (error, origin) => {
+  bridge.logError(error);
+});
