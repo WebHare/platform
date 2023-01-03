@@ -638,13 +638,13 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   allocateLinkid() {
-    /// Get next uint32_t this.linkidcounter that is not in use yet
+    /// Get next uint32_t this.linkidcounter that is not in use yet ('>>> 0' has same effect as % 2**32)
     for (; this.linkidcounter == 0 || this.links.get(this.linkidcounter); this.linkidcounter = ((this.linkidcounter + 1) >>> 0));
     return this.linkidcounter;
   }
 
   allocateRequestId(): number {
-    /// Get next uint32_t for this.requestcounter
+    /// Get next uint32_t for this.requestcounter ('>>> 0' has same effect as % 2**32)
     this.requestcounter = (this.requestcounter + 1) >>> 0;
     return this.requestcounter;
   }
