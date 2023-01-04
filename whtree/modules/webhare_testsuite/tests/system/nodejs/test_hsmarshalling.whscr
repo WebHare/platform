@@ -30,6 +30,13 @@ BLOB FUNCTION CreatePacketMarshalData(VARIANT data)
   RETURN MakeBlobFromStream(str);
 }
 
+ASYNC MACRO TestHSONEnDeCode(STRING hson, VARIANT val, STRING retval DEFAULTSTO "")
+{
+  TestEQ(hson, EncodeHSON(val));
+  STRING res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeHSONEncodeHSON"), VARIANT[ hson ]);
+  TestEQ(retval ?? hson, res);
+}
+
 ASYNC MACRO TestMarshalling()
 {
   STRING res;
@@ -38,7 +45,11 @@ ASYNC MACRO TestMarshalling()
   VARIANT totest :=
     [ i := 1
     , ra := [ [ f := 4.4f, s := "", bt := TRUE, bf := FALSE, d := MakeDateTime(2000, 1, 2, 3, 4, 5, 6), b := StringToBlob("blob") ] ]
-    , more := [ dd := DEFAULT DATETIME, ds := MakeDateFromParts(0, 1), dm := MAX_DATETIME ]
+    , more :=
+        [ dd := DEFAULT DATETIME
+        , ds := MakeDateFromParts(0, 1)
+        , dm := MAX_DATETIME
+        ]
     ];
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
@@ -52,6 +63,78 @@ ASYNC MACRO TestMarshalling()
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
   res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodePacketEncodeHSON"), VARIANT[ encoded ]);
   TestEQ(EncodeHSON(totest), res);
+
+  encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
+  res := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#decodeHSONEncodeHSON"), VARIANT[ EncodeHSON(totest) ]);
+  TestEQ(EncodeHSON(totest), res);
+
+  /* HSON improvements:
+     - preserve array types (DEFAULT INTEGER ARRAY, etc)
+     - support datetime, blob, money
+  */
+  AWAIT TestHSONEnDeCode('hson:-2147483648', -2147483648);
+  AWAIT TestHSONEnDeCode('hson:5', 5);
+  AWAIT TestHSONEnDeCode('hson:-5', -5);
+  AWAIT TestHSONEnDeCode('hson:2147483647', 2147483647);
+  AWAIT TestHSONEnDeCode('hson:i64 -9223372036854775808', -9223372036854775808i64);
+  AWAIT TestHSONEnDeCode('hson:i64 -5', -5i64);
+  AWAIT TestHSONEnDeCode('hson:i64 5', 5i64);
+  AWAIT TestHSONEnDeCode('hson:i64 9223372036854775807', 9223372036854775807i64);
+  AWAIT TestHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd\'efgh");
+  // Node uses UTF-16, can't represent illegal UTF-8 characters
+  //AWAIT TestHSONEnDeCode('hson:"Ab\\x80a\\x80\\u00A0"', "Ab\x80a\x80\u00A0");
+  AWAIT TestHSONEnDeCode('hson:d"20100101"', MakeDate(2010,1,1));
+  AWAIT TestHSONEnDeCode('hson:d"20100101T151617"', MakeDateTime(2010,1,1,15,16,17));
+  AWAIT TestHSONEnDeCode('hson:d"20100101T151617.123"', AddTimeToDate(123, MakeDateTime(2010,1,1,15,16,17)));
+  AWAIT TestHSONEnDeCode('hson:d"201100415"', MakeDateFromParts(7344766,0));
+  AWAIT TestHSONEnDeCode('hson:b"' || EncodeBase64("Ik ben een blob") || '"', StringToBlob("Ik ben een blob"));
+  AWAIT TestHSONEnDeCode('hson:m -92233720368547.75808', -92233720368547.75808m);
+  AWAIT TestHSONEnDeCode('hson:m -5', -5m);
+  AWAIT TestHSONEnDeCode('hson:m -5.42', -5.42m);
+  AWAIT TestHSONEnDeCode('hson:m 5', 5m);
+  AWAIT TestHSONEnDeCode('hson:m 5.42', 5.42m);
+  AWAIT TestHSONEnDeCode('hson:m 92233720368547.75807', 92233720368547.75807m);
+  // can't preserve floats without fractional parts
+  AWAIT TestHSONEnDeCode('hson:f -5', -5f, "hson:-5");
+  AWAIT TestHSONEnDeCode('hson:f -5.5', -5.5f);
+  // can't preserve floats without fractional parts
+  AWAIT TestHSONEnDeCode('hson:f 5', 5f, "hson:5");
+  AWAIT TestHSONEnDeCode('hson:f 5.5', 5.5f);
+  AWAIT TestHSONEnDeCode('hson:*', DEFAULT RECORD);
+  AWAIT TestHSONEnDeCode('hson:{}', CELL[]);
+  AWAIT TestHSONEnDeCode('hson:va[]', DEFAULT VARIANT ARRAY);
+  AWAIT TestHSONEnDeCode('hson:ia[]', DEFAULT INTEGER ARRAY);
+  AWAIT TestHSONEnDeCode('hson:i64a[]', DEFAULT INTEGER64 ARRAY);
+  AWAIT TestHSONEnDeCode('hson:ma[]', DEFAULT MONEY ARRAY);
+  AWAIT TestHSONEnDeCode('hson:fa[]', DEFAULT FLOAT ARRAY);
+  AWAIT TestHSONEnDeCode('hson:xa[]', DEFAULT BLOB ARRAY);
+  AWAIT TestHSONEnDeCode('hson:ra[]', DEFAULT RECORD ARRAY);
+  AWAIT TestHSONEnDeCode('hson:da[]', DEFAULT DATETIME ARRAY);
+  AWAIT TestHSONEnDeCode('hson:ba[]', DEFAULT BOOLEAN ARRAY);
+  AWAIT TestHSONEnDeCode('hson:sa[]', DEFAULT STRING ARRAY);
+  AWAIT TestHSONEnDeCode('hson:ia[1,2,3]', [1,2,3]);
+  AWAIT TestHSONEnDeCode('hson:b""', DEFAULT BLOB);
+  AWAIT TestHSONEnDeCode('hson:d""', DEFAULT DATETIME);
+  AWAIT TestHSONEnDeCode('hson:d"T12345"', MakeDateFromParts(0,12345));
+  AWAIT TestHSONEnDeCode('hson:d"MAX"', MAX_DATETIME);
+  AWAIT TestHSONEnDeCode('hson:d"00010101T000000.001"', MakeDateFromParts(1, 1));
+  // Javascript MAX_DATETIME is lower, can't represent the following date
+  AWAIT TestHSONEnDeCode('hson:d"58796110711T235959.998"', AddTimeToDate(-1, MAX_DATETIME), `hson:d"MAX"`);
+  AWAIT TestHSONEnDeCode('hson:b"MQ=="', StringToBlob("1"));
+  AWAIT TestHSONEnDeCode('hson:{"a":0,"b":1,"c":2}', [ c := 2, b := 1, a := 0 ]); // test ordering
+  AWAIT TestHSONEnDeCode('hson:fa[f 0,f 1]', [ 0f, 1f ]);
+  AWAIT TestHSONEnDeCode('hson:va[f 0.1,f 1.1,""]', VARIANT ARRAY([ 0.1f, 1.1f ]) CONCAT VARIANT ARRAY([ "" ]));
+  AWAIT TestHSONEnDeCode('hson:va[1,2,3]', VARIANT ARRAY([ 1,2,3 ]));
+  AWAIT TestHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [ 13f, 11111111111111f ]);
+  // Javascript encodes as 1e+308
+  AWAIT TestHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [ 1e308, 1e-308, -1e308, -1e-308, 0.0001 ], 'hson:fa[f 1e+308,f 1e-308,f -1e+308,f -1e-308,f 0.0001]');
+
+  // Large blob, len not dividable by 3
+  STRING teststr := "1234567";
+  FOR (INTEGER i := 0; i < 8; i := i + 1)
+    teststr := teststr || teststr || teststr || teststr || teststr;
+
+  AWAIT TestHSONEnDeCode('hson:b"'||EncodeBase64(teststr)||'"', StringToBlob(teststr));
 }
 
 RunTestFrameWork(
