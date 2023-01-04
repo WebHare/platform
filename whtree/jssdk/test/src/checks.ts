@@ -155,9 +155,12 @@ export function eq<T>(expected: T, actual: T, annotation?: Annotation) {
   testDeepEq(expected, actual, '');
 }
 
-export function assert<T>(actual: T, annotation?: Annotation): T { //TODO ': asserts actual' declaration.. but still mistified by https://github.com/microsoft/TypeScript/issues/36931
+/* TypeScript requires assertions to return void, so we can't just "asserts actual" here if we return the original value.
+   assert's returnvalue isn't that useful so it seems worth giving up the return value for cleaner testcode
+*/
+export function assert<T>(actual: T, annotation?: Annotation): asserts actual {
   if (actual)
-    return actual; //test passed is actual was 'true'
+    return; //test passed is actual was 'true'
 
   if (annotation)
     logAnnotation(annotation);

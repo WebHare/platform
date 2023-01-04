@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-//@webhare/services are higher level but public abstractions
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
@@ -15,8 +13,7 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testServices() {
-  if (!serverconfig)
-    throw new Error("serverconfig should be set!");
+  test.assert(serverconfig);
 
   //Verify potentially higher level invoke APIs work
   test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
@@ -36,15 +33,14 @@ async function testServices() {
   ensureProperPath(serverconfig.dataroot);
   ensureProperPath(serverconfig.installationroot);
 
-  await test.throws(/Cannot assign to read only property/, () => serverconfig!.dataroot = "I touched it");
+  await test.throws(/Cannot assign to read only property/, () => { if (serverconfig) serverconfig.dataroot = "I touched it"; });
 
   test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]), serverconfig.module.system.root);
   ensureProperPath(serverconfig.module.system.root);
 }
 
 async function testResources() {
-  if (!serverconfig)
-    throw new Error("serverconfig should be set!");
+  test.assert(serverconfig);
 
   test.eq(serverconfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
   test.eq(serverconfig.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
