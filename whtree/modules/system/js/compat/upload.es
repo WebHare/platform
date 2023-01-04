@@ -343,8 +343,15 @@ class UploaderAggregator extends RawUploadItem
     if (this.status == 'loaded')
       this.pvt_subitems.forEach(function(i) { result = result.concat(i.getCompletedFiles()); });
     //sanitize the result, don't leak internal data
-
-    return result.map( file => ({ name: file.name, filetoken: file.filetoken, size: file.size, fileinfo:file.fileinfo, type: file.type, url: file.downloadurl, fullpath: file.fullpath }));
+    return result.map(file => ({ name: file.name,
+      filetoken: file.filetoken,
+      size: file.size,
+      fileinfo: file.fileinfo,
+      type: file.type,
+      url: file.downloadurl,
+      fullpath: file.fullpath,
+      userdata: file.pvt_file?.userdata || null
+    }));
   }
 
   getFileTokens()

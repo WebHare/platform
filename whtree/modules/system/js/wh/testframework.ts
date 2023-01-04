@@ -283,7 +283,7 @@ export async function asyncMouseClick(x, y, options) {
 }
 
 class FakeUploadSession {
-  constructor(files, donecallback) {
+  constructor(files, donecallback?) {
     this.blobs = [];
     this.files = files;
     this.donecallback = donecallback;
@@ -310,7 +310,7 @@ class FakeUploadSession {
   }
 }
 
-export function prepareUploadTest(node, files, donecallback) {
+export function prepareUploadTest(node, files, donecallback?) {
   if (window.top.wh_testapi_fakeupload)
     throw new Error("The window already has a pending upload");
 

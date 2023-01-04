@@ -1,3 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <jstest file="testupload.es" />
+  <jstest file="testupload.ts" />
 </group>
