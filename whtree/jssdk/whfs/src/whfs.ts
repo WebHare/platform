@@ -51,8 +51,8 @@ class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
 
   get id() { return this.dbrecord.id; }
-  get isFile() { return !this.dbrecord.isfolder; }
-  get isFolder() { return !this.dbrecord.isfolder; }
+  get isfile() { return !this.dbrecord.isfolder; }
+  get isfolder() { return !this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
   get whfspath() { return this.dbrecord.whfspath; }
 
