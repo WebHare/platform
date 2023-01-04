@@ -215,7 +215,7 @@ async function testRPCs() {
   }
 
   test.assert(!goterror);
-  ref.close();
+  ref.release();
 }
 
 test.run([testRPCs]);

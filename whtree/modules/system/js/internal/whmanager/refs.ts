@@ -1,6 +1,6 @@
 
 
-class RefLock {
+export class RefLock {
   tracker: RefTracker;
   title: string;
   trace: string;
@@ -19,16 +19,17 @@ class RefLock {
 export class RefTracker {
   private locks = new Set<RefLock>();
   private initialref?: RefLock;
-  private _onrefed?: () => void;
-  private _onunrefed?: () => void;
+  private hasref: boolean;
+  private _onrefed: () => void;
+  private _onunrefed: () => void;
 
   constructor(onrefed: () => void, onunrefed: () => void, { initialref }: { initialref?: boolean } = {}) {
     this._onrefed = onrefed;
     this._onunrefed = onunrefed;
+    this.hasref = initialref ?? false;
     if (initialref) {
       this.initialref = new RefLock(this, "initial reference");
       this.locks.add(this.initialref);
-      this.getLock("initial reference");
     }
   }
 
@@ -43,22 +44,26 @@ export class RefTracker {
     this.initialref = undefined;
   }
 
+  private updateRef() {
+    const newhasref = this.locks.size !== 0;
+    if (this.hasref !== newhasref) {
+      this.hasref = newhasref;
+      if (newhasref)
+        this._onrefed();
+      else
+        this._onunrefed();
+    }
+  }
+
   private _add(lock: RefLock) {
     this.locks.add(lock);
     if (this.locks.size === 1) {
-      if (!this._onrefed)
-        throw new Error(`RefTracker not initialized yet`);
-      this._onrefed();
+      setImmediate(() => this.updateRef());
     }
   }
 
   _remove(lock: RefLock) {
-    const isrefed = this.locks.size;
     this.locks.delete(lock);
-    if (isrefed && !this.locks.size) {
-      if (!this._onunrefed)
-        throw new Error(`RefTracker not initialized yet`);
-      this._onunrefed();
-    }
+    setImmediate(() => this.updateRef());
   }
 }

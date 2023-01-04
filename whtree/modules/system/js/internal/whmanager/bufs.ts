@@ -127,8 +127,8 @@ export class LinearBufferWriter {
     this.writeU32("length" in value ? value.length : value.byteLength);
     this.writeRaw(value);
   }
-  writeRaw(value: ArrayBuffer | Uint8Array): void {
-    const towrite = "length" in value ? value : new Uint8Array(value);
+  writeRaw(value: ArrayBuffer | Uint8Array | string): void {
+    const towrite = typeof value === "string" ? Buffer.from(value) : "length" in value ? value : new Uint8Array(value);
     this.ensureRoom(towrite.length);
     this.buffer.set(towrite, this.writepos);
     this.writepos += towrite.length;

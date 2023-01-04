@@ -54,7 +54,7 @@ interface Bridge extends EventSource<BridgeEvents> {
       @param eventname - Name of the event
       @param eventdata - Event data
   */
-  sendEvent(eventname: string, eventdata: BridgeEventData): Promise<void>;
+  sendEvent(eventname: string, eventdata: BridgeEventData): void;
 
   /** Create an IPC port
       @typeParam SendType - Type of data that can be sent over the link
@@ -88,13 +88,16 @@ interface Bridge extends EventSource<BridgeEvents> {
       @param e - Error to log
   */
   logError(e: Error): void;
+
+  /** Ensure events and logs have been delivered to the whmanager */
+  ensureDataSent(): Promise<void>;
 }
 
 enum ToLocalBridgeMessageType {
   SystemConfig,
   Event,
-  SendEventResult,
   FlushLogResult,
+  EnsureDataSentResult,
 }
 
 type ToLocalBridgeMessage = {
@@ -106,13 +109,12 @@ type ToLocalBridgeMessage = {
   name: string;
   data: ArrayBuffer;
 } | {
-  type: ToLocalBridgeMessageType.SendEventResult;
-  requestid: number;
-  success: boolean;
-} | {
   type: ToLocalBridgeMessageType.FlushLogResult;
   requestid: number;
   success: boolean;
+} | {
+  type: ToLocalBridgeMessageType.EnsureDataSentResult;
+  requestid: number;
 };
 
 enum ToMainBridgeMessageType {
@@ -121,11 +123,11 @@ enum ToMainBridgeMessageType {
   ConnectLink,
   Log,
   FlushLog,
+  EnsureDataSent,
 }
 
 type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.SendEvent;
-  requestid: number;
   name: string;
   data: ArrayBuffer;
 } | {
@@ -147,6 +149,9 @@ type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.FlushLog;
   requestid: number;
   logname: string;
+} | {
+  type: ToMainBridgeMessageType.EnsureDataSent;
+  requestid: number;
 };
 
 type LocalBridgeInitData = {
@@ -163,7 +168,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   connected = false;
   reftracker: RefTracker;
 
-  pendingeventsends = new Map<number, () => void>;
+  pendingensuredatasent = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
 
   constructor(initdata: LocalBridgeInitData) {
@@ -201,13 +206,6 @@ class LocalBridge extends EventSource<BridgeEvents> {
         }
         this.emit("systemconfig", this.systemconfig);
       } break;
-      case ToLocalBridgeMessageType.SendEventResult: {
-        const reg = this.pendingeventsends.get(message.requestid);
-        if (reg) {
-          this.pendingeventsends.delete(message.requestid);
-          reg();
-        }
-      } break;
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
         if (logmessages)
@@ -220,25 +218,24 @@ class LocalBridge extends EventSource<BridgeEvents> {
             reg.reject(new Error(`Flushing the logs failed, does this log actually exist?`));
         }
       } break;
+      case ToLocalBridgeMessageType.EnsureDataSentResult: {
+        const reg = this.pendingensuredatasent.get(message.requestid);
+        if (logmessages)
+          console.log(`localbridge ${this.id}: ensuredatasent result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendingensuredatasent.delete(message.requestid);
+          reg();
+        }
+      } break;
     }
   }
 
   async sendEvent(name: string, data: unknown): Promise<void> {
-    const requestid = ++this.requestcounter;
-    const lock = this.reftracker.getLock();
-    try {
-      await new Promise<void>(resolve => {
-        this.pendingeventsends.set(requestid, resolve);
-        this.port.postMessage({
-          type: ToMainBridgeMessageType.SendEvent,
-          requestid,
-          name,
-          data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true }))
-        });
-      });
-    } finally {
-      lock.release();
-    }
+    this.port.postMessage({
+      type: ToMainBridgeMessageType.SendEvent,
+      name,
+      data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true }))
+    });
   }
 
   log(logname: string, logline: string): void {
@@ -249,7 +246,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
     });
   }
 
-  encodeJavaScriptException(e: Error, options: {
+  private encodeJavaScriptException(e: Error, options: {
     script?: string;
     contextinfo?: hsmarshalling.IPCMarshallableRecord;
   }) {
@@ -291,6 +288,22 @@ class LocalBridge extends EventSource<BridgeEvents> {
           type: ToMainBridgeMessageType.FlushLog,
           requestid,
           logname,
+        });
+      });
+    } finally {
+      lock.release();
+    }
+  }
+
+  async ensureDataSent(): Promise<void> {
+    const requestid = ++this.requestcounter;
+    const lock = this.reftracker.getLock();
+    try {
+      await new Promise<void>((resolve) => {
+        this.pendingensuredatasent.set(requestid, resolve);
+        this.port.postMessage({
+          type: ToMainBridgeMessageType.EnsureDataSent,
+          requestid,
         });
       });
     } finally {
@@ -354,12 +367,16 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   bridgename = "main bridge";
 
+  /// Set when waiting for data to flush
+  waitunref?: DeferredPromise<void>;
+
   constructor() {
     super();
     this.systemconfig = {};
     this.conn = new WHManagerConnection;
     this.conn.on("online", () => this.register());
     this.conn.on("offline", () => this.gotConnectionClose());
+    this.conn.on("unref", () => this.gotUnref());
     this.conn.on("data", (response) => this.gotWHManagerResponse(response));
     this._conntimeout = setTimeout(() => this.gotConnTimeout(), whmanager_connection_timeout).unref();
   }
@@ -403,22 +420,26 @@ class MainBridge extends EventSource<BridgeEvents> {
     }
   }
 
+  gotUnref() {
+    if (this.waitunref)
+      this.waitunref.resolve();
+    this.waitunref = undefined;
+  }
+
   gotConnTimeout() {
     this._conntimeout = undefined;
     this._ready.resolve();
   }
 
-  async waitReady() {
+  async waitReadyReturnRef() {
     const ref = this.conn.getRef();
-    try {
-      await this._ready.promise;
-    } finally {
-      ref.close();
-    }
+    await this._ready.promise;
+    return ref;
   }
 
-  ready(): Promise<void> {
-    return this.waitReady();
+  async ready(): Promise<void> {
+    const ref = await this.waitReadyReturnRef();
+    ref.release();
   }
 
   sendData(data: WHMRequest) {
@@ -556,59 +577,63 @@ class MainBridge extends EventSource<BridgeEvents> {
       console.log(`${this.bridgename}: message from local bridge ${id}`, { ...message, type: ToMainBridgeMessageType[message.type] });
     switch (message.type) {
       case ToMainBridgeMessageType.SendEvent: {
-        await this.ready();
-        if (this.connectionactive) {
-          this.sendData({
-            opcode: WHMRequestOpcode.SendEvent,
-            eventname: message.name,
-            eventdata: message.data
-          });
+        const ref = await this.waitReadyReturnRef();
+        try {
+
+          if (this.connectionactive) {
+            this.sendData({
+              opcode: WHMRequestOpcode.SendEvent,
+              eventname: message.name,
+              eventdata: message.data
+            });
+          }
+        } finally {
+          ref.release();
         }
-        port.postMessage({
-          type: ToLocalBridgeMessageType.SendEventResult,
-          requestid: message.requestid,
-          success: this.connectionactive
-        });
       } break;
       case ToMainBridgeMessageType.RegisterPort: {
-        await this.ready();
-        if (this.ports.get(message.name)) {
-          message.port.postMessage({
-            type: IPCPortControlMessageType.RegisterResult,
-            success: false
-          });
-          return;
-        }
-        const reg: PortRegistration = {
-          name: message.name,
-          port: message.port,
-          globalregconnectcounter: 0,
-          initialregistration: message.global
-        };
-        this.ports.set(message.name, reg);
-        if (message.global) {
-          await this.ready();
-          if (!this.connectionactive) {
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.ports.get(message.name)) {
             message.port.postMessage({
               type: IPCPortControlMessageType.RegisterResult,
               success: false
             });
-            this.ports.delete(message.name);
             return;
           }
-          const msgid = ++this.portregistermsgid;
-          this.sendData({
-            opcode: WHMRequestOpcode.RegisterPort,
-            portname: message.name,
-            linkid: 0,
-            msgid
-          });
-          this.portregisterrequests.set(msgid, reg);
-        } else {
-          message.port.postMessage({
-            type: IPCPortControlMessageType.RegisterResult,
-            success: true
-          });
+          const reg: PortRegistration = {
+            name: message.name,
+            port: message.port,
+            globalregconnectcounter: 0,
+            initialregistration: message.global
+          };
+          this.ports.set(message.name, reg);
+          if (message.global) {
+            await this.ready();
+            if (!this.connectionactive) {
+              message.port.postMessage({
+                type: IPCPortControlMessageType.RegisterResult,
+                success: false
+              });
+              this.ports.delete(message.name);
+              return;
+            }
+            const msgid = ++this.portregistermsgid;
+            this.sendData({
+              opcode: WHMRequestOpcode.RegisterPort,
+              portname: message.name,
+              linkid: 0,
+              msgid
+            });
+            this.portregisterrequests.set(msgid, reg);
+          } else {
+            message.port.postMessage({
+              type: IPCPortControlMessageType.RegisterResult,
+              success: true
+            });
+          }
+        } finally {
+          ref.release();
         }
       } break;
       case ToMainBridgeMessageType.ConnectLink: {
@@ -622,17 +647,21 @@ class MainBridge extends EventSource<BridgeEvents> {
           return;
         }
         if (message.global) {
-          await this.ready();
-          if (this.connectionactive) {
-            const linkid = this.allocateLinkid();
-            this.sendData({
-              opcode: WHMRequestOpcode.ConnectLink,
-              portname: message.name,
-              linkid,
-              msgid: BigInt(0)
-            });
-            this.initLinkHandling(message.name, linkid, BigInt(0), message.port);
-            return;
+          const ref = await this.waitReadyReturnRef();
+          try {
+            if (this.connectionactive) {
+              const linkid = this.allocateLinkid();
+              this.sendData({
+                opcode: WHMRequestOpcode.ConnectLink,
+                portname: message.name,
+                linkid,
+                msgid: BigInt(0)
+              });
+              this.initLinkHandling(message.name, linkid, BigInt(0), message.port);
+              return;
+            }
+          } finally {
+            ref.release();
           }
         }
         message.port.postMessage({
@@ -642,34 +671,51 @@ class MainBridge extends EventSource<BridgeEvents> {
       } break;
       case ToMainBridgeMessageType.Log: {
         // this keeps the bridge alive until the current connection attempt has finished
-        await this.ready();
-        if (this.connectionactive) {
-          this.sendData({
-            opcode: WHMRequestOpcode.Log,
-            logname: message.logname,
-            logline: message.logline
-          });
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            this.sendData({
+              opcode: WHMRequestOpcode.Log,
+              logname: message.logname,
+              logline: message.logline
+            });
+          }
+        } finally {
+          ref.release();
         }
       } break;
       case ToMainBridgeMessageType.FlushLog: {
         // this keeps the bridge alive until the current connection attempt has finished
-        await this.ready();
-        if (this.connectionactive) {
-          const requestid = this.allocateRequestId();
-          this.flushlogrequests.set(requestid, { port, requestid: message.requestid });
-          this.sendData({
-            opcode: WHMRequestOpcode.FlushLog,
-            logname: message.logname,
-            requestid
-          });
-        } else {
-          port.postMessage({
-            type: ToLocalBridgeMessageType.FlushLogResult,
-            requestid: message.requestid,
-            success: false
-          });
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            const requestid = this.allocateRequestId();
+            this.flushlogrequests.set(requestid, { port, requestid: message.requestid });
+            this.sendData({
+              opcode: WHMRequestOpcode.FlushLog,
+              logname: message.logname,
+              requestid
+            });
+          } else {
+            port.postMessage({
+              type: ToLocalBridgeMessageType.FlushLogResult,
+              requestid: message.requestid,
+              success: false
+            });
+          }
+        } finally {
+          ref.release();
         }
-      }
+      } break;
+      case ToMainBridgeMessageType.EnsureDataSent: {
+        if (!this.waitunref)
+          this.waitunref = createDeferred<void>();
+        await this.waitunref.promise;
+        port.postMessage({
+          type: ToLocalBridgeMessageType.EnsureDataSentResult,
+          requestid: message.requestid,
+        });
+      } break;
     }
   }
 
