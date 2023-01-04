@@ -1,4 +1,5 @@
 import { sql } from "@webhare/whdb";
+import * as siteprofiles from "./siteprofiles";
 
 interface SiteRow {
   id: number;
@@ -61,7 +62,10 @@ class WHFSObject {
   }
 }
 
-class WHFSFile extends WHFSObject {
+export class WHFSFile extends WHFSObject {
+  get type(): siteprofiles.PublicFileTypeInfo {
+    return siteprofiles.describeFileType(this.dbrecord.type, { mockifmissing: true });
+  }
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
@@ -213,6 +217,12 @@ export async function openSite(site: number | string, options?: { allowMissing: 
       throw new Error(`No such site ${formatPathOrId(site)}`);
 
   return new Site(match[0]);
+}
+
+/** List all WebHare sites */
+export async function listSites() {
+  //TODO should we decide which fields you get, or should you explicitly request which additional columns you want in the list ? - https://gitlab.webhare.com/addons/webharedev_jsbridges/-/issues/35
+  return await sql`select id, name, webhare_proc_sites_webroot(outputweb, outputfolder) as webroot from system.sites` as SiteRow[];
 }
 
 export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;

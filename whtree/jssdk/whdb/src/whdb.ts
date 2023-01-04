@@ -17,6 +17,7 @@ class WHDBClient {
 
   constructor() {
     //FIXME coordinate reading settings with env or env/backend
+    //We should have named the folder 'postgres' instead of postgresql, but leave that for a potential future update
     this.client = new Client({ host: process.env.WEBHARE_DATAROOT + "/postgresql", database: process.env.WEBHARE_DBASENAME }) as ClientWithConnection;
   }
 
