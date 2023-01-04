@@ -5,7 +5,6 @@ cachereset                              Clear all caches
 run <script>                            Run the specified script
 backuplocal                             Create a local snapshot backup of your WebHare
 clonerestoredb <destdir>                Clone the database to the specified directory
-republish <objectid>[...]               Republish the selected file(s), specified by id
 pstree                                  Show WebHare processes
 terminate                               Terminate all WebHare processes nicely (SIGTERM)
 kill                                    Kill all WebHare processes abruptly (SIGKILL)

@@ -1416,6 +1416,7 @@
         <text tid="exportschema">Export schema</text>
         <text tid="importschema">Import schema</text>
         <text tid="indices">Indices</text>
+        <text tid="interfaces">Interfaces</text>
         <text tid="is_unique">Uniek</text>
         <text tid="is_uppercase">Hoofdletters</text>
         <text tid="name">Naam</text>
