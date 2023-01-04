@@ -34,8 +34,8 @@ let config: WebHareBackendConfiguration | null = null;
 WHBridge.onConfigurationUpdate(async () => {
   const newconfig = await (await getBridgeService()).GETCONFIG();
   config = Object.freeze(newconfig);
-  //fire up a link to the bridge manager
-  getBridgeManagerLink();
+  //fire up a link to the bridge manager. Ignore if it doesn't work
+  getBridgeManagerLink().catch(() => null);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- it has to be set at initialization.
   configresolve!();
 });
