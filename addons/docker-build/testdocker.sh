@@ -24,6 +24,7 @@ BASEDIR=$(get_absolute_path $(dirname $0)/../..)
 ALLOWSTARTUPERRORS=""
 DOCKERARGS=
 TERSE=--terse
+EXPLICITWEBHAREIMAGE=
 ENTERSHELL=
 RUNTESTARGS=
 EXPLICITPORT=
@@ -105,6 +106,7 @@ while true; do
   elif [ "$1" == "--webhareimage" -o "$1" == "-w" ]; then
     shift
     WEBHAREIMAGE="$1"
+    EXPLICITWEBHAREIMAGE=1
     shift
   elif [ "$1" == "--output" -o "$1" == "-o" ]; then
     shift
@@ -275,7 +277,9 @@ done < <(env -0)
 echo -n "wh testdocker "
 #  Add --sh if it wasn't there yet
 [ -n "$ENTERSHELL" ] || echo -n "--sh "
-echo "${ORIGINALARGS[@]}" "${IMPLICITARGS[@]}"
+echo -n "${ORIGINALARGS[@]}" ""
+[ -z "$EXPLICITWEBHAREIMAGE" ] && echo -n "--webhareimage $WEBHAREIMAGE "
+echo "${IMPLICITARGS[@]}"
 echo
 
 # List our configuration
