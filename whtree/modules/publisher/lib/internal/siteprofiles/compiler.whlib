@@ -7,6 +7,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -575,6 +576,10 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   __HS_MarshalWriteTo(str, result);
   BLOB blobdata := MakeBlobFromStream(str);
   cspfile->UpdateMetaData([ data := blobdata ], [ runhooks := FALSE ]);
+
+  STRING configpath := GetModuleStorageRoot("system") || "config";
+  CreateDiskDirectoryRecursive(configpath, TRUE);
+  StoreDiskFile(configpath || "/siteprofiles.json", EncodeJSONBlob(result), [ overwrite := TRUE ]);
 }
 
 PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing)

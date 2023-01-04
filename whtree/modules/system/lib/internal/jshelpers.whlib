@@ -1,0 +1,8 @@
+<?wh
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/// JSHelpers provides temporary APIs to fill gaps in the JSSDK
+PUBLIC RECORD FUNCTION GetInstanceData(INTEGER id, STRING type)
+{
+  RETURN OpenWHFSType(type)->GetInstanceData(id);
+}
