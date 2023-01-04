@@ -7,7 +7,7 @@ test.registerTests(
   [
     "Test upload",
 
-    async function () {
+    async function() {
       await test.load('/tollium_todd.res/webhare_testsuite/designfiles/net/upload/upload.shtml');
 
       test.assert(Boolean(window.Blob));
@@ -58,7 +58,7 @@ test.registerTests(
     },
 
     "Test mega file",
-    async function () {
+    async function() {
       // Make 2 strings 64MB in length
       let megafile_1 = '12345678';
       let megafile_2 = '87654321';
@@ -108,7 +108,7 @@ test.registerTests(
     },
 
     "testSelectAndUpload",
-    async function () {
+    async function() {
       test.prepareUploadTest(test.qS('#myinput'), [
         {
           url: '/tests/webhare.png',
@@ -117,6 +117,7 @@ test.registerTests(
       ]);
 
       const uploadfiles = await compatupload.selectFiles();
+      uploadfiles[0].userdata = { hash: "1234" };
       const group = new compatupload.UploadSession(uploadfiles);
 
       const requestresult =
@@ -126,8 +127,8 @@ test.registerTests(
         finishevent: null
       };
 
-      group.addEventListener("wh:upload-start", function () { requestresult.events.push('loadstart'); });
-      group.addEventListener("wh:upload-end", function () { requestresult.events.push('loadend'); });
+      group.addEventListener("wh:upload-start", function() { requestresult.events.push('loadstart'); });
+      group.addEventListener("wh:upload-end", function() { requestresult.events.push('loadend'); });
 
       const files = await group.upload();
 
@@ -137,6 +138,6 @@ test.registerTests(
       test.eq('webhare.png', files[0].name);
       test.eq(4355, files[0].size);
       test.eq('image/png', files[0].type);
-
+      test.eq({ hash: "1234" }, files[0].userdata);
     }
   ]);
