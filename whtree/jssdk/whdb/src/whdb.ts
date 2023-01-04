@@ -118,7 +118,7 @@ export async function beginWork(): Promise<Work> {
 
 }
 
-/** Build a SQL statement and excute it imediately */
+/** Build a SQL statement and execute it imediately */
 export function sql(strings: TemplateStringsArray, ...values: unknown[]) {
   return (new SQLStatement(strings, values)).execute();
 }
