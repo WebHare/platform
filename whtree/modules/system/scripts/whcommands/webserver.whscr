@@ -17,7 +17,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
-
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 MACRO AddPort(STRING ARRAY params)
 {
@@ -415,6 +415,12 @@ MACRO Main()
     {
       BumpHSTS(cmdargs.params);
     }
+    CASE "dumpconfig"
+    {
+      RECORD config := DownloadWebserverConfig();
+      UPDATE config.ports SET privatekey := "***HIDDEN***" WHERE privatekey != "";
+      Print(EncodeJSON(config) || "\n");
+    }
     DEFAULT
     {
       Print("Syntax: wh webserver <command>\n");
@@ -426,6 +432,7 @@ MACRO Main()
       Print("  reset [--dryrun] [--force]: Reset proxies and listening ports\n");
       Print("  rewritehosts <newhost>:     Rewrite all webserver URL hostnames under a new host\n");
       Print("  bumphsts:                   Bump all HSTS settings to a minimum of 1 year\n");
+      Print("  dumpconfig:                 Dump current webserver configuration as JSON\n");
       TerminateScriptWithError("");
     }
   }
