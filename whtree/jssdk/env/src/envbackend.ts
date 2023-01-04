@@ -17,11 +17,11 @@ export function updateDebugConfig(settings: DebugConfig | null) {
 
 export function getWHDebugFlags() {
   const flags: { [key: string]: boolean } = {};
-  if (debugsettings) {
-    for (const flag of debugsettings.tags)
+  if (process.env.WEBHARE_DEBUG) {
+    for (const flag of process.env.WEBHARE_DEBUG.split(',') ?? [])
       flags[flag] = true;
-  } else {
-    for (const flag of process.env.WEBHARE_DEBUG?.split(',') ?? [])
+  } else if (debugsettings) {
+    for (const flag of debugsettings.tags)
       flags[flag] = true;
   }
   return flags;
