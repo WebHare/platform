@@ -68,14 +68,8 @@ while true; do
   elif [ "$1" == "--noterse" ]; then
     TERSE=
     shift
-  elif [ "$1" == "--nocleanup" ]; then
-    NOCLEANUP=1
-    shift
   elif [ "$1" == "--nocheckmodule" ]; then
     NOCHECKMODULE=1
-    shift
-  elif [ "$1" == "--nocleanuponerror" ]; then
-    NOCLEANUPONERROR=1
     shift
   elif [ "$1" == "--sh" ]; then
     ENTERSHELL=1
@@ -294,40 +288,24 @@ TESTENV_CONTAINER1=
 
 function cleanup()
 {
-  if [ -n "$NOCLEANUPONERROR" ] && [ "$TESTFAIL" != "0" ]; then
-    NOCLEANUP=1
-  fi
-
   SUDOCMD=""
   if [ -n "$SUDO" ]; then # build a version with space for nicer alignment of our output
     SUDOCMD="$SUDO "
   fi
 
   if [ -n "$TESTENV_CONTAINER1" ]; then
-    if [ -z "$NOCLEANUP" ]; then
-      RunDocker stop "$TESTENV_CONTAINER1"
-      # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
-      RunDocker rm "$TESTENV_CONTAINER1"
-    else
-      echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER1"
-    fi
+    RunDocker stop "$TESTENV_CONTAINER1"
+    # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
+    RunDocker rm "$TESTENV_CONTAINER1"
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
-    if [ -z "$NOCLEANUP" ]; then
-      RunDocker stop "$TESTENV_CONTAINER2"
-      # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
-      RunDocker rm "$TESTENV_CONTAINER2"
-    else
-      echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER2"
-    fi
+    RunDocker stop "$TESTENV_CONTAINER2"
+    # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
+    RunDocker rm "$TESTENV_CONTAINER2"
   fi
   if [ -n "$TEMPBUILDROOT" ]; then
-    if [ -z "$NOCLEANUP" ]; then
-      echo "$(date) Cleanup: remove buildroot $TEMPBUILDROOT"
-      rm -rf -- "$TEMPBUILDROOT"
-    else
-      echo "Not cleaning up, so don't forget to: rm -rf -- $TEMPBUILDROOT"
-    fi
+    echo "$(date) Cleanup: remove buildroot $TEMPBUILDROOT"
+    rm -rf -- "$TEMPBUILDROOT"
   fi
 }
 trap cleanup EXIT
@@ -677,28 +655,25 @@ if [ -z "$FATALERROR" ]; then
   else
     # When module testing, only run runtest if there actually appear to be any tests
     if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-      if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
+      if ! RunDocker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
         testfail "One or more tests failed"
       fi
     fi
   fi
 fi
 
-if [ "$TESTFAIL" == "1" -a "$ENTERSHELL" == "1" ]; then
-  echo "Entering shell in container $TESTENV_CONTAINER1"
-  $SUDO docker exec -ti $TESTENV_CONTAINER1 /bin/bash
+if [ "$ENTERSHELL" == "1" ]; then
+  echo -n "Entering shell in container $TESTENV_CONTAINER1"
+  [ "$TESTFAIL" == "1" ] && echo -n " ... THERE WERE ERRORS!"
+  echo ""
+  $SUDO docker exec -ti "$TESTENV_CONTAINER1" /bin/bash
 fi
 
 echo "$(date) Done with tests - stopping containers"
 
-# Stop the containers nicely so we have full logs, unless --nocleanup is set (as that means the caller wants to control the container when we're done)
-if [ -n "$NOCLEANUPONERROR" ] && [ "$TESTFAIL" != "0" ]; then
-  NOCLEANUP=1
-fi
-if [ -z "$NOCLEANUP" ]; then
-  $SUDO docker exec "$TESTENV_CONTAINER1" sv stop webhare
-  [ -n "$TESTENV_CONTAINER2" ] && $SUDO docker exec "$TESTENV_CONTAINER2" sv stop webhare
-fi
+# Stop the containers nicely so we have full logs
+RunDocker exec "$TESTENV_CONTAINER1" sv stop webhare
+[ -n "$TESTENV_CONTAINER2" ] && RunDocker exec "$TESTENV_CONTAINER2" sv stop webhare
 
 if [ -z "$ARTIFACTS" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then

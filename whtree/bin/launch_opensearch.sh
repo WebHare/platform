@@ -2,7 +2,7 @@
 set -e
 
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
-# wh builddocker && wh testdocker --nocleanup --tag=-external -w local consilio
+# wh builddocker && wh testdocker --sh --tag=-external -w local consilio
 
 echo "Max open files: $(ulimit -n)"
 
