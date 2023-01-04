@@ -179,6 +179,8 @@ PUBLIC RECORD FUNCTION __ValidateRichDocumentLike(RECORD inrichdoc, BOOLEAN isrt
     baserec := CELL[...baserec, htmltext := DEFAULT BLOB];
   ELSE
   {
+    IF(CellExists(inrichdoc, 'formtext') AND NOT CellExists(inrichdoc, 'text')) //This must be a pre-5.2 WebHare talking to us. We'll convert it for now. Once no more pre-5.2s should exist we can drop the conversion
+      inrichdoc := CELL[ ...inrichdoc, text := inrichdoc.formtext, type := "publisher:formdefinition", DELETE formtext ];
     IF(CellExists(inrichdoc, 'formtext'))
       THROW NEW Exception(`Received a 'formtext' but it should now be just 'text' with a type of 'publisher:formdefinition'`);
     IF(NOT CellExists(inrichdoc, 'type'))

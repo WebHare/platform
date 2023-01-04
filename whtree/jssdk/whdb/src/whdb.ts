@@ -75,7 +75,11 @@ class Work {
     this.client = client;
   }
 
-  async beginTransaction() {
+  async _beginTransaction() {
+    //NOTE: we're not exporting Work so we should be able to assume that any open Work immediately invokes _beginTransaction
+    if (this.open)
+      throw new Error(`Work objects are not reusable`);
+
     this.client.updateRefcount(+1);
     this.open = true;
     await this.client.query("START TRANSACTION ISOLATION LEVEL read committed READ WRITE");
@@ -113,7 +117,7 @@ class SQLStatement {
 
 export async function beginWork(): Promise<Work> {
   const work = new Work(await ensureConnection());
-  await work.beginTransaction();
+  await work._beginTransaction();
   return work;
 
 }

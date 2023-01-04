@@ -17,7 +17,7 @@ async function testWHFS() {
 
   const markdownfile = await testsite.openFile("testpages/markdownpage");
   test.assert(markdownfile);
-  test.assert(markdownfile.isFile);
+  test.assert(markdownfile.isfile);
   test.eq(testsite.webroot + "TestPages/markdownpage/", markdownfile.link);
 
   //Compare other opening routes
