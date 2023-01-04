@@ -13,5 +13,6 @@
   <jstest file="testfinmath.es" />
   <test script="test_whmanager_conn.ts" />
   <test script="test_hmr.ts" />
+  <test script="test_webharerouter.ts" />
   <test name="meta" path="meta/" />
 </group>
