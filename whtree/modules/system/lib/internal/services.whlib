@@ -115,9 +115,9 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
       RECORD hit := this->__calllist[pos.position];
       DELETE FROM this->__calllist AT pos.position;
 
-      IF (CellExists(msg.msg, "exc"))
+      IF (CellExists(msg.msg, "__exception"))
       {
-        hit.reject(DecodeReceivedException(msg.msg.exc));
+        hit.reject(DecodeReceivedException(msg.msg.__exception));
       }
       ELSE
       {
@@ -400,10 +400,10 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
         ABORT("Received unexpected reply to " || msg.replyto);
       }
 
-      IF (CellExists(msg.msg, "exc"))
+      IF (CellExists(msg.msg, "__exception"))
       {
         this->__calllist[pos.position].type := "exception";
-        INSERT CELL value := DecodeReceivedException(msg.msg.exc) INTO this->__calllist[pos.position];
+        INSERT CELL value := DecodeReceivedException(msg.msg.__exception) INTO this->__calllist[pos.position];
       }
       ELSE
       {

@@ -143,7 +143,7 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
     }
     CATCH (OBJECT e)
     {
-      link->SendReply(CELL[ exc := e->EncodeForIPC() ], replyid);
+      link->SendReply(CELL[ __exception := e->EncodeForIPC() ], replyid);
     }
   }
 >;

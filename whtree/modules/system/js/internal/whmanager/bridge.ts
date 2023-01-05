@@ -6,13 +6,13 @@ import { registerAsNonReloadableLibrary } from "../hmrinternal";
 import { DeferredPromise } from "../types";
 import { createDeferred } from "../tools";
 import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
-import { IPCPort, IPCEndPoint, IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType } from "./ipc";
+import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as stacktrace_parser from "stacktrace-parser";
 
-export { IPCPort, IPCEndPoint } from "./ipc";
+export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 
 
@@ -57,22 +57,22 @@ interface Bridge extends EventSource<BridgeEvents> {
   sendEvent(eventname: string, eventdata: BridgeEventData): void;
 
   /** Create an IPC port
-      @typeParam SendType - Type of data that can be sent over the link
-      @typeParam ReceiveType - Type of data that can be received over the link
+      @typeParam LinkType - Type describing the link configuration
       @param name - Name of the port
       @param options - Port creation options
       @returns IPC port
   */
-  createPort<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, options?: CreatePortOptions): IPCPort<SendType, ReceiveType>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createPort<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, options?: CreatePortOptions): LinkType["Port"];
 
-  /** Create an IPC port
-      @typeParam SendType - Type of data that can be sent over the link
-      @typeParam ReceiveType - Type of data that can be received over the link
-      @param name - Name of the port to connect to
-      @param options - Connection options
-      @returns IPC link endpoint. Messages can be sent immediately.
+  /** Connect to an IPC port
+    @typeParam LinkType - Type describing the link configuration
+    @param name - Name of the port to connect to
+    @param options - Connection options
+    @returns IPC link endpoint. Messages can be sent immediately.
   */
-  connect<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, options?: ConnectOptions): IPCEndPoint<SendType, ReceiveType>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connect<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, options?: ConnectOptions): LinkType["ConnectEndPoint"];
 
   /** Write a line to a log file
       @param logname - Name of the log file
@@ -261,7 +261,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       })),
       error: e.message,
       browser: { name: "nodejs" },
-      contextinfo: options.contextinfo ?? null,
+      contextinfo: options.contextinfo ? hsmarshalling.encodeHSON(options.contextinfo) : "",
       type: "javascript-error"
     };
     return hsmarshalling.encodeHSON(data);
@@ -311,7 +311,8 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }
   }
 
-  createPort<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, { global }: { global?: boolean } = {}): IPCPort<SendType, ReceiveType> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createPort<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, { global }: { global?: boolean } = {}): LinkType["Port"] {
     const { port1, port2 } = createTypedMessageChannel<never, IPCPortControlMessage>();
     this.port.postMessage({
       type: ToMainBridgeMessageType.RegisterPort,
@@ -322,7 +323,8 @@ class LocalBridge extends EventSource<BridgeEvents> {
     return new IPCPortImpl(name, port1);
   }
 
-  connect<SendType extends object | null = BridgeMessageData, ReceiveType extends object | null = BridgeMessageData>(name: string, { global }: { global?: boolean } = {}): IPCEndPoint<SendType, ReceiveType> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connect<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, { global }: { global?: boolean } = {}): LinkType["ConnectEndPoint"] {
     const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
     const id = generateBase64UniqueID();
     this.port.postMessage({
@@ -787,5 +789,18 @@ export default bridge;
 registerAsNonReloadableLibrary(module);
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
+  console.error('uncaughtExceptionMonitor', origin, error);
   bridge.logError(error);
+});
+
+process.on('uncaughtException', async (error) => {
+  console.error(`Uncaught exception:`, error);
+  await bridge.ensureDataSent();
+  process.exit(1);
+});
+
+process.on('unhandleRejection', async (reason, promise) => {
+  console.error(`Unhandled rejection:`, reason);
+  await bridge.ensureDataSent();
+  process.exit(1);
 });

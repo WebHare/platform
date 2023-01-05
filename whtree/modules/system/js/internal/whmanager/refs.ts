@@ -1,5 +1,3 @@
-
-
 export class RefLock {
   tracker: RefTracker;
   title: string;

@@ -1,44 +1,64 @@
+import { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
+import { IPCLinkType } from "./whmanager/ipc";
+
 /// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;
 
 /// An object with string keys and typed values
-export type KeyValueObject<T> =
-  {
-    [key: string]: T;
-  };
+export type KeyValueObject<T> = {
+  [key: string]: T;
+};
 
 /// An array of name/value pairs
 export type Properties = Array<{ name: string; value: string }>;
 
 /// A deferred promise with typed result value
-export type DeferredPromise<T> =
-  {
-    promise: Promise<T>;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason: Error) => void;
-  };
+export type DeferredPromise<T> = {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason: Error) => void;
+};
 
-export interface ServiceCallMessage {
+export interface ServiceInitMessage {
+  /** arguments */
+  __new: IPCMarshallableData[];
+}
+
+export type ServiceCallMessage = {
   /** invoked method */
   call: string;
   /** arguments */
-  args?: unknown[];
+  args?: IPCMarshallableData[];
   /** js encoded args */
   jsargs?: string;
-}
+};
 
-export interface WebHareServiceDescription {
+export type ServiceCallResult = {
+  /** result of invoked method */
+  result: IPCMarshallableData;
+};
+
+export type WebHareServiceDescription = {
   isjs?: boolean;
   methods: Array<{
     name: string;
-    signdata: { returntype: number; params: object[]; excessargstype: number };
+    signdata: {
+      returntype: number;
+      params: Array<{
+        type: VariableType;
+        has_default: boolean;
+      }>;
+      excessargstype: number;
+    };
   }>;
-}
+};
+
+export type WebHareServiceIPCLinkType = IPCLinkType<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | ServiceCallResult>;
 
 export interface InspectorSettings {
   url: string;
 }
-export interface BridgeDescription {
+export type BridgeDescription = {
   /** bridge unique ID, in case a process opens multiple connections */
   instance: string;
   /** Process ID */
@@ -47,7 +67,8 @@ export interface BridgeDescription {
   interpreter: string;
   /** And the script that's running */
   script: string;
-}
+};
+
 export interface BridgeManagerLink {
   /** List all bridge connections */
   listConnections(): Promise<BridgeDescription[]>;

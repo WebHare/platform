@@ -1,5 +1,5 @@
-import { ServiceCallMessage, WebHareServiceDescription } from "@mod-system/js/internal/types";
-import bridge, { IPCEndPoint } from "@mod-system/js/internal/whmanager/bridge";
+import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
+import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 
 /** Interface for the client object we present to the connecting user
     TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
@@ -8,24 +8,12 @@ interface WebHareServiceClient {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
-interface RemoteCallResponse {
-  result?: unknown;
-  exc?: { what: string };
-}
-
-type ServiceInitMessage = {
-  __new: unknown[];
-};
-
-type ServiceIPCEndPoint = IPCEndPoint<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | RemoteCallResponse>;
-
-
 class WebHareServiceWrapper {
-  private readonly link: ServiceIPCEndPoint;
+  private readonly link: WebHareServiceIPCLinkType["ConnectEndPoint"];
   readonly isjs: boolean;
   private readonly client: WebHareServiceClient;
 
-  constructor(link: ServiceIPCEndPoint, response: WebHareServiceDescription) {
+  constructor(link: WebHareServiceIPCLinkType["ConnectEndPoint"], response: WebHareServiceDescription) {
     this.link = link;
     this.client = { close: function() { link.close(); } };
     this.isjs = response.isjs || false;
@@ -42,12 +30,10 @@ class WebHareServiceWrapper {
     if (this.isjs)
       calldata.jsargs = JSON.stringify(args);
     else
-      calldata.args = args;
+      calldata.args = args as IPCMarshallableData[];
 
-    const response = await this.link.doRequest(calldata) as RemoteCallResponse;
-    if (response.exc)
-      throw new Error(response.exc.what);
-    else if (this.isjs)
+    const response = await this.link.doRequest(calldata) as ServiceCallResult;
+    if (this.isjs)
       return JSON.parse(response.result as string);
     else
       return response.result;
@@ -66,8 +52,8 @@ export interface BackendServiceOptions {
  *                   linger: If true, service requires an explicit close() and will keep the process running
  */
 export async function openBackendService(name: string, args?: unknown[], options?: BackendServiceOptions) {
-  const link = bridge.connect<ServiceInitMessage | ServiceCallMessage, WebHareServiceDescription | RemoteCallResponse>("webhareservice:" + name, { global: true });
-  const result = link.doRequest({ __new: args ?? [] }) as Promise<WebHareServiceDescription>;
+  const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
+  const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
   await link.activate();
 
   const description = await result;

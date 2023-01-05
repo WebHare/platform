@@ -583,6 +583,8 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
         retval = "{";
         let first = true;
         for (const [key, propval] of Object.entries(recval).sort(([a], [b]) => a === b ? 0 : a < b ? -1 : 1)) {
+          if (propval === undefined)
+            continue;
           if (!first)
             retval = retval + ",";
           else
