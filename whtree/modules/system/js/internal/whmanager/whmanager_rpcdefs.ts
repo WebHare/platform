@@ -86,7 +86,7 @@ export type WHMRequest_RegisterProcess = {
   pid: number;
   type: WHMProcessType;
   name: string;
-  parameters: Record< string, string >;
+  parameters: Record<string, string>;
 };
 export type WHMRequest_GetProcessList = {
   opcode: WHMRequestOpcode.GetProcessList;
@@ -191,12 +191,12 @@ export type WHMResponse_IncomingMessage = {
 export type WHMResponse_GetProcessListResult = {
   opcode: WHMResponseOpcode.GetProcessListResult;
   requestid: number;
-  processes: Array< {
+  processes: Array<{
     processcode: bigint;
     pid: number;
     type: WHMProcessType;
     name: string;
-    parameters: Record< string, string >;
+    parameters: Record<string, string>;
   }>;
 };
 export type WHMResponse_ConfigureLogsResult = {
@@ -211,13 +211,15 @@ export type WHMResponse_FlushLogResult = {
 };
 export type WHMResponse_SystemConfig = {
   opcode: WHMResponseOpcode.SystemConfig;
-  have_debugger: boolean;
+  have_hs_debugger: boolean;
+  have_ts_debugger: boolean;
   systemconfigdata: Buffer;
 };
 export type WHMResponse_RegisterProcessResult = {
   opcode: WHMResponseOpcode.RegisterProcessResult;
   processcode: bigint;
-  have_debugger: boolean;
+  have_hs_debugger: boolean;
+  have_ts_debugger: boolean;
   systemconfigdata: Buffer;
 };
 

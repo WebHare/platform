@@ -58,7 +58,8 @@ async function testRPCs() {
     test.eq([
       {
         opcode: WHMResponseOpcode.SystemConfig,
-        have_debugger: registerresults[0].have_debugger,
+        have_hs_debugger: registerresults[0].have_hs_debugger,
+        have_ts_debugger: registerresults[0].have_ts_debugger,
         systemconfigdata: registerresults[0].systemconfigdata
       }
     ], systemconfigupdatresults);
@@ -70,7 +71,7 @@ async function testRPCs() {
     const listresult = await extractResponses(WHMResponseOpcode.GetProcessListResult);
     test.eq(1, listresult.length);
     test.eq(13, listresult[0].requestid);
-    test.assert(Array.from(listresult[0].processes.entries()).some(([, {name}]) => name === "whcompile"), "process 'whcompile' should be registered");
+    test.assert(Array.from(listresult[0].processes.entries()).some(([, { name }]) => name === "whcompile"), "process 'whcompile' should be registered");
   }
 
   // STORY: event broadcast

@@ -16,7 +16,7 @@ export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 
 
-const logpackets = false;
+const logpackets = true;
 const logmessages = false;
 
 /// Number of milliseconds before connection to whmanager times out

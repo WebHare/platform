@@ -1225,6 +1225,7 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
         case WHMResponseOpcode::SystemConfig:
             {
                     bool have_debugger = iobuf->Read< bool >();
+                    iobuf->Read< bool >(); // have_ts_debugger, ignored in HareScript
                     std::pair< uint8_t const*,uint8_t const * > systemconfigdata = iobuf->ReadBinary();
                     std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig(new Blex::PodVector< uint8_t >());
                     systemconfig->assign(systemconfigdata.first, systemconfigdata.second);
@@ -1445,6 +1446,7 @@ void ManagerConnection::RegisterSelf(Database::TCPConnection &tcpconn)
 
         processcode = iobuf->Read< uint64_t >();
         bool have_debugger = iobuf->Read< bool >();
+        iobuf->Read< bool >(); // have_ts_debugger, ignored in HareScript
         std::pair< uint8_t const*,uint8_t const * > systemconfigdata = iobuf->ReadBinary();
 
         std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig(new Blex::PodVector< uint8_t >());

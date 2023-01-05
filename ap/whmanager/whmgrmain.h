@@ -156,9 +156,17 @@ class MessageTask : public Database::RPCTask
 class SystemConfigTask : public Database::RPCTask
 {
     public:
-        inline SystemConfigTask(Connection *_target, bool _have_debugger, std::shared_ptr< Blex::PodVector< uint8_t > > _config) : target(_target), have_debugger(_have_debugger), config(_config) { }
+        inline SystemConfigTask(Connection *_target, bool _have_hs_debugger, bool _have_ts_debugger, std::shared_ptr< Blex::PodVector< uint8_t > > _config)
+        : target(_target)
+        , have_hs_debugger(_have_hs_debugger)
+        , have_ts_debugger(_have_ts_debugger)
+        , config(_config)
+        {
+        }
+
         Connection *target;
-        bool have_debugger;
+        bool have_hs_debugger;
+        bool have_ts_debugger;
         std::shared_ptr< Blex::PodVector< uint8_t > > config;
 
         Database::RPCResponse::Type HookExecuteTask(Database::IOBuffer *iobuf, bool *is_finished);
