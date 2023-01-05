@@ -410,13 +410,11 @@ STATIC OBJECTTYPE TestFramework
   PUBLIC PROPERTY userapi(pvt_userapi,-);
 
   PUBLIC BOOLEAN usedatabase;
-  PUBLIC BOOLEAN useseparateoutputport;
 
   // List of handed out ports
   INTEGER ARRAY server_ports;
 
   INTEGER testoutputserver;
-  INTEGER testport;
   BOOLEAN pvt_wrdauth;
   OBJECT saveinitialuser;
   BOOLEAN mailwhitelists;
@@ -451,7 +449,6 @@ STATIC OBJECTTYPE TestFramework
     this->relativeoutputfolders := options.relativeoutputfolders;
     this->pvt_wrdauth := options.wrdauth;
     this->mailwhitelists := options.mailwhitelists;
-    this->useseparateoutputport := options.requireport != 0;
 
     this->usedatabase := options.usedatabase;
     IF(this->usedatabase AND GetDtapStage() != "development")
@@ -616,11 +613,6 @@ STATIC OBJECTTYPE TestFramework
       ABORT("No such user '" || name || "' - use DeclareTestUser");
 
     RETURN userinfo.userpassword;
-  }
-
-  PUBLIC INTEGER FUNCTION GetTestPort()
-  {
-    RETURN this->testport;
   }
 
   /** @short Get the test unit */
@@ -1483,44 +1475,9 @@ STATIC OBJECTTYPE TestFramework
     IF(this->testoutputserver != 0)
       RETURN this->testoutputserver;
 
-    IF(this->useseparateoutputport)
-    {
-      // Check if port 39124 are open. If so, create them.
-      INTEGER out_port_id;
-
-      RECORD out_port := SELECT * FROM system.ports WHERE port = this->GetTestPort();
-      IF (RecordExists(out_port))
-      {
-        out_port_id := out_port.id;
-      }
-      ELSE
-      {
-        out_port_id := MakeAutoNumber(system.ports,"id");
-        INSERT INTO system.ports(id,ip,port,virtualhost,description) VALUES(out_port_id, "127.0.0.1", this->GetTestPort(), FALSE, betatestport);
-      }
-
-      // output webserver
-      STRING folder := this->publisheroutputbase || GenerateUFS128BitId() || "/";
-
-      IF (NOT RecordExists(SELECT FROM system.webservers WHERE port = out_port_id))
-        INSERT INTO system.webservers(port) VALUES (out_port_id);
-
-      UPDATE system.webservers
-         SET type := 0,
-             diskfolder := folder,
-             baseurl := 'http://127.0.0.1:' || this->GetTestPort() || '/',
-             outputextension := '.html'
-       WHERE port = out_port_id;
-      this->testoutputserver := SELECT AS INTEGER id FROM system.webservers WHERE port = out_port_id;
-
-      this->RefreshWebserverConfig();
-    }
-    ELSE
-    {
-      this->testoutputserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id = 16;
-      IF(this->testoutputserver = 0)
-        ABORT("Site #16 (the interface) has no output webserver");
-    }
+    this->testoutputserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id = 16;
+    IF(this->testoutputserver = 0)
+      ABORT("Site #16 (the interface) has no output webserver");
 
     RETURN this->testoutputserver;
   }
@@ -1537,12 +1494,11 @@ STATIC OBJECTTYPE TestFramework
     IF(ObjectExists(siteroot))
       siteroot->RecycleSelf();
 
-    IF (NOT this->useseparateoutputport)
-      OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1 ]);
+    OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1 ]);
 
     siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := sitename ] );
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
-    newsite->SetPrimaryOutput(this->GetTestOutputServer(), this->useseparateoutputport ? '/' : '/webhare-testsuite.output/');
+    newsite->SetPrimaryOutput(this->GetTestOutputServer(), '/webhare-testsuite.output/');
 
     IF(Length(archive) > 0)
     {
@@ -1577,12 +1533,7 @@ STATIC OBJECTTYPE TestFramework
     }
 
     IF(options.enableoutput)
-    {
-      IF(this->useseparateoutputport)
-        newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath('/', options.outputpath) || "/");
-      ELSE
-        SetupSiteTestOutput(newsite, MergePath("webhare_testsuite.testoutput/", options.outputpath));
-    }
+      SetupSiteTestOutput(newsite, MergePath("webhare_testsuite.testoutput/", options.outputpath));
 
     RETURN newsite;
   }
@@ -2101,7 +2052,6 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , testusers := RECORD[]
                               , profile := NOT (IsRequest() AND IsWHDebugOptionSet("apr")) AND NOT IsDebugTagEnabled("apr") //prevent recursive profiling..
                               , relativeoutputfolders := FALSE
-                              , requireport := 0
                               , testroles := RECORD[]
                               , wrdschema := TRUE
                               , wrdauth := FALSE
