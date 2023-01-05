@@ -104,7 +104,7 @@ fi
 for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
   if [ "$MOD" != "webhare_testsuite" ] && [ -d "$WHTREE/modules/$MOD" ]; then
     mkdir -p "$WHTREE/modules/$MOD/history"
-    ( cd "$WHTREE/modules" && TZ=UTC zip -x "$MOD/history/*" -r "$MOD/history/source.zip" "$MOD" )
+    ( cd "$WHTREE/modules" && TZ=UTC zip --quiet --exclude "$MOD/history/*" --recurse-paths "$MOD/history/source.zip" "$MOD" )
   fi
 done
 
