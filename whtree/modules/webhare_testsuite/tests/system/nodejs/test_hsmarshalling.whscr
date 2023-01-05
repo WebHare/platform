@@ -135,6 +135,24 @@ ASYNC MACRO TestMarshalling()
     teststr := teststr || teststr || teststr || teststr || teststr;
 
   AWAIT TestHSONEnDeCode('hson:b"'||EncodeBase64(teststr)||'"', StringToBlob(teststr));
+
+
+  RECORD expect_arrays :=
+    [ ia :=       INTEGER[1, 2]
+    , i64a :=     INTEGER64[1, 3]
+    , fa :=       FLOAT[1.25, 2.5]
+    , ma :=       MONEY[1, 2]
+    , fa1 :=      FLOAT[ 1.25, 2]
+    , fa2 :=      FLOAT[ 2, 1.0625f, 2.5]
+    , ma1 :=      MONEY[ 1.00001m, 2 ]
+    , ma2 :=      MONEY[ 2, 1 ]
+    , i64a1 :=    INTEGER64[1, 3]
+    ];
+
+  encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));
+  VARIANT vres := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#arrayEncodeTest"), VARIANT[]);
+  TestEQ(expect_arrays, __HS_MarshalReadFromBlob(StringToBlob(DecodeBase16(vres.marshal))));
+  TestEQ(expect_arrays, DecodeHSON(vres.hson));
 }
 
 RunTestFrameWork(

@@ -107,13 +107,17 @@ export class Money {
     /// Marker for safe type detections across realms
     Object.defineProperty(this, "__hstype", { value: VariableType.Money });
   }
+
+  static isMoney(value: unknown) {
+    return typeof value === "object" && value && ((value as { __hstype: unknown }).__hstype === VariableType.Money);
+  }
 }
 
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;
 
 
-export function readMarshalData(buffer: Buffer): SimpleMarshallableData {
+export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU8();
   if (version !== MarshalFormatType) // FIXME: support largeblobs mode
@@ -134,7 +138,7 @@ export function readMarshalData(buffer: Buffer): SimpleMarshallableData {
   return retval as SimpleMarshallableData;
 }
 
-export function readMarshalPacket(buffer: Buffer): IPCMarshallableData {
+export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU32();
   if (version !== MarshalFormatType) // FIXME: support largeblobs mode
@@ -343,13 +347,12 @@ function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
     return b;
   if (a === VariableType.Integer && (b === VariableType.Float || b === VariableType.Money || b === VariableType.Integer64))
     return b;
-  if (b === VariableType.Integer && (a === VariableType.Float || a === VariableType.Money || a === VariableType.Integer64))
+  if ((a === VariableType.Float || a === VariableType.Money || a === VariableType.Integer64) && b === VariableType.Integer)
+    return a;
+  if (a === VariableType.Float && b === VariableType.Money)
     return a;
   if (a === VariableType.Money && b === VariableType.Float)
     return b;
-  if (b === VariableType.Money && a === VariableType.Float)
-    return a;
-
   return VariableType.Variant;
 }
 
@@ -410,9 +413,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
     type = determinedtype;
     writer.writeU8(type);
   } else if (type !== determinedtype) {
-    // FIXME: allow more casts (eg money to float, number to itnteger65
-    if (!((type === VariableType.Float && determinedtype == VariableType.Integer) ||
-      (type === VariableType.Integer64 && determinedtype == VariableType.Integer)))
+    if (unifyEltTypes(type, determinedtype) !== type)
       throw new Error(`Cannot store an ${VariableType[determinedtype] ?? determinedtype} in an array for ${VariableType[type] ?? type}`);
   }
 
@@ -437,7 +438,24 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       writer.writeS64(BigInt(value as (number | bigint)));
     } break;
     case VariableType.Float: {
-      writer.writeDouble(value as number);
+      if (typeof value !== "number") { // Money?
+        if (!Money.isMoney(value))
+          throw new Error(`Unknown object to encode as money`);
+        writer.writeDouble(Number((value as Money).value));
+      } else
+        writer.writeDouble(value as number);
+    } break;
+    case VariableType.Money: {
+      if (typeof value !== "number") { // Money?
+        if (!Money.isMoney(value))
+          throw new Error(`Unknown object to encode as float`);
+        let str = (value as Money).value;
+        const dotpos = (str + ".").indexOf('.');
+        str = str.substring(0, dotpos) + str.substring(dotpos + 1).padEnd(5, "0").substring(0, 5);
+        writer.writeS64(BigInt(str));
+      } else {
+        writer.writeS64(BigInt(Math.round(value * 100000)));
+      }
     } break;
     case VariableType.Boolean: {
       writer.writeU8(value as boolean ? 1 : 0);
@@ -455,7 +473,6 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
         days = Math.floor(totalmsecs / 86400000);
         msecs = totalmsecs - days * 86400000;
         days += 719163; // 1970-1-1
-
         if (days < 0 || msecs < 0) {
           days = 0;
           msecs = 0;
@@ -511,8 +528,7 @@ export function encodeHSON(value: IPCMarshallableData): string {
 function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType): string {
   let type = determineType(value);
   if (needtype !== undefined && type != needtype) {
-    if (!((needtype === VariableType.Float && type == VariableType.Integer) ||
-      (needtype === VariableType.Integer64 && type == VariableType.Integer)))
+    if (unifyEltTypes(type, needtype) !== needtype)
       throw new Error(`Cannot store an ${VariableType[type] ?? type} in an array for ${VariableType[needtype] ?? needtype}`);
     type = needtype;
   }
@@ -561,7 +577,14 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
           retval = retval + `"`;
       }
     } break;
-    case VariableType.Float: retval = "f " + (value as number).toString(); break;
+    case VariableType.Float: {
+      if (typeof value === "object") {
+        if (!Money.isMoney(value))
+          throw new Error(`Unknown object to encode as float`);
+        retval = "f " + (value as Money).value;
+      } else
+        retval = "f " + (value as number).toString();
+    } break;
     case VariableType.String: retval = JSON.stringify(value); break;
     case VariableType.Blob: {
       const buf = Buffer.from(value as (Uint8Array | ArrayBuffer));
@@ -571,6 +594,8 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
     case VariableType.Integer: retval = (value as number).toString(); break;
     case VariableType.Money: {
       if (typeof value === "object") {
+        if (!Money.isMoney(value))
+          throw new Error(`Unknown object to encode as money`);
         retval = "m " + ((value as Money).value ?? "0");
       } else
         retval = "m " + value.toString();

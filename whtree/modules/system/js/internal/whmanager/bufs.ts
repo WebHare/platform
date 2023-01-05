@@ -5,8 +5,8 @@ export class LinearBufferReader {
   buffer: Buffer;
   readpos = 0;
 
-  constructor(_buffer: Buffer) {
-    this.buffer = _buffer;
+  constructor(_buffer: Buffer | ArrayBuffer) {
+    this.buffer = "length" in _buffer ? _buffer : Buffer.from(_buffer);
   }
 
   get length() { return this.buffer.length; }
