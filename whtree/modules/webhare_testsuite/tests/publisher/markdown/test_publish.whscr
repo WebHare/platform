@@ -16,6 +16,10 @@ MACRO PublishFiles()
   mdsimple->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
     [ data := [ type := "publisher:markdown"
               , text := StringToBlob(`## Markdown file\nHello world!`)
+              , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                  , contentid := "imagecid-81400"
+                                  ]
+                            ]
               ]
     ]);
   testfw->CommitWork();

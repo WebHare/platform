@@ -87,12 +87,9 @@ Running coverage tests for a single test
 wh builddocker
 # Run a coverage test, using the local builddocker result (-w local)
 wh testdocker -w local --coverage <testname>
-# Run a single test directly, don't cleanup the docker after running.
-wh testdocker -w local --nocleanup publisher-webdesign.testwebdesign-template
+# Run a single test directly, open a shell after the tests have run
+wh testdocker -w local --sh publisher-webdesign.testwebdesign-template
 ```
-
-You can also use the `--nocleanuponerror` and `--breakonerror` options if you
-find yourself repeatedly running wh testdocker to reproduce a flaky test issue.
 
 ## Running tests locally
 
