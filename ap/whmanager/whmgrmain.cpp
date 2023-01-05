@@ -643,10 +643,21 @@ Database::RPCResponse::Type Connection::RemoteOpenLinkResult(Database::IOBuffer 
 
 Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer *iobuf)
 {
-        processcode = iobuf->Read< uint64_t >(); // Ignored
-        std::string name = iobuf->Read< std::string >();
+        WHManager::RegisteredProcess proc;
 
-        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, processcode: " << processcode << ", name: '" << name << "'");
+        proc.code = iobuf->Read< uint64_t >(); // Ignored
+        proc.pid = iobuf->Read< int32_t >();
+        proc.type = static_cast< WHManager::ProcessType >(iobuf->Read< uint8_t >());
+        proc.name = iobuf->Read< std::string >();
+        uint32_t parametercount = iobuf->Read< uint32_t >();
+        for (uint32_t idx = 0; idx < parametercount; ++idx)
+        {
+                std::string name = iobuf->Read< std::string >();
+                std::string value = iobuf->Read< std::string >();
+                proc.parameters[name] = value;
+        }
+
+        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, processcode: " << processcode << ", pid: " << proc.pid << ", name: '" << proc.name << "'");
 
         bool have_debugger;
         std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig;
@@ -661,10 +672,8 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
                 if (it != lock->ports.end())
                     have_debugger = it->second->conn != this;
 
-                WHManager::RegisteredProcess &data = lock->processes[processcode];
-
-                data.code = processcode;
-                data.name = name;
+                proc.code = processcode;
+                lock->processes[processcode] = proc;
 
                 systemconfig = lock->systemconfig;
         }
@@ -690,17 +699,28 @@ Database::RPCResponse::Type Connection::RemoteGetProcessList(Database::IOBuffer 
 {
         DEBUGPRINT("Conn " << this << " Incoming RPC GetProcessList");
 
+        uint32_t id = iobuf->Read< uint32_t >();
+
         iobuf->ResetForSending();
 
         {
                 WHManager::LockedData::WriteRef lock(manager->data);
 
+                iobuf->Write< uint32_t >(id);
                 iobuf->Write< uint32_t >(lock->processes.size());
 
                 for (std::map< uint64_t, WHManager::RegisteredProcess >::iterator it = lock->processes.begin(); it != lock->processes.end(); ++it)
                 {
                         iobuf->Write< uint64_t >(it->second.code);
+                        iobuf->Write< int32_t >(it->second.pid);
+                        iobuf->Write< uint8_t >(static_cast< uint8_t >(it->second.type));
                         iobuf->Write< std::string >(it->second.name);
+                        iobuf->Write< uint32_t >(it->second.parameters.size());
+                        for (auto &pitr: it->second.parameters)
+                        {
+                                iobuf->Write< std::string >(pitr.first);
+                                iobuf->Write< std::string >(pitr.second);
+                        }
                 }
         }
 

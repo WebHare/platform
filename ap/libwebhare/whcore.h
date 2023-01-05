@@ -121,10 +121,18 @@ class BLEXLIB_PUBLIC ManagerConnection
 
         void CreateException(std::string const &what, Blex::PodVector< uint8_t > *msgdata);
 
+        struct ProcessListEntry
+        {
+                int32_t pid;
+                uint8_t type;
+                std::string name;
+                std::map< std::string, std::string > parameters;
+        };
+
         void SendRegisterPortResponseMessage(ControlLinkData &linkdata, uint64_t replyto, std::string const &port, bool success);
         void SendUnregisterPortResponseMessage(ControlLinkData &linkdata, uint64_t replyto, std::string const &port);
         void SendSimpleResponseMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::string const &status);
-        void SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< uint64_t, std::string > const &processes);
+        void SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< uint64_t, ProcessListEntry > const &processes);
         void SendRegisterPortRPC(ControlLinkData &linkdata, uint64_t msgid, std::string const &port, bool isregister, bool need_unregister_response);
 
         void SetJobMgr(HareScript::JobManager *jobmgr);

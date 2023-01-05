@@ -183,10 +183,16 @@ class WHManager
 
         Blex::Dispatcher::Dispatcher dispatcher;
 
-        class RegisteredProcess
+        enum class ProcessType {
+                HareScript = 1,
+                TypeScript = 2,
+        };
+
+        struct RegisteredProcess
         {
-            public:
                 uint64_t code;
+                int32_t pid;
+                ProcessType type;
                 std::string name;
                 std::map< std::string, std::string > parameters;
         };

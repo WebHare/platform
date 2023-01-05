@@ -33,6 +33,10 @@ export enum WHMResponseOpcode {
   SystemConfig = 112
 }
 
+export enum WHMProcessType {
+  HareScript = 1,
+  TypeScript = 2,
+}
 
 export type WHMRequest_SendEvent = {
   opcode: WHMRequestOpcode.SendEvent;
@@ -79,10 +83,14 @@ export type WHMRequest_SendMessageOverLink = {
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;
   processcode: bigint;
-  clientname: string;
+  pid: number;
+  type: WHMProcessType;
+  name: string;
+  parameters: Record< string, string >;
 };
 export type WHMRequest_GetProcessList = {
   opcode: WHMRequestOpcode.GetProcessList;
+  requestid: number;
 };
 export type WHMRequest_ConfigureLogs = {
   opcode: WHMRequestOpcode.ConfigureLogs;
@@ -182,7 +190,14 @@ export type WHMResponse_IncomingMessage = {
 };
 export type WHMResponse_GetProcessListResult = {
   opcode: WHMResponseOpcode.GetProcessListResult;
-  processes: Map<bigint, string>;
+  requestid: number;
+  processes: Array< {
+    processcode: bigint;
+    pid: number;
+    type: WHMProcessType;
+    name: string;
+    parameters: Record< string, string >;
+  }>;
 };
 export type WHMResponse_ConfigureLogsResult = {
   opcode: WHMResponseOpcode.ConfigureLogsResult;

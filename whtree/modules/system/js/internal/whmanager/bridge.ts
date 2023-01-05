@@ -1,6 +1,6 @@
 import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
-import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode } from "./whmanager_rpcdefs";
+import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary } from "../hmrinternal";
 import { DeferredPromise } from "../types";
@@ -91,6 +91,9 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Ensure events and logs have been delivered to the whmanager */
   ensureDataSent(): Promise<void>;
+
+  /** Returns a list of all currently running processes */
+  getProcessList(): Promise<ProcessList>;
 }
 
 enum ToLocalBridgeMessageType {
@@ -98,6 +101,7 @@ enum ToLocalBridgeMessageType {
   Event,
   FlushLogResult,
   EnsureDataSentResult,
+  GetProcessListResult,
 }
 
 type ToLocalBridgeMessage = {
@@ -115,6 +119,10 @@ type ToLocalBridgeMessage = {
 } | {
   type: ToLocalBridgeMessageType.EnsureDataSentResult;
   requestid: number;
+} | {
+  type: ToLocalBridgeMessageType.GetProcessListResult;
+  requestid: number;
+  processes: ProcessList;
 };
 
 enum ToMainBridgeMessageType {
@@ -124,6 +132,7 @@ enum ToMainBridgeMessageType {
   Log,
   FlushLog,
   EnsureDataSent,
+  GetProcessList,
 }
 
 type ToMainBridgeMessage = {
@@ -152,12 +161,29 @@ type ToMainBridgeMessage = {
 } | {
   type: ToMainBridgeMessageType.EnsureDataSent;
   requestid: number;
+} | {
+  type: ToMainBridgeMessageType.GetProcessList;
+  requestid: number;
 };
 
 type LocalBridgeInitData = {
   id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
 };
+
+export type ProcessType = WHMProcessType;
+
+type ProcessList = Array<{
+  processcode: bigint;
+  pid: number;
+  type: ProcessType;
+  name: string;
+  parameters: Record<string, string>;
+}>;
+
+function checkAllMessageTypesHandled<T extends never>(message: T, key: string) {
+  throw new Error(`message type ${(message as { [type: string]: unknown })[key]} not handled`);
+}
 
 class LocalBridge extends EventSource<BridgeEvents> {
   id: string;
@@ -170,6 +196,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   pendingensuredatasent = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
+  pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
 
   constructor(initdata: LocalBridgeInitData) {
     super();
@@ -206,6 +233,12 @@ class LocalBridge extends EventSource<BridgeEvents> {
         }
         this.emit("systemconfig", this.systemconfig);
       } break;
+      case ToLocalBridgeMessageType.Event: {
+        this.emit("event", {
+          name: message.name,
+          data: hsmarshalling.readMarshalData(message.data) as hsmarshalling.SimpleMarshallableRecord
+        });
+      } break;
       case ToLocalBridgeMessageType.FlushLogResult: {
         const reg = this.pendingflushlogs.get(message.requestid);
         if (logmessages)
@@ -227,6 +260,17 @@ class LocalBridge extends EventSource<BridgeEvents> {
           reg();
         }
       } break;
+      case ToLocalBridgeMessageType.GetProcessListResult: {
+        const reg = this.pendinggetprocesslists.get(message.requestid);
+        if (logmessages)
+          console.log(`localbridge ${this.id}: pendinggetprocesslists result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendinggetprocesslists.delete(message.requestid);
+          reg(message.processes);
+        }
+      } break;
+      default:
+        checkAllMessageTypesHandled(message, "type");
     }
   }
 
@@ -336,6 +380,22 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }, [port1]);
     return new IPCEndPointImpl(`${id} - origin`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
   }
+
+  async getProcessList(): Promise<ProcessList> {
+    const requestid = ++this.requestcounter;
+    const lock = this.reftracker.getLock();
+    try {
+      return await new Promise<ProcessList>((resolve) => {
+        this.pendinggetprocesslists.set(requestid, resolve);
+        this.port.postMessage({
+          type: ToMainBridgeMessageType.GetProcessList,
+          requestid,
+        });
+      });
+    } finally {
+      lock.release();
+    }
+  }
 }
 
 type PortRegistration = {
@@ -364,6 +424,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   requestcounter = 34000; // start here to aid debugging
   flushlogrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
+  getprocesslistrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
 
   systemconfig: Record<string, unknown>;
 
@@ -387,7 +448,13 @@ class MainBridge extends EventSource<BridgeEvents> {
     this.sendData({
       opcode: WHMRequestOpcode.RegisterProcess,
       processcode: BigInt(0),
-      clientname: require.main?.filename ?? "<unknown javascript script>"
+      pid: process.pid,
+      type: WHMProcessType.TypeScript,
+      name: require.main?.filename ?? "<unknown javascript script>",
+      parameters: {
+        interpreter: process.argv[0] || '',
+        script: process.argv[1] || ''
+      }
     });
 
     // retry registrations for all global ports
@@ -568,9 +635,31 @@ class MainBridge extends EventSource<BridgeEvents> {
         const reg = this.flushlogrequests.get(data.requestid);
         if (reg) {
           this.flushlogrequests.delete(data.requestid);
-          reg.port.postMessage({ type: ToLocalBridgeMessageType.FlushLogResult, requestid: reg.requestid, success: data.result });
+          reg.port.postMessage({
+            type: ToLocalBridgeMessageType.FlushLogResult,
+            requestid: reg.requestid,
+            success: data.result
+          });
         }
       } break;
+      case WHMResponseOpcode.GetProcessListResult: {
+        const reg = this.getprocesslistrequests.get(data.requestid);
+        if (reg) {
+          this.getprocesslistrequests.delete(data.requestid);
+          reg.port.postMessage({
+            type: ToLocalBridgeMessageType.GetProcessListResult,
+            requestid: reg.requestid,
+            processes: data.processes
+          });
+        }
+      } break;
+      case WHMResponseOpcode.AnswerException:
+      case WHMResponseOpcode.ConfigureLogsResult:
+      case WHMResponseOpcode.UnregisterPortResult: {
+        // all ignored
+      } break;
+      default:
+        checkAllMessageTypesHandled(data, "opcode");
     }
   }
 
@@ -718,6 +807,29 @@ class MainBridge extends EventSource<BridgeEvents> {
           requestid: message.requestid,
         });
       } break;
+      case ToMainBridgeMessageType.GetProcessList: {
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            const requestid = this.allocateRequestId();
+            this.getprocesslistrequests.set(requestid, { port, requestid: message.requestid });
+            this.sendData({
+              opcode: WHMRequestOpcode.GetProcessList,
+              requestid
+            });
+          } else {
+            port.postMessage({
+              type: ToLocalBridgeMessageType.GetProcessListResult,
+              requestid: message.requestid,
+              processes: []
+            });
+          }
+        } finally {
+          ref.release();
+        }
+      } break;
+      default:
+        checkAllMessageTypesHandled(message, "type");
     }
   }
 

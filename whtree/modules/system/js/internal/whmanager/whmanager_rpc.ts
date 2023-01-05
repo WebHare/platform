@@ -81,14 +81,23 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       return { opcode, linkid, msgid, replyto, islastpart, messagedata };
     }
     case defs.WHMResponseOpcode.GetProcessListResult: {
+      const requestid = iobuf.readU32();
       const count = iobuf.readU32();
-      const processes = new Map<bigint, string>();
+      const processes = [];
       for (let i = 0; i < count; ++i) {
         const processcode = iobuf.readBigU64();
+        const pid = iobuf.readS32();
+        const type = iobuf.readU8() as defs.WHMProcessType;
         const name = iobuf.readString();
-        processes.set(processcode, name);
+        const paramcount = iobuf.readU32();
+        const parameters: Record<string,string> = {};
+        for (let idx = 0; idx < paramcount; ++idx) {
+          const prop = iobuf.readString();
+          parameters[prop] = iobuf.readString();
+        }
+        processes.push({ processcode, pid, type, name, parameters });
       }
-      return { opcode, processes };
+      return { opcode, requestid, processes };
     }
     case defs.WHMResponseOpcode.ConfigureLogsResult: {
       const requestid = iobuf.readU32();
@@ -160,9 +169,19 @@ export function createRPC(message: defs.WHMRequest): Buffer {
     } break;
     case defs.WHMRequestOpcode.RegisterProcess: {
       iobuf.writeU64(message.processcode);
-      iobuf.writeString(message.clientname);
+      iobuf.writeS32(message.pid);
+      iobuf.writeU8(message.type);
+      iobuf.writeString(message.name);
+      const entries = Object.entries(message.parameters);
+      iobuf.writeU32(entries.length);
+      for (const [ prop, value ] of entries) {
+        iobuf.writeString(prop);
+        iobuf.writeString(value);
+      }
     } break;
-    case defs.WHMRequestOpcode.GetProcessList: break;
+    case defs.WHMRequestOpcode.GetProcessList: {
+      iobuf.writeU32(message.requestid);
+    } break;
     case defs.WHMRequestOpcode.ConfigureLogs: {
       iobuf.writeU32(message.requestid);
       iobuf.writeU32(message.config.length);
