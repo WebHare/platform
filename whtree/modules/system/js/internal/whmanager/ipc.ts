@@ -26,10 +26,15 @@ export type IPCExceptionMessage = {
   };
 };
 
+/** Custom omit mapper, with TypeScript Omit causes switch type narrowing for the default case doesn't work */
+type OmitResponseKey<T> = {
+  [Key in keyof T as Key extends "__responseKey" ? never : Key]: T[Key];
+} | never;
+
 export interface IPCMessagePacket<ReceiveType extends object | null = IPCMarshallableRecord> {
   msgid: bigint;
   replyto: bigint;
-  message: ReceiveType;
+  message: OmitResponseKey<ReceiveType>;
 }
 
 type IPCEndPointEvents<ReceiveType extends object | null> = {
@@ -37,6 +42,10 @@ type IPCEndPointEvents<ReceiveType extends object | null> = {
   exception: IPCMessagePacket<IPCExceptionMessage>;
   close: undefined;
 };
+
+type CalcResponseType<SendType, ReceiveType, T extends OmitResponseKey<SendType>> = OmitResponseKey<SendType & T extends { __responseKey: object }
+  ? ReceiveType & (SendType & T)["__responseKey"]
+  : ReceiveType>;
 
 export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord> extends EventSource<IPCEndPointEvents<ReceiveType>> {
   /** Indicator if closed */
@@ -54,7 +63,7 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
       @param message - Message to send
       @param replyto - When this message is a reply to another message, set to the msgid of the original message.
   */
-  send(message: SendType, replyto?: bigint): bigint;
+  send(message: OmitResponseKey<SendType>, replyto?: bigint): bigint;
 
   /** Sends an exception to the other endpoint. The exception is encoded in a normal message, use parseExceptions
       to decode them when receiving messages.
@@ -68,7 +77,7 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
       @returns Contents of the reply, or an exception when the link was closed before a reply was received. Exceptions
         are parsed automatically and used to reject the returned promise.
   */
-  doRequest(message: SendType): Promise<ReceiveType>;
+  doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>>;
 
   /** Parse a message for exceptions. Throws the exception of the message contains an exception.
       @param message - Message to parse
@@ -113,7 +122,8 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   private queue: IPCEndPointImplControlMessage[] | null = [];
 
   /** List of pending requests */
-  private requests = new Map<bigint, DeferredPromise<ReceiveType>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed because requests can all have different response types
+  private requests = new Map<bigint, DeferredPromise<any>>;
 
   /** Indicator if closed */
   closed = false;
@@ -183,11 +193,12 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
             } catch (e) {
               req.reject(e as Error);
             }
+            return;
           }
           if (message && "__exception" in message)
             this.emit("exception", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as IPCExceptionMessage });
           else
-            this.emit("message", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as ReceiveType });
+            this.emit("message", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as OmitResponseKey<ReceiveType> });
         } break;
         case IPCEndPointImplControlMessageType.Close: {
           this.close();
@@ -236,11 +247,11 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
   }
 
-  send(message: SendType, replyto?: bigint): bigint {
+  send(message: OmitResponseKey<SendType>, replyto?: bigint): bigint {
     return this.sendInternal(message, replyto);
   }
 
-  sendInternal(message: SendType | IPCExceptionMessage, replyto?: bigint): bigint {
+  sendInternal(message: OmitResponseKey<SendType> | IPCExceptionMessage, replyto?: bigint): bigint {
     if (this.closed)
       throw new Error(`IPC link has already been closed`);
     const msgid = ++this.msgidcounter;
@@ -266,10 +277,9 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     };
     this.sendInternal(message, replyto);
   }
-
-  async doRequest(message: SendType): Promise<ReceiveType> {
+  async doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>> {
     const msgid = this.send(message);
-    const defer = createDeferred<ReceiveType>();
+    const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
     this.requests.set(msgid, defer);
     const error = new Error();
     try {
@@ -423,14 +433,27 @@ export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = I
 
 /** Describes an IPC link configuration, contains all needed type. Use as
  * ```
- * type MyLinkType = IPCLinkType< ResponseType, RequestType >;
+ * type MyLinkType = IPCLinkType< RequestType, ResponseType >;
  * bridge.createPort< MyLinkType >(); // type: MyLinkType["Port"]
  * function onBridgeLink(link: MyLinkType["AcceptEndPoint"])
  * function onBridgePacket(packet: MyLinkType["AcceptEndPointPacket"])
  * bridge.connect< MyLinkType >(); // type: MyLinkType["ConnectEndPoint"]
  * function onConnectPacket(link: MyLinkType["ConnectEndPointPacket"])
  * ```
- * @typeParam RequestType - The type of the data that the connecting side of the link will send (and the accepting side will receive)
+ * You can directly specify the expected response for a request as follows:
+ * ```
+ * type RequestType = {
+ *   type: "request";
+ *   data: "string";
+ *   __responseKey: { type: "response" };
+ * };
+ * type ResponseType = {
+ *   type: "response";
+ *   data: "string";
+ * };
+ * ```
+ * @typeParam RequestType - The type of the data that the connecting side of the link will send (and the accepting side will receive). Use __responseKey in a
+ * request type to specify the keys of the response (copy the keys of the response into the object)
  * @typeParam ResponseType - The type of the data the accepting side of the link (the one accepting links with a port) will send (and the connecting
  * side will receive)
  */
