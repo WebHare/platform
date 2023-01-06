@@ -14,5 +14,6 @@
   <test script="test_whmanager_conn.ts" />
   <test script="test_hmr.ts" />
   <test script="test_webharerouter.ts" />
+  <test script="test_jswebserver.ts" />
   <test name="meta" path="meta/" />
 </group>

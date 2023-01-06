@@ -531,15 +531,14 @@ case $INSTR in
     setup_node
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
 
-      export NODE_OPTIONS=
       SKIPVALIDATE=--swc
 
       while (true); do
         if [ "$1" == "--debug" ]; then
-          NODE_OPTIONS=--debug
+          export NODE_OPTIONS="$NODE_OPTIONS --debug"
           shift
         elif [ "$1" == "--inspect" ]; then
-          NODE_OPTIONS=--inspect
+          export NODE_OPTIONS="$NODE_OPTIONS --inspect"
           shift
         elif [ "$1" == "--whdebug" ]; then
           shift
