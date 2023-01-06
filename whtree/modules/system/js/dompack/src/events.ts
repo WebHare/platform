@@ -1,4 +1,4 @@
-export const CustomEvent = window.CustomEvent;
+export const CustomEvent = globalThis.CustomEvent;
 
 type DomEventOptions =
   {
