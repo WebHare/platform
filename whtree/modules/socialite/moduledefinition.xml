@@ -230,11 +230,7 @@
   </publisher>
 
   <moduleregistry>
-    <node name="localoverrides">
-      <string name="googleanalytics" />
-      <string name="universalanalytics" />
-      <string name="tagmanager" />
-    </node>
+    <obsoletenode name="localoverrides" />
     <node name="embedscripts">
       <string name="tagmanagers" />
     </node>

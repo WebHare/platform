@@ -171,34 +171,19 @@ PUBLIC OBJECTTYPE AnalyticsPlugin EXTEND WebDesignPluginBase
 
     IF(config.type="tagmanager") //https://developers.google.com/tag-manager/devguide
     {
-      //Check the registry for an override
-      STRING usecode := ReadRegistryKey("socialite.localoverrides.tagmanager");
-      IF(usecode = "")//not overridden
-        usecode := config.code;
-
       this->type := "tagmanager";
-      this->code := usecode;
+      this->code := config.code;
       //ADDME set pageCategory & visitorType to the iframe ?
     }
     ELSE IF(config.type="analytics")
     {
-      //Check the registry for an override
-      STRING usecode := ReadRegistryKey("socialite.localoverrides.googleanalytics");
-      IF(usecode = "")//not overridden
-        usecode := config.code;
-
       this->type := "analytics";
-      this->code := usecode;
+      this->code := config.code;
     }
     ELSE IF(config.type="universal")
     {
-      //Check the registry for an override
-      STRING usecode := ReadRegistryKey("socialite.localoverrides.universalanalytics");
-      IF(usecode = "")//not overridden
-        usecode := config.code;
-
       this->type := "universal";
-      this->code := usecode;
+      this->code := config.code;
     }
 
     this->tracklinks := CellExists(config, "tracklinks") ? config.tracklinks : TRUE; //guard against siteprofilerecompile/update issues, tracklinks didn't always exist
