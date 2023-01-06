@@ -39,11 +39,6 @@ PUBLIC OBJECTTYPE LayoutTest EXTEND TolliumScreenBase
     OBJECT wtest := this->LoadScreen (".layouttest_table");
     wtest->RunModal();
   }
-  MACRO DoOpenTable2()
-  {
-    OBJECT wtest := this->LoadScreen (".layouttest_table2");
-    wtest->RunModal();
-  }
   MACRO DoOpenGrid()
   {
     OBJECT wtest := this->LoadScreen (".layouttest_grid");

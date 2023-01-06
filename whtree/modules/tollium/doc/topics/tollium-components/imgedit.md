@@ -86,11 +86,3 @@ following code can be used:
 To use a media library, set the `medialibrary` attribute of the `<imgedit>` to
 the name of the library to use. So to use the example library above, add the
 attribute `medialibrary="mylibrary"`.
-
-## Migrating from `<imageedit>`
-
-The new `<imgedit>` can almost be used as a drop-in replacement for
-`<imageedit>`. The main difference is that an `<imageedit>` defines `imagewidth`
-and `imageheight` attributes to control the size of the `<image>` element within
-the component, whereas for the `<imgedit>` you can just set `width` and `height`
-directly.
