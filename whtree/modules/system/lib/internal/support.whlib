@@ -246,6 +246,10 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
         [ name :=       "system:debugmgr"
         , cmdline :=    "runscript mod::system/scripts/internal/debugmgr.whscr"
         ] INTO apps AT END;
+    INSERT
+        [ name :=       "system:debugmgr-ts"
+        , cmdline :=    "wh run mod::system/js/internal/whmanager/debugmgr.ts"
+        ] INTO apps AT END;
   }
 
   trans->Close();

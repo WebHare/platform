@@ -11,12 +11,14 @@ import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as stacktrace_parser from "stacktrace-parser";
+import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType } from "./debug";
+import * as inspector from "node:inspector";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
+export { dumpActiveIPCMessagePorts } from "./transport";
 
-
-const logpackets = true;
+const logpackets = false;
 const logmessages = false;
 
 /// Number of milliseconds before connection to whmanager times out
@@ -171,17 +173,11 @@ type LocalBridgeInitData = {
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
 };
 
-export type ProcessType = WHMProcessType;
-
-type ProcessList = Array<{
-  processcode: bigint;
-  pid: number;
-  type: ProcessType;
-  name: string;
-  parameters: Record<string, string>;
-}>;
-
-function checkAllMessageTypesHandled<T extends never>(message: T, key: string) {
+/** Check if all messages types have been handled in a switch. Put this function in the
+ * default handler. Warning: only works for union types, because non-union types aren't
+ * narrowed
+*/
+export function checkAllMessageTypesHandled<T extends never>(message: T, key: string): never {
   throw new Error(`message type ${(message as { [type: string]: unknown })[key]} not handled`);
 }
 
@@ -429,9 +425,12 @@ class MainBridge extends EventSource<BridgeEvents> {
   systemconfig: Record<string, unknown>;
 
   bridgename = "main bridge";
+  processcode = BigInt(0);
 
   /// Set when waiting for data to flush
   waitunref?: DeferredPromise<void>;
+
+  debuglink?: DebugIPCLinkType["ConnectEndPoint"];
 
   constructor() {
     super();
@@ -540,6 +539,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           this._conntimeout = undefined;
         }
 
+        this.processcode = data.processcode;
         const decoded = data.systemconfigdata.length
           ? hsmarshalling.readMarshalData(data.systemconfigdata)
           : {};
@@ -552,12 +552,14 @@ class MainBridge extends EventSource<BridgeEvents> {
         for (const bridge of this.localbridges) {
           bridge.port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: true, systemconfig: this.systemconfig });
         }
+        this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.SystemConfig: {
         const decoded = hsmarshalling.readMarshalData(data.systemconfigdata);
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
         if (this.systemconfig.debugconfig)
           updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
+        this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.RegisterPortResult: {
         const reg = this.portregisterrequests.get(data.replyto);
@@ -649,7 +651,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           reg.port.postMessage({
             type: ToLocalBridgeMessageType.GetProcessListResult,
             requestid: reg.requestid,
-            processes: data.processes
+            processes: data.processes.map(p => ({ ...p, debuggerconnected: false }))
           });
         }
       } break;
@@ -723,6 +725,19 @@ class MainBridge extends EventSource<BridgeEvents> {
               success: true
             });
           }
+          message.port.on("close", () => {
+            if (this.ports.get(message.name) === reg)
+              this.ports.delete(message.name);
+            if (message.global) {
+              this.sendData({
+                opcode: WHMRequestOpcode.UnregisterPort,
+                portname: message.name,
+                linkid: 0,
+                msgid: BigInt(0),
+                need_unregister_response: false
+              });
+            }
+          });
         } finally {
           ref.release();
         }
@@ -867,6 +882,50 @@ class MainBridge extends EventSource<BridgeEvents> {
         } break;
       }
     });
+  }
+
+  initDebugger(has_ts_debugger: boolean) {
+    if (this.debuglink && !has_ts_debugger)
+      this.debuglink.close();
+    else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
+      const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+      const id = generateBase64UniqueID();
+      this.debuglink = new IPCEndPointImpl(`${id} - origin`, port2, "connecting", "global port ts:debugmgr_internal");
+      const link = this.debuglink;
+      this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
+      this.debuglink.on("close", () => { if (this.debuglink === link) this.debuglink = undefined; });
+      this.debuglink.send({ type: DebugResponseType.register, processcode: this.processcode });
+      this.debuglink.activate().catch(() => { if (this.debuglink === link) this.debuglink = undefined; });
+      this.debuglink.dropReference();
+
+      const linkid = this.allocateLinkid();
+      this.sendData({
+        opcode: WHMRequestOpcode.ConnectLink,
+        portname: "ts:debugmgr_internal",
+        linkid,
+        msgid: BigInt(0)
+      });
+      this.initLinkHandling("ts:debugmgr_internal", linkid, BigInt(0), port1);
+      port1.unref(); // no keepalive needed on this port too
+    }
+  }
+
+  gotDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
+    const message: typeof packet.message = packet.message;
+    switch (message.type) {
+      case DebugRequestType.enableInspector: {
+        let url = inspector.url();
+        if (!url) {
+          inspector.open(message.port);
+          url = inspector.url();
+        }
+        this.debuglink?.send({
+          type: DebugResponseType.enableInspectorResult,
+          url: url ?? ""
+        }, packet.msgid);
+      } break;
+      //default: checkAllMessageTypesHandled(message, "type"); // doesn't work when the RequestType is not a union type
+    }
   }
 
   gotLocalBridgeClose(id: string, port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>) {

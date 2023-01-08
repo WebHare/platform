@@ -6,6 +6,8 @@ interface Trackable {
   [titlesymbol]: string;
 }
 
+const ports = new Array<WeakRef<object>>();
+
 function setTrackingSymbol(obj: unknown, title = "unknown") {
   (obj as Trackable)[titlesymbol] = title + "\n" + (new Error().stack || "");
 }
@@ -25,9 +27,20 @@ export function createTypedMessageChannel<SendType extends object, ReceiveType e
   setTrackingSymbol(retval.port1, title + " - port1");
   setTrackingSymbol(retval.port2, title + " - port2");
 
+  ports.push(new WeakRef(retval.port1));
+  ports.push(new WeakRef(retval.port2));
+
   return retval;
 }
 
 export function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+export function dumpActiveIPCMessagePorts() {
+  for (const a of ports) {
+    const b = a.deref();
+    if (b)
+      console.log(b);
+  }
 }
