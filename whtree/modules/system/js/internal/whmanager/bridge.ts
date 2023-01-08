@@ -882,6 +882,8 @@ class MainBridge extends EventSource<BridgeEvents> {
         } break;
       }
     });
+    // Link will be kept alive by client
+    port.unref();
   }
 
   initDebugger(has_ts_debugger: boolean) {
@@ -906,7 +908,6 @@ class MainBridge extends EventSource<BridgeEvents> {
         msgid: BigInt(0)
       });
       this.initLinkHandling("ts:debugmgr_internal", linkid, BigInt(0), port1);
-      port1.unref(); // no keepalive needed on this port too
     }
   }
 

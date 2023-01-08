@@ -282,12 +282,15 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
     this.requests.set(msgid, defer);
     const error = new Error();
+    const lock = this.refs.getLock("request");
     try {
       return await defer.promise;
     } catch (e) {
       // re-throw the error so the stack trace points to the invocation of activate()
       error.message = (e as Error).message;
       throw error;
+    } finally {
+      lock.release();
     }
   }
 
