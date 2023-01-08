@@ -2034,7 +2034,6 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element ref="hr" />
       <xs:element ref="hsvalue" />
       <xs:element name="iframe" type="Iframe"/>
-      <xs:element name="imageedit" type="ImageEdit"/>
       <xs:element ref="list" />
       <xs:element ref="listedit" />
       <xs:element ref="movetoselect" />
@@ -2495,82 +2494,6 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attributeGroup ref="OnClick" />
     <xs:attributeGroup ref="Overlays" />
-  </xs:complexType>
-
-  <xs:complexType name="ImageEdit">
-    <xs:annotation>
-      <xs:appinfo>
-        <tai:tolliumcomponent placement="block" objecttype="/lib/components/imageedit.whlib#TolliumImageEdit" />
-      </xs:appinfo>
-    </xs:annotation>
-    <xs:attributeGroup ref="ComposableComponentBase" />
-    <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attributeGroup ref="Required" />
-    <xs:attributeGroup ref="sc:Errorlabel" />
-    <xs:attributeGroup ref="sc:ImageResizeSettings" />
-
-    <xs:attribute name="value" type="xs:string" />
-
-    <!-- FIXME: Doc -->
-    <xs:attribute name="filename" type="xs:string" />
-
-    <xs:attribute name="imagewidth" type="AbsSize">
-      <xs:annotation>
-        <xs:documentation>
-          The width of the element
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="imageheight" type="AbsSize">
-      <xs:annotation>
-        <xs:documentation>
-          The height of the element
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="placeholder" type="sc:ImageSrc" default="placeholders/na">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-<!--    <xs:attributeGroup ref="Required" />  -->
-
-    <xs:attributeGroup ref="Onchange" />
-
-    <!-- Obsoleted by imagesetwidth, imagesetheight and imageresizemethod SINCE v2.38! - use the props below for v2.37 -->
-    <xs:attribute name="imagemaxwidth" type="AbsSize">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>imagemaxwidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
-        </xs:appinfo>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="imagemaxheight" type="AbsSize">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>imagemaxheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
-        </xs:appinfo>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="imageforcewidth" type="AbsSize">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>imageforcewidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
-        </xs:appinfo>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="imageforceheight" type="AbsSize">
-      <xs:annotation>
-        <xs:appinfo>
-          <sc:deprecated>imageforceheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
-        </xs:appinfo>
-      </xs:annotation>
-    </xs:attribute>
   </xs:complexType>
 
   <xs:attributeGroup name="ImgSizeSpec">
@@ -6121,7 +6044,6 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="iframe" type="Iframe"/>
   <xs:element name="image" type="Image"/>
   <xs:element name="imgedit" type="ImgEdit"/>
-  <xs:element name="imageedit" type="ImageEdit"/>
   <xs:element name="includefragment">
     <xs:annotation>
       <xs:appinfo>

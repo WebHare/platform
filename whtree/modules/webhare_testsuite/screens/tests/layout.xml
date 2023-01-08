@@ -12,7 +12,6 @@
       <action name="openbox" onexecute="doopenbox" title="A04 Open box" />
       <action name="openform" onexecute="doopenform" title="A05 Open form" />
       <action name="opentable" onexecute="doopentable" title="A06 Open table" />
-      <action name="opentable2" onexecute="doopentable2" title="A07 Open table2" />
       <action name="opengrid" onexecute="doopengrid" title="A08 Open grid" />
       <action name="openmargins" onexecute="doopenmargins" title="A09 Open margins" />
       <action name="openimage" onexecute="doopenimage" title="A11 Open image" />
@@ -39,7 +38,6 @@
           <item action="openbox" />
           <item action="openform" />
           <item action="opentable" />
-          <item action="opentable2" />
           <item action="opengrid" />
           <item action="openmargins" />
           <item action="openimage" />
@@ -114,7 +112,7 @@
                           title="P01" />
                   <option rowkey="P02"
                           flags="showimagetext"
-                          enablecomponents="type_imagetext_title type_imagetext_button_title type_imagetext_image"
+                          enablecomponents="type_imagetext_title type_imagetext_button_title"
                           title="P02" />
                 </select>
               </box>
@@ -128,14 +126,6 @@
                 <tab title="imagetext" name="imagetext">
                   <visibleon source="typepulldown" checkflags="showimagetext" min="1" />
                   <textedit title="Titel" name="type_imagetext_title" width="1pr"/>
-                  <box title="Afbeelding" hr="false">
-                    <imageedit required="true"
-                               imagewidth="267px"
-                               imageheight="100px"
-                               errorlabel="Afbeelding"
-                               name="type_imagetext_image"/>
-
-                  </box>
                   <box title="Knop" hr="false">
                     <textedit title="Knoptext" name="type_imagetext_button_title" width="1pr"/>
                     <select name="select_on_servertab" type="pulldown" title="Select-in-servertab">
@@ -345,30 +335,6 @@
     </body>
   </screen>
 
-
-  <screen name="layouttest_table2" implementation="none">
-    <body>
-      <box name="showinstudyfinders" tid=".showinstudyfinders" enablecomponents="studyfinders studyfinderimage" checkbox="true">
-        <grid height="1pr">
-          <col width="40x"/>
-          <col/>
-          <row height="1pr">
-            <cell>
-              <select name="studyfinders" type="checkboxlist" height="1pr" width="1pr">
-                <option rowkey="rowkey1" title="option 1" />
-                <option rowkey="rowkey2" title="option 2" />
-                <option rowkey="rowkey3" title="option 3" />
-              </select>
-            </cell>
-            <cell>
-              <text tid=".studyfinderimage"/>
-              <imageedit name="studyfinderimage"/>
-            </cell>
-          </row>
-        </grid>
-      </box>
-    </body>
-  </screen>
 
   <screen name="layouttest_grid" gid="">
     <actions>

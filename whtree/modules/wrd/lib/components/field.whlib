@@ -337,11 +337,8 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       }
       CASE 9 /* Image */
       {
-        OBJECT comp := this->CreateSubComponent("imageedit");
+        OBJECT comp := this->CreateSubComponent("imgedit");
         comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
-        comp->imagewidth := this->imagewidth;
-        //comp->imagewidth := "200px";
-        comp->imageheight := this->imageheight;
         comp->readonly := this->fieldreadonly;
         comp->required := this->attrinfo.isrequired OR this->required;
         this->currentobjects := [comp];

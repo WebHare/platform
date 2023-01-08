@@ -11,7 +11,6 @@
   <jstest file="testtabs.es"/>
   <jstest file="testtabs_visibleon.es"/>
   <jstest file="testtable.es"/>
-  <jstest file="testtable2.es"/>
   <jstest file="testcalendar.es"/>
   <jstest file="testtabsspace.es"/>
   <jstest file="testvscroll.es"/>

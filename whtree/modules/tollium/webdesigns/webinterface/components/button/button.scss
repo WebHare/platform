@@ -48,7 +48,6 @@ t-button.showmenu > span:after
 }
 t-button .button__img
 {
-  /* why were these 8px/8px ? it broke <imageedit> buttons */
   margin-top: 3px;
   margin-left: 4px;
   float: left; /* to have titles with ellipsis working without having to calculate the size of the text container */

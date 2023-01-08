@@ -14,14 +14,6 @@ PUBLIC STATIC OBJECTTYPE GoogleApiKeys EXTEND TolliumScreenBase
   {
     this->keytypes   := STRING[ this->GetTid(".keytype-google"), this->GetTid(".keytype-google-recaptcha") ];
     this->scopetypes := STRING[ this->GetTid(".scopetype-any"), this->GetTid(".scopetype-client"), this->GetTid(".scopetype-server") ];
-    ^localoverrides->ReadFromRegistry();
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    ^localoverrides->WriteToRegistry();
-    RETURN work->Finish();
   }
 
   RECORD ARRAY FUNCTION GetApiKeys()
