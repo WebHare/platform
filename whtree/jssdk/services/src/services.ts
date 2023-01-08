@@ -3,7 +3,6 @@ export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activa
 import * as path from "node:path";
 export { openBackendService } from "./backendservice";
 import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
-import { getBridgeManagerLink } from "./bridgemgrlink";
 export { WebHareBackendConfiguration } from "./bridgeservice";
 
 let configresolve: (() => void) | null = null;
@@ -34,8 +33,6 @@ let config: WebHareBackendConfiguration | null = null;
 WHBridge.onConfigurationUpdate(async () => {
   const newconfig = await (await getBridgeService()).GETCONFIG();
   config = Object.freeze(newconfig);
-  //fire up a link to the bridge manager. Ignore if it doesn't work
-  getBridgeManagerLink().catch(() => null);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- it has to be set at initialization.
   configresolve!();
 });

@@ -3,7 +3,6 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import WHBridge from "@mod-system/js/internal/bridge"; //@webhare/services should be wrapping the bridge but we need to validate the reference counter
-import { getBridgeManagerLink, getBridgeInstanceID } from "@webhare/services/src/bridgemgrlink";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -182,20 +181,6 @@ async function runWebHareServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
-async function testBridgeManager() {
-  const bridgemgrlink = await getBridgeManagerLink();
-  const mylink = await test.wait(async () => {
-    const connections = await bridgemgrlink.listConnections();
-    return connections.find(_ => _.instance == getBridgeInstanceID());
-  });
-
-  test.eqMatch(/test_services.ts$/, mylink.script);
-
-  const inspectsettings_1 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
-  const inspectsettings_2 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
-  test.eq(inspectsettings_1, inspectsettings_2, "Verify inspector settings are reused after first call");
-}
-
 //NOTE: we take an a-typical test run approach to help ensure noone booted services before us
 async function main() {
   await test.throws(/not yet available/, () => services.getConfig());
@@ -208,7 +193,6 @@ async function main() {
       testResources,
       runWebHareServiceTest_JS,
       runWebHareServiceTest_HS,
-      testBridgeManager
     ], { wrdauth: false });
 }
 
