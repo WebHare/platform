@@ -3,29 +3,50 @@ import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/b
 
 /** Interface for the client object we present to the connecting user
     TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
-interface WebHareServiceClient {
+interface DefaultWebHareServiceClient {
   /** Our methods */
-  [key: string]: (...args: unknown[]) => unknown | Promise<unknown>;
+  [key: string]: (...args: unknown[]) => Promise<unknown>;
 }
 
-class WebHareServiceWrapper {
-  private readonly link: WebHareServiceIPCLinkType["ConnectEndPoint"];
-  readonly isjs: boolean;
-  private readonly client: WebHareServiceClient;
+type ServiceBase = {
+  close(): void;
+};
 
-  constructor(link: WebHareServiceIPCLinkType["ConnectEndPoint"], response: WebHareServiceDescription) {
+class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
+  link: WebHareServiceIPCLinkType["ConnectEndPoint"];
+  isjs: boolean;
+  description: WebHareServiceDescription;
+
+  constructor(link: WebHareServiceIPCLinkType["ConnectEndPoint"], description: WebHareServiceDescription) {
     this.link = link;
-    this.client = { close: function() { link.close(); } };
-    this.isjs = response.isjs || false;
-    for (const method of response.methods)
-      this.client[method.name] = (...args: unknown[]) => this.remotingFunc(method, args);
+    this.description = description;
+    this.isjs = description.isjs || false;
   }
 
-  getClient() {
-    return this.client;
+  get(target: object, prop: string, receiver: unknown) {
+    if (prop === 'close') //create a close() function
+      return () => this.closeService();
+
+    if (this.description.methods.find(m => m.name === prop)) {
+      return (...args: unknown[]) => this.remotingFunc({ name: prop }, args);
+    }
+
+    return undefined;
   }
 
-  private async remotingFunc(method: { name: string }, args: unknown[]) {
+  has(target: object, prop: string): boolean {
+    return Boolean(this.description.methods.find(m => m.name === prop)) || prop == "close";
+  }
+
+  set(target: object, prop: string): boolean {
+    throw new Error(`Cannot override service functions, trying to change property ${JSON.stringify(prop)}`);
+  }
+
+  closeService() {
+    this.link.close();
+  }
+
+  async remotingFunc(method: { name: string }, args: unknown[]) {
     const calldata: ServiceCallMessage = { call: method.name };
     if (this.isjs)
       calldata.jsargs = JSON.stringify(args);
@@ -51,7 +72,7 @@ export interface BackendServiceOptions {
  *  @param options - timeout: Maximum time to wait for the service to come online (default: 30sec)
  *                   linger: If true, service requires an explicit close() and will keep the process running
  */
-export async function openBackendService(name: string, args?: unknown[], options?: BackendServiceOptions) {
+export async function openBackendService<T extends object = DefaultWebHareServiceClient>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<T & ServiceBase> {
   const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
   const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
   result.catch(() => false); // don't want this one to turn into a uncaught rejection
@@ -64,7 +85,7 @@ export async function openBackendService(name: string, args?: unknown[], options
     if (!options?.linger)
       link.dropReference();
 
-    return (new WebHareServiceWrapper(link, description)).getClient();
+    return new Proxy({}, new ServiceProxy(link, description)) as T & ServiceBase;
   } catch (e) {
     // The request will fail too, but that's expected if activation fails. The activation error is more important to throw.
     link.close();
