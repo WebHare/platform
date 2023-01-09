@@ -7,8 +7,6 @@ interface Config {
   site: unknown;
 }
 
-export let config: Config | null = null;
-
 type FormValueList = Array<{ name: string; value: string }>;
 
 export type SubmitInstruction =
@@ -35,7 +33,7 @@ export type SubmitInstruction =
 //NOTE: generateForm was apparently intended to support key-value pairs in 'values'... but the code never worked due to incorrect Object.kyes usage
 function generateForm(action: string, values: FormValueList, method?: "POST") {
   const form = dompack.create("form", { action: action, method: method || "POST", charset: "utf-8" });
-  values.forEach(function (item) {
+  values.forEach(function(item) {
     form.appendChild(dompack.create("input", { type: "hidden", name: item.name, value: item.value }));
   });
   return form;
@@ -159,21 +157,28 @@ function checkAuthorMode() {
     activeAuthorMode();
 }
 
-if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
-  const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
-  if (whconfigel?.textContent) {
-    config = JSON.parse(whconfigel.textContent) as Config;
-
-    if (window.top === window && !document.documentElement.classList.contains("wh-noauthormode")) //we're top level
-      setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
+function getIntegrationConfig(): Config {
+  let config;
+  if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
+    const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
+    if (whconfigel?.textContent) {
+      config = JSON.parse(whconfigel.textContent) as Config;
+    }
   }
+
+  // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
+  if (!config)
+    config = {} as Config;
+  if (!config.obj)
+    config.obj = {};
+  if (!config.site)
+    config.site = {};
+
+  return config;
 }
 
-// Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
-if (!config)
-  config = {} as Config;
-if (!config.obj)
-  config.obj = {};
-if (!config.site)
-  config.site = {};
+if (typeof window !== "undefined" && !document.documentElement.classList.contains("wh-noauthormode")) //we're top level
+  setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
+
+export const config = getIntegrationConfig();
 
