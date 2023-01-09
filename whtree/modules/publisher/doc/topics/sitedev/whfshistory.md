@@ -20,7 +20,7 @@ All history events are stored system.fs_history:
 - fs_object: original object
 - currentname: fs_object.name when event was made
 - currentparent: fs_object.parent when event was made
-- version: The version created by this event
+- version: The version number created by this event
 
 fs_history.fs_object is a non-null cascading reference, so if the original file goes, its history has to go too. For this
 reason deleted files have to live in a recycle bin folder and should not be actually deleted until their history needs to

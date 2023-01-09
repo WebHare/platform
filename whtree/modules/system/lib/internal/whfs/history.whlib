@@ -36,5 +36,5 @@ PUBLIC INTEGER FUNCTION EnsureVersionFolder(INTEGER site)
 
 PUBLIC INTEGER FUNCTION EnsureSnapshotsFolder(INTEGER site)
 {
-  RETURN EnsureWHFSSiteFolder(whconstant_whfsid_versions, site);
+  RETURN EnsureWHFSSiteFolder(whconstant_whfsid_whfs_snapshots, site);
 }
