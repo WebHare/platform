@@ -1,4 +1,4 @@
-import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
+import { scheduleLingeringProcessCheck } from './testsupport';
 
 // Want more than the default 10 stack frames in errors
 Error.stackTraceLimit = 25;
@@ -24,19 +24,6 @@ function onTestExit(exitCode: number) {
   }
 }
 
-interface ProcessUndocumented {
-  getActiveResourcesInfo(): string[];
-}
-
-function dumpHandlesAndRequests() {
-  // ADDME: use something like why-is-node-running to get and dump all stuff
-  const p: ProcessUndocumented = process as unknown as ProcessUndocumented;
-  console.error('\nTest process is not shutting down after tests, there are probably still active handles or requests');
-  console.error('Active resource types:', p.getActiveResourcesInfo());
-  dumpActiveIPCMessagePorts();
-  process.exit(1);
-}
-
 export async function run(tests: Array<() => unknown>, options?: object) {
   //TODO register once in case we're loaded as a module ?
   process.on("exit", onTestExit);
@@ -53,6 +40,6 @@ export async function run(tests: Array<() => unknown>, options?: object) {
     testscompleted = true;
   } finally {
     // Dump all resources keeping the script alive after 5 seconds after finishing the tests
-    setTimeout(() => dumpHandlesAndRequests(), 5000).unref();
+    scheduleLingeringProcessCheck();
   }
 }
