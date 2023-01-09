@@ -566,6 +566,21 @@
     -->
   </contenttype>
 
+  <!-- Version metata -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false">
+    <!-- 'publish.draft' version number. first version is 0.1, first published version is 1.0 -->
+    <string name="version" />
+
+    <!-- webhare user who saved this draft or the last draft leading up to this final version -->
+    <record name="editor" />
+
+    <!-- webhare user who first published this version (ie approved the draft) -->
+    <record name="publisher" />
+
+    <!-- when this version was first published -->
+    <datetime name="published" />
+  </contenttype>
+
   <!-- Lifecycle management -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/lifecycle">
     <datetime name="deletion" />  <!-- When to delete this file. PERMANENT! -->

@@ -795,7 +795,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         IF (ObjectExists(source))
         {
           // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
-          source->SaveAsFinal(
+          source->SaveAsFinal(GetEffectiveUser(),
               [ basefields :=   [ "DATA" ]
               , contenttypes := this->contexts->editdocumentapi->editcontenttypes
               , keeppublicdraft := savetarget = "versioned-live"

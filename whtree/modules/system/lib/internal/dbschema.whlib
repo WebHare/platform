@@ -259,6 +259,9 @@ PUBLIC SCHEMA
     , DATETIME when
     , INTEGER currentparent NULL := 0
     , STRING currentname
+    , INTEGER snapshot NULL := 0
+    , STRING version
+    , STRING userdata
     ; KEY id
     > fs_history
   , TABLE

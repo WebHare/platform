@@ -56,6 +56,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 //Folder id for webhare-private/system/shorturl
 PUBLIC CONSTANT INTEGER whconstant_whfsid_shorturl := 23;
 
+//Folder id for webhare-private/system/whfs
+PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs := 24;
+
+//Folder id for webhare-private/system/whfs/snapshots
+PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs_snapshots := 25;
+
 //Default key expiry warning (days)
 PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 45;
 
@@ -96,13 +102,19 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 PUBLIC CONSTANT INTEGER whconstant_whfstype_dynamicfoldercontents := 35;
 
 /// fs_history.type recycle action
-PUBLIC CONSTANT INTEGER whconstant_historytype_recycle := 0;
+PUBLIC CONSTANT INTEGER whconstant_historytype_recycled := 0;
 
 /// fs_history.type created action
-PUBLIC CONSTANT INTEGER whconstant_historytype_create := 4;
+PUBLIC CONSTANT INTEGER whconstant_historytype_created := 4;
 
-/// fs_history.type modified action
-PUBLIC CONSTANT INTEGER whconstant_historytype_modify := 5;
+/// fs_history.type approved (update public/publish file) action
+PUBLIC CONSTANT INTEGER whconstant_historytype_approved := 5;
+
+/// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
+PUBLIC CONSTANT INTEGER whconstant_historytype_saved := 1;
+
+/// fs_history.type revert action
+PUBLIC CONSTANT INTEGER whconstant_historytype_reverted := 3;
 
 /// publisher.schedule start publish/republish event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
