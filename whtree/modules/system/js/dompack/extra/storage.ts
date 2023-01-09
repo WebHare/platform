@@ -10,7 +10,7 @@ let sessionfail: boolean;
 let localfail: boolean;
 
 //isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
-const isolated = "whIsolateStorage" in document.documentElement.dataset;
+const isolated = typeof document === "undefined" || "whIsolateStorage" in document.documentElement.dataset;
 
 /** @returns True if our storage is fully isolated */
 export function isIsolated() {

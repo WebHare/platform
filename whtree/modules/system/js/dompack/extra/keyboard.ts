@@ -8,8 +8,8 @@
 
 import { NormalizedKeyboardEvent, normalizeKeyboardEventData } from '../src/events';
 import { debugflags } from '../src/debug';
-
-const IS_MAC_PLATFORM = navigator.userAgent.indexOf("Mac OS X") > 0;
+import { getPlatform } from './browser';
+const IS_MAC_PLATFORM = getPlatform() === "mac";
 
 const propnames = {
   shiftKey: "Shift",

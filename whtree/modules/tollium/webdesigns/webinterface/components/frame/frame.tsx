@@ -1,3 +1,6 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 //import * as components from './componentbase';
 /* globals $shell */
 
@@ -11,9 +14,9 @@ import $todd from "@mod-tollium/web/ui/js/support";
 //require("../common.lang.json");
 //require("../components/imageeditor/imageeditor.lang.json");
 import * as domfocus from 'dompack/browserfix/focus';
-var focuszones = require('@mod-tollium/web/ui/components/focuszones');
+import * as focuszones from '@mod-tollium/web/ui/components/focuszones';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
-var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
+import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 
 
 // Give each frame a unique identifier

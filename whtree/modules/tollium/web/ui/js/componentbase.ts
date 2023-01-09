@@ -1,3 +1,6 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';

@@ -1,3 +1,6 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 
@@ -251,8 +254,7 @@ export function focusElement(node)
   lastfocusedmap.set(newzone, node);
 }
 
-window.addEventListener("dompack:takefocus", event =>
-{
+function onTakeFocus(event: Event) {
   // called at the start of dom.focus. Prevent the default action to stop dom.focus from executing the focus change.
   const target = event.target;
   if (!target.focus)
@@ -291,7 +293,10 @@ window.addEventListener("dompack:takefocus", event =>
     if(dompack.debugflags.fcz)
       console.log("[fcz] dom.focus on ", target, " in historic zone #" + currentidx, newzone);
   }
-});
+}
 
-window.addEventListener('focus', onFocus, true);
-dompack.onDomReady(gotDomReady);
+if(typeof window !== "undefined") {
+  window.addEventListener("dompack:takefocus", onTakeFocus)
+  window.addEventListener('focus', onFocus, true);
+  dompack.onDomReady(gotDomReady);
+}

@@ -1,19 +1,22 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import $todd from "@mod-tollium/web/ui/js/support";
-const dombusy = require('dompack/src/busy');
-const getTid = require("@mod-tollium/js/gettid").getTid;
-const focusZones = require('../components/focuszones');
-const preload = require('dompack/extra/preload');
-const utilerror = require('@mod-system/js/wh/errorreporting');
+import * as dombusy from 'dompack/src/busy';
+import { getTid } from "@mod-tollium/js/gettid";
+import * as focusZones from '../components/focuszones';
+import * as preload from 'dompack/extra/preload';
+import utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import LinkEndPoint from './comm/linkendpoint.es';
 import DocPanel from "./application/docpanel.es";
 import "./application/appcanvas.scss";
-const toddImages = require("@mod-tollium/js/icons");
+import * as toddImages from "@mod-tollium/js/icons";
 
 require("../common.lang.json");
 

@@ -1,3 +1,6 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 /**
 @import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 */
@@ -291,7 +294,8 @@ export function getDragData(event)
 }
 
 /// Reset the current drag when a local drag has ended
-document.addEventListener('dragend', () => currentdrag = null);
+if(typeof document !== "undefined")
+  document.addEventListener('dragend', () => currentdrag = null);
 
 /** Try to start a drag action
     @param items

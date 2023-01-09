@@ -1,4 +1,8 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 import * as dompack from 'dompack';
+import { ApplicationBase } from './application';
 
 require("../common.lang.json");
 
@@ -22,7 +26,10 @@ require("../common.lang.json");
 
 let enabledlogtypes = [];
 
-var $todd = {};
+var $todd : {
+  applications: ApplicationBase[]
+} = { applications: []
+};
 
 export const gridlineTopMargin = 2; // pixels to add to the top of a grid line
 export const gridlineBottomMargin = 3; // pixels to add to the bottom of a grid line
@@ -580,7 +587,9 @@ $todd.checkEnabledFlags = function(flags, checkflags, min, max, selectionmatch) 
 };
 
 export default $todd;
-window.__todd = $todd; //test framework currently requires it. FIX THAT
+if(typeof window !== "undefined") {
+  window.__todd = $todd; //test framework currently requires it. FIX THAT
 
-checkLogTypes();
-window.addEventListener("hashchange", checkLogTypes);
+  checkLogTypes();
+  window.addEventListener?.("hashchange", checkLogTypes);
+}

@@ -1,3 +1,6 @@
+/* eslint-disable */
+// @ts-nocheck -- needs porting!
+
 var tollium_domkey_map= { 'ESC': 'Escape'
                         , 'ENTER': 'Enter'
                         , 'LEFT': 'ArrowLeft'
