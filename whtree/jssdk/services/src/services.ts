@@ -5,6 +5,8 @@ export { openBackendService } from "./backendservice";
 import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
 export { WebHareBackendConfiguration } from "./bridgeservice";
 
+export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
+
 let configresolve: (() => void) | null = null;
 const configpromise = new Promise(resolve => configresolve = resolve as (() => void));
 

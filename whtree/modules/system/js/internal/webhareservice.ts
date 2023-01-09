@@ -9,6 +9,21 @@ interface WebHareServiceOptions {
   __droplistenerreference?: boolean;
 }
 
+/** Convert the return type of a function to a promise
+ * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
+*/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Parameters<T>) => ReturnType<T> extends Promise<any> ? ReturnType<T> : Promise<ReturnType<T>>;
+
+/** Converts the interface of a WebHare service to the interface used by a client.
+ * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise.
+ * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
+*/
+export type ConvertBackendServiceInterfaceToClientInterface<BackendHandlerType extends object> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
+};
+
 //Describe a JS public interface in a HS compatible way
 function describePublicInterface(inobj: object): WebHareServiceDescription {
   const methods = [];

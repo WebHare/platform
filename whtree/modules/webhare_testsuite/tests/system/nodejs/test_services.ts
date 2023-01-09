@@ -3,6 +3,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
+import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -93,7 +94,7 @@ async function runWebHareServiceTest_JS() {
   test.eq(0, await getActiveMessagePortCount());
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  test.assert(await services.openBackendService<DemoServiceInterface>("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
   dumpActiveIPCMessagePorts();
@@ -101,7 +102,7 @@ async function runWebHareServiceTest_JS() {
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance: any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
+  const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
 
   test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
