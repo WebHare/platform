@@ -191,7 +191,7 @@ export function checkAllMessageTypesHandled<T extends never>(message: T, key: st
 class LocalBridge extends EventSource<BridgeEvents> {
   id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
-  requestcounter = 0;
+  requestcounter = 11000;
   systemconfig: Record<string, unknown>;
   _ready: DeferredPromise<void>;
   connected = false;
