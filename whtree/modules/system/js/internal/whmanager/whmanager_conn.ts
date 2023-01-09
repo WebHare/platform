@@ -12,6 +12,7 @@ type WHManagerConnectionEvents = {
   data: WHMResponse;
   offline: void;
   online: void;
+  ref: void;
   unref: void;
 };
 
@@ -41,10 +42,9 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     this.socket.on("close", () => this.gotConnectionClose());
     this.socket.on("error", () => this.gotConnectionError());
     this.socket.unref();
-    this.refs = new RefTracker(() => this.socket.ref(), () => {
-      this.socket.unref();
-      this.emit("unref", void (0));
-    }, { initialref: false });
+    this.refs = new RefTracker(this.socket, { initialref: false });
+    this.refs.on("ref", () => this.emit("ref", void (0)));
+    this.refs.on("unref", () => this.emit("unref", void (0)));
     this.connect();
   }
 

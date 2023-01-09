@@ -1,4 +1,5 @@
-import { MessageChannel, TransferListItem } from 'node:worker_threads';
+import { MessageChannel, MessagePort, TransferListItem } from 'node:worker_threads';
+import { dumpRefs } from './refs';
 
 const titlesymbol = Symbol("whRefTracker");
 
@@ -6,10 +7,10 @@ interface Trackable {
   [titlesymbol]: string;
 }
 
-const ports = new Array<WeakRef<object>>();
+const ports = new Array<WeakRef<MessagePort>>();
 
 function setTrackingSymbol(obj: unknown, title = "unknown") {
-  (obj as Trackable)[titlesymbol] = title + "\n" + (new Error().stack || "");
+  (obj as Trackable)[titlesymbol] = `MessagePort: ${title}"\n${new Error(`MessagePort created`).stack || ""}`;
 }
 
 export interface TypedMessagePort<SendType extends object, ReceiveType extends object> {
@@ -37,10 +38,13 @@ export function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 }
 
-export function dumpActiveIPCMessagePorts() {
+export function dumpActiveIPCMessagePorts({ onlyreferenced = true } = {}) {
   for (const a of ports) {
     const b = a.deref();
-    if (b)
-      console.log(b);
+    if (b && (!onlyreferenced || (b as unknown as { hasRef(): boolean }).hasRef())) {
+      console.log((b as unknown as Trackable)[titlesymbol]);
+      dumpRefs(b);
+      console.log(`\n`);
+    }
   }
 }

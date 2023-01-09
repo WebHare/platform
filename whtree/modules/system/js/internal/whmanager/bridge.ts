@@ -209,7 +209,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
     this._ready = createDeferred<void>();
     this.port.on("message", (message) => this.handleControlMessage(message));
     this.port.unref();
-    this.reftracker = new RefTracker(() => this.port.ref(), () => this.port.unref(), { initialref: false });
+    this.reftracker = new RefTracker(this.port, { initialref: false });
   }
 
   get ready() {
@@ -440,6 +440,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     this.conn = new WHManagerConnection;
     this.conn.on("online", () => this.register());
     this.conn.on("offline", () => this.gotConnectionClose());
+    this.conn.on("ref", () => this.gotRef());
     this.conn.on("unref", () => this.gotUnref());
     this.conn.on("data", (response) => this.gotWHManagerResponse(response));
     this._conntimeout = setTimeout(() => this.gotConnTimeout(), whmanager_connection_timeout).unref();
@@ -488,6 +489,10 @@ class MainBridge extends EventSource<BridgeEvents> {
     for (const bridge of this.localbridges) {
       bridge.port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, systemconfig: this.systemconfig, connected: false });
     }
+  }
+
+  gotRef() {
+    this.waitunref = createDeferred();
   }
 
   gotUnref() {
@@ -728,6 +733,8 @@ class MainBridge extends EventSource<BridgeEvents> {
             });
           }
           message.port.on("close", () => {
+            if (logmessages)
+              console.log(`main bridge: ${message.global ? "global" : "local"}  port ${message.name} closed`);
             if (this.ports.get(message.name) === reg)
               this.ports.delete(message.name);
             if (message.global) {
@@ -816,9 +823,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         }
       } break;
       case ToMainBridgeMessageType.EnsureDataSent: {
-        if (!this.waitunref)
-          this.waitunref = createDeferred<void>();
-        await this.waitunref.promise;
+        await this.waitunref?.promise;
         port.postMessage({
           type: ToLocalBridgeMessageType.EnsureDataSentResult,
           requestid: message.requestid,
@@ -865,6 +870,8 @@ class MainBridge extends EventSource<BridgeEvents> {
   initLinkHandling(portname: string, linkid: number, msgid: bigint, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>) {
     this.links.set(linkid, { name: portname, port: port });
     port.on("message", (ctrlmsg: IPCEndPointImplControlMessage) => {
+      if (logmessages)
+        console.log(`main bridge: incoming message from local endpoint of ${linkid} (${portname})`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] });
       switch (ctrlmsg.type) {
         case IPCEndPointImplControlMessageType.ConnectResult: {
           this.sendData({ opcode: WHMRequestOpcode.OpenLinkResult, linkid, replyto: msgid, success: ctrlmsg.success });
@@ -964,7 +971,7 @@ registerAsNonReloadableLibrary(module);
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   console.error('uncaughtExceptionMonitor', origin, error);
-  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception"});
+  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {

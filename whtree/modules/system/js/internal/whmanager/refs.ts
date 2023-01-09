@@ -1,3 +1,7 @@
+import EventSource from "../eventsource";
+
+const reftrackersymbol = Symbol("refTracker");
+
 export class RefLock {
   tracker: RefTracker;
   title: string;
@@ -6,7 +10,8 @@ export class RefLock {
   constructor(tracker: RefTracker, title = "") {
     this.tracker = tracker;
     this.title = title;
-    this.trace = new Error().stack || "";
+    const stack = (new Error().stack || "");
+    this.trace = stack.substring(stack.indexOf("\n") + 1);
   }
 
   release() {
@@ -14,16 +19,27 @@ export class RefLock {
   }
 }
 
-export class RefTracker {
+type Referencable = {
+  ref(): void;
+  unref(): void;
+  [reftrackersymbol]?: RefTracker;
+};
+
+type RefTrackerEvents = {
+  ref: void;
+  unref: void;
+};
+
+export class RefTracker extends EventSource<RefTrackerEvents>{
   private locks = new Set<RefLock>();
   private initialref?: RefLock;
   private hasref: boolean;
-  private _onrefed: () => void;
-  private _onunrefed: () => void;
+  private obj: Referencable;
 
-  constructor(onrefed: () => void, onunrefed: () => void, { initialref }: { initialref?: boolean } = {}) {
-    this._onrefed = onrefed;
-    this._onunrefed = onunrefed;
+  constructor(obj: Referencable, { initialref }: { initialref?: boolean } = {}) {
+    super();
+    this.obj = obj;
+    obj[reftrackersymbol] = this;
     this.hasref = initialref ?? false;
     if (initialref) {
       this.initialref = new RefLock(this, "initial reference");
@@ -46,10 +62,13 @@ export class RefTracker {
     const newhasref = this.locks.size !== 0;
     if (this.hasref !== newhasref) {
       this.hasref = newhasref;
-      if (newhasref)
-        this._onrefed();
-      else
-        this._onunrefed();
+      if (newhasref) {
+        this.obj.ref();
+        this.emit("ref", void (0));
+      } else {
+        this.obj.unref();
+        this.emit("unref", void (0));
+      }
     }
   }
 
@@ -63,5 +82,17 @@ export class RefTracker {
   _remove(lock: RefLock) {
     this.locks.delete(lock);
     setImmediate(() => this.updateRef());
+  }
+
+  _getLocks() {
+    return this.locks;
+  }
+}
+
+export function dumpRefs(obj: Referencable) {
+  const tracker = obj[reftrackersymbol];
+  if (tracker) {
+    for (const ref of tracker._getLocks())
+      console.log(`Ref: ${ref.title}\n${ref.trace}`);
   }
 }
