@@ -19,26 +19,23 @@ const webharedatatype = webharedatatypebase + Math.floor(Math.random() * 4294967
 const fallbackdatatype = "Text";
 
 /// Effects, ordered so that the combination of effect[x] and effect[y] is effect[x | y]
-const effectstrs = [ 'none', 'copy', 'move', 'copyMove', 'link', 'copyLink', 'linkMove', 'all' ];
+const effectstrs = ['none', 'copy', 'move', 'copyMove', 'link', 'copyLink', 'linkMove', 'all'];
 
-function isDropEffectAllowed(dropEffect, effectAllowed)
-{
+function isDropEffectAllowed(dropEffect, effectAllowed) {
   const mask = effectstrs.indexOf(effectAllowed === "uninitialized" ? "all" : effectAllowed);
   const pos = effectstrs.indexOf(dropEffect);
   return pos >= 0 && (mask & pos);
 }
 
-function getDefaultDropEffect(event, effectAllowed)
-{
+function getDefaultDropEffect(event, effectAllowed) {
   let dropeffect = "none";
 
   /* safari and chrome on mac reset the effectAllowed based on the modifier keys.
      Getting default drop effect will handle that case
   */
   // Get default drop effect for allowed effects
-  for (let effect of [ "move", "copy", "link" ])
-    if (isDropEffectAllowed(effect, effectAllowed))
-    {
+  for (let effect of ["move", "copy", "link"])
+    if (isDropEffectAllowed(effect, effectAllowed)) {
       dropeffect = effect;
       break;
     }
@@ -51,41 +48,35 @@ function getDefaultDropEffect(event, effectAllowed)
   return dropeffect;
 }
 
-export function fixupDNDEvent(event)
-{
+export function fixupDNDEvent(event) {
   if (event.type === "dragend")
     return;
 
   /* FireFox adjusts the dropeffect based on the pressed keys. Chrome, Safari and IE don't, so just
      implement that behaviour for them. Also, override the mouse cursor in IE
   */
-  if ((event.type == 'drop' || event.type.indexOf('drag') == 0) && browser.getName()!='firefox')
-  {
+  if ((event.type == 'drop' || event.type.indexOf('drag') == 0) && browser.getName() != 'firefox') {
     // Set default drop effect for allowed effects
     let effectAllowed = "all";
-    try
-    {
+    try {
       // IE 11 throws when accessing effectAllowed while dragging content from another document
       effectAllowed = event.dataTransfer.effectAllowed;
     }
-    catch (e)
-    { }
+    catch (e) { }
 
     event.dataTransfer.dropEffect = getDefaultDropEffect(event, effectAllowed);
   }
 
   // Chrome workaround for bug https://bugs.chromium.org/p/chromium/issues/detail?id=808344
-  if (event.type === "dragstart" && browser.getName() === 'chrome')
-  {
+  if (event.type === "dragstart" && browser.getName() === 'chrome') {
     // Chromium auto-cancels the drag without dragend event when the current *selection* lies in a password field
     const range = document.getSelection();
     if (range
-        && range.anchorNode
-        && range.baseNode === range.extentNode
-        && range.baseOffset === range.extentOffset
-        && range.anchorNode.nodeType === 1
-        && range.anchorNode.querySelector("input[type=password]"))
-    {
+      && range.anchorNode
+      && range.baseNode === range.extentNode
+      && range.baseOffset === range.extentOffset
+      && range.anchorNode.nodeType === 1
+      && range.anchorNode.querySelector("input[type=password]")) {
       // Just remove the selection, losing selection in a password field shouldn't be that bad when dragging something
       range.removeAllRanges();
     }
@@ -94,8 +85,7 @@ export function fixupDNDEvent(event)
 
 
 // Retrieve the WebHare data stored from our custom data url
-function getWebHareData(event)
-{
+function getWebHareData(event) {
   // Get the event's dataTransfer object
   const transfer = event.dataTransfer;
   if (!transfer)
@@ -109,13 +99,11 @@ function getWebHareData(event)
 
   // Get the data from the dataTransfer object
   let data;
-  try
-  {
+  try {
     // Prefer our custom data type
     data = transfer.getData(gettype);
   }
-  catch (e)
-  {
+  catch (e) {
     // Using our custom data type failed, use the fallback data type
     data = transfer.getData(fallbackdatatype);
   }
@@ -132,8 +120,7 @@ function getWebHareData(event)
 }
 
 // Store the WebHare data in our custom data url
-function setWebHareData(event, data)
-{
+function setWebHareData(event, data) {
   // Get the event's dataTransfer object
   var transfer = event.dataTransfer;
   if (!transfer)
@@ -145,25 +132,21 @@ function setWebHareData(event, data)
   // Clear any existing data
   transfer.clearData();
 
-  try
-  {
+  try {
     // Prefer our custom data type
     transfer.setData(webharedatatype, data);
   }
-  catch (e)
-  {
+  catch (e) {
     // Using our custom data type failed, use the fallback data type
     transfer.setData(fallbackdatatype, data);
   }
 }
 
 // Get the canonical effect name from a effect / list of effects.
-function parseEffectList(effects)
-{
+function parseEffectList(effects) {
   effects = Array.from(effects || 'all');
   let mask = 0;
-  for (let effect of effects)
-  {
+  for (let effect of effects) {
     const pos = effectstrs.indexOf(effect);
     if (pos >= 0)
       mask = mask | pos;
@@ -173,30 +156,27 @@ function parseEffectList(effects)
 
 let currentdrag = null;
 
-function initWebhareDragEvent(event, data)
-{
+function initWebhareDragEvent(event, data) {
   currentdrag =
-      { effectAllowed:    parseEffectList(data.effectAllowed)
-      , externaldata:     data.externaldata || null
-      , localdata:        data.localdata || null
-      , file:             data.file || null
-      , typehash:         ""
-      };
+  {
+    effectAllowed: parseEffectList(data.effectAllowed)
+    , externaldata: data.externaldata || null
+    , localdata: data.localdata || null
+    , file: data.file || null
+    , typehash: ""
+  };
 
   event.dataTransfer.effectAllowed = currentdrag.effectallowed;
   setWebHareData(event, currentdrag.externaldata || null);
 
-  if (currentdrag.file)
-  {
-    try
-    {
+  if (currentdrag.file) {
+    try {
       const url = currentdrag.file.mimetype + ':' + currentdrag.file.filename + ':' + currentdrag.file.url;
 
       event.dataTransfer.setData('DownloadURL', url);
       event.dataTransfer.setData('URL', currentdrag.file.url);
     }
-    catch(e)
-    {
+    catch (e) {
       //IE9 fails on dataTransfer.setData
     }
   }
@@ -204,10 +184,8 @@ function initWebhareDragEvent(event, data)
   currentdrag.typehash = getEventItemsTypeHash(event);
 }
 
-class CurrentDragData
-{
-  constructor(event, localdrag)
-  {
+class CurrentDragData {
+  constructor(event, localdrag) {
     /// Current event
     this.event = event;
 
@@ -219,59 +197,49 @@ class CurrentDragData
   }
 
   /// Drag from external source?
-  hasExternalSource()
-  {
+  hasExternalSource() {
     return !this.localdrag;
   }
 
-  haveDataAccess()
-  {
+  haveDataAccess() {
     return this.localdrag || this.event.type == 'drop';
   }
 
-  isFileDrag()
-  {
+  isFileDrag() {
     return this.getTypes().includes("Files");
   }
 
   /// Data (local from local source, external for external sources)
-  getData()
-  {
+  getData() {
     return this.localdrag ? this.localdrag.localdata : getWebHareData(this.event);
   }
 
-  getFiles()
-  {
+  getFiles() {
     return this.dataTransfer ? Array.from(this.dataTransfer.files) : [];
   }
 
-  getItems()
-  {
+  getItems() {
     // IE 11 doesn't have an items array
     return this.dataTransfer && this.dataTransfer.items ? Array.from(this.dataTransfer.items) : [];
   }
 
-  getTypes()
-  {
+  getTypes() {
     return this.dataTransfer ? Array.from(this.dataTransfer.types) : [];
   }
 
-  getDropEffect()
-  {
+  getDropEffect() {
     const mode = this.dataTransfer ? this.dataTransfer.dropEffect : "";
-    return [ 'copy', 'move', 'link' ].includes(mode) ? mode : 'move';
+    return ['copy', 'move', 'link'].includes(mode) ? mode : 'move';
   }
 
-  setDropEffect(mode)
-  {
+  setDropEffect(mode) {
     if (!this.dataTransfer)
       return;
-    if ([ 'copy', 'move', 'link', 'none' ].includes(mode))
+    if (['copy', 'move', 'link', 'none'].includes(mode))
       this.dataTransfer.dropEffect = mode;
   }
 
-  setDefaultDropEffect()
-  {
+  setDefaultDropEffect() {
     if (!this.dataTransfer)
       return;
     // Set default drop effect for allowed effects
@@ -279,14 +247,12 @@ class CurrentDragData
   }
 }
 
-function getEventItemsTypeHash(event)
-{
+function getEventItemsTypeHash(event) {
   // The downloadurl type is set when initializing the drag event, but it won't be present in the drop event.
   return Array.from(event.dataTransfer.types).filter(t => t != "downloadurl").sort().join("\t");
 }
 
-export function getDragData(event)
-{
+export function getDragData(event) {
   if (currentdrag && currentdrag.typehash !== getEventItemsTypeHash(event))
     currentdrag = null;
 
@@ -294,7 +260,7 @@ export function getDragData(event)
 }
 
 /// Reset the current drag when a local drag has ended
-if(typeof document !== "undefined")
+if (typeof document !== "undefined")
   document.addEventListener('dragend', () => currentdrag = null);
 
 /** Try to start a drag action
@@ -308,9 +274,8 @@ if(typeof document !== "undefined")
     @cell items.info.data.mimetype
     @cell items.info.data.flags
 */
-export function tryStartDrag(comp, items, event)
-{
-//  console.log('tryStartDrag');
+export function tryStartDrag(comp, items, event) {
+  //  console.log('tryStartDrag');
   if (!items.length)
     return false;
 
@@ -322,22 +287,23 @@ export function tryStartDrag(comp, items, event)
       infos.push({ type: items[i].info.type, data: items[i].info.data, id: items[i].id });
 
   var download = null;
-  if (items.length == 1 && items[0].info.candownload)
-  {
+  if (items.length == 1 && items[0].info.candownload) {
     //ADDME: rowkey?
     var url = comp.getFileTransferURL('download', { type: 'dragout', rowkey: items[0].id }, { filename: items[0].info.data.filename }).url;
     download =
-        { filename:     items[0].info.data.filename
-        , mimetype:     items[0].info.data.mimetype
-        , url:          url
-        };
+    {
+      filename: items[0].info.data.filename
+      , mimetype: items[0].info.data.mimetype
+      , url: url
+    };
   }
 
   initWebhareDragEvent(event,
-      { effectsAllowed:   "all"
-      , localdata:        { source: comp, items: infos }
-      , file:             download
-      });
+    {
+      effectsAllowed: "all"
+      , localdata: { source: comp, items: infos }
+      , file: download
+    });
 
   return true;
 }

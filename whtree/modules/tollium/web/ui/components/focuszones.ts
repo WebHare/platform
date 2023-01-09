@@ -12,31 +12,26 @@ let lastfocusedmap = new Map;
 
 
 /// Safely get active element
-function getActiveElement(doc)
-{
-  try
-  {
+function getActiveElement(doc) {
+  try {
     //activeElement can reportedly throw on IE9 and _definately_ on IE11
     return doc.activeElement;
   }
-  catch(e)
-  {
+  catch (e) {
     return null;
   }
 }
 
 /// Returns the focuszone of a specific element, null if not in a zone.
-function getElFocusZone(el)
-{
+function getElFocusZone(el) {
   // Ignore forcusing of body
   if (!el)
     return null;
 
-//  console.error('getElFocusZone ', el == document.body, currentfocuszone, currentfocuszone && domfocus.getFocusableComponents(currentfocuszone).length);
+  //  console.error('getElFocusZone ', el == document.body, currentfocuszone, currentfocuszone && domfocus.getFocusableComponents(currentfocuszone).length);
 
   // IE focuses the body when we have a currentfocuszone without focusable elements
-  if (el == document.documentElement || el == document.body)
-  {
+  if (el == document.documentElement || el == document.body) {
     if (zonehistory[0] && !domfocus.getFocusableComponents(zonehistory[0]).length)
       return zonehistory[0];
   }
@@ -50,8 +45,7 @@ function getElFocusZone(el)
   return el;
 }
 
-function gotDomReady()
-{
+function gotDomReady() {
   if (dompack.debugflags.fcz)
     console.log("fz got domready, detect current focus zone");
 
@@ -59,8 +53,7 @@ function gotDomReady()
 }
 
 /// Detects current focus zone, stores current active element in the zone
-function detectCurrentFocusZone()
-{
+function detectCurrentFocusZone() {
   const activeelement = getActiveElement(document);
   var zone = getElFocusZone(activeelement);
 
@@ -74,8 +67,7 @@ function detectCurrentFocusZone()
 }
 
 /// Set a new zone as the history top. shifts the rest of the zones up the stack, unless !!pop
-function setActiveZone(zone)
-{
+function setActiveZone(zone) {
   // Clear deleted items from the history
   filterZoneHistory();
 
@@ -88,8 +80,8 @@ function setActiveZone(zone)
   let current = zonehistory[0];
 
   // Re-focusing zone already in history, remove from list
-  if(currentidx > 0)
-    zonehistory.splice(currentidx,1);
+  if (currentidx > 0)
+    zonehistory.splice(currentidx, 1);
 
   if (current)
     dompack.dispatchCustomEvent(current, "wh:focuszone-blur", { cancelable: false, bubbles: true });
@@ -99,19 +91,16 @@ function setActiveZone(zone)
 }
 
 /// Removes zones that have been removed from the document
-function filterZoneHistory()
-{
-  zonehistory = zonehistory.filter(item =>
-  {
-    if(item.ownerDocument && item.ownerDocument.contains(item))
+function filterZoneHistory() {
+  zonehistory = zonehistory.filter(item => {
+    if (item.ownerDocument && item.ownerDocument.contains(item))
       return true;
     lastfocusedmap.delete(item);
     return false;
   });
 }
 
-function onFocus(domevent)
-{
+function onFocus(domevent) {
   if (dompack.debugflags.fcz)
     console.log("[fcz] fz got focus event, target ", domevent.target, domevent.target.nodeName);
 
@@ -121,13 +110,11 @@ function onFocus(domevent)
 }
 
 /// Returns the current focused zone
-export function getCurrentFocusZone()
-{
+export function getCurrentFocusZone() {
   return detectCurrentFocusZone().zone;
 }
 
-function focusTopZoneElement()
-{
+function focusTopZoneElement() {
   const zone = zonehistory[0];
   const tofocus = lastfocusedmap.get(zone);
 
@@ -142,9 +129,8 @@ function focusTopZoneElement()
   // If there was no previously focused element, emit a wh:focuszone-firstfocus event. If not
   // cancelled, the first focusable element is focused
   const continueevent = dompack.dispatchCustomEvent(zone, "wh:focuszone-firstfocus", { cancelable: true, bubbles: true });
-  if(!continueevent)
-  {
-    if(dompack.debugflags.fcz)
+  if (!continueevent) {
+    if (dompack.debugflags.fcz)
       console.log("[fcz] firstfocus cancelled for zone ", zone, ' activeelement=', domfocus.getCurrentlyFocusedElement());
     return; //cancelled. we'll not explicitly focus anything and assume our canceller did it (ADDME should we still kill focus or change zones if caller didn't focus the right component?)
   }
@@ -152,20 +138,17 @@ function focusTopZoneElement()
   focusFirstFocusable();
 }
 
-function focusFirstFocusable()
-{
+function focusFirstFocusable() {
   let zone = zonehistory[0];
   var focusable = domfocus.getFocusableComponents(zone);
   if (dompack.debugflags.fcz)
     console.log('[fcz] fz focusable', focusable, Array.from(zone.querySelectorAll('*')));
-  if(focusable.length)
-  {
+  if (focusable.length) {
     dompack.focus(focusable[0]);
   }
   else //there's nothing to focus in this zone
   {
-    if(getActiveElement(document))
-    {
+    if (getActiveElement(document)) {
       if (dompack.debugflags.fcz)
         console.log('fz blurring active element', getActiveElement(document));
       getActiveElement(document).blur();
@@ -175,35 +158,30 @@ function focusFirstFocusable()
   }
 }
 
-function isElementInZone(zone, tocheck)
-{
+function isElementInZone(zone, tocheck) {
   return zone.contains(tocheck) && tocheck.closest("body, .wh-focuszone") == zone;
 }
 
-export function focusZone(newzone)
-{
-  if(dompack.debugflags.fcz)
+export function focusZone(newzone) {
+  if (dompack.debugflags.fcz)
     console.log("[fcz] focusZone on ", newzone, " current ", zonehistory[0], lastfocusedmap);
 
-  if(!newzone || !newzone.classList.contains("wh-focuszone"))
-  {
-    console.error("No such focuszone",newzone);
+  if (!newzone || !newzone.classList.contains("wh-focuszone")) {
+    console.error("No such focuszone", newzone);
     throw new Error("No such focuszone");
   }
 
-  if(getCurrentFocusZone() == newzone)
-  {
+  if (getCurrentFocusZone() == newzone) {
     //Is the real focus also in the zone?
     let focused = getActiveElement(document);
-    if(dompack.debugflags.fcz)
-      console.log("[fcz] that is the current zone, currently focused",focused);
-    if(focused && isElementInZone(newzone, focused))
+    if (dompack.debugflags.fcz)
+      console.log("[fcz] that is the current zone, currently focused", focused);
+    if (focused && isElementInZone(newzone, focused))
       return;
 
     focusFirstFocusable(newzone);
   }
-  else
-  {
+  else {
     setActiveZone(newzone);
     focusTopZoneElement();
   }
@@ -211,40 +189,35 @@ export function focusZone(newzone)
 
 /** Get the currently active element within a zone
 */
-export function getFocusZoneActiveElement(zone)
-{
+export function getFocusZoneActiveElement(zone) {
   detectCurrentFocusZone();
 
-  if(!zone || !zone.classList.contains("wh-focuszone"))
-  {
+  if (!zone || !zone.classList.contains("wh-focuszone")) {
     console.error("No such focuszone", zone);
     throw new Error("No such focuszone");
   }
 
   let focus = getActiveElement(zone.ownerDocument);
-  if(focus && zone.contains(focus))
-  { //the live element is in the requested zone. return it immediately
-    if(dompack.debugflags.fcz && lastfocusedmap.get(zone) != focus)
-      console.error("[fcz] Mismatch between real focus ",focus," and last focus ",lastfocusedmap.get(zone)," for zone ", zone);
+  if (focus && zone.contains(focus)) { //the live element is in the requested zone. return it immediately
+    if (dompack.debugflags.fcz && lastfocusedmap.get(zone) != focus)
+      console.error("[fcz] Mismatch between real focus ", focus, " and last focus ", lastfocusedmap.get(zone), " for zone ", zone);
 
     return focus;
   }
 
-  if(dompack.debugflags.fcz)
+  if (dompack.debugflags.fcz)
     console.log("[fcz] Requesting focus for " + (zonehistory[0] == zone ? "active" : "historic") + " zone ", zone, " returning ", lastfocusedmap.get(zone));
   return lastfocusedmap.get(zone);
 }
 
-export function focusElement(node)
-{
-  if(!node.focus)
-  {
+export function focusElement(node) {
+  if (!node.focus) {
     console.log("Does not look like a focusable element", node);
     throw new Error("Does not look like a focusable element");
   }
 
   var newzone = getElFocusZone(node);
-  if(dompack.debugflags.fcz)
+  if (dompack.debugflags.fcz)
     console.log("[fcz] focus on ", node, " in zone ", newzone);
 
   setActiveZone(newzone);
@@ -257,8 +230,7 @@ export function focusElement(node)
 function onTakeFocus(event: Event) {
   // called at the start of dom.focus. Prevent the default action to stop dom.focus from executing the focus change.
   const target = event.target;
-  if (!target.focus)
-  {
+  if (!target.focus) {
     console.log("Does not look like a focusable element", target);
     throw new Error("Does not look like a focusable element");
   }
@@ -269,10 +241,9 @@ function onTakeFocus(event: Event) {
     return;
 
   let currentidx = zonehistory.findIndex(item => item === newzone);
-  if (currentidx === 0)
-  {
+  if (currentidx === 0) {
     // In current zone, allow the event
-    if(dompack.debugflags.fcz)
+    if (dompack.debugflags.fcz)
       console.log("[fcz] dom.focus on ", target, " in current zone ", newzone);
     return;
   }
@@ -280,22 +251,20 @@ function onTakeFocus(event: Event) {
   lastfocusedmap.set(newzone, target);
   event.preventDefault();
 
-  if (currentidx === -1)
-  {
-    if(dompack.debugflags.fcz)
+  if (currentidx === -1) {
+    if (dompack.debugflags.fcz)
       console.log("[fcz] dom.focus on ", target, " in new zone ", newzone);
 
     // Place the zone back into the history as the last
     //currentidx.push(newzone);
   }
-  else
-  {
-    if(dompack.debugflags.fcz)
+  else {
+    if (dompack.debugflags.fcz)
       console.log("[fcz] dom.focus on ", target, " in historic zone #" + currentidx, newzone);
   }
 }
 
-if(typeof window !== "undefined") {
+if (typeof window !== "undefined") {
   window.addEventListener("dompack:takefocus", onTakeFocus)
   window.addEventListener('focus', onFocus, true);
   dompack.onDomReady(gotDomReady);
