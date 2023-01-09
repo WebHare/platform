@@ -253,7 +253,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
 
   sendInternal(message: OmitResponseKey<SendType> | IPCExceptionMessage, replyto?: bigint): bigint {
     if (this.closed)
-      throw new Error(`IPC link has already been closed`);
+      return BigInt(0);
     const msgid = ++this.msgidcounter;
     const packet = writeMarshalPacket(message);
     // Copy the packet data into a new ArrayBuffer we can transfer over the MessagePort
@@ -277,7 +277,10 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     };
     this.sendInternal(message, replyto);
   }
+
   async doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>> {
+    if (this.closed)
+      throw new Error(`IPC link has already been closed`);
     const msgid = this.send(message);
     const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
     this.requests.set(msgid, defer);
