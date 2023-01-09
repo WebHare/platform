@@ -52,12 +52,22 @@ interface ServiceConnection {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
+class LinkState {
+  handler: object | null;
+  link: WebHareServiceIPCLinkType["AcceptEndPoint"];
+  initdefer = createDeferred<boolean>();
+
+  constructor(handler: object | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
+    this.handler = handler;
+    this.link = link;
+  }
+}
+
 class WebHareService { //EXTEND IPCPortHandlerBase
   private _port: WebHareServiceIPCLinkType["Port"];
   private _constructor: ConnectionConstructor;
-  private _links: Array<{ handler: object; link: object }>;
+  private _links: LinkState[];
   private _options: WebHareServiceOptions;
-  private firstpacket?= createDeferred<IPCMessagePacket<ServiceInitMessage>>();
 
   constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
     this._port = port;
@@ -69,60 +79,66 @@ class WebHareService { //EXTEND IPCPortHandlerBase
 
   async _onLinkAccepted(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     try {
-      link.on("message", _ => this._onMessage(link, _));
-      await link.activate();
-      const packet = await this.firstpacket?.promise;
-      if (packet)
-        this._setupLink(link, packet.message, packet.msgid);
-    } catch (e) {
-      console.log("_onLinkAccepted error", e);
-      link.close();
-    }
-  }
-
-  async _setupLink(link: WebHareServiceIPCLinkType["AcceptEndPoint"], msg: ServiceInitMessage, id: bigint) {
-    try {
-      if (!this._constructor)
-        throw new Error("This service does not accept incoming connections");
-
-      const handler = await this._constructor(...msg.__new);
-      link.on("message", _ => this._onMessage(link, _));
+      const state = new LinkState(null, link);
+      link.on("close", () => this._onClose(state));
+      link.on("message", _ => this._onMessage(state, _));
       link.on("exception", () => false);
-      //const itf = describePublicInterface(handler);
-      link.send(describePublicInterface(handler), id);
       if (this._options.__droplistenerreference)
         link.dropReference();
 
-      this._links.push({ handler, link });
+      await link.activate();
     } catch (e) {
-      console.log("_setupLink error", e);
-      link.sendException(e as Error, id);
       link.close();
     }
   }
 
-  async _onMessage(link: WebHareServiceIPCLinkType["AcceptEndPoint"], msg: WebHareServiceIPCLinkType["AcceptEndPointPacket"]) {
-    try {
-      if (this.firstpacket) {
-        this.firstpacket.resolve(msg as IPCMessagePacket<ServiceInitMessage>);
-        this.firstpacket = undefined;
-        return;
-      }
+  _onClose(state: LinkState) {
+    if (state.handler && "_gotClose" in state.handler && typeof state.handler._gotClose == "function")
+      state.handler._gotClose();
+  }
 
+  async _onMessage(state: LinkState, msg: WebHareServiceIPCLinkType["AcceptEndPointPacket"]) {
+    if (!state.handler) {
+      try {
+        if (!this._constructor)
+          throw new Error("This service does not accept incoming connections");
+
+        const initdata = msg as IPCMessagePacket<ServiceInitMessage>;
+        const handler = await this._constructor(...initdata.message.__new);
+        if (!state.handler)
+          state.handler = handler;
+        if (!state.handler)
+          throw new Error(`Service handler initialization failed`);
+
+        state.link.send(describePublicInterface(state.handler), msg.msgid);
+        state.initdefer.resolve(true);
+      } catch (e) {
+        state.link.sendException(e as Error, msg.msgid);
+        state.link.close();
+        state.initdefer.resolve(false);
+      }
+      return;
+    }
+    if (!await state.initdefer.promise) {
+      state.link.sendException(new Error(`Service has not been properly initialized`), msg.msgid);
+      state.link.close();
+      return;
+    }
+
+    try {
       const message = msg.message as ServiceCallMessage;
-      const pos = this._links.findIndex(_ => _.link === link);
+      //const pos = this._links.findIndex(_ => _.link === state.link);
       const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
-      const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, args) as IPCMarshallableData;
-      link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
+      const result = await (state.handler as ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
+      state.link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
     } catch (e) {
-      link.sendException(e as Error, msg.msgid);
+      state.link.sendException(e as Error, msg.msgid);
     }
   }
 
   async _onException(link: WebHareServiceIPCLinkType["AcceptEndPoint"], msg: WebHareServiceIPCLinkType["ExceptionPacket"]) {
     // ignore exceptions, not sent by connecting endpoints
   }
-
 }
 
 /** Launch a WebHare service.

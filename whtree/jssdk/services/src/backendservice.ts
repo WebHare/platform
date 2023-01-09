@@ -5,7 +5,7 @@ import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/b
     TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
 interface WebHareServiceClient {
   /** Our methods */
-  [key: string]: (...args: unknown[]) => unknown;
+  [key: string]: (...args: unknown[]) => unknown | Promise<unknown>;
 }
 
 class WebHareServiceWrapper {
@@ -54,13 +54,21 @@ export interface BackendServiceOptions {
 export async function openBackendService(name: string, args?: unknown[], options?: BackendServiceOptions) {
   const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
   const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
-  await link.activate();
+  result.catch(() => false); // don't want this one to turn into a uncaught rejection
 
-  const description = await result;
+  try {
+    await link.activate();
 
-  if (!options?.linger)
-    link.dropReference();
+    const description = await result;
 
-  return (new WebHareServiceWrapper(link, description)).getClient();
+    if (!options?.linger)
+      link.dropReference();
+
+    return (new WebHareServiceWrapper(link, description)).getClient();
+  } catch (e) {
+    // The request will fail too, but that's expected if activation fails. The activation error is more important to throw.
+    link.close();
+    throw e;
+  }
 }
 
