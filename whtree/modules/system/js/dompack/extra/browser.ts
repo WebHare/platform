@@ -48,16 +48,12 @@ export function parseUserAgent(ua: string): UserAgentInfo {
     platform: platform,
     device: ua.match(/ipad/) ? 'tablet' : ['ios', 'webos', 'android'].includes(platform) ? 'mobile' : ['mac', 'windows', 'linux'].includes(platform) ? 'desktop' : ''
   };
-  type IEDocument = Document & { documentMode?: number };
-  const doc: IEDocument = document;
-  if (ret.name == 'ie' && !ret.version && doc.documentMode)
-    ret.version = doc.documentMode;
 
   return ret;
 }
 
 //module.exports =
-const browser = parseUserAgent(navigator.userAgent);
+const browser = parseUserAgent(globalThis.navigator?.userAgent || "");
 
 export function getName() {
   return browser.name;

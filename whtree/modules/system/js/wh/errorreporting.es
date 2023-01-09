@@ -113,7 +113,7 @@ async function reportException(errorobj, options)
     let stackframes;
     try
     {
-      console.info("Getting stack trace for exception");
+      console.info("Getting stack trace for exception", errorobj);
       // Must specify a sourceCache to avoid duplicate requests
       if(StackTrace)
       {
