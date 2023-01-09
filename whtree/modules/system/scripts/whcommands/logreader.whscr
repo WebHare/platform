@@ -330,7 +330,7 @@ WHILE(TRUE)
 
         IF (CellExists(line.message, "SCRIPT"))
           lastlines[END-1] := lastlines[END-1] || "Script: " || line.message.script || "\n";
-        IF (CellExists(line.message, "CONTEXTINFO"))
+        IF (CellExists(line.message, "CONTEXTINFO") AND TypeID(line.message.contextinfo) = TypeID(STRING))
         {
           STRING parsed := ParseContextInfo(line.message.contextinfo);
           IF (parsed != "")

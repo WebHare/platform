@@ -43,6 +43,13 @@ type ConnectOptions = {
   global?: boolean;
 };
 
+interface LogErrorOptions {
+  groupid?: string;
+  script?: string;
+  info?: string;
+  contextinfo?: hsmarshalling.IPCMarshallableRecord;
+  errortype?: "exception" | "unhandledRejection";
+}
 
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
@@ -89,7 +96,7 @@ interface Bridge extends EventSource<BridgeEvents> {
   /** Log an error to the notice log
       @param e - Error to log
   */
-  logError(e: Error): void;
+  logError(e: Error, options?: LogErrorOptions): void;
 
   /** Ensure events and logs have been delivered to the whmanager */
   ensureDataSent(): Promise<void>;
@@ -289,6 +296,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   private encodeJavaScriptException(e: Error, options: {
     script?: string;
     contextinfo?: hsmarshalling.IPCMarshallableRecord;
+    errortype?: "exception" | "unhandledRejection";
   }) {
     const trace = stacktrace_parser.parse(e?.stack ?? "");
     const data = {
@@ -299,21 +307,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
         col: entry.column,
         functionname: entry.methodName
       })),
-      error: e.message,
+      error: e.message || "",
       browser: { name: "nodejs" },
       contextinfo: options.contextinfo ? hsmarshalling.encodeHSON(options.contextinfo) : "",
-      type: "javascript-error"
+      type: options.errortype === "unhandledRejection" ? "javascript-unhandled-rejection" : "javascript-error"
     };
     return hsmarshalling.encodeHSON(data);
   }
 
-  logError(e: Error, options?: {
-    groupid?: string;
-    script?: string;
-    info?: string;
-    contextinfo?: hsmarshalling.IPCMarshallableRecord;
-  }) {
-    options = options || {};
+  logError(e: Error, options: LogErrorOptions = {}) {
     const groupid = options.groupid ?? this.getGroupId();
     this.log("system:notice", `ts-node\tERROR\t${groupid}\t\tjavascript-error\t${this.encodeJavaScriptException(e, options)}`);
   }
@@ -962,7 +964,7 @@ registerAsNonReloadableLibrary(module);
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   console.error('uncaughtExceptionMonitor', origin, error);
-  bridge.logError(error);
+  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception"});
 });
 
 process.on('uncaughtException', async (error) => {
