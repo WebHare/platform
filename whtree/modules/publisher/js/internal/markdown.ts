@@ -8,7 +8,7 @@ export async function renderMarkdown(request: WHFSRequest, response: WebResponse
   if (!markdowninfo?.data?.text)
     return;
 
-  const markdowntext = atob(markdowninfo?.data?.text);
+  const markdowntext = markdowninfo?.data?.text.toString();
   //FIXME prevent any HTML from leaking through!  maybe some in the future but we still need to Sanitize(Dompurify?) it and/or make it conform to the rtdtype ?
   const html = marked.parse(markdowntext);
 
