@@ -7,11 +7,13 @@
 */
 /* eslint no-useless-escape: off */
 
+type Platform = "windows" | "ios" | "webos" | "android" | "linux" | "mac" | "other";
+
 export type UserAgentInfo =
   {
     name: string;
     version: number;
-    platform: string;
+    platform: Platform;
     device: "desktop" | "mobile" | "tablet" | "";
   };
 
@@ -45,7 +47,7 @@ export function parseUserAgent(ua: string): UserAgentInfo {
   {
     name: (UA[1] == 'version') ? UA[3] : UA[1],
     version: parseInt((UA[1] == 'opera' && UA[4]) ? UA[4] : UA[2]),
-    platform: platform,
+    platform: platform as Platform,
     device: ua.match(/ipad/) ? 'tablet' : ['ios', 'webos', 'android'].includes(platform) ? 'mobile' : ['mac', 'windows', 'linux'].includes(platform) ? 'desktop' : ''
   };
 

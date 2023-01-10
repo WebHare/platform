@@ -2,7 +2,7 @@
 import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { registerJSApp } from "../application.es";
+import { registerJSApp } from "../application";
 import"../../common.lang.json";
 
 import $todd from "@mod-tollium/web/ui/js/support";
