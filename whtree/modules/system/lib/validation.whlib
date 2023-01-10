@@ -11,6 +11,7 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/language.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/harescript/libscan.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib" EXPORT GetModuleValidationConfig;
@@ -214,7 +215,12 @@ PUBLIC STRING ARRAY FUNCTION GetValidatableFiles(RECORD validateconfig, STRING m
   options := ValidateOptions([ onskippedfile := DEFAULT MACRO PTR
                              , filemask := "*"
                              ], options);
-  RETURN RecurseGetValidatableFiles("mod::" || modulename, validateconfig, options.onskippedfile, options.filemask);
+
+  STRING root := modulename = "jssdk"
+      ? "direct::" || GetWebhareConfiguration().installationroot || "jssdk"
+      : "mod::" || modulename;
+
+  RETURN RecurseGetValidatableFiles(root, validateconfig, options.onskippedfile, options.filemask);
 }
 
 BOOLEAN FUNCTION IsSVGIconFile(STRING resourcename)

@@ -99,6 +99,7 @@ OBJECTTYPE CheckerObject
                                      , nowarnings := FALSE
                                      , hidehints := FALSE
                                      , checktypescript := TRUE
+                                     , onlypaths := STRING[]
                                      ], options);
 
     IF(this->options.filemask = "")
@@ -107,23 +108,27 @@ OBJECTTYPE CheckerObject
       SetAnsiCmdMode("enabled");
 
     STRING ARRAY issues;
-    STRING moddir := GetModuleInstallationRoot(modname);
-    IF(moddir="")
-      THROW NEW Exception(`No such module '${modname}'`);
+    STRING moddir;
+    IF (modname != "jssdk")
+    {
+      moddir := GetModuleInstallationRoot(modname);
+      IF(moddir="")
+        THROW NEW Exception(`No such module '${modname}'`);
+    }
 
     OBJECT typescriptresultpromise, checkformattingpromise;
     IF (this->options.checktypescript)
       typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "coremodules" : modname);
-    checkformattingpromise := CheckModuleJavascriptFormatting(modname);
+    checkformattingpromise := CheckModuleJavascriptFormatting(modname, CELL[ this->options.onlypaths ]);
 
-    this->validateconfig := GetModuleValidationConfig(modname);
+    this->validateconfig := GetModuleValidationConfig(modname = "jssdk" ? "system" : modname);
     IF(this->validateconfig.futuremodule)
       Print(`INFO: Module '${modname}' does not apply to this WebHare (${this->validateconfig.futuremodulewhy}) - all errors will be treated as warnings\n`);
     IF(this->options.nowarnings)
       this->validateconfig.nowarnings := TRUE;
 
     //verify node modules, if node_modules matches it (eg '*', '**' etc)
-    IF("node_modules" LIKE this->options.filemask)
+    IF("node_modules" LIKE this->options.filemask AND moddir != "")
     {
       RECORD ARRAY nodeissues := CheckNodeModulesInModule(moddir);
       FOREVERY(RECORD issue FROM nodeissues)
@@ -131,7 +136,8 @@ OBJECTTYPE CheckerObject
     }
 
     //verify moduledefinition
-    this->VerifyModuleDefinition(modname);
+    IF (modname != "jssdk")
+      this->VerifyModuleDefinition(modname);
 
     //verify code
     STRING ARRAY scanlist := GetValidatableFiles(this->validateconfig, modname
@@ -141,6 +147,13 @@ OBJECTTYPE CheckerObject
 
     FOREVERY(STRING toscan FROM scanlist)
     {
+      IF (IsValueSet(this->options.onlypaths))
+      {
+        STRING path := GetWebHareResourceDiskPath(toscan);
+        IF (path NOT IN this->options.onlypaths)
+          CONTINUE;
+      }
+
       IF(this->options.debug)
         Print(`${toscan}\n`);
 
