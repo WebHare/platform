@@ -19,8 +19,10 @@ MACRO EnsureModuleRoots()
         SELECT TEMPORARY root := GetModuleInstallationRoot(module)
              , module
              , root :=      root
-          FROM ToRecordArray(__SYSTEM_GetInstalledModuleNames(), "module")
-      ORDER BY root;
+          FROM ToRecordArray(__SYSTEM_GetInstalledModuleNames(), "module");
+
+    INSERT [ module :=   "jssdk", root := GetWebhareConfiguration().installationroot || "jssdk/" ] INTO allmoduleroots AT END;
+    allmoduleroots := SELECT * FROM allmoduleroots ORDER BY root;
   }
 }
 
@@ -30,7 +32,10 @@ RECORD FUNCTION GetCachedModuleSettings(STRING module)
 {
   RECORD pos := RecordLowerBound(modulesettings, CELL[ module ], [ "MODULE" ]);
   IF (NOT pos.found)
-    INSERT CELL[ module, settings := GetModuleValidationConfig(module) ] INTO modulesettings AT pos.position;
+  {
+    RECORD settings := GetModuleValidationConfig(module = "jssdk" ? "system" : module);
+    INSERT CELL[ module, settings ] INTO modulesettings AT pos.position;
+  }
   RETURN modulesettings[pos.position].settings;
 }
 
@@ -71,8 +76,10 @@ STRING ARRAY FUNCTION GetFilesAndMasksToScan(STRING ARRAY files, STRING ARRAY ex
   IF (Detokenize(files, ",") = "coremodules")
   {
     FOREVERY (RECORD mod FROM SELECT * FROM allmoduleroots WHERE module IN whconstant_builtinmodules ORDER BY module)
+      FOREVERY (STRING ext FROM extensions)
+        INSERT `${mod.root}*${ext}` INTO result AT END;
     FOREVERY (STRING ext FROM extensions)
-      INSERT `${mod.root}*${ext}` INTO result AT END;
+      INSERT `${GetWebhareConfiguration().installationroot || "jssdk/"}*${ext}` INTO result AT END;
   }
   ELSE FOREVERY (STRING path FROM files)
   {
@@ -162,13 +169,16 @@ RECORD ARRAY FUNCTION ScanDirs(RECORD ARRAY dirs)
 RECORD ARRAY FUNCTION GatherModuleValidationSettings(RECORD ARRAY files)
 {
   RECORD ARRAY results;
+  STRING jssdkdir := GetWebhareConfiguration().installationroot || "jssdk/*";
   FOREVERY (RECORD rec FROM files)
   {
     RECORD mod := DetermineModule(rec.path);
+    RECORD settings;
     IF (RecordExists(mod))
-    {
-      RECORD settings := GetCachedModuleSettings(mod.module);
+      settings := GetCachedModuleSettings(mod.module);
 
+    IF (RecordExists(settings))
+    {
       INSERT CELL
           [ ...rec
           , mod.module

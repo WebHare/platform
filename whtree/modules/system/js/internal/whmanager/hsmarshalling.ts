@@ -108,8 +108,8 @@ export class Money {
     Object.defineProperty(this, "__hstype", { value: VariableType.Money });
   }
 
-  static isMoney(value: unknown) {
-    return typeof value === "object" && value && ((value as { __hstype: unknown }).__hstype === VariableType.Money);
+  static isMoney(value: unknown): value is Money {
+    return typeof value === "object" && Boolean(value) && ((value as { __hstype: unknown }).__hstype === VariableType.Money);
   }
 }
 

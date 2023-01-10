@@ -286,6 +286,7 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
   STRING workingdir := GetWebhareConfiguration().installationroot;
 
   IF (modulename = "coremodules"
+      OR modulename = "jssdk"
       OR modulename IN whconstant_builtinmodules)
   {
     tsconfigpath := MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json");
@@ -458,6 +459,7 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data)
 
 /** Checks the formatting status of all files in a module
     @param module Module to check
+    @cell options.onlypaths If set, check only these paths
     @return List of issues
     @cell(record array) return.issues Issues
     @cell(string) return.issues.resourcename Name fo the resource with the issue
@@ -466,18 +468,29 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data)
     @cell(string) return.issues.message Error message
     @cell(string) return.issues.category Category ('error' | 'warning')
 */
-PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
+PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ onlypaths := STRING[]
+      ], options);
+
   RECORD retval :=
       [ issues :=     RECORD[]
       ];
 
-  RECORD ARRAY files := GetFilesToValidate([ `mod::${module}` ], [ extensions := [ ".es", "js", ".ts", ".tsx" ]]);
+  STRING root := module = "jssdk"
+      ? GetWebhareConfiguration().installationroot || "jssdk/"
+      : "mod::" || module;
+
+  RECORD ARRAY files := GetFilesToValidate([ root ], [ extensions := [ ".es", ".js", ".ts", ".tsx" ]]);
 
   RECORD ARRAY toformat;
   FOREVERY (RECORD rec FROM files)
   {
     IF (NOT MatchesPathMasks(rec.subpath, rec.settings.formatmasks) OR MatchesPathMasks(rec.subpath, rec.settings.formatexcludemasks))
+      CONTINUE;
+
+    IF (IsValueSet(options.onlypaths) AND rec.path NOT IN options.onlypaths)
       CONTINUE;
 
     BLOB data := GetDiskResource(rec.path);
@@ -489,10 +502,11 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
     RECORD ARRAY result := WaitForPromise(FormatJavascriptFiles(toformat));
     FOREVERY (RECORD rec FROM result)
     {
+      STRING resourcename := rec.module = "jssdk" ? `direct::${rec.path}` : `mod::${rec.module}/${rec.subpath}`;
       IF (rec.error != "")
       {
-        INSERT
-            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+        INSERT CELL
+            [ resourcename
             , line :=         1
             , col :=          1
             , message :=      `Formatting file caused an error: ${rec.error}`
@@ -504,8 +518,8 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module)
       BOOLEAN ismatch := BlobToString(rec.output) = BlobToString(rec.data);
       IF (NOT ismatch)
       {
-        INSERT
-            [ resourcename := `mod::${rec.module}/${rec.subpath}`
+        INSERT CELL
+            [ resourcename
             , line :=         1
             , col :=          1
             , message :=      `File hasn't been formatted correctly - fixable using wh dev:autoformat`

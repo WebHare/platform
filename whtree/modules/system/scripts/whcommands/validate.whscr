@@ -6,6 +6,7 @@
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
@@ -20,12 +21,14 @@ IF(NOT RecordExists(cmdargs) OR Length(cmdargs.files) = 0)
 
 RECORD validateconfig;
 
+STRING jssdk := MergePath(GetWebhareConfiguration().installationroot, "jssdk") || "/";
+
 FOREVERY(STRING arg FROM cmdargs.files)
 {
   IF(NOT IsPathAbsolute(arg) AND arg NOT LIKE "*::*")
     arg := MergePath(GetCurrentPath(), arg);
 
-  STRING resname := GetResourceNameFromDiskPath(arg);
+  STRING resname := arg LIKE `${jssdk}*` ? `direct::${arg}` : GetResourceNameFromDiskPath(arg);
   IF(resname="")
     TerminateScriptWithError(`Cannot map path '${arg}' to a WebHare resource`);
 

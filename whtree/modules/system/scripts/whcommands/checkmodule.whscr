@@ -1,14 +1,17 @@
 <?wh
 
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "debug", type := "switch" ]
+                              , [ name := "silent", type := "switch" ]
                               , [ name := "nowarnings", type := "switch" ]
                               , [ name := "hidehints", type := "switch" ]
                               , [ name := "color", type := "switch" ]
@@ -16,6 +19,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "onlytids", type := "switch" ]
                               , [ name := "async", type := "switch" ]
                               , [ name := "filemask", type := "stringopt" ]
+                              , [ name := "onlypaths", type := "stringopt" ]
                               , [ name := "modules", type := "paramlist", required := TRUE ]
                               ]);
 
@@ -31,6 +35,23 @@ SetupFunctionProfiling("checkmodule", Detokenize(args.modules,','));
 IF (args.color)
   SetAnsiCmdMode("enabled");
 
+STRING ARRAY onlypaths;
+IF (args.onlypaths != "")
+{
+  BLOB filecontents;
+  IF (args.onlypaths = "-")
+    filecontents := GetSTDINAsBlob();
+  ELSE
+    filecontents := GetDiskResource(args.onlypaths);
+  FOREVERY (STRING path FROM Tokenize(BlobToString(filecontents), "\n"))
+  {
+    path := TrimWhitespace(path);
+    IF (path = "" OR path LIKE "#*")
+      CONTINUE;
+    INSERT path INTO onlypaths AT END;
+  }
+}
+
 STRING ARRAY checklist;
 IF(Length(args.modules) = 0)
 {
@@ -41,6 +62,8 @@ IF(Length(args.modules) = 0)
     IF (currentpath LIKE root || "*")
       INSERT mod INTO checklist AT END;
   }
+  IF (currentpath LIKE GetWebhareConfiguration().installationroot || "jssdk/*")
+    INSERT "jssdk" INTO checklist AT END;
 
   IF (LENGTH(checklist) = 0)
   {
@@ -51,10 +74,10 @@ IF(Length(args.modules) = 0)
 ELSE
 {
   FOREVERY(STRING module FROM args.modules)
-    FOREVERY(STRING mask FROM module = "coremodules" ? whconstant_builtinmodules : [module])
+    FOREVERY(STRING mask FROM module = "coremodules" ? whconstant_builtinmodules CONCAT [ "jssdk" ]: [module])
   {
     BOOLEAN have_match;
-    FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames())
+    FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames() CONCAT [ "jssdk" ])
       IF(mod NOT IN checklist AND ToUppercase(mod) LIKE ToUppercase(mask))
       {
         have_match := TRUE;
@@ -73,7 +96,7 @@ BOOLEAN core_typescript_checked;
 FOREVERY(STRING modname FROM checklist)
 {
   BOOLEAN checktypescript := TRUE;
-  IF (modname IN whconstant_builtinmodules)
+  IF (modname IN whconstant_builtinmodules OR modname = "jssdk")
   {
     /* Only check typescript for the first of the core modules, typescript check of a core
        module will check all core modules at once
@@ -82,7 +105,8 @@ FOREVERY(STRING modname FROM checklist)
     core_typescript_checked := TRUE;
   }
 
-  Print(`Checking module ${modname}...\n`);
+  IF (NOT args.silent)
+    Print(`Checking module ${modname}...\n`);
   OBJECT promise := AsyncCallFunctionFromJob(
               "mod::system/lib/internal/modules/checkmodule.whlib#CheckModule",
               modname, CELL
@@ -95,6 +119,7 @@ FOREVERY(STRING modname FROM checklist)
               , args.hidehints
               , documentation := args.doc
               , checktypescript
+              , onlypaths
               ]);
   INSERT promise INTO promises AT END;
 
@@ -127,5 +152,6 @@ IF(numerrors>0)
 }
 ELSE
 {
-  Print(`Checkmodule done: ${numwarnings} warnings\n`);
+  IF (NOT args.silent)
+    Print(`Checkmodule done: ${numwarnings} warnings\n`);
 }

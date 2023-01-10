@@ -2,6 +2,7 @@
 
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
@@ -96,8 +97,16 @@ PUBLIC RECORD FUNCTION GetValidationOptionsFromConfig(RECORD config)
 
 PUBLIC RECORD FUNCTION GetValidationOptions(STRING resourcename)
 {
-  STRING modname := GetModuleNameFromResourcePath(resourcename);
   RECORD config;
+  IF (resourcename LIKE GetWebhareConfiguration().installationroot || "jssdk/*")
+  {
+    // Use the system module configuration for the jssdk
+    config := CELL[...GetModuleValidationConfig("system"), DELETE excludemasks, DELETE futuremodule, DELETE futuremodulewhy ];
+    RETURN config;
+  }
+
+
+  STRING modname := GetModuleNameFromResourcePath(resourcename);
   IF(modname != "")
     config := CELL[...GetModuleValidationConfig(modname), DELETE excludemasks, DELETE futuremodule, DELETE futuremodulewhy ];
 
