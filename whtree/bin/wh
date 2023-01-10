@@ -24,8 +24,6 @@ while [[ $1 =~ ^-.* ]]; do
   fi
 done
 
-[ -f /opt/wh/whtree/etc/is-webhare-in-docker ] && export WEBHARE_IN_DOCKER=1
-
 # If used as command in 'docker run', initialize the environment
 if [ "$$" = "1" -a -n "$WEBHARE_IN_DOCKER" ]; then
   SETUPENV=1
