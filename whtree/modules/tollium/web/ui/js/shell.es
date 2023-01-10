@@ -31,7 +31,6 @@ import * as WRDAuth from '@mod-wrd/js/auth';
 import './debugging/magicmenu';
 
 var EventServerConnection = require('@mod-system/js/net/eventserver');
-var JSONRPC = require('@mod-system/js/net/jsonrpc');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
@@ -53,16 +52,19 @@ import TowlNotifications from './shell/towl';
 import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
 
-class IndyShell
-{ constructor()
-  {
+import TolliumShell from "@mod-tollium/shell/platform/shell";
+
+class IndyShell extends TolliumShell
+{
+  constructor(setup) {
+    super(setup);
+    window.$shell = this; //FIXME shouldn't need this!
     this.isloggingoff = false;
     this.istodd = false;
     this.eventsconnection = null;
     this.broadcaststart = null; //start of broadcasts. used to filter old messages
     this.isloggedin = false;
     this.checkinterval = 0;
-    this.tolliumservice = null;
     this.offlinenotification = false;
 
     this.settings = {};
@@ -236,7 +238,7 @@ class IndyShell
 
   completeLogin(data, lock)
   {
-    this.tolliumservice.request('CompleteLogin', [ data ],
+    this.tolliumservice.completeLogin(data).then(
       function(response) //onsuccess
       {
        location.reload(true);
@@ -253,7 +255,6 @@ class IndyShell
  */
   continueLaunch()
   {
-    this.tolliumservice = new JSONRPC(); //the shell will always talk back to the applicationportal that started it
 
     // Initialize global event handlers
     window.addEventListener("unload", evt => this.onUnload());
@@ -288,7 +289,7 @@ class IndyShell
     //This is the true shell. Ask the tollium shell what we need to do. Pass it any webvariables?
     var options = {};
     options.params = whintegration.config.obj.appserviceparams;
-    this.tolliumservice.request('StartPortal', [ options ], this.gotPortal.bind(this), this.failPortal.bind(this));
+    this.tolliumservice.startPortal([ options ]).then(this.gotPortal.bind(this), this.failPortal.bind(this));
   }
   gotPortal(data)
   {
@@ -392,7 +393,7 @@ class IndyShell
   {
     var options = {};
     options.params = whintegration.config.obj.appserviceparams;
-    this.tolliumservice.request('GetCurrentShellSettings', [ options ], this.applyShellSettings.bind(this));
+    this.tolliumservice.getCurrentShellSettings(options).then(this.applyShellSettings.bind(this));
   }
   getCurrentSettings()
   {
@@ -408,7 +409,7 @@ class IndyShell
     if(this.anyConnectedApplications())
       return; //no point if apps are open
 
-    this.tolliumservice.request('GetCurrentVersion', [], this.gotCurrentVersion.bind(this));
+    this.tolliumservice.getCurrentVersion().then(this.gotCurrentVersion.bind(this));
   }
   gotCurrentVersion(res)
   {
