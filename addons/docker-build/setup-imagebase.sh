@@ -37,8 +37,8 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 # Chrome headless sometimes crashes if fonts are missing. Not sure why, but see https://bugs.chromium.org/p/chromium/issues/detail?id=695212
 # Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
 ( curl -sL https://deb.nodesource.com/setup_18.x | bash - )
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8
+apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8 #MariaDB key
+apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
 # ( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
@@ -158,9 +158,9 @@ fi
 
 # Install chrome
 curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-dpkg -i /tmp/chrome.deb
+apt-get install -y /tmp/chrome.deb
 rm /tmp/chrome.deb
-apt-get -qy --fix-broken install
+# apt-get -qy --fix-broken install
 
 CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
 CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
