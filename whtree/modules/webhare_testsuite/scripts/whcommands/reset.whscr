@@ -37,7 +37,9 @@ OBJECT trans := OpenPrimary();
 
 UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
 
+LogDebug("webhare_testsuite:reset", "Waiting for assetpack webhare_testsuite:basetest to be compiled");
 WaitForCompiledAssetpack("webhare_testsuite:basetest");
+LogDebug("webhare_testsuite:reset", "Assetpack webhare_testsuite:basetest has been recompiled");
 
 trans->BeginWork();
 
@@ -370,8 +372,10 @@ IF(alttestsitehost != "")
 }
 
 trans->CommitWork();
+
 IF(ObjectExists(alttestsite))
 {
+  LogDebug("webhare_testsuite:reset", "Refreshing webserver configuration");
   RECORD reloadstatus := RefreshGlobalWebserverConfig();
   Print("Updated webserver settings\n");
   IF(Length(reloadstatus.broken_listeners)>0)
@@ -381,6 +385,7 @@ IF(ObjectExists(alttestsite))
   }
 }
 
+LogDebug("webhare_testsuite:reset", "Waiting for publish completion");
 WaitForPublishCompletion(testsite->id); //the testsite better be published as tests will be using it!
 IF(ObjectExists(alttestsite))
   WaitForPublishCompletion(alttestsite->id);
@@ -389,4 +394,5 @@ IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started we
   Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
 
 //recreate catalogs for our testsite subfolders
+LogDebug("webhare_testsuite:reset", "Fixing consilio indices");
 FixConsilioIndices();

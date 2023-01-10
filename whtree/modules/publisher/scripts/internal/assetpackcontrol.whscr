@@ -670,7 +670,7 @@ STATIC OBJECTTYPE AssetPackController
            SET task := DEFAULT OBJECT
          WHERE outputtag = recompilehash;
 
-        this->ProcessCompileResult(taskresult, TRUE);
+        this->ProcessCompileResult(taskresult);
       }
       CATCH (OBJECT< ServiceDisconnectException > e)
       {
@@ -1069,13 +1069,15 @@ STATIC OBJECTTYPE AssetPackController
         , errors :=     error
         , haserrors :=  TRUE
         , compiletoken := this->GetBundleCompiletoken(bundle)
-        ], FALSE);
+        ]);
   }
 
   /** Process a compilation result message
   */
-  MACRO ProcessCompileResult(RECORD message, BOOLEAN augment)
+  MACRO ProcessCompileResult(RECORD message)
   {
+    LogDebug("publisher:assetpackcontrol", "Compileresult for " || message.bundle, message);
+
     DATETIME now := GetCurrentDatetime();
     BOOLEAN haserrors := message.haserrors OR (RecordExists(message.info) AND Length(message.info.errors) > 0);
 
