@@ -135,6 +135,9 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
       : javascriptmsg.browser.name;
   STRING testscript := CellExists(javascriptmsg, "TESTSCRIPT") ? javascriptmsg.testscript : "";
 
+  IF (CellExists(javascriptmsg, "TYPE") AND javascriptmsg.type = "javascript-unhandled-rejection")
+    errormsg := `Unhandled rejection: ${errormsg}`;
+
   // decode browser triplet
   IF (browser LIKE "*-*-*")
     browser := Tokenize(browser, "-")[1];

@@ -1,0 +1,500 @@
+import EventSource from "../eventsource";
+import { createDeferred, DeferredPromise } from "../tools";
+import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
+import * as stacktrace_parser from "stacktrace-parser";
+import { TypedMessagePort, createTypedMessageChannel } from './transport';
+import { RefTracker } from "./refs";
+import { generateBase64UniqueID } from "../util/crypto";
+
+
+const logmessages = false;
+
+function getStructuredTrace(e: Error) {
+  if (!e.stack)
+    return [];
+
+  const trace = stacktrace_parser.parse(e.stack);
+  return trace.map(i => ({ filename: i.file || "", line: i.lineNumber || 1, col: i.column || 1, func: (i.methodName || "") }));
+}
+
+/** Format of a message containing an exception */
+export type IPCExceptionMessage = {
+  __exception: {
+    type: string;
+    what: string;
+    trace?: Array<{ filename: string; line: number; col: number; func: string }>;
+  };
+};
+
+/** Custom omit mapper, with TypeScript Omit causes switch type narrowing for the default case doesn't work */
+type OmitResponseKey<T> = {
+  [Key in keyof T as Key extends "__responseKey" ? never : Key]: T[Key];
+} | never;
+
+export interface IPCMessagePacket<ReceiveType extends object | null = IPCMarshallableRecord> {
+  msgid: bigint;
+  replyto: bigint;
+  message: OmitResponseKey<ReceiveType>;
+}
+
+type IPCEndPointEvents<ReceiveType extends object | null> = {
+  message: IPCMessagePacket<ReceiveType>;
+  exception: IPCMessagePacket<IPCExceptionMessage>;
+  close: undefined;
+};
+
+type CalcResponseType<SendType, ReceiveType, T extends OmitResponseKey<SendType>> = OmitResponseKey<SendType & T extends { __responseKey: object }
+  ? ReceiveType & (SendType & T)["__responseKey"]
+  : ReceiveType>;
+
+export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord> extends EventSource<IPCEndPointEvents<ReceiveType>> {
+  /** Indicator if closed */
+  get closed(): boolean;
+
+  /** Activates the link. After this call, message events will be emitted. For connecting links, the
+      call returns when the accepting side also has called activate().
+  */
+  activate(): Promise<void>;
+
+  /** Closes the link. */
+  close(): void;
+
+  /** Sends a message to the other endpoint
+      @param message - Message to send
+      @param replyto - When this message is a reply to another message, set to the msgid of the original message.
+  */
+  send(message: OmitResponseKey<SendType>, replyto?: bigint): bigint;
+
+  /** Sends an exception to the other endpoint. The exception is encoded in a normal message, use parseExceptions
+      to decode them when receiving messages.
+      @param message - Message to send
+      @param replyto - When this message is a reply to another message, set to the msgid of the original message.
+  */
+  sendException(e: Error, replyto: bigint): void;
+
+  /** Sends a message to the other endpoint, waits for the reply
+      @param message - Message to send
+      @returns Contents of the reply, or an exception when the link was closed before a reply was received. Exceptions
+        are parsed automatically and used to reject the returned promise.
+  */
+  doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>>;
+
+  /** Parse a message for exceptions. Throws the exception of the message contains an exception.
+      @param message - Message to parse
+      @returns Message, or throws an exception when the message contains one.
+  */
+  parseExceptions(message: ReceiveType | IPCExceptionMessage): ReceiveType;
+
+  /** Drop the reference on this endpoint, so the node process won't keep running when this endpoint hasn't been closed yet */
+  dropReference(): void;
+}
+
+export enum IPCEndPointImplControlMessageType {
+  Close,
+  Message,
+  ConnectResult
+}
+
+/** Format of MessagePort messages received by an IPCEndPointImpl */
+export type IPCEndPointImplControlMessage = {
+  type: IPCEndPointImplControlMessageType.Close;
+} | {
+  type: IPCEndPointImplControlMessageType.Message;
+  msgid: bigint;
+  replyto: bigint;
+  buffer: ArrayBuffer;
+} | {
+  type: IPCEndPointImplControlMessageType.ConnectResult;
+  success: boolean;
+};
+
+export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCEndPointEvents<ReceiveType>> implements IPCEndPoint<SendType, ReceiveType> {
+  /** id for logging */
+  private id: string;
+
+  /** Counter for message id generation */
+  private msgidcounter = BigInt(0);
+
+  /** Message port for communicating with the other side */
+  private port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
+
+  /** Queue for control messages, set when link hasn't been enabled yet */
+  private queue: IPCEndPointImplControlMessage[] | null = [];
+
+  /** List of pending requests */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed because requests can all have different response types
+  private requests = new Map<bigint, DeferredPromise<any>>;
+
+  /** Indicator if closed */
+  closed = false;
+
+  /** True when already busy emitting events after activation */
+  private emitting = false;
+
+  /** Link init mode
+      - "direct": Both endpoints immediately
+      - "connecting": This endpoint initiated the connection (was connecting when created)
+      - "accepting": This endpoint accepted the connection (was accepting the connection when created)
+   */
+  private mode: "direct" | "connecting" | "accepting";
+
+  /** Defer used to wait for connection results */
+  private defer?: DeferredPromise<void>;
+
+  /** Reference tracker
+  */
+  private refs: RefTracker;
+
+  /// Port this link is connecting to (for mode == connecting)
+  private connectporttitle?: string;
+
+  constructor(id: string, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>, mode: "direct" | "connecting" | "accepting", connectporttitle?: string) {
+    super();
+    this.id = id;
+    this.port = port;
+    this.mode = mode;
+    this.connectporttitle = connectporttitle;
+    this.port.on("message", (message) => this.handleControlMessage(message));
+    this.port.on("close", () => { this.handleControlMessage({ type: IPCEndPointImplControlMessageType.Close }); });
+    this.refs = new RefTracker(this.port, { initialref: true });
+
+    // If this is a link created by 'connect', init a defer that waits on the connection resukt
+    if (mode == "connecting")
+      this.defer = createDeferred<void>();
+  }
+
+  handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean) {
+    if (logmessages) {
+      const tolog = ctrlmsg.type === IPCEndPointImplControlMessageType.Message
+        ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
+        : { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] };
+      console.log(`ipclink ${this.id} received ctrl msg`, tolog, { isqueueitem });
+    }
+    if (this.closed)
+      return;
+    // handle connectresult immediately, don't let it go through the queue
+    if (this.queue && !isqueueitem && ctrlmsg.type != IPCEndPointImplControlMessageType.ConnectResult) {
+      this.queue.push(ctrlmsg);
+      if (logmessages)
+        console.log(` queued`);
+    } else {
+      switch (ctrlmsg.type) {
+        case IPCEndPointImplControlMessageType.ConnectResult: {
+          if (ctrlmsg.success)
+            this.defer?.resolve();
+          else
+            this.close();
+        } break;
+        case IPCEndPointImplControlMessageType.Message: {
+          const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer));
+          if (typeof message != "object")
+            return;
+          if (logmessages)
+            console.log(`ipclink ${this.id} ctrl msg`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] }, { isqueueitem });
+
+          const req = ctrlmsg.replyto && this.requests.get(ctrlmsg.replyto);
+          if (req) {
+            this.requests.delete(ctrlmsg.replyto);
+            try {
+              req.resolve(this.parseExceptions(message as ReceiveType | IPCExceptionMessage));
+            } catch (e) {
+              req.reject(e as Error);
+            }
+            return;
+          }
+          if (message && "__exception" in message)
+            this.emit("exception", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as IPCExceptionMessage });
+          else
+            this.emit("message", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as OmitResponseKey<ReceiveType> });
+        } break;
+        case IPCEndPointImplControlMessageType.Close: {
+          this.close();
+        } break;
+      }
+    }
+  }
+
+  async activate(): Promise<void> {
+    // send back a message that the link has been accepted (and messages will be received)
+    if (this.mode == "accepting")
+      this.sendPortMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });
+    else if (this.mode == "connecting") {
+      try {
+        await this.defer?.promise;
+      } catch (e) {
+        // re-throw the error so the stack trace points to the invocation of activate()
+        throw new Error((e as Error).message);
+      }
+
+    }
+    Promise.resolve(true).then(() => this.emitQueue());
+  }
+
+  emitQueue() {
+    if (logmessages)
+      console.log(` emitQueue`, this.emitting, this.queue);
+    if (this.emitting || !this.queue)
+      return;
+    this.emitting = true;
+    for (const ctrlmsg of this.queue)
+      this.handleControlMessage(ctrlmsg, true);
+    this.queue = null;
+  }
+
+  close() {
+    if (this.closed)
+      return;
+
+    if (logmessages) {
+      console.log(`ipclink ${this.id} closed`);
+    }
+
+    this.port.close();
+    this.closed = true;
+    this.queue = null;
+    this.emit("close", undefined);
+
+    for (const [, { reject }] of this.requests)
+      reject(new Error(`Request is cancelled, link was closed`));
+    this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
+  }
+
+  sendPortMessage(msg: IPCEndPointImplControlMessage, transferlist?: ArrayBuffer[]) {
+    if (logmessages) {
+      const tolog = msg.type === IPCEndPointImplControlMessageType.Message
+        ? { ...msg, type: IPCEndPointImplControlMessageType[msg.type], buffer: readMarshalPacket(msg.buffer) }
+        : { ...msg, type: IPCEndPointImplControlMessageType[msg.type] };
+      console.log(`ipclink ${this.id} sends ctrl msg`, tolog);
+    }
+    this.port.postMessage(msg, transferlist);
+  }
+
+  send(message: OmitResponseKey<SendType>, replyto?: bigint): bigint {
+    return this.sendInternal(message, replyto);
+  }
+
+  sendInternal(message: OmitResponseKey<SendType> | IPCExceptionMessage, replyto?: bigint): bigint {
+    if (this.closed)
+      return BigInt(0);
+    const msgid = ++this.msgidcounter;
+    const packet = writeMarshalPacket(message);
+    // Copy the packet data into a new ArrayBuffer we can transfer over the MessagePort
+    const buffer = packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
+    this.sendPortMessage({
+      type: IPCEndPointImplControlMessageType.Message,
+      msgid,
+      replyto: replyto ?? BigInt(0),
+      buffer
+    }, [buffer]);
+    return msgid;
+  }
+
+  sendException(e: Error, replyto: bigint): void {
+    const message: IPCExceptionMessage = {
+      __exception: {
+        type: "exception",
+        what: e.message,
+        trace: getStructuredTrace(e)
+      }
+    };
+    this.sendInternal(message, replyto);
+  }
+
+  async doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>> {
+    if (this.closed)
+      throw new Error(`IPC link has already been closed`);
+    const msgid = this.send(message);
+    const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
+    this.requests.set(msgid, defer);
+    const error = new Error();
+    const lock = this.refs.getLock("request");
+    try {
+      return await defer.promise;
+    } catch (e) {
+      // re-throw the error so the stack trace points to the invocation of activate()
+      error.message = (e as Error).message;
+      error.cause = e;
+      throw error;
+    } finally {
+      lock.release();
+    }
+  }
+
+  parseExceptions(message: ReceiveType | IPCExceptionMessage): ReceiveType {
+    if (typeof message == "object" && message && "__exception" in message) {
+      const exceptionmessage = message as IPCExceptionMessage;
+      const error = new Error(exceptionmessage.__exception.what);
+      const trace = exceptionmessage.__exception.trace?.map(item =>
+        `\n    at ${item.func ?? "unknown"} (${item.filename}:${item.line}:${item.col})`) ?? [];
+      error.stack = exceptionmessage.__exception.what + trace;
+      throw error;
+    }
+    return message;
+  }
+
+  dropReference() {
+    this.refs.dropInitialReference();
+  }
+}
+
+export enum IPCPortControlMessageType {
+  RegisterResult,
+  IncomingLink
+}
+
+export type IPCPortControlMessage = {
+  type: IPCPortControlMessageType.RegisterResult;
+  success: boolean;
+} | {
+  type: IPCPortControlMessageType.IncomingLink;
+  id: string;
+  port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>;
+};
+
+type IPCPortEvents<SendType extends object | null, ReceiveType extends object | null> = {
+  accept: IPCEndPoint<SendType, ReceiveType>;
+};
+
+export interface IPCPort<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord> extends EventSource<IPCPortEvents<SendType, ReceiveType>> {
+  /** Name of the port */
+  get name(): string;
+
+  /** Whether the port has been closed */
+  get closed(): boolean;
+
+  /** Activates event handling of the port. After this call, 'accept' events will be fired */
+  activate(): Promise<void>;
+
+  /** Closes the port */
+  close(): void;
+
+  /** Drop the reference on this port, so the node process won't keep running when this port hasn't been closed yet */
+  dropReference(): void;
+}
+
+export class IPCPortImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCPortEvents<SendType, ReceiveType>> implements IPCPort<SendType, ReceiveType> {
+  name: string;
+  port: TypedMessagePort<never, IPCPortControlMessage>;
+  defer = createDeferred<void>();
+  queue: Array<IPCEndPointImpl<SendType, ReceiveType>> | null = [];
+  closed = false;
+  emitting = false;
+  refs: RefTracker;
+
+  constructor(name: string, port: TypedMessagePort<never, IPCPortControlMessage>) {
+    super();
+    this.name = name;
+    this.port = port;
+    this.port.on("message", (message) => this.handleControlMessage(message));
+    this.refs = new RefTracker(this.port, { initialref: true });
+  }
+
+  handleControlMessage(ctrlmsg: IPCPortControlMessage) {
+    if (logmessages)
+      console.log(`port ${this.name} ctrl msg`, { ...ctrlmsg, type: IPCPortControlMessageType[ctrlmsg.type] });
+    switch (ctrlmsg.type) {
+      case IPCPortControlMessageType.RegisterResult: {
+        if (ctrlmsg.success)
+          this.defer.resolve();
+        else
+          this.defer.reject(new Error(`Port name ${JSON.stringify(this.name)} was already registered`));
+      } break;
+      case IPCPortControlMessageType.IncomingLink: {
+        const link = new IPCEndPointImpl<SendType, ReceiveType>(ctrlmsg.id, ctrlmsg.port, "accepting");
+        this.handleItem(link);
+      } break;
+    }
+  }
+
+  async activate() {
+    try {
+      await this.defer.promise;
+      Promise.resolve(true).then(() => this.emitQueue());
+    } catch (e) {
+      // re-throw the error so the stack trace points to the invocation of activate()
+      throw new Error((e as Error).message);
+    }
+  }
+
+  emitQueue() {
+    if (this.emitting || !this.queue)
+      return;
+    this.emitting = true;
+    for (const link of this.queue)
+      this.handleItem(link, true);
+    this.queue = null;
+  }
+
+  handleItem(link: IPCEndPointImpl<SendType, ReceiveType>, isqueueitem?: boolean) {
+    if (!this.closed) {
+      if (this.queue && !isqueueitem) {
+        if (logmessages)
+          console.log(` queued`);
+        this.queue.push(link);
+      } else {
+        this.emit("accept", link);
+      }
+    } else {
+      // Auto-close links that won't be received anymore
+      link.close();
+    }
+  }
+
+  close() {
+    this.port.close();
+    this.closed = true;
+    this.emitQueue();
+  }
+
+  /** Drop the reference on this port, so the node process won't keep running when this port hasn't been closed yet */
+  dropReference(): void {
+    this.refs.dropInitialReference();
+  }
+
+}
+
+/** Creates an IPC link pair
+    @typeParam LinkType - IPC
+    @typeParam SendType - the type of messages the second endpoint can send, and the first endpoint can receive
+*/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = IPCLinkType>(): [LinkType["ConnectEndPoint"], LinkType["AcceptEndPoint"]] {
+  const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+  const id = generateBase64UniqueID();
+  return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
+}
+
+/** Describes an IPC link configuration, contains all needed type. Use as
+ * ```
+ * type MyLinkType = IPCLinkType< RequestType, ResponseType >;
+ * bridge.createPort< MyLinkType >(); // type: MyLinkType["Port"]
+ * function onBridgeLink(link: MyLinkType["AcceptEndPoint"])
+ * function onBridgePacket(packet: MyLinkType["AcceptEndPointPacket"])
+ * bridge.connect< MyLinkType >(); // type: MyLinkType["ConnectEndPoint"]
+ * function onConnectPacket(link: MyLinkType["ConnectEndPointPacket"])
+ * ```
+ * You can directly specify the expected response for a request as follows:
+ * ```
+ * type RequestType = {
+ *   type: "request";
+ *   data: "string";
+ *   __responseKey: { type: "response" };
+ * };
+ * type ResponseType = {
+ *   type: "response";
+ *   data: "string";
+ * };
+ * ```
+ * @typeParam RequestType - The type of the data that the connecting side of the link will send (and the accepting side will receive). Use __responseKey in a
+ * request type to specify the keys of the response (copy the keys of the response into the object)
+ * @typeParam ResponseType - The type of the data the accepting side of the link (the one accepting links with a port) will send (and the connecting
+ * side will receive)
+ */
+export type IPCLinkType<RequestType extends object | null = IPCMarshallableRecord, ResponseType extends object | null = IPCMarshallableRecord> = {
+  AcceptEndPoint: IPCEndPoint<ResponseType, RequestType>;
+  AcceptEndPointPacket: IPCMessagePacket<RequestType>;
+  ConnectEndPoint: IPCEndPoint<RequestType, ResponseType>;
+  ConnectEndPointPacket: IPCMessagePacket<ResponseType>;
+  ExceptionPacket: IPCMessagePacket<IPCExceptionMessage>;
+  Port: IPCPort<ResponseType, RequestType>;
+};

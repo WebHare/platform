@@ -4,6 +4,7 @@ import * as path from "path";
 import ts from "typescript";
 import { SchemaObject } from "ajv";
 import * as TJS from "typescript-json-schema";
+import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
 
 export function reportAssertError(stack: string) {
   const badline = stacktrace_parser.parse(stack)[1];
@@ -84,4 +85,21 @@ export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject>
     file = require.resolve(file);
 
   return JSON.parse(fs.readFileSync(file).toString("utf-8")) as SchemaObject;
+}
+
+interface ProcessUndocumented {
+  getActiveResourcesInfo(): string[];
+}
+
+function dumpHandlesAndRequests() {
+  // ADDME: use something like why-is-node-running to get and dump all stuff
+  const p: ProcessUndocumented = process as unknown as ProcessUndocumented;
+  console.error('\nTest process is not shutting down after tests, there are probably still active handles or requests');
+  console.error('Active resource types:', p.getActiveResourcesInfo());
+  dumpActiveIPCMessagePorts();
+  process.exit(1);
+}
+
+export function scheduleLingeringProcessCheck() {
+  setTimeout(() => dumpHandlesAndRequests(), 5000).unref();
 }

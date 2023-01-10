@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
-import { WHManagerConnection, WHMRequestOpcode, WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
-import { readMarshalPacket, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
+import { readMarshalData, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 
 async function testRPCs() {
@@ -38,7 +38,10 @@ async function testRPCs() {
     conn.send({
       opcode: WHMRequestOpcode.RegisterProcess,
       processcode,
-      clientname: require.main?.filename ?? "unknown"
+      pid: process.pid,
+      type: WHMProcessType.TypeScript,
+      name: require.main?.filename ?? "unknown",
+      parameters: {}
     });
 
     const registerresults = await extractResponses(WHMResponseOpcode.RegisterProcessResult);
@@ -55,7 +58,8 @@ async function testRPCs() {
     test.eq([
       {
         opcode: WHMResponseOpcode.SystemConfig,
-        have_debugger: registerresults[0].have_debugger,
+        have_hs_debugger: registerresults[0].have_hs_debugger,
+        have_ts_debugger: registerresults[0].have_ts_debugger,
         systemconfigdata: registerresults[0].systemconfigdata
       }
     ], systemconfigupdatresults);
@@ -63,10 +67,11 @@ async function testRPCs() {
 
   // STORY: getprocesslist
   {
-    conn.send({ opcode: WHMRequestOpcode.GetProcessList });
+    conn.send({ opcode: WHMRequestOpcode.GetProcessList, requestid: 13 });
     const listresult = await extractResponses(WHMResponseOpcode.GetProcessListResult);
     test.eq(1, listresult.length);
-    test.assert(Array.from(listresult[0].processes.entries()).some(([, name]) => name === "whcompile"), "process 'whcompile' should be registered");
+    test.eq(13, listresult[0].requestid);
+    test.assert(Array.from(listresult[0].processes.entries()).some(([, { name }]) => name === "whcompile"), "process 'whcompile' should be registered");
   }
 
   // STORY: event broadcast
@@ -87,20 +92,20 @@ async function testRPCs() {
     conn2.getRef(); // leak the reference, see if conn2.close kills it
     await new Promise(resolve => conn2.on("online", resolve));
 
-    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: BigInt(0), clientname: (require.main?.filename ?? "unknown") + " bouncer test" });
+    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: BigInt(0), pid: process.pid, type: WHMProcessType.TypeScript, name: (require.main?.filename ?? "unknown") + " bouncer test", parameters: { a: "a" } });
     test.wait(() => gotdata, "Expected some data to arrive at conn2");
 
     conn.send({
       opcode: WHMRequestOpcode.SendEvent,
       eventname: "webhare_testsuite:testevent",
-      eventdata: writeMarshalPacket(testdata)
+      eventdata: writeMarshalData(testdata)
     });
     for (; ;) {
       const eventresults = await extractResponses(WHMResponseOpcode.IncomingEvent);
       let foundevent;
       for (const event of eventresults)
         if (event.eventname === "webhare_testsuite:testeventbounce") {
-          test.eq(testdata, readMarshalPacket(event.eventdata));
+          test.eq(testdata, readMarshalData(event.eventdata));
           foundevent = true;
           break;
         }
@@ -215,7 +220,7 @@ async function testRPCs() {
   }
 
   test.assert(!goterror);
-  ref.close();
+  ref.release();
 }
 
 test.run([testRPCs]);

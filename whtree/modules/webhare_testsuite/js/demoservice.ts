@@ -1,3 +1,5 @@
+import { ConvertBackendServiceInterfaceToClientInterface } from "@webhare/services";
+
 class ClusterTestLink {
   dummy = 42;
   // null-likes completely broke interface description earlier, so test them specifically
@@ -42,6 +44,8 @@ class ClusterTestLink {
   //   this.EmitEvent("testevent", data);
   // }
 }
+
+export type DemoServiceInterface = ConvertBackendServiceInterfaceToClientInterface<ClusterTestLink>;
 
 export function openDemoService(testdata: string) {
   return new ClusterTestLink(testdata);

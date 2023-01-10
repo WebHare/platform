@@ -17,7 +17,8 @@
 
 namespace
 {
-static const char *debugmgr_internalport = "wh:debugmgr_internal";
+static const char *debugmgr_hs_internalport = "wh:debugmgr_internal";
+static const char *debugmgr_ts_internalport = "ts:debugmgr_internal";
 
 } // End of anonymous namespace
 
@@ -124,7 +125,7 @@ void Connection::CleanUpConnection()
 
                 for (std::map< std::string, std::shared_ptr< NamedPort > >::iterator it = ports.begin(); it != ports.end(); ++it)
                 {
-                        if (it->first == debugmgr_internalport)
+                        if (it->first == debugmgr_hs_internalport || it->first == debugmgr_ts_internalport)
                             removed_debugger = true;
                         lock->ports.erase(it->first);
                 }
@@ -194,18 +195,22 @@ void Connection::BroadcastSystemConfig()
 {
         WHManager::LockedData::WriteRef lock(manager->data);
 
-        Connection *debuggerconnection = 0;
-        std::map< std::string, NamedPort * >::iterator portit = lock->ports.find(debugmgr_internalport);
-        if (portit != lock->ports.end())
-            debuggerconnection = portit->second->conn;
+        Connection *hs_debuggerconnection = 0, *ts_debuggerconnection = 0;
+        std::map< std::string, NamedPort * >::iterator hs_portit = lock->ports.find(debugmgr_hs_internalport);
+        if (hs_portit != lock->ports.end())
+            hs_debuggerconnection = hs_portit->second->conn;
+        std::map< std::string, NamedPort * >::iterator ts_portit = lock->ports.find(debugmgr_ts_internalport);
+        if (ts_portit != lock->ports.end())
+            ts_debuggerconnection = ts_portit->second->conn;
 
         for (std::set< Connection * >::iterator it = lock->connections.begin(); it != lock->connections.end(); ++it)
         {
                 // Don't give debugger 'live' status to process with debugmanager
-                bool have_debugger = debuggerconnection && debuggerconnection != *it;
+                bool have_hs_debugger = hs_debuggerconnection && hs_debuggerconnection != *it;
+                bool have_ts_debugger = ts_debuggerconnection && ts_debuggerconnection != *it;
 
                 std::unique_ptr< SystemConfigTask > task;
-                task.reset(new SystemConfigTask(*it, have_debugger, lock->systemconfig));
+                task.reset(new SystemConfigTask(*it, have_hs_debugger, have_ts_debugger, lock->systemconfig));
 
                 std::unique_ptr< Database::RPCTask > rpctask;
                 rpctask.reset(task.release());
@@ -358,7 +363,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterPort(Database::IOBuffer *i
                 }
         }
 
-        if (!exists && portname == debugmgr_internalport)
+        if (!exists && (portname == debugmgr_hs_internalport || portname == debugmgr_ts_internalport))
             BroadcastSystemConfig();
 
         iobuf->ResetForSending();
@@ -401,7 +406,7 @@ Database::RPCResponse::Type Connection::RemoteUnregisterPort(Database::IOBuffer 
                 lock->ports.erase(portname);
         }
 
-        if (exists && portname == debugmgr_internalport)
+        if (exists && (portname == debugmgr_hs_internalport || portname == debugmgr_ts_internalport))
             BroadcastSystemConfig();
 
         if (respond)
@@ -643,12 +648,23 @@ Database::RPCResponse::Type Connection::RemoteOpenLinkResult(Database::IOBuffer 
 
 Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer *iobuf)
 {
-        processcode = iobuf->Read< uint64_t >(); // Ignored
-        std::string name = iobuf->Read< std::string >();
+        WHManager::RegisteredProcess proc;
 
-        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, processcode: " << processcode << ", name: '" << name << "'");
+        proc.code = iobuf->Read< uint64_t >(); // Ignored
+        proc.pid = iobuf->Read< int32_t >();
+        proc.type = static_cast< WHManager::ProcessType >(iobuf->Read< uint8_t >());
+        proc.name = iobuf->Read< std::string >();
+        uint32_t parametercount = iobuf->Read< uint32_t >();
+        for (uint32_t idx = 0; idx < parametercount; ++idx)
+        {
+                std::string name = iobuf->Read< std::string >();
+                std::string value = iobuf->Read< std::string >();
+                proc.parameters[name] = value;
+        }
 
-        bool have_debugger;
+        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, processcode: " << processcode << ", pid: " << proc.pid << ", name: '" << proc.name << "'");
+
+        bool have_hs_debugger = false, have_ts_debugger = false;
         std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig;
 
         {
@@ -656,15 +672,16 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
 
                 processcode = ++lock->processcodecounter;
 
-                have_debugger = false;
-                std::map< std::string, NamedPort * >::const_iterator it = lock->ports.find(debugmgr_internalport);
-                if (it != lock->ports.end())
-                    have_debugger = it->second->conn != this;
+                std::map< std::string, NamedPort * >::const_iterator hs_it = lock->ports.find(debugmgr_hs_internalport);
+                if (hs_it != lock->ports.end())
+                    have_hs_debugger = hs_it->second->conn != this;
 
-                WHManager::RegisteredProcess &data = lock->processes[processcode];
+                std::map< std::string, NamedPort * >::const_iterator ts_it = lock->ports.find(debugmgr_ts_internalport);
+                if (ts_it != lock->ports.end())
+                    have_ts_debugger = ts_it->second->conn != this;
 
-                data.code = processcode;
-                data.name = name;
+                proc.code = processcode;
+                lock->processes[processcode] = proc;
 
                 systemconfig = lock->systemconfig;
         }
@@ -674,7 +691,8 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
         uint8_t dummy = 0;
 
         iobuf->Write(processcode);
-        iobuf->Write(have_debugger);
+        iobuf->Write(have_hs_debugger);
+        iobuf->Write(have_ts_debugger);
         if (systemconfig.get())
             iobuf->WriteBinary(systemconfig->size(), &(*systemconfig)[0]);
         else
@@ -690,17 +708,28 @@ Database::RPCResponse::Type Connection::RemoteGetProcessList(Database::IOBuffer 
 {
         DEBUGPRINT("Conn " << this << " Incoming RPC GetProcessList");
 
+        uint32_t id = iobuf->Read< uint32_t >();
+
         iobuf->ResetForSending();
 
         {
                 WHManager::LockedData::WriteRef lock(manager->data);
 
+                iobuf->Write< uint32_t >(id);
                 iobuf->Write< uint32_t >(lock->processes.size());
 
                 for (std::map< uint64_t, WHManager::RegisteredProcess >::iterator it = lock->processes.begin(); it != lock->processes.end(); ++it)
                 {
                         iobuf->Write< uint64_t >(it->second.code);
+                        iobuf->Write< int32_t >(it->second.pid);
+                        iobuf->Write< uint8_t >(static_cast< uint8_t >(it->second.type));
                         iobuf->Write< std::string >(it->second.name);
+                        iobuf->Write< uint32_t >(it->second.parameters.size());
+                        for (auto &pitr: it->second.parameters)
+                        {
+                                iobuf->Write< std::string >(pitr.first);
+                                iobuf->Write< std::string >(pitr.second);
+                        }
                 }
         }
 
@@ -1024,7 +1053,8 @@ Database::RPCResponse::Type SystemConfigTask::HookExecuteTask(Database::IOBuffer
 {
         uint8_t dummy = 0;
         iobuf->ResetForSending();
-        iobuf->Write(have_debugger);
+        iobuf->Write(have_hs_debugger);
+        iobuf->Write(have_ts_debugger);
         if (config.get())
             iobuf->WriteBinary(config->size(), &(*config)[0]);
         else

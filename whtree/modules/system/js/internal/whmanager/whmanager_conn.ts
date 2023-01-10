@@ -1,51 +1,55 @@
 import * as net from "net";
 import EventSource from "../eventsource";
+import { RefTracker, RefLock } from "./refs";
 import { parseRPC, createRPC } from "./whmanager_rpc";
 import { WHMResponse, WHMRequest } from "./whmanager_rpcdefs";
 
 export * from "./whmanager_rpcdefs";
 
+const logpackets = false;
+
 type WHManagerConnectionEvents = {
   data: WHMResponse;
   offline: void;
   online: void;
+  ref: void;
+  unref: void;
 };
 
-class Reference {
-  private onclose?: () => void;
-  constructor(onclose: () => void) {
-    this.onclose = onclose;
-  }
-  close() {
-    if (this.onclose)
-      this.onclose();
-    this.onclose = undefined;
-  }
-}
+export type WHManagerConnectionRefLock = RefLock;
 
 export class WHManagerConnection extends EventSource<WHManagerConnectionEvents>  {
   private connecting = false;
+  private connected = false;
   private backoff_ms = 1;
   private socket: net.Socket;
   private incoming: Buffer = Buffer.from("");
-  private rpcfailed = false;
-  private writeref?: Reference | null = null;
-  private refs = new Set<Reference>();
+  private writeref?: RefLock;
+  private refs;
 
   constructor() {
     super();
     this.socket = new net.Socket({ allowHalfOpen: false });
+    this.socket.setNoDelay(true);
     this.socket.on("connect", () => this.gotConnection());
     this.socket.on("data", (data) => this.gotIncoming(data));
     this.socket.on("drain", () => {
       if (this.writeref)
-        this.writeref.close();
-      this.writeref = null;
+        this.writeref.release();
+      this.writeref = undefined;
     });
-    this.socket.on("end", () => this.gotConnectionClose());
+    this.socket.on("end", () => this.gotConnectionEnd());
+    this.socket.on("close", () => this.gotConnectionClose());
     this.socket.on("error", () => this.gotConnectionError());
     this.socket.unref();
+    this.refs = new RefTracker(this.socket, { initialref: false });
+    this.refs.on("ref", () => this.emit("ref", void (0)));
+    this.refs.on("unref", () => this.emit("unref", void (0)));
     this.connect();
+  }
+
+  get online(): boolean {
+    return this.connected;
   }
 
   connect() {
@@ -57,20 +61,38 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
   }
 
   private gotConnection() {
+    if (logpackets)
+      console.log(`whmconn: connection online`);
     this.backoff_ms = 1;
     this.connecting = false;
+    this.connected = true;
     this.emit("online", void (false));
   }
 
+  private gotConnectionEnd() {
+    if (logpackets)
+      console.log(`whmconn: connection end`);
+    if (this.connected) {
+      this.connected = false;
+      this.emit("offline", void (false));
+    }
+  }
+
   private gotConnectionClose() {
-    this.emit("offline", void (false));
+    if (logpackets)
+      console.log(`whmconn: connection close`);
+    if (this.connected) {
+      this.connected = false;
+      this.emit("offline", void (false));
+    }
     this.connect();
   }
 
   async gotConnectionError() {
     this.backoff_ms = Math.min(this.backoff_ms * 2, 10000);
     this.connecting = false;
-    console.log(`connection error`);
+    if (logpackets)
+      console.log(`whmconn: connection error`);
     // wait for backoff, but don't keep node process running for it
     await new Promise(resolve => {
       setTimeout(resolve, this.backoff_ms).unref();
@@ -89,13 +111,15 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
       return 0;
     const lensofar = this.incoming.readUInt32LE(0) & 0xffffff;
     if (lensofar > 512 * 1024 || lensofar < 4) {
-      this.rpcfailed = false;
+      this.socket.end();
       throw new Error(`Received broken buffer length from database: ${lensofar}`);
     }
     return lensofar;
   }
 
   private gotIncoming(newdata: Buffer): void {
+    if (logpackets)
+      console.log(`whmconn: connection data`, newdata);
     this.incoming = Buffer.concat([this.incoming, newdata]);
     while (this.isComplete()) {
       const len = this.getFirstBufferLength();
@@ -107,31 +131,21 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     }
   }
 
-  send(value: WHMRequest) {
+  send(value: WHMRequest): void {
     if (this.socket.destroyed)
       throw new Error(`socket was already closed`);
 
-    if (!this.socket.write(createRPC(value))) {
+    if (!this.socket.write(createRPC(value)) && !this.writeref) {
       // Ensure all data gets out, unref on drain event
-      this.writeref = this.getRef();
+      this.writeref = this.refs.getLock();
     }
   }
 
-  close() {
+  close(): void {
     this.socket.destroy();
-    for (const ref of this.refs)
-      ref.close();
-    this.refs.clear();
   }
 
-  getRef(): Reference {
-    /** Re-adding a reference to the socket doesn't seem to work. Taking a very long-running timer instead */
-    const cb = this.socket.destroyed ? null : setTimeout(() => false, 2000000000);
-    const ref = new Reference(() => {
-      if (cb)
-        clearTimeout(cb);
-    });
-    this.refs.add(ref);
-    return ref;
+  getRef(): WHManagerConnectionRefLock {
+    return this.refs.getLock();
   }
 }

@@ -1,5 +1,6 @@
-import WHBridge, { IPCListenerPort, IPCLink } from './bridge';
-import { ServiceCallMessage, WebHareServiceDescription } from './types';
+import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
+import { createDeferred } from "./tools";
+import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
 
 interface WebHareServiceOptions {
   autorestart?: boolean;
@@ -8,21 +9,20 @@ interface WebHareServiceOptions {
   __droplistenerreference?: boolean;
 }
 
-/** Encode into a record for transfer over IPC.
-    @returns Encoded exception
+/** Convert the return type of a function to a promise
+ * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
 */
-function encodeExceptionForIPC(e: unknown) {
-  let what = String(e);
-  if (what.startsWith("Error: "))
-    what = what.substring(7); //for compatibility with HareScript exceptins
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Parameters<T>) => ReturnType<T> extends Promise<any> ? ReturnType<T> : Promise<ReturnType<T>>;
 
-  return {
-    type: "exception",
-    what: what,
-    trace: [] //TODO
-  };
-}
-
+/** Converts the interface of a WebHare service to the interface used by a client.
+ * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise.
+ * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
+*/
+export type ConvertBackendServiceInterfaceToClientInterface<BackendHandlerType extends object> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
+};
 
 //Describe a JS public interface in a HS compatible way
 function describePublicInterface(inobj: object): WebHareServiceDescription {
@@ -43,7 +43,7 @@ function describePublicInterface(inobj: object): WebHareServiceDescription {
       if (typeof method !== 'function')
         continue; //we only expose real functions, not variables, constants etc
 
-      const params: object[] = [];
+      const params = [];
       for (let i = 0; i < method.length; ++i) //iterate arguments of method
         params.push({ type: 1, has_default: true }); //pretend all arguments to be VARIANTs in HareScript
 
@@ -67,64 +67,92 @@ interface ServiceConnection {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
+class LinkState {
+  handler: object | null;
+  link: WebHareServiceIPCLinkType["AcceptEndPoint"];
+  initdefer = createDeferred<boolean>();
+
+  constructor(handler: object | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
+    this.handler = handler;
+    this.link = link;
+  }
+}
 
 class WebHareService { //EXTEND IPCPortHandlerBase
-  private _port: IPCListenerPort;
+  private _port: WebHareServiceIPCLinkType["Port"];
   private _constructor: ConnectionConstructor;
-  private _links: Array<{ handler: object; link: object }>;
+  private _links: LinkState[];
   private _options: WebHareServiceOptions;
 
-  constructor(port: IPCListenerPort, servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
+  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
     this._port = port;
     this._constructor = constructor;
     this._port.on("accept", link => this._onLinkAccepted(link));
     this._links = [];
     this._options = options;
   }
-  async _onLinkAccepted(link: IPCLink) {
-    try {
-      //TODO can we use something like liveapi's async event waiters?
-      const messagepromise = link.waitOn("message");
-      link.accept();
-      const packet = await messagepromise;
-      this._setupLink(link, packet.message as { __new: unknown[] }, packet.msgid);
-    } catch (e) {
-      console.log("_onLinkAccepted error", e);
-      WHBridge._closeLink(link);
-    }
-  }
 
-  async _setupLink(link: IPCLink, msg: { __new: unknown[] }, id: number) {
+  async _onLinkAccepted(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     try {
-      if (!this._constructor)
-        throw new Error("This service does not accept incoming connections");
-
-      const handler = await this._constructor(...msg.__new);
-      link.on("message", _ => this._onMessage(link, _));
-      link.send(describePublicInterface(handler), id);
+      const state = new LinkState(null, link);
+      link.on("close", () => this._onClose(state));
+      link.on("message", _ => this._onMessage(state, _));
+      link.on("exception", () => false);
       if (this._options.__droplistenerreference)
         link.dropReference();
 
-      this._links.push({ handler, link });
+      await link.activate();
     } catch (e) {
-      console.log("_setupLink error", e);
-      link.sendException(e as Error, id);
-      WHBridge._closeLink(link);
+      link.close();
     }
   }
 
-  async _onMessage(link: IPCLink, msg: unknown) {
-    const parsed = msg as { message: ServiceCallMessage; msgid: number };
-    const message = parsed.message;
-    const replyid = parsed.msgid;
-    try {
-      const pos = this._links.findIndex(_ => _.link === link);
-      const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
-      const result = await (this._links[pos].handler as ServiceConnection)[message.call].apply(this._links[pos].handler, args);
-      link.send({ result: message.jsargs ? JSON.stringify(result) : result }, replyid);
-    } catch (e) {
-      link.send({ exc: encodeExceptionForIPC(e) }, replyid);
+  _onClose(state: LinkState) {
+    if (state.handler && "_gotClose" in state.handler && typeof state.handler._gotClose == "function")
+      state.handler._gotClose();
+  }
+
+  async _onMessage(state: LinkState, msg: WebHareServiceIPCLinkType["AcceptEndPointPacket"]) {
+    if (!state.handler) {
+      try {
+        if (!this._constructor)
+          throw new Error("This service does not accept incoming connections");
+
+        const initdata = msg as IPCMessagePacket<ServiceInitMessage>;
+        const handler = await this._constructor(...initdata.message.__new);
+        if (!state.handler)
+          state.handler = handler;
+        if (!state.handler)
+          throw new Error(`Service handler initialization failed`);
+
+        state.link.send(describePublicInterface(state.handler), msg.msgid);
+        state.initdefer.resolve(true);
+      } catch (e) {
+        state.link.sendException(e as Error, msg.msgid);
+        state.link.close();
+        state.initdefer.resolve(false);
+      }
+      return;
     }
+    if (!await state.initdefer.promise) {
+      state.link.sendException(new Error(`Service has not been properly initialized`), msg.msgid);
+      state.link.close();
+      return;
+    }
+
+    try {
+      const message = msg.message as ServiceCallMessage;
+      //const pos = this._links.findIndex(_ => _.link === state.link);
+      const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
+      const result = await (state.handler as ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
+      state.link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
+    } catch (e) {
+      state.link.sendException(e as Error, msg.msgid);
+    }
+  }
+
+  async _onException(link: WebHareServiceIPCLinkType["AcceptEndPoint"], msg: WebHareServiceIPCLinkType["ExceptionPacket"]) {
+    // ignore exceptions, not sent by connecting endpoints
   }
 }
 
@@ -143,13 +171,13 @@ export default async function runWebHareService(servicename: string, constructor
   if (!servicename.match(/^.+:.+$/))
     throw new Error("A service should have a <module>:<service> name");
 
-  const hostport = new IPCListenerPort;
+  const hostport = bridge.createPort<WebHareServiceIPCLinkType>("webhareservice:" + servicename, { global: true });
   const service = new WebHareService(hostport, servicename, constructor, options);
-
-  await hostport.listen("webhareservice:" + servicename, true);
 
   if (options.__droplistenerreference)
     hostport.dropReference();
+
+  await hostport.activate();
 
   return service;
 }

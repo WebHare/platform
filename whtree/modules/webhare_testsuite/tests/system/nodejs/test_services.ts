@@ -2,8 +2,8 @@
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import WHBridge from "@mod-system/js/internal/bridge"; //@webhare/services should be wrapping the bridge but we need to validate the reference counter
-import { getBridgeManagerLink, getBridgeInstanceID } from "@webhare/services/src/bridgemgrlink";
+import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
+import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -79,19 +79,30 @@ async function testResources() {
   */
 }
 
+interface ProcessUndocumented {
+  getActiveResourcesInfo(): string[];
+}
+
+async function getActiveMessagePortCount() {
+  await new Promise(r => setTimeout(r, 5));
+  const p: ProcessUndocumented = process as unknown as ProcessUndocumented;
+  return p.getActiveResourcesInfo().filter((resourcename) => resourcename === "MessagePort").length;
+}
+
 async function runWebHareServiceTest_JS() {
-  await test.throws(/Unable to connect/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
-  test.eq(0, WHBridge.references);
+  await test.throws(/Could not connect to global port/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
+  test.eq(0, await getActiveMessagePortCount());
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  test.assert(await services.openBackendService("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
-  test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
+  test.assert(await services.openBackendService<DemoServiceInterface>("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
+  dumpActiveIPCMessagePorts();
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"]));
-  test.eq(0, WHBridge.references, "Failed and closed attempts above should not have kept a pending reference");
+  test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  const serverinstance: any = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
+  const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
 
   test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
@@ -119,14 +130,14 @@ async function runWebHareServiceTest_JS() {
   test.eq(25, await eventwaiter);
   */
 
-  test.eq(0, WHBridge.references, "Our version of the demoservice wasn't lingering, so no references");
+  test.eq(0, await getActiveMessagePortCount(), "Our version of the demoservice wasn't lingering, so no references");
   serverinstance.close();
-  test.eq(0, WHBridge.references, "and close() should have no effect");
+  test.eq(0, await getActiveMessagePortCount(), "and close() should have no effect");
 
   const secondinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"], { linger: true });
-  test.eq(1, WHBridge.references, "With linger, we take a reference");
+  test.eq(1, await getActiveMessagePortCount(), "With linger, we take a reference");
   secondinstance.close();
-  test.eq(0, WHBridge.references, "and close() should drop that reference");
+  test.eq(0, await getActiveMessagePortCount(), "and close() should drop that reference");
 }
 
 async function testDisconnects() {
@@ -134,27 +145,28 @@ async function testDisconnects() {
   const instance2 = await services.openBackendService("webhare_testsuite:demoservice", ["instance2"], { linger: true });
 
   //Send a message to instance 1 and immediately disconnect it. then try instance 2 and see if the service got killed because we dropped the outgoing line
-  instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
+  const promise = instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
   await test.sleep(1); //give the command time to be flushed
   instance1.close(); //kill the link
+  await test.throws(/Request is cancelled, link was closed/, promise, `Request should throw`);
 
   await test.sleep(100); //give the demoservice time to answer. we know it's a racy test so it might give false positives..
   // verify the services stil lwork
   test.eq(42, await instance2.getAsyncLUE());
   instance2.close(); //kill the second link
 
-  test.eq(0, WHBridge.references);
+  test.eq(0, await getActiveMessagePortCount());
 }
 
 async function runWebHareServiceTest_HS() {
   await test.throws(/Invalid/, services.openBackendService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:webhareservicetest", ["abort"]));
 
-  test.eq(0, WHBridge.references, "Failed attempts above should not have kept a pending reference");
+  test.eq(0, await getActiveMessagePortCount(), "Failed attempts above should not have kept a pending reference");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
-  test.eq(1, WHBridge.references, "services.openBackendService should immediately keep a reference open");
+  test.eq(1, await getActiveMessagePortCount(), "services.openBackendService should immediately keep a reference open");
   test.eq(42, await serverinstance.GETLUE());
 
   let promise = serverinstance.GETASYNCLUE();
@@ -172,7 +184,7 @@ async function runWebHareServiceTest_HS() {
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ASYNCPING(41, 43));
 
   serverinstance.close();
-  test.eq(0, WHBridge.references, "And the reference should be cleaned after close");
+  test.eq(0, await getActiveMessagePortCount(), "And the reference should be cleaned after close");
 
   /* TODO Do we need cross language events ?
   //RECORD deferred := CreateDeferredPromise();
@@ -180,20 +192,6 @@ async function runWebHareServiceTest_HS() {
   //serverinstance->EmitTestEvent([ value := 42 ]);
   //RECORD testdata := AWAIT deferred.promise;
   //TestEq([ value := 42 ], testdata); */
-}
-
-async function testBridgeManager() {
-  const bridgemgrlink = await getBridgeManagerLink();
-  const mylink = await test.wait(async () => {
-    const connections = await bridgemgrlink.listConnections();
-    return connections.find(_ => _.instance == getBridgeInstanceID());
-  });
-
-  test.eqMatch(/test_services.ts$/, mylink.script);
-
-  const inspectsettings_1 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
-  const inspectsettings_2 = await bridgemgrlink.enableInspector(getBridgeInstanceID());
-  test.eq(inspectsettings_1, inspectsettings_2, "Verify inspector settings are reused after first call");
 }
 
 //NOTE: we take an a-typical test run approach to help ensure noone booted services before us
@@ -206,9 +204,9 @@ async function main() {
     [
       testServices,
       testResources,
+      testDisconnects,
       runWebHareServiceTest_JS,
       runWebHareServiceTest_HS,
-      testBridgeManager
     ], { wrdauth: false });
 }
 

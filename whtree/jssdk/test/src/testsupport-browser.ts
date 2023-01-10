@@ -21,3 +21,7 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
 export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject> {
   throw new Error(`Loading JSON schema's from a file is not yet supported from the browser testing framework`);
 }
+
+export function scheduleLingeringProcessCheck(): void {
+  // not needed in browser, only in Node
+}

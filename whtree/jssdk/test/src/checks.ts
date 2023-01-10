@@ -214,6 +214,8 @@ export async function throws(expect: RegExp, func_or_promise: Promise<unknown> |
 
       onLog("Expected exception: ", expect.toString());
       onLog("Got exception: ", exceptiontext);
+      if (e.stack)
+        onLog("Stack: ", e.stack);
       throw new Error("testThrows fails - exception mismatch");
     }
 
