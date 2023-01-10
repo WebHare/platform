@@ -447,6 +447,12 @@ if [ -n "$ADDMODULES" ]; then
   done
 fi
 
+mark()
+{
+  echo "$(date) --- MARK: $1 ---"
+  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
+}
+
 create_container()
 {
   local CONTAINERID NR CONTAINERDOCKERARGS
@@ -639,17 +645,17 @@ if [ -n "$TESTFW_TWOHARES" ]; then
 fi
 
 if [ -z "$FATALERROR" ]; then
-  echo "`date` Start the actual test"
+  mark "Start the actual test(s)"
 
   if [ -n "$TESTSCRIPT" ]; then
 
-    echo "`date` Executing custom test script: $TESTSCRIPT"
+    mark "Executing custom test script: $TESTSCRIPT"
 
     export TESTENV_CONTAINER1
     export TESTENV_CONTAINER2
 
     if ! $TESTSCRIPT ; then
-      testfail "The testscript $TESTCSRIPT failed"
+      testfail "The testscript $TESTSCRIPT failed"
     fi
 
   else
@@ -663,13 +669,12 @@ if [ -z "$FATALERROR" ]; then
 fi
 
 if [ "$ENTERSHELL" == "1" ]; then
-  echo -n "Entering shell in container $TESTENV_CONTAINER1"
-  [ "$TESTFAIL" == "1" ] && echo -n " ... THERE WERE ERRORS!"
-  echo ""
+  mark "Entering shell in container $TESTENV_CONTAINER1"
+  [ "$TESTFAIL" == "1" ] && echo "***NOTE*** THERE WERE ERRORS!"
   $SUDO docker exec -ti "$TESTENV_CONTAINER1" /bin/bash
 fi
 
-echo "$(date) Done with tests - stopping containers"
+mark "Done with tests - stopping containers"
 
 # Stop the containers nicely so we have full logs
 RunDocker exec "$TESTENV_CONTAINER1" sv stop webhare
