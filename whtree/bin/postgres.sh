@@ -28,28 +28,6 @@ else
   PSBIN="/usr/pgsql-11/bin/"
 fi
 
-ARGS=""
-
-if [ -n "$WEBHARE_POSTGRESQL_MIGRATION" ]; then
-  echo "Starting for migration"
-  if [ -d "$PSROOT" ]; then
-    echo "Existing PostgreSQL database found, refusing to migrate"
-    exit 1
-  fi
-  PSROOT="${WEBHARE_DATAROOT}postgresql-migration"
-
-  # remove previous migrate attempt
-  if [ -d "$PSROOT" ]; then
-    echo "Removing previous migration attempt in $PSROOT"
-    rm -rf "$PSROOT"
-  fi
-
-  # Don't need that much WAL for migrating, there is no resumption anyway
-  # fsync can be disabled too, a single sync after migration should suffice
-  ARGS="-c wal_level=minimal -c fsync=off"
-fi
-
-
 cd "${BASH_SOURCE%/*}/../etc/"
 if [ -z "$WEBHARE_PGCONFIGFILE" ]; then
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
