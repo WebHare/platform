@@ -355,7 +355,10 @@ class IndyShell extends TolliumShell
   {
     console.log(response);
     this.startuplock.release();
-    alert("Portal startup failed"); //FIXME nicely handle this
+    /* Sending an alert here may block WRD redirecting away to the login page... as a location.href=... redirect will cancel all fetches, causing them
+       to throw and our alert may then block the redirect. TODO: if we had a (tollium) dialogapi we could trigger that here, as that won't block
+    alert("Portal startup failed");
+    */
   }
   onApplicationStackChange()
   {
