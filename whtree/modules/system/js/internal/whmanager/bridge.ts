@@ -559,7 +559,10 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.SystemConfig: {
-        const decoded = hsmarshalling.readMarshalData(data.systemconfigdata);
+        const decoded = data.systemconfigdata.length
+          ? hsmarshalling.readMarshalData(data.systemconfigdata)
+          : {};
+
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
         if (this.systemconfig.debugconfig)
           updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
