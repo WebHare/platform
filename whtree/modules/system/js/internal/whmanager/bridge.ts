@@ -11,7 +11,7 @@ import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as stacktrace_parser from "stacktrace-parser";
-import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType } from "./debug";
+import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
 import * as inspector from "node:inspector";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
@@ -402,6 +402,8 @@ type PortRegistration = {
   globalregconnectcounter: number;
   initialregistration: boolean;
 };
+
+const consoledata: ConsoleLogItem[] = [];
 
 class MainBridge extends EventSource<BridgeEvents> {
   conn: WHManagerConnection;
@@ -936,7 +938,14 @@ class MainBridge extends EventSource<BridgeEvents> {
           url: url ?? ""
         }, packet.msgid);
       } break;
-      //default: checkAllMessageTypesHandled(message, "type"); // doesn't work when the RequestType is not a union type
+      case DebugRequestType.getRecentLoggedItems: {
+        this.debuglink?.send({
+          type: DebugResponseType.getRecentLoggedItemsResult,
+          items: consoledata
+        }, packet.msgid);
+      } break;
+      default:
+        checkAllMessageTypesHandled(message, "type");
     }
   }
 
@@ -962,6 +971,75 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 }
 
+const old_console_funcs = { ...console };
+const old_std_writes = {
+  stdout: process.stdout.write,
+  stderr: process.stderr.write
+};
+
+function getCallerLocation(depth: number) {
+  const old_func = Error.prepareStackTrace;
+  let capturedframes: NodeJS.CallSite[] = [];
+  Error.prepareStackTrace = (error: Error, frames: NodeJS.CallSite[]) => {
+    capturedframes = frames;
+    old_func?.(error, frames);
+  };
+  new Error;
+  Error.prepareStackTrace = old_func;
+  const frame = capturedframes[depth];
+  if (!frame)
+    return null;
+  return ({
+    filename: frame.getFileName() || "unknown",
+    line: frame.getLineNumber() || 1,
+    col: frame.getColumnNumber() || 1,
+    func: frame.getFunctionName() || "unknown"
+  });
+
+}
+
+function hookConsoleLog() {
+  const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date } = {
+    func: "",
+    location: null,
+    when: new Date()
+  };
+  for (const [key, func] of Object.entries(old_console_funcs)) {
+    if (key != "Console") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (console as any)[key] = (...args: unknown[]) => {
+        source.func = key;
+        source.when = new Date();
+        source.location = getCallerLocation(1);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (func as (...args: any[]) => any).apply(console, args);
+      };
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
+    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    if (consoledata.length > 100)
+      consoledata.shift();
+    return retval;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    const retval = old_std_writes.stderr.call(process.stdout, data, encoding, cb);
+    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    if (consoledata.length > 100)
+      consoledata.shift();
+    return retval;
+  };
+}
+
+hookConsoleLog();
+
+
 const mainbridge = new MainBridge;
 
 const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
@@ -969,21 +1047,20 @@ const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
 const bridge: Bridge = bridgeimpl;
 export default bridge;
 
+
 registerAsNonReloadableLibrary(module);
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
-  console.error('uncaughtExceptionMonitor', origin, error);
+  console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
   bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {
-  console.error(`Uncaught exception:`, error);
   await bridge.ensureDataSent();
   process.exit(1);
 });
 
 process.on('unhandleRejection', async (reason, promise) => {
-  console.error(`Unhandled rejection:`, reason);
   await bridge.ensureDataSent();
   process.exit(1);
 });

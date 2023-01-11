@@ -13,18 +13,34 @@ export type ProcessList = Array<{
 
 export enum DebugRequestType {
   enableInspector,
+  getRecentLoggedItems,
 }
 
 type DebugRequest = {
   type: DebugRequestType.enableInspector;
   port: number;
   __responseKey: { type: DebugResponseType.enableInspectorResult };
+} | {
+  type: DebugRequestType.getRecentLoggedItems;
+  __responseKey: { type: DebugResponseType.getRecentLoggedItemsResult };
 };
 
 export enum DebugResponseType {
   register,
   enableInspectorResult,
+  getRecentLoggedItemsResult,
 }
+
+export type ConsoleLogItem = {
+  /** Date when console function was called */
+  when: Date;
+  /** console function that was called (eg 'log') */
+  func: string;
+  /** Logged data */
+  data: string;
+  /** Clocation of caller */
+  location: { filename: string; line: number; col: number; func: string } | null;
+};
 
 type DebugResponse = {
   type: DebugResponseType.register;
@@ -32,6 +48,9 @@ type DebugResponse = {
 } | {
   type: DebugResponseType.enableInspectorResult;
   url: string;
+} | {
+  type: DebugResponseType.getRecentLoggedItemsResult;
+  items: ConsoleLogItem[];
 };
 
 /** Request and response are swapped here, because conceptually the
@@ -44,6 +63,7 @@ export enum DebugMgrClientLinkRequestType {
   subscribeProcessList,
   getProcessList,
   enableInspector,
+  getRecentlyLoggedItems,
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -51,6 +71,7 @@ export enum DebugMgrClientLinkResponseType {
   getProcessListResult,
   eventProcessListUpdated,
   enableInspectorResult,
+  getRecentlyLoggedItemsResult,
 }
 
 export type DebugMgrClientLink = IPCLinkType<{
@@ -65,6 +86,10 @@ export type DebugMgrClientLink = IPCLinkType<{
   type: DebugMgrClientLinkRequestType.enableInspector;
   processcode: bigint;
   __responseKey: { type: DebugMgrClientLinkResponseType.enableInspectorResult };
+} | {
+  type: DebugMgrClientLinkRequestType.getRecentlyLoggedItems;
+  processcode: bigint;
+  __responseKey: { type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult };
 }, {
   type: DebugMgrClientLinkResponseType.subscribeProcessListResult;
 } | {
@@ -73,6 +98,9 @@ export type DebugMgrClientLink = IPCLinkType<{
 } | {
   type: DebugMgrClientLinkResponseType.enableInspectorResult;
   url: string;
+} | {
+  type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult;
+  items: ConsoleLogItem[];
 } | {
   type: DebugMgrClientLinkResponseType.eventProcessListUpdated;
 }>;
