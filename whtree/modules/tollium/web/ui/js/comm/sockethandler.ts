@@ -2,9 +2,9 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 
-import FIFO from "@mod-system/js/internal/util/fifo.es";
-import WaitableTimer from "@mod-system/js/internal/util/waitabletimer.es";
-import ManualCondition from "@mod-system/js/internal/util/manualcondition.es";
+import FIFO from "@mod-system/js/internal/util/fifo";
+import WaitableTimer from "@mod-system/js/internal/util/waitabletimer";
+import ManualCondition from "@mod-system/js/internal/util/manualcondition";
 
 // Websocket alive check control
 let pinginterval = 60;

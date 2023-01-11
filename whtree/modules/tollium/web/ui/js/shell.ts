@@ -12,9 +12,9 @@
 let todd_components = {};
 
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
-import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback.es';
-import LinkEndPoint from './comm/linkendpoint.es';
-import TransportManager from './comm/transportmanager.es';
+import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
+import LinkEndPoint from './comm/linkendpoint';
+import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
 todd_components = getComponents();

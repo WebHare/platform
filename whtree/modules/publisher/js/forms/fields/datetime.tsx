@@ -6,7 +6,7 @@ import * as dompack from "dompack";
 import * as whintegration from "@mod-system/js/wh/integration";
 import * as datehelpers from "../internal/datehelpers";
 import Keyboard from 'dompack/extra/keyboard';
-import DatePicker from '@mod-publisher/js/forms/internal/datepicker.es';
+import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
 
 /*
 Replaces date/time inputs into separate number type inputs

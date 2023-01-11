@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./video.css";
 import "../internal/rtd.lang.json";
-import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 
 let youtubedomain = 'www.youtube.com';

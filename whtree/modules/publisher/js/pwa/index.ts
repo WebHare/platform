@@ -4,8 +4,8 @@
 import * as pxl from "@mod-consilio/js/pxl";
 import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
-import './internal/debugmenu.es';
-import * as settings from './internal/settings.es';
+import './internal/debugmenu';
+import * as settings from './internal/settings';
 
 const appbase = location.href.split('?')[0];
 let didinit;

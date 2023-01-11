@@ -2,9 +2,9 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import { ObjAutoSuggestableBase } from '../textedit/textedit.es';
+import { ObjAutoSuggestableBase } from '../textedit/textedit';
 
-var TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit.es');
+var TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit');
 import $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjTagEdit extends ObjAutoSuggestableBase {

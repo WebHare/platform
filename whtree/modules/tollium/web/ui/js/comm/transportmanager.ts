@@ -1,8 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import JSONRPCTransport from "./jsonrpctransport.es";
-import WebSocketTransport from "./websocket.es";
+import JSONRPCTransport from "./jsonrpctransport";
+import WebSocketTransport from "./websocket";
 
 /** The transportManager handles setting up transports for the endpoints
 */

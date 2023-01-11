@@ -1,5 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
-import * as pointer from "dompack/testframework/pointer.es";
+import * as pointer from "dompack/testframework/pointer";
 
 test.registerTests(
 [ "Datatransfer object"

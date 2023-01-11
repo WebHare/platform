@@ -7,7 +7,7 @@
 import * as whintegration from '@mod-system/js/wh/integration';
 import { debugflags } from 'dompack';
 import { promiseScript } from 'dompack/extra/preload';
-import { onConsentChange } from "./consenthandler.es";
+import { onConsentChange } from "./consenthandler";
 
 let ga4settings = whintegration.config["ga4"];
 let loaded = false;

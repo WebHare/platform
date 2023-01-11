@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import KeyboardHandler from "dompack/extra/keyboard";
-import * as datehelpers from "./datehelpers.es";
+import * as datehelpers from "./datehelpers";
 // import "./datestrings.lang.json";
 //import { getTid } from "@mod-tollium/js/gettid";
 

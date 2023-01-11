@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import $todd from "@mod-tollium/web/ui/js/support";
-import TransportBase from "./transportbase.es";
+import TransportBase from "./transportbase";
 
 /// WebSocket support
 export default class WebSocketTransport extends TransportBase {

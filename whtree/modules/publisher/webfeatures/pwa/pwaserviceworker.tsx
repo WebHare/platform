@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 // when developing, to explicitly recompile our package: wh assetpacks recompile publisher:pwaserviceworker
-import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb.es';
+import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 
 const serviceworkerurl = new URL(location.href);
 const appname = serviceworkerurl.searchParams.get('app');

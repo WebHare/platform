@@ -3,8 +3,8 @@
 
 import * as dompack from 'dompack';
 import "./debugmenu.scss";
-import * as settings from './settings.es';
-import * as maintenance from './maintenance.es';
+import * as settings from './settings';
+import * as maintenance from './maintenance';
 
 let debuglayer;
 

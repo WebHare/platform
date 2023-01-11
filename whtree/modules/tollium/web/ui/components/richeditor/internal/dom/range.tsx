@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import { Locator, findParent, splitDataNode } from '../domlevel.es';
+import { Locator, findParent, splitDataNode } from '../domlevel';
 import * as richdebug from "../richdebug";
 import * as browser from "dompack/extra/browser";
 

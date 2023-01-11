@@ -6,7 +6,7 @@
 import * as dompack from 'dompack';
 import { promiseScript } from 'dompack/extra/preload';
 import * as whintegration from '@mod-system/js/wh/integration';
-import { onConsentChange } from "./consenthandler.es";
+import { onConsentChange } from "./consenthandler";
 
 let seen = 0;
 let gtmsettings = whintegration.config["socialite:gtm"];

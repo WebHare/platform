@@ -1,6 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
-import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime.es';
+import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime';
 
 let datechangeevents = 0;
 let timechangeevents = 0;

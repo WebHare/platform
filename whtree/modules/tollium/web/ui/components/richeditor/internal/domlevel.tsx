@@ -6,7 +6,7 @@ import * as richdebug from "./richdebug";
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
 
-import Range from './dom/range.es';
+import Range from './dom/range';
 
 //var richdebug = require('./richdebug');
 

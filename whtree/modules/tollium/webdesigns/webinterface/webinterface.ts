@@ -13,7 +13,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import startTolliumShell from '@mod-tollium/shell';
 
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
-import "@mod-publisher/js/internal/polyfills/modern.es";
+import "@mod-publisher/js/internal/polyfills/modern";
 
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps

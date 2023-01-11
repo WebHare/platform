@@ -7,9 +7,9 @@ import * as richdebug from "./richdebug";
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
-import * as lists from './structured/lists.es';
+import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
-import Range from './dom/range.es';
+import Range from './dom/range';
 require('./pastecleanup');
 
 var tableeditor = require("./tableeditor");

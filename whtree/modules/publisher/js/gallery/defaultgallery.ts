@@ -4,8 +4,8 @@
 /* import setupGallery from '@mod-publisher/js/gallery/defaultgallery'; */
 
 import "./defaultgallery.scss";
-import GalleryControllerBase from './gallerycontroller.es';
-import openModalGallery from './defaultmodal.es';
+import GalleryControllerBase from './gallerycontroller';
+import openModalGallery from './defaultmodal';
 
 export default function setupGallery(node, options) {
   options = { onclick: openModalGallery, ...options };

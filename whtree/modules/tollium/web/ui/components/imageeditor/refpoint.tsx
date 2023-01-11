@@ -8,7 +8,7 @@ var getTid = require("@mod-tollium/js/gettid").getTid;
 require("./imageeditor.lang.json");
 var toddImages = require("@mod-tollium/js/icons");
 import Keyboard from 'dompack/extra/keyboard';
-import { SurfaceTool } from './surfacetool.es';
+import { SurfaceTool } from './surfacetool';
 
 // Set to true to activate 'inline' mode, without the modal toolbar
 var tool_inline = false;

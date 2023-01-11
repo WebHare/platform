@@ -4,7 +4,7 @@
 import * as dompack from "dompack";
 import * as storage from "dompack/extra/storage";
 import { generateId } from "@mod-consilio/js/pxl";
-import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 let visitCount = 0;
 let beaconconsent, holdbeacons;

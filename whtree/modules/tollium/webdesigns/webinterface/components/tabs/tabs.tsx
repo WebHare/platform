@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import ObjText from '../text/text.es';
+import ObjText from '../text/text';
 
 var menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
 import * as domscroll from 'dompack/browserfix/scroll';

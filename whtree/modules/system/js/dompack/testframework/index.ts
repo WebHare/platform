@@ -4,11 +4,11 @@
 import * as dompack from 'dompack';
 import * as dombusy from '../src/busy';
 
-import { _resolveToSingleElement, _getFocusableElement } from './pointer.es';
-export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect.es';
-export { canClick, click, focus, sendMouseGesture } from './pointer.es';
-export { pressKey, simulateTabKey } from './keyboard.es';
-import IframeTestRunner from './iframetestrunner.es';
+import { _resolveToSingleElement, _getFocusableElement } from './pointer';
+export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect';
+export { canClick, click, focus, sendMouseGesture } from './pointer';
+export { pressKey, simulateTabKey } from './keyboard';
+import IframeTestRunner from './iframetestrunner';
 
 let testlist = [];
 let running = false;

@@ -9,7 +9,7 @@ import RadioGroupField from '@mod-publisher/js/forms/fields/radiogroup';
 import AddressField from '@mod-publisher/js/forms/fields/addressfield';
 import ArrayField from '@mod-publisher/js/forms/fields/arrayfield';
 import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
-import { setupValidator } from './customvalidation.es';
+import { setupValidator } from './customvalidation';
 
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";

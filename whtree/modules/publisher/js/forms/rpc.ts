@@ -10,7 +10,7 @@ import RPCClient from '@mod-system/js/wh/rpc';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
-import * as pxl from '@mod-consilio/js/pxl.es';
+import * as pxl from '@mod-consilio/js/pxl';
 
 function supportsScrollIntoViewBehavior() //http://caniuse.com/#feat=scrollintoview
 {

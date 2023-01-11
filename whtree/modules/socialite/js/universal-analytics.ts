@@ -1,9 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-/** import * as analytics from '@mod-socialite/js/universal-analytics.es'
-*/
-
 import * as dompack from 'dompack';
 
 function event(category, action, label, value) {

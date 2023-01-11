@@ -6,7 +6,7 @@ import * as movable from 'dompack/browserfix/movable';
 
 import "./imageeditor.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
-import { SurfaceTool } from './surfacetool.es';
+import { SurfaceTool } from './surfacetool';
 
 var Toolbar = require('../toolbar/toolbars');
 var SmartCrop = require('./smartcrop.js');

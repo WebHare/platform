@@ -1,8 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import FIFO from "@mod-system/js/internal/util/fifo.es";
-import * as dialogapi from 'dompack/api/dialog.es';
+import FIFO from "@mod-system/js/internal/util/fifo";
+import * as dialogapi from 'dompack/api/dialog';
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./exclusiveaccess.lang.json";

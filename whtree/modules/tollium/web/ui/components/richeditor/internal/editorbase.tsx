@@ -15,7 +15,7 @@ import * as domlevel from "./domlevel";
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
-import Range from './dom/range.es';
+import Range from './dom/range';
 
 var editableFix;
 

@@ -6,10 +6,10 @@
 import * as dompack from 'dompack';
 import './internal/requiredstyles.css';
 import * as merge from './internal/merge';
-import FormBase from './formbase.es';
-import RPCFormBase from './rpc.es';
+import FormBase from './formbase';
+import RPCFormBase from './rpc';
 export { FormBase, RPCFormBase };
-export { setFieldError, setupValidator } from './internal/customvalidation.es';
+export { setFieldError, setupValidator } from './internal/customvalidation';
 
 let handlers = {
   "publisher:form": form => new FormBase(form)

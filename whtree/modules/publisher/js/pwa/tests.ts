@@ -2,8 +2,8 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-system/js/wh/testframework";
-import * as maintenance from './internal/maintenance.es';
-import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb.es';
+import * as maintenance from './internal/maintenance';
+import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 
 let appname;
 

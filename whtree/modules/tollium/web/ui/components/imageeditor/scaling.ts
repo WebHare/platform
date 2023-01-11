@@ -5,7 +5,7 @@ var Toolbar = require('../toolbar/toolbars');
 var getTid = require("@mod-tollium/js/gettid").getTid;
 require("./imageeditor.lang.json");
 var toddImages = require("@mod-tollium/js/icons");
-import { SurfaceTool } from './surfacetool.es';
+import { SurfaceTool } from './surfacetool';
 import * as dompack from 'dompack';
 
 class PhotoRotate extends SurfaceTool {

@@ -1,5 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
-import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext.es";
+import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
 function jsdom(code)
 {

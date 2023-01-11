@@ -12,7 +12,7 @@ const util = require("util");
 const path = require("path");
 const csstree = require("css-tree");
 const sassRender = util.promisify(sass.render);
-const compileutils = require('./compileutils.es');
+const compileutils = require('./compileutils');
 
 function addUnderscoreToFilename(url) {
   let parts = url.split('/');

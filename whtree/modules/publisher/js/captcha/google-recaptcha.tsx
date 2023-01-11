@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import * as dialogapi from 'dompack/api/dialog.es';
+import * as dialogapi from 'dompack/api/dialog';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./__captcha.lang.json";
 import "./__captcha.css";

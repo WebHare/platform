@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import { normalizeSelectValues } from './index.es';
+import { normalizeSelectValues } from './index';
 
 export default class StaticSuggestionList {
   constructor(list, options) {

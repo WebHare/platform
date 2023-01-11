@@ -2,8 +2,8 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import { RTE } from "./editor.es";
-import "./styling.es";
+import { RTE } from "./editor";
+import "./styling";
 
 export function createRTE(parentnode, options) {
   if (dompack.debugflags.nextrte && window.__NextRTE)

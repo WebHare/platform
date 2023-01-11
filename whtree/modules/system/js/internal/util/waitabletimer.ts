@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 
-const WaitableConditionBase = require("./waitableconditionbase.es");
+const WaitableConditionBase = require("./waitableconditionbase");
 
 /** This class implements a timer that can be waited on (and be reset)
 */

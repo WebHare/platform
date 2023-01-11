@@ -3,12 +3,12 @@
 
 const esbuild = require('esbuild');
 const fs = require('fs');
-const whSassPlugin = require("./plugin-sass.es");
-const whSourceMapPathsPlugin = require("./plugin-sourcemappaths.es");
+const whSassPlugin = require("./plugin-sass");
+const whSourceMapPathsPlugin = require("./plugin-sourcemappaths");
 const path = require('path');
 const services = require("@webhare/services");
 
-const compileutils = require('./compileutils.es');
+const compileutils = require('./compileutils');
 const { promisify } = require('util');
 const zlib = require('zlib');
 const compressGz = promisify(zlib.gzip);
@@ -133,7 +133,7 @@ async function recompile(data) {
      TODO: switch to @mod- paths instead of full disk paths, a bit cleaner. even though the paths we leak into the source map are trivially guessable
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
-  let rootfiles = [...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all.es")] : [])
+  let rootfiles = [...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : [])
     , bundle.entrypoint
     , ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
   ];
@@ -157,7 +157,7 @@ async function recompile(data) {
     , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
     , plugins: [captureplugin.getPlugin()
       , createWhResolverPlugin(bundle)
-      , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin(captureplugin)
+      , require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin)
       , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
 
       // , sassPlugin({ importer: sassImporter
@@ -187,7 +187,7 @@ async function recompile(data) {
 
     , nodePaths: [services.getConfig().dataroot + "node_modules/"
     ]
-    , resolveExtensions: [".js", ".es", ".ts", ".tsx"]
+    , resolveExtensions: [".js", ".ts", ".tsx", ".es"] //es must be last so it can re-export .ts(x) without using extensions
     , logLevel: data.logLevel || 'silent'
   };
 
