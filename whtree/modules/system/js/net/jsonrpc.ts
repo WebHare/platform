@@ -7,24 +7,22 @@ const InternetRequester = require('./requester');
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 
-var rpcscriptid = Math.floor(Math.random()* 1000);
+var rpcscriptid = Math.floor(Math.random() * 1000);
 
-class JSONRPC extends InternetRequester
-{
+class JSONRPC extends InternetRequester {
   /** @short RPC status codes (defined as getter-only properties as long as we don't have static const properties) */
-  static get HTTP_ERROR()     { return -1; } // Error connecting to the RPC server
-  static get JSON_ERROR()     { return -2; } // The returned value could not be decoded into a JSON object
+  static get HTTP_ERROR() { return -1; } // Error connecting to the RPC server
+  static get JSON_ERROR() { return -2; } // The returned value could not be decoded into a JSON object
   static get PROTOCOL_ERROR() { return -3; } // The return object did not contain an id, or the id did not match the request id
-  static get RPC_ERROR()      { return -4; } // The RPC returned an error
-  static get OFFLINE_ERROR()  { return -5; } // The application is not online (only returned if the onlineonly option was set)
-  static get TIMEOUT_ERROR()  { return -6; } // The request could not be sent or was not answered before within the timeout set in the options
-  static get SERVER_ERROR()   { return -7; } // The server encountered an internal error
+  static get RPC_ERROR() { return -4; } // The RPC returned an error
+  static get OFFLINE_ERROR() { return -5; } // The application is not online (only returned if the onlineonly option was set)
+  static get TIMEOUT_ERROR() { return -6; } // The request could not be sent or was not answered before within the timeout set in the options
+  static get SERVER_ERROR() { return -7; } // The server encountered an internal error
 
-  constructor(options)
-  {
+  constructor(options) {
     super(options);
-    if(!options)
-      options={};
+    if (!options)
+      options = {};
 
     this.lastid = 0;
     this.requestqueue = [];
@@ -41,79 +39,71 @@ class JSONRPC extends InternetRequester
     this.on("requestend", this.onResponse.bind(this));
   }
 
-  destroy()
-  {
+  destroy() {
     super.destroy();
     this.requestqueue = [];
     this.activerequest = null;
 
-    if (this.waittimeoutid)
-    {
+    if (this.waittimeoutid) {
       clearTimeout(this.waittimeoutid);
       this.waittimeoutid = null;
     }
   }
 
-  promiseRequest(method, params, options)
-  {
+  promiseRequest(method, params, options) {
     let deferred = dompack.createDeferred();
     let req = this.request(method, params, deferred.resolve, (errorcode, errormsg, rpcid) => { deferred.reject(new Error(errormsg)); }, options);
     deferred.promise.__jsonrpcinfo = { deferred, req };
     return deferred.promise;
   }
-  async(method, ...params)
-  {
+  async(method, ...params) {
     return this.promiseRequest(method, params);
   }
 
-  _doAsyncAbort(promise, result, rejection)
-  {
-    if(!promise.__jsonrpcinfo)
+  _doAsyncAbort(promise, result, rejection) {
+    if (!promise.__jsonrpcinfo)
       throw new Error("The promise is not an async JSONRPC request");
-    if(!rejection)
+    if (!rejection)
       promise.__jsonrpcinfo.deferred.resolve(result);
     else
       promise.__jsonrpcinfo.deferred.reject(rejection);
     promise.__jsonrpcinfo.req.cancel();
   }
 
-  rpcResolve(promise, result)
-  {
+  rpcResolve(promise, result) {
     this._doAsyncAbort(promise, result);
   }
-  rpcReject(promise, rejection)
-  {
+  rpcReject(promise, rejection) {
     this._doAsyncAbort(promise, null, rejection);
   }
 
 
-/**
- * @short Queue an RPC request
- * @param method The RPC method to call
- * @param params Params for the RPC method
- * @param callback The callback which is called, with:
- *                 param status A JSONRPC. value
- *                 param result The result object as sent by the RPC, or an error message string sent by the RPC, or an error
- *                              message
- *                 param id The request id
- * @param options Options
- * @param options.url The URL to connect to
- * @param options.timeout Timeout in ms after which the request will fail (callback is called with ERROR_TIMEOUT error)
- * @param options.waittimeout Timeout in ms after which the request will set waiting status to TRUE (via the waitCallback)
- *                Set negative to not trigger waiting status.
- * @return The request id
- */
-  request(method, params, onsuccess, onfailure, options)
-  {
-    if(!params || typeof params != "object" || params.length === undefined)
+  /**
+   * @short Queue an RPC request
+   * @param method The RPC method to call
+   * @param params Params for the RPC method
+   * @param callback The callback which is called, with:
+   *                 param status A JSONRPC. value
+   *                 param result The result object as sent by the RPC, or an error message string sent by the RPC, or an error
+   *                              message
+   *                 param id The request id
+   * @param options Options
+   * @param options.url The URL to connect to
+   * @param options.timeout Timeout in ms after which the request will fail (callback is called with ERROR_TIMEOUT error)
+   * @param options.waittimeout Timeout in ms after which the request will set waiting status to TRUE (via the waitCallback)
+   *                Set negative to not trigger waiting status.
+   * @return The request id
+   */
+  request(method, params, onsuccess, onfailure, options) {
+    if (!params || typeof params != "object" || params.length === undefined)
       throw new Error("The parameters passed to request must be an Array");
 
     var id = ++this.lastid;
 
     var url;
-    if(options && options.url)
+    if (options && options.url)
       url = options.url + (options.appendfunctionname ? (options.url.match(/\/$/) ? '' : '/') + method : '');
-    else if(this.options.url)
+    else if (this.options.url)
       url = this.options.url + (this.options.appendfunctionname ? (this.options.url.match(/\/$/) ? '' : '/') + method : '');
     else
       url = location.href; //we do not support appendfunctionname for self-posts
@@ -137,28 +127,24 @@ class JSONRPC extends InternetRequester
     return request;
   }
 
-  handleError(onfailure, errorcode, errormsg, rpcid)
-  {
-    if(onfailure)
-      setTimeout( () => onfailure(errorcode, errormsg, rpcid), 0);
+  handleError(onfailure, errorcode, errormsg, rpcid) {
+    if (onfailure)
+      setTimeout(() => onfailure(errorcode, errormsg, rpcid), 0);
 
-    setTimeout( () => this.emit([ "error", { target: this, errorcode: errorcode, errormessage: errormsg, rpcid: rpcid } ]), 0);
+    setTimeout(() => this.emit(["error", { target: this, errorcode: errorcode, errormessage: errormsg, rpcid: rpcid }]), 0);
   }
 
   //is a json request pending?
-  isRequestPending()
-  {
+  isRequestPending() {
     return this.activerequest !== null || this.requestqueue.length;
   }
 
   //ADDME is it possible for the 'next' response to already be .delay/setTimeout() scheduled, racing against our cancel ?
-  __cancelRequest(id)
-  {
-    if(typeof id != 'number')
+  __cancelRequest(id) {
+    if (typeof id != 'number')
       return;
 
-    if (this.activerequest == id)
-    {
+    if (this.activerequest == id) {
       this.stopCurrentRequest();
       this.activerequest = null;
 
@@ -168,39 +154,32 @@ class JSONRPC extends InternetRequester
 
       this.processNextRequest();
     }
-    else
-    {
+    else {
       for (var i = 0; i < this.requestqueue.length; ++i)
-        if (this.requestqueue[i].id == id)
-        {
+        if (this.requestqueue[i].id == id) {
           this.requestqueue.splice(i, 1);
           break;
         }
     }
   }
 
-  processNextRequest()
-  {
-    if (this.activerequest)
-    {
-      if(this.options.log)
+  processNextRequest() {
+    if (this.activerequest) {
+      if (this.options.log)
         console.log("JSONRPC request #" + this.activerequest + " pending, not scheduling a new one yet");
       this.handleWaitTimeouts();
       return;
     }
 
     var request = null;
-    while (!request)
-    {
+    while (!request) {
       request = this.requestqueue[0];
-      if (!request)
-      {
-        if(this.options.log)
+      if (!request) {
+        if (this.options.log)
           console.log("JSONRPC request - processNextRequest, queue is empty");
         return;
       }
-      if (request.timeout && typeof request.timeout == "boolean")
-      {
+      if (request.timeout && typeof request.timeout == "boolean") {
         this.requestqueue = this.requestqueue.filter(el => el != request);
         request = this.requestqueue[0];
       }
@@ -209,22 +188,22 @@ class JSONRPC extends InternetRequester
     this.activerequest = request.id;
 
     if (request.timeout)
-      request.timeout = setTimeout( () => this.onTimeout(request), request.timeout);
+      request.timeout = setTimeout(() => this.onTimeout(request), request.timeout);
 
-    if(this.options.log)
+    if (this.options.log)
       console.log("JSONRPC request #" + request.id + " offering for XMLHTTP");
     this.startXMLHTTPRequest(
-          "post",
-          request.url,
-          JSON.stringify(request.request),
-          { headers: { "Content-Type": "application/json; charset=utf-8" }
-          , synchronous: request.synchronous
-          });
+      "post",
+      request.url,
+      JSON.stringify(request.request),
+      {
+        headers: { "Content-Type": "application/json; charset=utf-8" }
+        , synchronous: request.synchronous
+      });
     this.handleWaitTimeouts();
   }
 
-  onResponse(event)
-  {
+  onResponse(event) {
     this.activerequest = null;
 
     var request = this.requestqueue[0];
@@ -233,10 +212,8 @@ class JSONRPC extends InternetRequester
 
     this.requestqueue = this.requestqueue.slice(1);
 
-    if (request.timeout)
-    {
-      if (typeof request.timeout == "boolean")
-      {
+    if (request.timeout) {
+      if (typeof request.timeout == "boolean") {
         this.processNextRequest();
         return;
       }
@@ -246,31 +223,25 @@ class JSONRPC extends InternetRequester
     var status = -1;
     var result = null;
 
-    if (!event.success)
-    {
+    if (!event.success) {
       status = JSONRPC.HTTP_ERROR;
       result = "HTTP Error: " + event.message;
 
-      if (event.internalerror)
-      {
+      if (event.internalerror) {
         let json = null;
-        try
-        {
+        try {
           json = event.responsejson;
           var trace;
-          if(json && json.error && json.error.data)
-          {
+          if (json && json.error && json.error.data) {
             trace = json.error.data.trace || json.error.data.errors || json.error.data.list || [];
 
             console.group();
-            var line = "RPC #" + rpcscriptid +":"+ request.id  + " failed: " + json.error.message;
+            var line = "RPC #" + rpcscriptid + ":" + request.id + " failed: " + json.error.message;
             console.warn(line);
             if (request.errortrace)
               request.errortrace.push(line);
-            trace.forEach(rec =>
-            {
-              if (rec.filename || rec.line)
-              {
+            trace.forEach(rec => {
+              if (rec.filename || rec.line) {
                 var line = rec.filename + '#' + rec.line + '#' + rec.col + (rec.func ? ' (' + rec.func + ')' : '');
                 console.warn(line);
                 if (request.errortrace)
@@ -282,39 +253,32 @@ class JSONRPC extends InternetRequester
           status = JSONRPC.SERVER_ERROR;
           result = json.error && `${json.error.message} from ${request.url}` || "Unknown error";
         }
-        catch (e)
-        {
+        catch (e) {
         }
       }
     }
-    else
-    {
+    else {
       let json = event.responsejson;
 
-      if (!json)
-      {
+      if (!json) {
         status = JSONRPC.JSON_ERROR;
         result = "Invalid JSON response";
       }
-      else if (json.id === null || json.id != request.id)
-      {
+      else if (json.id === null || json.id != request.id) {
         status = JSONRPC.PROTOCOL_ERROR;
         result = "Protocol error: invalid id";
       }
-      else if (json.error !== null)
-      {
+      else if (json.error !== null) {
         status = JSONRPC.RPC_ERROR;
         result = json.error;
-        if(this.options.log)
+        if (this.options.log)
           console.log('RPC error:', result.message ? result.message : '*no message*');
       }
-      else if ("result" in json)
-      {
+      else if ("result" in json) {
         status = 0;
         result = json.result;
       }
-      else
-      {
+      else {
         status = JSONRPC.PROTOCOL_ERROR;
         result = "Could not interpret response";
       }
@@ -322,9 +286,8 @@ class JSONRPC extends InternetRequester
 
     this.processNextRequest();
 
-    if (this.options.log)
-    {
-      console.log("JSONRPC request", request.request.method, 'status:', status, 'time:', (new Date).getTime()- request.scheduled, 'ms, result:');
+    if (this.options.log) {
+      console.log("JSONRPC request", request.request.method, 'status:', status, 'time:', (new Date).getTime() - request.scheduled, 'ms, result:');
       console.log(result);
     }
 
@@ -334,14 +297,12 @@ class JSONRPC extends InternetRequester
                 , diff: this.__date_diff
                 });
     */
-    setTimeout( () => request.__completedCall(status, result, event),0 );
+    setTimeout(() => request.__completedCall(status, result, event), 0);
   }
 
-  onTimeout(request)
-  {
+  onTimeout(request) {
     request.timeout = true;
-    if (this.activerequest == request.id)
-    {
+    if (this.activerequest == request.id) {
       this.activerequest = null;
       this.stopCurrentRequest();
       this.processNextRequest();
@@ -349,16 +310,13 @@ class JSONRPC extends InternetRequester
     this.handleError(request.onfailure, JSONRPC.TIMEOUT_ERROR, "Timeout while waiting for response", request.id);
   }
 
-  onWaitTimeout()
-  {
+  onWaitTimeout() {
     this.waittimeoutid = null;
     this.handleWaitTimeouts();
   }
 
-  handleWaitTimeouts()
-  {
-    if (this.waittimeoutid)
-    {
+  handleWaitTimeouts() {
+    if (this.waittimeoutid) {
       clearTimeout(this.waittimeoutid);
       this.waittimeoutid = null;
     }
@@ -370,17 +328,14 @@ class JSONRPC extends InternetRequester
     var nextTimeout = -1;
 
     var now = (new Date).getTime();
-    for (var i = 0; i < this.requestqueue.length; ++i)
-    {
+    for (var i = 0; i < this.requestqueue.length; ++i) {
       var req = this.requestqueue[i];
-      if (req.waitTimeout >= 0)
-      {
+      if (req.waitTimeout >= 0) {
         var waitLength = now - req.scheduled;
 
         if (waitLength >= req.waitTimeout)
           waiting = true;
-        else
-        {
+        else {
           var toGo = req.waitTimeout - waitLength;
           if (nextTimeout < 0 || nextTimeout > toGo)
             nextTimeout = toGo;
@@ -388,85 +343,75 @@ class JSONRPC extends InternetRequester
       }
     }
 
-    if (this.waitingNow != waiting)
-    {
+    if (this.waitingNow != waiting) {
       this.waitingNow = waiting;
-      setTimeout( () => this.waitCallback(waiting), 0);
+      setTimeout(() => this.waitCallback(waiting), 0);
     }
 
     if (nextTimeout >= 0)
-      this.waittimeoutid = setTimeout( () => this.onWaitTimeout(), nextTimeout);
+      this.waittimeoutid = setTimeout(() => this.onWaitTimeout(), nextTimeout);
   }
 
-  getEstimatedServerTime()
-  {
+  getEstimatedServerTime() {
     return new Date().getTime() + this.__date_diff;
   }
 
   /** @short estimate the server's datetime based on the known descrepancy between the date of an reponse from the server and the time on the client
   */
-  getEstimatedServerDate()
-  {
+  getEstimatedServerDate() {
     return new Date(this.getEstimatedServerTime());
   }
 }
 
 class Request //extends PreloadableAsset
 {
-  constructor(parent, id, method, params, url, timeout, waittimeout, onsuccess, onfailure, synchronous, errortrace)
-  {
-//    super();
+  constructor(parent, id, method, params, url, timeout, waittimeout, onsuccess, onfailure, synchronous, errortrace) {
+    //    super();
 
     this.cancelled = false;
     this.stack = null;
 
     if (parent.options.log)
-      console.log('req',this);
-    this.parent=parent;
+      console.log('req', this);
+    this.parent = parent;
     this.id = id;
-    this.request = { id: id
-                   , method: method
-                   , params: params || []
-                   };
+    this.request = {
+      id: id
+      , method: method
+      , params: params || []
+    };
     this.url = url;
     this.onsuccess = onsuccess;
     this.onfailure = onfailure;
     this.timeout = timeout;
-    this.scheduled = new Date-0;
+    this.scheduled = new Date - 0;
     this.waittimeout = waittimeout;
     this.synchronous = synchronous;
     this.errortrace = errortrace;
 
     //this.startPreload();
   }
-  onStartPreload()
-  {
+  onStartPreload() {
 
   }
-  cancel()
-  {
+  cancel() {
     //we need to prevent a race when our parent invokes cancel(), but we actually had our __completedCall already queued up. if we still fire onsuccess/onfailure, our parent might think we completed the _next_ request our parent submitted
-    this.cancelled=true;
+    this.cancelled = true;
     this.parent.__cancelRequest(this.id);
   }
 
-  __completedCall(status,result,event)
-  {
-    if(event.isaborted)
-      this.cancelled=true;
+  __completedCall(status, result, event) {
+    if (event.isaborted)
+      this.cancelled = true;
 
-    if(status == 0)
-    {
-      if(this.onsuccess && !this.cancelled)
+    if (status == 0) {
+      if (this.onsuccess && !this.cancelled)
         this.onsuccess(result);
       //this.donePreload(true);
     }
-    else
-    {
-      if(!this.cancelled)
-      {
-        if(this.stack)
-        {
+    else {
+      if (!this.cancelled) {
+        if (this.stack) {
           console.log("Stack at calling point:");
           console.log(this.stack);
         }
@@ -477,4 +422,4 @@ class Request //extends PreloadableAsset
   }
 }
 
-module.exports=JSONRPC;
+module.exports = JSONRPC;

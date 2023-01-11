@@ -3,19 +3,16 @@
 
 
 /// This class defines the interface for a frontend link
-class FrontendLinkBase
-{
+class FrontendLinkBase {
   /** Set the current status of the server link
       @param newstatus New status ("offline", "online")
   */
-  handleStatusUpdate(newstatus)
-  {
+  handleStatusUpdate(newstatus) {
   }
 
   /** Handles an incoming message
   */
-  handleMessage(message)
-  {
+  handleMessage(message) {
   }
 }
 

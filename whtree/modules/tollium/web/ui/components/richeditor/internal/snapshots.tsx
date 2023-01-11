@@ -15,52 +15,47 @@ import { encodeValue } from "dompack/types/text";
    put in the src later, far after the saving of the snapshots
 */
 
-function parseNode(node)
-{
+function parseNode(node) {
   // Use a fixed record to describe nodes, JITs like them
   let result =
-      { node:       node
-      , type:       ""
-      , childNodes: null
-      , attrs:      null
-      , nodeValue:  ""
-      };
-
-  switch (node.nodeType)
   {
+    node: node
+    , type: ""
+    , childNodes: null
+    , attrs: null
+    , nodeValue: ""
+  };
+
+  switch (node.nodeType) {
     case 1: // element
-    {
-      if (domlevel.isEmbeddedObject(node))
       {
-        // No need to recurse into embedded objects (only done when result.childNodes is an array)
-        result.type = "embedded";
-        result.attrs = domlevel.getAllAttributes(node);
-      }
-      else
-      {
-        result.type = "element";
-        result.childNodes = [];
-        result.attrs = domlevel.getAllAttributes(node);
-      }
-    } break;
+        if (domlevel.isEmbeddedObject(node)) {
+          // No need to recurse into embedded objects (only done when result.childNodes is an array)
+          result.type = "embedded";
+          result.attrs = domlevel.getAllAttributes(node);
+        }
+        else {
+          result.type = "element";
+          result.childNodes = [];
+          result.attrs = domlevel.getAllAttributes(node);
+        }
+      } break;
     case 3: // text
     case 4: // cdata
-    {
-      result.type = "text";
-      result.nodeValue = node.nodeValue;
-    } break;
+      {
+        result.type = "text";
+        result.nodeValue = node.nodeValue;
+      } break;
     default: // rest
-    {
-      result.type = "unknown";
-    }
+      {
+        result.type = "unknown";
+      }
   }
   return result;
 }
 
-function generateSnapshotRecursive(node, resultlist)
-{
-  for (let subnode of Array.from(node.childNodes))
-  {
+function generateSnapshotRecursive(node, resultlist) {
+  for (let subnode of Array.from(node.childNodes)) {
     var parsed = parseNode(subnode);
     resultlist.push(parsed);
 
@@ -70,18 +65,15 @@ function generateSnapshotRecursive(node, resultlist)
 }
 
 // Make sure all attributes are set according to attrs, removes other attributes
-function restoreAttributes(node, attrs)
-{
+function restoreAttributes(node, attrs) {
   let current = domlevel.getAllAttributes(node);
   let needset = false;
 
   // Remove attributes that shouldn't be present, see if update is needed
-  for (let attr in current)
-  {
+  for (let attr in current) {
     if (!(attr in attrs))
       node.removeAttribute(attr);
-    else if (current[attr] != attrs[attr])
-    {
+    else if (current[attr] != attrs[attr]) {
       /* Don't overwrite src of img. At paste, the delay-loading will changes
          them to the correct value *after* the creation of the snapshot.
       */
@@ -103,21 +95,17 @@ function restoreAttributes(node, attrs)
 }
 
 /// Restores text and attributes of a node (non-recursive)
-function restoreNode(doc, item)
-{
+function restoreNode(doc, item) {
   var result = item.node;
   if (item.attrs)
     restoreAttributes(result, item.attrs);
-  if (item.type === "text")
-  {
-    try
-    {
+  if (item.type === "text") {
+    try {
       // IE sometimes transforms text nodes to EmptyTextNodes - can't change nodeValue, can't insert
       if (result.nodeValue != item.nodeValue)
         result.nodeValue = item.nodeValue;
     }
-    catch (e)
-    {
+    catch (e) {
       // If that happens, don't care about browser undo anymore
       result = doc.createText(item.nodeValue);
     }
@@ -126,13 +114,11 @@ function restoreNode(doc, item)
   return result;
 }
 
-function restoreSnapshotRecursive(doc, node, resultlist)
-{
+function restoreSnapshotRecursive(doc, node, resultlist) {
   let lastinserted = null;
 
   // Convert the nodes, insert them at the beginning of the node childlist
-  for (let item of resultlist)
-  {
+  for (let item of resultlist) {
     var subnode = restoreNode(doc, item);
     if (item.childNodes)
       restoreSnapshotRecursive(doc, subnode, item.childNodes);
@@ -156,14 +142,14 @@ function restoreSnapshotRecursive(doc, node, resultlist)
     @param range Range to save (selection range)
     @return Snapshot record
 */
-export function generateSnapshot(rootnode, range)
-{
+export function generateSnapshot(rootnode, range) {
   var snapshot =
-      { node:       rootnode
-      , type:       "snapshot"
-      , childNodes: []
-      , range:      range.clone()
-      };
+  {
+    node: rootnode
+    , type: "snapshot"
+    , childNodes: []
+    , range: range.clone()
+  };
 
   generateSnapshotRecursive(rootnode, snapshot.childNodes);
 
@@ -175,8 +161,7 @@ export function generateSnapshot(rootnode, range)
     @param range Range to save (selection range)
     @return Selection range to restore
 */
-export function restoreSnapshot(rootnode, snapshot)
-{
+export function restoreSnapshot(rootnode, snapshot) {
   restoreSnapshotRecursive(rootnode.ownerDocument, rootnode, snapshot.childNodes);
 
   var range = snapshot.range.clone();
@@ -190,10 +175,8 @@ export function restoreSnapshot(rootnode, snapshot)
 
 /** Removes childnodes of trees that are equal
 */
-export function compressSnapshotChildNodes(left, right)
-{
-  if (!left.childNodes || !right.childNodes)
-  {
+export function compressSnapshotChildNodes(left, right) {
+  if (!left.childNodes || !right.childNodes) {
     //console.log(`cscn not both children`, left, right);
     return null;
   }
@@ -202,28 +185,24 @@ export function compressSnapshotChildNodes(left, right)
   left = Object.assign({}, left);
   right = Object.assign({}, right);
 
-  left.childNodes = [ ...left.childNodes ];
-  right.childNodes = [ ...right.childNodes ];
+  left.childNodes = [...left.childNodes];
+  right.childNodes = [...right.childNodes];
 
   let leftChildNodeLength = left.childNodes.length;
   let rightChildNodeLength = right.childNodes.length;
 
-  for (let li = 0; li < leftChildNodeLength; ++li)
-  {
+  for (let li = 0; li < leftChildNodeLength; ++li) {
     let l = left.childNodes[li];
     if (!l.childNodes)
       continue;
 
-    for (let ri = 0; ri < rightChildNodeLength; ++ri)
-    {
+    for (let ri = 0; ri < rightChildNodeLength; ++ri) {
       let r = right.childNodes[ri];
-      if (l.node === r.node && r.childNodes)
-      {
+      if (l.node === r.node && r.childNodes) {
         //console.log(` compare `, l, r);
 
         let res = compressSnapshotChildNodes(l, r);
-        if (res)
-        {
+        if (res) {
           havechange = true;
           left.childNodes[li] = res.left;
           right.childNodes[ri] = res.right;
@@ -232,23 +211,20 @@ export function compressSnapshotChildNodes(left, right)
     }
   }
 
-  if (leftChildNodeLength !== rightChildNodeLength)
-  {
+  if (leftChildNodeLength !== rightChildNodeLength) {
     //console.log(`cscn childnode len`, left, right);
 
     return havechange ? { left, right } : null;
   }
 
-  for (let i = 0; i < leftChildNodeLength; ++i)
-  {
+  for (let i = 0; i < leftChildNodeLength; ++i) {
     let l = left.childNodes[i], r = right.childNodes[i];
 
     if (l.node !== r.node
-        || l.type !== r.type
-        || (l.childNodes || r.childNodes) // childnodes are eliminated if equal
-        || l.nodeValue !== r.nodeValue
-        || !attrsEqual(l.attrs, r.attrs, r.node.nodeName.toLowerCase() == "img"))
-    {
+      || l.type !== r.type
+      || (l.childNodes || r.childNodes) // childnodes are eliminated if equal
+      || l.nodeValue !== r.nodeValue
+      || !attrsEqual(l.attrs, r.attrs, r.node.nodeName.toLowerCase() == "img")) {
       //console.log(`cscn childnode idx ${i} differs`, left, right);
 
       return havechange ? { left, right } : null;
@@ -262,8 +238,7 @@ export function compressSnapshotChildNodes(left, right)
   return { left, right };
 }
 
-function attrsEqual(a, b, isimg)
-{
+function attrsEqual(a, b, isimg) {
   if (!a || !b)
     return !a === !b;
 
@@ -274,8 +249,7 @@ function attrsEqual(a, b, isimg)
     return false;
 
   for (let ai = 0, ae = la.length; ai < ae; ++ai)
-    if (la[ai][0] !== ra[ai][0] || la[ai][1] !== ra[ai][1])
-    {
+    if (la[ai][0] !== ra[ai][0] || la[ai][1] !== ra[ai][1]) {
       if (isimg && la[ai][0] === "src")
         continue;
       return false;
@@ -284,18 +258,15 @@ function attrsEqual(a, b, isimg)
   return true;
 }
 
-export function snapshotsEqual(left, right)
-{
-  if (left.node !== right.node)
-  {
+export function snapshotsEqual(left, right) {
+  if (left.node !== right.node) {
     console.log('nodes unequal');
     return false;
   }
 
-  if (!left.range.equals(right.range))
-  {
+  if (!left.range.equals(right.range)) {
     console.log('range unequal', left.range, right.range);
-//    return false;
+    //    return false;
   }
 
   let res = compressSnapshotChildNodes(left, right);
@@ -308,8 +279,7 @@ export function snapshotsEqual(left, right)
   return true;
 }
 
-export function dumpSnapShot(item, snapshot, indent)
-{
+export function dumpSnapShot(item, snapshot, indent) {
   snapshot = snapshot || item;
   indent = indent || 0;
 
@@ -317,8 +287,7 @@ export function dumpSnapShot(item, snapshot, indent)
     return `"${item.nodeValue}"`;
 
   let res = `<${item.node.nodeName}`;
-  if (item.attrs)
-  {
+  if (item.attrs) {
     for (let a of Object.entries(item.attrs))
       res += ` ${a[0]}="${encodeValue(a[1])}"`;
   }

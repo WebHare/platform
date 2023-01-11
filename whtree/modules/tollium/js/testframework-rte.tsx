@@ -12,54 +12,44 @@ import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/d
 import * as diff from 'diff';
 
 //capture the next richeditor-action event
-export function getNextAction()
-{
-  return test.waitForEvent(test.getWin(), 'wh:richeditor-action', { capture:true, stop: true});
+export function getNextAction() {
+  return test.waitForEvent(test.getWin(), 'wh:richeditor-action', { capture: true, stop: true });
 }
 
-export class RTEDriver
-{
-  constructor(rte)
-  {
-    if(rte && typeof rte == 'string')
-    {
+export class RTEDriver {
+  constructor(rte) {
+    if (rte && typeof rte == 'string') {
       let comp = test.compByName(rte);
-      if(comp)
+      if (comp)
         rte = comp.propTodd.rte;
     }
 
-    if(!rte)
-    {
+    if (!rte) {
       rte = test.getWin().rte;
-      if(!rte)
+      if (!rte)
         throw new Error("Test window has no RTE"); //TODO allow option
     }
     this.rte = rte;
     this.editor = rte.getEditor();
   }
 
-  qS(selector)
-  {
+  qS(selector) {
     return this.rte.qS(selector);
   }
 
-  qSA(selector)
-  {
+  qSA(selector) {
     return this.rte.qSA(selector);
   }
 
-  get body()
-  {
+  get body() {
     return this.editor.getContentBodyNode();
   }
 
-  setSelection(startContainer, startOffset, endContainer, endOffset)
-  {
-    if(!startOffset)
+  setSelection(startContainer, startOffset, endContainer, endOffset) {
+    if (!startOffset)
       startOffset = 0;
 
-    if(!endContainer)
-    {
+    if (!endContainer) {
       endContainer = startContainer;
       endOffset = startOffset;
     }
@@ -67,13 +57,12 @@ export class RTEDriver
   }
 
   //execute a property action and get the result
-  async executeProperties()
-  {
+  async executeProperties() {
     let propsbutton = test.qS("[data-button=action-properties]");
-    if(!propsbutton)
+    if (!propsbutton)
       throw new Error("No properties button present!");
 
-    if(propsbutton.classList.contains("disabled"))
+    if (propsbutton.classList.contains("disabled"))
       throw new Error("Properties button is disabled!");
 
     let result = getNextAction();
@@ -84,20 +73,17 @@ export class RTEDriver
   }
 }
 
-export function getTextChild(node)
-{
-  while(node&&node.nodeType != 3)
-    node=node.firstChild;
+export function getTextChild(node) {
+  while (node && node.nodeType != 3)
+    node = node.firstChild;
   return node;
 }
 
-export function RunIteratorOnRange2(win,range)
-{
+export function RunIteratorOnRange2(win, range) {
   var itr = new RangeIterator2(range);
   var list = [];
 
-  while (!itr.atEnd())
-  {
+  while (!itr.atEnd()) {
     var name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
     list.push(name);
     itr.nextRecursive();
@@ -107,92 +93,79 @@ export function RunIteratorOnRange2(win,range)
 }
 
 //get the current selection for the test window, avoiding Rangy and RTE
-export function getCurrentRawSelection()
-{
+export function getCurrentRawSelection() {
   let sel = test.getWin().getSelection();
-  return { anchor: { node: sel.anchorNode, offset: sel.anchorOffset }
-         , focus: { node: sel.focusNode, offset: sel.focusOffset }
-         , isCollapsed: sel.isCollapsed
-         , type: sel.type
-         };
+  return {
+    anchor: { node: sel.anchorNode, offset: sel.anchorOffset }
+    , focus: { node: sel.focusNode, offset: sel.focusOffset }
+    , isCollapsed: sel.isCollapsed
+    , type: sel.type
+  };
 
 }
 
-export function getRTESelection(win, rte)
-{
+export function getRTESelection(win, rte) {
   return rte.getSelectionRange().toDOMRange();
 }
 
-export function setRTESelection(win, rte, domrange)
-{
-  if(!domrange.endContainer)
-  {
+export function setRTESelection(win, rte, domrange) {
+  if (!domrange.endContainer) {
     domrange.endContainer = domrange.startContainer;
-    if(!domrange.endOffset)
+    if (!domrange.endOffset)
       domrange.endOffset = domrange.startOffset;
   }
   rte.selectRange(Range.fromDOMRange(domrange));
 }
 
-export function getCompStyle(node, prop)
-{
+export function getCompStyle(node, prop) {
   return getComputedStyle(node).getPropertyValue(prop);
 }
 
-export function testEqHTMLEx(unused, expect, node, locators)
-{
+export function testEqHTMLEx(unused, expect, node, locators) {
   var actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
   test.eqHTML(expect, actual);
 }
 
-export function testEqSelHTMLEx(win, expect)
-{
+export function testEqSelHTMLEx(win, expect) {
   testEqSelHTMLEx2(null, test.getWin().rte.getEditor(), expect);
 }
 
-export function testEqSelHTMLEx2(unused, rte, expect)
-{
+export function testEqSelHTMLEx2(unused, rte, expect) {
   var range = rte.getSelectionRange();
-  testEqHTMLEx(unused, expect, rte.getContentBodyNode(), [ range.start, range.end ]);
+  testEqHTMLEx(unused, expect, rte.getContentBodyNode(), [range.start, range.end]);
 }
 
-export function getHTML(node)
-{
+export function getHTML(node) {
   let rte = rteGetForNode(node);
-  if(!rte)
+  if (!rte)
     throw new Error("Cannot find RTE for the node");
 
   let range = rte.getEditor().getSelectionRange();
-  let result = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, [ range.start, range.end ]);
+  let result = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, [range.start, range.end]);
   return result.nodeType == 3 ? result.textContent : result.outerHTML;
 }
 
-export function setRawStructuredContent(win, structuredhtml)
-{
+export function setRawStructuredContent(win, structuredhtml) {
   setStructuredContent(win, structuredhtml, true);
 }
 
 // copied from richeditor/index.es, so we won't have to import the whole editor
-function rteGetForNode(node)
-{
-  for(;node;node=node.parentNode)
-    if(node.whRTD)
+function rteGetForNode(node) {
+  for (; node; node = node.parentNode)
+    if (node.whRTD)
       return node.whRTD;
   return null;
 }
 
-export function setStructuredContent(win, structuredhtml, options)
-{
+export function setStructuredContent(win, structuredhtml, options) {
   options = Object.assign({ raw: false, verify: true }, typeof options == "boolean" ? { raw: options } : options || {});
-  let rte=null;
-  if(win && win.rte)
-  {
-    rte=win.rte.getEditor();
+  let rte = null;
+  if (win && win.rte) {
+    rte = win.rte.getEditor();
   }
-  else
-  {
+  else {
     let node = win.closest('.wh-rtd__editor');
-    if(!node)
+    if (!node)
       throw new Error("Cannot find .wh-rtd__editor");
     rte = rteGetForNode(node).getEditor();
   }
@@ -206,8 +179,7 @@ export function setStructuredContent(win, structuredhtml, options)
   if (options.verify)
     testEqHTMLEx(win, structuredhtml, rte.getContentBodyNode(), locators);
 
-  if (locators[0])
-  {
+  if (locators[0]) {
     if (locators[1])
       rte.selectRange(new Range(locators[0], locators[1]));
     else
@@ -219,40 +191,34 @@ export function setStructuredContent(win, structuredhtml, options)
   return locators;
 }
 
-export function getRawHTMLTextArea(win)
-{
+export function getRawHTMLTextArea(win) {
   var ta = test.compByName('code').querySelector('textarea');
   return ta;
 }
 
-export function getRawHTMLCode(win)
-{
+export function getRawHTMLCode(win) {
   var code = getRawHTMLTextArea(win).value;
-  code=code.split('\n').join('').split('</html>')[0]; //strip comments behind the </html>
+  code = code.split('\n').join('').split('</html>')[0]; //strip comments behind the </html>
   return code;
 }
 
-export function getRTE(win,toddname)
-{
+export function getRTE(win, toddname) {
   var comp = test.compByName(toddname);
   if (!comp)
     throw new Error("No such component with name '" + toddname + "'");
   return comp.propTodd.rte;
 }
 
-export function getPreActionState(rte)
-{
+export function getPreActionState(rte) {
   let snapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
   return { __snapshot: snapshot, __undopos: rte.undopos };
 }
 
-function getStack(message)
-{
-  try { throw new Error(message); } catch(e) { return e.stack; }
+function getStack(message) {
+  try { throw new Error(message); } catch (e) { return e.stack; }
 }
 
-export async function testUndoRedo(rte, preactionstate, { stack } = {})
-{
+export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
   // console.log(`testUndoRedo prestate`, "\n" + snapshots.dumpSnapShot(preactionstate.__snapshot), preactionstate.__snapshot);
   stack = stack || getStack(`trace`);
 
@@ -284,16 +250,14 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {})
   // console.log(`testUndoRedo after undo`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
   let undosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
-  if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot))
-  {
+  if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot)) {
     console.log(`State after undo doesn't match pre-action state.`);
     console.log(`Expected:\n`, snapshots.dumpSnapShot(preactionstate.__snapshot));
     console.log(`Got:\n` + snapshots.dumpSnapShot(undosnapshot));
 
     let str = "diff:\n";
     let colors = [];
-    for (const change of diff.diffChars(snapshots.dumpSnapShot(preactionstate.__snapshot), snapshots.dumpSnapShot(undosnapshot)))
-    {
+    for (const change of diff.diffChars(snapshots.dumpSnapShot(preactionstate.__snapshot), snapshots.dumpSnapShot(undosnapshot))) {
       str += `%c${change.value}`;
       colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
     }
@@ -310,16 +274,14 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {})
   //console.log(`testUndoRedo after redo`, "\n" + dumpSnapShot(currentsnapshot));
 
   let redosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
-  if (!snapshots.snapshotsEqual(currentsnapshot, redosnapshot))
-  {
+  if (!snapshots.snapshotsEqual(currentsnapshot, redosnapshot)) {
     console.log(`State after redo doesn't match original state. Expected:`);
     console.log(snapshots.dumpSnapShot(currentsnapshot), `Got:`);
     console.log(snapshots.dumpSnapShot(redosnapshot));
 
     let str = "diff: ";
     let colors = [];
-    for (const change of diff.diffChars(snapshots.dumpSnapShot(currentsnapshot), snapshots.dumpSnapShot(redosnapshot)))
-    {
+    for (const change of diff.diffChars(snapshots.dumpSnapShot(currentsnapshot), snapshots.dumpSnapShot(redosnapshot))) {
       str += `%c${change.value}`;
       colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
     }
@@ -330,8 +292,7 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {})
 }
 
 /** Undo barrier to make sure multiple items aren't coalesced */
-export async function undoBarrier()
-{
+export async function undoBarrier() {
   // Wait for undo stack to update
   await test.sleep(1);
   test.getDoc().execCommand("undo");
@@ -340,15 +301,14 @@ export async function undoBarrier()
   await test.sleep(1);
 }
 
-export async function runWithUndo(rte, func, options = {})
-{
+export async function runWithUndo(rte, func, options = {}) {
   let prestate = getPreActionState(rte);
   let stack = getStack(`stack`);
 
   await func();
 
   //wait for all uploads to complete
-  await test.wait( () => !rte.getContentBodyNode().querySelector(".wh-rtd__img--uploading"));
+  await test.wait(() => !rte.getContentBodyNode().querySelector(".wh-rtd__img--uploading"));
 
   if (options.waits)
     await test.wait(options.waits);
@@ -357,24 +317,20 @@ export async function runWithUndo(rte, func, options = {})
 }
 
 
-class ClipBoardEmul
-{
-  constructor(props)
-  {
+class ClipBoardEmul {
+  constructor(props) {
     this.files = props.files;
     this.items = props.items;
     this.types = props.types;
     this._typesdata = props.typesdata;
   }
 
-  getData(type)
-  {
+  getData(type) {
     return this._typesdata[type];
   }
 }
 
-export async function paste(rte, props)
-{
+export async function paste(rte, props) {
   let target = domfocus.getCurrentlyFocusedElement();
 
   /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces

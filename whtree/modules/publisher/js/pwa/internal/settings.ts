@@ -3,12 +3,10 @@
 
 var appname;
 
-export function setAppName(newappname)
-{
+export function setAppName(newappname) {
   appname = newappname;
 }
 
-export function getAppName()
-{
+export function getAppName() {
   return appname;
 }

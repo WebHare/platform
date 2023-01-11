@@ -13,15 +13,13 @@ import "./codeedit.scss";
 // Codeedit
 //
 
-export default class ObjCodeEdit extends ComponentBase
-{
+export default class ObjCodeEdit extends ComponentBase {
   // ---------------------------------------------------------------------------
   //
-// Constructor
+  // Constructor
   //
 
-  constructor(parentcomp, data, response, replacingcomp)
-  {
+  constructor(parentcomp, data, response, replacingcomp) {
     super(parentcomp, data, response, replacingcomp);
 
     this.componenttype = "codeedit";
@@ -56,7 +54,7 @@ export default class ObjCodeEdit extends ComponentBase
     this.setEnabled(data.enabled);
     this.executeActions(data.actions);
 
-    setTimeout(()=> this.syncMarkers(), 1);
+    setTimeout(() => this.syncMarkers(), 1);
   }
 
   // ---------------------------------------------------------------------------
@@ -64,36 +62,35 @@ export default class ObjCodeEdit extends ComponentBase
   // Helper stuff
   //
 
-  buildNode()
-  {
+  buildNode() {
     this.node =
-          <t-codeedit data-name={this.name} style={{position: "relative"}}>
-            { this.linenumberbg = <div className="gutter-background" /> }
-            { this.markerholderdiv =
-                <div className="marker-container">
-                  { this.markerscrolldiv = <div className="marker-scroller" /> }
-                </div>
-            }
-            { this.linenumberdiv = <div className="gutter-content"
-                                        unselectable="on"
-                                        on={{ click: event => this.gotGutterClick(event) }}
-                                        />
-            }
-            { this.textarea = <textarea wrap="off"
-                                        spellcheck="false"
-                                        style={{ marginLeft: this.linenumberswidth + 2 }}
-                                        on={{ scroll: event => this.gotScrollEvent(event),
-                                              input: event => this.gotInput(event)
-                                            }}
-                                        />
-            }
-          </t-codeedit>;
+      <t-codeedit data-name={this.name} style={{ position: "relative" }}>
+        {this.linenumberbg = <div className="gutter-background" />}
+        {this.markerholderdiv =
+          <div className="marker-container">
+            {this.markerscrolldiv = <div className="marker-scroller" />}
+          </div>
+        }
+        {this.linenumberdiv = <div className="gutter-content"
+          unselectable="on"
+          on={{ click: event => this.gotGutterClick(event) }}
+        />
+        }
+        {this.textarea = <textarea wrap="off"
+          spellcheck="false"
+          style={{ marginLeft: this.linenumberswidth + 2 }}
+          on={{
+            scroll: event => this.gotScrollEvent(event),
+            input: event => this.gotInput(event)
+          }}
+        />
+        }
+      </t-codeedit>;
 
-    new Keyboard(this.textarea, {}, { dontpropagate: ['Enter']});
+    new Keyboard(this.textarea, {}, { dontpropagate: ['Enter'] });
   }
 
-  syncLineNumbers()
-  {
+  syncLineNumbers() {
     // ADDME: calculating number of lines basedon scrollheight/lineheight might be faster?
     var needed_linenumbers = this.textarea.value.split('\n').length + 200;
 
@@ -104,16 +101,15 @@ export default class ObjCodeEdit extends ComponentBase
 
     //console.log("creating extra numbers, need: "+needed_linenumbers+" have: "+this.donelinenumbers);
 
-    var extranumbers='';
-    while(this.donelinenumbers < needed_linenumbers)
+    var extranumbers = '';
+    while (this.donelinenumbers < needed_linenumbers)
       extranumbers += ++this.donelinenumbers + '\n';
 
     this.linenumberdiv.append(extranumbers);
     this.markerscrolldiv.style.height = this.linenumberdiv.scrollHeight + 'px';
   }
 
-  syncMarkers()
-  {
+  syncMarkers() {
     var linenumberdivheight = this.linenumberdiv.scrollHeight;
     var lineheight = linenumberdivheight / this.donelinenumbers;
 
@@ -121,56 +117,49 @@ export default class ObjCodeEdit extends ComponentBase
     this.markerscrolldiv.style.height = this.linenumberdiv.scrollHeight + 'px';
     this.markerholderdiv.scrollTop = this.linenumberdiv.scrollTop;
 
-    this.markers.forEach(item =>
-    {
-      var is_gutter_marker = item.type.substr(0,6) == "gutter";
+    this.markers.forEach(item => {
+      var is_gutter_marker = item.type.substr(0, 6) == "gutter";
 
       this.markerscrolldiv.appendChild(
         <div className={"marker " + item.type}
-             style={{ marginLeft: is_gutter_marker ? 0 : this.linenumberswidth + 'px'
-                    , width:      is_gutter_marker ? this.linenumberswidth + 'px' : "100%"
-                    , top:        lineheight * (item.line - 1) + "px"
-                    , height:     lineheight + "px"
-                    , background: item.color
-                    }} />);
+          style={{
+            marginLeft: is_gutter_marker ? 0 : this.linenumberswidth + 'px'
+            , width: is_gutter_marker ? this.linenumberswidth + 'px' : "100%"
+            , top: lineheight * (item.line - 1) + "px"
+            , height: lineheight + "px"
+            , background: item.color
+          }} />);
     });
   }
 
-  setSelection(startpos, limitpos)
-  {
+  setSelection(startpos, limitpos) {
     this.textarea.selectionStart = startpos;
     this.textarea.selectionEnd = limitpos;
   }
 
-  gotoLine(line, attop)
-  {
-    if(!this.isactive)
-    {
-      this.pendinggotoline=line;
-      this.pendinggotoline_attop=attop;
+  gotoLine(line, attop) {
+    if (!this.isactive) {
+      this.pendinggotoline = line;
+      this.pendinggotoline_attop = attop;
       return;
     }
 
     this.syncLineNumbers();
-    var selectpos = line == 0 ? 0 : this.textarea.value.split('\n').slice(0,line).join('\n').length + 1;
-    try
-    {
+    var selectpos = line == 0 ? 0 : this.textarea.value.split('\n').slice(0, line).join('\n').length + 1;
+    try {
       this.setSelection(selectpos, selectpos);
     }
-    catch(ex)
-    {
+    catch (ex) {
       console.error("Caught exception while setting selection. Exception: " + ex.name + " Message: " + ex.message);
     }
 
     var lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
     let scrolltop = this.textarea.scrollTop;
-    if (attop)
-    {
+    if (attop) {
       // Topline: honor exactly
       scrolltop = Math.max(0, line) * lineheight;
     }
-    else
-    {
+    else {
       // When scrolling to first 3 or last 3 lines in view, scroll as little as possible
       // to get 3 lines of context
       // else center the view on the line
@@ -198,13 +187,11 @@ export default class ObjCodeEdit extends ComponentBase
     this.setDirty();
   }
 
-  gotScrollEvent()
-  {
+  gotScrollEvent() {
     this.syncScroll(false);
   }
 
-  syncScroll(immediate)
-  {
+  syncScroll(immediate) {
     var scrollTop = this.textarea.scrollTop;
     //console.log("Scrollpos in scroll event: "+scrollTop);
 
@@ -217,14 +204,12 @@ export default class ObjCodeEdit extends ComponentBase
       this.synctimer = setTimeout(() => this.delayedSyncLineNumbers(), 250);
   }
 
-  delayedSyncLineNumbers()
-  {
+  delayedSyncLineNumbers() {
     this.synctimer = null;
     this.syncLineNumbers();
   }
 
-  setEnabled(enabled)
-  {
+  setEnabled(enabled) {
     if (this.enabled == enabled)
       return;
 
@@ -232,16 +217,13 @@ export default class ObjCodeEdit extends ComponentBase
     this.enabled = enabled;
   }
 
-  gotGutterClick(event)
-  {
+  gotGutterClick(event) {
     // Get click y relative to target node
     var y = event.clientY;
     var element = event.target;
     var nextoffsetparent = element;
-    while (nextoffsetparent)
-    {
-      if (element == nextoffsetparent)
-      {
+    while (nextoffsetparent) {
+      if (element == nextoffsetparent) {
         y += element.scrollTop - element.offsetTop;
         nextoffsetparent = element.offsetParent;
       }
@@ -260,25 +242,22 @@ export default class ObjCodeEdit extends ComponentBase
   // Helper functions
   //
 
-  executeActions(actions)
-  {
-    for (var i = 0; i < actions.length; ++i)
-    {
-      switch(actions[i].action)
-      {
+  executeActions(actions) {
+    for (var i = 0; i < actions.length; ++i) {
+      switch (actions[i].action) {
         case 'gotoline':
-        {
-          let line = actions[i].linenum - 1;
-          if (this.node)
-            this.gotoLine(line);
-          else
-            this.preselectline = line;
-        } break;
+          {
+            let line = actions[i].linenum - 1;
+            if (this.node)
+              this.gotoLine(line);
+            else
+              this.preselectline = line;
+          } break;
         case 'gototopline':
-        {
-          let line = actions[i].linenum - 1;
-          this.gotoLine(line, true);
-        } break;
+          {
+            let line = actions[i].linenum - 1;
+            this.gotoLine(line, true);
+          } break;
       }
     }
   }
@@ -288,43 +267,44 @@ export default class ObjCodeEdit extends ComponentBase
   // Layouting
   //
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.min = 200;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = 200;
   }
 
-  relayout()
-  {
+  relayout() {
     dompack.setStyles(this.node,
-        { "width": this.width.set
+      {
+        "width": this.width.set
         , "height": this.height.set
-        });
+      });
 
     dompack.setStyles(this.textarea,
-        { width: (this.width.set - this.linenumberswidth - 2) + 'px'
+      {
+        width: (this.width.set - this.linenumberswidth - 2) + 'px'
         , height: this.height.set + 'px'
-        });
+      });
 
-    if(!this.isactive) //we'll save up the first gotoline until we get into view
+    if (!this.isactive) //we'll save up the first gotoline until we get into view
     {
-      this.isactive=true;
+      this.isactive = true;
       this.gotoLine(this.pendinggotoline, this.pendinggotoline_attop);
     }
 
     dompack.setStyles(this.linenumberbg,
-        { width: this.linenumberswidth + 'px'
+      {
+        width: this.linenumberswidth + 'px'
         , height: this.height.set + 'px'
-        });
+      });
 
     dompack.setStyles(this.linenumberdiv,
-        { width: this.linenumberswidth + 'px'
+      {
+        width: this.linenumberswidth + 'px'
         , height: this.height.set + 'px'
-        });
+      });
 
     this.syncScroll(true);
   }
@@ -334,10 +314,8 @@ export default class ObjCodeEdit extends ComponentBase
   // Callbacks & updates
   //
 
-  applyUpdate(data, response)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data, response) {
+    switch (data.type) {
       case 'value':
         this.textarea.value = data.value;
         this.syncScroll(true);
@@ -358,23 +336,22 @@ export default class ObjCodeEdit extends ComponentBase
   }
 
   // codeedit is always submitted for line, col, selection and topline updates
-  shouldSubmitValue()
-  {
+  shouldSubmitValue() {
     return true;
   }
 
-  getSubmitValue()
-  {
+  getSubmitValue() {
     var lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
 
     var beforeselectionlines = this.textarea.value.substr(0, this.textarea.selectionStart).split('\n');
 
-    return { enabled: this.enabled
-           , line: beforeselectionlines.length
-           , col: beforeselectionlines[beforeselectionlines.length - 1].length + 1
-           , selection: this.textarea.value.substr(this.textarea.selectionStart, this.textarea.selectionEnd - this.textarea.selectionStart)
-           , topline: lineheight ? Math.floor(this.textarea.scrollTop / lineheight + 1) : 1
-           , value: this.enabled ? this.textarea.value : ""
-           };
+    return {
+      enabled: this.enabled
+      , line: beforeselectionlines.length
+      , col: beforeselectionlines[beforeselectionlines.length - 1].length + 1
+      , selection: this.textarea.value.substr(this.textarea.selectionStart, this.textarea.selectionEnd - this.textarea.selectionStart)
+      , topline: lineheight ? Math.floor(this.textarea.scrollTop / lineheight + 1) : 1
+      , value: this.enabled ? this.textarea.value : ""
+    };
   }
 }

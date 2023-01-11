@@ -17,15 +17,13 @@ const ToolbarHeight = ButtonHeight + 4;
  *
 */
 
-export default class ObjToolbar extends ComponentBase
-{
+export default class ObjToolbar extends ComponentBase {
 
-/****************************************************************************************************************************
- * Initialization
- */
+  /****************************************************************************************************************************
+   * Initialization
+   */
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "toolbar";
@@ -33,33 +31,29 @@ export default class ObjToolbar extends ComponentBase
     this.menubutton = null;
     this.menuaction = null;
 
-    this.items = data.items.map(item =>
-    {
-      if(item.divider)
+    this.items = data.items.map(item => {
+      if (item.divider)
         return { comp: null, flex: item.type == "flex" };
       return { comp: this.owner.addComponent(this, item.name) };
     });
 
     this.node =
-        <t-toolbar data-name={this.name}
-                   onMousedown={evt => this.mouseDownNoFocusSteal(evt)}
-                   propTodd={this}>
-          { this.leftbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__left" /> }
-          { this.rightbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__right" /> }
-        </t-toolbar>;
+      <t-toolbar data-name={this.name}
+        onMousedown={evt => this.mouseDownNoFocusSteal(evt)}
+        propTodd={this}>
+        {this.leftbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__left" />}
+        {this.rightbuttons = <t-toolbar-buttongroup class="t-toolbar-buttongroup__right" />}
+      </t-toolbar>;
     this._rebuildNode();
   }
 
-  _rebuildNode()
-  {
+  _rebuildNode() {
     let left = [], right = [], current = left;
 
-    this.items.forEach(item =>
-    {
+    this.items.forEach(item => {
       if (!item.comp) // divider?
       {
-        if (item.flex && current === left)
-        {
+        if (item.flex && current === left) {
           current = right;
           return;
         }
@@ -75,60 +69,53 @@ export default class ObjToolbar extends ComponentBase
     this.rightbuttons.append(...right);
   }
 
-  _buildItem(item)
-  {
-    if(item.comp)
+  _buildItem(item) {
+    if (item.comp)
       return item.comp.getNode();
-    return dompack.create("span", { className: { divider: true }
-                                  });
+    return dompack.create("span", {
+      className: { divider: true }
+    });
   }
 
-/****************************************************************************************************************************
- * Component management
- */
-  readdComponent(comp)
-  {
+  /****************************************************************************************************************************
+   * Component management
+   */
+  readdComponent(comp) {
     var buttonpos = this.items.findIndex(node => node.comp == comp);
-    if(buttonpos==-1)
-    {
+    if (buttonpos == -1) {
       console.error('Toolbar ' + this.name + ' got offered a component to replace, but it wasn\'t found in the toolbar', comp);
       return;
     }
 
     this.items[buttonpos].comp = this.owner.addComponent(this, comp.name);
-    if(comp.getNode())
+    if (comp.getNode())
       comp.getNode().replaceWith(this.items[buttonpos].comp.getNode());
 
     this.width.dirty = true;
     this.height.dirty = true;
   }
 
-  getVisibleChildren()
-  {
-    return this.items.filter(item=>item.comp).map(item=>item.comp);
+  getVisibleChildren() {
+    return this.items.filter(item => item.comp).map(item => item.comp);
   }
 
-/****************************************************************************************************************************
- * Dimensions
-   We always take the full line, so don't bother with width calculations
- */
-  calculateDimHeight()
-  {
+  /****************************************************************************************************************************
+   * Dimensions
+     We always take the full line, so don't bother with width calculations
+   */
+  calculateDimHeight() {
     this.height.min = ToolbarHeight;
   }
 
-  applySetHeight()
-  {
-    this.items.forEach(item =>
-    {
-      if(item.comp)
+  applySetHeight() {
+    this.items.forEach(item => {
+      if (item.comp)
         item.comp.setHeight(ButtonHeight);
     });
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
     var width = this.width.set;
     var height = this.height.set;
@@ -136,9 +123,8 @@ export default class ObjToolbar extends ComponentBase
     this.node.style.width = width + 'px';
     this.node.style.height = height + 'px';
 
-    this.items.forEach((item, i) =>
-    {
-      if(item.comp)
+    this.items.forEach((item, i) => {
+      if (item.comp)
         item.comp.relayout();
     });
   }

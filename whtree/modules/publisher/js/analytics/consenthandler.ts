@@ -13,65 +13,60 @@ let consentstatus, cookiename, consentoptions;
     @cell options.cookieduration Duration to store or extend the consent, in days. Defaults to 365
     @cell options.defaultconsent The consent tags which are active by default (only use this for anonymous tracking and functional cookies)
 */
-export function setup(usecookiename, consentrequester, options)
-{
-  if(typeof usecookiename !== 'string')
+export function setup(usecookiename, consentrequester, options) {
+  if (typeof usecookiename !== 'string')
     throw new Error("Cookiename must be of type 'string'");
-  if(dompack.debugflags.cst)
+  if (dompack.debugflags.cst)
     console.log(`[cst] consenthandler initialized. cookiename: '${usecookiename}'`);
 
   cookiename = usecookiename;
-  consentoptions = { cookiedomain: null
-                   , cookieduration: 365
-                   , defaultconsent: []
-                   , ...options
-                   };
+  consentoptions = {
+    cookiedomain: null
+    , cookieduration: 365
+    , defaultconsent: []
+    , ...options
+  };
 
-  try
-  {
+  try {
     consentstatus = consentrequester ? JSON.parse(cookie.read(cookiename)) : null;
-    if(dompack.debugflags.cst)
+    if (dompack.debugflags.cst)
       console.log(`[cst] initial consent state:`, consentstatus);
   }
-  catch(ignore)
-  {
+  catch (ignore) {
   }
 
-  if(!consentstatus || typeof consentstatus != "object" || consentstatus.v !== 2 || typeof consentstatus.c != "object")
+  if (!consentstatus || typeof consentstatus != "object" || consentstatus.v !== 2 || typeof consentstatus.c != "object")
     consentstatus = { v: 2 };
 
-  if(!("c" in consentstatus))  //simple consent flag
+  if (!("c" in consentstatus))  //simple consent flag
   {
-    if(consentrequester)
+    if (consentrequester)
       dompack.onDomReady(consentrequester); //run the request function, but only on domready! it's a safe assumption it should be delayed...
   }
-  else
-  {
+  else {
     storeConsent(); //renew the status
   }
   updateConsent();
 }
 
 //Test for consent
-export function hasConsent(consentsetting)
-{
-  if(consentsetting === undefined) //generic consent check
+export function hasConsent(consentsetting) {
+  if (consentsetting === undefined) //generic consent check
     throw new Error("hasConsent required a string argument");
 
   let details = getConsentDetail();
-  if (   !details // setup() not called yet?
-      || !details.consent) // no consent has been given and no defaults are available consent will be undefined?
+  if (!details // setup() not called yet?
+    || !details.consent) // no consent has been given and no defaults are available consent will be undefined?
     return undefined;
 
   return details.consent.includes(consentsetting);
 }
 
 //Set simple consent
-export function setConsent(newsetting)
-{
-  if(cookiename === undefined)
+export function setConsent(newsetting) {
+  if (cookiename === undefined)
     throw new Error("Invoke consenthandler.setup before modifying consent state!");
-  if(typeof newsetting != "object" || !Array.isArray(newsetting))
+  if (typeof newsetting != "object" || !Array.isArray(newsetting))
     throw new Error("Expecting an array in call to setConsent");
 
   // Check if there are some consents being revoked
@@ -79,8 +74,7 @@ export function setConsent(newsetting)
   let consent_revoked = false;
   if (details.consent) // if no explicit or default consent, the consent field is undefined
   {
-    for (let tag of details.consent)
-    {
+    for (let tag of details.consent) {
       if (!newsetting.includes(tag))
         consent_revoked = true;
     }
@@ -104,12 +98,11 @@ export function setConsent(newsetting)
     @param return.consent list all consents
     @param return.isdefault if TRUE then the consents are implicit/defaults (not consent explicitly given by the user)
 */
-function getConsentDetail()
-{
+function getConsentDetail() {
   if (!consentstatus) // setup() did not run yet
     return null;
 
-  if(!("c" in consentstatus)) // consent not set yet
+  if (!("c" in consentstatus)) // consent not set yet
   {
     if (consentoptions.defaultconsent.length > 0)
       return { consent: consentoptions.defaultconsent, isdefault: true }; // use fallback consent
@@ -117,16 +110,15 @@ function getConsentDetail()
       return { consent: undefined, isdefault: false }; // no consent given yet (expected to return undefined for consent)
   }
 
-  return { consent: consentstatus.c
-         , isdefault: false
-         };
+  return {
+    consent: consentstatus.c
+    , isdefault: false
+  };
 }
 
-export function onConsent(type, callback)
-{
-  window.addEventListener("wh:consent-changed", evt =>
-  {
-    if(evt.detail.consent.includes(type))
+export function onConsent(type, callback) {
+  window.addEventListener("wh:consent-changed", evt => {
+    if (evt.detail.consent.includes(type))
       callback(evt.detail);
   });
 
@@ -134,39 +126,36 @@ export function onConsent(type, callback)
 
   if (details && details.consent && details.consent.includes(type)) //already missed it, so invoke
   {
-    if(dompack.debugflags.anl)
+    if (dompack.debugflags.anl)
       console.info("[anl] Invoking callback", details);
     callback(getConsentDetail());
   }
 }
 
 //Register callback for content changes
-export function onConsentChange(callback)
-{
+export function onConsentChange(callback) {
   window.addEventListener("wh:consent-changed", evt => callback(evt.detail));
 
   let details = getConsentDetail();
 
   if (details) //already missed it, so invoke
   {
-    if(dompack.debugflags.anl)
+    if (dompack.debugflags.anl)
       console.info("[anl] Invoking callback", details);
     callback(details);
   }
 }
 
-function updateConsentOverlays()
-{
+function updateConsentOverlays() {
   let overlays = dompack.qSA(".wh-requireconsent__overlay");
   let consent = getConsentDetail().consent;
 
-  if(dompack.debugflags.cst)
+  if (dompack.debugflags.cst)
     console.log(`[cst] update ${overlays.length} consent overlay(s). consent: ${consent.length ? consent.join(', ') : "<none>"}`);
 
-  overlays.forEach(overlay =>
-  {
+  overlays.forEach(overlay => {
     let parent = overlay.closest(".wh-requireconsent");
-    if(parent && parent.dataset.whConsentRequired)
+    if (parent && parent.dataset.whConsentRequired)
       overlay.hidden = consent.includes(parent.dataset.whConsentRequired);
   });
 }
@@ -175,8 +164,8 @@ function updateConsent() //update in DOM, GTM, etc
 {
   let details = getConsentDetail();
 
-  if (   !details // setup() not called yet?
-      || !details.consent) // no consent has been given and no defaults are available consent will be undefined?
+  if (!details // setup() not called yet?
+    || !details.consent) // no consent has been given and no defaults are available consent will be undefined?
   {
     document.documentElement.dataset.whConsent = "unknown"; // unknown - no explicit or explicit (options.defaultconsent) consent
     return;
@@ -184,24 +173,22 @@ function updateConsent() //update in DOM, GTM, etc
 
   document.documentElement.dataset.whConsent = details.consent.length ? details.consent.join(" ") : "denied";
 
-    if(dompack.debugflags.anl)
-      console.info("[anl] Firing wh:consent-changed with", details);
+  if (dompack.debugflags.anl)
+    console.info("[anl] Firing wh:consent-changed with", details);
 
-  dompack.dispatchCustomEvent(window, "wh:consent-changed", { bubbles:false, cancelable:false, detail: getConsentDetail() });
+  dompack.dispatchCustomEvent(window, "wh:consent-changed", { bubbles: false, cancelable: false, detail: getConsentDetail() });
   dompack.onDomReady(updateConsentOverlays);
 }
 
-function storeConsent()
-{
-  if(cookiename !== undefined)
+function storeConsent() {
+  if (cookiename !== undefined)
     cookie.write(cookiename, JSON.stringify(consentstatus), { duration: consentoptions.cookieduration, domain: consentoptions.cookiedomain });
 }
 
-window.whResetConsent = function()
-{
-  if(cookiename === undefined)
+window.whResetConsent = function() {
+  if (cookiename === undefined)
     throw new Error("Consent handler not setup");
-  else if(!cookiename)
+  else if (!cookiename)
     throw new Error("Consent handler is not handling storage");
 
   cookie.remove(cookiename);

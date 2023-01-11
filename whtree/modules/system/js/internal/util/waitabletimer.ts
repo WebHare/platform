@@ -6,10 +6,8 @@ const WaitableConditionBase = require("./waitableconditionbase.es");
 
 /** This class implements a timer that can be waited on (and be reset)
 */
-class WaitableTimer extends WaitableConditionBase
-{
-  constructor(timeout)
-  {
+class WaitableTimer extends WaitableConditionBase {
+  constructor(timeout) {
     super();
     /// Callback for the timer
     this._cb = null;
@@ -17,11 +15,9 @@ class WaitableTimer extends WaitableConditionBase
     this.reset(timeout);
   }
 
-  reset(timeout)
-  {
+  reset(timeout) {
     this._setSignalled(false);
-    if (this._cb)
-    {
+    if (this._cb) {
       clearTimeout(this._cb);
       this._cb = null;
     }
@@ -30,8 +26,7 @@ class WaitableTimer extends WaitableConditionBase
     return this;
   }
 
-  _gotTimeOut()
-  {
+  _gotTimeOut() {
     this._cb = null;
     this._setSignalled(true);
   }

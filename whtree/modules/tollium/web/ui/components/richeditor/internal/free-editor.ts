@@ -3,61 +3,50 @@
 
 import EditorBase from './editorbase';
 
-export default class FreeEditor extends EditorBase
-{
-  constructor(element, rte, options, undonode)
-  {
+export default class FreeEditor extends EditorBase {
+  constructor(element, rte, options, undonode) {
     super(element, rte, options, undonode);
   }
 
-  execCommand(command, p1, p2)
-  {
-    try
-    {
+  execCommand(command, p1, p2) {
+    try {
       // execCommand should be called on the document, not the editable area (contenteditable/designmode)
       this.bodydiv.ownerDocument.execCommand(command, p1, p2);
     }
-    catch (e)
-    {
-      if(this.options.log)
-        console.log('ExecCommand exception',e);
+    catch (e) {
+      if (this.options.log)
+        console.log('ExecCommand exception', e);
       return false;
     }
     return true;
   }
 
-  addListLevel()
-  {
+  addListLevel() {
     this.execCommand('indent');
     this.stateHasChanged();
   }
 
-  removeListLevel()
-  {
+  removeListLevel() {
     this.execCommand('outdent');
     this.stateHasChanged();
   }
 
   // Toggle bulleted list for the selection
-  _toggleBulletedList()
-  {
+  _toggleBulletedList() {
     this.execCommand('insertunorderedlist');
     this.stateHasChanged();
   }
 
   // Toggle numbered list for the selection
-  _toggleNumberedList()
-  {
+  _toggleNumberedList() {
     this.execCommand('insertorderedlist');
     this.stateHasChanged();
   }
 
   //ADDME: Use our own function instead of having the browser make something up
-  _setAlignment(align)
-  {
+  _setAlignment(align) {
     var cmd = '';
-    switch (align)
-    {
+    switch (align) {
       case 'center':
         cmd = 'justifycenter';
         break;
@@ -75,13 +64,13 @@ export default class FreeEditor extends EditorBase
     this.stateHasChanged();
   }
 
-  getAvailableListActions(range)
-  {
+  getAvailableListActions(range) {
     let insidelist = range.getAncestorClosest("ul,ol", this.getContentBodyNode());
     let havelist = range.querySelectorAll("ul,ol,li").length;
 
-    return { canincrease: insidelist || havelist
-           , candecrease: insidelist || havelist
-           };
+    return {
+      canincrease: insidelist || havelist
+      , candecrease: insidelist || havelist
+    };
   }
 }

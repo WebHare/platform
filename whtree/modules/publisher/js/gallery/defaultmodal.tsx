@@ -18,21 +18,19 @@ import * as preload from 'dompack/extra/preload';
   title: optional overlay title
 */
 
-export class DefaultModalGallery extends ModalGalleryBase
-{
-  constructor(gallery, select)
-  {
+export class DefaultModalGallery extends ModalGalleryBase {
+  constructor(gallery, select) {
     super(gallery, select);
 
-    this.countnode = <h2 class="wh-gallery-modal__counter"/>;
+    this.countnode = <h2 class="wh-gallery-modal__counter" />;
     this.slidescontainer = <div class="wh-gallery-modal__slides" />;//
 
     this.overlay = <div class="wh-gallery-modal">
-                     {this.countnode}
-                     <div class="wh-gallery-modal__close" onClick={() => this.hideOverlay()}><i class="fal fa-times"></i></div>
-                     <h2 class="wh-gallery-modal__title">{this.title}</h2>
-                     {this.slidescontainer}
-                   </div>;
+      {this.countnode}
+      <div class="wh-gallery-modal__close" onClick={() => this.hideOverlay()}><i class="fal fa-times"></i></div>
+      <h2 class="wh-gallery-modal__title">{this.title}</h2>
+      {this.slidescontainer}
+    </div>;
 
     this.previousnode = <div class="wh-gallery-modal__previous" onClick={() => this.previousImage()}><i class="fal fa-angle-left"></i></div>;
     this.overlay.appendChild(this.previousnode);
@@ -43,18 +41,16 @@ export class DefaultModalGallery extends ModalGalleryBase
     this.showOverlayNode(this.overlay);
 
     // this.photos = photos;
-//FIXME title? where to safely get it? or assume it's safe to take document.title    this.title = title ? title : "";
+    //FIXME title? where to safely get it? or assume it's safe to take document.title    this.title = title ? title : "";
 
     this.resizefn = this.setImageSize.bind(this);
   }
 
-  showImage(idx, options)
-  {
+  showImage(idx, options) {
     let state = this.getSelectionState();
-    this.countnode.textContent = (state.current+1) + " / " + state.total;
+    this.countnode.textContent = (state.current + 1) + " / " + state.total;
 
-    if(this.completioncallback)
-    {
+    if (this.completioncallback) {
       clearTimeout(this.completiontimer);
       this.completioncallback();
     }
@@ -62,25 +58,23 @@ export class DefaultModalGallery extends ModalGalleryBase
     this.overlay.classList.toggle("wh-gallery-modal--firstslide", state.first);
     this.overlay.classList.toggle("wh-gallery-modal--lastslide", state.last);
 
-    this.nextimage = this.createImage( idx, options.last !== null );
+    this.nextimage = this.createImage(idx, options.last !== null);
 
     let viewport = this.getWindowSize();
-    this.nextimage.style.transform = "translate3d(" + ( idx > options.last ? viewport.x : -viewport.x ) + "px,0,0)";
+    this.nextimage.style.transform = "translate3d(" + (idx > options.last ? viewport.x : -viewport.x) + "px,0,0)";
     this.slidescontainer.appendChild(this.nextimage);
-    this.setImageSize({ type : "newimage"});
+    this.setImageSize({ type: "newimage" });
     this.nextimage.clientWidth;//force css update
     this.nextimage.style.transform = "translate3d(0,0,0)";
-    if(this.currentimage)
-    {
-      this.currentimage.style.transform = "translate3d(" + ( idx > options.last ? -viewport.x : viewport.x ) + "px,0,0)";
+    if (this.currentimage) {
+      this.currentimage.style.transform = "translate3d(" + (idx > options.last ? -viewport.x : viewport.x) + "px,0,0)";
       this.currentimage.classList.remove("wh-gallery-modal__image--selected");
     }
 
-    this.completioncallback = () =>
-    {
+    this.completioncallback = () => {
       this.completioncallback = null;
       this.activeidx = idx;
-      if(this.currentimage)
+      if (this.currentimage)
         this.slidescontainer.removeChild(this.currentimage);
       this.currentimage = this.nextimage;
       this.currentimage.classList.add("wh-gallery-modal__image--selected");
@@ -90,53 +84,51 @@ export class DefaultModalGallery extends ModalGalleryBase
     this.completiontimer = setTimeout(this.completioncallback, 500);
   }
 
-  getWindowSize()
-  {
-    this.viewport = { x : window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
-                    , y : window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
-                    };
+  getWindowSize() {
+    this.viewport = {
+      x: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
+      , y: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+    };
     return this.viewport;
   }
 
-  async preloadImage( wrappernode, imginfo, transition)
-  {
-    let preloadedimage = await preload.promiseImage( imginfo.src );
-    if( preloadedimage && wrappernode )
-    {
+  async preloadImage(wrappernode, imginfo, transition) {
+    let preloadedimage = await preload.promiseImage(imginfo.src);
+    if (preloadedimage && wrappernode) {
       preloadedimage.node.width = imginfo.width;
       preloadedimage.node.height = imginfo.height;
 
       wrappernode.classList.remove("wh-gallery-modal__image--loading");
-      if(transition)
+      if (transition)
         preloadedimage.node.style.opacity = 0;
-      wrappernode.appendChild( preloadedimage.node );
+      wrappernode.appendChild(preloadedimage.node);
       wrappernode.clientWidth;// force css update
-      if(transition)
+      if (transition)
         preloadedimage.node.style.opacity = 1;
 
       let resizenode = wrappernode.querySelector(".wh-gallery-modal__imagesizer");
-      if( resizenode )
+      if (resizenode)
         dompack.empty(resizenode);//remove loading indicator
     }
   }
 
-  createImage(idx, transition)
-  {
+  createImage(idx, transition) {
     let imginfo = this.gallery.getSlide(idx);
     let imagenode =
       <div class="wh-gallery-modal__image wh-gallery-modal__image--loading"
-           style={{ maxWidth: imginfo.width + "px"
-                  , maxHeight: imginfo.height + "px"
-                  , backgroundColor: imginfo.dominantcolor
-                 }}>
-        <div class="wh-gallery-modal__imagesizer" style={{paddingTop: ( (1/imginfo.aspect) * 100) + "%" }}>
+        style={{
+          maxWidth: imginfo.width + "px"
+          , maxHeight: imginfo.height + "px"
+          , backgroundColor: imginfo.dominantcolor
+        }}>
+        <div class="wh-gallery-modal__imagesizer" style={{ paddingTop: ((1 / imginfo.aspect) * 100) + "%" }}>
           <span class="far fa-circle-notch fa-spin" />
         </div>
-        { imginfo.title
-            ? <div class="title">{imginfo.title}</div>
-            : null
+        {imginfo.title
+          ? <div class="title">{imginfo.title}</div>
+          : null
         }
-       </div>;
+      </div>;
 
     //TODO video support ? but our gallery doesn't pass though videos yet. it should?
     // if( this.photos[idx].video )
@@ -157,41 +149,36 @@ export class DefaultModalGallery extends ModalGalleryBase
     return imagenode;
   }
 
-  setImageSize( ev )
-  {
-    if( !this.viewport || (ev && ev.type == "resize") )
+  setImageSize(ev) {
+    if (!this.viewport || (ev && ev.type == "resize"))
       this.getWindowSize();
 
-    let spacing = { x : 100, y : 140 };
+    let spacing = { x: 100, y: 140 };
 
-    for( let node of this.overlay.querySelectorAll(".wh-gallery-modal__image") )
-    {
+    for (let node of this.overlay.querySelectorAll(".wh-gallery-modal__image")) {
       let w = node.style.maxWidth.replace(/[^0-9]/g, "");
       let h = node.style.maxHeight.replace(/[^0-9]/g, "");
       let aspect = h / w;
-      if( w > this.viewport.x - spacing.x )
-      {
+      if (w > this.viewport.x - spacing.x) {
         w = this.viewport.x - spacing.x;
         h = ~~(w * aspect);
       }
-      if( h > this.viewport.y - spacing.y )
-      {
+      if (h > this.viewport.y - spacing.y) {
         h = this.viewport.y - spacing.y;
         w = ~~(h / aspect);
       }
       node.style.width = w + "px";
-      node.style.marginLeft = -w/2 + "px";
-      node.style.marginTop = -h/2 + "px";
+      node.style.marginLeft = -w / 2 + "px";
+      node.style.marginTop = -h / 2 + "px";
     }
   }
 
-  showOverlay(idx)
-  {
-    if( !idx )
+  showOverlay(idx) {
+    if (!idx)
       idx = 0;
-    else if( idx < 0 )
+    else if (idx < 0)
       idx = 0;
-    else if( idx >= this.photos.length )
+    else if (idx >= this.photos.length)
       idx = this.photos.length - 1;
 
     this.activeidx = idx;
@@ -204,12 +191,11 @@ export class DefaultModalGallery extends ModalGalleryBase
     this.slidescontainer.appendChild(this.currentimage);
 
 
-    window.addEventListener("resize",this.resizefn);
+    window.addEventListener("resize", this.resizefn);
   }
 
-  hideOverlay(ev)
-  {
-    window.removeEventListener("resize",this.resizefn);
+  hideOverlay(ev) {
+    window.removeEventListener("resize", this.resizefn);
 
     document.documentElement.classList.remove("hidescroll");
 
@@ -217,7 +203,6 @@ export class DefaultModalGallery extends ModalGalleryBase
   }
 }
 
-export default function openModalGallery(gallery, select)
-{
+export default function openModalGallery(gallery, select) {
   return new DefaultModalGallery(gallery, select);
 }

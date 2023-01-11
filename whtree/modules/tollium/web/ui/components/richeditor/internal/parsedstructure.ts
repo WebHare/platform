@@ -1,10 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-export default class ParsedStructure
-{
-  constructor(structure)
-  {
+export default class ParsedStructure {
+  constructor(structure) {
     this.defaultorderedliststyle = null;
     this.defaultunorderedliststyle = null;
     this.defaulttablestyle = null;
@@ -14,8 +12,7 @@ export default class ParsedStructure
     this.parseCellStyles(structure.cellstyles || []);
 
 
-    for(var i=0;i<this.blockstyles.length;++i)
-    {
+    for (var i = 0; i < this.blockstyles.length; ++i) {
       var style = this.blockstyles[i];
 
       if (style.listtype == 'ordered')
@@ -25,12 +22,10 @@ export default class ParsedStructure
       if (style.istable)
         this.defaulttablestyle = this.defaulttablestyle || style;
 
-      if (style.istable)
-      {
-        if(style.tabledefaultblockstyle)
-        {
+      if (style.istable) {
+        if (style.tabledefaultblockstyle) {
           let lookupstyle = this.getBlockStyleByTag(style.tabledefaultblockstyle);
-          if(!lookupstyle)
+          if (!lookupstyle)
             throw Error("Block style named by table 'defaultstyle' does not exist in structure");
           style.tabledefaultblockstyle = lookupstyle;
         }
@@ -47,63 +42,58 @@ export default class ParsedStructure
       throw Error("Block style named by 'defaultblockstyle' does not exist in structure");
   }
 
-  parseCellStyles(cellstyles)
-  {
+  parseCellStyles(cellstyles) {
     this.cellstyles = [];
-    for(let style of cellstyles)
-    {
-      this.cellstyles.push({ tag: style.tag.toLowerCase()
-                           , def: style
-                           });
+    for (let style of cellstyles) {
+      this.cellstyles.push({
+        tag: style.tag.toLowerCase()
+        , def: style
+      });
     }
   }
 
-  getClassStyleForCell(cellnode)
-  {
-    for(let style of this.cellstyles)
-      if(style.tag && cellnode.classList && cellnode.classList.contains(style.tag))
+  getClassStyleForCell(cellnode) {
+    for (let style of this.cellstyles)
+      if (style.tag && cellnode.classList && cellnode.classList.contains(style.tag))
         return style.tag;
     return '';
   }
 
-  parseBlockStyles(inblockstyles)
-  {
-    this.blockstyles=[];
+  parseBlockStyles(inblockstyles) {
+    this.blockstyles = [];
 
-    for(let i=0;i<inblockstyles.length;++i)
-    {
+    for (let i = 0; i < inblockstyles.length; ++i) {
       var blockstyle = inblockstyles[i];
       var classname = blockstyle.tag.toLowerCase();
       var containertag = blockstyle.containertag.toLowerCase();
 
-      let style = { classname: classname
-                  , def: blockstyle
-                  , tag: blockstyle.tag
-                  , istable: blockstyle.type == "table"
-                  , tabledefaultblockstyle: null
-                  , tableresizing: []
-                  , islist: [ 'ul', 'ol' ].includes(containertag)
-                  , listtype: containertag == 'ul' ? 'unordered' : containertag == 'ol' ? 'ordered' : ''
-                  , importfrom: []
-                  };
+      let style = {
+        classname: classname
+        , def: blockstyle
+        , tag: blockstyle.tag
+        , istable: blockstyle.type == "table"
+        , tabledefaultblockstyle: null
+        , tableresizing: []
+        , islist: ['ul', 'ol'].includes(containertag)
+        , listtype: containertag == 'ul' ? 'unordered' : containertag == 'ol' ? 'ordered' : ''
+        , importfrom: []
+      };
 
-      if(blockstyle.importfrom)
+      if (blockstyle.importfrom)
         style.importfrom.push(...blockstyle.importfrom);
-      if(style.istable)
-      {
+      if (style.istable) {
         style.tabledefaultblockstyle = blockstyle.tabledefaultblockstyle;
 
         if (!blockstyle.tableresizing || blockstyle.tableresizing.includes("all"))
-          style.tableresizing = [ "all" ];
+          style.tableresizing = ["all"];
         else // using Set to eliminate duplicates
           style.tableresizing = Array.from(
-              new Set(blockstyle.tableresizing.filter(val => [ "rows", "columns", "table" ].includes(val))));
+            new Set(blockstyle.tableresizing.filter(val => ["rows", "columns", "table"].includes(val))));
       }
       this.blockstyles.push(style);
     }
 
-    for(let i=0;i<this.blockstyles.length;++i)
-    {
+    for (let i = 0; i < this.blockstyles.length; ++i) {
       let style = this.blockstyles[i];
       style.nextblockstyle = style.def.nextblockstyle && this.getBlockStyleByTag(style.def.nextblockstyle);
       if (!style.nextblockstyle && style.islist)
@@ -111,18 +101,16 @@ export default class ParsedStructure
     }
   }
 
-  getBlockStyleByTag(tagname)
-  {
-    for(var i=0;i<this.blockstyles.length;++i)
-      if(this.blockstyles[i].tag.toUpperCase() == tagname.toUpperCase())
+  getBlockStyleByTag(tagname) {
+    for (var i = 0; i < this.blockstyles.length; ++i)
+      if (this.blockstyles[i].tag.toUpperCase() == tagname.toUpperCase())
         return this.blockstyles[i];
     return null;
   }
 
-  lookupTableStyle(tablenode)
-  {
+  lookupTableStyle(tablenode) {
     var style = this.getBlockStyleByTag(tablenode.className.split(' ')[0]);
-    if(style && style.istable)
+    if (style && style.istable)
       return style;
     return this.defaulttablestyle;
   }

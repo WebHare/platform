@@ -1,22 +1,18 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-if(!Array.prototype.at)
-{ //not supported by Safari 15.3 and earlier
-  Array.prototype.at = function(index)
-  {
+if (!Array.prototype.at) { //not supported by Safari 15.3 and earlier
+  Array.prototype.at = function(index) {
     let len = this.length;
-    if(index < 0)
+    if (index < 0)
       index = len + index;
     return this[index]; //will return 'undefined' if index is out of range
   };
 }
-if(!String.prototype.at)
-{ //not supported by Safari 15.3 and earlier
-  String.prototype.at = function(index)
-  {
+if (!String.prototype.at) { //not supported by Safari 15.3 and earlier
+  String.prototype.at = function(index) {
     let len = this.length;
-    if(index < 0)
+    if (index < 0)
       index = len + index;
     return this[index]; //will return 'undefined' if index is out of range
   };
@@ -28,11 +24,9 @@ if(!String.prototype.at)
 //
 
 //replaceChildren polyfill
-if(!Element.prototype.replaceChildren)
-{
+if (!Element.prototype.replaceChildren) {
   //not generally supported by Chrome, Firefox and Safari before Oct 2020
-  Element.prototype.replaceChildren = function()
-  {
+  Element.prototype.replaceChildren = function() {
     this.innerHTML = "";
     this.append.apply(this, arguments);
   };

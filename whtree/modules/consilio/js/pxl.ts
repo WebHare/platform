@@ -30,21 +30,20 @@ let seqnr = 0;
     @cell options.nobrowserenvironment Set to true to omit some browser context fields ("bu", "bs" and "bp"). This option can
         be used to reduce the length of the pxl url. Defaults to false.
 */
-export function setPxlOptions(options)
-{
-  globalOptions = { donottrack: "0"
-                  , recordurl: "/.px/"
-                  , altsamplerate: 0
-                  , altrecordurl: "/.px/alt/"
-                  , sessionexpiration: max_sessionid_age
-                  , nobrowserenvironment: false
-                  , debug: !!domdebug.debugflags.pxl
-                  , ...(!options ? null : globalOptions) // Keep existing options if not resetting to default
-                  , ...options // And apply the new ones
-                  };
+export function setPxlOptions(options) {
+  globalOptions = {
+    donottrack: "0"
+    , recordurl: "/.px/"
+    , altsamplerate: 0
+    , altrecordurl: "/.px/alt/"
+    , sessionexpiration: max_sessionid_age
+    , nobrowserenvironment: false
+    , debug: !!domdebug.debugflags.pxl
+    , ...(!options ? null : globalOptions) // Keep existing options if not resetting to default
+    , ...options // And apply the new ones
+  };
 
-  if (globalOptions.altrecordurl && globalOptions.altsamplerate)
-  {
+  if (globalOptions.altrecordurl && globalOptions.altsamplerate) {
     isaltsample = Math.random() < globalOptions.altsamplerate;
     if (globalOptions.debug)
       console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altsamplerate}% of pageloads, this session is sent to the ${isaltsample ? "alternative" : "normal"} url`);
@@ -53,16 +52,14 @@ export function setPxlOptions(options)
     isaltsample = false;
 }
 
-function pxlFailed(errormessage, ...params)
-{
+function pxlFailed(errormessage, ...params) {
   console.error('[pxl] ' + errormessage, ...params);
-  if(!whintegration.config.islive)
+  if (!whintegration.config.islive)
     throw new Error(errormessage); //big errors on test servers
   return null;
 }
 
-export function makePxlUrl(baseurl, eventname, data, options)
-{
+export function makePxlUrl(baseurl, eventname, data, options) {
   options = { ...globalOptions, ...options };
 
   if (typeof eventname != "string")
@@ -72,7 +69,7 @@ export function makePxlUrl(baseurl, eventname, data, options)
   if (data && typeof data != "object")
     return pxlFailed(`Invalid data, expected object, got ${typeof data}`);
 
-  if(!pagesession)
+  if (!pagesession)
     pagesession = generateId();
 
   //not using URL object, simplifies support of relative URLs
@@ -98,8 +95,7 @@ export function makePxlUrl(baseurl, eventname, data, options)
   let device = browser.getDevice();
   if (device)
     url += `&bd=${encodeURIComponent(device)}`;
-  if (!options.nobrowserenvironment)
-  {
+  if (!options.nobrowserenvironment) {
     url += `&bu=${encodeURIComponent(window.navigator.userAgent)}`;
     if (window.screen.width && window.screen.height)
       url += `&bs=${window.screen.width}x${window.screen.height}`;
@@ -107,10 +103,8 @@ export function makePxlUrl(baseurl, eventname, data, options)
       url += `&bp=${window.devicePixelRatio}`;
   }
 
-  if (data)
-  {
-    for (let name of Object.keys(data))
-    {
+  if (data) {
+    for (let name of Object.keys(data)) {
       let test = datakey_regex.exec(name);
       if (!test)
         return pxlFailed(`Invalid data field name '${name}', should be ds_XXX, dn_XXX or db_XXX with X consisting of characters in the range 0-9, a-z or an underscore`);
@@ -150,25 +144,21 @@ export function makePxlUrl(baseurl, eventname, data, options)
   return url;
 }
 
-export function getPxlId(options)
-{
+export function getPxlId(options) {
   options = { ...globalOptions, ...options };
 
   //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
   let havelocalstorage = true;
   try { window.localStorage.getItem("_wh.pi"); }
-  catch(ignore) { havelocalstorage = false; }
+  catch (ignore) { havelocalstorage = false; }
 
   // Use localStorage if available, otherwise just use a cookie
-  if (havelocalstorage)
-  {
+  if (havelocalstorage) {
     let expiration = new Date();
     let id = localStorage.getItem("_wh.pi");
-    if (id)
-    {
+    if (id) {
       let timestamp = new Date(localStorage.getItem("_wh.ti"));
-      if (timestamp > expiration)
-      {
+      if (timestamp > expiration) {
         if (options.debug)
           console.log(`[pxl] Using id ${id} from localStorage`);
         return id;
@@ -177,18 +167,16 @@ export function getPxlId(options)
         console.log(`[pxl] Id from localStorage has expired (${timestamp} <= ${expiration})`);
     }
     id = generateId();
-    expiration = new Date(expiration.getTime() + options.sessionexpiration * 24*60*60*1000);
+    expiration = new Date(expiration.getTime() + options.sessionexpiration * 24 * 60 * 60 * 1000);
     localStorage.setItem("_wh.pi", id);
     localStorage.setItem("_wh.ti", expiration.toISOString());
     if (options.debug)
       console.log(`[pxl] Storing id ${id} in localStorage with expiration date ${expiration}`);
     return id;
   }
-  else
-  {
+  else {
     let id = cookie.read("_wh.pi");
-    if (!id)
-    {
+    if (!id) {
       id = generateId();
       cookie.write("_wh.pi", id, { duration: options.sessionexpiration });
       if (options.debug)
@@ -200,13 +188,11 @@ export function getPxlId(options)
   }
 }
 
-function getPxlSessionId(options)
-{
+function getPxlSessionId(options) {
   options = { ...globalOptions, ...options };
 
   let id = cookie.read("_wh.ps");
-  if (!id)
-  {
+  if (!id) {
     id = generateId();
     cookie.write("_wh.ps", id);
     if (options.debug)
@@ -223,19 +209,16 @@ function getPxlSessionId(options)
     @param options
     @cell options.node Node responsible for generating this event (if not set, 'window' is assumed). Used for the event handlers
 */
-export function sendPxlEvent(event, data, options)
-{
+export function sendPxlEvent(event, data, options) {
   options = { ...globalOptions, ...options };
 
-  if(!dompack.dispatchCustomEvent(options.node || window, "consilio:pxl", { bubbles:true, cancelable:true, defaulthandler: pingPxlEvent, detail: { event, data, options, isaltsample } }))
-  {
-    if(options.debug)
+  if (!dompack.dispatchCustomEvent(options.node || window, "consilio:pxl", { bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: { event, data, options, isaltsample } })) {
+    if (options.debug)
       console.log(`[pxl] Event of type '${event}' cancelled by consilio:pxl event handler`);
   }
 }
 
-function pingPxlEvent(evt)
-{
+function pingPxlEvent(evt) {
   // determine the recordurl for this page
   const isaltsample = evt.detail.isaltsample;
   const event = evt.detail.event;
@@ -245,25 +228,22 @@ function pingPxlEvent(evt)
 
   // Add the pxl event to the url
   let url = makePxlUrl(baseurl, event, data, options);
-  if(!url)
+  if (!url)
     return;
 
   if (!window.whPxlLog)
     window.whPxlLog = [];
-  window.whPxlLog.push({event,data,options,isaltsample});
+  window.whPxlLog.push({ event, data, options, isaltsample });
   if (options.debug)
-    console.log(`[pxl] Event '${event}'`,data);
+    console.log(`[pxl] Event '${event}'`, data);
 
-  if(options.beacon)
-  {
-    if(window.navigator.sendBeacon)
-    {
+  if (options.beacon) {
+    if (window.navigator.sendBeacon) {
       if (options.debug)
         console.log(`[pxl] Beacon-pinging pxl '${url}' (sendBeacon)`);
       navigator.sendBeacon(url);
     }
-    else
-    {
+    else {
       if (options.debug)
         console.log(`[pxl] Beacon-pinging pxl '${url}' (sync XHR)`);
 
@@ -275,34 +255,27 @@ function pingPxlEvent(evt)
         console.log(`[pxl] Beacon-pinging pxl '${url}' - sync XHR done!`);
     }
   }
-  else
-  {
+  else {
     // Load the pxl file using fetch TODO DOES IE11 support no-cors? Or just switch to <img> loading
     let promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
-    if (options.debug)
-    {
+    if (options.debug) {
       console.log(`[pxl] Pinging pxl '${url}'`);
-      promise.then(() =>
-      {
+      promise.then(() => {
         console.log(`[pxl] Pinged pxl`);
-      }).catch(error =>
-      {
+      }).catch(error => {
         console.error(`[pxl] Error while pinging pxl`, error);
       });
     }
-    else
-    {
-      promise.catch(function(){}); //we don't really care about failed fetches, but don't turn them into unhandled rejections
+    else {
+      promise.catch(function() { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
     }
   }
 }
 
-function makePart()
-{
+function makePart() {
   return ("00000000" + Math.abs(Date.now() ^ Math.floor(Math.random() * 4000000000)).toString(16)).substr(-8);
 }
-export function generateId()
-{
+export function generateId() {
   return makePart() + makePart();
 }
 

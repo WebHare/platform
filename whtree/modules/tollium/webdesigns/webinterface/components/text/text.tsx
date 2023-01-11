@@ -18,13 +18,11 @@ const linetextTopMargin = 5; //keep in sync with t-text.scss
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-export default class ObjText extends ComponentBase
-{
-/****************************************************************************************************************************
-* Initialization
-*/
-  constructor(parentcomp, data, replacingcomp)
-  {
+export default class ObjText extends ComponentBase {
+  /****************************************************************************************************************************
+  * Initialization
+  */
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "text";
@@ -54,108 +52,98 @@ export default class ObjText extends ComponentBase
     this.setValue(data.value, data.ishtml);
   }
 
-  setStyles(settings)
-  {
-    if (!this.styles)
-    {
-      this.styles = { bold:      false
-                    , italic:    false
-                    , underline: false
-                    , wordwrap:  false
-                    , ellipsis:  false
-                    };
+  setStyles(settings) {
+    if (!this.styles) {
+      this.styles = {
+        bold: false
+        , italic: false
+        , underline: false
+        , wordwrap: false
+        , ellipsis: false
+      };
     }
 
-    Object.keys(this.styles).forEach(key =>
-    {
-      if (typeof(settings[key]) == typeof(this.styles[key]))
+    Object.keys(this.styles).forEach(key => {
+      if (typeof (settings[key]) == typeof (this.styles[key]))
         this.styles[key] = settings[key];
     });
   }
 
-/****************************************************************************************************************************
-* Property getters & setters
-*/
+  /****************************************************************************************************************************
+  * Property getters & setters
+  */
 
-  getLabelFor()
-  {
+  getLabelFor() {
     return this.labelfor;
   }
 
-  setLabelFor(value)
-  {
+  setLabelFor(value) {
     if (this.node)
       this.node.dataset.labelfor = value;
     this.labelfor = value;
   }
 
-  setValue(value, ishtml)
-  {
+  setValue(value, ishtml) {
     this.value = value;
     this.sethtml = !!ishtml;
     this.buildNode();
-    if(!this.styles.ellipsis)
-      this.width.dirty=true;
+    if (!this.styles.ellipsis)
+      this.width.dirty = true;
   }
 
 
-/****************************************************************************************************************************
-* DOM
-*/
+  /****************************************************************************************************************************
+  * DOM
+  */
 
-  buildNode()
-  {
+  buildNode() {
     var txtnode = <t-text class="t-text__linetext" data-name={this.name} propTodd={this} />;
 
     if (this.isheading)
       txtnode.classList.add("heading");
-    if(this.sethtml)
+    if (this.sethtml)
       txtnode.innerHTML = this.value;
-    else this.value.split('\n').forEach( (textrow, idx) =>
-      {
-        if(idx>0)
-          txtnode.appendChild(<br />);
-        txtnode.append(textrow);
-      });
+    else this.value.split('\n').forEach((textrow, idx) => {
+      if (idx > 0)
+        txtnode.appendChild(<br />);
+      txtnode.append(textrow);
+    });
 
-    if(this.hint)
+    if (this.hint)
       txtnode.title = this.hint;
 
-    if(this.ismouseselectable)
+    if (this.ismouseselectable)
       txtnode.classList.add("selectable");
 
-    if(this.styles.bold)
+    if (this.styles.bold)
       txtnode.style.fontWeight = "bold";
-    if(this.styles.italic)
+    if (this.styles.italic)
       txtnode.style.fontStyle = "italic";
-    if(this.styles.underline)
+    if (this.styles.underline)
       txtnode.style.textDecoration = "underline";
-    if (this.labelfor || this.action)
-    {
+    if (this.labelfor || this.action) {
       txtnode.classList.add("label");
       if (this.labelfor)
         txtnode.dataset.labelfor = this.labelfor;
     }
-    else
-    {
+    else {
       if (this.styles.wordwrap)
         txtnode.classList.add("wrapped");
       if (this.styles.ellipsis)
         txtnode.classList.add("ellipsis");
     }
 
-    if(!this.transparenttoclicks)
+    if (!this.transparenttoclicks)
       txtnode.addEventListener("click", this.onClick.bind(this));
 
     txtnode.propTodd = this;
 
     this.nodesize = $todd.CalculateSize(txtnode);
 
-    if(this.styles.ellipsis) //don't set width if ellipsis is applied
+    if (this.styles.ellipsis) //don't set width if ellipsis is applied
       this.nodesize.x = 0;
 
-    if(this.node && this.node.parentNode)
-    {
+    if (this.node && this.node.parentNode) {
       this.node.parentNode.replaceChild(txtnode, this.node);
       this.node = txtnode;
     }
@@ -165,30 +153,26 @@ export default class ObjText extends ComponentBase
   }
 
 
-/****************************************************************************************************************************
-* Dimensions
-*/
+  /****************************************************************************************************************************
+  * Dimensions
+  */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.calc = this.nodesize.x;
     this.width.min = this.width.calc;
   }
 
-  applySetWidth()
-  {
+  applySetWidth() {
     this.debugLog("dimensions", "width min=" + this.width.min + ", calc=" + this.width.calc + ", set=" + this.width.set);
     this.node.style.width = this.width.set + 'px';
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = Math.max(this.node.getBoundingClientRect().height + linetextTopMargin, $todd.gridlineInnerHeight);
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     dompack.setStyles(this.node, { width: this.width.set, height: this.height.set - linetextTopMargin });
 
     if (this.styles.ellipsis)
@@ -196,14 +180,12 @@ export default class ObjText extends ComponentBase
   }
 
 
-/****************************************************************************************************************************
-* Events
-*/
+  /****************************************************************************************************************************
+  * Events
+  */
 
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data) {
+    switch (data.type) {
       case "value":
         this.setValue(data.value, data.ishtml);
         return;
@@ -211,20 +193,18 @@ export default class ObjText extends ComponentBase
     super.applyUpdate(data);
   }
 
-  onClick(event)
-  {
-    var anchor = event.target.closest( 'a');
-    if(anchor)
-    {
+  onClick(event) {
+    var anchor = event.target.closest('a');
+    if (anchor) {
       var rec = this.linkactions.find(action => action.url == anchor.href);
       if (rec)
         this.owner.executeAction(rec.action);
-      else if(this.isEventUnmasked("clicklink"))
+      else if (this.isEventUnmasked("clicklink"))
         this.queueEvent(this.owner.screenname + "." + this.name, 'clicklink ' + anchor.href, true);
-      else if(anchor.href.substr(0,7) == 'mailto:')
+      else if (anchor.href.substr(0, 7) == 'mailto:')
         return; //let it be, follow the link. the only exit which does _not_ event.stop...
-      else if(anchor.href.substr(0,11) != 'javascript:')
-        window.open(anchor.href,'_blank');
+      else if (anchor.href.substr(0, 11) != 'javascript:')
+        window.open(anchor.href, '_blank');
 
       event.preventDefault();
       event.stopPropagation();
@@ -233,20 +213,18 @@ export default class ObjText extends ComponentBase
     event.preventDefault();
     event.stopPropagation();
 
-    if(this.action)
+    if (this.action)
       this.owner.executeAction(this.action);
 
     var comp = this.owner.getComponent(this.labelfor);
-    if (comp)
-    {
+    if (comp) {
       //ADDME might as well send a signal through JS to the tollium component instead of trying to click, because checkbox is now doing hacks to forward the click event
       comp.node.focus();
       comp.node.click();
     }
   }
 
-  onTooltip(node)
-  {
+  onTooltip(node) {
     if (!this.styles.wordwrap && !this.styles.ellipsis && this.width.set < this.width.calc)
       return this.node.textContent;
   }

@@ -4,27 +4,26 @@
 require('./toolbars.css');
 import * as dompack from 'dompack';
 
-class ToolbarButton
-{
-  constructor(toolbar, options)
-  {
+class ToolbarButton {
+  constructor(toolbar, options) {
     this.toolbar = toolbar;
     this.options =
-        { label: null
-        , classnames: null
-        , hint: null
-        , icon: null
-        , enabled: true
-        , pressed: false
-        , ...options
-        };
-
-    this.node = dompack.create("div",{ className: ["wh-toolbar-button"].concat(this.options.classnames || []).join(" ")
-                                     , on: { "click": this.executeAction.bind(this) }
-                                     , title: this.options.hint || ""
-                                     });
-    if (this.options.icon)
     {
+      label: null
+      , classnames: null
+      , hint: null
+      , icon: null
+      , enabled: true
+      , pressed: false
+      , ...options
+    };
+
+    this.node = dompack.create("div", {
+      className: ["wh-toolbar-button"].concat(this.options.classnames || []).join(" ")
+      , on: { "click": this.executeAction.bind(this) }
+      , title: this.options.hint || ""
+    });
+    if (this.options.icon) {
       this.options.icon.classList.add("wh-toolbar-button-img");
       this.node.appendChild(this.options.icon);
     }
@@ -39,53 +38,43 @@ class ToolbarButton
       this.toElement().addEventListener("execute", this.options.onExecute);
   }
 
-  toElement()
-  {
+  toElement() {
     return this.node;
   }
 
-  executeAction()
-  {
+  executeAction() {
     if (this.options.enabled)
       dompack.dispatchCustomEvent(this.toElement(), "execute", { bubbles: false, cancelable: false });
   }
 
-  setEnabled(enabled)
-  {
+  setEnabled(enabled) {
     enabled = !!enabled;
-    if (enabled != this.options.enabled)
-    {
+    if (enabled != this.options.enabled) {
       this.options.enabled = enabled;
       dompack.toggleClasses(this.node, { disabled: !this.options.enabled });
     }
   }
 
-  setPressed(pressed)
-  {
+  setPressed(pressed) {
     pressed = !!pressed;
-    if (pressed != this.options.pressed)
-    {
+    if (pressed != this.options.pressed) {
       this.options.pressed = pressed;
       dompack.toggleClasses(this.node, { pressed: this.options.pressed });
     }
   }
 }
 
-class ToolbarSeparator extends ToolbarButton
-{
-  constructor(toolbar, options)
-  {
+class ToolbarSeparator extends ToolbarButton {
+  constructor(toolbar, options) {
     super(toolbar, options);
-    this.node = dompack.create("div",{"className":["wh-toolbar-separator"].concat(this.options.classnames || []).join(" ")});
+    this.node = dompack.create("div", { "className": ["wh-toolbar-separator"].concat(this.options.classnames || []).join(" ") });
   }
 }
 
-class ToolbarPanel
-{
-  constructor(options)
-  {
+class ToolbarPanel {
+  constructor(options) {
     this.options = { ...options };
-    this.panel = dompack.create("div",{"className":"wh-toolbar-panel open"});
+    this.panel = dompack.create("div", { "className": "wh-toolbar-panel open" });
 
     if (this.options.onClose)
       this.toElement().addEventListener("close", this.options.onClose);
@@ -93,40 +82,37 @@ class ToolbarPanel
       this.toElement().addEventListener("apply", this.options.onApply);
   }
 
-  toElement()
-  {
+  toElement() {
     return this.panel;
   }
 
-  addButton(button)
-  {
-    if(typeof button != 'object')
+  addButton(button) {
+    if (typeof button != 'object')
       throw new Error("Specify explicit element to addButton"); //might have sneaked through when we did $(button)
     this.addComponent(button);
   }
 
-  addComponent(comp)
-  {
+  addComponent(comp) {
     this.panel.appendChild(comp.toElement());
   }
 }
 
-class Toolbar
-{
-  constructor(options)
-  {
+class Toolbar {
+  constructor(options) {
     this.modalpanel = null;
     this.options =
-         { applyicon: null
-         , applylabel: "Apply"
-         , closeicon: null
-         , closelabel: "Revert"
-         , classnames: null
-         , ...options
-         };
+    {
+      applyicon: null
+      , applylabel: "Apply"
+      , closeicon: null
+      , closelabel: "Revert"
+      , classnames: null
+      , ...options
+    };
 
-    this.buttonbar = dompack.create("div",{ className: ["wh-toolbar"].concat(this.options.classnames || []).join(" ")
-                                          });
+    this.buttonbar = dompack.create("div", {
+      className: ["wh-toolbar"].concat(this.options.classnames || []).join(" ")
+    });
 
     this.mainpanel = new ToolbarPanel();
     this.buttonbar.appendChild(this.mainpanel.toElement());
@@ -137,24 +123,24 @@ class Toolbar
     var modalbuttons = dompack.create("div", { className: "wh-toolbar-modalbuttons" });
     this.modalholder.append(modalbuttons);
 
-    var button = dompack.create("div", { className: "wh-toolbar-button wh-toolbar-button-applymodal"
-                                       , on: { "click": this.onModalApply.bind(this) }
-                                       });
+    var button = dompack.create("div", {
+      className: "wh-toolbar-button wh-toolbar-button-applymodal"
+      , on: { "click": this.onModalApply.bind(this) }
+    });
     modalbuttons.append(button);
-    if (this.options.applyicon)
-    {
+    if (this.options.applyicon) {
       this.options.applyicon.classList.add("wh-toolbar-button-img");
       button.appendChild(this.options.applyicon);
     }
     if (this.options.applylabel)
       button.appendChild(dompack.create("span", { textContent: this.options.applylabel }));
 
-    button = dompack.create("div", { className: "wh-toolbar-button wh-toolbar-button-revertmodal"
-                                   , on: { "click": this.onModalCancel.bind(this) }
-                                   });
+    button = dompack.create("div", {
+      className: "wh-toolbar-button wh-toolbar-button-revertmodal"
+      , on: { "click": this.onModalCancel.bind(this) }
+    });
     modalbuttons.append(button);
-    if (this.options.closeicon)
-    {
+    if (this.options.closeicon) {
       this.options.closeicon.classList.add("wh-toolbar-button-img");
       button.appendChild(this.options.closeicon);
     }
@@ -162,32 +148,28 @@ class Toolbar
       button.appendChild(dompack.create("span", { textContent: this.options.closelabel }));
   }
 
-  toElement()
-  {
+  toElement() {
     return this.buttonbar;
   }
 
-  setSize(width, height)
-  {
+  setSize(width, height) {
     Object.assign(this.buttonbar.style,
-        { width:  width + "px"
+      {
+        width: width + "px"
         , height: height + "px"
-        });
+      });
   }
 
-  addButton(button)
-  {
+  addButton(button) {
     this.mainpanel.addButton(button);
   }
 
-  addComponent(comp)
-  {
+  addComponent(comp) {
     this.mainpanel.addComponent(comp);
   }
 
-  activateModalPanel(subpanel)
-  {
-    if(this.modalpanel)
+  activateModalPanel(subpanel) {
+    if (this.modalpanel)
       this.closeModalPanel();
 
     this.mainpanel.toElement().classList.remove('open');
@@ -195,21 +177,22 @@ class Toolbar
     this.modalholder.appendChild(this.modalpanel.panel);
     this.modalholder.classList.add('open');
     dompack.dispatchCustomEvent(
-        this.toElement(),
-        "modal-opened",
-        { bubbles: false
+      this.toElement(),
+      "modal-opened",
+      {
+        bubbles: false
         , cancelable: false
         , detail:
-            { apply: this.onModalApply.bind(this)
-            , cancel: this.onModalCancel.bind(this)
-            , panel: subpanel
-            }
-        });
+        {
+          apply: this.onModalApply.bind(this)
+          , cancel: this.onModalCancel.bind(this)
+          , panel: subpanel
+        }
+      });
   }
 
-  closeModalPanel()
-  {
-    if(!this.modalpanel)
+  closeModalPanel() {
+    if (!this.modalpanel)
       return;
 
     dompack.dispatchCustomEvent(this.modalpanel.toElement(), "close", { bubbles: false, cancelable: false });
@@ -220,14 +203,12 @@ class Toolbar
     dompack.dispatchCustomEvent(this.toElement(), "modal-closed", { bubbles: false, cancelable: false });
   }
 
-  onModalApply()
-  {
+  onModalApply() {
     dompack.dispatchCustomEvent(this.modalpanel.toElement(), "apply", { bubbles: false, cancelable: false });
     this.closeModalPanel();
   }
 
-  onModalCancel()
-  {
+  onModalCancel() {
     dompack.dispatchCustomEvent(this.modalpanel.toElement(), "cancel", { bubbles: false, cancelable: false });
     this.closeModalPanel();
   }

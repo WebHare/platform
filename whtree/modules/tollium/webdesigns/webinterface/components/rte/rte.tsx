@@ -31,38 +31,36 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
     dirtycount soon.
 */
 
-export default class ObjRTE extends ComponentBase
-{
-  constructor(parentcomp, data, replacingcomp)
-  {
+export default class ObjRTE extends ComponentBase {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
-    this.componenttype= "rte";
-    this.rte= null;
-    this.rteoptions= null;
-    this.actions= [];
-    this.borders= null;
-    this.hint= '';
-    this.required= false;
-    this.interceptbuttons= [];
-    this.valueid= '';
+    this.componenttype = "rte";
+    this.rte = null;
+    this.rteoptions = null;
+    this.actions = [];
+    this.borders = null;
+    this.hint = '';
+    this.required = false;
+    this.interceptbuttons = [];
+    this.valueid = '';
 
     /// Selection for enabled actions ()
-    this._selectionflags= [ {} ];
+    this._selectionflags = [{}];
     /// The untouched content as sent by the server
-    this.untouchedcontent= null;
+    this.untouchedcontent = null;
     /// Original restructured HTML content
-    this.restructuredcontent= null;
+    this.restructuredcontent = null;
 
-    this._showcounter= false;
-    this._countmethod= "";
-    this._toplaintextmethod= "";
+    this._showcounter = false;
+    this._countmethod = "";
+    this._toplaintextmethod = "";
     this._toplaintextmethodoptions = [];
-    this._textwarnlength= 0;
+    this._textwarnlength = 0;
 
-    this._counter= 0;
+    this._counter = 0;
 
-    this._pendingactiontargetseq=0;
-    this._pendingactiontargets= [];
+    this._pendingactiontargetseq = 0;
+    this._pendingactiontargets = [];
 
     this.hint = data.hint;
     this.required = data.required;
@@ -77,15 +75,16 @@ export default class ObjRTE extends ComponentBase
     this.allowinspect = data.allowinspect;
 
     var hidebuttons = [];
-    if(!data.allownewembeddedobjects)
+    if (!data.allownewembeddedobjects)
       hidebuttons.push('object-insert');
-    if(!data.allowvideo)
+    if (!data.allowvideo)
       hidebuttons.push('object-video');
-    if(!data.structure || !data.structure.blockstyles.some(function(style) { return style.type == "table"; }))
+    if (!data.structure || !data.structure.blockstyles.some(function(style) { return style.type == "table"; }))
       hidebuttons.push('table');
 
     this.rteoptions =
-      { enabled: data.enabled
+    {
+      enabled: data.enabled
       , readonly: data.readonly
       , backgroundcolor: 'transparent'
 
@@ -96,22 +95,21 @@ export default class ObjRTE extends ComponentBase
       , margins: data.margins
       , preloadedcss: data.preloadedcss
       , cssinstance: data.cssinstance
-      , breakupnodes: this.isemaileditor ? [ 'blockquote' ] : []
+      , breakupnodes: this.isemaileditor ? ['blockquote'] : []
       , hidebuttons: hidebuttons
       , htmlclass: data.htmlclass
       , bodyclass: data.bodyclass
       , csscode: data.csscode
       , propertiesaction: true
-      };
+    };
 
-    if(!this.rteoptions.structure)
-    {
+    if (!this.rteoptions.structure) {
       //ADDME standard styling should be class-selectable and implemented by designfiels rte css itself or a theme
       this.rteoptions.csscode = '.' + data.cssinstance + '.wh-rtd-editor-htmlnode { font: 0.7em Tahoma,"Lucida Grande","DejaVu Sans",freesans,arial,helvetica,sans-serif; }\n'
-                                +'.' + data.cssinstance + ' blockquote { border: #666666 solid 0; border-left-width: 2px; margin: 5px 0; padding: 0 5px; color: #555555; }\n'
-                                +'.' + data.cssinstance + ' blockquote blockquote { color: #666666; }\n'
-                                +'.' + data.cssinstance + ' blockquote blockquote blockquote { color: #777777; }\n'
-                                +'.' + data.cssinstance + ' p { padding:0; margin: 0}\n';
+        + '.' + data.cssinstance + ' blockquote { border: #666666 solid 0; border-left-width: 2px; margin: 5px 0; padding: 0 5px; color: #555555; }\n'
+        + '.' + data.cssinstance + ' blockquote blockquote { color: #666666; }\n'
+        + '.' + data.cssinstance + ' blockquote blockquote blockquote { color: #777777; }\n'
+        + '.' + data.cssinstance + ' p { padding:0; margin: 0}\n';
     }
 
     // Build our DOM
@@ -119,32 +117,28 @@ export default class ObjRTE extends ComponentBase
     this.setValue(data);
   }
 
-  destroy()
-  {
+  destroy() {
     this.rte.destroy();
     super.destroy();
   }
 
-  static asyncTransformMessage(message)
-  {
-    if (message.cssurl)
-    {
-      let preload = rteapi.preloadCSS([ message.cssurl ]);
+  static asyncTransformMessage(message) {
+    if (message.cssurl) {
+      let preload = rteapi.preloadCSS([message.cssurl]);
       message.preloadedcss = preload;
       return preload.loadpromise;
     }
     return null;
   }
 
-/****************************************************************************************************************************
-* Property getters & setters
-*/
+  /****************************************************************************************************************************
+  * Property getters & setters
+  */
 
   setValue(newvalue) //set from server
   {
     // Only apply updates if the untouched content changed, or the valuegeneration is newer
-    if(!this.untouchedcontent || this.untouchedcontent != newvalue.value || newvalue.valuegeneration > this.valuegeneration)
-    {
+    if (!this.untouchedcontent || this.untouchedcontent != newvalue.value || newvalue.valuegeneration > this.valuegeneration) {
       this.untouchedcontent = newvalue.value;
       this.rte.setValue(this.untouchedcontent);
       this.restructuredcontent = this.rte.getValue();
@@ -156,44 +150,39 @@ export default class ObjRTE extends ComponentBase
     this.valuedirtycount = newvalue.valuedirtycount;
   }
 
-  getSubmitValue()
-  {
+  getSubmitValue() {
     let suggestedreturnvalue = this.rte.getValue();
     if (suggestedreturnvalue == this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
     {
       console.log("Returning untouched value");
       return this.untouchedcontent;
     }
-    else
-    {
+    else {
       console.log("Returning updated value");
       return suggestedreturnvalue;
     }
   }
 
 
-/****************************************************************************************************************************
-* DOM
-*/
+  /****************************************************************************************************************************
+  * DOM
+  */
 
   // Build the DOM node(s) for this component
-  buildNode()
-  {
+  buildNode() {
     this.node = <div data-name={this.name} propTodd={this} />;
     this.rte = rteapi.createRTE(this.node, this.rteoptions);
-    if(this.rteoptions.structure)
+    if (this.rteoptions.structure)
       this.node.classList.add("structured");
 
     this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this._onRTEStateChange());
 
-    if (this._showcounter)
-    {
+    if (this._showcounter) {
       this._counter = new Counter({ count: 0, limit: this._warnlength, focusnode: this.node });
       this.node.appendChild(this._counter.node);
     }
 
-    ["Top","Right","Bottom","Left"].forEach(bordername =>
-    {
+    ["Top", "Right", "Bottom", "Left"].forEach(bordername => {
       // 1px is the default from designfiles css
       if (this.borders && !this.borders[bordername.toLowerCase()])
         this.node.style[`border${bordername}Width`] = "0px";
@@ -205,98 +194,86 @@ export default class ObjRTE extends ComponentBase
     this.node.addEventListener("wh:richeditor-contextmenu", evt => this._gotContextMenu(evt));
   }
 
-/****************************************************************************************************************************
-* Dimensions
-*/
+  /****************************************************************************************************************************
+  * Dimensions
+  */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.min = 200;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = 120;
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     this.node.style.width = this.width.set + 'px';
     this.node.style.height = this.height.set + 'px';
   }
 
 
-/****************************************************************************************************************************
-* Component state
-*/
+  /****************************************************************************************************************************
+  * Component state
+  */
 
-  enabledOn(checkflags, min, max, selectionmatch)
-  {
+  enabledOn(checkflags, min, max, selectionmatch) {
     return $todd.checkEnabledFlags(this._selectionflags, checkflags, min, max, selectionmatch);
   }
 
 
-/****************************************************************************************************************************
-* Events
-*/
-  _doExecuteAction(event)
-  {
+  /****************************************************************************************************************************
+  * Events
+  */
+  _doExecuteAction(event) {
     var action = event.detail.action;
 
-    if(["a-href","object-insert","object-video"].includes(action))
-    {
+    if (["a-href", "object-insert", "object-video"].includes(action)) {
       event.stopPropagation();
       event.preventDefault();
       this.doButtonClick(action);
     }
-    if(["action-properties","webhare-inspect"].includes(action))
-    {
+    if (["action-properties", "webhare-inspect"].includes(action)) {
       //FIXME RTE should always send us getTargetInfo reslt...
       let affectednodeinfo = event.detail.actiontargetinfo || event.detail.rte.getTargetInfo(event.detail.actiontarget);
 
-      if(affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
+      if (affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
       {
         //preserve the actiontarget - the RTE will need it when the response comes in
         let actionid = ++this._pendingactiontargetseq;
-        this._pendingactiontargets.push( { id: actionid, target: affectednodeinfo });
+        this._pendingactiontargets.push({ id: actionid, target: affectednodeinfo });
 
         //removing the __node makes the rest of the data JSON-safe
-        this.queueMessage('properties2', { actionid, affectednodeinfo: {...affectednodeinfo, __node:null } , action, subaction: event.detail.subaction }, true);
+        this.queueMessage('properties2', { actionid, affectednodeinfo: { ...affectednodeinfo, __node: null }, action, subaction: event.detail.subaction }, true);
         event.preventDefault();
         return;
       }
     }
   }
 
-  doButtonClick(buttonname, params)
-  {
+  doButtonClick(buttonname, params) {
     var data = { button: buttonname };
     if (params)
       data.params = params;
     this.queueMessage('buttonclick', data, true);
   }
 
-  _onRTEStateChange()
-  {
+  _onRTEStateChange() {
     var selstate = this.rte ? this.rte.getSelectionState() : null;
     var actionstate = selstate ? selstate.actionstate : {};
 
     var have_change = false;
 
     var row = this._selectionflags[0];
-    Object.keys(actionstate).forEach(key =>
-    {
+    Object.keys(actionstate).forEach(key => {
       var available = actionstate[key].available || false;
-      if (row[key] !== available)
-      {
+      if (row[key] !== available) {
         have_change = true;
         row[key] = available;
       }
     });
 
-    if (have_change)
-    {
+    if (have_change) {
       // Update enabled status for actions
       this.actions.forEach(action => action.checkEnabled());
     }
@@ -305,8 +282,7 @@ export default class ObjRTE extends ComponentBase
       this._updateCounter();
   }
 
-  _updateCounter()
-  {
+  _updateCounter() {
     if (!this.rte)
       return;
 
@@ -321,22 +297,18 @@ export default class ObjRTE extends ComponentBase
     this._counter.update({ count: count });
   }
 
-  _gotContextMenu(event)
-  {
-    if(this.allowinspect && event.detail.actiontarget && event.detail.actiontarget.type == 'embeddedobject')
+  _gotContextMenu(event) {
+    if (this.allowinspect && event.detail.actiontarget && event.detail.actiontarget.type == 'embeddedobject')
       event.detail.menuitems.push({ action: "webhare-inspect", title: getTid("tollium:components.rte.inspect") });
   }
 
-  onMsgInsertAnchor(data)
-  {
+  onMsgInsertAnchor(data) {
     this.rte.getEditor().setAnchor(data.name);
   }
 
-  onMsgUpdateProps2(data)
-  {
+  onMsgUpdateProps2(data) {
     let actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
-    if(actiontargetidx == -1)
-    {
+    if (actiontargetidx == -1) {
       console.log("Received update for unknown actiontarget #" + data.actionid, data);
       return;
     }
@@ -344,64 +316,53 @@ export default class ObjRTE extends ComponentBase
     let actiontarget = this._pendingactiontargets[actiontargetidx].target;
     this._pendingactiontargets.splice(actiontargetidx, 1);
 
-    if(!data.settings) //it's just a cancellation
+    if (!data.settings) //it's just a cancellation
       return;
 
     this.rte.updateTarget(actiontarget, data.settings);
   }
 
-  onMsgUpdateValue(data)
-  {
+  onMsgUpdateValue(data) {
     this.setValue(data);
   }
 
-  onMsgClearDirty(data)
-  {
-    if(data.valuegeneration == this.valuegeneration && data.valuedirtycount == this.valuedirtycount)
-    {
+  onMsgClearDirty(data) {
+    if (data.valuegeneration == this.valuegeneration && data.valuedirtycount == this.valuedirtycount) {
       this.rte.clearDirty();
     }
-    else
-    {
+    else {
       console.log("Ignoring stale cleardirty request", data, this.valuegeneration, this.valuedirtycount);
     }
   }
 
-  _gotDirty()
-  {
+  _gotDirty() {
     ++this.valuedirtycount;
     this.untouchedcontent = null; //invalidate cached 'original'
     this.queueMessage("dirty", { valuedirtycount: this.valuedirtycount, valuegeneration: this.valuegeneration });
   }
 
-  onMsgInsertHyperlink(data)
-  {
+  onMsgInsertHyperlink(data) {
     this.rte.getEditor().insertHyperlink(data.url, { target: data.target });
   }
 
-  onMsgInsertEmbeddedObject(data)
-  {
+  onMsgInsertEmbeddedObject(data) {
     this.rte.getEditor().insertEmbeddedObject(data);
   }
 
-  onMsgInsertImage(data)
-  {
+  onMsgInsertImage(data) {
     this.rte.getEditor().insertImage(data.link, data.width, data.height);
   }
 
-  onMsgUpdateEnabled(data)
-  {
+  onMsgUpdateEnabled(data) {
     this.rte.setEnabled(data.value);
   }
 
-  onMsgUpdateClasses(data)
-  {
+  onMsgUpdateClasses(data) {
     this.rte.setHTMLClass(data.htmlclass);
     this.rte.setBodyClass(data.bodyclass);
   }
 
-  onMsgAckDirty()
-  {
+  onMsgAckDirty() {
     // Used to send an empty response on the 'dirty' async message, so the comm layer gets an ack
     // on the message, which the test framework needs to complete 'waits: ["tollium"]'
   }

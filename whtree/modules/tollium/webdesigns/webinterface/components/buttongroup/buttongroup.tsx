@@ -14,23 +14,20 @@ import $todd from "@mod-tollium/web/ui/js/support";
  ****************************************************************************************************************************/
 
 
-export default class ObjButtonGroup extends ComponentBase
-{
+export default class ObjButtonGroup extends ComponentBase {
 
-/****************************************************************************************************************************
-* Initialization
-*/
+  /****************************************************************************************************************************
+  * Initialization
+  */
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "buttongroup";
     this.layout = data.layout;
     this.borders = data.borders;
     this.buttons = [];
-    data.buttons.forEach(button =>
-    {
+    data.buttons.forEach(button => {
       var comp = this.owner.addComponent(this, button);
       if (!comp.getNode())
         return; //ignore this component for further consideration
@@ -45,15 +42,14 @@ export default class ObjButtonGroup extends ComponentBase
   }
 
 
-/****************************************************************************************************************************
-* Component management
-*/
+  /****************************************************************************************************************************
+  * Component management
+  */
 
-  readdComponent(comp)
-  {
+  readdComponent(comp) {
     // Replace the offending component
     //if(!comp.parentsplititem)
-    if(comp.parentcomp != this)
+    if (comp.parentcomp != this)
       return console.error('Child ' + comp.name + ' not inside the buttongroup is trying to replace itself');
 
     var newcomp = this.owner.addComponent(this, comp.name);
@@ -61,84 +57,72 @@ export default class ObjButtonGroup extends ComponentBase
     comp.getNode().replaceWith(newcomp.getNode());
   }
 
-/****************************************************************************************************************************
-* DOM
-*/
+  /****************************************************************************************************************************
+  * DOM
+  */
 
   // Build the DOM node(s) for this component
-  buildNode()
-  {
+  buildNode() {
     this.node = <t-buttongroup name={this.name} class={this.layout} propTodd={this}>
-                  {this.buttons.map( (button,idx) =>
-                    [ idx > 0 ? <div class="separator"><div></div></div> : null
-                    , button.getNode()
-                    ])}
-                </t-buttongroup>;
+      {this.buttons.map((button, idx) =>
+        [idx > 0 ? <div class="separator"><div></div></div> : null
+          , button.getNode()
+        ])}
+    </t-buttongroup>;
 
-    if(this.tabsspacecheat)
-    {
+    if (this.tabsspacecheat) {
       this.node.style.marginTop = (-$todd.gridlineTopMargin) + "px";
     }
 
-    ['top','bottom','left','right'].forEach(dir =>
-    {
-      if(this.borders && this.borders[dir])
+    ['top', 'bottom', 'left', 'right'].forEach(dir => {
+      if (this.borders && this.borders[dir])
         this.node.classList.add("border-" + dir);
     });
   }
 
 
-/****************************************************************************************************************************
-* Dimensions
-*/
-  getVisibleChildren()
-  {
+  /****************************************************************************************************************************
+  * Dimensions
+  */
+  getVisibleChildren() {
     return this.buttons;
   }
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     let borderwidth = toddtools.getBorderWidth(this.borders);
 
-    if(this.layout == "horizontal")
-    {
-      let divideroverhead = Math.max(0, this.buttons.length-1) * 1;
+    if (this.layout == "horizontal") {
+      let divideroverhead = Math.max(0, this.buttons.length - 1) * 1;
       this.width.overhead = divideroverhead + borderwidth;
       this.setSizeToSumOf('width', this.buttons, this.width.overhead);
     }
-    else
-    {
+    else {
       this.width.overhead = borderwidth;
       this.setSizeToMaxOf('width', this.buttons, this.width.overhead);
     }
   }
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     let borderheight = toddtools.getBorderHeight(this.borders);
 
-    if(this.layout == "horizontal")
-    {
+    if (this.layout == "horizontal") {
       this.height.overhead = borderheight;
       this.setSizeToMaxOf('height', this.buttons, this.height.overhead);
     }
-    else
-    {
-      let divideroverhead = Math.max(0, this.buttons.length-1) * 1;
+    else {
+      let divideroverhead = Math.max(0, this.buttons.length - 1) * 1;
       this.height.overhead = divideroverhead + borderheight;
       this.setSizeToSumOf('height', this.buttons, this.height.overhead);
     }
   }
 
-  applySetWidth()
-  {
+  applySetWidth() {
     var setwidth = this.width.set - this.width.overhead;
     if (this.layout == "horizontal")
       this.distributeSizeProps('width', setwidth, this.buttons, true);
     else
       this.buttons.forEach(button => button.setWidth(setwidth));
   }
-  applySetHeight()
-  {
+  applySetHeight() {
     var setheight = this.height.set - this.height.overhead;
     if (this.layout == "horizontal")
       this.buttons.forEach(button => button.setHeight(setheight));
@@ -146,11 +130,11 @@ export default class ObjButtonGroup extends ComponentBase
       this.distributeSizeProps('height', setheight, this.buttons, false);
   }
 
-  relayout()
-  {
-    dompack.setStyles(this.node, { "width": this.width.set
-                                 , "height": this.height.set + ( this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
-                                 });
+  relayout() {
+    dompack.setStyles(this.node, {
+      "width": this.width.set
+      , "height": this.height.set + (this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
+    });
     this.buttons.forEach(button => button.relayout());
   }
 }

@@ -8,8 +8,7 @@
 const fs = require('fs');
 const services = require('@webhare/services');
 
-async function generateRPCWrappers(resourcePath, rpcdata)
-{
+async function generateRPCWrappers(resourcePath, rpcdata) {
   let rpcfile = JSON.parse(rpcdata);
   let service = rpcfile.services[0];
   let response = await services.callHareScript("mod::publisher/lib/internal/webdesign/rpcloader.whlib#GetServiceInfo", [service]);
@@ -23,33 +22,27 @@ exports.rpcResolve = function(promise, result) { request._handleLegacyRPCResolve
 exports.invoke = function() { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
 `;
   // Define JSONRPC error code constants as getter-only properties on the exports object
-  [ "HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR"
-  , "TIMEOUT_ERROR", "SERVER_ERROR" ].forEach(function(code, i)
-  {
-    if (!i)
-      output += "\n";
-    output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
-  });
+  ["HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR"
+    , "TIMEOUT_ERROR", "SERVER_ERROR"].forEach(function(code, i) {
+      if (!i)
+        output += "\n";
+      output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
+    });
 
-  if (response.diskpath)
-  {
+  if (response.diskpath) {
     output += `\n// Adding dependency: '${response.diskpath}'\n`;
     dependencies.push(response.diskpath);
   }
 
-  response.functions.forEach(func =>
-  {
-    if (func.name.toLowerCase().startsWith("rpc"))
-    {
+  response.functions.forEach(func => {
+    if (func.name.toLowerCase().startsWith("rpc")) {
       warnings.push("Not including function '" + func.name + "', because its name starts with 'rpc'");
     }
-    else
-    {
+    else {
       output += "\n";
       // Export both the original function name and the the function name with a lowercase first letter
-      let args = func.arguments.map( arg => `/*${arg.type}*/ ${arg.name}`).join(', ');
-      if (func.name[0] != func.name[0].toLowerCase())
-      {
+      let args = func.arguments.map(arg => `/*${arg.type}*/ ${arg.name}`).join(', ');
+      if (func.name[0] != func.name[0].toLowerCase()) {
         let jsfuncname = func.name[0].toLowerCase() + func.name.substr(1);
         output += `exports.${jsfuncname} = `;
       }
@@ -62,31 +55,31 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
     }
   });
 
-  return { output
-         , dependencies
-         , warnings
-         };
+  return {
+    output
+    , dependencies
+    , warnings
+  };
 }
 
 module.exports = {};
 
 module.exports.getESBuildPlugin = (captureplugin) => ({
-    name: "jsonrpc",
-    setup: function (build)
-    {
-      build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) =>
-      {
-        let source = await fs.promises.readFile(args.path);
-        let result = await generateRPCWrappers(args.path, source);
+  name: "jsonrpc",
+  setup: function(build) {
+    build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
+      let source = await fs.promises.readFile(args.path);
+      let result = await generateRPCWrappers(args.path, source);
 
-        result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
+      result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
 
-        return { contents: result.output
-               , warnings: result.warnings.map(_ => ({text:_}))
-               , watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
-               };
-        // console.log(require.resolve(args.path, ))
-      });
-    },
+      return {
+        contents: result.output
+        , warnings: result.warnings.map(_ => ({ text: _ }))
+        , watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
+      };
+      // console.log(require.resolve(args.path, ))
+    });
+  },
 });
 

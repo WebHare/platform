@@ -5,10 +5,8 @@ import * as dompack from "dompack";
 import * as cookie from "dompack/extra/cookie";
 
 
-class DownloadManager
-{
-  constructor(url)
-  {
+class DownloadManager {
+  constructor(url) {
     this.cookieinterval = null;
 
     this.url = url;
@@ -16,13 +14,11 @@ class DownloadManager
     this.cookiename = "wh-download-" + this.downloadid;
   }
 
-  destroy()
-  {
+  destroy() {
     if (this.dlframe)
       this.dlframe.remove();
 
-    if (this.cookieinterval)
-    {
+    if (this.cookieinterval) {
       window.clearInterval(this.cookieinterval);
       this.cookieinterval = null;
     }
@@ -31,10 +27,9 @@ class DownloadManager
       this.defer.resolve({ started: false, errorinfo: null });
   }
 
-  _cookieCheck()
-  {
+  _cookieCheck() {
     var data = cookie.read(this.cookiename);
-    if(!data)
+    if (!data)
       return;
 
     cookie.remove(this.cookiename);
@@ -47,28 +42,26 @@ class DownloadManager
     this.defer.resolve({ started: true, errorinfo: null });
   }
 
-  _onDownloadFailure(errorinfo)
-  {
+  _onDownloadFailure(errorinfo) {
     window.clearInterval(this.cookieinterval);
     this.cookieinterval = null;
 
-    if(this.destroyed)
+    if (this.destroyed)
       return;
 
     this.defer.resolve({ started: false, errorinfo });
   }
 
-  startDownload()
-  {
-    if (!this.defer)
-    {
+  startDownload() {
+    if (!this.defer) {
       this.defer = dompack.createDeferred();
-      const dlurl = this.url + (this.url.indexOf('?')==-1 ? '?' : '&') + 'wh-download=' + this.downloadid;
+      const dlurl = this.url + (this.url.indexOf('?') == -1 ? '?' : '&') + 'wh-download=' + this.downloadid;
 
       this.dlframe = dompack.create("iframe",
-            { style: { "display":"none" }
-            , src: dlurl
-            });
+        {
+          style: { "display": "none" }
+          , src: dlurl
+        });
 
       this.dlframe.__whDownloadManagerFailureCallback = (data) => this._onDownloadFailure(data);
       document.body.appendChild(this.dlframe);
@@ -79,8 +72,7 @@ class DownloadManager
 }
 
 DownloadManager.dlid = 0;
-window.__wh_downloadfailurecallback = function(iframe, data)
-{
+window.__wh_downloadfailurecallback = function(iframe, data) {
   iframe.__whDownloadManagerFailureCallback(data);
 };
 

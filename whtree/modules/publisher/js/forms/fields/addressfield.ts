@@ -6,10 +6,8 @@ import { getTid } from "@mod-tollium/js/gettid";
 
 let lookupcache = {};
 
-export default class AddressField
-{
-  constructor(node, options)
-  {
+export default class AddressField {
+  constructor(node, options) {
     this.numvaliditycalls = 0;
     this.node = node;
     this.form = this.node.closest("form").propWhFormhandler;
@@ -26,82 +24,71 @@ export default class AddressField
     this.allFields = new Map();
     let fieldpos = 0;
     this.allFields.set(this.countryNode.name.substr(prefixLength),
-        { node: this.countryNode
+      {
+        node: this.countryNode
         , fieldgroup: this.countryNode.closest(".wh-form__fieldgroup")
         , pos: ++fieldpos
-        });
-    for (let field of dompack.qSA(this.node.closest("form"), `[name^='${this.fieldName}.']`))
-    {
+      });
+    for (let field of dompack.qSA(this.node.closest("form"), `[name^='${this.fieldName}.']`)) {
       this.allFields.set(field.name.substr(prefixLength),
-          { node: field
+        {
+          node: field
           , fieldgroup: field.closest(".wh-form__fieldgroup")
           , pos: ++fieldpos
-          });
+        });
       field.addEventListener("change", event => this._gotFieldChange(event));
     }
 
-    if (this.orderingData)
-    {
+    if (this.orderingData) {
       this.countryNode.addEventListener("change", () => this._reconfigureFieldOrdering());
       this._reconfigureFieldOrdering();
     }
   }
 
-  _gotFieldChange(event)
-  {
+  _gotFieldChange(event) {
     if (this._updatingFields)
       return; // We're updating our own fields
 
-    if(event.target == this.countryNode && this.currentcountry != this.countryNode.value)
-    {
+    if (event.target == this.countryNode && this.currentcountry != this.countryNode.value) {
       //country changed. clear errors on all fields before revalidating.. otherwise the errors will just seem to 'linger' for a while after switching
       this._clearErrors();
       this.currentcountry = this.countryNode.value;
     }
 
-    if (this._getFieldValue("country") === "NL")
-    {
+    if (this._getFieldValue("country") === "NL") {
       if (!this._getFieldValue("zip") || !this._getFieldValue("nr_detail"))
         return;
     }
     this._checkValidity(event);
   }
 
-  _getFieldValue(fieldname)
-  {
+  _getFieldValue(fieldname) {
     const data = this.allFields.get(fieldname);
     if (data)
       return data.node.value;
     return "";
   }
 
-  _getFirstCountrySpecificField()
-  {
+  _getFirstCountrySpecificField() {
     let firstfield = null;
-    this.allFields.forEach((field, key) =>
-    {
+    this.allFields.forEach((field, key) => {
       if (key !== "country" && !field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden") && (!firstfield || firstfield.pos > field.pos))
         firstfield = field;
     });
     return firstfield;
   }
 
-  _reconfigureFieldOrdering()
-  {
+  _reconfigureFieldOrdering() {
     const country = this.countryNode.value;
-    if (country)
-    {
+    if (country) {
       const ordering = this.orderingData.find(e => e.countries.length === 0 || e.countries.includes(country));
-      if (ordering)
-      {
+      if (ordering) {
         let prevgroup;
-        for (let idx = 0; idx < ordering.fieldorder.length; ++idx)
-        {
+        for (let idx = 0; idx < ordering.fieldorder.length; ++idx) {
           const item = this.allFields.get(ordering.fieldorder[idx]);
           item.pos = idx + 1;
           const fieldgroup = item.fieldgroup;
-          if (idx !== 0)
-          {
+          if (idx !== 0) {
             const compareres = prevgroup.compareDocumentPosition(fieldgroup);
             if (compareres & Node.DOCUMENT_POSITION_PRECEDING)
               prevgroup.parentNode.insertBefore(fieldgroup, prevgroup.nextSibling);
@@ -112,35 +99,30 @@ export default class AddressField
     }
 
     //street + city should skip client side validation for NL, we will be looking it up server side (FIXME we should consider overwriting our validation to delay validation until address lookups are complete)
-    for(let fieldname of ['street','city'])
-    {
-       let field = this.allFields.get(fieldname);
-       if(field)
-         if(country.toUpperCase() == 'NL')
-           field.node.setAttribute("data-wh-form-skipnativevalidation","");
-         else
-           field.node.removeAttribute("data-wh-form-skipnativevalidation");
+    for (let fieldname of ['street', 'city']) {
+      let field = this.allFields.get(fieldname);
+      if (field)
+        if (country.toUpperCase() == 'NL')
+          field.node.setAttribute("data-wh-form-skipnativevalidation", "");
+        else
+          field.node.removeAttribute("data-wh-form-skipnativevalidation");
     }
   }
 
-  _clearErrors()
-  {
+  _clearErrors() {
     this.allFields.forEach(field => this.form.setFieldError(field.node, "", { reportimmediately: true }));
   }
 
-  _getCurState()
-  {
+  _getCurState() {
     let value = {}, visiblefields = [], anyset = false, allrequiredset = true;
-    this.allFields.forEach((field, key) =>
-    {
-      if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden"))
-      {
+    this.allFields.forEach((field, key) => {
+      if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden")) {
         visiblefields.push(field.node.closest(".wh-form__fieldgroup"));
         value[key] = field.node.value;
 
-        if(!anyset && key != 'country' && field.node.value)
+        if (!anyset && key != 'country' && field.node.value)
           anyset = true;
-        if(field.node.required && !field.node.value && !field.node.hasAttribute("data-wh-form-skipnativevalidation"))
+        if (field.node.required && !field.node.value && !field.node.hasAttribute("data-wh-form-skipnativevalidation"))
           allrequiredset = false;
       }
     });
@@ -148,127 +130,118 @@ export default class AddressField
     return { value, visiblefields, anyset, allrequiredset, lookupkey: JSON.stringify(value) };
   }
 
-  async _checkValidity(event)
-  {
+  async _checkValidity(event) {
     /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
        but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
        this on base of the country actually changing, not an external checkbox controlling visibility of the whole country field
        and a stray update event
        */
     let curstate = this._getCurState();
-    if(!curstate.anyset) //fields are empty..
+    if (!curstate.anyset) //fields are empty..
     {
       this._clearErrors();
       return; //then don't validate
     }
-    if(!curstate.allrequiredset)
+    if (!curstate.allrequiredset)
       return; //no need to validate if we don't even have the required fields in place
 
     let result;
-    try
-    {
+    try {
       curstate.visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
 
       ++this.numvaliditycalls;
-      if(!lookupcache[curstate.lookupkey])
+      if (!lookupcache[curstate.lookupkey])
         lookupcache[curstate.lookupkey] = this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", curstate.value);
 
       result = await lookupcache[curstate.lookupkey];
     }
-    catch (e)
-    {
+    catch (e) {
       console.error(`Error while validating value: ${e}`);
       return;
     }
-    finally
-    {
-      if(--this.numvaliditycalls == 0) //we're the last call
+    finally {
+      if (--this.numvaliditycalls == 0) //we're the last call
         curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
     }
-    if(this._getCurState().lookupkey != curstate.lookupkey)
+    if (this._getCurState().lookupkey != curstate.lookupkey)
       return; //abandon this _checkValidity call, the field has already changed.
 
-    if(dompack.debugflags.fhv)
+    if (dompack.debugflags.fhv)
       console.log(`[fhv] Validation result for address '${this.fieldName}': ${result.status}`);
 
-    if(dompack.debugflags.fdv)
-    {
-      if ([ "different_citystreet", "incomplete" ].includes(result.status))
+    if (dompack.debugflags.fdv) {
+      if (["different_citystreet", "incomplete"].includes(result.status))
         console.warn(`[fdv] Address validation was performed, processing incomplete address (status: '${result.status}')`);
-      else
-      {
+      else {
         console.warn(`[fdv] Ignoring return status '${result.status}' of address validation`);
         result.status = "ok";
       }
     }
 
     this._clearErrors();
-    switch (result.status)
-    {
+    switch (result.status) {
       case "not_supported": // Address lookup not supported, treat as "ok"
       case "ok":
-      {
-        break;
-      }
+        {
+          break;
+        }
       case "not_enough_data":
-      {
-        // Nothing to check yet
-        break;
-      }
+        {
+          // Nothing to check yet
+          break;
+        }
       case "invalid_city":
-      {
-        // We'll target the right field but we don't want to supply N translations for 'invalid city'
-        this.form.setFieldError(this.allFields.get("city").node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
-        break;
-      }
+        {
+          // We'll target the right field but we don't want to supply N translations for 'invalid city'
+          this.form.setFieldError(this.allFields.get("city").node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
+          break;
+        }
       case "invalid_zip":
-      {
-        this.form.setFieldError(this.allFields.get("zip").node, getTid("publisher:site.forms.addressfield.invalid_zip"), { reportimmediately: true });
-        break;
-      }
+        {
+          this.form.setFieldError(this.allFields.get("zip").node, getTid("publisher:site.forms.addressfield.invalid_zip"), { reportimmediately: true });
+          break;
+        }
       case "invalid_nr_detail":
-      {
-        this.form.setFieldError(this.allFields.get("nr_detail").node, getTid("publisher:site.forms.addressfield.invalid_nr_detail"), { reportimmediately: true });
-        break;
-      }
+        {
+          this.form.setFieldError(this.allFields.get("nr_detail").node, getTid("publisher:site.forms.addressfield.invalid_nr_detail"), { reportimmediately: true });
+          break;
+        }
       case "zip_not_found":
-      {
-        this.form.setFieldError(this.allFields.get("zip").node, getTid("publisher:site.forms.addressfield.zip_not_found"), { reportimmediately: true });
-        break;
-      }
+        {
+          this.form.setFieldError(this.allFields.get("zip").node, getTid("publisher:site.forms.addressfield.zip_not_found"), { reportimmediately: true });
+          break;
+        }
       case "address_not_found":
-      {
-        this.form.setFieldError(this._getFirstCountrySpecificField().node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
-        break;
-      }
+        {
+          this.form.setFieldError(this._getFirstCountrySpecificField().node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
+          break;
+        }
       case "different_citystreet": // This can happen when fields have been set for another country, we'll update those fields with correct values
       case "incomplete":
-      {
-        let anychanges = false;
-        this._updatingFields = true;
-        this.allFields.forEach((field, key) =>
         {
-          if (key in result.looked_up)
-          {
-            dompack.changeValue(field.node, result.looked_up[key]);
-            anychanges = true;
-          }
-        });
-        this._updatingFields = false;
-        if (anychanges)
-          this.form.refreshConditions();
-        break;
-      }
+          let anychanges = false;
+          this._updatingFields = true;
+          this.allFields.forEach((field, key) => {
+            if (key in result.looked_up) {
+              dompack.changeValue(field.node, result.looked_up[key]);
+              anychanges = true;
+            }
+          });
+          this._updatingFields = false;
+          if (anychanges)
+            this.form.refreshConditions();
+          break;
+        }
       case "lookup_failed":
-      {
-        console.error("Lookup failed, is the service configured correctly?");
-        break;
-      }
+        {
+          console.error("Lookup failed, is the service configured correctly?");
+          break;
+        }
       default:
-      {
-        console.error(`Unknown status code '${result.status}' returned`);
-        break;
-      }
+        {
+          console.error(`Unknown status code '${result.status}' returned`);
+          break;
+        }
     }
   }
 }

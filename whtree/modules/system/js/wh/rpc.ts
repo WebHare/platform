@@ -6,19 +6,16 @@ import * as dompack from 'dompack';
 //just number RPCs globally instead of per server, makes debug ouput more useful
 let globalseqnr = 1;
 
-function getDebugAppend()
-{
+function getDebugAppend() {
   let urldebugvar = window.location.href.match(new RegExp('[?&#]wh-debug=([^&#?]*)'));
-  return urldebugvar ? '?wh-debug='+urldebugvar[1] : '';
+  return urldebugvar ? '?wh-debug=' + urldebugvar[1] : '';
 }
 
 /* this is the followup for net/jsonrpc.es - we can hopefully clear net/ someday
    and move net/eventserver to wh/eventserver.es then */
 
-class ControlledCall
-{
-  constructor(client, method, stack, id, options, callurl, fetchoptions)
-  {
+class ControlledCall {
+  constructor(client, method, stack, id, options, callurl, fetchoptions) {
     this.client = client;
     this.options = options;
 
@@ -28,13 +25,11 @@ class ControlledCall
       this.abortcontroller = new AbortController;
       fetchoptions.signal = this.abortcontroller.signal;
 
-      if(options.timeout > 0)
-      {
+      if (options.timeout > 0) {
         this.timeout = options.timeout;
         setTimeout(() => this._handleTimeout(), options.timeout);
       }
-      if(options.signal)
-      {
+      if (options.signal) {
         options.signal.addEventListener("abort", () => this._abort());
       }
     }
@@ -46,89 +41,79 @@ class ControlledCall
     this.promise = this._completeCall(method, stack, id, fetchpromise);
     this.promise.__jsonrpcinfo = this;
   }
-  _handleTimeout()
-  {
+  _handleTimeout() {
     this.timedout = true;
     this.abortcontroller.abort();
   }
-  _abort()
-  {
+  _abort() {
     this.aborted = true;
     this.abortcontroller.abort();
   }
-  _legacyResolve(resolution)
-  {
+  _legacyResolve(resolution) {
     this.legacyresolve = resolution;
     this.abortcontroller.abort();
   }
-  async _completeCall(method, stack, id, fetchpromise)
-  {
+  async _completeCall(method, stack, id, fetchpromise) {
     let response;
-    try
-    {
-      while(true) //loop for 429
+    try {
+      while (true) //loop for 429
       {
         response = await fetchpromise;
-        if(response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After"))
-        {
+        if (response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           let retryafter = parseInt(response.headers.get("Retry-After"));
-          if(this.options.debug)
+          if (this.options.debug)
             console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
 
-          await new Promise( resolve => setTimeout(resolve, retryafter*1000) );
+          await new Promise(resolve => setTimeout(resolve, retryafter * 1000));
           fetchpromise = fetch(this._callurl, this._fetchoptions);
           continue;
         }
         break;
       }
     }
-    catch(exception)
-    {
-      if(this.options.debug)
+    catch (exception) {
+      if (this.options.debug)
         console.log(`[rpc] #${id} Exception invoking '${method}'`, exception);
 
-      if(this.aborted)
+      if (this.aborted)
         throw new Error(`RPC Aborted`);
-      else if(this.timedout)
+      else if (this.timedout)
         throw new Error(`RPC Timeout: timeout was set to ${this.timeout} milliseconds`);
-      else if(this.legacyresolve && this.legacyresolve.resolve)
+      else if (this.legacyresolve && this.legacyresolve.resolve)
         return this.legacyresolve.resolve;
       else
         throw new Error(`RPC Failed: exception: ` + exception);
     }
 
     let jsonresponse;
-    try
-    {
+    try {
       jsonresponse = await response.json();
-      if(this.options.debug)
+      if (this.options.debug)
         console.log(`[rpc] #${id} Received response to '${method}'`, jsonresponse);
     }
-    catch(exception)
-    {
-      if(this.options.debug)
+    catch (exception) {
+      if (this.options.debug)
         console.warn(`[rpc] #${id} Response was not valid JSON`, exception);
     }
 
-    if(!jsonresponse)
+    if (!jsonresponse)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
 
-    if(jsonresponse && jsonresponse.error)
-    {
+    if (jsonresponse && jsonresponse.error) {
       this.client._tryLogError(stack, jsonresponse.error);
       throw new Error("RPC Error: " + (jsonresponse.error.message || "Unknown error"));
     }
 
-    if(response.status == 200 && jsonresponse && jsonresponse.id !== id)
+    if (response.status == 200 && jsonresponse && jsonresponse.id !== id)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
 
-    if(this.options.wrapresult)
-    {
-      return { status: response.status
-             , result: jsonresponse.result || null
-             , error: jsonresponse.error || null
-             , retryafter: response.headers.get("Retry-After") ? parseInt(response.headers.get("Retry-After")) : null
-             };
+    if (this.options.wrapresult) {
+      return {
+        status: response.status
+        , result: jsonresponse.result || null
+        , error: jsonresponse.error || null
+        , retryafter: response.headers.get("Retry-After") ? parseInt(response.headers.get("Retry-After")) : null
+      };
     }
 
     return jsonresponse.result;
@@ -139,26 +124,23 @@ class ControlledCall
     @param url URL to invoke (leave empty or pass no parameters at all to callback to the current page)
     @cell options.timeout Default timeout for all calls
     @cell options.debug Debug (Follows 'rpc' debugflag if not explicity specified) */
-export default class RPCClient
-{
-  constructor(url, options)
-  {
-    this.options = { timeout: 0
-                   , debug: dompack.debugflags.rpc
-                   , ...options
-                   };
+export default class RPCClient {
+  constructor(url, options) {
+    this.options = {
+      timeout: 0
+      , debug: dompack.debugflags.rpc
+      , ...options
+    };
 
     let whservicematch;
-    if(url)
-    {
+    if (url) {
       whservicematch = url.match(/^([a-z0-9_]+):([a-z0-9_]+)$/);
-      if(whservicematch)
+      if (whservicematch)
         this.url = `${location.origin}/wh_services/${whservicematch[1]}/${whservicematch[2]}`;
       else
         this.url = url;
     }
-    else
-    {
+    else {
       this.url = location.href;  //invoke ourselves directly if no path specified
     }
 
@@ -167,45 +149,38 @@ export default class RPCClient
     this.urlappend = this.options.urlappend !== undefined ? this.options.urlappend : whservicematch ? getDebugAppend() : "";
   }
 
-  setOptions(options)
-  {
-    this.options = {...this.options, ...options};
+  setOptions(options) {
+    this.options = { ...this.options, ...options };
   }
 
-  _handleLegacyRPCResolve(promise, result)
-  {
-    if(!promise.__jsonrpcinfo)
+  _handleLegacyRPCResolve(promise, result) {
+    if (!promise.__jsonrpcinfo)
       throw new Error("The promise is not an async JSONRPC request");
-    promise.__jsonrpcinfo._legacyResolve({resolve:result});
+    promise.__jsonrpcinfo._legacyResolve({ resolve: result });
   }
 
-  _tryLogError(stack,error)
-  {
+  _tryLogError(stack, error) {
     let trace = error.data ? (error.data.trace || error.data.list || []) : [];
 
     console.group();
     console.warn("RPC failed:", error.message);
-    trace.forEach(rec =>
-    {
-      if (rec.filename || rec.line)
-      {
+    trace.forEach(rec => {
+      if (rec.filename || rec.line) {
         var line = rec.filename + '#' + rec.line + '#' + rec.col + (rec.func ? ' (' + rec.func + ')' : '');
         console.log(line);
       }
     });
-    if(stack)
-    {
+    if (stack) {
       console.warn("Stack at calling point");
       console.log(stack);
     }
     console.groupEnd();
   }
 
-  invoke(...params)
-  {
+  invoke(...params) {
     let options;
-    if(typeof params[0] == "object")
-      options = {...this.options, ...params.shift()};
+    if (typeof params[0] == "object")
+      options = { ...this.options, ...params.shift() };
     else
       options = this.options;
 
@@ -213,31 +188,33 @@ export default class RPCClient
 
     //build the URL, add profiling and function parameters where needed
     let callurl = this.url;
-    if(this.addfunctionname) //simplifies log analysis, ignored by the server
+    if (this.addfunctionname) //simplifies log analysis, ignored by the server
       callurl += `/${method}`;
     callurl += this.urlappend;
 
     let id = ++globalseqnr;
     let stack;
 
-    if(options.debug)
-    {
+    if (options.debug) {
       stack = new Error().stack;
       console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
     }
 
-    let fetchoptions = { method: "POST"
-                       , credentials: 'same-origin' //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
-                       , headers: { "Accept": "application/json"
-                                  , "Content-Type": "application/json; charset=utf-8"
-                                  }
-                       , body: JSON.stringify(
-                                   { id: id
-                                   , method: method
-                                   , params: params || []
-                                   })
-                       , keepalive: Boolean(options.keepalive)
-                       };
+    let fetchoptions = {
+      method: "POST"
+      , credentials: 'same-origin' //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
+      , headers: {
+        "Accept": "application/json"
+        , "Content-Type": "application/json; charset=utf-8"
+      }
+      , body: JSON.stringify(
+        {
+          id: id
+          , method: method
+          , params: params || []
+        })
+      , keepalive: Boolean(options.keepalive)
+    };
 
     return new ControlledCall(this, method, stack, id, options, callurl, fetchoptions).promise;
   }

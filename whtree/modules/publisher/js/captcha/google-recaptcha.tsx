@@ -12,26 +12,22 @@ import { captcharegistry } from "@mod-publisher/js/captcha/api";
 let recaptchaload;
 let settings;
 
-window.$wh__ongooglerecaptchaloaded = function()
-{
+window.$wh__ongooglerecaptchaloaded = function() {
   recaptchaload.resolve();
 };
 
-function makeRecaptchaLoadPromise()
-{
+function makeRecaptchaLoadPromise() {
   recaptchaload = dompack.createDeferred();
   document.querySelector("head,body").appendChild(<script src="https://www.google.com/recaptcha/api.js?onload=$wh__ongooglerecaptchaloaded&amp;render=explicit" />);
 }
 
-export async function runRecaptchaDialog(sitekey, options)
-{
-  options = { busycomponent: null, ...options};
-  let lock = dompack.flagUIBusy({component: options.busycomponent, ismodal: true});
+export async function runRecaptchaDialog(sitekey, options) {
+  options = { busycomponent: null, ...options };
+  let lock = dompack.flagUIBusy({ component: options.busycomponent, ismodal: true });
 
   let diag = null;
-  try
-  {
-    if(!recaptchaload)
+  try {
+    if (!recaptchaload)
       makeRecaptchaLoadPromise();
     await recaptchaload.promise;
 
@@ -41,35 +37,32 @@ export async function runRecaptchaDialog(sitekey, options)
 
     diag = dialogapi.createDialog();
     diag.contentnode.appendChild(<div class="wh-captcha wh-captcha--googlerecaptcha">
-                                   <h2 class="wh-captcha__title">{title}</h2>
-                                   <p class="wh-captcha__explain">{explain}</p>
-                                   {captchanode}
-                                 </div>);
+      <h2 class="wh-captcha__title">{title}</h2>
+      <p class="wh-captcha__explain">{explain}</p>
+      {captchanode}
+    </div>);
 
-    if(sitekey == 'mock')
-    {
-      captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{click: () => diag.resolve('mock')}} />I am a human, beep-bop</label>);
+    if (sitekey == 'mock') {
+      captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => diag.resolve('mock') }} />I am a human, beep-bop</label>);
     }
-    else
-    {
+    else {
       var recaptchaid; //retained in closure for the callback handler
-      recaptchaid = window.grecaptcha.render(captchanode, { sitekey, callback: evt =>
-      {
-        let response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
-        diag.resolve(response);
-      }});
+      recaptchaid = window.grecaptcha.render(captchanode, {
+        sitekey, callback: evt => {
+          let response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
+          diag.resolve(response);
+        }
+      });
     }
   }
-  finally
-  {
+  finally {
     lock.release();
   }
   return diag.runModal();
 }
 
-export function setupGoogleRecaptcha()
-{
-  if(captcharegistry["google-recaptcha"])
+export function setupGoogleRecaptcha() {
+  if (captcharegistry["google-recaptcha"])
     throw new Error("Duplicate google recaptcha initialization");
 
   captcharegistry["google-recaptcha"] = { getResponse: runRecaptchaDialog };

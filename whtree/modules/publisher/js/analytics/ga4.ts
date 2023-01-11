@@ -10,11 +10,11 @@ import { promiseScript } from 'dompack/extra/preload';
 import { onConsentChange } from "./consenthandler.es";
 
 let ga4settings = whintegration.config["ga4"];
-let loaded=false;
+let loaded = false;
 
 function load() //no codepath should load() without ga4settings being set
 {
-  if(loaded)
+  if (loaded)
     return;
 
   window.gtag('js', new Date); //firing this too early causes issues with the GTM initialization, it causes it not to fire pageview triggers. they probably shouldn't mix until we figure this out (send only once for both GTM/GA?)
@@ -23,52 +23,44 @@ function load() //no codepath should load() without ga4settings being set
   loaded = true;
 }
 
-if(!window.dataLayer)
-   window.dataLayer = [];
+if (!window.dataLayer)
+  window.dataLayer = [];
 
-if(!window.gtag)
-{
-  window.gtag = function()
-  {
+if (!window.gtag) {
+  window.gtag = function() {
     window.dataLayer.push(arguments);
   };
 
-  if(ga4settings?.a && !ga4settings.m)
+  if (ga4settings?.a && !ga4settings.m)
     load();
 }
 
-export function initOnConsent(options)
-{
-  options = { requiredconsent: "*"
-            , ...options
-            };
+export function initOnConsent(options) {
+  options = {
+    requiredconsent: "*"
+    , ...options
+  };
 
-  if(!(ga4settings && ga4settings.a && ga4settings.m))
-  {
+  if (!(ga4settings && ga4settings.a && ga4settings.m)) {
     console.error("<googleanalytics4/> tag must be configured with launch=manual to support initOnConsent");
     return;
   }
 
-  onConsentChange(consentsettings =>
-  {
-    if (options.requiredconsent == "*")
-    {
-      if(consentsettings.consent.length)
-      {
-        if(debugflags.anl)
+  onConsentChange(consentsettings => {
+    if (options.requiredconsent == "*") {
+      if (consentsettings.consent.length) {
+        if (debugflags.anl)
           console.log(`[anl] Got any consent, starting GA4`);
         load();
       }
     }
-    else if (consentsettings.consent.includes(options.requiredconsent))
-    {
-      if(debugflags.anl)
+    else if (consentsettings.consent.includes(options.requiredconsent)) {
+      if (debugflags.anl)
         console.log(`[anl] Got consent '${options.requiredconsent}', starting GA4`);
       load();
     }
-    else
-    {
-      if(debugflags.anl)
+    else {
+      if (debugflags.anl)
         console.log("[anl] No consent yet to start GA4");
     }
   });

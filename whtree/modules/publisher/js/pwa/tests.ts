@@ -7,18 +7,15 @@ import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb.es';
 
 let appname;
 
-export async function deleteDatabase()
-{
+export async function deleteDatabase() {
   return maintenance.deleteDatabase(appname);
 }
 
-export async function unregisterServiceWorkers()
-{
+export async function unregisterServiceWorkers() {
   return maintenance.unregisterServiceWorkers();
 }
 
-export async function prepare(setappname)
-{
+export async function prepare(setappname) {
   appname = setappname;
   await unregisterServiceWorkers();
 
@@ -29,30 +26,25 @@ export async function prepare(setappname)
   await maintenance.clearCache(appname);
 }
 
-async function extractIDBTable(database, table)
-{
+async function extractIDBTable(database, table) {
   let db = await pwadb.open(database);
   let keys = await db.getAllKeys(table);
-  let rows = await Promise.all(keys.map(key => db.get(table,key)));
+  let rows = await Promise.all(keys.map(key => db.get(table, key)));
   db.close();
   return rows;
 }
 
-export async function getSWLog()
-{
+export async function getSWLog() {
   return await extractIDBTable(appname, 'pwa-swlog');
 }
 
-export async function touchPage()
-{
+export async function touchPage() {
   return await triggerUpdate('touchpage');
 }
-export async function forceRefresh()
-{
+export async function forceRefresh() {
   return await triggerUpdate('forcerefresh');
 }
 
-async function triggerUpdate(type)
-{
+async function triggerUpdate(type) {
   return await test.invoke('mod::publisher/lib/internal/pwa/tests.whlib#TriggerUpdate', type, test.getWin().location.href);
 }

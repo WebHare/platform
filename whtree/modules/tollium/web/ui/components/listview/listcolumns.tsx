@@ -9,10 +9,8 @@ import { isValidEmailAddress } from 'dompack/types/email';
 export let minwidth = 10;
 export let cellpadding_x = 4;
 
-export class Base
-{
-  constructor()
-  {
+export class Base {
+  constructor() {
     this.istree = false;
   }
 
@@ -23,8 +21,7 @@ export class Base
       @param cell Cell node
       @param data
   */
-  render(list, columndef, row, cell, data, wrapped)
-  {
+  render(list, columndef, row, cell, data, wrapped) {
   }
 
   /** Render data into a cell
@@ -34,8 +31,7 @@ export class Base
       @param cell Cell node
       @param data
   */
-  edit(list, columndef, row, cell, data, wrapped)
-  {
+  edit(list, columndef, row, cell, data, wrapped) {
   }
 
   /** Render data into a cell
@@ -45,8 +41,7 @@ export class Base
       @param cell Cell node
       @param data
   */
-  cancelEdit(list, columndef, row, cell, data, wrapped)
-  {
+  cancelEdit(list, columndef, row, cell, data, wrapped) {
   }
 
   /** Apply size styles to the cell
@@ -57,8 +52,7 @@ export class Base
       @cell sizestyles.left
       @cell sizestyles.top
   */
-  applySizes(list, columndef, row, cell, sizestyles)
-  {
+  applySizes(list, columndef, row, cell, sizestyles) {
     // !! don't read sizes here or try to detect overflow, because then whe'll trigger a page reflow for each list column cell
     cell.style.width = sizestyles.width + "px";
     cell.style.top = sizestyles.top + "px";
@@ -66,26 +60,23 @@ export class Base
     cell.style.height = sizestyles.height + "px";
   }
 
-  getSizeInfo(list, columndef, wrapped)
-  {
+  getSizeInfo(list, columndef, wrapped) {
     // test for == null matches null and undefined
-    return { resizable: columndef.resizable == null ? true : columndef.resizable
-           , minwidth:  columndef.minwidth == null ? minwidth : Math.max(columndef.minwidth, minwidth)
-           };
+    return {
+      resizable: columndef.resizable == null ? true : columndef.resizable
+      , minwidth: columndef.minwidth == null ? minwidth : Math.max(columndef.minwidth, minwidth)
+    };
   }
 
   /// Returns whether this node (not a child of the span of the cell) is owned by this column (eg. input used by editable column)
-  ownsNode(node)
-  {
+  ownsNode(node) {
     return false;
   }
 }
 
 //ADDME: Add validators for e-mail and url?
-export class BaseEditable extends Base
-{
-  constructor()
-  {
+export class BaseEditable extends Base {
+  constructor() {
     super();
 
     this._textedit = dompack.create("input", { "className": "textedit" });
@@ -93,23 +84,23 @@ export class BaseEditable extends Base
 
     // Setup a keyboard handler that handles Escape and Enter and allows typing text
     this._keyboard = new Keyboard(this._textedit,
-                 { "Escape": this._stopEditing.bind(this)
-                 , "Enter": this._editDone.bind(this)
-                 },
-                 { stopmapped: true
-                 , onkeypress: e =>
-                   {
-                     // Prevent the list's find-as-you-type from snatching the event
-                     e.stopPropagation();
-                     // Don't preventDefault
-                     return true;
-                   }
-                 });
+      {
+        "Escape": this._stopEditing.bind(this)
+        , "Enter": this._editDone.bind(this)
+      },
+      {
+        stopmapped: true
+        , onkeypress: e => {
+          // Prevent the list's find-as-you-type from snatching the event
+          e.stopPropagation();
+          // Don't preventDefault
+          return true;
+        }
+      });
 
   }
 
-  edit(list, columndef, row, cell, data, cellnum)
-  {
+  edit(list, columndef, row, cell, data, cellnum) {
     if (!cell)
       throw new Error('no cell');
 
@@ -133,11 +124,9 @@ export class BaseEditable extends Base
     this._state = { list, row, cellnum };
 
     // Setup a click handler that cancels the editor and prevents the click from activating other stuff
-    this.clickhandler = event =>
-    {
+    this.clickhandler = event => {
       event.stopPropagation();
-      if (!event.target.classList.contains("textedit"))
-      {
+      if (!event.target.classList.contains("textedit")) {
         event.preventDefault();
         this._editDone();
       }
@@ -150,8 +139,7 @@ export class BaseEditable extends Base
     this._textedit.focus();
   }
 
-  cancelEdit(list, columndef, row, cell, data, cellnum)
-  {
+  cancelEdit(list, columndef, row, cell, data, cellnum) {
     if (!cell)
       throw new Error('no cell');
 
@@ -161,33 +149,33 @@ export class BaseEditable extends Base
 
   // Can be overridden in subclasses to validate the input value. Returns a promise that resolves with the (possibly updated)
   // value, or rejects with an error message. The promise construction is used to allow for server-side checking of the value.
-  validateValue(value)
-  {
+  validateValue(value) {
     return Promise.resolve(value);
   }
 
-  _editDone()
-  {
+  _editDone() {
     // Check if the editor is active
     if (!this._textedit.parentNode || !this._state)
       return;
 
-    this.validateValue(this._textedit.value).then((value) =>
-    {
+    this.validateValue(this._textedit.value).then((value) => {
       console.log("Validated, state", this._state,
-                                         { cellidx: this._state.cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
-                                         , row: this._state.row.cells
-                                         , newvalue: value
-                                         });
+        {
+          cellidx: this._state.cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
+          , row: this._state.row.cells
+          , newvalue: value
+        });
       // Fire an event with the new value
-      if(!dompack.dispatchCustomEvent(this._state.list.node, "wh:listview-celledit",
-                               { bubbles: true
-                               , cancelable: true
-                               , detail: { cellidx: this._state.cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
-                                         , row: this._state.row.cells
-                                         , newvalue: value
-                                         }
-                               })) //cancelled
+      if (!dompack.dispatchCustomEvent(this._state.list.node, "wh:listview-celledit",
+        {
+          bubbles: true
+          , cancelable: true
+          , detail: {
+            cellidx: this._state.cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
+            , row: this._state.row.cells
+            , newvalue: value
+          }
+        })) //cancelled
       {
         this._stopEditing();
         return;
@@ -195,8 +183,7 @@ export class BaseEditable extends Base
     });
   }
 
-  _stopEditing()
-  {
+  _stopEditing() {
     // Remove the mouse event handlers
     window.removeEventListener("click", this.clickhandler, true);
     window.removeEventListener("mousewheel", this.clickhandler, true);
@@ -212,63 +199,54 @@ export class BaseEditable extends Base
     this._state = null;
   }
 
-  ownsNode(node)
-  {
+  ownsNode(node) {
     return node === this._textedit;
   }
 }
 
-export class Text extends BaseEditable
-{
-  render(list, columndef, row, cell, data, wrapped)
-  {
+export class Text extends BaseEditable {
+  render(list, columndef, row, cell, data, wrapped) {
     if (!cell)
       throw new Error('no cell');
 
     cell.classList.add("text"); // so CSS can apply ellipsis
-    if(data.indexOf('\n')>=0) //linefeeds should be converted to ;
+    if (data.indexOf('\n') >= 0) //linefeeds should be converted to ;
     {
-      while(data[0]=='\n')
+      while (data[0] == '\n')
         data = data.substr(1);
-      while(data[data.length-1]=='\n')
-        data = data.substr(0, data.length-1);
+      while (data[data.length - 1] == '\n')
+        data = data.substr(0, data.length - 1);
       data = data.split('\n').join('; ');
     }
     cell.textContent = data;
-    if(columndef.align=='right')
+    if (columndef.align == 'right')
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
   }
 }
 
-export class Email extends BaseEditable
-{
-  render(list, columndef, row, cell, address, wrapped)
-  {
-    if(address)
-    {
-      if (cell.firstChild)
-      {
+export class Email extends BaseEditable {
+  render(list, columndef, row, cell, address, wrapped) {
+    if (address) {
+      if (cell.firstChild) {
         cell.firstChild.href = "mailto:" + address;
         cell.firstChild.textContent = address;
       }
-      else
-      {
+      else {
         let node = dompack.create('a',
-            { href: "mailto:" + address
+          {
+            href: "mailto:" + address
             , textContent: address
             , className: "text"
-            });
+          });
         cell.appendChild(node);
       }
 
-      if(columndef.align=='right')
+      if (columndef.align == 'right')
         cell.style.textAlign = "right";
     }
   }
-  async validateValue(value)
-  {
-    return new Promise((resolve, reject) =>
-    {
+  async validateValue(value) {
+    return new Promise((resolve, reject) => {
       if (value === "" || isValidEmailAddress(value))
         resolve(value);
       else
@@ -277,29 +255,26 @@ export class Email extends BaseEditable
   }
 }
 
-export class URL extends BaseEditable
-{
-  render(list, columndef, row, cell, url, wrapped)
-  {
-    if(url) // FIXME: why? and should !url destroy a link if url was set before?
+export class URL extends BaseEditable {
+  render(list, columndef, row, cell, url, wrapped) {
+    if (url) // FIXME: why? and should !url destroy a link if url was set before?
     {
-      if (cell.firstChild)
-      {
+      if (cell.firstChild) {
         cell.firstChild.href = url;
         cell.firstChild.textContent = url;
       }
-      else
-      {
+      else {
         let node = dompack.create('a',
-            { href: url
+          {
+            href: url
             , target: "_blank"
             , textContent: url
             , className: "text"
-            });
+          });
         cell.appendChild(node);
       }
 
-      if(columndef.align=='right')
+      if (columndef.align == 'right')
         cell.style.textAlign = "right";
     }
   }
@@ -307,19 +282,16 @@ export class URL extends BaseEditable
 
 //ADDME It's not really a 'render' if we also handle click actions?
 
-export class TreeWrapper extends Base
-{
-  constructor(datasource, base)
-  {
+export class TreeWrapper extends Base {
+  constructor(datasource, base) {
     super();
     this.istree = true;
     this.expanderholderwidth = 12;
 
-    this.datasource=datasource;
-    this.base=base;
+    this.datasource = datasource;
+    this.base = base;
   }
-  render(list, columndef, row, cell, data, wrapped)
-  {
+  render(list, columndef, row, cell, data, wrapped) {
     //FIXME: proper expand images, only handle clicks on those
     //ADDME: central registration/click handling in listview, so we don't have to explicitly handle each image?
 
@@ -329,46 +301,45 @@ export class TreeWrapper extends Base
     var indentholder = cell.firstChild;
     var restholder = cell.childNodes[1];
 
-    if (!indentholder)
-    {
+    if (!indentholder) {
       indentholder = dompack.create("span",
-          { style: { "marginLeft": depth * 16 + "px"
-                   , "display": row.dragrow ? "none" : "inline-block"
-                   , "lineHeight": "20px"
-                   , "textAlign": "center" // if we center we get extra white space/padding to our left
-                   , "width": "12px"
-                   }
+        {
+          style: {
+            "marginLeft": depth * 16 + "px"
+            , "display": row.dragrow ? "none" : "inline-block"
+            , "lineHeight": "20px"
+            , "textAlign": "center" // if we center we get extra white space/padding to our left
+            , "width": "12px"
+          }
           , className: "expander fa"
-          , on: { "click": this.toggleRowExpander.bind(this,row,list.expandedidx,expanded) }
-          });
+          , on: { "click": this.toggleRowExpander.bind(this, row, list.expandedidx, expanded) }
+        });
       cell.appendChild(indentholder);
     }
-    if(typeof expanded != 'boolean') //not expandable
+    if (typeof expanded != 'boolean') //not expandable
       indentholder.style.visibility = "hidden";
-    else
-    {
-      indentholder.classList[ expanded?"add":"remove"]("fa-caret-down");
-      indentholder.classList[!expanded?"add":"remove"]("fa-caret-right");
+    else {
+      indentholder.classList[expanded ? "add" : "remove"]("fa-caret-down");
+      indentholder.classList[!expanded ? "add" : "remove"]("fa-caret-right");
     }
 
-    if (!restholder)
-    {
-      restholder = dompack.create("span", { style: { "display": "inline-block"
-                                                   }
-                                          });
+    if (!restholder) {
+      restholder = dompack.create("span", {
+        style: {
+          "display": "inline-block"
+        }
+      });
       cell.appendChild(restholder);
     }
     this.base.render(list, columndef, row, restholder, data, true);
   }
-  toggleRowExpander(row,cellidx,expanded,event)
-  {
+  toggleRowExpander(row, cellidx, expanded, event) {
     event.preventDefault();
     event.stopPropagation();
     this.datasource.setCell(row.rownum, row.cells, cellidx, !expanded);
   }
 
-  applySizes(list, columndef, row, cell, sizestyles)
-  {
+  applySizes(list, columndef, row, cell, sizestyles) {
     super.applySizes(list, columndef, row, cell, sizestyles);
 
     if (cell.childNodes[1]) // did we absorb another column type?
@@ -385,21 +356,17 @@ export class TreeWrapper extends Base
   }
 }
 
-export class LinkWrapper extends Base
-{
-  constructor(datasource, base)
-  {
+export class LinkWrapper extends Base {
+  constructor(datasource, base) {
     super();
-    this.datasource=datasource;
+    this.datasource = datasource;
     this.base = base;
   }
-  render(list, columndef, row, cell, data)
-  {
+  render(list, columndef, row, cell, data) {
     let link = row.cells[columndef.linkidx];
 
-    if(link)
-    {
-      if((!cell.firstChild || cell.firstChild.tagName!='A')) //create the link
+    if (link) {
+      if ((!cell.firstChild || cell.firstChild.tagName != 'A')) //create the link
       {
         let linkholder = <a target="_blank" href={link} />;
         cell.appendChild(linkholder);
@@ -411,82 +378,77 @@ export class LinkWrapper extends Base
         cell = cell.firstChild;
       }
     }
-    else if(!link && cell.firstChild && cell.firstChild.tagName=='A') //remove the link
+    else if (!link && cell.firstChild && cell.firstChild.tagName == 'A') //remove the link
     {
       let child = cell.firstChild;
       cell.replaceWith(child);
-      cell=child;
+      cell = child;
     }
 
     this.base.render(list, columndef, row, cell, data);
   }
 }
 
-export class CheckboxWrapper extends BaseEditable
-{
-  constructor(datasource, base)
-  {
+export class CheckboxWrapper extends BaseEditable {
+  constructor(datasource, base) {
     super();
     this.checkboxholderwidth = 20;
-    this.datasource=datasource;
+    this.datasource = datasource;
     this.base = base;
   }
-  render(list, columndef, row, cell, data)
-  {
+  render(list, columndef, row, cell, data) {
     //FIXME: proper expand images, only handle clicks on those
     //ADDME: central registration/click handling in listview, so we don't have to explicitly handle each image?
 
     var checkboxholder = cell.firstChild;
-    if (!checkboxholder)
-    {
-      checkboxholder = dompack.create("span", { style: { "display": "inline-block"
-                                                       , "width":   this.checkboxholderwidth
-                                                       }
-                                              });
+    if (!checkboxholder) {
+      checkboxholder = dompack.create("span", {
+        style: {
+          "display": "inline-block"
+          , "width": this.checkboxholderwidth
+        }
+      });
       cell.appendChild(checkboxholder);
     }
 
     var checkbox = checkboxholder.firstChild;
-    if (!checkbox)
-    {
-      checkbox = dompack.create("input", { type: "checkbox"
-                                         , on: { "change": this.onInputChange.bind(this, list, row, columndef.checkboxidx) }
-                                         });
+    if (!checkbox) {
+      checkbox = dompack.create("input", {
+        type: "checkbox"
+        , on: { "change": this.onInputChange.bind(this, list, row, columndef.checkboxidx) }
+      });
       checkboxholder.appendChild(checkbox);
     }
 
-    if(row.cells[columndef.checkboxidx] === null)
-    {
+    if (row.cells[columndef.checkboxidx] === null) {
       checkbox.style.visibility = "hidden";
       checkbox.disabled = true;
     }
-    else
-    {
+    else {
       checkbox.checked = row.cells[columndef.checkboxidx] !== false;
       checkbox.disabled = typeof columndef.checkboxenabledidx != "undefined" && columndef.checkboxenabledidx != -1 && !row.cells[columndef.checkboxenabledidx];
     }
 
     var restholder = cell.childNodes[1];
-    if (!restholder)
-    {
-      restholder = dompack.create("span", { style: { "display": "inline-block"
-                                                   }
-                                          });
+    if (!restholder) {
+      restholder = dompack.create("span", {
+        style: {
+          "display": "inline-block"
+        }
+      });
       cell.appendChild(restholder);
-      restholder.listViewClickNeighbour=true;
+      restholder.listViewClickNeighbour = true;
     }
     this.base.render(list, columndef, row, restholder, data);
   }
 
-  onInputChange(list, row, cellidx, event)
-  {
+  onInputChange(list, row, cellidx, event) {
     //FIXME need a setCell version that optionally supresses a sendRow
     this.datasource.setCell(row.rownum, row.cells, cellidx, event.target.checked === true);
-    dompack.dispatchCustomEvent(list.node, "wh:listview-check", {bubbles: true, cancelable: false, detail: { target:list, row:row.cells, checkboxidx: cellidx }});
+    dompack.dispatchCustomEvent(list.node, "wh:listview-check", { bubbles: true, cancelable: false, detail: { target: list, row: row.cells, checkboxidx: cellidx } });
   }
 
-  applySizes(list, columndef, row, cell, sizestyles)
-  {
+  applySizes(list, columndef, row, cell, sizestyles) {
     super.applySizes(list, columndef, row, cell, sizestyles);
 
     if (cell.childNodes[1]) // did we absorb another column type?

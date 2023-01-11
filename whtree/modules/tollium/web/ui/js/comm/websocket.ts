@@ -5,10 +5,8 @@ import $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase from "./transportbase.es";
 
 /// WebSocket support
-export default class WebSocketTransport extends TransportBase
-{
-  constructor(options)
-  {
+export default class WebSocketTransport extends TransportBase {
+  constructor(options) {
     super({ commhost: '', ...options });
 
     this.socket = null;
@@ -21,8 +19,7 @@ export default class WebSocketTransport extends TransportBase
     this.connectWebsocket();
   }
 
-  connectWebsocket()
-  {
+  connectWebsocket() {
     let url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
     this.socket.addEventListener('open', e => this.gotOpen(e));
@@ -31,21 +28,18 @@ export default class WebSocketTransport extends TransportBase
     this.socket.addEventListener("error", e => this.gotError(e));
   }
 
-  destroy()
-  {
+  destroy() {
     if (this.socket)
       this.socket.close();
     this.socket = null;
   }
 
-  addEndPoint(endpoint)
-  {
+  addEndPoint(endpoint) {
     super.addEndPoint(endpoint);
     this.updateListenLinks();
   }
 
-  removeEndPoint(endpoint)
-  {
+  removeEndPoint(endpoint) {
     var res = super.removeEndPoint(endpoint);
     this.updateListenLinks();
 
@@ -55,8 +49,7 @@ export default class WebSocketTransport extends TransportBase
     return res;
   }
 
-  gotOpen()
-  {
+  gotOpen() {
     /* Set all endpoints as signalled and reset sendall, so we'll repeat
        all non-acked messages every link, needed for correct link establishment
        in appstarter)
@@ -64,17 +57,15 @@ export default class WebSocketTransport extends TransportBase
     this.sentall = [];
     this.signalled = this.endpoints;
 
-//    console.log('gotopen');
+    //    console.log('gotopen');
     this.updateListenLinks();
 
     this.signalOnline();
   }
 
-  gotMessage(message)
-  {
+  gotMessage(message) {
     var rawmsg = JSON.parse(message.data);
-    for (var i = 0; i < rawmsg.msg.data.length; ++i)
-    {
+    for (var i = 0; i < rawmsg.msg.data.length; ++i) {
       var msg = rawmsg.msg.data[i];
       this.processGotMessageMessage(msg);
     }
@@ -83,71 +74,63 @@ export default class WebSocketTransport extends TransportBase
     this.backoff = 0;
   }
 
-  gotError(event)
-  {
+  gotError(event) {
     console.error("Websocket error", event);
   }
 
-  gotClose(event)
-  {
+  gotClose(event) {
     if (this.socket)
       this.socket.close();
     this.socket = null;
 
     let nowbackoff = this.backoff;
-    this.backoff = Math.min( (this.backoff * 2) || 1, 60);
+    this.backoff = Math.min((this.backoff * 2) || 1, 60);
 
     if (nowbackoff >= 16) // 15 seconds without a connection
       this.signalOffline();
 
     console.log(`Websocket closed, need to reconnect in ${nowbackoff} seconds`, event);
-    setTimeout(() =>
-    {
+    setTimeout(() => {
       console.log(`Reconnecting websocket`);
       this.connectWebsocket();
     }, nowbackoff * 1000);
   }
 
-  setSignalled(endpoint)
-  {
-//    console.log('endpoint signalled', endpoint.options.linkid, this.socket ? this.socket.readyState : 'n/a');
+  setSignalled(endpoint) {
+    //    console.log('endpoint signalled', endpoint.options.linkid, this.socket ? this.socket.readyState : 'n/a');
     if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
     if (this.socket && this.socket.readyState == 1)
       this.handleSignalledEndpoints();
   }
 
-  updateListenLinks()
-  {
+  updateListenLinks() {
     if (!this.socket || this.socket.readyState != 1)
       return;
 
     var links = [];
     var frontendids = [];
 
-    this.endpoints.forEach(function(endpoint)
-      {
-        if (!links.includes(endpoint.options.linkid))
-          links.push(endpoint.options.linkid);
-        if (!frontendids.includes(endpoint.options.frontendid))
-          frontendids.push(endpoint.options.frontendid);
-      });
+    this.endpoints.forEach(function(endpoint) {
+      if (!links.includes(endpoint.options.linkid))
+        links.push(endpoint.options.linkid);
+      if (!frontendids.includes(endpoint.options.frontendid))
+        frontendids.push(endpoint.options.frontendid);
+    });
 
-    this.socket.send(JSON.stringify({ requests: [ { type: 'listen', links: links, frontendids: frontendids } ] }));
+    this.socket.send(JSON.stringify({ requests: [{ type: 'listen', links: links, frontendids: frontendids }] }));
     this.handleSignalledEndpoints();
   }
 
-  handleSignalledEndpoints()
-  {
+  handleSignalledEndpoints() {
     //console.log('handleSignalledEndpoints');
-    for (var i = 0; i < this.signalled.length; ++i)
-    {
+    for (var i = 0; i < this.signalled.length; ++i) {
       var endpoint = this.signalled[i];
       //console.log(' handle signalled endpoint', endpoint.options.linkid);
 
       var sentall = this.sentall.includes(endpoint);
       var msg = endpoint.constructWireMessage(!sentall);
-      this.socket.send(JSON.stringify({ requests: [ { type: 'msg', msg: msg } ] }));
+      this.socket.send(JSON.stringify({ requests: [{ type: 'msg', msg: msg }] }));
       if (!sentall)
         this.sentall.push(endpoint);
     }
@@ -156,10 +139,9 @@ export default class WebSocketTransport extends TransportBase
   }
 
   // Called when a new message has arrived at an endpoint
-  gotNewMessage(endpoint)
-  {
+  gotNewMessage(endpoint) {
     // Immediately send an ack
-    if(!this.signalled.includes(endpoint))
+    if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
     this.handleSignalledEndpoints();
   }

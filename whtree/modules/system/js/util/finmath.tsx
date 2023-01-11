@@ -13,22 +13,20 @@
 
 function isSafeInteger(value) //Number.isSafeInteger is unavailable in IE11
 {
-   return Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
+  return Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
 }
 
-function stripUnneededDecimals(num, decimals)
-{
+function stripUnneededDecimals(num, decimals) {
   //we have a maximum of 5 digits of external precision
-  if(decimals > 5)
-  {
+  if (decimals > 5) {
     // math.round rounds toward positive infinity
     const isneg = num < 0;
     if (isneg)
       num = -num;
 
-    while(decimals>6) //truncate excess digits
+    while (decimals > 6) //truncate excess digits
     {
-      num = Math.floor(num/10);
+      num = Math.floor(num / 10);
       --decimals;
     }
     //round up if 6th decimal >= 5
@@ -40,18 +38,16 @@ function stripUnneededDecimals(num, decimals)
   }
 
   //strip unneeded decimals
-  while(decimals > 0 && !(num%10))
-  {
-    num/=10;
+  while (decimals > 0 && !(num % 10)) {
+    num /= 10;
     --decimals;
   }
 
   return { num, decimals };
 }
 
-function toText(amount, decimalpoint, mindecimals)
-{
-  if(!isSafeInteger(amount.num))
+function toText(amount, decimalpoint, mindecimals) {
+  if (!isSafeInteger(amount.num))
     throw new Error("Result would overflow the safe value range");
 
   let num, decimals;
@@ -68,8 +64,7 @@ function toText(amount, decimalpoint, mindecimals)
   if (astext.length <= decimals)
     astext = '00000000000000000000'.substr(0, decimals + 1 - astext.length) + astext;
   // make sure we have enough 0's to show mindecimals
-  if (decimals < mindecimals)
-  {
+  if (decimals < mindecimals) {
     astext += '00000000000000000000'.substr(0, mindecimals - decimals);
     decimals = mindecimals;
   }
@@ -87,27 +82,25 @@ function toText(amount, decimalpoint, mindecimals)
     @param money Either an integer number, string with a number of a price object
     @return Price parts object
 */
-function splitPrice(money)
-{
-  if(typeof money == 'number')
-  {
-    if(money != Math.floor(money))
+function splitPrice(money) {
+  if (typeof money == 'number') {
+    if (money != Math.floor(money))
       throw new Error("Passing a non-integer number to splitPrice");
-    if(!isSafeInteger(money))
+    if (!isSafeInteger(money))
       throw new Error(`The value ${money} is outside the safe value range`);
     return { num: money, decimals: 0 };
   }
-  if(typeof money != 'string')
+  if (typeof money != 'string')
     throw new Error("splitPrice should receive either number or string, got " + money);
 
   let split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/);
-  if(!split)
+  if (!split)
     throw new Error(`splitPrice received illegal price: '${money}'`);
 
-  let sign = split[1]=='-' ? -1 : 1;
-  let decimals = split[3] ? split[3].length-1 : 0;
-  let num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3]||'').substr(1)) || 0));
-  if(!isSafeInteger(num))
+  let sign = split[1] == '-' ? -1 : 1;
+  let decimals = split[3] ? split[3].length - 1 : 0;
+  let num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  if (!isSafeInteger(num))
     throw new Error(`The value '${money}' is outside the safe value range`);
 
   return stripUnneededDecimals(num, decimals);
@@ -115,22 +108,20 @@ function splitPrice(money)
 
 /** Convert price parts into a string
 */
-function joinPrice(parts)
-{
-  return toText(parts,'.',0);
+function joinPrice(parts) {
+  return toText(parts, '.', 0);
 }
 
-function adjustDecimals(amount, requiredecimals)
-{
+function adjustDecimals(amount, requiredecimals) {
   let toadd = requiredecimals - amount.decimals;
-  if(toadd <= 0)
+  if (toadd <= 0)
     return;
 
   let multiplier = 1;
   for (let idx = 0; idx < toadd; ++idx)
     multiplier *= 10;
 
-  if(!isSafeInteger(amount.num * multiplier))
+  if (!isSafeInteger(amount.num * multiplier))
     throw new Error("adjustDecimals would overflow the safe value range");
 
   amount.num *= multiplier;
@@ -139,15 +130,13 @@ function adjustDecimals(amount, requiredecimals)
 
 /** Returns if a price string is valid
 */
-export function isValidPrice(money)
-{
-  if(typeof money != 'string' || !money.match(/[0-9]+(\.[0-9]{0,5})?$/))
+export function isValidPrice(money) {
+  if (typeof money != 'string' || !money.match(/[0-9]+(\.[0-9]{0,5})?$/))
     return false;
   return true;
 }
 
-function __add(lhs,rhs)
-{
+function __add(lhs, rhs) {
   //equalize # of decimals, and then it's a simple addition
   let requiredecimals = Math.max(lhs.decimals, rhs.decimals);
   adjustDecimals(lhs, requiredecimals);
@@ -157,30 +146,26 @@ function __add(lhs,rhs)
 
 /** Adds two numbers together
 */
-export function add(amount1, amount2)
-{
+export function add(amount1, amount2) {
   return joinPrice(__add(splitPrice(amount1), splitPrice(amount2)));
 }
 
 /** Subtracts a number from another number
 */
-export function subtract(amount, tosubtract)
-{
+export function subtract(amount, tosubtract) {
   let lhs = splitPrice(amount), rhs = splitPrice(tosubtract);
   rhs.num = -rhs.num;
   return joinPrice(__add(lhs, rhs));
 }
 
-function __multiply(lhs,rhs)
-{
+function __multiply(lhs, rhs) {
   //ADDME the naive 'add decimals, multiple nums' approach gets you out of the safe range real fast. needs tests
   return { num: lhs.num * rhs.num, decimals: lhs.decimals + rhs.decimals };
 }
 
 /** Multiplies two numbers together
 */
-export function multiply(amount1, amount2)
-{
+export function multiply(amount1, amount2) {
   let lhs = splitPrice(amount1), rhs = splitPrice(amount2);
   return joinPrice(__multiply(lhs, rhs));
 }
@@ -190,8 +175,7 @@ export function multiply(amount1, amount2)
     @param amount2
     @return Returns 0 if amount1 == amount2, -1 if amount1 < amount2, 1 if amount1 > amount2
 */
-export function cmp(amount1,amount2)
-{
+export function cmp(amount1, amount2) {
   let diff = __add(splitPrice(amount1), __multiply(splitPrice(amount2), { num: -1, decimals: 0 }));
   return diff.num < 0 ? -1 : diff.num == 0 ? 0 : 1;
 }
@@ -201,18 +185,15 @@ export function cmp(amount1,amount2)
     @param perc Percentage of the amount to return
     @return Percentage of the amount
 */
-export function getPercentageOfAmount(amount, perc)
-{
+export function getPercentageOfAmount(amount, perc) {
   let lhs = splitPrice(amount), rhs = splitPrice(perc);
   amount = __multiply(lhs, rhs);
   amount.decimals += 2;
   return joinPrice(normalize(amount));
 }
 
-function normalize(amount)
-{
-  while (amount.decimals && (amount.num % 10) === 0)
-  {
+function normalize(amount) {
+  while (amount.decimals && (amount.num % 10) === 0) {
     amount.num /= 10;
     --amount.decimals;
   }
@@ -220,101 +201,95 @@ function normalize(amount)
 }
 
 /// format a price amount. extend # of decimals to specified # if not enough
-export function formatPrice(money, decimalpoint, decimals)
-{
+export function formatPrice(money, decimalpoint, decimals) {
   return toText(splitPrice(money), decimalpoint, decimals);
 }
 
 //OBSOLETE - webshops before 3.3.1 still need it though
-export function getCostFromTable(costtable, total)
-{
+export function getCostFromTable(costtable, total) {
   let bestcost = null;
-  for(let row of costtable)
-  {
-    if(cmp(total, row.fromtotal) < 0) //total not high enough to trigger this row
+  for (let row of costtable) {
+    if (cmp(total, row.fromtotal) < 0) //total not high enough to trigger this row
       continue;
 
-    if(bestcost === null || cmp(row.cost, bestcost) <= 0)//first or better offer
+    if (bestcost === null || cmp(row.cost, bestcost) <= 0)//first or better offer
       bestcost = row.cost;
   }
   return bestcost || "0";
 }
 
 // === Math.trunc, but ie doesn't support that
-function truncateFloat(value)
-{
+function truncateFloat(value) {
   let isnegative = value < 0;
   value = Math.floor(Math.abs(value));
-  return isnegative && value ? -value :  value; // no -0, please
+  return isnegative && value ? -value : value; // no -0, please
 }
 
 /** Rounds integer to multiple, exposed for testing only
 */
-export function __roundIntegerToMultiple(value, roundunit, mode)
-{
-  switch (mode)
-  {
+export function __roundIntegerToMultiple(value, roundunit, mode) {
+  switch (mode) {
     case "none":
-    {
-      // no rounding
-    } break;
+      {
+        // no rounding
+      } break;
     case "toward-zero":
-    {
-      value = truncateFloat(value / roundunit) * roundunit;
-    } break;
+      {
+        value = truncateFloat(value / roundunit) * roundunit;
+      } break;
     case "toward-infinity":
-    {
-      if (value > 0)
-        value = truncateFloat((value + roundunit - 1) / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - roundunit + 1) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + roundunit - 1) / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - roundunit + 1) / roundunit) * roundunit;
+      } break;
     case "down":
-    {
-      if (value > 0)
-        value = truncateFloat(value / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - roundunit + 1) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat(value / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - roundunit + 1) / roundunit) * roundunit;
+      } break;
     case "up":
-    {
-      if (value > 0)
-        value = truncateFloat((value + roundunit - 1) / roundunit) * roundunit;
-      else
-        value = truncateFloat(value / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + roundunit - 1) / roundunit) * roundunit;
+        else
+          value = truncateFloat(value / roundunit) * roundunit;
+      } break;
     case "half-toward-zero":
-    {
-      if (value > 0)
-        value = truncateFloat((value + (roundunit - 1) / 2) / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - (roundunit - 1) / 2) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + (roundunit - 1) / 2) / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - (roundunit - 1) / 2) / roundunit) * roundunit;
+      } break;
     case "half-toward-infinity":
-    {
-      if (value > 0)
-        value = truncateFloat((value + roundunit / 2) / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - roundunit / 2) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + roundunit / 2) / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - roundunit / 2) / roundunit) * roundunit;
+      } break;
     case "half-down":
-    {
-      if (value > 0)
-        value = truncateFloat((value + (roundunit - 1) / 2) / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - roundunit / 2) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + (roundunit - 1) / 2) / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - roundunit / 2) / roundunit) * roundunit;
+      } break;
     case "half-up":
-    {
-      if (value > 0)
-        value = truncateFloat((value + roundunit / 2) / roundunit) * roundunit;
-      else
-        value = truncateFloat((value - (roundunit - 1) / 2) / roundunit) * roundunit;
-    } break;
+      {
+        if (value > 0)
+          value = truncateFloat((value + roundunit / 2) / roundunit) * roundunit;
+        else
+          value = truncateFloat((value - (roundunit - 1) / 2) / roundunit) * roundunit;
+      } break;
     default:
-    {
-      throw new Error(`Unknown rounding mode ${mode}`);
-    }
+      {
+        throw new Error(`Unknown rounding mode ${mode}`);
+      }
   }
   return value;
 }
@@ -334,8 +309,7 @@ export function __roundIntegerToMultiple(value, roundunit, mode)
       </ul>
     @return The rounded value
 */
-export function roundToMultiple(value, unit, mode)
-{
+export function roundToMultiple(value, unit, mode) {
   value = splitPrice(value);
   unit = splitPrice(unit);
 
@@ -352,8 +326,7 @@ export function roundToMultiple(value, unit, mode)
     @param amounts Rest of the values
     @return The lowest value among amount and amounts
 */
-export function min(amount, ...amounts)
-{
+export function min(amount, ...amounts) {
   for (const val of amounts)
     if (cmp(amount, val) > 0)
       amount = val;
@@ -365,8 +338,7 @@ export function min(amount, ...amounts)
     @param amounts Rest of the values
     @return The highest value among amount and amounts
 */
-export function max(amount, ...amounts)
-{
+export function max(amount, ...amounts) {
   for (const val of amounts)
     if (cmp(amount, val) < 0)
       amount = val;
@@ -377,11 +349,9 @@ export function max(amount, ...amounts)
     @param exp Integer power, must be 0 or bigger
     @return Requested power of 10
 */
-function getNonNegativePowerOf10(exp)
-{
+function getNonNegativePowerOf10(exp) {
   let retval = 1, running_exp = 10;
-  while (exp)
-  {
+  while (exp) {
     if (exp & 1)
       retval *= running_exp;
     running_exp *= running_exp;
@@ -395,8 +365,7 @@ function getNonNegativePowerOf10(exp)
     @param divisor Divisor
     @return Divided value, with 5 decimals of precision
 */
-export function divide(value, divisor)
-{
+export function divide(value, divisor) {
   const lhs = splitPrice(value), rhs = splitPrice(divisor);
   const mul10exp = lhs.decimals - rhs.decimals - 5;
   const mulfactor = mul10exp < 0 ? getNonNegativePowerOf10(-mul10exp) : 1;
@@ -417,17 +386,15 @@ export function moneyDivide(value, divisor) //divide was added in 5.0. remove th
     @example
       console.log(finmath.test(1, '<', 2)); // prints 'true'
 */
-export function test(lhs, relation, rhs)
-{
+export function test(lhs, relation, rhs) {
   const compareresult = cmp(lhs, rhs);
-  switch (relation)
-  {
-    case '<':   return compareresult < 0;
-    case '<=':  return compareresult <= 0;
-    case '==':  return compareresult === 0;
-    case '!=':  return compareresult !== 0;
-    case '>':   return compareresult > 0;
-    case '>=':  return compareresult >= 0;
+  switch (relation) {
+    case '<': return compareresult < 0;
+    case '<=': return compareresult <= 0;
+    case '==': return compareresult === 0;
+    case '!=': return compareresult !== 0;
+    case '>': return compareresult > 0;
+    case '>=': return compareresult >= 0;
   }
   throw Error(`Cannot test for unknown relation '${relation}'`);
 }

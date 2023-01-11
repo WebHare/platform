@@ -5,14 +5,12 @@ import * as dompack from 'dompack';
 import "./checkbox.scss";
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
-export default class ObjCheckbox extends ComponentBase
-{ // ---------------------------------------------------------------------------
+export default class ObjCheckbox extends ComponentBase { // ---------------------------------------------------------------------------
   //
   // Initialization
   //
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "checkbox";
@@ -29,10 +27,9 @@ export default class ObjCheckbox extends ComponentBase
   // Communications
   //
 
-  enabledOn(checkflags, min, max, selectionmatch)
-  {
+  enabledOn(checkflags, min, max, selectionmatch) {
     return (min > 0 && max != 0 && this.getValue().value)
-           || (min <= 0 && max == 0 && !this.getValue().value);
+      || (min <= 0 && max == 0 && !this.getValue().value);
   }
 
   // ---------------------------------------------------------------------------
@@ -40,37 +37,31 @@ export default class ObjCheckbox extends ComponentBase
   // Property getters & setters
   //
 
-  getSubmitValue()
-  {
+  getSubmitValue() {
     return this.getValue();
   }
 
-  getValue()
-  {
-    return { indeterminate: this.node.indeterminate
-           , value: this.node.checked
-           };
+  getValue() {
+    return {
+      indeterminate: this.node.indeterminate
+      , value: this.node.checked
+    };
   }
 
-  setValue(value, indeterminate)
-  {
+  setValue(value, indeterminate) {
     this.node.checked = value;
     this.node.indeterminate = indeterminate;
   }
 
-  setReadOnly(value)
-  {
-    if (value != this.readonly)
-    {
+  setReadOnly(value) {
+    if (value != this.readonly) {
       this.readonly = value;
       this.node.disabled = !(this.enabled && !this.readonly);
     }
   }
 
-  setEnabled(value)
-  {
-    if (value != this.enabled)
-    {
+  setEnabled(value) {
+    if (value != this.enabled) {
       this.enabled = value;
       this.node.disabled = !(this.enabled && !this.readonly);
     }
@@ -82,18 +73,17 @@ export default class ObjCheckbox extends ComponentBase
   //
 
   // Build the DOM node(s) for this component
-  buildNode()
-  {
+  buildNode() {
     //NOTE: ignoring hint. not an accessible way to discover those anyway, should use the label.
     this.node = <input type="checkbox"
-                       class="t-checkbox"
-                       checked={this.value  ? "true" : ""}
-                       disabled={!(this.enabled && !this.readonly) ? "true" : ""}
-                       tabindex={this.enabled ? this.tabindex || "": -1}
-                       onChange={ev => this.gotControlChange(ev)}
-                       data-name={this.name}
-                       propTodd={this}
-                       />;
+      class="t-checkbox"
+      checked={this.value ? "true" : ""}
+      disabled={!(this.enabled && !this.readonly) ? "true" : ""}
+      tabindex={this.enabled ? this.tabindex || "" : -1}
+      onChange={ev => this.gotControlChange(ev)}
+      data-name={this.name}
+      propTodd={this}
+    />;
   }
 
   // ---------------------------------------------------------------------------
@@ -101,29 +91,26 @@ export default class ObjCheckbox extends ComponentBase
   // Dimensions
   //
 
-  getSkinSettings()
-  {
+  getSkinSettings() {
     const dims = this.node.getBoundingClientRect();
-    return { width:  parseInt(dims.width)
-           , height: parseInt(dims.height)
-           };
+    return {
+      width: parseInt(dims.width)
+      , height: parseInt(dims.height)
+    };
   }
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.calc = this.skinsettings.width;
     this.width.min = this.width.calc;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.calc = this.skinsettings.height;
     this.height.min = this.height.calc;
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     this.node.style.marginTop = this.getVerticalPosition() + 'px';
   }
 
@@ -132,20 +119,17 @@ export default class ObjCheckbox extends ComponentBase
   // Events & callbacks
   //
 
-  gotControlChange(ev)
-  {
+  gotControlChange(ev) {
     this.value = this.node.checked;
     this.setDirty();
-    if(this.isEventUnmasked("change") || this.enablecomponents.length)
+    if (this.isEventUnmasked("change") || this.enablecomponents.length)
       this.transferState(true);
 
     this.owner.actionEnabler();
   }
 
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data) {
+    switch (data.type) {
       case 'value':
         this.setValue(data.value, data.indeterminate);
         return;

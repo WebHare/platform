@@ -20,10 +20,8 @@ require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-export default class ObjAction extends ActionForwardBase
-{
-  constructor(parentcomp, data, replacingcomp)
-  {
+export default class ObjAction extends ActionForwardBase {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "action";
     this.lastenabled = null;
@@ -32,7 +30,7 @@ export default class ObjAction extends ActionForwardBase
     this.customaction = data.customaction;
     this.target = data.targetname;
 
-    this.frameflags = data.frameflags||[];
+    this.frameflags = data.frameflags || [];
     this.enableons = data.enableons || [];
     this.mimetypes = data.mimetypes || [];
     this.multiple = !("multiple" in data) || data.multiple;
@@ -55,73 +53,66 @@ export default class ObjAction extends ActionForwardBase
     */
 
 
-    if (data.editimage)
-    {
+    if (data.editimage) {
       this.editimage = data.editimage.image;
       this.onExecute();
     }
   }
 
-  onExecute(options)
-  {
+  onExecute(options) {
     options = { ignorebusy: false, ...(options || {}) };
     var hitrule = this.getHitRule();
 
     // application already busy?
-    if (this.owner.isBusy() && !options.ignorebusy )
+    if (this.owner.isBusy() && !options.ignorebusy)
       return false;
 
-    if(hitrule == -1) //we are not enabled
+    if (hitrule == -1) //we are not enabled
     {
       this.debugLog("actionenabler", "- Action is explicitly disabled by client");
       return false;
     }
 
-    if(this.isEventUnmasked('upload'))
-      this.executeUploadAction({rule:hitrule});
-    else if(this.isEventUnmasked('download'))
-      this.executeDownloadAction({rule:hitrule});
-    else if(this.isEventUnmasked('windowopen'))
-      this.executeWindowOpenAction({rule:hitrule});
-    else if(this.isEventUnmasked('handlefeedback'))
-      this.executeHandleFeedback({rule:hitrule});
-    else if(this.isEventUnmasked('copytoclipboard'))
-      this.executeCopyToClipboard({rule:hitrule});
-    else if(this.isEventUnmasked('execute'))
-      this.queueMessage("execute", {rule:hitrule}, true);
-    else if (this._onexecute)
-    {
+    if (this.isEventUnmasked('upload'))
+      this.executeUploadAction({ rule: hitrule });
+    else if (this.isEventUnmasked('download'))
+      this.executeDownloadAction({ rule: hitrule });
+    else if (this.isEventUnmasked('windowopen'))
+      this.executeWindowOpenAction({ rule: hitrule });
+    else if (this.isEventUnmasked('handlefeedback'))
+      this.executeHandleFeedback({ rule: hitrule });
+    else if (this.isEventUnmasked('copytoclipboard'))
+      this.executeCopyToClipboard({ rule: hitrule });
+    else if (this.isEventUnmasked('execute'))
+      this.queueMessage("execute", { rule: hitrule }, true);
+    else if (this._onexecute) {
       var block = this.owner.displayapp.getBusyLock('action');
-      this._onexecute(this, { rule:hitrule }, block.release.bind(block));
+      this._onexecute(this, { rule: hitrule }, block.release.bind(block));
     }
 
     var customaction = this.enableons.length ? this.enableons[hitrule].customaction : this.customaction;
-    if(customaction && $todd.customactions[customaction])
-    {
-      $todd.customactions[customaction]({ action: this.name
-                                        , screen: this.owner
-                                        });
+    if (customaction && $todd.customactions[customaction]) {
+      $todd.customactions[customaction]({
+        action: this.name
+        , screen: this.owner
+      });
     }
   }
 
-  isEnabled()
-  {
+  isEnabled() {
     if (this.lastenabled === null)
       this.checkEnabled();
     return this.lastenabled;
   }
 
-  getHitRule()
-  {
-    if (!this.xml_enabled)
-    {
+  getHitRule() {
+    if (!this.xml_enabled) {
       this.debugLog("actionenabler", "- Action is explicitly disabled by client");
       return -1;
     }
 
     var checked = this.frameflags.length == 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
-    if(!checked)
-    {
+    if (!checked) {
       this.debugLog("actionenabler", "- Action is disabled by frameflags");
       return -1;
     }
@@ -131,8 +122,7 @@ export default class ObjAction extends ActionForwardBase
     return hitrule;
   }
 
-  checkEnabled()
-  {
+  checkEnabled() {
     this.debugLog("actionenabler", `Checking action ${this.name}`);
 
     /* An action is enabled when
@@ -149,73 +139,64 @@ export default class ObjAction extends ActionForwardBase
     */
 
     var enabled = this.getHitRule() != -1;
-    this.debugLog("actionenabler", "- Action is "+(enabled?"enabled":"disabled"));
+    this.debugLog("actionenabler", "- Action is " + (enabled ? "enabled" : "disabled"));
 
-    if(this.lastenabled !== enabled)
-    {
+    if (this.lastenabled !== enabled) {
       this.lastenabled = enabled;
       this.debugLog("actionenabler", "- Informing any listeners");
       this.owner.broadcastActionUpdated(this);
     }
   }
 
-  executeUploadAction(data)
-  {
-    if (this.imageaction)
-    {
-      switch (this.actiontype)
-      {
+  executeUploadAction(data) {
+    if (this.imageaction) {
+      switch (this.actiontype) {
         case "upload":
-        {
-          let busylock = dompack.flagUIBusy();
-          toddupload.receiveFiles(this, { mimetypes: this.mimetypes
-                                        , multiple: this.multiple
-                                        }).then(files =>
           {
-            if (files.length)
-              this.handleImageUploaded(data, files[0]);
-          }).finally(() => busylock.release());
-          return;
-        }
-        case "edit":
-        {
-          if (!this.editimage)
-          {
-            console.warn("imageaction edit called without image");
+            let busylock = dompack.flagUIBusy();
+            toddupload.receiveFiles(this, {
+              mimetypes: this.mimetypes
+              , multiple: this.multiple
+            }).then(files => {
+              if (files.length)
+                this.handleImageUploaded(data, files[0]);
+            }).finally(() => busylock.release());
             return;
           }
-          // Edit image directly without uploading
-          this.handleImageUploaded(data, this.editimage);
-          return;
-        }
+        case "edit":
+          {
+            if (!this.editimage) {
+              console.warn("imageaction edit called without image");
+              return;
+            }
+            // Edit image directly without uploading
+            this.handleImageUploaded(data, this.editimage);
+            return;
+          }
       }
     }
-    else
-    {
+    else {
       let busylock = dompack.flagUIBusy();
-      toddupload.uploadFiles(this, function(files, callback)
-        {
-          busylock.release();
-          if (!files.length)
-          {
-            callback();
-            return;
-          }
-          data.items = files.map(function(i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
-          this.asyncMessage("upload", data).then(callback);
-        }.bind(this), { mimetypes: this.mimetypes
-                      , multiple: this.multiple
-                      });
+      toddupload.uploadFiles(this, function(files, callback) {
+        busylock.release();
+        if (!files.length) {
+          callback();
+          return;
+        }
+        data.items = files.map(function(i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
+        this.asyncMessage("upload", data).then(callback);
+      }.bind(this), {
+        mimetypes: this.mimetypes
+        , multiple: this.multiple
+      });
     }
   }
 
-  executeDownloadAction(data)
-  {
+  executeDownloadAction(data) {
     var fturl = this.getFileTransferURL('asyncdownload');
 
     var dl = new DownloadManager(fturl.url, {});
-    dl.startDownload().then(result =>
-    {
+    dl.startDownload().then(result => {
       if (result.started)
         this.onDownloadStarted(dl, fturl.id);
       else
@@ -226,79 +207,72 @@ export default class ObjAction extends ActionForwardBase
     this.queueMessage('download', { rule: data.rule, ftid: fturl.id }, true);
   }
 
-  executeWindowOpenAction(data)
-  {
+  executeWindowOpenAction(data) {
     var fturl = this.getFileTransferURL('asyncwindowopen');
 
     window.open(fturl.url, this.target || "_blank");
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
   }
 
-  executeHandleFeedback(data)
-  {
-    feedback.run(null, {scope: this.scope});
+  executeHandleFeedback(data) {
+    feedback.run(null, { scope: this.scope });
   }
 
-  executeCopyToClipboard(data)
-  {
+  executeCopyToClipboard(data) {
     let comp = this.owner.getComponent(this.source);
-    if(comp)
+    if (comp)
       comp.doCopyToClipboard();
   }
 
-  onDownloadStarted(dl, id)
-  {
+  onDownloadStarted(dl, id) {
     this.pendingdownloads = this.pendingdownloads.filter(item => item != dl); //erase
     this.queueMessage("download-started", { ftid: id }, true);
   }
 
-  onDownloadFailed(dl, id)
-  {
+  onDownloadFailed(dl, id) {
     this.pendingdownloads = this.pendingdownloads.filter(item => item != dl); //erase
     this.queueMessage("download-failed", { ftid: id }, true);
   }
 
-  onMsgTarget(data)
-  {
+  onMsgTarget(data) {
     this.target = data.target;
   }
 
-  handleImageReset()
-  {
-    return new Promise(function(resolve)
-    {
+  handleImageReset() {
+    return new Promise(function(resolve) {
       $todd.createMessageBox(this.owner.displayapp,
-          { title: getTid("tollium:components.imgedit.editor.title")
+        {
+          title: getTid("tollium:components.imgedit.editor.title")
           , text: getTid("tollium:components.imgedit.messages.confirmreset")
           , icon: "question"
-          , buttons: [ { name: "yes", title: getTid("~yes") }
-                     , { name: "no", title: getTid("~no") }
-                     ]
-          , onclose:function(result)
-            {
-              if (result == "yes")
-                this.queueMessage("resend", {}, true);
-              resolve(result);
-            }.bind(this)
-          });
+          , buttons: [{ name: "yes", title: getTid("~yes") }
+            , { name: "no", title: getTid("~no") }
+          ]
+          , onclose: function(result) {
+            if (result == "yes")
+              this.queueMessage("resend", {}, true);
+            resolve(result);
+          }.bind(this)
+        });
     }.bind(this));
   }
 
-  async handleImageUploaded(data, file)
-  {
+  async handleImageUploaded(data, file) {
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
 
-    var options = { mimetype: file.type
-                  , imgsize: this.imgsize
-                  , action: this.actiontype
-                  , resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
-                  };
+    var options = {
+      mimetype: file.type
+      , imgsize: this.imgsize
+      , action: this.actiontype
+      , resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
+    };
 
     let imageeditdialog = new ImgeditDialogController(this.owner, options);
-    let settings = { refpoint: file.refpoint
-                   , filename: file.name
-                   };
+    let settings = {
+      refpoint: file.refpoint
+      , filename: file.name
+    };
 
     if (file.url)
       imageeditdialog.loadImageSrc(file.url, settings);
@@ -308,45 +282,42 @@ export default class ObjAction extends ActionForwardBase
     let done = await imageeditdialog.defer.promise;
 
     // Note: settings is null when the image wasn't edited after upload
-    if (done.blob)
-    {
-      toddupload.uploadBlobs(this, [done.blob], (files, uploadcallback) =>
-      {
+    if (done.blob) {
+      toddupload.uploadBlobs(this, [done.blob], (files, uploadcallback) => {
         // Only called when a file is actually uploaded
         var filename = toddupload.ensureExtension(file.name, files[0].fileinfo.extension);
 
-        var extradata = { imageeditor: { source_fsobject: parseInt(file.source_fsobject) || 0
-                                       , refpoint: done.settings && done.settings.refpoint
-                                       }};
+        var extradata = {
+          imageeditor: {
+            source_fsobject: parseInt(file.source_fsobject) || 0
+            , refpoint: done.settings && done.settings.refpoint
+          }
+        };
         data.items = [{ type: "file", name: filename, token: files[0].filetoken, extradata: extradata }];
-        this.asyncMessage("upload", data).then( () =>
-        {
+        this.asyncMessage("upload", data).then(() => {
           uploadcallback();
           done.editcallback();
         });
       });
     }
-    else
-    {
+    else {
       // Nothing to upload, we're done
       done.editcallback();
     }
   }
 
-/****************************************************************************************************************************
-* Events
-*/
+  /****************************************************************************************************************************
+  * Events
+  */
 
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data) {
+    switch (data.type) {
       case "execute":
-      {
-        this.editimage = data.image;
-        this.onExecute({ ignorebusy: true });
-        return;
-      }
+        {
+          this.editimage = data.image;
+          this.onExecute({ ignorebusy: true });
+          return;
+        }
     }
     super.applyUpdate(data);
   }

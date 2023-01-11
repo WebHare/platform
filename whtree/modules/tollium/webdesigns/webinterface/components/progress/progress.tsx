@@ -9,15 +9,13 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 //   PROGRESS BAR
 //
 
-export default class ObjProgress extends ComponentBase
-{
- // ---------------------------------------------------------------------------
+export default class ObjProgress extends ComponentBase {
+  // ---------------------------------------------------------------------------
   //
   // Initialization
   //
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "progress";
     this.buildNode();
@@ -28,30 +26,26 @@ export default class ObjProgress extends ComponentBase
   // DOM
   //
 
-  buildNode()
-  {
+  buildNode() {
     this.node = <progress data-name={this.name} title={this.hint || ''} propTodd={this} />;
   }
 
-/****************************************************************************************************************************
- * Dimensions
- */
+  /****************************************************************************************************************************
+   * Dimensions
+   */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.min = 150;
     this.width.calc = 150;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = 18;
     this.height.calc = 18;
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     dompack.setStyles(this.node, { "width": this.width.set, "margin-top": "7px" });
   }
 
@@ -60,14 +54,11 @@ export default class ObjProgress extends ComponentBase
   // Communication
   //
 
-  onMsgSetValMax(data)
-  {
-    if(data.max<=0)
-    {
+  onMsgSetValMax(data) {
+    if (data.max <= 0) {
       this.node.removeAttribute("value");
     }
-    else
-    {
+    else {
       this.node.setAttribute("value", data.value);
       this.node.setAttribute("max", data.max);
     }

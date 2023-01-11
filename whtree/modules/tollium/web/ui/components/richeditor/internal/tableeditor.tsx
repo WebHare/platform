@@ -10,22 +10,18 @@ import * as browser from "dompack/extra/browser";
 
 let activetables = [];
 
-function getSize(node)
-{
+function getSize(node) {
   return { x: node.offsetWidth, y: node.offsetHeight };
 }
-function getBodyTRs(tablenode)
-{
+function getBodyTRs(tablenode) {
   return tablenode.tBodies[0] ? Array.from(tablenode.tBodies[0].rows) : [];
 }
-export function getCells(tablenode)
-{
-  var cells=[];
+export function getCells(tablenode) {
+  var cells = [];
   getBodyTRs(tablenode).forEach(row => cells.push(...Array.from(row.cells)));
   return cells;
 }
-export function getCols(tablenode)
-{
+export function getCols(tablenode) {
   let mycolgroup = tablenode.querySelector('colgroup');
   return mycolgroup ? Array.from(mycolgroup.children) : [];
 }
@@ -36,17 +32,14 @@ export function getCols(tablenode)
     @param cellfunc Called for every cell (cellnode, startrow, startcol)
     @param rowfunc Called for every row (rownode, rownr, limitcol)
 */
-function iterateTableCells(tablenode, cellfunc, rowfunc)
-{
+function iterateTableCells(tablenode, cellfunc, rowfunc) {
   let rowspans = [];
-  let row=0;
+  let row = 0;
 
-  for(let tr of getBodyTRs(tablenode))
-  {
+  for (let tr of getBodyTRs(tablenode)) {
     let col = 0; // logical column
 
-    for(let td of Array.from(tr.children))
-    {
+    for (let td of Array.from(tr.children)) {
       // Skip this column if it's spanned by a previous row
       while ((rowspans[col] || 0) > row)
         ++col; // Skip this column
@@ -78,13 +71,11 @@ function iterateTableCells(tablenode, cellfunc, rowfunc)
     @cell return.rows
     @cell return.cols
 */
-export function getTableDimensions(tablenode)
-{
+export function getTableDimensions(tablenode) {
   var rows = 0;
   var cols = 0;
 
-  iterateTableCells(tablenode, (td, row, col) =>
-  {
+  iterateTableCells(tablenode, (td, row, col) => {
     var limitrow = row + td.rowSpan;
     var limitcol = col + td.colSpan;
 
@@ -101,8 +92,7 @@ export function getTableDimensions(tablenode)
     @cell return.row
     @cell return.col
 */
-export function locateFirstDataCell(tablenode)
-{
+export function locateFirstDataCell(tablenode) {
   var bottomcols = 0;
   var rightrows = 0;
 
@@ -110,10 +100,8 @@ export function locateFirstDataCell(tablenode)
 
   // Look at the right column and bottom row to see what the last th is there
   //var allscoped = true;
-  iterateTableCells(tablenode, (td, row, col) =>
-  {
-    if (td.nodeName.toUpperCase() === "TH")
-    {
+  iterateTableCells(tablenode, (td, row, col) => {
+    if (td.nodeName.toUpperCase() === "TH") {
       if (row + td.rowSpan === dims.rows && bottomcols < col + td.colSpan)
         bottomcols = col + td.colSpan;
       if (col + td.colSpan === dims.cols && rightrows < row + td.rowSpan)
@@ -127,8 +115,7 @@ export function locateFirstDataCell(tablenode)
                            xxx                       x
                                                      x
   */
-  if (bottomcols === dims.cols && rightrows === dims.rows)
-  {
+  if (bottomcols === dims.cols && rightrows === dims.rows) {
     if (dims.cols === 1)
       rightrows = 0;
     else
@@ -139,20 +126,17 @@ export function locateFirstDataCell(tablenode)
 }
 
 /// Add missing cells to make a table rectangular again
-function fixTableMissingCells(tablenode)
-{
+function fixTableMissingCells(tablenode) {
   var dims = getTableDimensions(tablenode);
-  iterateTableCells(tablenode, null, (tr, row, limitcol) =>
-  {
+  iterateTableCells(tablenode, null, (tr, row, limitcol) => {
     while (limitcol++ < dims.cols) //ADDME sometimes we need <th>s instead of <td>s ?
-      tr.appendChild(<td class="wh-rtd__tablecell"/>);
+      tr.appendChild(<td class="wh-rtd__tablecell" />);
   });
 }
 
 /** @short Make a table's rows and columns resizable by dragging cell borders
 */
-export class TableEditor
-{
+export class TableEditor {
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -169,8 +153,7 @@ export class TableEditor
       @cell options.resize_rows Whether rows can be resized
       @cell options.resize_table If columns and/or rows can be resized, whether the whole table can be resized as well
   */
-  constructor(node, containernode, options)
-  {
+  constructor(node, containernode, options) {
     this.node_win = null;
     this.resizeholder = null;
     this.columns = null;
@@ -186,13 +169,14 @@ export class TableEditor
     this.node_win = node.ownerDocument.window;
     this.containernode = containernode;
 
-    this.options = { resizer_size: 9
-                   , placeholder_size: 5
-                   , resize_columns: true
-                   , resize_rows: true
-                   , resize_table: true
-                   , ...options
-                   };
+    this.options = {
+      resizer_size: 9
+      , placeholder_size: 5
+      , resize_columns: true
+      , resize_rows: true
+      , resize_table: true
+      , ...options
+    };
 
     this.node.propWhTableEditor = this;
     this.node.classList.add("wh-rtd__table");
@@ -205,8 +189,7 @@ export class TableEditor
   /** @short Reinitialize the resizers, for example after the table structure has changed (they can be removed again using
              cleanup())
   */
-  reset()
-  {
+  reset() {
     this.cleanup();
 
     // Don't do anything if there's nothing to resize
@@ -215,45 +198,42 @@ export class TableEditor
 
     this.numcolumns = 0;
 
-    if (this.options.resize_columns)
-    {
+    if (this.options.resize_columns) {
       // Generate a row with td's we'll use to measure the widths of the columns. Can't use the
       // colgroup cols for that
-      if (this.columns)
-      {
+      if (this.columns) {
         this.columns.remove();
       }
 
       this.columns = dompack.create("tfoot",
-            { className: "wh-tableeditor-resize-columns"
-            , childNodes: [ dompack.create("tr") ]
-          });
+        {
+          className: "wh-tableeditor-resize-columns"
+          , childNodes: [dompack.create("tr")]
+        });
       this.node.appendChild(this.columns);
 
-      for(let td of Array.from(this.node.rows[0].cells))
-      {
-        for (let i = 0; i < td.colSpan; ++i)
-        {
+      for (let td of Array.from(this.node.rows[0].cells)) {
+        for (let i = 0; i < td.colSpan; ++i) {
           let newcell = dompack.create("td",
-              { style: { "borderWidth": "0"
-                       , "fontSize": "0"
-                       , "height": "0"
-                       , "lineHeight": "0"
-                       , "margin": "0"
-                       , "outline": "none"
-                       , "padding": 0
-                       }
-              });
+            {
+              style: {
+                "borderWidth": "0"
+                , "fontSize": "0"
+                , "height": "0"
+                , "lineHeight": "0"
+                , "margin": "0"
+                , "outline": "none"
+                , "padding": 0
+              }
+            });
           this.columns.lastChild.appendChild(newcell);
         }
       }
       this.numcolumns = this.columns.lastChild.childNodes.length;
     }
-    else
-    {
+    else {
       // Calculate the total number of columns
-      Array.from(getBodyTRs(this.node)[0].cells).forEach(function(td)
-      {
+      Array.from(getBodyTRs(this.node)[0].cells).forEach(function(td) {
         this.numcolumns += td.colSpan;
       });
     }
@@ -265,20 +245,16 @@ export class TableEditor
 
     var trs = getBodyTRs(this.node);
     this.numrows = trs.length;
-    trs.forEach((tr, row) =>
-    {
+    trs.forEach((tr, row) => {
       var cells = Array.from(tr.cells);
       var col = 0, cell = 0;
-      while (col < this.numcolumns)
-      {
+      while (col < this.numcolumns) {
         // Skip this column if it's spanned by a previous row
-        if (rowspans[col] > 0)
-        {
+        if (rowspans[col] > 0) {
           // Decrease the rowspan in this column for the following row
           --rowspans[col++]; // Increments the col
         }
-        else
-        {
+        else {
           // Store the absolute row and column index
           cells[cell].propWhPos = { row: row, col: col };
 
@@ -312,41 +288,34 @@ export class TableEditor
       widths = this._getCurrentWidths();
 
     let colgroup = this.node.querySelector('colgroup');
-    if(colgroup)
-    {
+    if (colgroup) {
       let cols = Array.from(colgroup.querySelectorAll('col'));
-      for(let i=0;i<cols.length && i<widths.length;++i)
-      {
+      for (let i = 0; i < cols.length && i < widths.length; ++i) {
         var colwidth = parseInt(cols[i].style.width);
-        if(colwidth)
+        if (colwidth)
           widths[i] = Math.max(widths[i], colwidth);
       }
     }
 
     // Explicitly apply the tr height to each tr
     if (this.options.resize_rows)
-      getBodyTRs(this.node).forEach(tr =>
-      {
+      getBodyTRs(this.node).forEach(tr => {
         tr.style.height = tr.offsetHeight + 'px';
-        Array.from(tr.cells).forEach(td =>
-        {
-          if (this.options.resize_columns)
-          {
+        Array.from(tr.cells).forEach(td => {
+          if (this.options.resize_columns) {
             td.removeAttribute("width");
-            td.style.width="";
+            td.style.width = "";
           }
-          if (this.options.resize_rows)
-          {
+          if (this.options.resize_rows) {
             td.removeAttribute("height");
-            td.style.height="";
+            td.style.height = "";
           }
         });
       });
 
-    if (this.options.resize_columns)
-    {
+    if (this.options.resize_columns) {
       // ADDME: can we use the existing colgroup?
-      if(colgroup !== this.colgroup)
+      if (colgroup !== this.colgroup)
         colgroup.remove();
 
       if (!this.colgroup)
@@ -357,7 +326,7 @@ export class TableEditor
       while (this.colgroup.childNodes.length > this.numcolumns)
         this.colgroup.lastChild.remove();
       while (this.colgroup.childNodes.length < this.numcolumns)
-        this.colgroup.appendChild(<col/>);
+        this.colgroup.appendChild(<col />);
 
       this._applyColumnWidths(widths);
     }
@@ -372,47 +341,41 @@ export class TableEditor
 
   /** @short Clean up any inserted nodes (they can be added again using reset())
   */
-  cleanup()
-  {
+  cleanup() {
     // Destroy tfoot with column td's
-    if (this.columns)
-    {
+    if (this.columns) {
       this.columns.remove();
       this.columns = null;
     }
 
     // Move the table out of the resize holder and destroy the resize holder and resizers
-    if (this.resizeholder)
-    {
+    if (this.resizeholder) {
       this.resizeholder.remove();
       this.resizeholder = null;
       this.resizers = [];
     }
 
     var pos = activetables.indexOf(this);
-    if(pos>=0)
-      activetables.splice(pos,1);
+    if (pos >= 0)
+      activetables.splice(pos, 1);
   }
 
   /** @short If the table is still present in the DOM and editable
   */
-  isActive()
-  {
+  isActive() {
     return !!this.node.parentNode && this.node.isContentEditable;
   }
 
   /** @short Deactivate and remove the editor
   */
-  destroy()
-  {
+  destroy() {
     this.cleanup();
     this.colgroup = null;
     this.node.propWhTableEditor = null;
     this.node = null;
   }
 
-  getUndoLock()
-  {
+  getUndoLock() {
     return this.options.getUndoLock ? this.options.getUndoLock() : null;
   }
 
@@ -424,8 +387,7 @@ export class TableEditor
       @param options Further options
       @cell options.newcell_callback Called with every new created table cell node
   */
-  insertColumns(td, before, num, width, options)
-  {
+  insertColumns(td, before, num, width, options) {
     var table = td.closest("table");
     if (table != this.node)
       return;
@@ -450,8 +412,7 @@ export class TableEditor
       @param options Further options
       @cell options.newcell_callback Called with every new created table cell node
   */
-  insertRows(td, before, num, width, options)
-  {
+  insertRows(td, before, num, width, options) {
     var table = td.closest("table");
     if (table != this.node)
       return;
@@ -472,8 +433,7 @@ export class TableEditor
       @param td A td within the column to delete
       @param num The number of columns to delete
   */
-  deleteColumns(td, num)
-  {
+  deleteColumns(td, num) {
     var table = td.closest("table");
     if (table != this.node)
       return;
@@ -492,8 +452,7 @@ export class TableEditor
       @param td A td within the row to delete
       @param num The number of rowss to delete
   */
-  deleteRows(td, num)
-  {
+  deleteRows(td, num) {
     var table = td.closest("table");
     if (table != this.node)
       return;
@@ -508,18 +467,15 @@ export class TableEditor
     undolock.close();
   }
 
-  _applyNewStyle(node, newstyle)
-  {
+  _applyNewStyle(node, newstyle) {
     let keys = Object.keys(newstyle);
     let oldstyle = node.__wh_oldstyle;
     if (!oldstyle)
       oldstyle = node.__wh_oldstyle = {};
-    for (let i = 0, e = keys.length; i < e; ++i)
-    {
+    for (let i = 0, e = keys.length; i < e; ++i) {
       let key = keys[i];
       let newval = newstyle[key];
-      if (oldstyle[key] !== newval)
-      {
+      if (oldstyle[key] !== newval) {
         node.style[key] = newval;
         oldstyle[key] = newval;
       }
@@ -528,8 +484,7 @@ export class TableEditor
 
   /** Immediately update the resizers (after table repositioning or content change)
   */
-  updateResizers()
-  {
+  updateResizers() {
     if (!this.resizeholder)
       return; // Not there yet...
 
@@ -543,47 +498,47 @@ export class TableEditor
     this.resizeholder.style.top = tablecoords.top + "px";
     this.resizeholder.style.left = tablecoords.left + "px";
 
-    this.resizers.forEach(function updateSingleResizer(resizer)
-    {
+    this.resizers.forEach(function updateSingleResizer(resizer) {
       // Get the position and size of the td for this resizer
       var td = resizer.myTdNode;
 
       // MooTools getCoordinates adjusts for border, don't want that.
       var coords =
-          { height:       td.offsetHeight
-          , width:        td.offsetWidth
-          , left:         td.offsetLeft
-          , right:        td.offsetLeft + td.offsetWidth
-          , top:          td.offsetTop
-          , bottom:       td.offsetTop + td.offsetHeight
-          };
-
-      if (resizer.classList.contains("wh-tableeditor-resize-col"))
       {
+        height: td.offsetHeight
+        , width: td.offsetWidth
+        , left: td.offsetLeft
+        , right: td.offsetLeft + td.offsetWidth
+        , top: td.offsetTop
+        , bottom: td.offsetTop + td.offsetHeight
+      };
+
+      if (resizer.classList.contains("wh-tableeditor-resize-col")) {
         let newstyle =
-            { height: (coords.height + 1) + "px"
-            , left: coords.right + "px"
-            , marginLeft: -Math.floor(this.options.resizer_size / 2) + "px"
-            , top: coords.top + "px"
-            , width: this.options.resizer_size + "px"
-            , zIndex: 1
-            };
+        {
+          height: (coords.height + 1) + "px"
+          , left: coords.right + "px"
+          , marginLeft: -Math.floor(this.options.resizer_size / 2) + "px"
+          , top: coords.top + "px"
+          , width: this.options.resizer_size + "px"
+          , zIndex: 1
+        };
 
         if (this.options.resize_table && resizer.classList.contains("wh-tableeditor-resize-table"))
           newstyle.height = tablecoords.height + "px";
 
         this._applyNewStyle(resizer, newstyle);
       }
-      else if (resizer.classList.contains("wh-tableeditor-resize-row"))
-      {
+      else if (resizer.classList.contains("wh-tableeditor-resize-row")) {
         let newstyle =
-          { height: this.options.resizer_size + "px"
+        {
+          height: this.options.resizer_size + "px"
           , left: coords.left + "px"
           , top: coords.bottom + "px"
-          , marginTop: -Math.floor(this.options.resizer_size / 2)  + "px"
+          , marginTop: -Math.floor(this.options.resizer_size / 2) + "px"
           , width: (coords.width + 1) + "px"
           , zIndex: 2
-          };
+        };
 
         if (this.options.resize_table && resizer.classList.contains("wh-tableeditor-resize-table"))
           newstyle.width = tablecoords.width + "px";
@@ -593,29 +548,25 @@ export class TableEditor
     }, this);
 
     // Inject colgroups after delay, directly inserting causes some side-effects in RTE context
-    if (this.options.resize_columns)
-    {
-      setTimeout( () =>
-      {
+    if (this.options.resize_columns) {
+      setTimeout(() => {
         if (!this.node)
           return; // We've been destroyed
 
         this.ensureColGroupInserted();
         this.columns.remove();
-      },1);
+      }, 1);
     }
   }
 
-  getCaptionNode()
-  {
+  getCaptionNode() {
     if (this.node.firstElementChild?.tagName == "CAPTION")
       return this.node.firstElementChild;
 
     return null;
   }
 
-  ensureColGroupInserted()
-  {
+  ensureColGroupInserted() {
     if (this.colgroup.parentNode !== this.node) // not inserted yet?
     {
       /* The <colgroup> must appear after any optional <caption> element
@@ -634,8 +585,7 @@ export class TableEditor
       @cell return.row
       @cell return.col
   */
-  locateFirstDataCell(tablenode)
-  {
+  locateFirstDataCell(tablenode) {
     return locateFirstDataCell(this.node);
   }
 
@@ -643,17 +593,14 @@ export class TableEditor
       @param datacellrow Row of first data cell
       @param datacellcol Column of first data cell
   */
-  setFirstDataCell(datacellrow, datacellcol)
-  {
+  setFirstDataCell(datacellrow, datacellcol) {
     let havechange = false;
-    iterateTableCells(this.node, function(td, row, col)
-    {
+    iterateTableCells(this.node, function(td, row, col) {
       var want_topheader = row < datacellrow;
       var want_leftheader = col < datacellcol;
 
       var wanttag = want_topheader != want_leftheader ? "th" : "td";
-      if (td.nodeName.toLowerCase() != wanttag)
-      {
+      if (td.nodeName.toLowerCase() != wanttag) {
         // Make new element, clone the attributes of the old element
         var elt = document.createElement(wanttag);
         domlevel.setAttributes(elt, domlevel.getAllAttributes(td));
@@ -681,20 +628,16 @@ export class TableEditor
     this.reset();
   }
 
-  setStyleTag(newstyletag)
-  {
-    this.node.className=newstyletag + " wh-rtd__table";
+  setStyleTag(newstyletag) {
+    this.node.className = newstyletag + " wh-rtd__table";
   }
 
-  getCaption()
-  {
+  getCaption() {
     return this.getCaptionNode()?.textContent || "";
   }
 
-  setCaption(caption)
-  {
-    if (!caption)
-    {
+  setCaption(caption) {
+    if (!caption) {
       this.getCaptionNode()?.remove();
       return;
     }
@@ -702,8 +645,7 @@ export class TableEditor
     // A <caption> must always be the first descendant of the table
     // (make sure not to pick up the caption of another table/element nested within our table)
     let captionnode = this.getCaptionNode();
-    if (!captionnode)
-    {
+    if (!captionnode) {
       //inert is sufficient for most browsers but for firefox we still need contenteditable="false" (but inert is coming soon!)
       captionnode = <caption class="wh-rtd__tablecaption" contenteditable="false" inert />;
       this.node.prepend(captionnode);
@@ -712,24 +654,23 @@ export class TableEditor
     captionnode.textContent = caption;
   }
 
-  getActionState(cellnode)
-  {
+  getActionState(cellnode) {
     let mergedata = this._getSplitMergeData(cellnode);
 
     let retval =
-        { "table-deleterow":          { available: this.numrows != 1 }
-        , "table-deletecolumn":       { available: this.numcolumns != 1 }
-        , "table-mergeright":         { available: !!(mergedata.mergerightcells) }
-        , "table-mergedown":          { available: !!(mergedata.mergedowncells) }
-        , "table-splitcols":          { available: cellnode.colSpan !== 1 }
-        , "table-splitrows":          { available: cellnode.rowSpan !== 1 }
-        };
+    {
+      "table-deleterow": { available: this.numrows != 1 }
+      , "table-deletecolumn": { available: this.numcolumns != 1 }
+      , "table-mergeright": { available: !!(mergedata.mergerightcells) }
+      , "table-mergedown": { available: !!(mergedata.mergedowncells) }
+      , "table-splitcols": { available: cellnode.colSpan !== 1 }
+      , "table-splitrows": { available: cellnode.rowSpan !== 1 }
+    };
 
     return retval;
   }
 
-  mergeRight(cellnode)
-  {
+  mergeRight(cellnode) {
     const undolock = this.getUndoLock();
 
     let mergedata = this._getSplitMergeData(cellnode);
@@ -748,8 +689,7 @@ export class TableEditor
     undolock.close();
   }
 
-  mergeDown(cellnode)
-  {
+  mergeDown(cellnode) {
     const undolock = this.getUndoLock();
 
     let mergedata = this._getSplitMergeData(cellnode);
@@ -768,14 +708,12 @@ export class TableEditor
     undolock.close();
   }
 
-  splitCols(cellnode)
-  {
+  splitCols(cellnode) {
     const undolock = this.getUndoLock();
 
     // ADDME: try and split content too?
     let elts = [];
-    for (let i = 1; i < cellnode.colSpan; ++i)
-    {
+    for (let i = 1; i < cellnode.colSpan; ++i) {
       let elt = document.createElement(cellnode.nodeName);
       elt.rowSpan = cellnode.rowSpan;
       elts.push(elt);
@@ -789,16 +727,14 @@ export class TableEditor
     undolock.close();
   }
 
-  splitRows(cellnode)
-  {
+  splitRows(cellnode) {
     const undolock = this.getUndoLock();
 
     // ADDME: try and split content too?
     let mergedata = this._getSplitMergeData(cellnode);
     cellnode.rowSpan = 1;
 
-    for (let pos of mergedata.splitappends)
-    {
+    for (let pos of mergedata.splitappends) {
       let elt = document.createElement(cellnode.nodeName);
       elt.colSpan = cellnode.colSpan;
 
@@ -813,27 +749,22 @@ export class TableEditor
     undolock.close();
   }
 
-  _getSplitMergeData(cellnode)
-  {
+  _getSplitMergeData(cellnode) {
     let thisnode = null;
     let mergerightlimit = 0, mergedownlimit = 0;
     let mergerightcells = [], mergedowncells = [];
     let splitappends = [];
 
     let lastrowcellinrow = null;
-    iterateTableCells(this.node, (td, row, col) =>
-    {
-      if (td === cellnode)
-      {
+    iterateTableCells(this.node, (td, row, col) => {
+      if (td === cellnode) {
         thisnode = { row, col, limitrow: row + td.rowSpan, limitcol: col + td.colSpan };
       }
-      else if (thisnode)
-      {
+      else if (thisnode) {
         if (col < thisnode.col && row < thisnode.limitrow)
           lastrowcellinrow = td;
 
-        if (col === thisnode.limitcol && row < thisnode.limitrow)
-        {
+        if (col === thisnode.limitcol && row < thisnode.limitrow) {
           mergerightcells.push(td);
           if (!mergerightlimit)
             mergerightlimit = col + td.colSpan;
@@ -845,8 +776,7 @@ export class TableEditor
             mergerightlimit = -1;
         }
 
-        if (row === thisnode.limitrow && col >= thisnode.col && col < thisnode.limitcol)
-        {
+        if (row === thisnode.limitrow && col >= thisnode.col && col < thisnode.limitcol) {
           mergedowncells.push(td);
           if (!mergedownlimit)
             mergedownlimit = row + td.rowSpan;
@@ -859,18 +789,18 @@ export class TableEditor
         }
       }
     },
-    (tr, row, limitcol) =>
-    {
-      if (thisnode && row > thisnode.row && row < thisnode.limitrow)
-        splitappends.push({ tr, td: lastrowcellinrow });
-      lastrowcellinrow = null;
-    });
+      (tr, row, limitcol) => {
+        if (thisnode && row > thisnode.row && row < thisnode.limitrow)
+          splitappends.push({ tr, td: lastrowcellinrow });
+        lastrowcellinrow = null;
+      });
 
     return (
-        { mergerightcells: mergerightlimit > 0 ? mergerightcells : null
+      {
+        mergerightcells: mergerightlimit > 0 ? mergerightcells : null
         , mergedowncells: mergedownlimit > 0 ? mergedowncells : null
         , splitappends
-        });
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -878,14 +808,12 @@ export class TableEditor
   // Internal functions
   //
 
-  _gotStateChange()
-  {
+  _gotStateChange() {
     if (this.options.onStatechange)
       this.options.onStatechange(this);
   }
 
-  _createResizer(td, dir, idx)
-  {
+  _createResizer(td, dir, idx) {
     // idx holds the col or row that is being resized by this resizer, or is -1 if this resizer resizes the whole table
     var tableresizing = idx < 0;
     var resizer = document.createElement("div");
@@ -903,8 +831,7 @@ export class TableEditor
     this.resizers.push(resizer);
   }
 
-  _applyColumnWidths(widths)
-  {
+  _applyColumnWidths(widths) {
     // Calculate total width
     var totalwidth = 1; // border
     widths.forEach(function(width) { totalwidth += width; });
@@ -914,14 +841,12 @@ export class TableEditor
 
     // Apply width to colgroups
     var cols = getCols(this.node);
-    cols.forEach(function(node, idx)
-    {
+    cols.forEach(function(node, idx) {
       node.style.width = widths[idx] + "px";
     }, this);
   }
 
-  _getCurrentWidths(extratds)
-  {
+  _getCurrentWidths(extratds) {
     // Inject extra footer row we'll use to measure everything
     this.node.appendChild(this.columns);
 
@@ -942,8 +867,7 @@ export class TableEditor
       @cell return.cursize.x Current width
       @cell return.cursize.y Current height
   */
-  _getSizes()
-  {
+  _getSizes() {
     let cursize = getSize(this.node);
     let tempdiv = dompack.create("div");
     this.node.before(tempdiv);
@@ -959,8 +883,7 @@ export class TableEditor
       @param leftidx Left column (negative to count from right, -1 for rightmost column)
       @param sizediff Amount of pixels to add to the left column
   */
-  _resizeColumns(leftidx, sizediff)
-  {
+  _resizeColumns(leftidx, sizediff) {
     // Get the current widths
     var widths = this._getCurrentWidths();
 
@@ -968,8 +891,7 @@ export class TableEditor
       leftidx = widths.length + leftidx;
 
     let istableresize = leftidx == widths.length - 1;
-    if (istableresize)
-    {
+    if (istableresize) {
       // when resizing the table, don't grow beyond max width
       let { cursize, maxsize } = this._getSizes();
       let maxsizediff = maxsize.x - cursize.x;
@@ -980,14 +902,12 @@ export class TableEditor
     var rightidx = istableresize ? -1 : leftidx + 1;
 
     var shrinkidx = -1, growidx = -1;
-    if (sizediff < 0)
-    {
+    if (sizediff < 0) {
       shrinkidx = leftidx;
       growidx = rightidx;
       sizediff = -sizediff;
     }
-    else
-    {
+    else {
       shrinkidx = rightidx;
       growidx = leftidx;
     }
@@ -995,8 +915,7 @@ export class TableEditor
     // sizediff is now the shrink of shrinkidx, always positive
     var realshrink = sizediff;
 
-    if (shrinkidx != -1)
-    {
+    if (shrinkidx != -1) {
       // Shrink the column with the requested amount
       let testwidths = [...widths];
 
@@ -1027,8 +946,7 @@ export class TableEditor
     this.updateResizers();
   }
 
-  _insertColumnsAt(dummy, idx, before, num, width, options)
-  {
+  _insertColumnsAt(dummy, idx, before, num, width, options) {
     if (idx < 0 || idx >= this.numcolumns || num <= 0)
       return;
 
@@ -1036,13 +954,11 @@ export class TableEditor
     var firstdatacell = locateFirstDataCell(this.node);
 
     // Add the columns to the colgroup
-    if (this.colgroup)
-    {
+    if (this.colgroup) {
       var refcol = this.colgroup.childNodes[idx];
-      for (var i = 0; i < num; ++i)
-      {
-        let col = dompack.create("col", { style: { "width": width + 'px' }});
-        if(before)
+      for (var i = 0; i < num; ++i) {
+        let col = dompack.create("col", { style: { "width": width + 'px' } });
+        if (before)
           refcol.before(col);
         else
           refcol.after(col);
@@ -1054,35 +970,28 @@ export class TableEditor
       rowspans.push(0);
 
     // Add the columns to the other table rows
-    getBodyTRs(this.node).forEach(function(tr, row)
-    {
+    getBodyTRs(this.node).forEach(function(tr, row) {
       var cells = Array.from(tr.cells);
       var col = 0 // logical column
         , cell = 0; // actual cell within row
-      while (col <= idx)
-      {
+      while (col <= idx) {
         // Skip this column if it's spanned by a previous row
-        if (rowspans[col] > 0)
-        {
+        if (rowspans[col] > 0) {
           // Decrease the rowspan in this column for the following row
           --rowspans[col++]; // Increments the col
         }
-        else
-        {
-          for (var s = 1; col <= idx && s <= cells[cell].colSpan; ++s)
-          {
-            if (col == idx)
-            {
+        else {
+          for (var s = 1; col <= idx && s <= cells[cell].colSpan; ++s) {
+            if (col == idx) {
               // This is the column we're inserting the new columns before or after. If the current cell is spanning into the
               // previous or next column, just increase the colspan, otherwise insert the columns
               if ((before && s > 1 && s <= cells[cell].colSpan) || (!before && s >= 1 && s < cells[cell].colSpan))
                 cells[cell].colSpan += num;
               else
-                for (var i = 0; i < num; ++i)
-                {
+                for (var i = 0; i < num; ++i) {
                   var tag = (col < firstdatacell.col) != (row < firstdatacell.row) ? "th" : "td";
                   var newelt = dompack.create(tag, { rowSpan: cells[cell].rowSpan });
-                  if(before)
+                  if (before)
                     cells[cell].before(newelt);
                   else
                     cells[cell].after(newelt);
@@ -1107,8 +1016,7 @@ export class TableEditor
     this.reset();
   }
 
-  _insertRowsAt(idx, before, num, height, options)
-  {
+  _insertRowsAt(idx, before, num, height, options) {
     if (idx < 0 || idx >= this.numrows || num <= 0)
       return;
 
@@ -1117,11 +1025,9 @@ export class TableEditor
 
     // See which cells to duplicate
     let todupl = [];
-    iterateTableCells(this.node, (td, row, col) =>
-    {
+    iterateTableCells(this.node, (td, row, col) => {
       const limitrow = row + td.rowSpan;
-      if (row <= idx && limitrow > idx)
-      {
+      if (row <= idx && limitrow > idx) {
         // is this a spanning cell we need to increase the rowSpan of?
         const extendcell = before ? row < idx : limitrow > idx + 1;
         todupl.push({ td, col, extendcell });
@@ -1129,7 +1035,7 @@ export class TableEditor
     });
 
     // sort in correct order by column
-    todupl.sort((a,b) => a.col - b.col);
+    todupl.sort((a, b) => a.col - b.col);
 
     // create the trs to insert, and insert them
     let toinsert = [];
@@ -1137,18 +1043,16 @@ export class TableEditor
       toinsert.push(dompack.create("tr"));
 
     let referencetr = getBodyTRs(this.node)[idx];
-    if(before)
+    if (before)
       referencetr.before(...toinsert);
     else
       referencetr.after(...toinsert);
 
     // populate the new trs with cells
     let row = idx + (before ? 0 : 1);
-    for (let tr of toinsert)
-    {
+    for (let tr of toinsert) {
       for (let elt of todupl)
-        if (!elt.extendcell)
-        {
+        if (!elt.extendcell) {
           let tag = (elt.col < firstdatacell.col) != (row < firstdatacell.row) ? "th" : "td";
           let newelt = dompack.create(tag);
           if (elt.td.colSpan > 1)
@@ -1170,8 +1074,7 @@ export class TableEditor
 
   /** Removes a range from another range
   */
-  _removeRange(node, start, end, removestart, removeend)
-  {
+  _removeRange(node, start, end, removestart, removeend) {
     var num = removeend - removestart;
     if (start > removestart)
       start = start > removeend ? start - num : removestart;
@@ -1180,8 +1083,7 @@ export class TableEditor
     return { node: node, start: start, end: end, span: end - start };
   }
 
-  _deleteColumns(remove_start, num)
-  {
+  _deleteColumns(remove_start, num) {
     var remove_limit = remove_start + num;
     if (remove_start < 0 || num < 0 || remove_limit > this.numcolumns)
       return;
@@ -1189,13 +1091,11 @@ export class TableEditor
     fixTableMissingCells(this.node);
 
     var changes = [];
-    iterateTableCells(this.node, function(node, row, col)
-    {
+    iterateTableCells(this.node, function(node, row, col) {
       changes.push(this._removeRange(node, col, col + node.colSpan, remove_start, remove_limit));
     }.bind(this));
 
-    changes.forEach(function(rec)
-    {
+    changes.forEach(function(rec) {
       if (rec.span)
         rec.node.colSpan = rec.span;
       else
@@ -1209,8 +1109,7 @@ export class TableEditor
     this.reset();
   }
 
-  _deleteRows(remove_start, num)
-  {
+  _deleteRows(remove_start, num) {
     var remove_limit = remove_start + num;
     if (remove_start < 0 || num < 0 || remove_limit > this.numrows)
       return;
@@ -1218,8 +1117,7 @@ export class TableEditor
     fixTableMissingCells(this.node);
 
     var changes = [];
-    iterateTableCells(this.node, function(node, row, col)
-    {
+    iterateTableCells(this.node, function(node, row, col) {
       changes.push(this._removeRange(node, row, row + node.rowSpan, remove_start, remove_limit));
     }.bind(this));
 
@@ -1228,10 +1126,8 @@ export class TableEditor
     var delete_trs = all_trs.splice(remove_start, num);
 
     // Apply the changed rowspans, and re-add to the right tr
-    changes.forEach(function(rec)
-    {
-      if (rec.span)
-      {
+    changes.forEach(function(rec) {
+      if (rec.span) {
         rec.node.rowSpan = rec.span;
         all_trs[rec.start].appendChild(rec.node);
       }
@@ -1251,15 +1147,13 @@ export class TableEditor
   // Event handlers
   //
 
-  _onResize(event)
-  {
+  _onResize(event) {
     event.stopPropagation();
 
     // Check if we're dragging a resizer
     var resizer = event.detail.listener;
     var dir = resizer.classList.contains("wh-tableeditor-resize-col") ? "col" : resizer.classList.contains("wh-tableeditor-resize-row") ? "row" : null;
-    if (!dir)
-    {
+    if (!dir) {
       event.preventDefault();
       return;
     }
@@ -1271,42 +1165,46 @@ export class TableEditor
     // Calculate the resize bounds
     let { cursize, maxsize } = this._getSizes();
 
-    var maxpos = { x: tableresize ? maxsize.x : cursize.x
-                 , y: tableresize ? Number.MAX_VALUE : cursize.y
-                 };
+    var maxpos = {
+      x: tableresize ? maxsize.x : cursize.x
+      , y: tableresize ? Number.MAX_VALUE : cursize.y
+    };
 
     // Read the resizer's position
     var pos =
-        { x:    parseInt(resizer.style.left)
-        , y:    parseInt(resizer.style.top)
-        };
+    {
+      x: parseInt(resizer.style.left)
+      , y: parseInt(resizer.style.top)
+    };
 
     // Create the resize placeholder we're actually dragging
-    var placeholder = dompack.create("div", { className: "wh-tableeditor-resize-placeholder"
-                                            , "style": { "height": (colresize ? cursize.y : this.options.placeholder_size)+'px'
-                                                       , "left": (colresize ? pos.x : 0)+'px'
-                                                       , "margin-left": (colresize ? -Math.floor(this.options.placeholder_size / 2) : 0)+'px'
-                                                       , "position": "absolute"
-                                                       , "top": (colresize ? 0 : pos.y) + 'px'
-                                                       , "margin-top": (colresize ? 0 : -Math.floor(this.options.placeholder_size / 2))+'px'
-                                                       , "width": (colresize ? this.options.placeholder_size : cursize.x)+'px'
-                                                       , "z-index": 3
-                                                       }
-                                            });
+    var placeholder = dompack.create("div", {
+      className: "wh-tableeditor-resize-placeholder"
+      , "style": {
+        "height": (colresize ? cursize.y : this.options.placeholder_size) + 'px'
+        , "left": (colresize ? pos.x : 0) + 'px'
+        , "margin-left": (colresize ? -Math.floor(this.options.placeholder_size / 2) : 0) + 'px'
+        , "position": "absolute"
+        , "top": (colresize ? 0 : pos.y) + 'px'
+        , "margin-top": (colresize ? 0 : -Math.floor(this.options.placeholder_size / 2)) + 'px'
+        , "width": (colresize ? this.options.placeholder_size : cursize.x) + 'px'
+        , "z-index": 3
+      }
+    });
     this.resizeholder.appendChild(placeholder);
 
     // Store the resizing state
-    this.resizing = { orgpos: pos
-                    , maxpos: maxpos
-                    , resizer: resizer
-                    , placeholder: placeholder
-                    , colresize: colresize
-                    , tableresize: tableresize
-                    };
+    this.resizing = {
+      orgpos: pos
+      , maxpos: maxpos
+      , resizer: resizer
+      , placeholder: placeholder
+      , colresize: colresize
+      , tableresize: tableresize
+    };
   }
 
-  _onResizing(event)
-  {
+  _onResizing(event) {
     event.stopPropagation();
 
     // Update the resize placeholder's position
@@ -1316,8 +1214,7 @@ export class TableEditor
       this.resizing.placeholder.style.top = Math.max(Math.min(this.resizing.orgpos.y + event.detail.movedY, this.resizing.maxpos.y - this.options.placeholder_size), 8) + 'px';
   }
 
-  _onResized(event)
-  {
+  _onResized(event) {
     event.stopPropagation();
 
     // No longer needed
@@ -1325,15 +1222,12 @@ export class TableEditor
 
     const undolock = this.getUndoLock();
 
-    if (this.resizing.tableresize)
-    {
-      if (this.resizing.colresize)
-      {
+    if (this.resizing.tableresize) {
+      if (this.resizing.colresize) {
         let toadjust = Math.min(event.detail.movedX, this.resizing.maxpos.x - this.resizing.orgpos.x);
         this._resizeColumns(-1, toadjust);
       }
-      else
-      {
+      else {
         // Get the tr we're resizing
         var resizetr = getBodyTRs(this.node).at(-1);
 
@@ -1347,17 +1241,14 @@ export class TableEditor
         this.updateResizers();
       }
     }
-    else
-    {
-      if (this.resizing.colresize)
-      {
+    else {
+      if (this.resizing.colresize) {
         // We're resizing the cell at position idx and the cell next to it (idx + 1)
         let idx = this.resizing.resizer.propWhCol;
 
         this._resizeColumns(idx, event.detail.movedX);
       }
-      else
-      {
+      else {
         // We're resizing the row at position idx and the row next to it (idx + 1)
         let idx = this.resizing.resizer.propWhRow;
 
@@ -1393,15 +1284,12 @@ export class TableEditor
   }
 }
 
-export function getEditorForNode(node)
-{
+export function getEditorForNode(node) {
   return node.propWhTableEditor || null;
 }
 
-export function cleanupTree(tree)
-{
-  qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node =>
-  {
+export function cleanupTree(tree) {
+  qSA(tree, 'div.wh-tableeditor-resize-holder').forEach(node => {
     // remove the tfoot holding the resizing columns
     qSA(node.firstChild, 'tfoot.wh-tableeditor-resize-columns').forEach(tfoot => tfoot.remove());
 
@@ -1417,10 +1305,8 @@ export function cleanupTree(tree)
 }
 
 //Capture all load events, see if we need to resize tables
-document.addEventListener("load", function(event)
-{
-  if(event.target && event.target.nodeName=='LINK' && event.target.rel=='stylesheet')
-  {
-    activetables.forEach(table=>table.updateResizers());
+document.addEventListener("load", function(event) {
+  if (event.target && event.target.nodeName == 'LINK' && event.target.rel == 'stylesheet') {
+    activetables.forEach(table => table.updateResizers());
   }
 }, true);

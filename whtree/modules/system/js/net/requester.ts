@@ -4,18 +4,17 @@
 import * as dompack from 'dompack';
 const EventEmitter = require('events');
 
-class InternetRequester extends EventEmitter
-{
-  constructor(options)
-  {
+class InternetRequester extends EventEmitter {
+  constructor(options) {
     super();
-    if(!options)
-      options={};
-                   //Host url of event server
-    this.options = { url: options.url || ''
-                   , log: Boolean(options.log || dompack.debugflags.rpc)
-                   , withcredentials: 'withCredentials' in options && options.withcredentials
-                   };
+    if (!options)
+      options = {};
+    //Host url of event server
+    this.options = {
+      url: options.url || ''
+      , log: Boolean(options.log || dompack.debugflags.rpc)
+      , withcredentials: 'withCredentials' in options && options.withcredentials
+    };
 
     // XMLHttpRequest
     this.conn = null;
@@ -26,36 +25,30 @@ class InternetRequester extends EventEmitter
     this.__date_diff = null;
   }
 
-  destroy()
-  {
+  destroy() {
     this.stopCurrentRequest();
     this.conn = null;
   }
 
-  stopCurrentRequest()
-  {
-    if(this.conn)
-    {
+  stopCurrentRequest() {
+    if (this.conn) {
       this.conn.onreadystatechange = null;
       this.conn.onloadend = null;
 
       this.conn.abort();
     }
-    if (this.jsoncheckinterval)
-    {
+    if (this.jsoncheckinterval) {
       clearTimeout(this.jsoncheckinterval);
       this.jsoncheckinterval = null;
     }
   }
 
-  ensureConnection()
-  {
+  ensureConnection() {
     if (!this.conn)
       this.conn = new XMLHttpRequest();
   }
 
-  startXMLHTTPRequest(method, url, body, options)
-  {
+  startXMLHTTPRequest(method, url, body, options) {
     this.ensureConnection();
 
     var async = !options || !options.synchronous;
@@ -69,10 +62,10 @@ class InternetRequester extends EventEmitter
     this.have_response = false;
 
     this.conn.open(method.toUpperCase(), url, async);
-    if(options && options.headers)
-      Object.keys(options.headers).forEach(key => { this.conn.setRequestHeader(key,options.headers[key]); });
+    if (options && options.headers)
+      Object.keys(options.headers).forEach(key => { this.conn.setRequestHeader(key, options.headers[key]); });
 
-    if(this.options.withcredentials)
+    if (this.options.withcredentials)
       this.conn.withCredentials = true;
 
     this.conn.onreadystatechange = this.onStateChange.bind(this);
@@ -87,44 +80,40 @@ class InternetRequester extends EventEmitter
       this.onStateChange();
   }
 
-  onAbort(event)
-  {
-    if(this.laststateevent)
+  onAbort(event) {
+    if (this.laststateevent)
       this.laststateevent.isaborted = true;
   }
 
-  onStateChange (event)
-  {
+  onStateChange(event) {
     if (this.conn.readyState != 4 || this.have_response)
       return;
 
     this.have_response = true;
 
     var datestr = this.conn.getResponseHeader("date");
-    if (datestr != "")
-    {
+    if (datestr != "") {
       var parseddate = Date.parse(datestr);
       this.__date_server = parseddate;
       this.__date_client = new Date();
       this.__date_diff = this.__date_server - this.__date_client;
     }
 
-    var evt = { target: this
-              , success: this.conn.status == 200
-              , internalerror: this.conn.status == 500
-              , message: this.conn.status
+    var evt = {
+      target: this
+      , success: this.conn.status == 200
+      , internalerror: this.conn.status == 500
+      , message: this.conn.status
 
-              , responsetext: this.conn.responseText
-              , responsejson: null
-              };
+      , responsetext: this.conn.responseText
+      , responsejson: null
+    };
 
     //FIXME only decode JSON data if the mimetype specified it was JSON, and then log any errors
-    try
-    {
+    try {
       evt.responsejson = JSON.parse(evt.responsetext);
     }
-    catch(e)
-    {
+    catch (e) {
     }
 
     this.laststateevent = evt;

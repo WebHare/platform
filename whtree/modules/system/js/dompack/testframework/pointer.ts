@@ -9,47 +9,45 @@ import { getName, getPlatform } from "../extra/browser";
 import { qSA } from './index';
 
 var default_mousestate =
-                 { cx: 0
-                 , cy: 0
-                 , downel: null
-                 , downelrect: null
-                 , downbuttons: []
-                 , samplefreq: 50
-                 , gesturequeue: []
-                 , gesturetimeout:null
-                 , waitcallbacks:[]
-                 , lastoverel:null
-                 , cursorel:null
-                 , lastdoc:null
-                 , lastwin:null
-                 , previousclickel:null
-                 , previousclicktime:null
-                 , previousclickpos:null
-                 , dndcandidate:null
-                 , dndstate:null
-                 };
+{
+  cx: 0
+  , cy: 0
+  , downel: null
+  , downelrect: null
+  , downbuttons: []
+  , samplefreq: 50
+  , gesturequeue: []
+  , gesturetimeout: null
+  , waitcallbacks: []
+  , lastoverel: null
+  , cursorel: null
+  , lastdoc: null
+  , lastwin: null
+  , previousclickel: null
+  , previousclicktime: null
+  , previousclickpos: null
+  , dndcandidate: null
+  , dndstate: null
+};
 
-var mousestate = Object.assign({},default_mousestate);
+var mousestate = Object.assign({}, default_mousestate);
 let browserPlatform = getPlatform();
 
-function arrayCombine(a, b)
-{
+function arrayCombine(a, b) {
   for (let elt of b)
     if (a.indexOf(elt) == -1)
       a.push(elt);
   return a;
 }
 
-function localWaitForGestures(callback)
-{
-  if(mousestate.gesturequeue.length==0)
+function localWaitForGestures(callback) {
+  if (mousestate.gesturequeue.length == 0)
     callback();
   else
     mousestate.waitcallbacks.push(callback);
 }
 
-if (window.waitForGestures)
-{
+if (window.waitForGestures) {
   console.error("waitForGestures already exists, multiple dompack versions loaded!!");
   let oldWaitForGestures = window.waitForGestures;
   window.waitForGestures = callback => localWaitForGestures(() => oldWaitForGestures(callback));
@@ -59,24 +57,21 @@ else
 
 function isElementSafeToAccess(el) //is it safe to fire an event towards element 'el'? IE doesn't like you messing with unloaded (eg iframed) nodes
 {
-  if(!el)
+  if (!el)
     return false;
 
-  try
-  {
+  try {
     let doc = el.defaultView ? el : el.ownerDocument;
     return !!(doc && doc.defaultView);
   }
-  catch(e)//catch permission denieds
+  catch (e)//catch permission denieds
   {
     return false;
   }
 }
 
-export class SimulatedDragDataStore
-{
-  constructor(sourcenode, options)
-  {
+export class SimulatedDragDataStore {
+  constructor(sourcenode, options) {
     this._sourcenode = sourcenode;
     this._lasttarget = null;
     this._lasthandled = 0;
@@ -90,44 +85,38 @@ export class SimulatedDragDataStore
     updateDragOptions(this.options, options);
   }
 
-  setDragImage(elt, x, y)
-  {
+  setDragImage(elt, x, y) {
     this.dragimage =
-        { elt: elt
-        , x: x
-        , y: y
-        };
+    {
+      elt: elt
+      , x: x
+      , y: y
+    };
   }
 
-  addFile(file)
-  {
+  addFile(file) {
     this.items.push({ kind: "File", type: file.type, data: file });
   }
 }
 
-class SimulatedDataTransferItem
-{
-  constructor(dt, item)
-  {
+class SimulatedDataTransferItem {
+  constructor(dt, item) {
     this._dt = dt;
     this._item = item;
   }
 
-  valid()
-  {
+  valid() {
     return this._dt._dds && this._dt._dds.items.indexOf(this._item) >= 0;
   }
 
   get kind() { return this.valid() ? (this._item.kind === "Plain Unicode string" ? "string" : "file") : ""; }
   get type() { return this.valid() ? this._item.type : ""; }
-  getAsString(callback)
-  {
+  getAsString(callback) {
     if (!this.valid || this._item.kind !== "Plain Unicode string")
       return;
     new Promise(resolve => resolve(this._item.data)).then(callback);
   }
-  getAsFile(callback)
-  {
+  getAsFile(callback) {
     if (!this.valid || this._item.kind !== "File")
       return null;
 
@@ -135,32 +124,26 @@ class SimulatedDataTransferItem
   }
 }
 
-class SimulatedDataTransferItemList
-{
-  constructor(dt)
-  {
+class SimulatedDataTransferItemList {
+  constructor(dt) {
     this._dt = dt;
     this._length = 0;
     this._map = new Map;
     this._update();
   }
 
-  get length()
-  {
+  get length() {
     return this._dt._dds ? this._dt._dds.items.length : 0;
   }
 
-  _update()
-  {
+  _update() {
     for (let i = 0; i < this._length; ++i)
       delete this[i];
     this._length = this.length;
-    for (let i = 0; i < this.length; ++i)
-    {
+    for (let i = 0; i < this.length; ++i) {
       const rawitem = this._dt._dds.items[i];
       let item = this._map.get(rawitem);
-      if (!item)
-      {
+      if (!item) {
         item = new SimulatedDataTransferItem(this._dt, rawitem);
         this._map.set(rawitem, item);
       }
@@ -170,20 +153,17 @@ class SimulatedDataTransferItemList
       this._dt.files._update();
   }
 
-  add(data, type = "")
-  {
+  add(data, type = "") {
     if (!this._dt._dds || this._dt._mode !== "read/write")
       return null;
 
-    if (typeof data === "string")
-    {
+    if (typeof data === "string") {
       this._dt._dds.items.push({ kind: "Plain Unicode string", type, data });
       this._update();
       return this[this.length - 1];
 
     }
-    else if (typeof data === "object")
-    {
+    else if (typeof data === "object") {
       this._dt._dds.items.push({ kind: "File", type: data.type.toLowerCase(), data });
       this._update();
       return this[this.length - 1];
@@ -192,8 +172,7 @@ class SimulatedDataTransferItemList
       throw new Error(`Cannot recognize first argument`);
   }
 
-  clear()
-  {
+  clear() {
     if (!this._dt._dds || this._dt._mode !== "read/write")
       return;
 
@@ -202,10 +181,8 @@ class SimulatedDataTransferItemList
   }
 }
 
-export class SimulatedFileList
-{
-  constructor(dt)
-  {
+export class SimulatedFileList {
+  constructor(dt) {
     this._dt = dt;
     this._length = 0;
     this._update();
@@ -213,8 +190,7 @@ export class SimulatedFileList
 
   get length() { return this._length; }
 
-  _update()
-  {
+  _update() {
     for (let i = 0; i < this._length; ++i)
       delete this[i];
 
@@ -230,12 +206,10 @@ export class SimulatedFileList
   }
 }
 
-const effectAllowedValues = [ "none", "copy", "copyLink", "copyMove", "link", "linkMove", "move", "all", "uninitialized" ];
+const effectAllowedValues = ["none", "copy", "copyLink", "copyMove", "link", "linkMove", "move", "all", "uninitialized"];
 
-export class SimulatedDataTransfer
-{
-  constructor(dds, mode, dropEffect)
-  {
+export class SimulatedDataTransfer {
+  constructor(dds, mode, dropEffect) {
     this._dds = dds;
     this._mode = mode;
     this._items = new SimulatedDataTransferItemList(this);
@@ -243,7 +217,7 @@ export class SimulatedDataTransfer
     this._dropEffect = dropEffect;
     this._effectAllowed = dds.effectAllowed;
 
-    if (![ "read/write", "protected", "read" ].includes(mode))
+    if (!["read/write", "protected", "read"].includes(mode))
       throw new Error(`Invalid protection mode '${mode}'`);
 
     this.dragimage = null;
@@ -253,13 +227,12 @@ export class SimulatedDataTransfer
   get files() { return this._files; }
 
   get dropEffect() { return this._dropEffect; }
-  set dropEffect(value) { if ([ "none", "copy", "move", "link" ].includes(value)) this._dropEffect = value; }
+  set dropEffect(value) { if (["none", "copy", "move", "link"].includes(value)) this._dropEffect = value; }
 
   get effectAllowed() { return this._dds ? this._dds.effectAllowed : this._effectAllowed; }
   set effectAllowed(value) { if (this._dds && this._mode === "read/write" && effectAllowedValues.includes(value)) { this._effectAllowed = this._dds.effectAllowed = value; } }
 
-  get types()
-  {
+  get types() {
     let retval = [];
     for (let item of Array.from(this.items))
       if (item.kind !== "File")
@@ -269,22 +242,19 @@ export class SimulatedDataTransfer
     return retval;
   }
 
-  setDragImage(element, x, y)
-  {
+  setDragImage(element, x, y) {
     if (this._dds && this._mode === "read/write")
       this._dds.dragimage = { element, x, y };
   }
 
-  getData(format)
-  {
+  getData(format) {
     if (!this._dds || this._mode === "protected")
       return "";
     format = format.toLowerCase();
     let converttourl;
     if (format === "text")
       format = "text/plain";
-    else if (format === "url")
-    {
+    else if (format === "url") {
       format = "text/uri-list";
       converttourl = true;
     }
@@ -297,8 +267,7 @@ export class SimulatedDataTransfer
     return converttourl ? item.data.split(" ")[0] : item.data;
   }
 
-  setData(format, data)
-  {
+  setData(format, data) {
     if (!this._dds || this._mode !== "read/write")
       return;
 
@@ -311,8 +280,7 @@ export class SimulatedDataTransfer
     this._items.add(data, format);
   }
 
-  clearData(format)
-  {
+  clearData(format) {
     if (!this._dds || this._mode !== "read/write")
       return "";
     format = (format || "").toLowerCase();
@@ -326,8 +294,7 @@ export class SimulatedDataTransfer
     this._files._update();
   }
 
-  _detach()
-  {
+  _detach() {
     this._dds = null;
     this._items._update();
     this._files._update();
@@ -335,11 +302,9 @@ export class SimulatedDataTransfer
 }
 
 // DND spec 8.7.5 pt. 1
-function getDraggableElement(el)
-{
-  for(;el;el=el.parentNode)
-    if (el.getAttribute)
-    {
+function getDraggableElement(el) {
+  for (; el; el = el.parentNode)
+    if (el.getAttribute) {
       if (el.getAttribute('draggable') == 'true')
         return { el: el, type: 'draggable', dist: 1 };
       if (el.nodeName.toLowerCase() == 'img')
@@ -350,10 +315,8 @@ function getDraggableElement(el)
   return null;
 }
 
-function setMouseCursor(x,y)
-{
-  if(!mousestate.cursorel || !isElementSafeToAccess(mousestate.cursorel))
-  {
+function setMouseCursor(x, y) {
+  if (!mousestate.cursorel || !isElementSafeToAccess(mousestate.cursorel)) {
     //FIXME reinstall mousecursor element into the dom if the page reloaded
     mousestate.cursorel = mousestate.lastdoc.createElement('div');
     mousestate.cursorel.style.cssText = 'position:fixed; pointer-events:none; z-index: 2147483647; width:14px; height:22px; pointer-events:none;top:0;left:0';
@@ -362,10 +325,8 @@ function setMouseCursor(x,y)
   }
 
   //FIXME data-url these images
-  if (mousestate.dndstate)
-  {
-    switch (mousestate.dndstate.dropeffect)
-    {
+  if (mousestate.dndstate) {
+    switch (mousestate.dndstate.dropeffect) {
       case 'copy': mousestate.cursorel.style.background = 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QQMCywDcU9p3AAAAvBJREFUOMuN1F1IU2EYB/B/tePm2leHLR3KsqWWNs/EcsZsWRR9aezCy0BjtTaomPYBiV540ZfGGFp5oeDNwLsMvUgpzaSBmmEpYkUOHWe5E+iOSuc4NH27EIModH94rl5+PDwv7/ugqKjoUl5e3ku/3395aWkJhJC4aodMJnOMj49fnJ+fNzMMw9E0PU5RFLbK9lgshvz8fBiNxj1ut/vR0NCQHXFkh1wuP5ebm1tQfm0Nk1+XNW96Bw8zDBNJSkqa2LQjAKysrECaQMPpoaFUKtMrKioeh0KhC1vCjexMTIHDE4NOR6d5PB7v1NSUPS4IAMqde1F+XcTa2lrGnbuO+3Nzc8figgCgUqTj6u0lrC5rDlZVVTXOzs6eigsCgEaZhSs3Y+A4zlxdXe1bWFiwxQUBQK3IgPOWCI7jTLW1tT5RFI/EBQFglyobrjuriEajh+rq6p4KgmAFAMlm6MfsKHras6HR5IBlh9DZ2XlIo9E8KS4uvvcPZL9/BBsSYLUexdgIj7a2Nlgslt6+vr4XAGShUEihUqlif0F+cQIPqnjsN8lhtQK/VggyMzPR0tIyODAw8MzlckGr1SI5OXl9RqlUisWfk3j2UAKGMb/Wawv8n7+8h+3EPujTODQ3Nxfb7Xbr9PQ0SktL1y8nMTERw8PDaPYmIDU1daShoeFaf39/73AfA4XcAGO6Al1dXbmRSOQYTdPIyspahxKJBMFgEDqdbrS+vv62IAjf9Hr9h0Ag0PODW8TJsykwmUxob28/L4qi+c9cjY2NZ5uamh6xLHuGEILW1lYYjUYAuO52u8m7kRuksvoAKSwsJOFwuPLPR+7o6Ji0WCw9arU6CABjY2MwGAwoKSkRKYrau00WyMjO2Y3ItAE8z8vMZvMniqI4RKNRCILw3/Xg9XqvOp1O8m7kBqmpqSE2m42Ew2EPIWTzl6PT6QKCILztfq7CzMwMysrKurVa7SsA2LQjy7Lw+XynAfgdDkcrz/PHN85+A/medC4PxSI3AAAAAElFTkSuQmCC")'; break;
       case 'link': mousestate.cursorel.style.background = 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QQMCywo3fOQnAAAAv5JREFUOMuN1F1IU2EYB/B/upPbcWeTszM2PzbTyrJkM8tV4lxEJKVrlERgIKGYQoIG3YheeBOkIcOoG4VuBt6lnBuN0qYwWqJEiu2iNufUtlPty/IcZ36cLsSLKGx/eK/e58fD8/LywGKx3CkpKRlxOBwN6+vrEEUxqZMqlUrr5+fnb8fjcaPBYOBomp4nCAL/S0oikUBpaSny8/Nzm5ubH01NTdmQRFJJkrxSXFx81ntdgMwvZkxNuM8YDIaQRqPx7NsRADY3N3FQmYaNWwpQFHWkra3tcSAQsP4X7kWqScfStQ3QDH2otbW11+/325KCACDLprBU9Qs7OztH79xveBiJRCqSggBA6igEbdugDyhPtre3PwmHw5eSggAgz8vAF9sWOI4zdnR02FdXV81JQQAg9QoErdvgOK6oq6vLLgjCuaQgAMgPZyB0Q0Q0Gj3d3d39lOf5MgBIpSjqik6nO7tukvyFVj1hnJrQ4sSaHh6PByzLZsnl8lMqler7X9Xx2W9IcGvQVuZj7VMUg4PvYDKZxp1O5zAAaSAQkCsUisQfcM0Xx9ZzDul5cqASELd2UFBQgIGBgXdut/tZU1MTGIaBVqvdnTEtLQ3C8k8wL7ZhNBhel+WecUTefgFTrsOSMoz+/v4qm81Wtri4iJqamt3HkclkmJ6eRtZwCnJyct739fXdm5ycHD+/VACpNh2kToHR0dHiUChUQdM0CgsLd6FEIoHP54NarZ7t6el5wPP858zMzBmXyzWm8adDVZaDoqIiDA0NXRUEwbg3lqSlpWVEIpEIVqvVSdO0k2VZeL3ejwsLC6xlxnLp680MuNxz8LN+c21t7UWSJGcBIJVlWa/JZBpTKpU+AJibm4Ner0d1dbVAEETeh4jnKHVchWM/shGLxaRGo/EDQRAcotEoeJ7/53ro7e2929jYKFrGa8XOzk7RbDaLKysrraIo7v9z1Gq1i+f5ifI3eQgGg6irq3vJMMwrANi34/LyMux2+2UAjvr6+uexWOzC3t1vquVuu3JVftEAAAAASUVORK5CYII=")'; break;
       default: mousestate.cursorel.style.background = 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QQMCykAlTHMIwAAAwVJREFUOMuNlF9IUwEUxr/lvWy7bjqvu2y2fzpSkmxbmkuKXIQElrIH3wxELXSRoQ/1IL74UqSRw6iHFHoZ6JtxKTJKWwNBpxEpZkZzc0zdYO7eGd27geh6EB/6Q+2D83TOj8M55+PA4XC0VlZWvvJ4PNdSqRQymUxWkSOTydqXl5evJpNJq8ViidE0vUySJP6nI+l0GtXV1TCbzSaXy3Xf7/c7kYVyKIqqt9lsZzo4Dl8lEtW7ubnTFoslqtFoVv7ZEQB2d3dBqlS4RRBQKpXHenp6HoTD4cb/goeSabW4EY+Doeni7u7uh6FQyJkVCAC5ej2ux+PY398vvdPWdjeRSNRmBQJAnsEAF89jr6DgRG9v76Pt7e26rEAAKDSZ4EokEIvFrH19fe6dnZ3zWYEAoDIa0cHziMViFf39/W5RFGuyAgGAMZlwK5kEx3FVAwMDjwVBOAsAOUqlst5gMJw59xe3bASDmDAaES0txcrKCliWPapQKE4VFhbGid+Lg4EANlIp1J48iaVkEmNjY7Db7dNer/c5AFk4HFbk5eWlfwHj4TDu/fiB43I5agHsZTIoKyvD6Ojo3Ozs7JPOzk6o1WpotdqDGaVSKb5HInicmwuL1fpWW1PjWfzyBXVaLY5ubmJkZOSK0+k8u76+jqampoPlyOVyLCws4ElBAfR6/cfh4eGbPp9v+kNVFeQ6HUoUCkxOTtqi0WgtTdMoLy8/AAmCwNraGhiGWRwcHLwtCMK3oqKiDzMzM1MbEgnqNBpUVFRgYmLisiiK1sOxiK6urlcEQYiNjY1emqa9LMsiEAh8DgaD7JTDUddqMoGZnwcbCp1vbm6+SFHUIgDksCwbsNvtU/n5+WsAsLS0BKPRiIaGBpEkyZI9v7/UplJh02wGz/Myq9X6iSTJmITjOEilUlAU9ccdh4aGOlZXV59eE0W8LCmBz+fD+Ph4j06nG/6ncxiGmREE4f2L4mJsbW2hpaXltVqtfgMA4DgOgiD89SFFIhG43e5LADzt7e3PeJ6/cJj7CUfrVfEzIGP3AAAAAElFTkSuQmCC")'; break;
@@ -374,14 +335,13 @@ function setMouseCursor(x,y)
   else
     mousestate.cursorel.style.background = 'url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAALXSURBVHjajJNBSFpxHMe/NB942DMrX+QhNx9ah3wZRW9joe0w1rYaXgYRAzeUREKoxQ4LPTSc5GuI4LYugQSBx0YdtrE5GiVjwoJZ0sVC5EkImdbhaRC8/07FYlv5hd/hx48Pv+8Pfl/09/c/7e7u/rC4uOisVqsghNRUV5RKpSOdTj8+PDw0d3Z2FhobG9MUReEy1R0fH6O3txcsy15zu93BZDJpQy3SarWR4eFhUiwWycjICBkYGMikUqlHl1mtA4CTkxM0NTVBEATQNG2YmJh4ncvlHl5o9c+mtbUVgiCgubn5+vj4eCibzdpqAgGAZVn4/X7Ismz0er2Bg4MDa00gABiNRszMzKBarXZMTU1FisXinZpAAOjo6EAwGEShUDB7vd7w0dGRpSYQANrb2xEIBFAoFEzT09PhSqVysyYQADiOQygUQqlU6hEE4a0kSbcAQHERlEwmsbCwALVaDVEUsbKy0qNWq98MDg6++gtcX19HNpuF3W7HxsYGYrEYeJ7/urq6+h6AMpfLXVWpVMfnrG5tbWFsbAzxeBynj9HW1ob5+fkfsVjsHU3TIY1G87KlpeXjFZqm7xsMhhscx2FychJ6vf5LQ0PDd1mWzVarFel0GplMRuVyubY8Ho+o0+nAMAzAsmzEYDAQm81GnE7nxv7+vpHjuCejo6OEEEL8fj/p6uoiOzs7L879qkKhwO7uLhiGSc3Ozj6XJCmj1Wp/JhKJ+NraGmw2G0wmE5aWlh5UKhXz2V2RSOTe3NxcUBTFAUIIotEoWJYFAI/b7SaEEBIIBEhfXx/J5/PPzoK8vLy8w/N8vL6+fhcANjc3odPpMDQ0VKEoSi/LspHneWxvb6NcLivNZvMviqIKKJVKkCTpn5kLhUKu01t9Ph+xWCwkn8+Pn+Xxf2IYJiFJ0jefz4e9vT3Y7fZPGo3mMwBcuFEURYTD4bsAFh0OR7RcLt8+nf0eAO8upcEtDpHVAAAAAElFTkSuQmCC")';
 
-  mousestate.cursorel.style.left = x+'px';
-  mousestate.cursorel.style.top = y+'px';
+  mousestate.cursorel.style.left = x + 'px';
+  mousestate.cursorel.style.top = y + 'px';
 }
 
-export function getValidatedElementFromPoint(doc,px,py,expectelement)
-{
+export function getValidatedElementFromPoint(doc, px, py, expectelement) {
 
-  var scroll = {x:0,y:0}; // actually breaks the ui.menu test.... var scroll = safe_id(doc.body).getScroll();
+  var scroll = { x: 0, y: 0 }; // actually breaks the ui.menu test.... var scroll = safe_id(doc.body).getScroll();
   var lookupx = /*Math.floor*/(px - scroll.x);
   var lookupy = /*Math.floor*/(py - scroll.y);
 
@@ -396,7 +356,7 @@ export function getValidatedElementFromPoint(doc,px,py,expectelement)
     var docpos = doc.defaultView.frameElement.getBoundingClientRect();
 
     // Get the main window size and scroll position
-    var docscroll = {x: maindoc.body.scrollLeft, y:maindoc.body.scrollTop};
+    var docscroll = { x: maindoc.body.scrollLeft, y: maindoc.body.scrollTop };
 
     // The absolute lookup position (relative to the browser's top left corner)
     var abslookupx = lookupx + docpos.left - docscroll.x;
@@ -420,16 +380,13 @@ export function getValidatedElementFromPoint(doc,px,py,expectelement)
   var el = doc.elementFromPoint(lookupx, lookupy);
   //console.log(px,py,lookupx,lookupy,el);
 
-  if(!el && expectelement)
-  {
+  if (!el && expectelement) {
     console.log("Unable to find element at location " + lookupx + "," + lookupy + " bodypos: " + px + "," + py + " with scroll " + scroll.x + "," + scroll.y);
     setMouseCursor(lookupx, lookupy);
   }
-  if(el)
-  {
+  if (el) {
     var bound = el.getBoundingClientRect();
-    if(! ( bound.top <= lookupy && lookupy < bound.bottom+1 && bound.left <= lookupx && lookupx < bound.right+1))
-    {
+    if (!(bound.top <= lookupy && lookupy < bound.bottom + 1 && bound.left <= lookupx && lookupx < bound.right + 1)) {
       console.log(lookupx, lookupy, bound, el, expectelement);
       console.warn("elementFromPoint lied to us!");
     }
@@ -445,35 +402,33 @@ export function getValidatedElementFromPoint(doc,px,py,expectelement)
     @cell return.relx X-coordinate relative to left top of element
     @cell return.rely Y-coordinate relative to left top of element
 */
-function getPartPosition(part)
-{
-  if(part.el.concat)
+function getPartPosition(part) {
+  if (part.el.concat)
     throw new Error("el is an array, it must be a single element");
 
   var coords = part.el.getBoundingClientRect();
-  var relx,rely;
+  var relx, rely;
 
-  if(typeof part.x=='undefined')
+  if (typeof part.x == 'undefined')
     relx = coords.width * 0.5;
-  else if(typeof part.x=='string' && part.x.at(-1)=='%')
-    relx = coords.width * parseInt(part.x)/100;
-  else if(typeof part.x=='number')
+  else if (typeof part.x == 'string' && part.x.at(-1) == '%')
+    relx = coords.width * parseInt(part.x) / 100;
+  else if (typeof part.x == 'number')
     relx = part.x;
   else
     throw new Error("Did not understand 'x'");
 
- if(typeof part.y=='undefined')
+  if (typeof part.y == 'undefined')
     rely = coords.height * 0.5;
-  else if(typeof part.y=='string' && part.y.at(-1)=='%')
-    rely = coords.height * parseInt(part.y)/100;
-  else if(typeof part.y=='number')
+  else if (typeof part.y == 'string' && part.y.at(-1) == '%')
+    rely = coords.height * parseInt(part.y) / 100;
+  else if (typeof part.y == 'number')
     rely = part.y;
   else
     throw new Error("Did not understand 'y'");
 
-  for (var findroot=part.el; findroot != part.el.ownerDocument.documentElement;findroot=findroot.parentNode)
-    if(!findroot)
-    {
+  for (var findroot = part.el; findroot != part.el.ownerDocument.documentElement; findroot = findroot.parentNode)
+    if (!findroot) {
       console.error("The element we're looking for is no longer part of the DOM: ", part.el);
       throw new Error("The element we're looking for is no longer part of the DOM");
     }
@@ -481,38 +436,33 @@ function getPartPosition(part)
   var clientx = coords.left + relx;
   var clienty = coords.top + rely;
 
-  return {x:clientx,y:clienty,relx: relx, rely: rely};
+  return { x: clientx, y: clienty, relx: relx, rely: rely };
 }
 
-function _onMouseDocUnload(event)
-{
-  if(mousestate.cursorel && mousestate.cursorel.parentNode)
+function _onMouseDocUnload(event) {
+  if (mousestate.cursorel && mousestate.cursorel.parentNode)
     mousestate.cursorel.parentNode.removeChild(mousestate.cursorel);
-  mousestate.cursorel=null;
+  mousestate.cursorel = null;
 }
 
 // Register unload event on the new target window, so on unload the cursor is removed
-function _updateUnloadEvents(win)
-{
-  if(mousestate.lastwin != win)
-  {
-    if(mousestate.lastwin && mousestate.lastwin.removeEventListener)
+function _updateUnloadEvents(win) {
+  if (mousestate.lastwin != win) {
+    if (mousestate.lastwin && mousestate.lastwin.removeEventListener)
       mousestate.lastwin.removeEventListener('unload', _onMouseDocUnload);
 
     mousestate.lastwin = win;
-    if(mousestate.lastwin && mousestate.lastwin.addEventListener)
+    if (mousestate.lastwin && mousestate.lastwin.addEventListener)
       mousestate.lastwin.addEventListener('unload', _onMouseDocUnload);
   }
 }
 
 /** Scrolls the part target into view, returns the client x/y of the final position
 */
-function _processPartPositionTarget(part)
-{
+function _processPartPositionTarget(part) {
   // Calculate the position from
   var position;
-  if(part.el)
-  {
+  if (part.el) {
     // Get relative x/y within part.el
     position = getPartPosition(part);
 
@@ -522,7 +472,7 @@ function _processPartPositionTarget(part)
     //console.log("We think el",part.el,"is at",position.x,position.y);
   }
   else // apply relx/rely to the coordinates at the start of the part execution
-    position = {x:part.startx + (part.relx || 0),y:part.starty + (part.rely || 0)};
+    position = { x: part.startx + (part.relx || 0), y: part.starty + (part.rely || 0) };
 
   // If clientx/clienty is set, use that as override
   if (typeof part.clientx == 'number')
@@ -534,52 +484,42 @@ function _processPartPositionTarget(part)
 }
 
 
-export function _resolveToSingleElement(element)
-{
-  if(element instanceof NodeList)
-  {
-    if(element.length==0)
+export function _resolveToSingleElement(element) {
+  if (element instanceof NodeList) {
+    if (element.length == 0)
       throw new Error("Passed an empty $$()");
-    if(element.length>1)
-    {
+    if (element.length > 1) {
       console.log(element);
       throw new Error("Passed multiple elements using $$(), make sure the selector only matches one!");
     }
     return element[0];
   }
-  else if(typeof element == "string")
-  {
+  else if (typeof element == "string") {
     var elements = qSA(element);
-    if(elements.length==0)
-    {
+    if (elements.length == 0) {
       elements = qSA(`*[id="${CSS.escape(element)}]`);
-      if(elements.length != 0)
-      {
+      if (elements.length != 0) {
         console.error(`Invoking _resolveToSingleElement with an id '${element}'`);
         throw new Error(`Invoking _resolveToSingleElement with an id '${element}'`);
       }
     }
-    if(elements.length==0)
-    {
+    if (elements.length == 0) {
       elements = qSA(`*[name="${CSS.escape(element)}"]`);
-      if(elements.length != 0)
-      {
+      if (elements.length != 0) {
         console.error(`Invoking _resolveToSingleElement with a name '${element}'`);
         throw new Error(`Invoking _resolveToSingleElement with a name '${element}'`);
       }
     }
-    if(elements.length==0)
+    if (elements.length == 0)
       throw new Error("Selector '" + element + "'' evaluated to no elements");
-    if(elements.length>1)
-    {
+    if (elements.length > 1) {
       console.log(elements);
       throw new Error("Selector '" + element + "'' evaluated to multiple elements, make sure the selector only matches one!");
     }
     return elements[0];
   }
 
-  if(!element)
-  {
+  if (!element) {
     throw new Error("Invalid (falsy) element passed");
   }
   return element;
@@ -587,20 +527,18 @@ export function _resolveToSingleElement(element)
 
 /* sending complex mouse gestures
    down/up: mouse button to press/depress. 0=standard (left), 1=middle, 2=context (right) .. */
-export function sendMouseGesture(gestureparts)
-{
+export function sendMouseGesture(gestureparts) {
   //Calculate execution time for the gestures
   var at = Date.now();
-  for(var i=0;i<gestureparts.length;++i)
-  {
+  for (var i = 0; i < gestureparts.length; ++i) {
     at += gestureparts[i].delay || 0;
     gestureparts[i].at = at;
   }
 
   // Resolve this promise when the last gesture has been processed
   let retval = new Promise(resolve => gestureparts.length
-        ? gestureparts[gestureparts.length - 1].onexecuted = resolve
-        : resolve());
+    ? gestureparts[gestureparts.length - 1].onexecuted = resolve
+    : resolve());
 
   //Queue up the gestures
   mousestate.gesturequeue.push(...gestureparts);
@@ -610,8 +548,7 @@ export function sendMouseGesture(gestureparts)
   return retval;
 }
 
-function getBrowserFocusableElement(el)
-{
+function getBrowserFocusableElement(el) {
   return _getFocusableElement(el);
   /* FIXME is the IE workaround still needed ?
   if(getName()!="ie")
@@ -632,17 +569,15 @@ These elements can be set as tab stops by setting the tabIndex property to a pos
 */
 }
 
-export function _getFocusableElement(el)
-{
-  for(;el;el=el.parentNode)
-    if(domfocus.canFocusTo(el))
+export function _getFocusableElement(el) {
+  for (; el; el = el.parentNode)
+    if (domfocus.canFocusTo(el))
       return el;
 
   return null;
 }
 
-function convertbndrec(elt)
-{
+function convertbndrec(elt) {
   if (!elt.getBoundingClientRect)
     return 'n/a';
   var rec = elt.getBoundingClientRect();
@@ -650,18 +585,16 @@ function convertbndrec(elt)
 }
 
 // Validate if the targeted element in part (if el is specitied) is the same as the at element hittested from the mouse cursor target
-function validateMouseDownTarget(part, elhere, position)
-{
+function validateMouseDownTarget(part, elhere, position) {
   let wantedtotarget = part.el;
 
-  if(wantedtotarget && elhere != wantedtotarget && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something different
+  if (wantedtotarget && elhere != wantedtotarget && typeof part.down == 'number') //we only need to validate on mousedown, mouseup is common to hit something different
   {
-    while(wantedtotarget && wantedtotarget.inert)
+    while (wantedtotarget && wantedtotarget.inert)
       wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent
 
-    if(!wantedtotarget.contains(elhere))
-    {
-      console.log("Wanted to target: ", wantedtotarget, " at " + position.x + "," + position.y," but actual element is:", elhere, part);
+    if (!wantedtotarget.contains(elhere)) {
+      console.log("Wanted to target: ", wantedtotarget, " at " + position.x + "," + position.y, " but actual element is:", elhere, part);
 
       console.log("Original target", wantedtotarget, part.el.nodeName, convertbndrec(part.el));
       console.log("Final target", elhere, elhere.nodeName, convertbndrec(elhere));
@@ -669,23 +602,21 @@ function validateMouseDownTarget(part, elhere, position)
       if (fc)
         console.log("childtarget", fc, fc.nodeName, convertbndrec(fc));
 
-//        console.log('partel', part.el.innerHTML);
-//        console.log('elhere', elhere.innerHTML);
+      //        console.log('partel', part.el.innerHTML);
+      //        console.log('elhere', elhere.innerHTML);
 
-      var partel=wantedtotarget;
-      setTimeout(function()
-       {
+      var partel = wantedtotarget;
+      setTimeout(function() {
         console.log("AFTER DELAY: Original target", partel, partel.nodeName, partel.getBoundingClientRect());
         console.log("AFTER DELAY: Final target", elhere, elhere.nodeName, elhere.getBoundingClientRect());
-       },400);
+      }, 400);
       throw new Error("Final target element is not a child of the original target! Perhaps target was obscured at the time of the mouse action ?");
     }
   }
 }
 
 
-function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
-{
+function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop) {
   if (!el)
     return true;
 
@@ -709,19 +640,17 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
   let dropEffect = "none";
   if (eventtype === "drop" || eventtype === "dragend")
     dropEffect = dragop.currentDragOperation;
-  else if (eventtype === "dragenter" || eventtype === "dragover")
-  {
-    switch (dragop.effectAllowed)
-    {
-      case "none":            dropEffect = "none"; break;
-      case "copy":            dropEffect = "copy"; break;
-      case "copyLink":        dropEffect = wantlink ? "link" : "copy"; break;
-      case "copyMove":        dropEffect = wantcopy ? "copy" : "move"; break;
-      case "all":             dropEffect = wantcopy ? "copy" : wantlink ? "link" : "move"; break;
-      case "link":            dropEffect = "link"; break;
-      case "linkMove":        dropEffect = wantlink ? "link" : "move"; break;
-      case "move":            dropEffect = "move"; break;
-      case "uninitialized":   dropEffect = wantcopy ? "copy" : wantlink ? "link" : "move"; break;
+  else if (eventtype === "dragenter" || eventtype === "dragover") {
+    switch (dragop.effectAllowed) {
+      case "none": dropEffect = "none"; break;
+      case "copy": dropEffect = "copy"; break;
+      case "copyLink": dropEffect = wantlink ? "link" : "copy"; break;
+      case "copyMove": dropEffect = wantcopy ? "copy" : "move"; break;
+      case "all": dropEffect = wantcopy ? "copy" : wantlink ? "link" : "move"; break;
+      case "link": dropEffect = "link"; break;
+      case "linkMove": dropEffect = wantlink ? "link" : "move"; break;
+      case "move": dropEffect = "move"; break;
+      case "uninitialized": dropEffect = wantcopy ? "copy" : wantlink ? "link" : "move"; break;
     }
   }
 
@@ -729,20 +658,16 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
 
   // Calc effectallowed / dropeffect
   // FIXME: figure out how these actually work & interact with event returns & setting of dropEffect/effectAllowed
-  if ([ 'dragenter', 'dragover', 'drop', 'dragend' ].includes(eventtype))
-  {
-    if (getName()=="chrome")
-    {
+  if (['dragenter', 'dragover', 'drop', 'dragend'].includes(eventtype)) {
+    if (getName() == "chrome") {
       //dataTransfer.dropEffect = 'none';
       //dataTransfer.effectAllowed = ctrl ? dragop.options.shift ? "link" : "copy" : "all";
     }
-    else if (getName()=="safari")
-    {
+    else if (getName() == "safari") {
       dataTransfer.dropEffect = 'none';
       dataTransfer.effectAllowed = ctrl ? dragop.options.shift ? "link" : "copy" : "all";
     }
-    else if (getName() == "firefox")
-    {
+    else if (getName() == "firefox") {
       dataTransfer.dropEffect = ctrl ? dragop.options.shift ? "link" : "copy" : "move";
     }
   }
@@ -756,10 +681,10 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
 
   // Create a mousevent to get correctly filled contents
   const mouseevent = doc.createEvent("MouseEvent");
-  const cancelable = ![ "dragend", "dragexit", "dragleave" ].includes(eventtype);
-  mouseevent.initMouseEvent(eventtype, true, cancelable, doc.defaultView, 0/*clickcount? is 0 correct?*/, cx+25, cy+25, cx, cy,
-                            ctrl||false, dragop.options.alt||false, dragop.options.shift||false, meta||false,
-                            button, null, dataTransfer);
+  const cancelable = !["dragend", "dragexit", "dragleave"].includes(eventtype);
+  mouseevent.initMouseEvent(eventtype, true, cancelable, doc.defaultView, 0/*clickcount? is 0 correct?*/, cx + 25, cy + 25, cx, cy,
+    ctrl || false, dragop.options.alt || false, dragop.options.shift || false, meta || false,
+    button, null, dataTransfer);
 
   // Can't update the dataTransfer attr, though. Create a htmlevent, and place all mousevent attrs in it
   // That one can be fired!
@@ -770,7 +695,7 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
 
   // Browsers won't enumerate the event properties.
   arrayCombine(keys,
-      [ "altKey", "bubbles", "button", "buttons", "cancelBubble", "cancelable"
+    ["altKey", "bubbles", "button", "buttons", "cancelBubble", "cancelable"
       , "clientX", "clientY", "ctrlKey", "currentTarget", "dataTransfer"
       , "defaultPrevented", "detail", "eventPhase"
       , "layerX", "layerY"
@@ -778,33 +703,29 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
       , "pageX", "pageY"
       , "relatedTarget", "screenX", "screenY", "shiftKey", "target", "timeStamp"
       , "view", "which"
-      ]);
+    ]);
 
-  if (getName() == "firefox")
-  {
+  if (getName() == "firefox") {
     arrayCombine(keys,
-        [ "explicitOriginalTarget", "isChar", "isTrusted", "mozInputSource", "mozMovementX", "mozMovementY", "mozPressure"
+      ["explicitOriginalTarget", "isChar", "isTrusted", "mozInputSource", "mozMovementX", "mozMovementY", "mozPressure"
         , "rangeOffset", "rangeParent", "region"
-        ]);
+      ]);
   }
-  else if (getName()=="ie")
-  {
+  else if (getName() == "ie") {
     arrayCombine(keys,
-        [ "isTrusted", "srcElement", "toElement", "x", "y"
-        ]);
+      ["isTrusted", "srcElement", "toElement", "x", "y"
+      ]);
   }
-  else if (getName()=="chrome")
-  {
+  else if (getName() == "chrome") {
     arrayCombine(keys,
-        [ "fromElement", "keyCode", "movementX", "movementY", "offsetX", "offsetY", "returnValue", "srcElement"
+      ["fromElement", "keyCode", "movementX", "movementY", "offsetX", "offsetY", "returnValue", "srcElement"
         , "toElement", "webkitMovementX", "webkitMovementY", "x", "y"
-        ]);
+      ]);
   }
 
-  for (let i = 0; i < keys.length; ++i)
-  {
-    try {  event[keys[i]] = mouseevent[keys[i]]; }
-    catch(e) { } //ignore 'cannot set' errors
+  for (let i = 0; i < keys.length; ++i) {
+    try { event[keys[i]] = mouseevent[keys[i]]; }
+    catch (e) { } //ignore 'cannot set' errors
   }
 
   event.dataTransfer = dataTransfer;
@@ -812,11 +733,11 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
 
   if (eventtype == "dragover" && !result) // dragover event is cancelled
   {
-    if (dataTransfer.dropEffect === "copy" && [ "uninitialized", "copy", "copyLink", "copyMove", "all" ].includes(dragop.effectAllowed))
+    if (dataTransfer.dropEffect === "copy" && ["uninitialized", "copy", "copyLink", "copyMove", "all"].includes(dragop.effectAllowed))
       dragop.currentDragOperation = "copy";
-    else if (dataTransfer.dropEffect === "link" && [ "uninitialized", "link", "copyLink", "linkMove", "all" ].includes(dragop.effectAllowed))
+    else if (dataTransfer.dropEffect === "link" && ["uninitialized", "link", "copyLink", "linkMove", "all"].includes(dragop.effectAllowed))
       dragop.currentDragOperation = "link";
-    else if (dataTransfer.dropEffect === "move" && [ "uninitialized", "move", "copyMove", "linkMove", "all" ].includes(dragop.effectAllowed))
+    else if (dataTransfer.dropEffect === "move" && ["uninitialized", "move", "copyMove", "linkMove", "all"].includes(dragop.effectAllowed))
       dragop.currentDragOperation = "move";
     else
       dragop.currentDragOperation = "none";
@@ -825,11 +746,9 @@ function fireDNDEvent(eventtype, cx, cy, el, button, relatedtarget, dragop)
   return result;
 }
 
-function initDrag()
-{
+function initDrag() {
   var dragop = new SimulatedDragDataStore(mousestate.dndcandidate.draggable.el, mousestate.dndcandidate.part);
-  if (fireDNDEvent("dragstart", mousestate.dndcandidate.cx, mousestate.dndcandidate.cy, mousestate.dndcandidate.draggable.el, 0, null, dragop))
-  {
+  if (fireDNDEvent("dragstart", mousestate.dndcandidate.cx, mousestate.dndcandidate.cy, mousestate.dndcandidate.draggable.el, 0, null, dragop)) {
     var ctrl = mousestate.dndcandidate.part.ctrl || (browserPlatform != "mac" && mousestate.dndcandidate.part.cmd);
     var shift = mousestate.dndcandidate.part.shift;
 
@@ -841,10 +760,8 @@ function initDrag()
   mousestate.dndcandidate = null;
 }
 
-function updateDragOptions(options, newoptions)
-{
-  if (newoptions)
-  {
+function updateDragOptions(options, newoptions) {
+  if (newoptions) {
     if ("shift" in newoptions) options.shift = newoptions.shift;
     if ("alt" in newoptions) options.alt = newoptions.alt;
     if ("ctrl" in newoptions) options.ctrl = newoptions.ctrl;
@@ -853,53 +770,44 @@ function updateDragOptions(options, newoptions)
   }
 }
 
-function handleRunningDrag(options)
-{
+function handleRunningDrag(options) {
   // Process options
   updateDragOptions(mousestate.dndstate.options, options);
   mousestate.dndstate._lasthandled = new Date();
 
   //console.log('handleRunningDrag', mousestate.lastoverel);
-  if (fireDNDEvent("drag", mousestate.cx, mousestate.cy, mousestate.dndstate._sourcenode, 0, null, mousestate.dndstate))
-  {
-//    console.log('drag not cancelled');
+  if (fireDNDEvent("drag", mousestate.cx, mousestate.cy, mousestate.dndstate._sourcenode, 0, null, mousestate.dndstate)) {
+    //    console.log('drag not cancelled');
     var lasttarget = mousestate.dndstate._lasttarget;
-    if (mousestate.dndstate._lasttarget != mousestate.lastoverel)
-    {
-      if (mousestate.dndstate._lasttarget)
-      {
+    if (mousestate.dndstate._lasttarget != mousestate.lastoverel) {
+      if (mousestate.dndstate._lasttarget) {
         fireDNDEvent("dragexit", mousestate.cx, mousestate.cy, mousestate.dndstate._lasttarget, 0, null, mousestate.dndstate);
       }
 
-      if (!fireDNDEvent("dragenter", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate))
-      {
-//        console.log('dragenter cancelled');
+      if (!fireDNDEvent("dragenter", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate)) {
+        //        console.log('dragenter cancelled');
         mousestate.dndstate._lasttarget = mousestate.lastoverel;
       }
-      else
-      {
-//        console.log('dragenter not cancelled');
+      else {
+        //        console.log('dragenter not cancelled');
         // FIXME: dropzone stuff
 
         fireDNDEvent("dragenter", mousestate.cx, mousestate.cy, document.body, 0, null, mousestate.dndstate);
         mousestate.dndstate._lasttarget = document.body;
       }
     }
-    if (lasttarget && lasttarget != mousestate.dndstate._lasttarget)
-    {
+    if (lasttarget && lasttarget != mousestate.dndstate._lasttarget) {
       fireDNDEvent("dragleave", mousestate.cx, mousestate.cy, lasttarget, 0, null, mousestate.dndstate);
     }
 
-    if (fireDNDEvent("dragover", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate))
-    {
-//      console.log('dragover cancelled');
+    if (fireDNDEvent("dragover", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate)) {
+      //      console.log('dragover cancelled');
       // dropeffect stuff
 
     }
-//    else console.log('dragover not cancelled');
+    //    else console.log('dragover not cancelled');
   }
-  else
-  {
+  else {
     mousestate.dndstate.currentDragOperation = "none";
     console.error('drag cancelled');
     finishCurrentDrag(true, options);
@@ -907,22 +815,17 @@ function handleRunningDrag(options)
 }
 
 // DnD
-function finishCurrentDrag(cancel, options)
-{
+function finishCurrentDrag(cancel, options) {
   // Process options
   updateDragOptions(mousestate.dndstate.options, options);
 
-  if (cancel)
-  {
-    if (mousestate.lastoverel)
-    {
+  if (cancel) {
+    if (mousestate.lastoverel) {
       fireDNDEvent("dragleave", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate);
     }
   }
-  else
-  {
-    if (fireDNDEvent("drop", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate))
-    {
+  else {
+    if (fireDNDEvent("drop", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, null, mousestate.dndstate)) {
 
     }
   }
@@ -931,22 +834,18 @@ function finishCurrentDrag(cancel, options)
 }
 
 
-function processGestureQueue()
-{
-  if(mousestate.gesturetimeout)
-  {
+function processGestureQueue() {
+  if (mousestate.gesturetimeout) {
     clearTimeout(mousestate.gesturetimeout);
-    mousestate.gesturetimeout=null;
+    mousestate.gesturetimeout = null;
   }
 
   var now = Date.now();
 
-  while(mousestate.gesturequeue.length)
-  {
+  while (mousestate.gesturequeue.length) {
     // Get the current part in the queueu
     const part = mousestate.gesturequeue[0];
-    if(!part.start)
-    {
+    if (!part.start) {
       // First time we see this part, register the starting time and cursor position
       part.start = now;
       part.startx = mousestate.cx;
@@ -958,7 +857,7 @@ function processGestureQueue()
 
     // Determine in which document we are working
     var currentdoc = (part.doc || (part.el ? part.el.ownerDocument : mousestate.lastdoc));
-    if(!currentdoc)
+    if (!currentdoc)
       throw new Error("Lost track of document");
     mousestate.lastdoc = currentdoc;
 
@@ -968,8 +867,7 @@ function processGestureQueue()
 
     //Make sure the point is visible, but only if we're going to click on it
     var elhere = getValidatedElementFromPoint(currentdoc, position.x, position.y, true);
-    if(!elhere)
-    {
+    if (!elhere) {
       elhere = currentdoc.documentElement;
       console.error("Unable to find element at location " + position.x + "," + position.y);
     }
@@ -980,16 +878,16 @@ function processGestureQueue()
 
     //console.log("Get element@" + position.x + "," + position.y + " ",elhere.nodeName,elhere, " was ",part.el.nodeName,part.el, targetdoc&&targetdoc.defaultView?targetdoc.defaultView.getScroll().y:'-');
 
-    var target = { view: targetdoc.parentView
-                 , cx: position.x
-                 , cy: position.y
-                 , el: elhere
-                 };
+    var target = {
+      view: targetdoc.parentView
+      , cx: position.x
+      , cy: position.y
+      , el: elhere
+    };
 
     //interpolate mousemove events
-    if(mousestate.cx != target.cx || mousestate.cy != target.cy)
-    {
-      var progress = Math.min(1,part.at > part.start ? (now - part.start) / (part.at - part.start) : 1);
+    if (mousestate.cx != target.cx || mousestate.cy != target.cy) {
+      var progress = Math.min(1, part.at > part.start ? (now - part.start) / (part.at - part.start) : 1);
       if (typeof part.transition == "function")
         progress = part.transition(progress);
       //console.log("start=" + part.start + ", at=" + part.at + ", now=" + now + ", progress=" + progress);
@@ -1008,22 +906,18 @@ function processGestureQueue()
         initDrag();
 
       // DnD suppresses mouseout/over/move events
-      if (mousestate.dndstate)
-      {
+      if (mousestate.dndstate) {
         mousestate.lastoverel = elhere;
 
         if (now - mousestate.dndstate._lasthandled > 350)
           handleRunningDrag(part);
       }
-      else
-      {
+      else {
         let elchanged = false;
-        try
-        {
+        try {
           elchanged = mousestate.lastoverel != elhere;
         }
-        catch(e)
-        {
+        catch (e) {
           if (getName() != "ie" && getName() != "edge")
             throw e; //mousestate.lastoverel may cause permission denieds on IE/edge
 
@@ -1031,16 +925,14 @@ function processGestureQueue()
           elchanged = true;
         }
 
-        if(mousestate.lastoverel != elhere || elchanged)
-        {
-          if(mousestate.lastoverel && mousestate.lastoverel.ownerDocument && mousestate.lastoverel.ownerDocument.defaultView) // don't fire events for nonexisting documents
+        if (mousestate.lastoverel != elhere || elchanged) {
+          if (mousestate.lastoverel && mousestate.lastoverel.ownerDocument && mousestate.lastoverel.ownerDocument.defaultView) // don't fire events for nonexisting documents
           {
             var canfire = true;
             // Edge causes permission denied throws when accessing a freed window
             try { mousestate.lastoverel.ownerDocument.defaultView.onerror; } catch (e) { canfire = false; }
 
-            if (canfire)
-            {
+            if (canfire) {
               fireMouseEvent("mouseout", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, elhere, part);
               if ("onmouseenter" in window)
                 fireMouseEventsTree("mouseleave", mousestate.cx, mousestate.cy, mousestate.lastoverel, 0, elhere, Object.assign({ preventBubble: true }, part));
@@ -1061,59 +953,52 @@ function processGestureQueue()
     //console.log("mouse now at " + mousestate.cx + "," + mousestate.cy);
     setMouseCursor(mousestate.cx, mousestate.cy);
 
-    if(part.at > now) //in the future
+    if (part.at > now) //in the future
     {
       mousestate.gesturetimeout = setTimeout(processGestureQueue, 1000 / mousestate.samplefreq);
       return;
     }
 
-    if(typeof part.down == 'number')
-    {
-      if(mousestate.downbuttons.includes(part.down))
+    if (typeof part.down == 'number') {
+      if (mousestate.downbuttons.includes(part.down))
         throw new Error("Invalid mouse gesture - sending down for button #" + part.down + " when it is aleady down");
-      if(part.down==0)
-      {
+      if (part.down == 0) {
         mousestate.downel = target.el;
         mousestate.downelrect = target.el ? target.el.getBoundingClientRect() : null;
       }
 
-      if (!mousestate.dndstate)
-      {
+      if (!mousestate.dndstate) {
         let mousedown_dodefault = fireMouseEvent("mousedown", target.cx, target.cy, target.el, part.down, null, part);
-        if(mousedown_dodefault)
-        {
+        if (mousedown_dodefault) {
           //mousedown was not prevented, set focus
           let tofocus = getBrowserFocusableElement(target.el);
           let lastfocus = currentdoc.activeElement;
 
-          if(dompack.debugflags.testfw)
+          if (dompack.debugflags.testfw)
             console.log("[testfw] Simulate focus events: blur to ", lastfocus, " focus to ", tofocus, " we have focus?", currentdoc.hasFocus());
 
-          if(tofocus != lastfocus)
-          {
+          if (tofocus != lastfocus) {
 
-            if(!currentdoc.hasFocus() && lastfocus) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
+            if (!currentdoc.hasFocus() && lastfocus) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
             {
               domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus });
               domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus });
             }
 
-            if(tofocus)
-            {
+            if (tofocus) {
               tofocus.focus();
-              if(!currentdoc.hasFocus()) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
+              if (!currentdoc.hasFocus()) //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
               {
                 domevents.dispatchDomEvent(tofocus, 'focus', { bubbles: false, cancelable: false, relatedTarget: lastfocus });
                 domevents.dispatchDomEvent(tofocus, 'focusin', { bubbles: true, cancelable: false, relatedTarget: lastfocus });
               }
             }
-            else
-            {
+            else {
               currentdoc.activeElement.blur();
             }
           }
 
-          if(part.down==2) //RMB
+          if (part.down == 2) //RMB
           {
             fireMouseEvent("contextmenu", target.cx, target.cy, target.el, part.down, null, part);
           }
@@ -1123,11 +1008,12 @@ function processGestureQueue()
             var draggable = getDraggableElement(target.el); // FIXME text selections?
             if (draggable)
               mousestate.dndcandidate =
-                { draggable: draggable
+              {
+                draggable: draggable
                 , cx: target.cx
                 , cy: target.cy
                 , part: part
-                };
+              };
           }
         }
       }
@@ -1135,34 +1021,29 @@ function processGestureQueue()
       //ADDME discover cancellation etc and properly handle those
       mousestate.downbuttons.push(part.down);
     }
-    else if(typeof part.up == 'number')
-    {
-      if(!mousestate.downbuttons.includes(part.up))
+    else if (typeof part.up == 'number') {
+      if (!mousestate.downbuttons.includes(part.up))
         throw new Error("Invalid mouse gesture - sending up for button #" + part.up + " when it is not down");
 
       //FIXME see above for missing event parameters
 
       if (!mousestate.dndstate)
         fireMouseEvent("mouseup", target.cx, target.cy, target.el, part.up, null, part);
-      if(mousestate.downbuttons.includes(part.up))
-        mousestate.downbuttons.splice(mousestate.downbuttons.indexOf(part.up),1);
+      if (mousestate.downbuttons.includes(part.up))
+        mousestate.downbuttons.splice(mousestate.downbuttons.indexOf(part.up), 1);
 
       //Is this a click? (start and end is same element. ADDME doesn't work this way if drag is triggered, ie on button: mousedown,move,up = click, on link: mousedown,move,up = dragging)
 
-      if(part.up==0)
-      {
+      if (part.up == 0) {
         mousestate.dndcandidate = null;
-        if (!mousestate.dndstate)
-        {
-          if(target.el && target.el==mousestate.downel)
-          {
+        if (!mousestate.dndstate) {
+          if (target.el && target.el == mousestate.downel) {
             var clickcount = 1;
-            if(isElementSafeToAccess(mousestate.previousclickel)
-                  && mousestate.previousclickel == mousestate.downel
-                  && (Date.now() - mousestate.previousclicktime) < 100
-                  && (Math.abs(mousestate.previousclickpos.cx - target.cx) <= 2)
-                  && (Math.abs(mousestate.previousclickpos.cy - target.cy) <= 2))
-            {
+            if (isElementSafeToAccess(mousestate.previousclickel)
+              && mousestate.previousclickel == mousestate.downel
+              && (Date.now() - mousestate.previousclicktime) < 100
+              && (Math.abs(mousestate.previousclickpos.cx - target.cx) <= 2)
+              && (Math.abs(mousestate.previousclickpos.cy - target.cy) <= 2)) {
               clickcount = mousestate.previousclickpos.clickcount + 1;
             }
 
@@ -1171,24 +1052,22 @@ function processGestureQueue()
             mousestate.previousclickpos = { cx: target.cx, cy: target.cy, clickcount: clickcount };
 
             //if element leaves dom, it should no longer receive clicks (confirmed at least for chrome in tollium testautosuggest
-            if(dompack.contains(target.el.ownerDocument.body, target.el))
+            if (dompack.contains(target.el.ownerDocument.body, target.el))
               fireMouseEvent("click", target.cx, target.cy, target.el, part.up, null, part);
 
-            if(dompack.contains(target.el.ownerDocument.body, target.el) && clickcount == 2)
+            if (dompack.contains(target.el.ownerDocument.body, target.el) && clickcount == 2)
               fireMouseEvent("dblclick", target.cx, target.cy, target.el, part.up, null, { clickcount: clickcount });
           }
-          else
-          {
+          else {
             console.log("Not generating a 'click' as 'down' target moved away during mouse action, down target:", mousestate.downel, " up target", target.el);
-            if(mousestate.downelrect)
+            if (mousestate.downelrect)
               console.log("Down target BCR", mousestate.downelrect);
-            if(target.el && target.el.getBoundingClientRect)
+            if (target.el && target.el.getBoundingClientRect)
               console.log("Up target BCR", target.el.getBoundingClientRect());
           }
           mousestate.downel = null;
         }
-        else
-        {
+        else {
           handleRunningDrag(part);
           finishCurrentDrag(false, part);
         }
@@ -1201,25 +1080,23 @@ function processGestureQueue()
 
     if (mousestate.gesturequeue[0].onexecuted)
       mousestate.gesturequeue[0].onexecuted();
-    mousestate.gesturequeue.splice(0,1); //pop front gesture
+    mousestate.gesturequeue.splice(0, 1); //pop front gesture
   }
 
   var callbacks = mousestate.waitcallbacks;
-  mousestate.waitcallbacks=[];
+  mousestate.waitcallbacks = [];
   callbacks.forEach(callback => callback());
 }
 
-function getParents(el)
-{
+function getParents(el) {
   var elparents = [];
-  for(;el && el.nodeType==1; el=el.parentNode)
+  for (; el && el.nodeType == 1; el = el.parentNode)
     elparents.unshift(el);
   return elparents;
 }
 
-function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, options)
-{
-  if(!isElementSafeToAccess(el))
+function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, options) {
+  if (!isElementSafeToAccess(el))
     return;
 
   /* eventtype==mouseleave:
@@ -1232,44 +1109,38 @@ function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, optio
   var eventlist = [];
 
   // Skip all parents that are in relatedtarget's parent list
-  elparents.forEach(function(parent)
-  {
-    if(relatedparents.includes(parent) || parent.nodeType!=1)
+  elparents.forEach(function(parent) {
+    if (relatedparents.includes(parent) || parent.nodeType != 1)
       return;
     eventlist.push(parent);
   });
 
-  if(eventtype=="mouseenter")
-  {
-    eventlist=eventlist.reverse();
+  if (eventtype == "mouseenter") {
+    eventlist = eventlist.reverse();
   }
 
-  eventlist.forEach(function(subel)
-  {
+  eventlist.forEach(function(subel) {
     fireMouseEvent(eventtype, cx, cy, subel, button, relatedtarget, options);
   });
 }
 
-export function checkedDispatchEvent(el, event)
-{
+export function checkedDispatchEvent(el, event) {
   var win = (el.ownerDocument ? el.ownerDocument.defaultView : null) || window;
   var saveonerror = win.onerror;
 
   //Save and pass on errors during event
   let eventerror;
-  win.onerror = function(msg, file, line, col, error)
-  {
+  win.onerror = function(msg, file, line, col, error) {
     console.warn("checkedDispatchEvent error", msg, error);
-    if(saveonerror)
+    if (saveonerror)
       saveonerror.apply(win, arguments);
     eventerror = { msg, error };
   };
 
   var result = el.dispatchEvent(event);
-  win.onerror=saveonerror;
+  win.onerror = saveonerror;
 
-  if(eventerror)
-  {
+  if (eventerror) {
     if (eventerror.error)
       throw eventerror.error;
     throw new Error("Error during event handler: " + eventerror.msg);
@@ -1278,9 +1149,8 @@ export function checkedDispatchEvent(el, event)
 }
 
 
-function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options)
-{
-  if(!isElementSafeToAccess(el))
+function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options) {
+  if (!isElementSafeToAccess(el))
     return false;
 
   //https://developer.mozilla.org/en-US/docs/DOM/event.initMouseEvent
@@ -1296,51 +1166,47 @@ function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options)
   var evt = doc.createEvent("MouseEvent");
 
   //find a valid target for mouse events
-  while(el && (el.inert || (el.nodeType == 1 && getComputedStyle(el).pointerEvents == 'none')))
+  while (el && (el.inert || (el.nodeType == 1 && getComputedStyle(el).pointerEvents == 'none')))
     el = el.parentNode;
 
   //console.log(arguments,typeof doc, typeof el, typeOf(doc), typeOf(el));
   //console.trace();
-  evt.initMouseEvent(eventtype, canBubble, true, doc.defaultView, options.clickcount || 1, cx+25, cy+25, cx, cy,
-                     ctrl||false, options.alt||false, options.shift||false, meta||false,
-                     button, relatedtarget||null);
+  evt.initMouseEvent(eventtype, canBubble, true, doc.defaultView, options.clickcount || 1, cx + 25, cy + 25, cx, cy,
+    ctrl || false, options.alt || false, options.shift || false, meta || false,
+    button, relatedtarget || null);
   return checkedDispatchEvent(el, evt);
 }
 
-export function click(element, options?)
-{
+export function click(element, options?) {
   element = _resolveToSingleElement(element);
 
   var x = options && "x" in options ? options.x : "50%";
   var y = options && "y" in options ? options.y : "50%";
   var button = options && "button" in options ? options.button : 0;
 
-  sendMouseGesture([ { el: element, down: button, cmd: options&&options.cmd, shift: options&&options.shift, alt: options&&options.alt, ctrl: options&&options.ctrl, meta: options&&options.meta, x: x, y: y}
-                     , {              up: button, cmd: options&&options.cmd, shift: options&&options.shift, alt: options&&options.alt, ctrl: options&&options.ctrl, meta: options&&options.meta}
-                     ]);
+  sendMouseGesture([{ el: element, down: button, cmd: options && options.cmd, shift: options && options.shift, alt: options && options.alt, ctrl: options && options.ctrl, meta: options && options.meta, x: x, y: y }
+    , { up: button, cmd: options && options.cmd, shift: options && options.shift, alt: options && options.alt, ctrl: options && options.ctrl, meta: options && options.meta }
+  ]);
 }
 
 export function focus(element) //focus could have gone into either pointer.es or keyboard.es ... but we have _resolveToSingleElement
 {
   element = _resolveToSingleElement(element);
-  if(!canClick(element))
-  {
+  if (!canClick(element)) {
     console.error("Cannot focus nonclickable element", element);
     throw new Error("Cannot focus nonclickable element");
   }
-  if(!domfocus.canFocusTo(element))
-  {
+  if (!domfocus.canFocusTo(element)) {
     console.error("Cannot focus element that fails canFocusTo", element);
     throw new Error("Cannot focus unfocusable element");
   }
   element.focus();
 }
 
-export function canClick(element, x, y)
-{
+export function canClick(element, x, y) {
   element = _resolveToSingleElement(element);
 
-  var atpos = getPartPosition({el:element,x:x, y:y});
+  var atpos = getPartPosition({ el: element, x: x, y: y });
 
   // Make sure mouse cursor element is hidden, so it doesn't interfere
   var elhere = element.ownerDocument.elementFromPoint(atpos.x, atpos.y);
@@ -1349,8 +1215,7 @@ export function canClick(element, x, y)
   return dompack.contains(element, elhere);
 }
 
-export function startExternalFileDrag(file)
-{
+export function startExternalFileDrag(file) {
   mousestate.dndstate = new SimulatedDragDataStore(null);
 
   const files = [].concat(file); // convert to array
@@ -1365,8 +1230,7 @@ export function startExternalFileDrag(file)
 /** Returns the current drag data store
     @return(object SimulatedDragDataStore) Drag data storage
 */
-export function getCurrentDragDataStore()
-{
+export function getCurrentDragDataStore() {
   return mousestate.dndstate;
 }
 
@@ -1377,8 +1241,7 @@ export function getCurrentDragDataStore()
     @cell(boolean) options.alt Whether 'alt' key is pressed
     @cell(boolean) options.shift Whether 'shift' key is pressed
 */
-export function cancelDrag(options)
-{
+export function cancelDrag(options) {
   finishCurrentDrag(true, options);
 }
 

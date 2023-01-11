@@ -4,10 +4,8 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 
-export default class CheckboxGroupField
-{
-  constructor(node, options)
-  {
+export default class CheckboxGroupField {
+  constructor(node, options) {
     if (!node)
       return;
     this.node = node;
@@ -22,8 +20,7 @@ export default class CheckboxGroupField
     this._validate(null);
   }
 
-  _validate()
-  {
+  _validate() {
     const min = parseInt(this.node.dataset.whMin, 10) || 0;
     const max = parseInt(this.node.dataset.whMax, 10) || 0;
 
@@ -31,11 +28,10 @@ export default class CheckboxGroupField
     const numChecked = this.nodes.filter(node => node.checked).length;
     let error;
 
-    if(anyenabled)
-    {
-      if(numChecked < min)
+    if (anyenabled) {
+      if (numChecked < min)
         error = getTid("publisher:site.forms.commonerrors.mincheck", min);
-      else if(max > 0 && numChecked > max)
+      else if (max > 0 && numChecked > max)
         error = getTid("publisher:site.forms.commonerrors.maxcheck", max);
     }
 

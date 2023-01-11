@@ -18,13 +18,12 @@ let testframetabname = 'testframe' + Math.random();
 if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
 
-function getTestRoots()
-{
+function getTestRoots() {
   var iframe = document.querySelector("#testframeholder iframe");
-  if(!iframe)
+  if (!iframe)
     throw new Error("No <iframe> in testframeholder");
   var cw = iframe.contentWindow;
-  if(!cw)
+  if (!cw)
     throw new Error("No contentwindow in iframe found");
 
   return { win: cw, doc: cw.document, html: cw.document.documentElement, body: cw.document.body };
@@ -33,20 +32,18 @@ function getTestRoots()
 //Find best location to highlight, skipping internal files
 function findBestStackLocation(stacktrace) {
   let filtered = stacktrace.filter(({ filename }) =>
-      !filename.endsWith("/ap.js") &&
-      !filename.endsWith("/testframework.es") &&
-      !filename.endsWith("/testframework-rte.es") &&
-      !filename.endsWith("/checks.ts") &&
-      !filename.includes("/dompack/testframework/") &&
-      !filename.endsWith("/testsuite.es"));
+    !filename.endsWith("/ap.js") &&
+    !filename.endsWith("/testframework.es") &&
+    !filename.endsWith("/testframework-rte.es") &&
+    !filename.endsWith("/checks.ts") &&
+    !filename.includes("/dompack/testframework/") &&
+    !filename.endsWith("/testsuite.es"));
 
   return filtered[0] || null;
 }
 
-class TestFramework
-{
-  constructor()
-  {
+class TestFramework {
+  constructor() {
     this.currentscript = '';
     this.tests = [];
 
@@ -80,33 +77,30 @@ class TestFramework
 
     this.waitstack = [];
 
-    if(window.__testframework)
+    if (window.__testframework)
       return console.error("Multiple testframeworks registered. Only one instance of a TestFramework may be created");
-    if(window.parent && window.parent.__testframework)
+    if (window.parent && window.parent.__testframework)
       return console.error("Recursive testframework detected");
     window.__testframework = this;
 
     this.stoppromise = dompack.createDeferred();
 
     let params = new URL(location.href).searchParams;
-    if(params.get("waittimeout"))
+    if (params.get("waittimeout"))
       this.waittimeout = parseInt(params.get("waittimeout"));
 
-    window.addEventListener("dompack:busymodal", evt =>
-    {
+    window.addEventListener("dompack:busymodal", evt => {
       let roots = getTestRoots();
       evt.preventDefault();
       //simulate setting --busymodal on the subwindow
-      if(roots.html && dompack.dispatchCustomEvent(roots.win, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: evt.detail }))
+      if (roots.html && dompack.dispatchCustomEvent(roots.win, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: evt.detail }))
         dompack.toggleClass(roots.html, 'dompack--busymodal', evt.detail.islock);
     });
 
     document.getElementById('stoptests').addEventListener('click', function(e) { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); e.target.disabled = "disabled"; }.bind(this));
     qS('#logmoreinfo').addEventListener('click', () => document.documentElement.classList.add('testframework--showfullerror'));
-    qS('#testframetabs').addEventListener(`click`, evt =>
-    {
-      if (evt.target.classList.contains("testframetab"))
-      {
+    qS('#testframetabs').addEventListener(`click`, evt => {
+      if (evt.target.classList.contains("testframetab")) {
         this.currenttestframe = evt.target.dataset.name;
         this.rebuildFrameTabs();
       }
@@ -115,64 +109,54 @@ class TestFramework
     //for debugging, offer access to 'test' and 'testfw' in the main frame
     window.testfw = this;
   }
-  haveDevtoolsUplink()
-  {
+  haveDevtoolsUplink() {
     return !!this.reportid;
   }
-  setStatus(text)
-  {
-    if(dompack.debugflags.testfw)
+  setStatus(text) {
+    if (dompack.debugflags.testfw)
       console.log("[testfw] status: " + text);
     document.getElementById('teststatus').textContent = text;
 
     document.title = this.pagetitle + ": " + text;
   }
-  addTests(tests)
-  {
+  addTests(tests) {
     this.tests = this.tests.concat(tests);
   }
-  runTests()
-  {
+  runTests() {
     document.documentElement.classList.add("testframework--testsstarted");
     return this.runAllTests(0); // with promises
     //this.startNextTest(); // with old implementation
   }
-  skipTest()
-  {
-    this.runAllTests(this.currenttest+1);
+  skipTest() {
+    this.runAllTests(this.currenttest + 1);
   }
-  getFrameRecord(name, { allowmissing } = {})
-  {
+  getFrameRecord(name, { allowmissing } = {}) {
     name = name ?? this.currenttestframe;
     let rec = this.testframes.find(r => r.name == name);
     if (!rec && !allowmissing)
       throw new Error(`No such testframe with name ${JSON.stringify(name)}`);
     return rec;
   }
-  resetPageFrame()
-  {
+  resetPageFrame() {
     const rec = this.getFrameRecord();
     rec.win = null;
     rec.doc = null;
     dompack.empty(rec.holder);
   }
-  rebuildFrameTabs()
-  {
+  rebuildFrameTabs() {
     const tabsnode = document.getElementById("testframetabs");
     dompack.empty(tabsnode);
-    for (const f of this.testframes)
-    {
-      tabsnode.append(<div data-name={f.name} class={[ "testframetab", ...f.name==this.currenttestframe?["testframetab--selected"]:[] ]}>{f.name}</div>);
-      f.holder && f.holder.classList.toggle("testframeholder--selected", f.name==this.currenttestframe);
-      if (f.name==this.currenttestframe)
+    for (const f of this.testframes) {
+      tabsnode.append(<div data-name={f.name} class={["testframetab", ...f.name == this.currenttestframe ? ["testframetab--selected"] : []]}>{f.name}</div>);
+      f.holder && f.holder.classList.toggle("testframeholder--selected", f.name == this.currenttestframe);
+      if (f.name == this.currenttestframe)
         f.holder.setAttribute("id", "testframeholder");
       else
         f.holder.removeAttribute("id");
     }
     tabsnode.style.display = this.testframes.length > 1 ? "block" : "none";
   }
-  resetTest()
-  {
+  resetTest() {
     this.testframes = [];
     dompack.empty(document.getElementById("testframes"));
     this._setFrame("main", "add", { select: true });
@@ -187,47 +171,39 @@ class TestFramework
 
 
   /// Constuct an error with a fixed stack trace
-  constructErrorWithTrace(errormsg)
-  {
-    try
-    {
+  constructErrorWithTrace(errormsg) {
+    try {
       throw new Error(errormsg);
     }
-    catch (e)
-    {
+    catch (e) {
       return e;
     }
   }
 
-  throwWaitError(deferred)
-  {
+  throwWaitError(deferred) {
     deferred.reject(this.waitstack[this.waitstack.length - 1]);
   }
 
-  removeFromWaitStack(e)
-  {
+  removeFromWaitStack(e) {
     let i = this.waitstack.indexOf(e);
     if (i !== -1)
       this.waitstack.splice(i, 1);
   }
 
   /// Rejects the deferred promise with a message on a timeout
-  timedReject(deferred, msg, timeout)
-  {
+  timedReject(deferred, msg, timeout) {
     const err = this.constructErrorWithTrace(msg + ", waited for " + timeout + "ms");
     this.waitstack.push(err);
     setTimeout(() => this.throwWaitError(deferred), timeout);
     deferred.promise.then(() => this.removeFromWaitStack(err), () => this.removeFromWaitStack(err));
   }
 
-  async sendDevtoolsRequest(request)
-  {
+  async sendDevtoolsRequest(request) {
     return await testservice.syncDevToolsRequest(this.reportid, request);
   }
 
   /// Sends a report with the current progress
-  async sendReport(finished)
-  {
+  async sendReport(finished) {
     // ensure the console logs are flushed
     if (finished)
       this._sendSeleniumLogs();
@@ -237,18 +213,18 @@ class TestFramework
 
     var result = { id: this.reportid, tests: [], finished: finished };
     result.tests = this.tests.map(test =>
-        ({ name: test.name
-         , finished: test.finished||false
-         , runsteps: test.runsteps || []
-         , fails: test.fails || []
-         , xfails: test.xfails || []
-         , assetpacks: test.assetpacks || []
-         }));
+    ({
+      name: test.name
+      , finished: test.finished || false
+      , runsteps: test.runsteps || []
+      , fails: test.fails || []
+      , xfails: test.xfails || []
+      , assetpacks: test.assetpacks || []
+    }));
 
     // Wait for running errorreports to resolve locations
     const reportswaitpromise = waitForReports();
-    if (reportswaitpromise)
-    {
+    if (reportswaitpromise) {
       console.log(`Waiting for crash reporting to finish`);
       await reportswaitpromise;
       console.log(`Crash reporting has finished, submitting report`);
@@ -257,23 +233,20 @@ class TestFramework
       console.log(`Submitting ${finished ? "final" : "partial"} report`);
 
     await testservice.submitReport(this.reportid, result);
-    if (finished && window.location.href.match(/autotests=close/))
-    {
+    if (finished && window.location.href.match(/autotests=close/)) {
       // Close the current window (from http://productforums.google.com/forum/#!topic/chrome/GjsCrvPYGlA)
       window.open('', '_self', '');
       window.close();
     }
-    if(dompack.debugflags.testfw)
-    {
+    if (dompack.debugflags.testfw) {
       console.log('[testfw] REPORT', result);
     }
   }
 
   /** Schedules running of all tests
   */
-  async runAllTests(startposition)
-  {
-    this.currenttest = startposition-1;
+  async runAllTests(startposition) {
+    this.currenttest = startposition - 1;
     this.stop = false;
     this.stoppromise = dompack.createDeferred();
     document.getElementById('stoptests').disabled = false;
@@ -282,31 +255,26 @@ class TestFramework
     // Send progress every 10 seconds
     let interval = setInterval(() => this.sendReport(false), 10000);
 
-    try
-    {
+    try {
       // Sequentially run all tests
-      for(let idx = startposition; idx < this.tests.length; ++idx)
+      for (let idx = startposition; idx < this.tests.length; ++idx)
         await this.runTest(idx);
 
       await this.cleanupAfterAllTests();
     }
-    catch(e)
-    {
-      if (!e.testsuite_reported)
-      {
+    catch (e) {
+      if (!e.testsuite_reported) {
         console.error('Running tests failed: ', e);
         reportException(e);
       }
     }
-    finally
-    {
+    finally {
       // Stop periodic reporting
       clearInterval(interval);
     }
   }
 
-  cleanupAfterAllTests()
-  {
+  cleanupAfterAllTests() {
     if (this.stop)
       return;
 
@@ -318,8 +286,7 @@ class TestFramework
   }
 
   /// Run a specific test
-  async runTest(testnr)
-  {
+  async runTest(testnr) {
     if (this.stop)
       return;
 
@@ -353,15 +320,14 @@ class TestFramework
 
     // If we're in report mode, swallow any errors from loading the iframe / test registration
     if (this.reportid)
-      result = result.catch(function(e){ console.error('Swallowed exception', e); });
+      result = result.catch(function(e) { console.error('Swallowed exception', e); });
 
     return result;
   }
 
   /** Loads the iframe with the test source
   */
-  loadTestIframe()
-  {
+  loadTestIframe() {
     var deferred = dompack.createDeferred();
 
     var test = this.tests[this.currenttest];
@@ -388,35 +354,32 @@ class TestFramework
 
   /** Iframe with tests is loaded, calculate and store its doc & win
   */
-  processTestIframe()
-  {
+  processTestIframe() {
     this.scriptframedoc = this.scriptframe.contentDocument;
     this.scriptframewin = this.scriptframe.contentWindow;
 
-    if(!this.scriptframedoc || !this.scriptframewin)
+    if (!this.scriptframedoc || !this.scriptframewin)
       throw new Error("Unable to retrieve scriptframe window/document");
 
     this._recordAssetpacks(this.scriptframewin);
   }
 
   /// Waits for the test iframe js code to register its tests.
-  waitForTestSetup()
-  {
+  waitForTestSetup() {
     // 1 minute should be enough. If the setup is earlier, their resolve will win (called from runTestSteps)
     this.timedReject(this.wait4setuptests, "Timeout waiting for test setup", 60000);
     return this.wait4setuptests.promise;
   }
 
   /// Runs all the test steps
-  async runAllTestSteps()
-  {
+  async runAllTestSteps() {
     var test = this.tests[this.currenttest];
 
     if (this.stop)
       return;
 
     // Schedule all steps sequentially
-    for(let idx = 0; idx < this.currentsteps.length; ++idx)
+    for (let idx = 0; idx < this.currentsteps.length; ++idx)
       await this.runTestStep(this.currentsteps[idx], idx);
 
     // Schedule a state update after all tests are done
@@ -425,13 +388,12 @@ class TestFramework
 
     // Set this.currentstep to one past the last step - triggers 'done' texts in uodateTestState. Looks nice.
     this.currentstep = this.currentsteps.length;
-    this.setStatus(test.name + " " + this.currentsteps.length  + "/" + this.currentsteps.length);
+    this.setStatus(test.name + " " + this.currentsteps.length + "/" + this.currentsteps.length);
     this.updateTestState();
   }
 
   /// Run a single test step
-  runTestStep(step, idx)
-  {
+  runTestStep(step, idx) {
     this.currentstep = idx;
     this.lastbusycount = dombusy.getUIBusyCounter();
 
@@ -458,16 +420,15 @@ class TestFramework
     var deferred_onerror = dompack.createDeferred();
 
     // window.onerror handler (installed when window is loaded)
-    var onerrorhandler = function(errormsg, url, linenumber, col, e)
-      {
-        this.handleWindowOnError(deferred_onerror, errormsg, url, linenumber, col, e);
-      }.bind(this);
+    var onerrorhandler = function(errormsg, url, linenumber, col, e) {
+      this.handleWindowOnError(deferred_onerror, errormsg, url, linenumber, col, e);
+    }.bind(this);
     this.steponerrorhandler = onerrorhandler;
 
     if (this.scriptframewin.Error && this.scriptframewin.Error.stackTraceLimit)
       this.scriptframewin.Error.stackTraceLimit = 50;
 
-    if(! (dompack.debugflags.ner))
+    if (!(dompack.debugflags.ner))
       this.scriptframewin.onerror = onerrorhandler;
 
     // Signals to detect if a page load happens (all properties are promises)
@@ -478,38 +439,33 @@ class TestFramework
       result = result.then(this.doLoadPage.bind(this, step, onerrorhandler));
 
     // Initialize the signals and onerror - AFTER loading the page.
-    result = result.then(function()
-      {
-        // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
-        this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: onerrorhandler }); // no timeout
+    result = result.then(function() {
+      // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
+      this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: onerrorhandler }); // no timeout
 
-        // Install an onerror handlers if not present yet
-        for (let f of this.testframes)
-        {
-          try
-          {
-            if (f.win && !f.in_setonerror)
-            {
-              if (f.win.Error && f.win.Error.stackTraceLimit)
-                f.win.Error.stackTraceLimit = 50;
-              if(! (dompack.debugflags.ner))
-                f.win.onerror = onerrorhandler;
-              f.win_setonerror = true;
-            }
-          }
-          catch (e)
-          {
-            console.warn(`Could not set onerror handler in frame ${JSON.stringify(f.name)} due to the following exception: `, e);
+      // Install an onerror handlers if not present yet
+      for (let f of this.testframes) {
+        try {
+          if (f.win && !f.in_setonerror) {
+            if (f.win.Error && f.win.Error.stackTraceLimit)
+              f.win.Error.stackTraceLimit = 50;
+            if (!(dompack.debugflags.ner))
+              f.win.onerror = onerrorhandler;
+            f.win_setonerror = true;
           }
         }
-      }.bind(this));
+        catch (e) {
+          console.warn(`Could not set onerror handler in frame ${JSON.stringify(f.name)} due to the following exception: `, e);
+        }
+      }
+    }.bind(this));
 
-    if(! (dompack.debugflags.ner))
+    if (!(dompack.debugflags.ner))
       this.scriptframewin.onerror = onerrorhandler;
 
     // Test or wait? Execute it after the loadpage
     if (step.test || step.wait)
-      result = result.then( () => this.executeStepTestFunction(step, idx));
+      result = result.then(() => this.executeStepTestFunction(step, idx));
     else if (step.email)
       result = result.then(this.executeStepEmail.bind(this, step, idx));
 
@@ -518,52 +474,46 @@ class TestFramework
       step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.getFrameRecord().currentsignals)); }.bind(this));
 
     // After the waits have all executed, see if a page load happened we did'nt expect
-    result = result.then(() =>
-      {
-        // A 'pageload' wait clears signals.pageload. If not cleared, error out when the load happens
-        for (const f of this.testframes)
-          if (f.currentsignals.pageload)
-          {
-            var err = new Error(`Page load happened in frame ${f.name} but was not expected`);
-            var errorfunc = function() { throw err; };
-            // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
-            // it should win the race, ignoring the second Promise.resolve().
-            return Promise.race([ f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve() ]);
-          }
-      });
+    result = result.then(() => {
+      // A 'pageload' wait clears signals.pageload. If not cleared, error out when the load happens
+      for (const f of this.testframes)
+        if (f.currentsignals.pageload) {
+          var err = new Error(`Page load happened in frame ${f.name} but was not expected`);
+          var errorfunc = function() { throw err; };
+          // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
+          // it should win the race, ignoring the second Promise.resolve().
+          return Promise.race([f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve()]);
+        }
+    });
 
     // Mix in errors from onerror handlers
-    result = Promise.race([ deferred_onerror.promise, result ]);
+    result = Promise.race([deferred_onerror.promise, result]);
 
     // If marked as xfail, give an error when no exception, and swallow exceptions (but note them & update state)
-    if (step.xfail)
-    {
+    if (step.xfail) {
       result = result.then(
         function() { throw new Error("Step " + idx + " should have failed, but didn't (is marked as xfail)"); },
-        function()
-          {
-            // Note & swallow the execution
-            test.xfails = test.xfails || [];
-            test.xfails.push({ stepname: step.name||'', stepnr:idx, text: step.xfail, e:'Failed as expected'});
-            this.updateTestState();
-          }.bind(this));
+        function() {
+          // Note & swallow the execution
+          test.xfails = test.xfails || [];
+          test.xfails.push({ stepname: step.name || '', stepnr: idx, text: step.xfail, e: 'Failed as expected' });
+          this.updateTestState();
+        }.bind(this));
     }
 
     // Remove the onerror handler
-    result = result.finally(function()
-      {
-//        for (const f of this.testframes)
-//          f.currentsignals = null;
-        test.runsteps = test.runsteps || [];
-        test.runsteps.push({ stepname: step.name||'', stepnr:idx });
+    result = result.finally(function() {
+      //        for (const f of this.testframes)
+      //          f.currentsignals = null;
+      test.runsteps = test.runsteps || [];
+      test.runsteps.push({ stepname: step.name || '', stepnr: idx });
 
-        for (let f of this.testframes)
-          if (f.win && f.win_setonerror)
-          {
-            f.win.onerror = null;
-            f.win_setonerror = false;
-          }
-      }.bind(this));
+      for (let f of this.testframes)
+        if (f.win && f.win_setonerror) {
+          f.win.onerror = null;
+          f.win_setonerror = false;
+        }
+    }.bind(this));
 
     // Handle success / exceptions of the test
     result = result.then(
@@ -573,9 +523,8 @@ class TestFramework
     return result;
   }
 
-  handleWindowOnError(deferred, errormsg, url, linenumber, col, e)
-  {
-  // Test if we should ignore this callback
+  handleWindowOnError(deferred, errormsg, url, linenumber, col, e) {
+    // Test if we should ignore this callback
     if (shouldIgnoreOnErrorCallback(errormsg))
       return;
 
@@ -586,8 +535,7 @@ class TestFramework
     }
 
     var msg = "Uncaught exception: " + errormsg;
-    if (url)
-    {
+    if (url) {
       if (browser.getName() == "chrome")
         msg += "\nat unknown (" + url + ":" + (linenumber || 1) + ":" || (col || 1) + ")";
       else
@@ -597,8 +545,7 @@ class TestFramework
   }
 
   /// Handles a succesfully completed step
-  handleTestStepSuccess(test, step)
-  {
+  handleTestStepSuccess(test, step) {
     // Success: remove all log nodes, not interesting
     for (var i = 0; i < this.lastlognodes.length; ++i)
       if (this.lastlognodes[i].parentNode)
@@ -607,11 +554,10 @@ class TestFramework
   }
 
   /// Handles a test step that errored out
-  async handleTestStepException(test, step, e)
-  {
-    let fullname = step.name ? step.name + (step.subname ? "#" + step.subname: "") : "";
+  async handleTestStepException(test, step, e) {
+    let fullname = step.name ? step.name + (step.subname ? "#" + step.subname : "") : "";
     // Got a test exception. Log it everywhere
-    var prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname+' (#'+this.currentstep+')' : '#'+this.currentstep);
+    var prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname + ' (#' + this.currentstep + ')' : '#' + this.currentstep);
     var text = prefix + ' failed';
 
     console.warn(text);
@@ -623,7 +569,7 @@ class TestFramework
     let lognode = this.log("Location: computing...");
 
     test.fails = (test.fails || []);
-    let failrecord = { stepname:fullname, stepnr:this.currentstep, text:text, e:''+(e||''), stack:(e&&e.stack)||"", lognode };
+    let failrecord = { stepname: fullname, stepnr: this.currentstep, text: text, e: '' + (e || ''), stack: (e && e.stack) || "", lognode };
     test.fails.push(failrecord);
     this.updateTestState();
     this.lastlognodes = [];
@@ -631,28 +577,29 @@ class TestFramework
     e.testsuite_reported = true;
     // force the resolve, so we can use the stack trace for location resolving
     let res = reportException(e,
-                        { extradata:
-                            { __wh_jstestinfo:
-                                  { reportid:     this.reportid
-                                  , testname:     test.name
-                                  , testlisturl:  this.testlisturl || ""
-                                  }
-                            }
-                        , serviceuri:      "/wh_services/system/jstests"
-                        , servicefunction: 'ReportJSError'
-                        , forceresolve: true
-                        });
+      {
+        extradata:
+        {
+          __wh_jstestinfo:
+          {
+            reportid: this.reportid
+            , testname: test.name
+            , testlisturl: this.testlisturl || ""
+          }
+        }
+        , serviceuri: "/wh_services/system/jstests"
+        , servicefunction: 'ReportJSError'
+        , forceresolve: true
+      });
 
     document.getElementById('skiptest').removeAttribute('disabled');
 
-    res.then(({ stacktrace }) =>
-    {
+    res.then(({ stacktrace }) => {
       console.log("Got stack trace:", stacktrace);
 
       let fullerrornode = qS('#fullerror');
       dompack.empty(fullerrornode);
-      stacktrace.forEach(el =>
-      {
+      stacktrace.forEach(el => {
         dompack.append(fullerrornode, `${el.filename}:${el.line}:${el.col}`, dompack.create('br'));
       });
       document.documentElement.classList.add('testframework--havefullerror');
@@ -664,18 +611,17 @@ class TestFramework
       }
     });
 
-    if(this.currentwaitstack)
-    {
+    if (this.currentwaitstack) {
       let stackframes = await StackTrace.fromError(this.currentwaitstack, { sourceCache });
       stackframes = stackframes.map(frame => (
-          { line:       frame.lineNumber
-          , func:       frame.functionName
-          , filename:   frame.fileName
-          , col:        frame.columnNumber
-          }));
+        {
+          line: frame.lineNumber
+          , func: frame.functionName
+          , filename: frame.fileName
+          , col: frame.columnNumber
+        }));
 
-      stackframes.forEach(el =>
-      {
+      stackframes.forEach(el => {
         console.log(`${el.filename}:${el.line}:${el.col}`);
       });
 
@@ -685,18 +631,16 @@ class TestFramework
     }
 
     // Swallow exception if in reportid mode unless running just one test (ADDME: abort the current test and move to the next test in reportid mode, but never run further steps)
-    if (!this.reportid || step._rethrow || this.tests.length==1)
+    if (!this.reportid || step._rethrow || this.tests.length == 1)
       throw e;
   }
 
   /// Execute a load page command
-  doLoadPage(step, onerrorhandler)
-  {
+  doLoadPage(step, onerrorhandler) {
     var loadpage;
-    if(typeof step.loadpage == 'string')
+    if (typeof step.loadpage == 'string')
       loadpage = step.loadpage;
-    else if(typeof step.loadpage == 'function')
-    {
+    else if (typeof step.loadpage == 'function') {
       const framerec = this.getFrameRecord();
       loadpage = step.loadpage(framerec.doc, framerec.win);
     }
@@ -717,8 +661,7 @@ class TestFramework
     document.getElementById('currentwait').textContent = "Wait: pageload";
     document.getElementById('currentwait').style.display = "inline-block";
 
-    return this.waitForPageFrameLoad(framerec, { onerrorhandler: onerrorhandler }).finally(function()
-    {
+    return this.waitForPageFrameLoad(framerec, { onerrorhandler: onerrorhandler }).finally(function() {
       document.getElementById('currentwait').style.display = "none";
     });
   }
@@ -727,82 +670,71 @@ class TestFramework
       @param options
       @cell(boolean) options.timeout Timeout override
   */
-  waitForPageFrameLoad(framerec, options)
-  {
+  waitForPageFrameLoad(framerec, options) {
     //var iframe = this.getFrameRecord().iframe;
     var deferred = dompack.createDeferred();
     if (!framerec.iframe)
       return deferred.promise;
 
     if (!options || !options.timeout || options.timeout >= 0)
-      this.timedReject(deferred, "Timeout waiting for test frame to load", (options||{}).timeout || this.loadtimeout);
+      this.timedReject(deferred, "Timeout waiting for test frame to load", (options || {}).timeout || this.loadtimeout);
 
     // Split setting events from event creation
     framerec.iframe.addEventListener("load", deferred.resolve);
     framerec.iframe.addEventListener("error", deferred.reject);
 
     // Remove both load/error events when receiving one of them
-    deferred.promise.finally(() =>
-      {
-        framerec.iframe.removeEventListener("load", deferred.resolve);
-        framerec.iframe.removeEventListener("error", deferred.reject);
-      });
+    deferred.promise.finally(() => {
+      framerec.iframe.removeEventListener("load", deferred.resolve);
+      framerec.iframe.removeEventListener("error", deferred.reject);
+    });
 
     // When the iframe has loaded, process it to get the doc & window. Just error out when loading failed.
     return deferred.promise.then(this.processLoadedTestFrame.bind(this, framerec, options));
   }
 
-  canAccessTestframe()
-  {
-    try
-    {
+  canAccessTestframe() {
+    try {
       const framerec = this.getFrameRecord();
       framerec.win.document;
       return true;
     }
-    catch(ignore)
-    {
+    catch (ignore) {
       return false;
     }
   }
 
   /// Get & store the win.doc from the pageframe
-  processLoadedTestFrame(framerec, options)
-  {
+  processLoadedTestFrame(framerec, options) {
     framerec.doc = framerec.iframe.contentDocument;
     framerec.win = framerec.iframe.contentWindow;
     if (dompack.debugflags.testfw)
       console.log('[testfw] loaded page: ' + framerec.win.location.href);
 
-    if(!this.canAccessTestframe())
+    if (!this.canAccessTestframe())
       return;
 
     this._recordAssetpacks(framerec.win);
 
-    if (options && options.onerrorhandler && !framerec.win.onerror)
-    {
-      if(! (dompack.debugflags.ner))
+    if (options && options.onerrorhandler && !framerec.win.onerror) {
+      if (!(dompack.debugflags.ner))
         framerec.win.onerror = options.onerrorhandler;
       framerec.win_setonerror = true;
     }
 
     var focusable = domfocus.getFocusableComponents(framerec.doc.documentElement);
-    for (var i=0;i<focusable.length;++i)
-    {
-      if(focusable[i].autofocus)
-      {
+    for (var i = 0; i < focusable.length; ++i) {
+      if (focusable[i].autofocus) {
         focusable[i].focus();
         break;
       }
     }
-    try
-    {
+    try {
       var doctitle = framerec.doc.title;
-      if(doctitle == '404 Not found')
+      if (doctitle == '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
     }
-    catch(e)
-    {
+    catch (e) {
       throw new Error("Exception accessing child frame, assuming security error" + e);
     }
 
@@ -810,105 +742,97 @@ class TestFramework
       framerec.win.Promise.__disabletrycatch = Promise.__disabletrycatch;
   }
 
-  _setSubName(step, name)
-  {
-    if(dompack.debugflags.testfw)
+  _setSubName(step, name) {
+    if (dompack.debugflags.testfw)
       console.log('[testfw] -- setsubname ', name);
-    step.subtest = (step.subtest||0)+1;
+    step.subtest = (step.subtest || 0) + 1;
     step.subname = name;
   }
 
-  _checkClientAsyncFunc()
-  {
-    if (this.activeasyncerr)
-    {
+  _checkClientAsyncFunc() {
+    if (this.activeasyncerr) {
       let e = this.activeasyncerr;
       this.activeasyncerr = null;
       throw e;
     }
   }
 
-  _checkClientAsync(promise)
-  {
+  _checkClientAsync(promise) {
     this._checkClientAsyncFunc();
     this.activeasyncerr = new Error("This async function was not used with await!");
     return promise.finally(() => this.activeasyncerr = null);
   }
 
-  async _setFrame(name, action, { width } = {})
-  {
+  async _setFrame(name, action, { width } = {}) {
     let rec = this.getFrameRecord(name, { allowmissing: true });
-    switch (action)
-    {
+    switch (action) {
       case "add":
-      {
-        if (rec)
-          throw new Error(`A frame with the name ${JSON.stringify(name)} already exists`);
-        let holder = <div class="testframeholder" data-name={name}></div>;
-        holder.dataset.width = width || "";
-        const currentsignals = {};
-        this.testframes.push({ name, holder, currentsignals });
-        document.getElementById("testframes").append(holder);
-        this.currenttestframe = name;
-        this.rebuildFrameTabs();
-        await this.doLoadPage({ loadpage: "about:blank" }, null);
-        currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
-      } break;
-      case "update":
-      {
-        if (!rec)
-          throw new Error(`No frame with the name ${JSON.stringify(name)} exists`);
-        if (width !== undefined)
         {
-          rec.holder.dataset.width = width || "";
-          rec.iframe && (rec.iframe.style.width = width ? `${width}px` : `auto`);
-        }
-      } break;
+          if (rec)
+            throw new Error(`A frame with the name ${JSON.stringify(name)} already exists`);
+          let holder = <div class="testframeholder" data-name={name}></div>;
+          holder.dataset.width = width || "";
+          const currentsignals = {};
+          this.testframes.push({ name, holder, currentsignals });
+          document.getElementById("testframes").append(holder);
+          this.currenttestframe = name;
+          this.rebuildFrameTabs();
+          await this.doLoadPage({ loadpage: "about:blank" }, null);
+          currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+        } break;
+      case "update":
+        {
+          if (!rec)
+            throw new Error(`No frame with the name ${JSON.stringify(name)} exists`);
+          if (width !== undefined) {
+            rec.holder.dataset.width = width || "";
+            rec.iframe && (rec.iframe.style.width = width ? `${width}px` : `auto`);
+          }
+        } break;
       case "delete":
-      {
-        if (name == "main")
-          throw new Error(`Cannot delete main test iframe`);
-        rec.holder.remove();
-        this.testframes = this.testframes.filter(f => f.name != name);
-        if (this.currenttestframe == name)
-          this.currenttestframe = this.testframes[0].name;
-      } break;
+        {
+          if (name == "main")
+            throw new Error(`Cannot delete main test iframe`);
+          rec.holder.remove();
+          this.testframes = this.testframes.filter(f => f.name != name);
+          if (this.currenttestframe == name)
+            this.currenttestframe = this.testframes[0].name;
+        } break;
       case "select":
-      {
-        this.currenttestframe = name;
-      } break;
+        {
+          this.currenttestframe = name;
+        } break;
       default:
-      {
-        throw new Error(`Unknown frame action ${action}`);
-      }
+        {
+          throw new Error(`Unknown frame action ${action}`);
+        }
     }
 
     this.rebuildFrameTabs();
   }
 
-  setCallbacks(step)
-  {
+  setCallbacks(step) {
     if (!this.setcallbacksfunc)
       return;
     if (step)
       this.setcallbacksfunc(
-          { executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.getFrameRecord().currentsignals))
+        {
+          executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.getFrameRecord().currentsignals))
           , subtest: name => this._setSubName(step, name)
           , setFrame: (name, type, options) => this._checkClientAsync(this._setFrame(name, type, options))
         });
-    else
-    {
+    else {
       this._checkClientAsyncFunc();
       this.setcallbacksfunc(
-          { executeWait: () => { throw new Error("calling test.wait outside test function"); }
+        {
+          executeWait: () => { throw new Error("calling test.wait outside test function"); }
           , subtest: () => { throw new Error("calling test.subtest outside test function"); }
-          });
+        });
     }
   }
 
   /// Executes the step.test or test.wait functions
-  executeStepTestFunction(step)
-  {
+  executeStepTestFunction(step) {
     var deferred = dompack.createDeferred();
 
     var func = step.test || step.wait;
@@ -926,16 +850,14 @@ class TestFramework
     returnvalue = func(framerec.doc, framerec.win, callback);
 
     //this.uiwasbusy = this.pageframewin && this.pageframewin.$wh && this.pageframewin.$wh.busycount > 0;
-    if (step.wait || (returnvalue && returnvalue.then))
-    {
+    if (step.wait || (returnvalue && returnvalue.then)) {
       var text = "Wait: " + (step.wait ? "callback" : "test promise");
       document.getElementById('currentwait').textContent = text;
       document.getElementById('currentwait').style.display = "inline-block";
       deferred.promise = deferred.promise.finally(function() { document.getElementById('currentwait').style.display = "none"; });
     }
 
-    if (step.test)
-    {
+    if (step.test) {
       // Resolve deferred with the returnvalue of the test function. If a promise was returned, deferred will be fulfulled
       // with the result of the promise
       Promise.resolve(returnvalue)
@@ -954,30 +876,24 @@ class TestFramework
   }
 
   /// Calls a wait functions, if it fails, request a re-test on the next animation frame
-  repeatedFunctionTestIterate(func, deferred)
-  {
+  repeatedFunctionTestIterate(func, deferred) {
     this.animationframerequest = 0;
-    try
-    {
+    try {
       let result = func();
-      if (!result)
-      {
+      if (!result) {
         this.animationframerequest = requestAnimationFrame(() => this.repeatedFunctionTestIterate(func, deferred));
       }
-      else
-      {
+      else {
         deferred.resolve(result);
       }
     }
-    catch (e)
-    {
+    catch (e) {
       // func() threw. Not nice, report back.
       deferred.reject(e);
     }
   }
 
-  repeatedFunctionTest(step, func)
-  {
+  repeatedFunctionTest(step, func) {
     var deferred = dompack.createDeferred();
 
     // When the test is cancelled, resolve the wait promise immediately
@@ -987,12 +903,11 @@ class TestFramework
     this.timedReject(deferred, "Timeout when waiting for function", step.timeout || this.waittimeout);
 
     // If the timeout triggers, cancel the animationframerequest
-    deferred.promise.catch(function()
-      {
-        if (this.animationframerequest)
-          cancelAnimationFrame(this.animationframerequest);
-        this.animationframerequest = 0;
-      }.bind(this));
+    deferred.promise.catch(function() {
+      if (this.animationframerequest)
+        cancelAnimationFrame(this.animationframerequest);
+      this.animationframerequest = 0;
+    }.bind(this));
 
     // Start the first iteration
     this.repeatedFunctionTestIterate(func, deferred);
@@ -1004,9 +919,8 @@ class TestFramework
       @param signals
       @cell signals.pageload Promise fulfilled or rejected when page loads
   */
-  async executeWait(step, item, signals)
-  {
-    if(Array.isArray(item))
+  async executeWait(step, item, signals) {
+    if (Array.isArray(item))
       throw new Error(`executeWait incorrectly invoked with array`);
     var text = "Wait: " + (typeof item == "function" ? "function" : item);
     this.currentwaitstack = new Error;
@@ -1017,8 +931,7 @@ class TestFramework
       console.log("[bus] Start wait for '" + item + "'");
 
     // Type == function: execute function on every animation frame until it succeeds
-    if (typeof item == "function")
-    {
+    if (typeof item == "function") {
       // function in waits has signature func(doc, win)
       const framerec = this.getFrameRecord();
       let promise = this.repeatedFunctionTest(step, item.bind(null, framerec.doc, framerec.win));
@@ -1034,149 +947,138 @@ class TestFramework
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
-    if(item == "events" || item == "tick")
-    {
+    if (item == "events" || item == "tick") {
       console.warn(`Waiting for '${item}' just waits for 1 millisecond and does nothing magic, so just replace it with await wait(1)`);
       item = 1;
     }
 
     // Number: just wait for so many milliseconds
-    if (typeof item == "number")
-    {
+    if (typeof item == "number") {
       setTimeout(deferred.resolve, item);
       deferred.promise.then(() => this.currentwaitstack = null);
       return deferred.promise.finally(this.executeWaitFinish.bind(this));
     }
 
-    switch (item)
-    {
+    switch (item) {
       case "ui":
       case "ui-nocheck":
-      {
-        if (item == 'ui' && this.lastbusycount == dombusy.getUIBusyCounter())
-          throw new Error("'ui' wait requested but it was never busy since the test started, busycount = " + dombusy.getUIBusyCounter());
+        {
+          if (item == 'ui' && this.lastbusycount == dombusy.getUIBusyCounter())
+            throw new Error("'ui' wait requested but it was never busy since the test started, busycount = " + dombusy.getUIBusyCounter());
 
-        dombusy.waitUIFree().then(deferred.resolve);
-        deferred.promise.then(() => this.currentwaitstack = null);
-        this.timedReject(deferred, "Timeout when waiting for UI", step.timeout || this.waittimeout);
-      } break;
+          dombusy.waitUIFree().then(deferred.resolve);
+          deferred.promise.then(() => this.currentwaitstack = null);
+          this.timedReject(deferred, "Timeout when waiting for UI", step.timeout || this.waittimeout);
+        } break;
 
       case "pointer":
-      {
-        if (!this.scriptframewin.waitForGestures)
-          throw Error("waitforgestures specified, but no waitForGestures found in scriptframe");
+        {
+          if (!this.scriptframewin.waitForGestures)
+            throw Error("waitforgestures specified, but no waitForGestures found in scriptframe");
 
-        this.scriptframewin.waitForGestures(deferred.resolve);
-        deferred.promise.then(() => this.currentwaitstack = null);
-        this.timedReject(deferred, "Timeout when waiting for gestures to finish", step.timeout || this.waittimeout);
-      } break;
+          this.scriptframewin.waitForGestures(deferred.resolve);
+          deferred.promise.then(() => this.currentwaitstack = null);
+          this.timedReject(deferred, "Timeout when waiting for gestures to finish", step.timeout || this.waittimeout);
+        } break;
       case "uploadprogress":
-      {
-        const framerec = this.getFrameRecord();
-        if (!framerec.win.__todd)
-          throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
+        {
+          const framerec = this.getFrameRecord();
+          if (!framerec.win.__todd)
+            throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
-        console.log('start wait for upload');
-        framerec.win.__todd.waitForUploadProgress(deferred.resolve);
-        deferred.promise.then(function() { console.log('upload done'); });
-        deferred.promise.then(() => this.currentwaitstack = null);
+          console.log('start wait for upload');
+          framerec.win.__todd.waitForUploadProgress(deferred.resolve);
+          deferred.promise.then(function() { console.log('upload done'); });
+          deferred.promise.then(() => this.currentwaitstack = null);
 
-        this.timedReject(deferred, "Timeout when waiting for upload progress", step.timeout || this.waittimeout);
-      } break;
+          this.timedReject(deferred, "Timeout when waiting for upload progress", step.timeout || this.waittimeout);
+        } break;
 
       case "animationframe":
-      {
-        const framerec = this.getFrameRecord();
-        if (!framerec.win.requestAnimationFrame)
-          throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-        framerec.win.requestAnimationFrame(deferred.resolve);
-        deferred.promise.then(() => this.currentwaitstack = null);
-        this.timedReject(deferred, "Timeout when waiting for animation frame", step.timeout || this.waittimeout);
-      } break;
+        {
+          const framerec = this.getFrameRecord();
+          if (!framerec.win.requestAnimationFrame)
+            throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
+          framerec.win.requestAnimationFrame(deferred.resolve);
+          deferred.promise.then(() => this.currentwaitstack = null);
+          this.timedReject(deferred, "Timeout when waiting for animation frame", step.timeout || this.waittimeout);
+        } break;
 
       case "load":
       case "pageload":
-      {
-        if (!signals.pageload)
-          throw new Error("Pageload promise was already used in earlier wait");
-
-        this.timedReject(deferred, "Timeout when waiting for pageload", step.timeout || this.waittimeout);
-
-        const framerec = this.getFrameRecord();
-        let promise = signals.pageload;
-        signals.pageload = null;
-        try
         {
-          let result = await Promise.race([ promise, deferred.promise ]);
-          this.currentwaitstack = null;
-          return result;
+          if (!signals.pageload)
+            throw new Error("Pageload promise was already used in earlier wait");
+
+          this.timedReject(deferred, "Timeout when waiting for pageload", step.timeout || this.waittimeout);
+
+          const framerec = this.getFrameRecord();
+          let promise = signals.pageload;
+          signals.pageload = null;
+          try {
+            let result = await Promise.race([promise, deferred.promise]);
+            this.currentwaitstack = null;
+            return result;
+          }
+          finally {
+            signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+            this.executeWaitFinish();
+          }
         }
-        finally
-        {
-          signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
-          this.executeWaitFinish();
-        }
-      }
       case "scroll":
-      {
-        let win = this.getFrameRecord().win;
-        var scrollwaiter = function()
         {
-          //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
-          setTimeout(deferred.resolve, 0);
-          this.currentwaitstack = null;
-          win.removeEventListener("scroll", scrollwaiter);
-        }.bind(this);
-        win.addEventListener("scroll", scrollwaiter);
-        this.timedReject(deferred, "Timeout when waiting for scroll event", step.timeout || this.waittimeout);
-      } break;
+          let win = this.getFrameRecord().win;
+          var scrollwaiter = function() {
+            //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
+            setTimeout(deferred.resolve, 0);
+            this.currentwaitstack = null;
+            win.removeEventListener("scroll", scrollwaiter);
+          }.bind(this);
+          win.addEventListener("scroll", scrollwaiter);
+          this.timedReject(deferred, "Timeout when waiting for scroll event", step.timeout || this.waittimeout);
+        } break;
 
       default:
-      {
-        throw new Error("Unimplemented wait type '" + item + "'");
-      }
+        {
+          throw new Error("Unimplemented wait type '" + item + "'");
+        }
     }
 
     return deferred.promise.finally(this.executeWaitFinish.bind(this));
   }
 
-  executeWaitFinish()
-  {
+  executeWaitFinish() {
     document.getElementById('currentwait').style.display = "none";
   }
 
   /// Translate the .waitxxx values in a test step to step.waits
-  translateWaits(step)
-  {
+  translateWaits(step) {
     let waits = step.waits || [];
 
     var translations =
-      { waitforgestures:        'pointer'
-      , waitforuploadprogress:  'uploadprogress'
-      , waitwhtransitions:      'ui'
-      , waitforanimationframe:  'animationframe'
-      };
-
-    Object.entries(translations, function([ name, value ])
-      {
-        if (step[name])
-        {
-          console.error(name + " is deprecated, use waits:[\""+value+"\"]");
-          waits.push(value);
-          delete step[name];
-        }
-      });
-
-    if (step.expectload)
     {
+      waitforgestures: 'pointer'
+      , waitforuploadprogress: 'uploadprogress'
+      , waitwhtransitions: 'ui'
+      , waitforanimationframe: 'animationframe'
+    };
+
+    Object.entries(translations, function([name, value]) {
+      if (step[name]) {
+        console.error(name + " is deprecated, use waits:[\"" + value + "\"]");
+        waits.push(value);
+        delete step[name];
+      }
+    });
+
+    if (step.expectload) {
       console.error('expectload is deprecated, use a normal test() and waits: ["pageload"]', step);
       step.test = step.expectload;
       delete step.expectload;
       waits.unshift('pageload');
     }
 
-    if (step.waituntil)
-    {
+    if (step.waituntil) {
       console.error('waituntil is deprecated, use waits: [function(doc, win) { ... } ]', step);
       waits.unshift(step.waituntil);
       delete step.waituntil;
@@ -1187,83 +1089,70 @@ class TestFramework
   }
 
   // Batch log entries every 100ms
-  _scheduleSeleniumLog(method, args)
-  {
+  _scheduleSeleniumLog(method, args) {
     this.scheduledlogs.push({ method, args, time: Date.now() });
     if (!this.scheduledlogscb)
       this.scheduledlogscb = setTimeout(() => this._sendSeleniumLogs(), 100);
   }
 
   // send out all logs
-  _sendSeleniumLogs()
-  {
+  _sendSeleniumLogs() {
     this.scheduledlogscb = null;
-    if (this.scheduledlogs.length)
-    {
-      testservice.JSTestLog([ this.testfw.reportid, this.scheduledlogs ]);
+    if (this.scheduledlogs.length) {
+      testservice.JSTestLog([this.testfw.reportid, this.scheduledlogs]);
       this.scheduledlogs = [];
     }
   }
 
   // standardize stacks to 'funcname@http-location:line:col'
-  _standardizeStack(stack, oneline)
-  {
-      let slicepoint = browser.getName() === "firefox" ? 2 : 3;
-      let items = stack.split("\n").slice(slicepoint);
-      return items.map(line =>
-      {
-        line = line.replace("   at ", "");
-        line = line.replace("   at ", "");
-        line = line.replace(" (", "@");
-        if (line.endsWith(")"))
-          line = line.slice(0, -1);
-        return line;
-      }).join("\n");
+  _standardizeStack(stack, oneline) {
+    let slicepoint = browser.getName() === "firefox" ? 2 : 3;
+    let items = stack.split("\n").slice(slicepoint);
+    return items.map(line => {
+      line = line.replace("   at ", "");
+      line = line.replace("   at ", "");
+      line = line.replace(" (", "@");
+      if (line.endsWith(")"))
+        line = line.slice(0, -1);
+      return line;
+    }).join("\n");
   }
 
-  _recordAssetpacks(wnd)
-  {
+  _recordAssetpacks(wnd) {
     var test = this.tests[this.currenttest];
     let scripttags = wnd.document.getElementsByTagName("script");
 
-    for (let tag of Array.from(scripttags))
-    {
+    for (let tag of Array.from(scripttags)) {
       let match = tag.src.match(/\/.ap\/([^/]*)\/ap.js$/);
-      if (match)
-      {
+      if (match) {
         test.assetpacks = (test.assetpacks) || [];
         test.assetpacks.push(match[1]);
       }
     }
   }
 
-  guaranteeTestNames(steps)
-  {
+  guaranteeTestNames(steps) {
     var lastname = 'unnamed test', lastcount = 0;
-    for (const step of steps)
-    {
-      if(step.name)
-      {
+    for (const step of steps) {
+      if (step.name) {
         lastname = step.name;
         lastcount = 1;
       }
-      else
-      {
+      else {
         step.name = lastname + (lastcount ? " (" + ++lastcount + ")" : "");
       }
     }
   }
 
-  runTestSteps(steps, setcallbacksfunc)
-  {
-    if(this.currentsteps)
+  runTestSteps(steps, setcallbacksfunc) {
+    if (this.currentsteps)
       return console.error("Multiple teststeps received");
     this.setcallbacksfunc = setcallbacksfunc;
 
     this.currentsteps = steps;
     this.guaranteeTestNames(this.currentsteps);
 
-    if(dompack.debugflags.testfw)
+    if (dompack.debugflags.testfw)
       console.log(`[testfw] ${steps.length} steps have been registered`);
     if (this.wait4setuptests.resolve)
       this.wait4setuptests.resolve();
@@ -1271,13 +1160,13 @@ class TestFramework
       this.wait4setuptests.donePreload(true);
 
     // Pass selenium data back to the test script
-    return { testsession: document.body.getAttribute('data-testsession')
-           };
+    return {
+      testsession: document.body.getAttribute('data-testsession')
+    };
   }
 
-  log(text)
-  {
-    var nodes = [ document.createTextNode(text), document.createElement("br") ];
+  log(text) {
+    var nodes = [document.createTextNode(text), document.createElement("br")];
     this.lastlognodes.push(nodes[0]);
     this.lastlognodes.push(nodes[1]);
 
@@ -1286,28 +1175,24 @@ class TestFramework
     return nodes[0];
   }
 
-  updateTestState()
-  {
+  updateTestState() {
     var test = this.tests[this.currenttest];
-    if (!test)
-    {
+    if (!test) {
       console.error('no test found', this.currenttest, this.tests.length);
       console.trace();
     }
     let node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
-    if (this.currentstep == -1)
-    {
+    if (this.currentstep == -1) {
       node_teststatus.textContent = "test not loaded";
       Object.assign(node_teststatus.style, { 'font-weight': 'bold', 'color': '#FF0000' });
     }
-    else
-    {
-      var stepname = (this.currentsteps[this.currentstep]||{}).name;
-      var xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function(v){return v.stepnr+(v.stepname?': '+v.stepname:'');}).join(', ') + ')' : '';
-      var fails = test.fails ? ' (fails: ' + test.fails.map(function(v){return v.stepnr+(v.stepname?': '+v.stepname:'');}).join(', ') + ')' : '';
+    else {
+      var stepname = (this.currentsteps[this.currentstep] || {}).name;
+      var xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
+      var fails = test.fails ? ' (fails: ' + test.fails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
 
-      var suffix=(stepname ? ': ' + stepname : '') + fails + xfails;
-      if(!suffix && this.currentstep>=this.currentsteps.length)
+      var suffix = (stepname ? ': ' + stepname : '') + fails + xfails;
+      if (!suffix && this.currentstep >= this.currentsteps.length)
         suffix += ' - done';
 
       node_teststatus.textContent = this.currentstep + "/" + this.currentsteps.length + suffix;
@@ -1319,27 +1204,24 @@ class TestFramework
     }
   }
 
-  startNextStep()
-  {
+  startNextStep() {
     if (this.nextstepscheduled)
       return;
 
     this.nextstepscheduled = true;
     setTimeout(() => this.startNextStepNow(), 0);
   }
-  doWaitOutDelay()
-  {
+  doWaitOutDelay() {
     if (this.nextstepscheduled)
       return;
 
     this.nextstepscheduled = true;
     setTimeout(() => this.this.startNextStepNow(), this.delayafter);
-    this.delayafter=0;
+    this.delayafter = 0;
   }
-  doWaitForGestures()
-  {
-    this.waitforgestures=false;
-    if(!this.scriptframewin.waitForGestures)
+  doWaitForGestures() {
+    this.waitforgestures = false;
+    if (!this.scriptframewin.waitForGestures)
       throw new Error("waitforgestures specified, but no waitForGestures found in scriptframe");
 
     if (this.nextstepscheduled)
@@ -1348,47 +1230,40 @@ class TestFramework
     this.nextstepscheduled = true;
     this.scriptframewin.waitForGestures(this.startNextStepNow.bind(this));
   }
-  doWaitForUploadProgress()
-  {
+  doWaitForUploadProgress() {
     const framerec = this.getFrameRecord();
     this.waitforuploadprogress = false;
-    if(!framerec.win.__todd)
+    if (!framerec.win.__todd)
       throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
     framerec.win.__todd.waitForUploadProgress(this.startNextStepNow.bind(this));
   }
-  doWaitForAnimationFrame()
-  {
+  doWaitForAnimationFrame() {
     const framerec = this.getFrameRecord();
-    this.waitforanimationframe=false;
-    if(!framerec.win.requestAnimationFrame)
+    this.waitforanimationframe = false;
+    if (!framerec.win.requestAnimationFrame)
       throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
 
     framerec.win.requestAnimationFrame(this.startNextStepNow.bind(this));
   }
 
-  getCurrentStep()
-  {
+  getCurrentStep() {
     return this.currentsteps[this.currentstep];
   }
 
-  getCurrentStepName()
-  {
+  getCurrentStepName() {
     return this.getCurrentStep().name;
   }
 }
 
-class TestSuite
-{
-  constructor()
-  {
+class TestSuite {
+  constructor() {
     this.gottests = false;
     this.started = false;
-    dompack.onDomReady( () => this.onDomReady());
+    dompack.onDomReady(() => this.onDomReady());
   }
 
-  onDomReady()
-  {
+  onDomReady() {
     this.testfw = new TestFramework;
 
     let url = new URL(window.location.href);
@@ -1401,18 +1276,15 @@ class TestSuite
     document.getElementById('togglerepeatuntilerror').addEventListener('click', () => this.toggleRepeatUntilError());
     document.getElementById('opentestframe').addEventListener("click", () => this.openTestFrame());
     document.getElementById('skiptest').addEventListener("click", () => this.skipTest());
-    if (!this.autostart)
-    {
+    if (!this.autostart) {
       document.getElementById('toggleautostart').textContent = "Enable autostart";
-      document.getElementById('starttests').addEventListener("click", event =>
-      {
+      document.getElementById('starttests').addEventListener("click", event => {
         document.getElementById('starttests').disabled = true;
         event.target.blur();
         this.testlistpromise.then(() => this.startTests());
       });
     }
-    else
-    {
+    else {
       document.getElementById('toggleautostart').textContent = "Disable autostart";
       document.getElementById('starttests').disabled = true;
     }
@@ -1422,8 +1294,7 @@ class TestSuite
       document.getElementById('togglerepeatuntilerror').textContent = "Enable repeatuntilerror";
   }
 
-  getTestList()
-  {
+  getTestList() {
     var url = new URL(location.href);
     let masks = (url.searchParams.get('mask') || "*").split(",");
     let skips = url.searchParams.get('skip') ? url.searchParams.get('skip').split(",") : [];
@@ -1431,71 +1302,65 @@ class TestSuite
     let testlisturl = document.body.dataset.testslist;
     testlisturl = new URL(testlisturl, location.href);
     this.testlistpromise = fetch(testlisturl, { credentials: "same-origin" })
-        .then(response => response.json()).then(list =>
-    {
-      let filtered = [];
+      .then(response => response.json()).then(list => {
+        let filtered = [];
 
-      list.forEach(item =>
-      {
-        if (!masks.some(mask => minimatch(item.name, mask)) || skips.some(mask => minimatch(item.name, mask)))
-          return;
+        list.forEach(item => {
+          if (!masks.some(mask => minimatch(item.name, mask)) || skips.some(mask => minimatch(item.name, mask)))
+            return;
 
-        let li = dompack.create("li", { dataset: { testname: item.name } });
-        let url = new URL(location.href);
-        url.searchParams.set("skip", "");
-        url.searchParams.set("autotests", "");
-        url.searchParams.set("reportid", "");
-        url.searchParams.set("startat", "");
-        url.searchParams.delete("mask"); //we want it to be last for easier url editing, quick fix...
-        url.searchParams.set("mask", item.name);
+          let li = dompack.create("li", { dataset: { testname: item.name } });
+          let url = new URL(location.href);
+          url.searchParams.set("skip", "");
+          url.searchParams.set("autotests", "");
+          url.searchParams.set("reportid", "");
+          url.searchParams.set("startat", "");
+          url.searchParams.delete("mask"); //we want it to be last for easier url editing, quick fix...
+          url.searchParams.set("mask", item.name);
 
-        item.url = new URL(item.url, testlisturl).toString();
+          item.url = new URL(item.url, testlisturl).toString();
 
-        li.append(dompack.create("a", { href: url.toString(), textContent: item.name }), " ");
+          li.append(dompack.create("a", { href: url.toString(), textContent: item.name }), " ");
 
-        if(item.tags.length)
-          li.appendChild(dompack.create("span", { className: "tags", textContent: `(${item.tags.join(', ')}) ` }));
+          if (item.tags.length)
+            li.appendChild(dompack.create("span", { className: "tags", textContent: `(${item.tags.join(', ')}) ` }));
 
-        li.appendChild(dompack.create("span", { className: "teststatus" }));
+          li.appendChild(dompack.create("span", { className: "teststatus" }));
 
-        document.getElementById("tests").appendChild(li);
-        filtered.push(item);
+          document.getElementById("tests").appendChild(li);
+          filtered.push(item);
+        });
+
+        this.testfw.reportid = url.searchParams.get('reportid');
+        this.testfw.testlisturl = testlisturl;
+        this.testfw.addTests(filtered);
+        this.gottests = true;
+
+        if (!url.searchParams.get('autostart'))
+          this.autostart = qSA('#tests li').length == 1;
+
+        if (this.autostart || this.repeatuntilerror)
+          this.startTests();
+
       });
-
-      this.testfw.reportid=url.searchParams.get('reportid');
-      this.testfw.testlisturl = testlisturl;
-      this.testfw.addTests(filtered);
-      this.gottests = true;
-
-      if(!url.searchParams.get('autostart'))
-        this.autostart = qSA('#tests li').length == 1;
-
-      if (this.autostart || this.repeatuntilerror)
-        this.startTests();
-
-    });
   }
 
-  toggleAutoStart()
-  {
+  toggleAutoStart() {
     var url = new URL(window.location.href);
     url.searchParams.set('autostart', this.autostart ? '0' : '1');
     location.href = url.toString();
   }
 
-  toggleRepeatUntilError()
-  {
+  toggleRepeatUntilError() {
     var url = new URL(window.location.href);
     url.searchParams.set('repeatuntilerror', this.repeatuntilerror ? '0' : '1');
     location.href = url.toString();
   }
 
-  startTests()
-  {
+  startTests() {
     if (!this.gottests)
       this.autostart = true;
-    else
-    {
+    else {
       if (this.started)
         return;
       this.started = true;
@@ -1504,32 +1369,26 @@ class TestSuite
     }
   }
 
-  checkTestResult()
-  {
+  checkTestResult() {
     if (this.repeatuntilerror && !this.testfw.haveerror)
       window.location.reload();
   }
 
-  skipTest()
-  {
+  skipTest() {
     this.testfw.skipTest();
   }
 
-  onError(response)
-  {
+  onError(response) {
     console.error("Function invocation failed", response);
     alert("test runner failed\n" + response.error.message);
   }
 
-  openTestFrame()
-  {
-    let href=null;
-    try
-    {
+  openTestFrame() {
+    let href = null;
+    try {
       href = getTestRoots().win.location.href;
     }
-    catch(e)
-    {
+    catch (e) {
       console.log("getting location failed", e);
       href = document.getElementById('testframeholder').firstChild.src;
     }

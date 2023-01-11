@@ -8,25 +8,22 @@ import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import FormBase from '../formbase';
 
-function isAcceptableType(filetype, masks)
-{
-  if(masks.includes(filetype))
+function isAcceptableType(filetype, masks) {
+  if (masks.includes(filetype))
     return true;
 
   let basetype = filetype.split('/')[0];
-  if(['image','video','audio'].includes(basetype) && masks.includes(basetype + '/*'))
+  if (['image', 'video', 'audio'].includes(basetype) && masks.includes(basetype + '/*'))
     return true;
 
   return false;
 }
 
 
-export default class FileEditBase
-{
-  constructor(node, options)
-  {
+export default class FileEditBase {
+  constructor(node, options) {
     let formnode = node.closest('form');
-    if(formnode && !formnode.dataset.whFormId & !formnode.dataset.whFormTarget) //doesn't look like a RPC form
+    if (formnode && !formnode.dataset.whFormId & !formnode.dataset.whFormTarget) //doesn't look like a RPC form
       return; //then don't replace it!
 
     this.node = node;
@@ -34,7 +31,7 @@ export default class FileEditBase
     this.isrequired = node.required || node.hasAttribute("data-wh-form-required");
     node.required = false;
     this.node.whFormsApiChecker = () => this._check();
-    this.node.whUseFormGetValue=true;
+    this.node.whUseFormGetValue = true;
     this.node.addEventListener('wh:form-getvalue', evt => this.getValue(evt));
     this.busy = false;
     this.deferredvalues = [];
@@ -46,57 +43,48 @@ export default class FileEditBase
   {
     this._updateEnabledStatus(this._getEnabled()); //set current status, might already be disabled
   }
-  _check()
-  {
-    if(this.isrequired && !this.getFieldValueLink())
+  _check() {
+    if (this.isrequired && !this.getFieldValueLink())
       FormBase.setFieldError(this.node, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
       FormBase.setFieldError(this.node, "", { reportimmediately: false });
   }
-  _handleEnable(evt)
-  {
+  _handleEnable(evt) {
     dompack.stop(evt);
     this._updateEnabledStatus(evt.detail.enabled);
   }
-  _handleRequire(evt)
-  {
+  _handleRequire(evt) {
     dompack.stop(evt);
     this.isrequired = evt.detail.required;
   }
-  _getEnabled()
-  {
+  _getEnabled() {
     return !this.node.disabled && !this.node.hasAttribute("data-wh-form-disabled");
   }
-  _updateEnabledStatus(nowenabled)
-  {
+  _updateEnabledStatus(nowenabled) {
   }
-  getValue(evt)
-  {
+  getValue(evt) {
     evt.preventDefault();
     evt.stopPropagation();
 
     this.deferredvalues.push(evt.detail.deferred);
-    if(!this.busy)
+    if (!this.busy)
       this.finishGetValue();
   }
-  finishGetValue()
-  {
+  finishGetValue() {
     let valuelink = this.getFieldValueLink();
     let value = valuelink
-        ? { link: valuelink, filename: this.node.dataset.whFilename, mimetype: this.node.dataset.whFiletype }
-        : null;
+      ? { link: valuelink, filename: this.node.dataset.whFilename, mimetype: this.node.dataset.whFiletype }
+      : null;
 
     let toresolve = this.deferredvalues;
     this.deferredvalues = [];
     toresolve.forEach(deferred => deferred.resolve(value));
   }
-  getFieldValueLink()
-  {
+  getFieldValueLink() {
     throw new Error("Derived classes must implement getFieldValueLink");
   }
-  async selectFile(evt)
-  {
-    if(!this._getEnabled())
+  async selectFile(evt) {
+    if (!this._getEnabled())
       return;
 
     evt.preventDefault();
@@ -104,31 +92,26 @@ export default class FileEditBase
     let files = await upload.selectFiles();
     this.uploadFile(files, lock);
   }
-  _isAcceptableType(mimetype)
-  {
+  _isAcceptableType(mimetype) {
     return !this.node.dataset.whAccept
-           || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
+      || isAcceptableType(mimetype, this.node.dataset.whAccept.split(','));
   }
-  async uploadFile(files, lock)
-  {
-    if(files.length==0)
-    {
+  async uploadFile(files, lock) {
+    if (files.length == 0) {
       lock.release();
       return;
     }
 
     let uploadingcontrol = this.node.closest(".wh-form__fieldgroup");
-    if(uploadingcontrol)
+    if (uploadingcontrol)
       uploadingcontrol.classList.add("wh-form--uploading");
 
     this.busy = true;
-    try
-    {
+    try {
       let uploader = new upload.UploadSession(files);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
       let res = await uploader.upload();
 
-      if(!this._isAcceptableType(res[0].type))
-      {
+      if (!this._isAcceptableType(res[0].type)) {
         //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
         let msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
         FormBase.setFieldError(this.node, msg, { reportimmediately: true });
@@ -146,12 +129,11 @@ export default class FileEditBase
       dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
       this._check();
     }
-    finally
-    {
+    finally {
       this.busy = false;
       this.finishGetValue();
       lock.release();
-      if(uploadingcontrol)
+      if (uploadingcontrol)
         uploadingcontrol.classList.remove("wh-form--uploading");
     }
   }

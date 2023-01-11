@@ -8,51 +8,44 @@ import * as dompack from 'dompack';
 //TODO can we split the fullscreen overlay rendering frmo
 
 //The gallery controller launches fullscreen mode whenever an image is clicked and should offer nicer keyboard controllers
-export default class GalleryControllerBase
-{
-  constructor(node, options)
-  {
+export default class GalleryControllerBase {
+  constructor(node, options) {
     this.node = node;
     this.options = { ...options };
 
     this.node.addEventListener("click", evt => this._onClick(evt));
   }
 
-  _onClick(evt)
-  {
+  _onClick(evt) {
     dompack.stop(evt);
 
-    if(this._activecontroller)
-    {
+    if (this._activecontroller) {
       this._activecontroller.close();
       this._activecontroller = null;
     }
 
-    if(!this.options.onclick)
+    if (!this.options.onclick)
       return;
 
     let selectedimage = evt.target.closest('figure');
     let selectidx = this._getSlides().indexOf(selectedimage);
-    if(!selectedimage || selectidx < 0)
+    if (!selectedimage || selectidx < 0)
       return;
 
     this.options.onclick(this, selectidx);
   }
 
-  _getSlides()
-  {
+  _getSlides() {
     return dompack.qSA(this.node, '.wh-gallery__image');
   }
 
-  getNumSlides()
-  {
+  getNumSlides() {
     return this._getSlides().length;
   }
 
-  getSlide(idx)
-  {
+  getSlide(idx) {
     let slides = this._getSlides();
-    if(idx < 0 || idx >= slides.length)
+    if (idx < 0 || idx >= slides.length)
       return null;
 
     let photo = slides[idx];
@@ -61,13 +54,14 @@ export default class GalleryControllerBase
     let caption = photo.querySelector("figcaption");
     let width = parseInt(largeimage.dataset.imageWidth);
     let height = parseInt(largeimage.dataset.imageHeight);
-    return { aspect: width / height
-           , width
-           , height
-           , src: largeimage.href
-           , dominantcolor: image.dataset.dominantcolor
-           , title: image.alt
-           , description: caption ? caption.textContent : ""
-           };
+    return {
+      aspect: width / height
+      , width
+      , height
+      , src: largeimage.href
+      , dominantcolor: image.dataset.dominantcolor
+      , title: image.alt
+      , description: caption ? caption.textContent : ""
+    };
   }
 }

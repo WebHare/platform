@@ -12,60 +12,54 @@ import $todd from "@mod-tollium/web/ui/js/support";
  ****************************************************************************************************************************/
 
 
-export default class ObjSpacer extends ComponentBase
-{
+export default class ObjSpacer extends ComponentBase {
 
-/****************************************************************************************************************************
-* Initialization
-*/
+  /****************************************************************************************************************************
+  * Initialization
+  */
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "spacer";
     this.buildNode();
   }
 
 
-/****************************************************************************************************************************
-* DOM
-*/
+  /****************************************************************************************************************************
+  * DOM
+  */
 
-  buildNode()
-  {
+  buildNode() {
     this.node = <t-spacer data-name={this.name} propTodd={this} />;
     this.node.propTodd = this;
   }
 
 
-/****************************************************************************************************************************
-* Dimensions
-*/
+  /****************************************************************************************************************************
+  * Dimensions
+  */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     var width = $todd.ReadSetWidth(this.width);
     this.width.calc = width;
     this.width.min = 0;
   }
 
-  applySetWidth()
-  {
+  applySetWidth() {
     this.node.style.width = this.width.set + 'px';
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.calc = this.node.getBoundingClientRect().height;
     this.height.min = 0;
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
-    dompack.setStyles(this.node, { width: this.width.set
-                                 , height: this.height.set
-                                 });
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
+    dompack.setStyles(this.node, {
+      width: this.width.set
+      , height: this.height.set
+    });
   }
 
 };

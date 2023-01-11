@@ -12,15 +12,13 @@ import { replaceRangeComponent } from '@mod-tollium/web/ui/components/basecontro
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-export default class ObjSlider extends ComponentBase
-{
+export default class ObjSlider extends ComponentBase {
 
-/****************************************************************************************************************************
- * Initialization
- */
+  /****************************************************************************************************************************
+   * Initialization
+   */
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "slider";
     this.min = data.min;
@@ -35,91 +33,81 @@ export default class ObjSlider extends ComponentBase
     this.setEnabled(data.enabled);
   }
 
-/****************************************************************************************************************************
-* DOM
-*/
+  /****************************************************************************************************************************
+  * DOM
+  */
 
   // Build the DOM node(s) for this component
-  buildNode()
-  {
+  buildNode() {
     this.node = <span />;
     this.inputnode = dompack.create("input", {
-                                  "type"   :  "range"
-                                , "min"    : this.min
-                                , "max"    : this.max
-                                , "step"   : this.step
-//                                , "orient" : (this.orientation ? this.orientation : 'horizontal') //FIXME nonstard
-                                });
+      "type": "range"
+      , "min": this.min
+      , "max": this.max
+      , "step": this.step
+      //                                , "orient" : (this.orientation ? this.orientation : 'horizontal') //FIXME nonstard
+    });
     //node.appendChild(this.inputnode);
     this.inputnode.addEventListener("change", this.onChange.bind(this));
     this.node.append(this.inputnode);
 
-    this._slidercomp = replaceRangeComponent(this.inputnode, { resizelistener : true });
+    this._slidercomp = replaceRangeComponent(this.inputnode, { resizelistener: true });
 
     this.node.dataset.name = this.name;
     this.node.propTodd = this;
   }
 
-  onChange()
-  {
+  onChange() {
     this.setDirty();
-    if(this.isEventUnmasked("change"))
+    if (this.isEventUnmasked("change"))
       this.queueEvent(this.owner.screenname + "." + this.name, "change", true);
   }
 
-  setRequired(value)
-  {
+  setRequired(value) {
     // ???
   }
 
-  setEnabled(value)
-  {
+  setEnabled(value) {
     this.inputnode.readOnly = !value;
   }
 
-/****************************************************************************************************************************
- * Property getters & setters
- */
+  /****************************************************************************************************************************
+   * Property getters & setters
+   */
 
-  setValue(newvalue)
-  {
+  setValue(newvalue) {
     newvalue = Array.isArray(newvalue) ? newvalue : [newvalue];
     this.inputnode.value = newvalue.length ? newvalue[0] : ""; //html5 supports only single value
     this.inputnode.dataset.values = (newvalue.length ? newvalue.join(',') : '');
     this._slidercomp.setValues(newvalue);
   }
 
-  getSubmitValue()
-  {
+  getSubmitValue() {
     return this.getValue();
   }
 
-  getValue()
-  {
+  getValue() {
     return this.inputnode.value;
   }
 
-/****************************************************************************************************************************
- * Component management
- */
+  /****************************************************************************************************************************
+   * Component management
+   */
 
-/****************************************************************************************************************************
-* Dimensions
-*/
+  /****************************************************************************************************************************
+  * Dimensions
+  */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.min = 150;
     this.width.calc = 250;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = $todd.settings.grid_vsize * 2;
   }
 
-  relayout()
-  {
+  relayout() {
     this._slidercomp.refresh();
   }
 }

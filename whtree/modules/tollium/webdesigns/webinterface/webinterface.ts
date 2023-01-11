@@ -15,14 +15,11 @@ import startTolliumShell from '@mod-tollium/shell';
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
 import "@mod-publisher/js/internal/polyfills/modern.es";
 
-if(document.documentElement.classList.contains('wh-shell'))
-{
+if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps
 }
-else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual"))
-{
-  document.documentElement.addEventListener("click", event =>
-  {
+else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
+  document.documentElement.addEventListener("click", event => {
     // Open external links in new window
     if (event.target.nodeName == "A" && !event.target.href.startsWith(whintegration.config.siteroot))
       window.open(event.target.href);

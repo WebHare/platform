@@ -4,10 +4,8 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 
-export default class RadioGroupField
-{
-  constructor(node, options)
-  {
+export default class RadioGroupField {
+  constructor(node, options) {
     this.node = node;
     this.node.dataset.whFormIsValidator = true; //needed to forward validation calls to us
     this.node.whCheckboxGroupField = this;
@@ -19,16 +17,14 @@ export default class RadioGroupField
     this._validate();
   }
 
-  _validate()
-  {
+  _validate() {
     let nodes = dompack.qSA(this.node, "input[type='radio']");
     let isrequired = nodes.some(node => node.required);
     let error;
 
-    if(isrequired)
-    {
+    if (isrequired) {
       let isanychecked = nodes.some(node => node.checked && !node.disabled);
-      if(!isanychecked)
+      if (!isanychecked)
         error = getTid("publisher:site.forms.commonerrors.required");
     }
 

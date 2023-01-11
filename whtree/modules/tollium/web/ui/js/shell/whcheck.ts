@@ -12,67 +12,60 @@ let checkcall = null;
 let intervaltimer;
 let checkinterval;
 
-function onCheckResponse(success, response)
-{
+function onCheckResponse(success, response) {
   checkcall = null;
-  if(!success)
-  {
+  if (!success) {
     console.error("FIXME: Report server unreachable");
   }
-  else
-  {
-    if(!response.privileged)
+  else {
+    if (!response.privileged)
       return; //we don't have access
 
-    if(response.firstmessage)
-    {
+    if (response.firstmessage) {
       var message =
-            { appurl: "system:dashboard"
-            , apptarget: null
-            , reuse_instance: true
-            };
+      {
+        appurl: "system:dashboard"
+        , apptarget: null
+        , reuse_instance: true
+      };
 
       var messagetext = getTid("tollium:shell.checks.errors", response.numleft, response.firstmessage);
 
       var notification =
-            { id: "system:checks"
-            , icon: "tollium:messageboxes/warning"
-            , title: domencoding.encodeValue(getTid("tollium:shell.checks.unresolvedissues"))
-            , description: domencoding.encodeValue(messagetext)
-            , timeout: 0
-            , applicationmessage: message
-            , persistent: true
-            };
+      {
+        id: "system:checks"
+        , icon: "tollium:messageboxes/warning"
+        , title: domencoding.encodeValue(getTid("tollium:shell.checks.unresolvedissues"))
+        , description: domencoding.encodeValue(messagetext)
+        , timeout: 0
+        , applicationmessage: message
+        , persistent: true
+      };
       $todd.towl.showNotification(notification);
     }
-    else
-    {
+    else {
       $todd.towl.hideNotification("system:checks");
     }
   }
 }
 
 
-function onCheckInterval()
-{
-  if(checkcall)
+function onCheckInterval() {
+  if (checkcall)
     return; //still one pending, skip this call
 
-  if(!checkservice)
+  if (!checkservice)
     checkservice = new JSONRPC(); //separate RPC channel for checks, as they can take time and shouldn't block StartApplication
   checkcall = checkservice.request('GetCheckResult', [], onCheckResponse.bind(null, true), onCheckResponse.bind(null, false));
 }
 
-export function setupWHCheck(setcheckinterval)
-{
-  if(setcheckinterval > 0 && !checkinterval)
-  {
+export function setupWHCheck(setcheckinterval) {
+  if (setcheckinterval > 0 && !checkinterval) {
     checkinterval = setcheckinterval;
     onCheckInterval();
     intervaltimer = setInterval(onCheckInterval, checkinterval);
   }
-  else if(intervaltimer && setcheckinterval <= 0)
-  {
+  else if (intervaltimer && setcheckinterval <= 0) {
     clearInterval(intervaltimer);
     intervaltimer = 0;
   }

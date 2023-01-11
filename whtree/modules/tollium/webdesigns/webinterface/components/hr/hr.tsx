@@ -5,30 +5,25 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import $todd from "@mod-tollium/web/ui/js/support";
 
-export default class ObjHr extends ComponentBase
-{
-  constructor(parentcomp, data, replacingcomp)
-  {
+export default class ObjHr extends ComponentBase {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "hr";
-    this.node = <t-hr data-name={this.name} propTodd={this}/>;
+    this.node = <t-hr data-name={this.name} propTodd={this} />;
   }
 
-/****************************************************************************************************************************
- * Dimensions
- */
+  /****************************************************************************************************************************
+   * Dimensions
+   */
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.min = $todd.gridlineInnerHeight;
   }
 
-  relayout()
-  {
-    this.node.height = this.height.set+'px';
+  relayout() {
+    this.node.height = this.height.set + 'px';
   }
 }

@@ -6,14 +6,12 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 
 let radionamecounter = 0;
 
-export default class ObjRadiobutton extends ComponentBase
-{ // ---------------------------------------------------------------------------
+export default class ObjRadiobutton extends ComponentBase { // ---------------------------------------------------------------------------
   //
   // Initialization
   //
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "radiobutton";
@@ -37,39 +35,31 @@ export default class ObjRadiobutton extends ComponentBase
   // Property getters & setters
   //
 
-  getSubmitValue()
-  {
+  getSubmitValue() {
     return this.getValue();
   }
 
-  getValue()
-  {
+  getValue() {
     return this.radiobuttonnode ? this.radiobuttonnode.checked : this.value;
   }
 
-  setValue(value)
-  {
-    if (value !== this.value)
-    {
+  setValue(value) {
+    if (value !== this.value) {
       this.value = value;
       if (this.radiobuttonnode)
         this.radiobuttonnode.checked = this.value;
     }
   }
 
-  setReadOnly(value)
-  {
-    if (value !== this.readonly)
-    {
+  setReadOnly(value) {
+    if (value !== this.readonly) {
       this.readonly = value;
       this.radiobuttonnode.disabled = !(this.enabled && !this.readonly);
     }
   }
 
-  setEnabled(value)
-  {
-    if (value !== this.enabled)
-    {
+  setEnabled(value) {
+    if (value !== this.enabled) {
       this.enabled = value;
       this.radiobuttonnode.disabled = !(this.enabled && !this.readonly);
     }
@@ -82,23 +72,22 @@ export default class ObjRadiobutton extends ComponentBase
   //
 
   // Build the DOM node(s) for this component
-  buildNode()
-  {
+  buildNode() {
     this.node =
       <div className="wh-radiobutton-wrapper"
-           data-name={this.name}
-           title={this.hint}
-           onClick={ev => this.gotClick(ev)}>
-        { this.radiobuttonnode =
-            <input className="wh-radiobutton"
-                   type="radio"
-                   value=""
-                   checked={this.value ? "true" : ""}
-                   disabled={!(this.enabled && !this.readonly) ? "true" : ""}
-                   tabindex={this.enabled ? this.tabindex || "" : -1}
-                   name={this.radiogroup}
-                   propToddObj={this}
-                   onChange={ev => this.gotSet(ev)} /> }
+        data-name={this.name}
+        title={this.hint}
+        onClick={ev => this.gotClick(ev)}>
+        {this.radiobuttonnode =
+          <input className="wh-radiobutton"
+            type="radio"
+            value=""
+            checked={this.value ? "true" : ""}
+            disabled={!(this.enabled && !this.readonly) ? "true" : ""}
+            tabindex={this.enabled ? this.tabindex || "" : -1}
+            name={this.radiogroup}
+            propToddObj={this}
+            onChange={ev => this.gotSet(ev)} />}
         <label className="wh-radiobutton-label" for={this.name} />
       </div>;
   }
@@ -108,29 +97,26 @@ export default class ObjRadiobutton extends ComponentBase
   // Dimensions
   //
 
-  getSkinSettings()
-  {
+  getSkinSettings() {
     var dims = this.node.getBoundingClientRect();
-    return { width:  parseInt(dims.width)
-           , height: parseInt(dims.height)
-           };
+    return {
+      width: parseInt(dims.width)
+      , height: parseInt(dims.height)
+    };
   }
 
-  calculateDimWidth()
-  {
+  calculateDimWidth() {
     this.width.calc = this.skinsettings.width;
     this.width.min = this.width.calc;
   }
 
-  calculateDimHeight()
-  {
+  calculateDimHeight() {
     this.height.calc = this.skinsettings.height;
     this.height.min = this.height.calc;
   }
 
-  relayout()
-  {
-    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
+  relayout() {
+    this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     this.node.style.marginTop = this.getVerticalPosition() + 'px';
   }
 
@@ -139,54 +125,46 @@ export default class ObjRadiobutton extends ComponentBase
   // Events and callbacks
   //
 
-  gotClick(ev)
-  {
-    if(this.enabled && !this.readonly)
-    {
-      for(let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
+  gotClick(ev) {
+    if (this.enabled && !this.readonly) {
+      for (let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
         node.checked = node == this.radiobuttonnode;
       this.gotSet();
       this.radiobuttonnode.focus();
     }
   }
 
-  gotSet()
-  {
+  gotSet() {
     let oldvalue = this.value;
     this.gotControlChange();
-    if (this.value && !oldvalue)
-    {
+    if (this.value && !oldvalue) {
       // when set, there probably is another radio that has been unset, visit them all to synchronize them
-      for(let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
+      for (let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
         if (node != this.node)
           node.propToddObj.gotControlChange();
     }
   }
 
   // sync from the control state, fire events on change
-  gotControlChange()
-  {
-    if(!this.owner)
+  gotControlChange() {
+    if (!this.owner)
       return; //already deallocated ?
 
     // This function is called everytime the radiobutton is checked, or when another radiobutton in this group is checked (so
     // we'll have to see if this is the radiobutton that got unchecked)
     var newvalue = this.radiobuttonnode.checked;
-    if (newvalue != this.value)
-    {
+    if (newvalue != this.value) {
       this.value = newvalue;
       this.setDirty();
-      if((this.isEventUnmasked("set") && this.value) || this.enablecomponents.length)
+      if ((this.isEventUnmasked("set") && this.value) || this.enablecomponents.length)
         this.transferState(true);
 
       this.owner.actionEnabler();
     }
   }
 
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data) {
+    switch (data.type) {
       case 'value':
         this.setValue(data.value);
         return;

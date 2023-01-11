@@ -1,22 +1,20 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-export default class RangeIterator2
-{
-  constructor(xrange)
-  {
-     /// Ancestor of the selection range
+export default class RangeIterator2 {
+  constructor(xrange) {
+    /// Ancestor of the selection range
     this.ancestor = null;
-     /// Current iterator
+    /// Current iterator
     this.current = null;
-     /// Node pointed to by current iterator, null when at end
+    /// Node pointed to by current iterator, null when at end
     this.node = null;
-     /// range.start ascended toward start to parent of current node (marks partially selected node of range start)
+    /// range.start ascended toward start to parent of current node (marks partially selected node of range start)
     this.localstart = null;
-     /// range.end ascended toward start to parent of current node (marks partially selected node of range end)
+    /// range.end ascended toward start to parent of current node (marks partially selected node of range end)
     this.localend = null;
 
-     /// Selection range
+    /// Selection range
     this.range = xrange.clone();
 
     //console.log('ITR2 org range', richdebug.getStructuredOuterHTML(this.range.getAncestorElement(), { range: this.range }, true));
@@ -48,41 +46,33 @@ export default class RangeIterator2
     this.node = this.localstart.getPointedNode();
   }
 
-  atEnd()
-  {
+  atEnd() {
     return !this.node;
   }
 
-  next()
-  {
+  next() {
     return this.nextInternal(false);
   }
 
-  nextRecursive()
-  {
+  nextRecursive() {
     return this.nextInternal(true);
   }
 
-  nextInternal(recursive)
-  {
+  nextInternal(recursive) {
     //console.log('ITR2 nextRecursive', richdebug.getStructuredOuterHTML(this.ancestor, { range: this.range, localstart: this.localstart, localend: this.localend, current: this.current }, true));
-    if (this.current.equals(this.range.end))
-    {
+    if (this.current.equals(this.range.end)) {
       //console.log(' immediately at end');
       this.node = null;
       return false;
     }
 
-    if (this.localstart && this.current.equals(this.localstart))
-    {
+    if (this.localstart && this.current.equals(this.localstart)) {
       //console.log(' at localstart');
-      if (this.localstart.equals(this.range.start))
-      {
+      if (this.localstart.equals(this.range.start)) {
         //console.log(' localstart == range.start');
         this.localstart = null;
       }
-      else
-      {
+      else {
         this.localstart = this.range.start.clone();
         this.localstart.ascend(this.node, false, true);
 
@@ -93,32 +83,27 @@ export default class RangeIterator2
       }
     }
 
-    if (!this.node.firstChild)
-    {
+    if (!this.node.firstChild) {
       ++this.current.offset;
       this.current.ascend(this.ancestor, true);
 
       //console.log(' no child, ++offset && ascended', richdebug.getStructuredOuterHTML(this.ancestor, { range: this.range, localstart: this.localstart, localend: this.localend, current: this.current }, true));
 
-      if (this.current.equals(this.range.end))
-      {
+      if (this.current.equals(this.range.end)) {
         //console.log(' at end');
         this.node = null;
         return false;
       }
-      else
-      {
+      else {
         //console.log(' ok');
         this.node = this.current.getPointedNode();
         return true;
       }
     }
 
-    if (this.localend && this.current.equals(this.localend))
-    {
+    if (this.localend && this.current.equals(this.localend)) {
       //console.log(' at localend');
-      if (this.localend.equals(this.range.end))
-      {
+      if (this.localend.equals(this.range.end)) {
         this.node = null;
         return false;
       }
@@ -134,8 +119,7 @@ export default class RangeIterator2
       this.node = this.current.getPointedNode();
       return true;
     }
-    else
-    {
+    else {
       //console.log(' into child', richdebug.getStructuredOuterHTML(this.ancestor, { range: this.range, localstart: this.localstart, localend: this.localend, current: this.current }, true));
 
       this.current.element = this.node;

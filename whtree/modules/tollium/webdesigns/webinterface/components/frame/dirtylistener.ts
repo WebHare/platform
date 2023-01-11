@@ -11,15 +11,13 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
  ****************************************************************************************************************************/
 
 
-export default class DirtyListener extends ComponentBase
-{
+export default class DirtyListener extends ComponentBase {
 
-/****************************************************************************************************************************
- * Initialization
- */
+  /****************************************************************************************************************************
+   * Initialization
+   */
 
-  constructor(parentcomp, data, replacingcomp)
-  {
+  constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "dirtylistener";
@@ -29,17 +27,14 @@ export default class DirtyListener extends ComponentBase
     this.owner.node.addEventListener("tollium:updatedcomponents", () => this.refreshComponents());
   }
 
-/****************************************************************************************************************************
-* Component management
-*/
+  /****************************************************************************************************************************
+  * Component management
+  */
 
-  setComponents(components)
-  {
+  setComponents(components) {
     let keepcomponents = [];
-    for (let key of this.checkcomponents.keys())
-    {
-      if (!(components.includes(key)))
-      {
+    for (let key of this.checkcomponents.keys()) {
+      if (!(components.includes(key))) {
         var comp = this.owner.getComponent(key);
         if (comp)
           comp.applyDirtyListener(null);
@@ -48,10 +43,8 @@ export default class DirtyListener extends ComponentBase
       else
         keepcomponents.push(key);
     }
-    for (let key of components)
-    {
-      if (!(keepcomponents.includes(key)))
-      {
+    for (let key of components) {
+      if (!(keepcomponents.includes(key))) {
         var comp = this.owner.getComponent(key);
         if (comp)
           comp.applyDirtyListener(this);
@@ -60,10 +53,8 @@ export default class DirtyListener extends ComponentBase
     }
   }
 
-  refreshComponents()
-  {
-    for (let key of this.checkcomponents.keys())
-    {
+  refreshComponents() {
+    for (let key of this.checkcomponents.keys()) {
       var comp = this.owner.getComponent(key);
       if (comp && comp.dirtylistener !== this)
         comp.applyDirtyListener(this);
@@ -80,18 +71,16 @@ export default class DirtyListener extends ComponentBase
     return true;
   }
 
-/****************************************************************************************************************************
- * Property getters & setters
- */
+  /****************************************************************************************************************************
+   * Property getters & setters
+   */
 
-/****************************************************************************************************************************
-* Communications
-*/
+  /****************************************************************************************************************************
+  * Communications
+  */
 
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
+  applyUpdate(data) {
+    switch (data.type) {
       case "checkcomponents":
         this.setComponents(data.checkcomponents);
         return;

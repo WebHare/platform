@@ -9,14 +9,14 @@ import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
 let visitCount = 0;
 let beaconconsent, holdbeacons;
 
-export function isSet(tag, options)
-{
+export function isSet(tag, options) {
   options =
-      { since: null
-      , minCount: 1
-      , maxCount: 0
-      , ...options
-      };
+  {
+    since: null
+    , minCount: 1
+    , maxCount: 0
+    , ...options
+  };
   if (options.since && options.since.getTime)
     options.since = options.since.getTime();
 
@@ -28,36 +28,33 @@ export function isSet(tag, options)
   return (beacons[tag].timestamps.length >= options.minCount && (!options.maxCount || beacons[tag].timestamps.length <= options.maxCount));
 }
 
-export function trigger(tag, options)
-{
+export function trigger(tag, options) {
   let instr = () => executeTrigger(tag, options);
-  if(holdbeacons)
+  if (holdbeacons)
     holdbeacons.push(instr);
   else
     instr();
 }
-export function clear(tag)
-{
+export function clear(tag) {
   let instr = () => executeClear(tag);
-  if(holdbeacons)
+  if (holdbeacons)
     holdbeacons.push(instr);
   else
     instr();
 }
 
-function runDelayedInit()
-{
+function runDelayedInit() {
   holdbeacons.forEach(func => func());
   holdbeacons = null;
   initVisitCount();
 }
 
-function executeTrigger(tag, options)
-{
+function executeTrigger(tag, options) {
   options =
-      { when: Date.now()
-      , ...options
-      };
+  {
+    when: Date.now()
+    , ...options
+  };
   if (options.when.getTime)
     options.when = options.when.getTime();
 
@@ -68,45 +65,41 @@ function executeTrigger(tag, options)
   if (beacons[tag] && beacons[tag].timestamps)
     beacons[tag].timestamps.push(options.when);
   else
-    beacons[tag] = { timestamps: [ options.when ] };
+    beacons[tag] = { timestamps: [options.when] };
   storage.setLocal("wh:beacons", beacons);
 
   if (window.dataLayer)
-    window.dataLayer.push( { event: 'wh:trigger-user-beacon', whUserBeacon: tag });
+    window.dataLayer.push({ event: 'wh:trigger-user-beacon', whUserBeacon: tag });
 }
 
-function executeClear(tag)
-{
+function executeClear(tag) {
   if (dompack.debugflags.bac)
     console.log("[bac] Clearing beacons", tag);
 
   let beacons = storage.getLocal("wh:beacons") || {};
-  for (let key of Object.keys(beacons))
-  {
-    if (key == tag || (tag instanceof RegExp && key.match(tag)))
-    {
+  for (let key of Object.keys(beacons)) {
+    if (key == tag || (tag instanceof RegExp && key.match(tag))) {
       if (dompack.debugflags.bac)
         console.log("[bac] Clear beacon", key);
 
       delete beacons[key];
       if (window.dataLayer)
-        window.dataLayer.push( { event: 'wh:clear-user-beacon', whUserBeacon: tag });
+        window.dataLayer.push({ event: 'wh:clear-user-beacon', whUserBeacon: tag });
     }
   }
   storage.setLocal("wh:beacons", beacons);
 }
 
-export function list()
-{
+export function list() {
   const beacons = storage.getLocal("wh:beacons") || {};
-  return Object.keys(beacons).map(tag => ({ name: tag
-                                          , timestamps: beacons[tag].timestamps
-                                          }));
+  return Object.keys(beacons).map(tag => ({
+    name: tag
+    , timestamps: beacons[tag].timestamps
+  }));
 }
 
-function initVisitCount()
-{
-  if(holdbeacons)
+function initVisitCount() {
+  if (holdbeacons)
     return; //allow onConsentChange to invoke us
 
   let visitor = storage.getLocal("wh:visitor");
@@ -126,8 +119,7 @@ function initVisitCount()
       visitor.
   */
 
-  if (!visitor)
-  {
+  if (!visitor) {
     // First visit
     visitCount = 1;
     sessionId = generateId();
@@ -137,8 +129,7 @@ function initVisitCount()
     if (dompack.debugflags.bac)
       console.log("[bac] New visitor", sessionId, visitCount);
   }
-  else if (!sessionId)
-  {
+  else if (!sessionId) {
     // New session for known visitor
     visitCount = visitor.count + 1;
     sessionId = generateId();
@@ -148,8 +139,7 @@ function initVisitCount()
     if (dompack.debugflags.bac)
       console.log("[bac] New session", sessionId, visitCount);
   }
-  else
-  {
+  else {
     // Same session (for new visitors, visitor.sessionId == sessionId and visitor.count == 1)
     visitCount = visitor.count;
 
@@ -158,21 +148,18 @@ function initVisitCount()
   }
 
   if (window.dataLayer)
-    window.dataLayer.push( { event: 'wh:user-visit-count', whUserVisitCount: visitCount });
+    window.dataLayer.push({ event: 'wh:user-visit-count', whUserVisitCount: visitCount });
 }
 
-export function getVisitCount()
-{
+export function getVisitCount() {
   return visitCount;
 }
 
-export function resetVisitCount(options)
-{
+export function resetVisitCount(options) {
   options = { sessiononly: false, ...options };
 
   storage.setSession("wh:visitor", null);
-  if (!options.sessiononly)
-  {
+  if (!options.sessiononly) {
     visitCount = 0;
     storage.setLocal("wh:visitor", null);
   }
@@ -184,33 +171,28 @@ export function resetVisitCount(options)
 
 let autoTriggerTimeout;
 
-function autoTriggerBeacons()
-{
+function autoTriggerBeacons() {
   clearTimeout(autoTriggerTimeout);
   autoTriggerTimeout = null;
   dompack.dispatchCustomEvent(window, "wh:triggerbeacon", { cancelable: false, bubbles: true });
 }
 
-export function triggerWidgetBeacons()
-{
+export function triggerWidgetBeacons() {
   // Don't directly trigger the beacon yet, as the dataLayer may not have been initialized and this way we can collapse
   // multiple calls. Also allows us to wrap beacons behind consent checks
   if (!autoTriggerTimeout)
     autoTriggerTimeout = setTimeout(autoTriggerBeacons, 10);
 }
 
-class TriggerBeacon
-{
-  constructor(node)
-  {
+class TriggerBeacon {
+  constructor(node) {
     this.node = node;
     // Define a handler for the trigger event, and save to remove it later
     this.triggerHandler = event => this.handleTrigger(event);
     window.addEventListener("wh:triggerbeacon", this.triggerHandler);
     // Check if this beacon is part of a form page, so we can trigger the beacon if the page becomes visible
     const pageNode = this.node.closest(".wh-form__page");
-    if (pageNode)
-    {
+    if (pageNode) {
       if (dompack.debugflags.bac)
         console.log("[bac] Form page beacon", this.node.dataset.beacon);
       pageNode.addEventListener("wh:form-pagechange", this.triggerHandler);
@@ -218,10 +200,8 @@ class TriggerBeacon
     triggerWidgetBeacons();
   }
 
-  handleTrigger(event)
-  {
-    if (this.isVisible())
-    {
+  handleTrigger(event) {
+    if (this.isVisible()) {
       trigger(this.node.dataset.beacon);
       window.removeEventListener("wh:triggerbeacon", this.triggerHandler);
     }
@@ -229,11 +209,9 @@ class TriggerBeacon
       console.log("[bac] Not triggering invisible beacon", this.node.dataset.beacon);
   }
 
-  isVisible()
-  {
+  isVisible() {
     let node = this.node;
-    while (node && node != document.body)
-    {
+    while (node && node != document.body) {
       if (getComputedStyle(node).display == "none")
         return false;
       node = node.parentNode;
@@ -242,43 +220,35 @@ class TriggerBeacon
   }
 }
 
-export function __setup(consent)
-{
+export function __setup(consent) {
   beaconconsent = consent;
-  if(beaconconsent)
-  {
+  if (beaconconsent) {
     holdbeacons = [];
-    consenthandler.onConsentChange(consentsettings =>
-    {
-      if(!holdbeacons)
+    consenthandler.onConsentChange(consentsettings => {
+      if (!holdbeacons)
         return; //already flushed any beacons
 
-      if (beaconconsent == "*")
-      {
-        if(consentsettings.consent.length)
-        {
-          if(dompack.debugflags.bac)
+      if (beaconconsent == "*") {
+        if (consentsettings.consent.length) {
+          if (dompack.debugflags.bac)
             console.log(`[bac] Got any consent, allow beacons`);
           runDelayedInit();
         }
       }
-      else if (consentsettings.consent.includes(beaconconsent))
-      {
-        if(dompack.debugflags.bac)
+      else if (consentsettings.consent.includes(beaconconsent)) {
+        if (dompack.debugflags.bac)
           console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
         runDelayedInit();
       }
-      else
-      {
-        if(dompack.debugflags.bac)
+      else {
+        if (dompack.debugflags.bac)
           console.log("[bac] No consent yet to allow beacons");
       }
     });
   }
 
   initVisitCount();
-  dompack.register("wh-beacon", node =>
-  {
+  dompack.register("wh-beacon", node => {
     if (node.dataset.beacon)
       new TriggerBeacon(node);
   });

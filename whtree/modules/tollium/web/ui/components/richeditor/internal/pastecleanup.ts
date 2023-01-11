@@ -3,27 +3,26 @@
 
 import * as domlevel from "./domlevel";
 
-class PasteCleanup
-{
-  constructor(options)
-  {
+class PasteCleanup {
+  constructor(options) {
     this.data = null;
     this.options =
-        { mode: '' // 'clipboarddata', 'framepaste'
-        , ...options
-        };
+    {
+      mode: '' // 'clipboarddata', 'framepaste'
+      , ...options
+    };
 
-    if (![ 'clipboarddata', 'framepaste', '' ].includes(this.options.mode))
+    if (!['clipboarddata', 'framepaste', ''].includes(this.options.mode))
       throw new Error("Illegal paste cleanup mode '" + this.options.mode + "'");
   }
 
-  applyCleanup(data)
-  {
+  applyCleanup(data) {
     this.data = data;
 
     var result =
-      { breakafter:   null // not yet known
-      };
+    {
+      breakafter: null // not yet known
+    };
 
     if (this.options.mode == 'framepaste')
       result.breakafter = true;
@@ -31,17 +30,14 @@ class PasteCleanup
     var todelete = [];
 
     let imgs = this.data.querySelectorAll('img');
-    for (let i = 0; i < imgs.length; ++i)
-    {
+    for (let i = 0; i < imgs.length; ++i) {
     }
 
     // Remove the interchange nodes - and all nodes that are left empty because of their removal.
     // FIXME: test for partial table selection
-    for (let i = 0; i < todelete.length; ++i)
-    {
+    for (let i = 0; i < todelete.length; ++i) {
       let node = todelete[i];
-      while (node != this.data && node.parentNode && !node.firstChild)
-      {
+      while (node != this.data && node.parentNode && !node.firstChild) {
         let parent = node.parentNode;
         parent.removeChild(node);
         node = parent;
@@ -51,8 +47,7 @@ class PasteCleanup
     // remove empty block (P, LI, OL & UL) nodes
     var pnodes = this.data.querySelectorAll('*');
     for (let i = pnodes.length - 1; i >= 0; --i)
-      if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'li' ].includes(pnodes[i].nodeName.toLowerCase()))
-      {
+      if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'li'].includes(pnodes[i].nodeName.toLowerCase())) {
         let node = pnodes[i];
         var locator = new domlevel.Locator(node, 0);
         var res = locator.scanForward(node, { whitespace: true });
@@ -62,11 +57,9 @@ class PasteCleanup
 
     // IE can copy LI nodes without their parent OL/UL. Create a UL, move them into it
     var linodes = this.data.querySelectorAll('li');
-    for (let i = 0; i < linodes.length; ++i)
-    {
+    for (let i = 0; i < linodes.length; ++i) {
       let parent = linodes[i].parentNode;
-      if (![ 'ol', 'ul' ].includes(parent.nodeName.toLowerCase()))
-      {
+      if (!['ol', 'ul'].includes(parent.nodeName.toLowerCase())) {
         let node = linodes[i];
         let nodes = [];
         for (; node && node.nodeType == 1 && node.nodeName.toLowerCase() == 'li'; node = node.nextSibling)
@@ -80,8 +73,7 @@ class PasteCleanup
     }
 
     // If we have a top-level <br>, that is an interchange BR signalling a selected block barrier
-    if (data.lastChild && data.lastChild.nodeType == 1 && data.lastChild.nodeName.toLowerCase() == 'br')
-    {
+    if (data.lastChild && data.lastChild.nodeType == 1 && data.lastChild.nodeName.toLowerCase() == 'br') {
       data.removeChild(data.lastChild);
       result.breakafter = true;
     }

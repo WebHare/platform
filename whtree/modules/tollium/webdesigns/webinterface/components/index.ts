@@ -34,39 +34,39 @@ import textarea from './textarea/textarea';
 import textedit from './textedit/textedit';
 import toolbar from './toolbar/toolbar';
 
-export function getComponents()
-{
-  return { action
-         , button
-         , buttongroup
-         , checkbox
-         , codeedit
-         , customhtml
-         , datetime
-         , dirtylistener
-         , frame
-         , forward
-         , hr
-         , iframe
-         , image
-         , inlineblock
-         , list
-         , menuitem
-         , panel
-         , progress
-         , proxy
-         , pulldown
-         , radiobutton
-         , rte
-         , slider
-         , spacer
-         , split
-         , table
-         , tabs
-         , tagedit
-         , text
-         , textarea
-         , textedit
-         , toolbar
-         };
+export function getComponents() {
+  return {
+    action
+    , button
+    , buttongroup
+    , checkbox
+    , codeedit
+    , customhtml
+    , datetime
+    , dirtylistener
+    , frame
+    , forward
+    , hr
+    , iframe
+    , image
+    , inlineblock
+    , list
+    , menuitem
+    , panel
+    , progress
+    , proxy
+    , pulldown
+    , radiobutton
+    , rte
+    , slider
+    , spacer
+    , split
+    , table
+    , tabs
+    , tagedit
+    , text
+    , textarea
+    , textedit
+    , toolbar
+  };
 }

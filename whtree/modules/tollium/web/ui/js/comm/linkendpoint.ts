@@ -5,15 +5,13 @@ import $todd from "@mod-tollium/web/ui/js/support";
 
 /** Implements the todd end of a reliable communication link
 */
-export default class LinkEndpoint
-{ // ---------------------------------------------------------------------------
+export default class LinkEndpoint { // ---------------------------------------------------------------------------
   //
   // Constructor
   //
 
-  constructor(options)
-  {
-  // Current sequence nr for messages
+  constructor(options) {
+    // Current sequence nr for messages
     this.msgcounter = 0;
 
     // List of meessages (unacked & unsent)
@@ -42,11 +40,12 @@ export default class LinkEndpoint
 
     // options
     this.options =
-        { linkid:  ''
-        , commhost: ''
-        , frontendid: ''
-        , ...options
-        };
+    {
+      linkid: ''
+      , commhost: ''
+      , frontendid: ''
+      , ...options
+    };
 
     //console.log('** new endpoint', this.options.linkid, this.options.frontendid, this.options.commhost);
   }
@@ -59,13 +58,11 @@ export default class LinkEndpoint
   /* Processes incoming wire message
      @return Whether all messages were sent
   */
-  processWireMessage(wiremsg)
-  {
+  processWireMessage(wiremsg) {
     //console.log('** wire msg', wiremsg);
 
-    if (wiremsg.status == "gone")
-    {
-//      console.log('** link closed - unregistering');
+    if (wiremsg.status == "gone") {
+      //      console.log('** link closed - unregistering');
       if (this.onclosed && this.transmgr)
         this.onclosed();
       this.unregister();
@@ -80,11 +77,9 @@ export default class LinkEndpoint
     this.queuedmessages.splice(0, i);
 
     // Dispatch all messages we haven't received yet
-    for (i = 0; i < wiremsg.messages.length; ++i)
-    {
+    for (i = 0; i < wiremsg.messages.length; ++i) {
       //console.log('dispatch message', this.options.linkid, wiremsg.messages[i].seqnr, this.lastreceivedseqnr + 1);
-      if (wiremsg.messages[i].seqnr == this.lastreceivedseqnr + 1)
-      {
+      if (wiremsg.messages[i].seqnr == this.lastreceivedseqnr + 1) {
         // Mark as received first, processing the message can throw...
         ++this.lastreceivedseqnr;
         this.seennewmessage = true;
@@ -97,8 +92,7 @@ export default class LinkEndpoint
     return this.queuedmessages.length == 0;
   }
 
-  constructWireMessage(sendall)
-  {
+  constructWireMessage(sendall) {
     var startmsgpos = 0;
     if (!sendall)
       for (; startmsgpos < this.queuedmessages.length; ++startmsgpos)
@@ -107,12 +101,13 @@ export default class LinkEndpoint
 
     this.lastsentseqnr = this.msgcounter;
     var wiremsg =
-        { linkid: this.options.linkid
-        , messages: this.queuedmessages.slice(startmsgpos)
-        , ack: this.lastreceivedseqnr
-        , frontendid: this.options.frontendid
-        , needack: this.queuedmessages.length != 0
-        };
+    {
+      linkid: this.options.linkid
+      , messages: this.queuedmessages.slice(startmsgpos)
+      , ack: this.lastreceivedseqnr
+      , frontendid: this.options.frontendid
+      , needack: this.queuedmessages.length != 0
+    };
 
     this.seennewmessage = false;
     return wiremsg;
@@ -124,26 +119,23 @@ export default class LinkEndpoint
   //
 
   /// Register this endpoint with a communicationManager
-  register(transmgr)
-  {
+  register(transmgr) {
     this.transmgr = transmgr;
     this.transmgr.register(this);
     // Automatically signalled
   }
 
   /// Unregister the endpoint
-  unregister()
-  {
+  unregister() {
     if (this.transmgr)
       this.transmgr.unregister(this);
     this.transmgr = null;
-    this.queuedmessages=[];
+    this.queuedmessages = [];
   }
 
   /// Queue a new message. Returns the message nr (which is monotonically increasing in time)
-  queueMessage(message)
-  {
-    $todd.DebugTypedLog("rpc", '** QUEUE MESSAGE',message);
+  queueMessage(message) {
+    $todd.DebugTypedLog("rpc", '** QUEUE MESSAGE', message);
     this.queuedmessages.push({ seqnr: ++this.msgcounter, data: message });
 
     if (!this.stoptransmit && this.transport)
@@ -155,14 +147,12 @@ export default class LinkEndpoint
   /** Indicate that messages have been received through another channel. Pass the seqnr of the last message.
       Use this when initial messages are transferred by service call before setting up the comm channel.
   */
-  registerManuallyReceivedMessage(seqnr)
-  {
+  registerManuallyReceivedMessage(seqnr) {
     //console.log('registerManuallyReceivedMessage', seqnr);
     this.lastreceivedseqnr = seqnr;
   }
 
-  close()
-  {
+  close() {
     if (this.onclosed && this.transmgr)
       this.onclosed();
     this.unregister();

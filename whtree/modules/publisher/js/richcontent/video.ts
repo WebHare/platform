@@ -10,8 +10,7 @@ import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
 
 let youtubedomain = 'www.youtube.com';
 
-function createMyFrame()
-{
+function createMyFrame() {
   let ifrm = document.createElement("iframe");
   ifrm.style.width = "100%";
   ifrm.style.height = "100%";
@@ -20,8 +19,7 @@ function createMyFrame()
   return ifrm;
 }
 
-function initYouTube(node, video, playback)
-{
+function initYouTube(node, video, playback) {
   let ifrm = createMyFrame();
 
   // List of embed parameters YouTube supports:
@@ -29,23 +27,22 @@ function initYouTube(node, video, playback)
 
   var args = [];
 
-  if(playback.autoplay)
+  if (playback.autoplay)
     args.push("autoplay=1");
 
-  if(video.mute || playback.mute)
+  if (video.mute || playback.mute)
     args.push("mute=1");
 
   if (video.starttime)
-    args.push("start="+Math.floor(video.starttime)); // seconds, whole integer (YouTube also uses t= in the shorturl??)
+    args.push("start=" + Math.floor(video.starttime)); // seconds, whole integer (YouTube also uses t= in the shorturl??)
 
   if (video.endtime)
-    args.push("end="+Math.floor(video.endtime));
+    args.push("end=" + Math.floor(video.endtime));
 
   if (typeof playback.controls != "undefined" && !playback.controls)
     args.push("controls=0");
 
-  if (video.loop || playback.loop)
-  {
+  if (video.loop || playback.loop) {
     /* from the documentation: https://developers.google.com/youtube/player_parameters
        Note: This parameter has limited support in IFrame embeds. To loop a single video,
        set the loop parameter value to 1 and set the playlist parameter value to the
@@ -66,18 +63,17 @@ function initYouTube(node, video, playback)
   node.appendChild(ifrm);
 }
 
-function initVimeo(node,video, playback)
-{
+function initVimeo(node, video, playback) {
   let ifrm = createMyFrame();
   var args = [];
 
   // List of embed parameters Vimeo supports:
   // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
 
-  if(playback.autoplay)
+  if (playback.autoplay)
     args.push("autoplay=1");
 
-  if(video.mute || playback.mute)
+  if (video.mute || playback.mute)
     args.push("muted=1");
 
   if (video.endtime)
@@ -93,22 +89,20 @@ function initVimeo(node,video, playback)
   if (playback.background)
     args.push("background=1");
 
-  if(playback.api)
-  {
+  if (playback.api) {
     args.push("api=" + playback.api);
 
     // we need a player_id to distinguish from which iframe a message came.
     // (in cross domain situations we cannot lookup/compare the event source with iframe.contentWindow)
-    if(playback.player_id)
-      args.push("player_id=" + playback.player_id );
+    if (playback.player_id)
+      args.push("player_id=" + playback.player_id);
   }
 
   var vimeo_url = "//player.vimeo.com/video/" + video.id;
   if (args.length > 0)
     vimeo_url += "?" + args.join("&");
 
-  if (video.starttime)
-  {
+  if (video.starttime) {
     // #t=3m28s
     var t = video.starttime;
     var minutes = Math.floor(t / 60);
@@ -121,73 +115,64 @@ function initVimeo(node,video, playback)
   node.appendChild(ifrm);
 }
 
-function launchVideo(node, video, opts)
-{
-  switch(video.network)
-  {
+function launchVideo(node, video, opts) {
+  switch (video.network) {
     case 'youtube':
-      initYouTube(node,video,opts||{});
+      initYouTube(node, video, opts || {});
       break;
     case 'vimeo':
-      initVimeo(node,video,opts||{});
+      initVimeo(node, video, opts || {});
       break;
   }
 }
 
-function initializeVideoElementV1(node)
-{
+function initializeVideoElementV1(node) {
   let video = JSON.parse(node.dataset.video);
   let opts = node.dataset.videoOptions ? JSON.parse(node.dataset.videoOptions) : {};
-  node.innerHTML='';
+  node.innerHTML = '';
   launchVideo(node, video, opts);
 }
 
-function initializeVideoElementV2(node)
-{
+function initializeVideoElementV2(node) {
   let video = JSON.parse(node.dataset.whVideo);
 
   let videonodes = dompack.qSA(node, ".wh-video--activate");
 
-  for(let videonode of videonodes)
-  {
-    videonode.addEventListener("click", function()
-      {
-        activateVideo(videonode, video);
-      });
+  for (let videonode of videonodes) {
+    videonode.addEventListener("click", function() {
+      activateVideo(videonode, video);
+    });
 
     let playbutton = videonode.querySelector(".wh-video__playbutton");
     playbutton.setAttribute("tabindex", "0");
     playbutton.setAttribute("role", "button");
     playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));
 
-    playbutton.addEventListener("click", function()
-      {
-        activateVideo(videonode, video, { autoplay: true });
-      });
+    playbutton.addEventListener("click", function() {
+      activateVideo(videonode, video, { autoplay: true });
+    });
 
     // Because we don't use <button> we must implement it's keyboard interaction
-    playbutton.addEventListener("keypress", function(evt)
-      {
-        // we are only interested in enter and space keypressed
-        if (evt.keyCode != 13 && evt.keyCode != 32)
-          return;
+    playbutton.addEventListener("keypress", function(evt) {
+      // we are only interested in enter and space keypressed
+      if (evt.keyCode != 13 && evt.keyCode != 32)
+        return;
 
-        // prevent other code getting the event or the space both triggering the video AND scrolling the page
-        evt.preventDefault();
+      // prevent other code getting the event or the space both triggering the video AND scrolling the page
+      evt.preventDefault();
 
-        activateVideo(videonode, video, { autoplay: true});
-      });
+      activateVideo(videonode, video, { autoplay: true });
+    });
 
-    if(video.autoplay) //activate immediately
-      if(node.dataset.whConsentRequired)
+    if (video.autoplay) //activate immediately
+      if (node.dataset.whConsentRequired)
         consenthandler.onConsent(node.dataset.whConsentRequired, () => activateVideo(videonode, { ...video, mute: true }, { autoplay: true }));
       else
         activateVideo(videonode, { ...video, mute: true }, { autoplay: true });
   }
 }
 
-function activateVideo(videonode, video, opts)
-{
+function activateVideo(videonode, video, opts) {
   if (videonode.__initialized)
     return;
 
