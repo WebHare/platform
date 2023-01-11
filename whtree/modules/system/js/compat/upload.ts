@@ -768,7 +768,7 @@ let lastinputnode = null;
     @cell return.input Used input element
     @cell return.files List of selected files (only valid when 'load' event has fired)
 */
-export function selectFiles(options)
+export function selectFiles(options?) : Promise<FileList> //TODO return our own objects, not a FileList, so we can provide userdata in the interface
 {
   options = {...options};
   let uploaddefer = dompack.createDeferred();
@@ -835,7 +835,7 @@ export function selectFiles(options)
 
 export class UploadSession extends EventTarget
 {
-  constructor(files,options)
+  constructor(files,options?)
   {
     super();
     if(dompack.debugflags.upl)
@@ -878,7 +878,7 @@ export class UploadSession extends EventTarget
     this.group.abort();
   }
 
-  upload()
+  upload() : Promise<FileList>
   {
     let uploaddefer = dompack.createDeferred();
     this.started=true;

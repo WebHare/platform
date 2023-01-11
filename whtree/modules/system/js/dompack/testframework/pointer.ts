@@ -1307,7 +1307,7 @@ function fireMouseEvent(eventtype, cx, cy, el, button, relatedtarget, options)
   return checkedDispatchEvent(el, evt);
 }
 
-export function click(element, options)
+export function click(element, options?)
 {
   element = _resolveToSingleElement(element);
 
