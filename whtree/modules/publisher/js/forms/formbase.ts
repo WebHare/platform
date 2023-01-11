@@ -13,7 +13,6 @@ import { reportValidity, setFieldError, setupValidator } from './internal/custom
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 
-const anyinputselector = 'input,select,textarea,*[data-wh-form-name],*[data-wh-form-is-validator]';
 const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
 
 function isNodeCollection(node) {
@@ -330,13 +329,21 @@ export default class FormBase {
     }
   }
 
+  private _shouldValidateField(el: HTMLElement) {
+    //TODO maybe we can get rid of the data attributes by checking for explicit symbols like whFormsApiChecker
+    return (el.whFormsApiChecker || el.matches('input,select,textarea,*[data-wh-form-name]')) &&
+      this._isPartOfForm(el);
+  }
+
+  private _getFieldsToValidate(startingpoint?: HTMLElement) {
+    return dompack.qSA<HTMLElement>(startingpoint ?? this.node, "*").filter(el => this._shouldValidateField(el));
+  }
+
   //reset any serverside generated errors (generally done when preparing a new submission)
   resetServerSideErrors() {
-    for (let field of Array.from(this.node.querySelectorAll(anyinputselector))) {
+    for (const field of this._getFieldsToValidate())
       if (field.propWhSetFieldError && field.propWhErrorServerSide)
         field.propWhCleanupFunction();
-    }
-
   }
 
   async _doSubmit(evt, extradata) {
@@ -1025,10 +1032,9 @@ export default class FormBase {
 
   _queryAllFields(options) {
     let foundfields = [];
-    let startnode = options && options.startnode ? options.startnode : this.node;
     let skiparraymembers = options && options.skiparraymembers;
 
-    for (let field of Array.from(startnode.querySelectorAll(anyinputselector))) {
+    for (let field of this._getFieldsToValidate(options?.startnode)) {
       if (options && field == options.skipfield) //arrayfield.es needs it
         continue;
       if (!this._isPartOfForm(field))
@@ -1244,11 +1250,6 @@ export default class FormBase {
       }
     }
 
-    if (!alreadyfailed && field.whFormsBuiltinChecker) {
-      if (!(await field.whFormsBuiltinChecker(field)))
-        alreadyfailed = true;
-    }
-
     if (!alreadyfailed && !(await this.validateSingleFormField(field)))
       alreadyfailed = true;
 
@@ -1295,7 +1296,7 @@ export default class FormBase {
   async _executeQueuedValidation(limitset, options) {
     let original = limitset;
     if (!limitset)  //validate entire form if unspecified what to validate
-      limitset = Array.from(this.node.querySelectorAll(anyinputselector)).filter(node => this._isPartOfForm(node));
+      limitset = this._getFieldsToValidate();
 
     let tovalidate = new Set;
     for (let node of Array.isArray(limitset) ? limitset : [limitset]) {
@@ -1308,9 +1309,9 @@ export default class FormBase {
         continue;
       }
 
-      if (dompack.matches(node, anyinputselector))
+      if (this._shouldValidateField(node))
         tovalidate.add(node);
-      for (let subnode of node.querySelectorAll(anyinputselector))
+      for (const subnode of this._getFieldsToValidate(node)) //TODO this is overly recursive esp. if limitset is empty...
         tovalidate.add(subnode);
     }
 

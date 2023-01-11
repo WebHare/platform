@@ -3,8 +3,6 @@
 import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as datetime from 'dompack/types/datetime';
-import CheckboxGroupField from '@mod-publisher/js/forms/fields/checkboxgroup';
-import RadioGroupField from '@mod-publisher/js/forms/fields/radiogroup';
 import AddressField from '@mod-publisher/js/forms/fields/addressfield';
 import ArrayField from '@mod-publisher/js/forms/fields/arrayfield';
 import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
@@ -12,6 +10,33 @@ import { setupValidator } from './customvalidation';
 
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
+
+function validateCheckboxGroup(groupnode: HTMLElement) {
+  const nodes = dompack.qSA<HTMLInputElement>(groupnode, "input[type='checkbox']");
+  const min = Number(groupnode.dataset.whMin) || 0;
+  const max = Number(groupnode.dataset.whMax) || 0;
+
+  const anyenabled = nodes.some(node => !node.disabled);
+  const numChecked = nodes.filter(node => node.checked).length;
+
+  if (anyenabled) {
+    if (numChecked < min)
+      return getTid("publisher:site.forms.commonerrors.mincheck", min);
+    else if (max > 0 && numChecked > max)
+      return getTid("publisher:site.forms.commonerrors.maxcheck", max);
+  }
+}
+
+function validateRadioGroup(groupnode: HTMLElement) {
+  const nodes = dompack.qSA<HTMLInputElement>(groupnode, "input[type='radio']");
+  const isrequired = nodes.some(node => node.required);
+
+  if (isrequired) {
+    const isanychecked = nodes.some(node => node.checked && !node.disabled);
+    if (!isanychecked)
+      return getTid("publisher:site.forms.commonerrors.required");
+  }
+}
 
 function isValidDate(year, month, day) {
   if (isNaN(year) || isNaN(month) || isNaN(day) || year < 100 || year > 9999 || month < 1 || month > 12 || day < 1 || day > 31)
@@ -110,11 +135,17 @@ export function setup(form) {
 
   // Setup checkbox group (min/max checked) validation
   for (const checkboxgroup of qSA(form, ".wh-form__fieldgroup--checkboxgroup"))
-    new CheckboxGroupField(checkboxgroup);
+    setupValidator(checkboxgroup, validateCheckboxGroup);
 
   // Setup radio group (hidden/disabled) validation
-  for (const checkboxgroup of qSA(form, ".wh-form__fieldgroup--radiogroup"))
-    new RadioGroupField(checkboxgroup);
+  for (const radiogroup of qSA(form, ".wh-form__fieldgroup--radiogroup")) {
+    setupValidator(radiogroup, validateRadioGroup);
+
+    //we should probably disable by name (or form.elements[name] but validate() and form isn't really tracking name either...
+    dompack.qSA<HTMLInputElement>(radiogroup, `input[type='radio']`).forEach(
+      node => node.dataset.whFormSkipnativevalidation = "true"); //don't handle by both RadioGroupField *and* native validation
+
+  }
 
   // Setup address field validation
   for (const addresscontrol of qSA(form, ".wh-form__fieldgroup--addressfield"))
