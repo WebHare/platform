@@ -8,6 +8,9 @@ import * as datehelpers from "../internal/datehelpers";
 import Keyboard from 'dompack/extra/keyboard';
 import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
 
+import { __setUnderlyingValue, setupMyValueProperty } from "../internal/datetime-valueprops";
+export { __setUnderlyingValue } from "../internal/datetime-valueprops";
+
 /*
 Replaces date/time inputs into separate number type inputs
 Field ordering can be set by data attribute data-dateformat
@@ -16,38 +19,6 @@ nice to have:
  - placeholder translations
  - Field ordering by localization
 */
-
-///////////////////////////////////////
-//
-// new 'value' property
-//
-function mySelectGetValue() {
-  let origgetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').get;
-  //console.error("mySelectGetValue", origgetter, origgetter.apply(this));
-  return origgetter.apply(this);
-}
-export function __setUnderlyingValue(comp, newvalue) {
-  let origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(comp), 'value').set;
-  if (origsetter) //this works on chrome, firefox and IE
-  {
-    origsetter.apply(comp, [newvalue]);
-  }
-  else {
-    //safari doesn't let us call the original setter. but we _can_ remove the value property and it will be restored
-    delete comp.value;
-    comp.value = newvalue;
-    setupMyValueProperty(comp); //reset our custom property
-  }
-}
-function mySelectSetValue(newvalue) //this is invoked on external sets, and updates the replaced fields
-{
-  __setUnderlyingValue(this, newvalue);
-  this._split_doupdate();
-}
-
-function setupMyValueProperty(select) {
-  Object.defineProperty(select, 'value', { configurable: true, get: mySelectGetValue, set: mySelectSetValue }); //FIXME why intercept get?
-}
 
 class MultiInputSubstition {
   constructor(inpnode, options) {
