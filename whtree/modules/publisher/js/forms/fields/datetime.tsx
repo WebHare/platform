@@ -1,8 +1,6 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from "dompack";
-//import * as domfocus from "dompack/browserfix/focus";
 import * as whintegration from "@mod-system/js/wh/integration";
 import * as datehelpers from "../internal/datehelpers";
 import Keyboard from 'dompack/extra/keyboard';
@@ -26,8 +24,8 @@ class MultiInputSubstition {
       return; //best to leave it alone
 
     this.options = {
-      baseclass: 'datetime'
-      , ...options
+      baseclass: 'datetime',
+      ...options
     };
 
     this._baseclass = this.options.baseclass;
@@ -43,8 +41,7 @@ class MultiInputSubstition {
     this._nodes = {};
     setupMyValueProperty(this._replacednode);
   }
-  _onOriginalChange() //capture browser initiated changes (they don't go through our value property)
-  {
+  _onOriginalChange() { //capture browser initiated changes (they don't go through our value property)
     if (this._replacednode.value == this._lastsetvalue)
       return;
 
@@ -72,16 +69,15 @@ class MultiInputSubstition {
     //FIXME cleanup field first?
     //FIXME determine whether to use NUMBER of TEL.
     // if(field && field.input.length == )
-    if (field) //we're being invoked for a field
-    {
+    if (field) { //we're being invoked for a field
       if (this._handlePastedValue(field.value)) {
         this._refreshReplacingFields();
         return true;
       }
 
-      let maxlength = this._getFieldTextLength(field);
+      const maxlength = this._getFieldTextLength(field);
       if (field.value.length >= maxlength) {
-        let nextfield = this._getNextField(field);
+        const nextfield = this._getNextField(field);
         if (nextfield) {
           dompack.focus(nextfield);
 
@@ -109,26 +105,26 @@ class MultiInputSubstition {
     this._inputgroup.addEventListener('blur', evt => this._onBlur(evt.target), true);
 
     new Keyboard(this._inputgroup, {
-      "ArrowDown": (evt) => this._trySpin(evt, -1)
-      , "ArrowUp": (evt) => this._trySpin(evt, +1)
-      , "ArrowLeft": (evt) => this._arrowHorizontal(evt, -1)
-      , "ArrowRight": (evt) => this._arrowHorizontal(evt, +1)
-      , "Backspace": (evt) => this._handleBackspace(evt)
+      "ArrowDown": (evt) => this._trySpin(evt, -1),
+      "ArrowUp": (evt) => this._trySpin(evt, +1),
+      "ArrowLeft": (evt) => this._arrowHorizontal(evt, -1),
+      "ArrowRight": (evt) => this._arrowHorizontal(evt, +1),
+      "Backspace": (evt) => this._handleBackspace(evt)
     }, {
-      captureunsafekeys: true
-      , onkeypress: (evt, key) => this._onKeyPress(evt, key)
+      captureunsafekeys: true,
+      onkeypress: (evt, key) => this._onKeyPress(evt, key)
     });
 
   }
   _constructPart(partname, options) {
     return dompack.create("input", {
-      className: `${this._baseclass}__part ${this._baseclass}__${partname}`
-      , pattern: "[0-9]*"
-      , inputmode: "numeric"
-      , autocomplete: "off"
-      , placeholder: this._placeholder[partname]
-      , type: "tel" //we need 'tel' for fine selection control, we can't control selectionStart/End of a type=number
-      , ...options
+      className: `${this._baseclass}__part ${this._baseclass}__${partname}`,
+      pattern: "[0-9]*",
+      inputmode: "numeric",
+      autocomplete: "off",
+      placeholder: this._placeholder[partname],
+      type: "tel", //we need 'tel' for fine selection control, we can't control selectionStart/End of a type=number
+      ...options
     });
   }
   _onObserve() {
@@ -142,8 +138,8 @@ class MultiInputSubstition {
   }
 
   _refreshAttributes() {
-    let isdisabled = this._replacednode.disabled;
-    let isrequired = this._replacednode.required;
+    const isdisabled = this._replacednode.disabled;
+    const isrequired = this._replacednode.required;
 
     dompack.toggleClass(this._inputgroup, this._baseclass + '--disabled', isdisabled);
     dompack.toggleClass(this._inputgroup, this._baseclass + '--required', isrequired);
@@ -171,8 +167,8 @@ class MultiInputSubstition {
   }
 
   _trySpin(evt, change) {
-    let field = evt.target;
-    let nodeidx = this._getSubInputs().indexOf(field);
+    const field = evt.target;
+    const nodeidx = this._getSubInputs().indexOf(field);
     if (nodeidx < 0) //not one of our inputs
       return; //not handling!
 
@@ -183,7 +179,7 @@ class MultiInputSubstition {
   }
 
   _arrowHorizontal(evt, dir) {
-    let field = evt.target;
+    const field = evt.target;
 
     if ((field.selectionStart != field.selectionEnd) //theres a selection, let the browser deal with that
       || (dir < 0 && field.selectionStart > 0) //not at the left edge
@@ -192,8 +188,8 @@ class MultiInputSubstition {
 
     dompack.stop(evt);
 
-    let subinputs = this._getSubInputs();
-    let gotofield = subinputs[subinputs.indexOf(field) + dir];
+    const subinputs = this._getSubInputs();
+    const gotofield = subinputs[subinputs.indexOf(field) + dir];
     if (gotofield) {
       dompack.focus(gotofield);
       gotofield.selectionEnd = gotofield.selectionStart = dir > 0 ? 0 : gotofield.value.length;
@@ -207,8 +203,8 @@ class MultiInputSubstition {
   }
 
   _handleBackspace(evt) {
-    let field = evt.target;
-    let nodeidx = this._getSubInputs().indexOf(field);
+    const field = evt.target;
+    const nodeidx = this._getSubInputs().indexOf(field);
     if (nodeidx <= 0) //not one of our fields, or the first (where we can't go back anywhere)
       return false; //not handling
 
@@ -219,7 +215,7 @@ class MultiInputSubstition {
     dompack.stop(evt);
     field.value = field.value.substr(0, field.selectionStart) + field.value.substr(field.selectionEnd);
 
-    let prevfield = this._getSubInputs()[nodeidx - 1];
+    const prevfield = this._getSubInputs()[nodeidx - 1];
     dompack.focus(prevfield);
     if (prevfield.value.length > 0) //do a backspace in the previous field as if we were one
       prevfield.value = prevfield.value.substr(0, prevfield.value.length - 1);
@@ -232,9 +228,9 @@ class MultiInputSubstition {
 export class DateField extends MultiInputSubstition {
   constructor(inpnode, options) {
     options = {
-      datepicker: true
-      , resetcontrol: true
-      , ...options
+      datepicker: true,
+      resetcontrol: true,
+      ...options
     };
 
     super(inpnode, options);
@@ -248,8 +244,8 @@ export class DateField extends MultiInputSubstition {
     if (whintegration.config.locale.indexOf("nl") > -1)
       this._placeholder = { year: "jjjj", month: "mm", day: "dd" };
 
-    let dateformat = inpnode.dataset.format || "d-m-y";
-    let parseddate = dateformat.match(/^([dmy])([^dmy]*)([dmy])([^dmy]*)([dmy])$/);
+    const dateformat = inpnode.dataset.format || "d-m-y";
+    const parseddate = dateformat.match(/^([dmy])([^dmy]*)([dmy])([^dmy]*)([dmy])$/);
     if (!parseddate)
       throw new Error(`Unrecognized date format '${dateformat}'`);
 
@@ -266,16 +262,14 @@ export class DateField extends MultiInputSubstition {
     this._nodes.month.min = 1;
     this._nodes.month.max = 12;
 
-    if (this._replacednode.min != "") //Should be iso date
-    {
-      let minyear = this._replacednode.min.split(/[^0-9]+/)[0];
+    if (this._replacednode.min != "") { //Should be iso date
+      const minyear = this._replacednode.min.split(/[^0-9]+/)[0];
       if (minyear != "")
         this._nodes.year.min = minyear;
     }
 
-    if (this._replacednode.max != "") //Should be iso date
-    {
-      let maxyear = this._replacednode.max.split(/[^0-9]+/)[0];
+    if (this._replacednode.max != "") { //Should be iso date
+      const maxyear = this._replacednode.max.split(/[^0-9]+/)[0];
       if (maxyear != "")
         this._nodes.year.max = maxyear;
     }
@@ -305,13 +299,13 @@ export class DateField extends MultiInputSubstition {
     this._currentdatepicker = null;
 
     //return focus to last replacement input (so if using tab you go to next field)
-    let inplst = this._inputgroup.querySelectorAll("input");
+    const inplst = this._inputgroup.querySelectorAll("input");
     if (inplst.length)
       inplst[inplst.length - 1].focus();
   }
 
   _constructDatePart(which) {
-    let partname = { d: "day", m: "month", y: "year" }[which];
+    const partname = { d: "day", m: "month", y: "year" }[which];
     if (this._nodes[partname])
       throw new Error(`Duplicate '${partname}' node`);
 
@@ -332,8 +326,7 @@ export class DateField extends MultiInputSubstition {
   _refreshReplacingFields() {
     this._lastsetvalue = this._replacednode.value;
 
-    if (this._replacednode.value)//Should be iso date
-    {
+    if (this._replacednode.value) { //Should be iso date
       this._currentdate = datehelpers.parseISODate(this._replacednode.value, { nofail: true });
       if (this._currentdate) {
         this._setDateByParts(this._currentdate);
@@ -357,11 +350,11 @@ export class DateField extends MultiInputSubstition {
 
   _getCurrentAsISODate() {
     let year = parseInt(this._nodes.year.value, 0);
-    let month = parseInt(this._nodes.month.value, 0);
-    let day = parseInt(this._nodes.day.value, 0);
+    const month = parseInt(this._nodes.month.value, 0);
+    const day = parseInt(this._nodes.day.value, 0);
 
     if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff != "") {
-      let cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
+      const cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
       if (year < cutoff) //to do someday.. current century might not be 2000 anymore
         year += 2000;
       else
@@ -372,21 +365,18 @@ export class DateField extends MultiInputSubstition {
   }
 
   _spinNode(node, nodeidx, change) {
-    let isodate = this._getCurrentAsISODate();
+    const isodate = this._getCurrentAsISODate();
     if (!isodate)
       return; //not sure what to do with a corrupt
 
     let newdate = new Date(isodate);
     if (node == this._nodes.day) {
-      newdate = new Date(+newdate + (change * 86400000));
-    }
-    else if (node == this._nodes.month) {
+      newdate = new Date(Number(newdate) + (change * 86400000));
+    } else if (node == this._nodes.month) {
       newdate.setUTCMonth(newdate.getUTCMonth() + change);
-    }
-    else if (node == this._nodes.year) {
+    } else if (node == this._nodes.year) {
       newdate.setUTCFullYear(newdate.getUTCFullYear() + change);
-    }
-    else {
+    } else {
       return;
     }
 
@@ -397,10 +387,10 @@ export class DateField extends MultiInputSubstition {
 
   _handlePastedValue(inval) {
     //if we're spotting a xx-xx-xx or xx/xx/xx pattern, assume a paste
-    let is_dashed = inval.match(/.+-.+-.+/);
-    let is_slashed = inval.match(/.+\/.+\/.+/);
+    const is_dashed = inval.match(/.+-.+-.+/);
+    const is_slashed = inval.match(/.+\/.+\/.+/);
     if (is_dashed || is_slashed) {
-      let parseddate = datehelpers.parseDate('d-m-y', inval, { nofail: true });
+      const parseddate = datehelpers.parseDate('d-m-y', inval, { nofail: true });
       if (parseddate) {
         this._setReplacedValue(datehelpers.formatISODate(parseddate.year, parseddate.month, parseddate.day));
         this._refreshReplacingFields();
@@ -415,11 +405,11 @@ export class DateField extends MultiInputSubstition {
       return;
 
     let year = parseInt(this._nodes.year.value, 0);
-    let month = parseInt(this._nodes.month.value, 0);
-    let day = parseInt(this._nodes.day.value, 0);
+    const month = parseInt(this._nodes.month.value, 0);
+    const day = parseInt(this._nodes.day.value, 0);
 
     if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff != "") {
-      let cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
+      const cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
       if (year < cutoff) //TODO current century might not be 2000 anymore
         year += 2000;
       else
@@ -431,7 +421,7 @@ export class DateField extends MultiInputSubstition {
 
   _onKeyPress(evt, key) {
     if (key == '-' || key == '/') {
-      let nextfield = this._getNextField(evt.target);
+      const nextfield = this._getNextField(evt.target);
       if (nextfield)
         dompack.focus(nextfield);
       return false;
@@ -444,10 +434,10 @@ export class DateField extends MultiInputSubstition {
     {
       ev.preventDefault();
       ev.stopPropagation();
-  
+
       let prevval = this.previous.value;
       this.previous.value = node.value;
-  
+
       if( ev.keyCode == 8 && node.value == "" && prevval == "" )//backspace
       {
         //Try to set focus on previous input
@@ -458,28 +448,28 @@ export class DateField extends MultiInputSubstition {
           if( previnp )
             previnp.focus();
         }
-  
+
         return;
       }
-  
+
       //First some basic validation
       let value = node.value.replace(/[^0-9]+/g,'');
-  
+
       if( value == "" || value != node.value || 1*value < 1*node.min || 1*value > 1*node.max )
         return;
-  
+
       //Is field value minimal length
       if( (node == this.yearnode && value.length < 4) || (node != this.yearnode && value.length < 2) )
         return;
-  
+
       if( prevval == node.value )
           return;//Only go to next input if value changed
-  
+
       //Try to set focus on next input
       let nextnode = node.parentNode.nextSibling;
       if( !nextnode )
         return;
-  
+
       let nextinp = nextnode.querySelector("input");
       if( nextinp )
         nextinp.focus();
@@ -492,8 +482,7 @@ export class DateField extends MultiInputSubstition {
   }
 
   //-------- PUBLIC API ---------------
-  closePicker() //close any open date picker
-  {
+  closePicker() { //close any open date picker
     if (this._currentdatepicker)
       this._currentdatepicker._dismissOverlay();
   }
@@ -502,15 +491,15 @@ export class DateField extends MultiInputSubstition {
 export class TimeField extends MultiInputSubstition {
   constructor(inpnode, options) {
     options = {
-      resetcontrol: true
-      , ...options
+      resetcontrol: true,
+      ...options
     };
 
     super(inpnode, options);
     if (!this._replacednode)
       return;
 
-    let step = parseFloat(this._replacednode.getAttribute("step") || '0');
+    const step = parseFloat(this._replacednode.getAttribute("step") || '0');
     this.previous = { value: '' };
     this._showmsec = step != Math.floor(step); //fraction
     this._showsecond = this._showmsec || (step % 60 != 0); //unable to round to minute... so seconds
@@ -551,7 +540,7 @@ export class TimeField extends MultiInputSubstition {
 
   _spinNode(node, nodeidx, change) {
     let newval = (parseInt(node.value) || 0) + change;
-    let max = parseInt(node.getAttribute("max"));
+    const max = parseInt(node.getAttribute("max"));
 
     if (newval < 0 || newval > max) {
       if (nodeidx == 0) //already at top level, no wrapping..
@@ -571,8 +560,8 @@ export class TimeField extends MultiInputSubstition {
       throw new Error(`Duplicate '${partname}' node`);
 
     this._nodes[partname] = this._constructPart(partname, {
-      maxlength: partname == 'msec' ? 3 : 2
-      , min: "0"
+      maxlength: partname == 'msec' ? 3 : 2,
+      min: "0"
     });
 
     return this._nodes[partname];
@@ -581,7 +570,7 @@ export class TimeField extends MultiInputSubstition {
   _refreshReplacingFields() {
     this._lastsetvalue = this._replacednode.value;
 
-    let time = datehelpers.parseISOTime(this._replacednode.value, { nofail: true });
+    const time = datehelpers.parseISOTime(this._replacednode.value, { nofail: true });
     if (time) {
       this._currenttime = time;
       this._nodes.hour.value = ("0" + this._currenttime.hour).slice(-2);
@@ -605,10 +594,11 @@ export class TimeField extends MultiInputSubstition {
     return field == this._nodes.msec ? 3 : 2;
   }
   _getSubInputs() {
-    return [this._nodes.hour
-      , this._nodes.minute
-      , ...(this._nodes.second ? [this._nodes.second] : [])
-      , ...(this._nodes.msec ? [this._nodes.msec] : [])
+    return [
+      this._nodes.hour,
+      this._nodes.minute,
+      ...(this._nodes.second ? [this._nodes.second] : []),
+      ...(this._nodes.msec ? [this._nodes.msec] : [])
     ];
   }
 
@@ -616,17 +606,17 @@ export class TimeField extends MultiInputSubstition {
     if (this._handleBaseOnInput(field))
       return;
 
-    let hour = parseInt(this._nodes.hour.value, 0);
-    let minute = parseInt(this._nodes.minute.value, 0);
-    let second = this._nodes.second ? parseInt(this._nodes.second.value, 0) : 0;
-    let msec = this._nodes.msec ? parseInt(this._nodes.msec.value, 0) : 0;
+    const hour = parseInt(this._nodes.hour.value, 0);
+    const minute = parseInt(this._nodes.minute.value, 0);
+    const second = this._nodes.second ? parseInt(this._nodes.second.value, 0) : 0;
+    const msec = this._nodes.msec ? parseInt(this._nodes.msec.value, 0) : 0;
 
     this._setReplacedValue(datehelpers.formatISOTime(hour, minute, this._showsecond ? second : null, this._showmsec ? msec : null));
   }
 
   _onKeyPress(evt, key) {
     if (key == ':' || key == '.') {
-      let nextfield = this._getNextField(evt.target);
+      const nextfield = this._getNextField(evt.target);
       if (nextfield)
         dompack.focus(nextfield);
       return false;
@@ -647,10 +637,10 @@ export class TimeField extends MultiInputSubstition {
     {
       ev.preventDefault();
       ev.stopPropagation();
-  
+
       let prevval = this.previous.value;
       this.previous.value = node.value;
-  
+
       if( ev.keyCode == 8 && node.value == "" && prevval == "" )//backspace
       {
         //Try to set focus on previous input
@@ -661,27 +651,27 @@ export class TimeField extends MultiInputSubstition {
           if( previnp )
             previnp.focus();
         }
-  
+
         return;
       }
-  
+
       //First some basic validation
       let value = node.value.replace(/[^0-9]+/g,'');
       if( value == "" || value != node.value || 1*value < 1*node.min || 1*value > 1*node.max )
         return;
-  
+
       //Is field value minimal length
       if( value.length < 2 )
         return;
-  
+
       if( prevval == node.value )
           return;//Only go to next input if value changed
-  
+
       //Try to set focus on next input
       let nextnode = node.parentNode.nextSibling;
       if( !nextnode )
         return;
-  
+
       let nextinp = nextnode.querySelector("input");
       if( nextinp )
         nextinp.focus();

@@ -28,7 +28,7 @@
   <jstest file="testdynamic.es" />
   <jstest file="testprops.es" />
   <jstest file="testemailfield.es" />
-  <jstest file="testdatetimefield.es" />
+  <jstest file="testdatetimefield.ts" />
   <jstest file="testimgedit.es" />
   <jstest file="testuploadfield.es" />
   <jstest file="testaddressfield-online.es" tags="forms address" />
