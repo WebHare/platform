@@ -372,11 +372,11 @@ class LocalBridge extends EventSource<BridgeEvents> {
     this.port.postMessage({
       type: ToMainBridgeMessageType.ConnectLink,
       name,
-      id: `${id} - remote`,
+      id: `${id} - remote (${name})`,
       port: port1,
       global: global || false
     }, [port1]);
-    return new IPCEndPointImpl(`${id} - origin`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
+    return new IPCEndPointImpl(`${id} - origin (${name})`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
   }
 
   async getProcessList(): Promise<ProcessList> {
@@ -480,9 +480,6 @@ class MainBridge extends EventSource<BridgeEvents> {
     this._ready = createDeferred<void>();
     this._conntimeout = setTimeout(() => this.gotConnTimeout(), whmanager_connection_timeout).unref();
     for (const [, { port }] of this.links) {
-      port.postMessage({
-        type: IPCEndPointImplControlMessageType.Close
-      });
       port.close();
     }
     this.links.clear();
@@ -599,7 +596,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
           reg.port.postMessage({
             type: IPCPortControlMessageType.IncomingLink,
-            id: `remote ${data.linkid}`,
+            id: `remote ${data.linkid} (${data.portname})`,
             port: port2
           }, [port2]);
           this.initLinkHandling(data.portname, data.linkid, data.msgid, port1);
@@ -884,11 +881,13 @@ class MainBridge extends EventSource<BridgeEvents> {
           // FIXME: implement message splitting
           this.sendData({ opcode: WHMRequestOpcode.SendMessageOverLink, linkid: linkid, msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, islastpart: true, messagedata: ctrlmsg.buffer });
         } break;
-        case IPCEndPointImplControlMessageType.Close: {
-          this.sendData({ opcode: WHMRequestOpcode.DisconnectLink, linkid });
-          port.close();
-          this.links.delete(linkid);
-        } break;
+      }
+    });
+    port.on("close", () => {
+      port.close();
+      if (this.links.get(linkid)) {
+        this.sendData({ opcode: WHMRequestOpcode.DisconnectLink, linkid });
+        this.links.delete(linkid);
       }
     });
     // Link will be kept alive by client
@@ -901,7 +900,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
       const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
       const id = generateBase64UniqueID();
-      this.debuglink = new IPCEndPointImpl(`${id} - origin`, port2, "connecting", "global port ts:debugmgr_internal");
+      this.debuglink = new IPCEndPointImpl(`${id} - origin (ts:debugmgr_internal)`, port2, "connecting", "global port ts:debugmgr_internal");
       const link = this.debuglink;
       this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
       this.debuglink.on("close", () => { if (this.debuglink === link) this.debuglink = undefined; });
