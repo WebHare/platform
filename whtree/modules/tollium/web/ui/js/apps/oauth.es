@@ -139,7 +139,7 @@ class OauthApp
           , scopes: this.oauth_scopes
           };
 
-      const result = await $shell.tolliumservice.promiseRequest('ExecuteAction', [ options ]);
+      const result = await $shell.tolliumservice.executeAction(options);
 
       var url = new URL(this.oauth_redirect);
       url.searchParams.set("responsetype", "token");

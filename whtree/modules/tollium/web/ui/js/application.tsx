@@ -1031,7 +1031,7 @@ export class BackendApplication extends ApplicationBase {
     };
 
     try {
-      let data = await this.shell.tolliumservice.async('StartApp', this.appname, options);
+      let data = await this.shell.tolliumservice.startApp(this.appname, options);
       this.gotApplication(data);
       initlock.release();
       return;
