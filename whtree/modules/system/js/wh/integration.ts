@@ -5,6 +5,12 @@ interface Config {
   [key: string]: unknown;
   obj: unknown;
   site: unknown;
+  /** True if the current WebHare is in production or acceptance DTAP stage. Often used to show/hide developer-targed runtime warnings */
+  islive: boolean;
+  /** Current WebHare's DTAP stage */
+  dtapstage: "production" | "acceptance" | "test" | "development";
+  /** Numeric server version number (eg 5.02.24 = 50224) */
+  server: number;
 }
 
 type FormValueList = Array<{ name: string; value: string }>;
@@ -162,19 +168,19 @@ function getIntegrationConfig(): Config {
   if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
     const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
     if (whconfigel?.textContent) {
-      config = JSON.parse(whconfigel.textContent) as Config;
+      config = JSON.parse(whconfigel.textContent) as Partial<Config>;
     }
   }
 
   // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
-  if (!config)
-    config = {} as Config;
-  if (!config.obj)
-    config.obj = {};
-  if (!config.site)
-    config.site = {};
-
-  return config;
+  return {
+    islive: true,
+    dtapstage: "production",
+    obj: null,
+    site: null,
+    server: 0,
+    ...config
+  };
 }
 
 if (typeof window !== "undefined" && !document.documentElement.classList.contains("wh-noauthormode")) //we're top level
