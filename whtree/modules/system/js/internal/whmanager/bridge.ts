@@ -11,7 +11,7 @@ import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as stacktrace_parser from "stacktrace-parser";
-import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType } from "./debug";
+import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
 import * as inspector from "node:inspector";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
@@ -372,11 +372,11 @@ class LocalBridge extends EventSource<BridgeEvents> {
     this.port.postMessage({
       type: ToMainBridgeMessageType.ConnectLink,
       name,
-      id: `${id} - remote`,
+      id: `${id} - remote (${name})`,
       port: port1,
       global: global || false
     }, [port1]);
-    return new IPCEndPointImpl(`${id} - origin`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
+    return new IPCEndPointImpl(`${id} - origin (${name})`, port2, "connecting", global ? `global port ${JSON.stringify(name)}` : `local port ${JSON.stringify(name)}`);
   }
 
   async getProcessList(): Promise<ProcessList> {
@@ -402,6 +402,8 @@ type PortRegistration = {
   globalregconnectcounter: number;
   initialregistration: boolean;
 };
+
+const consoledata: ConsoleLogItem[] = [];
 
 class MainBridge extends EventSource<BridgeEvents> {
   conn: WHManagerConnection;
@@ -480,9 +482,6 @@ class MainBridge extends EventSource<BridgeEvents> {
     this._ready = createDeferred<void>();
     this._conntimeout = setTimeout(() => this.gotConnTimeout(), whmanager_connection_timeout).unref();
     for (const [, { port }] of this.links) {
-      port.postMessage({
-        type: IPCEndPointImplControlMessageType.Close
-      });
       port.close();
     }
     this.links.clear();
@@ -562,7 +561,10 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.initDebugger(data.have_ts_debugger);
       } break;
       case WHMResponseOpcode.SystemConfig: {
-        const decoded = hsmarshalling.readMarshalData(data.systemconfigdata);
+        const decoded = data.systemconfigdata.length
+          ? hsmarshalling.readMarshalData(data.systemconfigdata)
+          : {};
+
         this.systemconfig = decoded as (Record<string, unknown> | null) ?? {};
         if (this.systemconfig.debugconfig)
           updateDebugConfig(this.systemconfig.debugconfig as DebugConfig);
@@ -599,7 +601,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
           reg.port.postMessage({
             type: IPCPortControlMessageType.IncomingLink,
-            id: `remote ${data.linkid}`,
+            id: `remote ${data.linkid} (${data.portname})`,
             port: port2
           }, [port2]);
           this.initLinkHandling(data.portname, data.linkid, data.msgid, port1);
@@ -884,11 +886,13 @@ class MainBridge extends EventSource<BridgeEvents> {
           // FIXME: implement message splitting
           this.sendData({ opcode: WHMRequestOpcode.SendMessageOverLink, linkid: linkid, msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, islastpart: true, messagedata: ctrlmsg.buffer });
         } break;
-        case IPCEndPointImplControlMessageType.Close: {
-          this.sendData({ opcode: WHMRequestOpcode.DisconnectLink, linkid });
-          port.close();
-          this.links.delete(linkid);
-        } break;
+      }
+    });
+    port.on("close", () => {
+      port.close();
+      if (this.links.get(linkid)) {
+        this.sendData({ opcode: WHMRequestOpcode.DisconnectLink, linkid });
+        this.links.delete(linkid);
       }
     });
     // Link will be kept alive by client
@@ -901,7 +905,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
       const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
       const id = generateBase64UniqueID();
-      this.debuglink = new IPCEndPointImpl(`${id} - origin`, port2, "connecting", "global port ts:debugmgr_internal");
+      this.debuglink = new IPCEndPointImpl(`${id} - origin (ts:debugmgr_internal)`, port2, "connecting", "global port ts:debugmgr_internal");
       const link = this.debuglink;
       this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
       this.debuglink.on("close", () => { if (this.debuglink === link) this.debuglink = undefined; });
@@ -934,7 +938,14 @@ class MainBridge extends EventSource<BridgeEvents> {
           url: url ?? ""
         }, packet.msgid);
       } break;
-      //default: checkAllMessageTypesHandled(message, "type"); // doesn't work when the RequestType is not a union type
+      case DebugRequestType.getRecentLoggedItems: {
+        this.debuglink?.send({
+          type: DebugResponseType.getRecentLoggedItemsResult,
+          items: consoledata
+        }, packet.msgid);
+      } break;
+      default:
+        checkAllMessageTypesHandled(message, "type");
     }
   }
 
@@ -960,6 +971,75 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 }
 
+const old_console_funcs = { ...console };
+const old_std_writes = {
+  stdout: process.stdout.write,
+  stderr: process.stderr.write
+};
+
+function getCallerLocation(depth: number) {
+  const old_func = Error.prepareStackTrace;
+  let capturedframes: NodeJS.CallSite[] = [];
+  Error.prepareStackTrace = (error: Error, frames: NodeJS.CallSite[]) => {
+    capturedframes = frames;
+    old_func?.(error, frames);
+  };
+  new Error;
+  Error.prepareStackTrace = old_func;
+  const frame = capturedframes[depth];
+  if (!frame)
+    return null;
+  return ({
+    filename: frame.getFileName() || "unknown",
+    line: frame.getLineNumber() || 1,
+    col: frame.getColumnNumber() || 1,
+    func: frame.getFunctionName() || "unknown"
+  });
+
+}
+
+function hookConsoleLog() {
+  const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date } = {
+    func: "",
+    location: null,
+    when: new Date()
+  };
+  for (const [key, func] of Object.entries(old_console_funcs)) {
+    if (key != "Console") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (console as any)[key] = (...args: unknown[]) => {
+        source.func = key;
+        source.when = new Date();
+        source.location = getCallerLocation(1);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (func as (...args: any[]) => any).apply(console, args);
+      };
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
+    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    if (consoledata.length > 100)
+      consoledata.shift();
+    return retval;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    const retval = old_std_writes.stderr.call(process.stdout, data, encoding, cb);
+    const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
+    consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
+    if (consoledata.length > 100)
+      consoledata.shift();
+    return retval;
+  };
+}
+
+hookConsoleLog();
+
+
 const mainbridge = new MainBridge;
 
 const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
@@ -967,21 +1047,20 @@ const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
 const bridge: Bridge = bridgeimpl;
 export default bridge;
 
+
 registerAsNonReloadableLibrary(module);
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
-  console.error('uncaughtExceptionMonitor', origin, error);
+  console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
   bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {
-  console.error(`Uncaught exception:`, error);
   await bridge.ensureDataSent();
   process.exit(1);
 });
 
 process.on('unhandleRejection', async (reason, promise) => {
-  console.error(`Unhandled rejection:`, reason);
   await bridge.ensureDataSent();
   process.exit(1);
 });

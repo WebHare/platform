@@ -90,15 +90,12 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
 }
 
 export enum IPCEndPointImplControlMessageType {
-  Close,
   Message,
   ConnectResult
 }
 
 /** Format of MessagePort messages received by an IPCEndPointImpl */
 export type IPCEndPointImplControlMessage = {
-  type: IPCEndPointImplControlMessageType.Close;
-} | {
   type: IPCEndPointImplControlMessageType.Message;
   msgid: bigint;
   replyto: bigint;
@@ -155,10 +152,10 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.mode = mode;
     this.connectporttitle = connectporttitle;
     this.port.on("message", (message) => this.handleControlMessage(message));
-    this.port.on("close", () => { this.handleControlMessage({ type: IPCEndPointImplControlMessageType.Close }); });
+    this.port.on("close", () => this.close());
     this.refs = new RefTracker(this.port, { initialref: true });
 
-    // If this is a link created by 'connect', init a defer that waits on the connection resukt
+    // If this is a link created by 'connect', init a defer that waits on the connection result
     if (mode == "connecting")
       this.defer = createDeferred<void>();
   }
@@ -189,8 +186,6 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
           const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer));
           if (typeof message != "object")
             return;
-          if (logmessages)
-            console.log(`ipclink ${this.id} ctrl msg`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] }, { isqueueitem });
 
           const req = ctrlmsg.replyto && this.requests.get(ctrlmsg.replyto);
           if (req) {
@@ -206,9 +201,6 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
             this.emit("exception", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as IPCExceptionMessage });
           else
             this.emit("message", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as OmitResponseKey<ReceiveType> });
-        } break;
-        case IPCEndPointImplControlMessageType.Close: {
-          this.close();
         } break;
       }
     }

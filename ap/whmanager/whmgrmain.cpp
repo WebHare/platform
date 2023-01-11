@@ -10,6 +10,17 @@
 #include "whmgrmain.h"
 
 
+#define SHOW_REMOTETOLOCALMAPPING
+
+#if defined(SHOW_REMOTETOLOCALMAPPING) && defined(DEBUG)
+ #define RTOLMAPPING_PRINT(x) DEBUGPRINT(x)
+ #define RTOLMAPPING_ONLY(x) x
+#else
+ #define RTOLMAPPING_PRINT(x)
+ #define RTOLMAPPING_ONLY(x)
+#endif
+
+
 // -----------------------------------------------------------------------------
 //
 // Definitions
@@ -472,6 +483,9 @@ Database::RPCResponse::Type Connection::RemoteConnectLink(Database::IOBuffer *io
                 link->target = portit->second->conn;
                 link->locallinkid = ++lock->linkidcounter;
 
+                // FIXME: no detection for link id reuse here! Will become problematic after 2^31 links (11 days with 1000 new links/second)
+                link->target_linkid = link->target->GetNewLinkId();
+
                 task->target = link->target;
                 task->locallinkid = link->locallinkid;
 
@@ -700,7 +714,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
 
         iobuf->FinishForRequesting(WHMResponseOpcode::RegisterProcessResult);
 
-        DEBUGPRINT("Conn " << this << " Sending RPC RegisterProcessResult, processcode: " << processcode << ", have_debugger: " << have_debugger << ", config: " << (systemconfig.get() ? "yes" : "no"));
+        DEBUGPRINT("Conn " << this << " Sending RPC RegisterProcessResult, processcode: " << processcode << ", have_hs_debugger: " << have_hs_debugger << ", have_ts_debugger: " << have_ts_debugger << ", config: " << (systemconfig.get() ? "yes" : "no"));
         return Database::RPCResponse::Respond;
 }
 
@@ -876,10 +890,9 @@ Database::RPCResponse::Type Connection::RemoteSetSystemConfig(Database::IOBuffer
         return Database::RPCResponse::DontRespond;
 }
 
-void Connection::DumpRemoteToLocalId(std::string const &/*comment*/)
+void Connection::DumpRemoteToLocalId(std::string const &RTOLMAPPING_ONLY(comment))
 {
-/*
-        DEBUGONLY(
+        RTOLMAPPING_ONLY(
             std::ostringstream str;
             str << "[";
 
@@ -890,8 +903,7 @@ void Connection::DumpRemoteToLocalId(std::string const &/*comment*/)
                     str << "(" << it->first << ", " << it->second << ")";
             }
             str << "]";
-            DEBUGPRINT("Conn " << this << " RTOL ("<<comment<<")" << str.str()));
-*/
+            RTOLMAPPING_PRINT("Conn " << this << " RTOL ("<<comment<<")" << str.str()));
 }
 
 // -----------------------------------------------------------------------------
@@ -938,7 +950,7 @@ Database::RPCResponse::Type LinkOpenedTask::HookExecuteTask(Database::IOBuffer *
                         return Database::RPCResponse::DontRespond;
                 }
 
-                target_linkid = it->second->target_linkid = target->GetNewLinkId();
+                target_linkid = it->second->target_linkid;
         }
 
         target->RegisterLink(target_linkid, locallinkid);
@@ -1061,7 +1073,7 @@ Database::RPCResponse::Type SystemConfigTask::HookExecuteTask(Database::IOBuffer
             iobuf->WriteBinary(0, &dummy);
         iobuf->FinishForRequesting(WHMResponseOpcode::SystemConfig);
 
-        DEBUGPRINT("Task, conn " << target << " Sending RPC SystemConfig, have_debugger: " << have_debugger << ", config: " << (config.get() ? "yes" : "no"));
+        DEBUGPRINT("Task, conn " << target << " Sending RPC SystemConfig, have_hs_debugger: " << have_hs_debugger << ", have_ts_debugger: " << have_ts_debugger << ", config: " << (config.get() ? "yes" : "no"));
 
         *is_finished = true;
         return Database::RPCResponse::Respond;

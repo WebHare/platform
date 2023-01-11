@@ -45,6 +45,7 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
         this.emit("processlist", void (0));
       } break;
       case DebugResponseType.enableInspectorResult: break; // only response type
+      case DebugResponseType.getRecentLoggedItemsResult: break; // only response type
       default: {
         checkAllMessageTypesHandled(packet.message, "type");
       }
@@ -139,12 +140,13 @@ class DebugMgrClient {
         return undefined;
       }
 
-      const proc = this.handler.processes.get(processcode);
-      if (proc)
-        return proc;
-
       await defer.promise;
       this.processlistwaits.delete(defer);
+
+      const proc = this.handler.processes.get(processcode);
+      if (proc) {
+        return proc;
+      }
     }
   }
 
@@ -188,6 +190,20 @@ class DebugMgrClient {
           this.link.send({
             type: DebugMgrClientLinkResponseType.enableInspectorResult,
             url: res.url
+          }, packet.msgid);
+        } catch (e) {
+          this.link.sendException(e as Error, packet.msgid);
+        }
+      } break;
+      case DebugMgrClientLinkRequestType.getRecentlyLoggedItems: {
+        try {
+          const reg = await this.ensureProcessConnected(packet.message.processcode);
+          if (!reg)
+            throw new Error(`Process has already terminated`);
+          const res = await reg.link.doRequest({ type: DebugRequestType.getRecentLoggedItems });
+          this.link.send({
+            type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult,
+            items: res.items
           }, packet.msgid);
         } catch (e) {
           this.link.sendException(e as Error, packet.msgid);
