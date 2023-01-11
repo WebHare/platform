@@ -41,7 +41,6 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     this.socket.on("end", () => this.gotConnectionEnd());
     this.socket.on("close", () => this.gotConnectionClose());
     this.socket.on("error", () => this.gotConnectionError());
-    this.socket.unref();
     this.refs = new RefTracker(this.socket, { initialref: false });
     this.refs.on("ref", () => this.emit("ref", void (0)));
     this.refs.on("unref", () => this.emit("unref", void (0)));
@@ -52,12 +51,24 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     return this.connected;
   }
 
-  connect() {
-    if (this.connecting || this.socket.destroyed)
+  async connect() {
+    if (this.connecting || this.connected)
       return;
+
     this.connecting = true;
+    if (this.backoff_ms > 1) {
+      if (logpackets)
+        console.log(`whmconn: wait for connection backoff, ${this.backoff_ms}ms`);
+      await new Promise(resolve => {
+        setTimeout(resolve, this.backoff_ms).unref();
+      });
+    }
+
+    if (logpackets)
+      console.log(`whmconn: start connecting`);
     const whmanager_port = parseInt(process.env["WEBHARE_BASEPORT"] || "") + 2;
     this.socket.connect(whmanager_port, "127.0.0.1");
+    this.socket.unref();
   }
 
   private gotConnection() {
@@ -85,7 +96,8 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
       this.connected = false;
       this.emit("offline", void (false));
     }
-    this.connect();
+    if (!this.connecting)
+      this.connect();
   }
 
   async gotConnectionError() {
@@ -94,10 +106,8 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     if (logpackets)
       console.log(`whmconn: connection error`);
     // wait for backoff, but don't keep node process running for it
-    await new Promise(resolve => {
-      setTimeout(resolve, this.backoff_ms).unref();
-    });
-    this.connect();
+    if (!this.connecting)
+      this.connect();
   }
 
   private isComplete(): boolean {
