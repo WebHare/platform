@@ -92,11 +92,11 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
 {
   // Log javascript exceptions here, javascript runner does not have access to logs
   // Errors such as no-such-task do not have executeinfo
-  IF (CellExists(item->taskdata, "EXECUTEINFO") AND (item->taskdata.executeinfo.library LIKE "*.js" OR item->taskdata.executeinfo.library LIKE "*.es"))
+  IF (CellExists(item->taskdata, "EXECUTEINFO") AND (item->taskdata.executeinfo.library LIKE "*.js" OR item->taskdata.executeinfo.library LIKE "*.es" OR item->taskdata.executeinfo.library LIKE "*.ts"))
   {
-    STRING mainscript := GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.es";
+    STRING mainscript := GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.ts";
 
-    UPDATE trace SET filename := mainscript WHERE filename = "runephemeraltask.es";
+    UPDATE trace SET filename := mainscript WHERE filename = "runephemeraltask.ts";
     UPDATE trace SET filename := item->taskdata.executeinfo.library WHERE filename = GetNameFromPath(item->taskdata.executeinfo.library);
 
     RECORD details :=
@@ -605,7 +605,7 @@ STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
   UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
   {
     RETURN [ process := GetInstallationRoot() || "bin/wh"
-           , args := [ "run", GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.es" ]
+           , args := [ "run", GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.ts" ]
            ];
   }
 >;

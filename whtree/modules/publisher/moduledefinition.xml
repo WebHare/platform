@@ -1011,7 +1011,7 @@
     <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml">
       <!-- TODO support top level assetpacks so we don't need to hijack a <webdesign> just to build an assetpack -->
       <!-- TODO proper name because 'sharedworker' isn't really a proper name for a non-browser environment -->
-      <assetpack name="pwaserviceworker" entrypoint="webfeatures/pwa/pwaserviceworker.es" supportedlanguages="en" compatibility="es2016" environment="sharedworker" webharepolyfills="false"/>
+      <assetpack name="pwaserviceworker" entrypoint="webfeatures/pwa/pwaserviceworker" supportedlanguages="en" compatibility="es2016" environment="sharedworker" webharepolyfills="false"/>
     </webdesign>
 
     <webdesign name="authormode" hidden="true">
