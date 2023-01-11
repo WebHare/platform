@@ -40,7 +40,7 @@ class Connection : public Database::RPCConnection
 
         WHManager *manager;
 
-        inline uint32_t GetNewLinkId() { return ++linkcounter; }
+        inline uint32_t GetNewLinkId() { return ++linkcounter; } // protected by whmanager LockedData lock!
         inline void RegisterLink(uint32_t targetid, uint64_t localid) { remotetolocalid.insert(std::make_pair(targetid, localid)); }
         inline void UnregisterLink(uint32_t targetid) { remotetolocalid.erase(targetid); }
 
@@ -75,7 +75,7 @@ class Connection : public Database::RPCConnection
 
         std::map< std::string, std::shared_ptr< NamedPort > > ports;
         std::map< uint32_t, uint64_t > remotetolocalid;
-        uint32_t linkcounter;
+        uint32_t linkcounter; // protected by whmanager LockedData lock!
         uint64_t processcode;
 
     public:
