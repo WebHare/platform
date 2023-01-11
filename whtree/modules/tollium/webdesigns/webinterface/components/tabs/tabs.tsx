@@ -358,7 +358,7 @@ export default class ObjTabs extends ComponentBase
                             }
                             { this.nodes["nav-tabs"] =
                                  <span class="nav-tabs fa fa-ellipsis-v"
-                                       onClick={evt => this.onNavMenuClick(evt)} /> }
+                                       onClick={evt => this.onNavMenuClick(evt)} />
                             }
                           </nav>
                           { this.nodes.pagesmenu = <ul class="wh-menu wh-menulist pagesmenu" /> }
