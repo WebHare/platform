@@ -402,11 +402,21 @@ export function getListViewExpanded(row) {
   return null;
 }
 
-//Set up overloads for both call approaches (with and without starting element)
-export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
-export function qS<E extends Element = Element>(selector: string): E | null;
+/* An interface for the elements returned by qS which should simply encompass all reasonable *possible* HTML properties
+   as its rarely worth the effort to explicitly classify all types in test code */
+interface TestQueriedElement extends HTMLInputElement, HTMLSelectElement {
+  nextSibling: TestQueriedElement | null;
+}
 
-export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
+//Set up overloads for both call approaches (with and without starting element)
+export function qS<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E | null;
+export function qS<E extends Element = TestQueriedElement>(selector: string): E | null;
+
+/** Find an element in the test window
+    @param node_or_selector - Starting node (optional)
+    @param selector - CSS selector to use
+    @returns The first matching element or 'null' if not matched */
+export function qS<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E | null {
   if (typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
 
@@ -415,15 +425,41 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 //Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
-export function qSA<E extends Element = Element>(selector: string): E[];
+export function qSA<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = TestQueriedElement>(selector: string): E[];
 
-export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
+/** Find elements in the test window
+    @param node_or_selector - Starting node (optional)
+    @param selector - CSS selector to use
+    @returns An array of matching elements */
+export function qSA<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E[] {
   if (typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
 
   let iframe = window.parent.document.querySelector('#testframeholder iframe');
   return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
+}
+
+//Set up overloads for both call approaches (with and without starting element)
+export function qR<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E;
+export function qR<E extends Element = TestQueriedElement>(selector: string): E;
+
+/** Find a unique element in the test window, throw if not found
+    @param node_or_selector - Starting node (optional)
+    @param selector - CSS selector to use
+    @returns The only matching element. Throws if not found */
+export function qR<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E {
+  const matches = qSA<E>(node_or_selector, selector);
+  if (matches.length === 1)
+    return matches[0];
+
+  if (typeof node_or_selector !== 'string') {
+    console.error(`${matches.length} elements match selector \`${selector}\` with startingpoint`, node_or_selector, matches);
+    throw new Error(`${matches.length} elements match selector \`${selector}\` given startingpoint '${node_or_selector.nodeName}'`);
+  } else {
+    console.error(`${matches.length} elements match selector \`${node_or_selector}\` in the testframe`, matches);
+    throw new Error(`${matches.length} elements match selector \`${node_or_selector}\` in the testframe`);
+  }
 }
 
 export async function invoke(libfunc, ...params) {
