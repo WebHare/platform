@@ -5,9 +5,9 @@ import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';
 import { RefTracker } from "./refs";
 import { generateBase64UniqueID } from "../util/crypto";
+import * as envbackend from "@webhare/env/src/envbackend";
 
-
-const logmessages = false;
+const logmessages = envbackend.getWHDebugFlags().ipc;
 
 function getStructuredTrace(e: Error) {
   if (!e.stack)

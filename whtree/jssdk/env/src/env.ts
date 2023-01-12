@@ -6,6 +6,8 @@ interface WellKnownFlags {
   rpc?: true;
   /** Autoprofile */
   apr?: true;
+  /** IPC */
+  ipc?: true;
 }
 type DebugFlags = WellKnownFlags & { [key: string]: true };
 
