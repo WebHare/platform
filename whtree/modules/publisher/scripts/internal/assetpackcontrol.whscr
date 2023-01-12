@@ -640,7 +640,7 @@ STATIC OBJECTTYPE AssetPackController
         STRING envkey := compiletoken || "-" || bundle.cachebreaker;
 
         // Don't use persistent cache for adhoc bundles
-        OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.es#recompile",
+        OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.ts#recompile",
             [[ baseconfig :=   baseconfig
             , envkey :=       envkey
             , compiletoken := compiletoken
@@ -918,7 +918,7 @@ STATIC OBJECTTYPE AssetPackController
   */
   RECORD FUNCTION AddPathToDeps(RECORD deps, STRING path, BOOLEAN is_js_module)
   {
-    STRING ARRAY exts := is_js_module ? [ "", ".webpack.js", ".web.js", ".js", ".es" ] : [ "" ];
+    STRING ARRAY exts := is_js_module ? [ "", ".webpack.js", ".web.js", ".js", ".es", ".ts", ".tsx" ] : [ "" ];
 
     FOREVERY (STRING ext FROM exts)
     {

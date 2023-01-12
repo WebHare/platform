@@ -1,1 +1,0 @@
-import "./wh-shell.scss";

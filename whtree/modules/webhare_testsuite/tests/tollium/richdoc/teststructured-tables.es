@@ -2,7 +2,7 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import * as dompack from 'dompack';
 
-import {selectRange} from "@mod-tollium/web/ui/components/richeditor/internal/selection.es";
+import {selectRange} from "@mod-tollium/web/ui/components/richeditor/internal/selection";
 
 async function openPropsOnFirstTable({toclick} = {toclick:"td p"})
 {

@@ -1,5 +1,5 @@
 ///@ts-ignore -- FIXME port utf8.es to TypeScript
-import { limitUTF8Length } from "@mod-system/js/internal/utf8.es";
+import { limitUTF8Length } from "@mod-system/js/internal/utf8";
 import * as test from "@webhare/test";
 
 function testWorksOnAscii() {

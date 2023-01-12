@@ -172,9 +172,9 @@ IF (testlisturl = "")
 
 OBJECT testrunwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
 
-RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.es");
+RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.tsx");
 IF (headers.haserrors)
-  THROW NEW Exception(`Could not compile adhoc bundle for testsuite.es: ${UCTruncate(headers.errors, 500)}`);
+  THROW NEW Exception(`Could not compile adhoc bundle for testsuite.tsx: ${UCTruncate(headers.errors, 500)}`);
 
 RECORD data := [ printheaders :=    PTR Print(headers.headers)
                , mask :=            masks

@@ -117,7 +117,7 @@ test.registerTests(
       ]);
 
       const uploadfiles = await compatupload.selectFiles();
-      uploadfiles[0].userdata = { hash: "1234" };
+      (uploadfiles[0] as any).userdata = { hash: "1234" };
       const group = new compatupload.UploadSession(uploadfiles);
 
       const requestresult =
@@ -138,6 +138,6 @@ test.registerTests(
       test.eq('webhare.png', files[0].name);
       test.eq(4355, files[0].size);
       test.eq('image/png', files[0].type);
-      test.eq({ hash: "1234" }, files[0].userdata);
+      test.eq({ hash: "1234" }, (files[0] as any).userdata);
     }
   ]);

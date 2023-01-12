@@ -187,7 +187,7 @@ a cookiebar is answered)
 
 but then you'll need to manually activate it in your consenthandler integration
 ```js
-import * as gtm from '@mod-publisher/js/analytics/gtm.es';
+import * as gtm from '@mod-publisher/js/analytics/gtm';
 
 gtm.initOnConsent();
 consenthandler.setup("<sitename>-consent", showCookieBanner);

@@ -14,7 +14,7 @@ import '@mod-publisher/js/richcontent/all';
 import '@mod-publisher/js/analytics/gtm';
 import './components.es';
 import '@mod-webhare_testsuite/data/test/rte-structure.css';
-import '@mod-webhare_testsuite/tests/publisher/contentlibraries/libs/actestpage.es';
+import '@mod-webhare_testsuite/tests/publisher/contentlibraries/libs/actestpage';
 
 require('../css/extra.scss');
 require('./basetest.lang.json');
@@ -76,9 +76,9 @@ setupGoogleRecaptcha();
 
 //////////////////////////////////////////////////////////////////////////////
 // Consent system
-import * as ga4 from '@mod-publisher/js/analytics/ga4.es';
-import * as gtm from '@mod-publisher/js/analytics/gtm.es';
-import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
+import * as ga4 from '@mod-publisher/js/analytics/ga4';
+import * as gtm from '@mod-publisher/js/analytics/gtm';
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 window.revokeConsent = function() { consenthandler.setConsent([]); };
 

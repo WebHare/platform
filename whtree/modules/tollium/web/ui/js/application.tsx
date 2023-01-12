@@ -13,8 +13,8 @@ import * as preload from 'dompack/extra/preload';
 import utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import LinkEndPoint from './comm/linkendpoint.es';
-import DocPanel from "./application/docpanel.es";
+import LinkEndPoint from './comm/linkendpoint';
+import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
 

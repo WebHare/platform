@@ -14,7 +14,7 @@ import RTDField from '@mod-publisher/js/forms/fields/rtd';
 import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';
 
 //in development: date & time parts
-import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime.es';
+import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime';
 
 class CoreForm extends RPCFormBase
 {

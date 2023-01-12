@@ -1,4 +1,4 @@
-import { getExclusiveAccessWithDialog } from "@mod-system/js/wh/exclusiveaccess.es";
+import { getExclusiveAccessWithDialog } from "@mod-system/js/wh/exclusiveaccess";
 import * as dompack from 'dompack';
 import "./exclusiveaccesstest.scss";
 import '@mod-system/js/wh/errorreporting';

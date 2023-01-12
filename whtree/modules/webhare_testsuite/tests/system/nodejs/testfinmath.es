@@ -1,4 +1,4 @@
-import * as finmath from "@mod-system/js/util/finmath.es";
+import * as finmath from "@mod-system/js/util/finmath";
 import * as test from "@mod-system/js/wh/testframework";
 
 //TODO swap the test.eq arguments...
