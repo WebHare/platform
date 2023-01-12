@@ -7,6 +7,7 @@ import Keyboard from 'dompack/extra/keyboard';
 import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
 
 import { __setUnderlyingValue, setupMyValueProperty } from "../internal/datetime-valueprops";
+import { getTid } from "@mod-tollium/js/gettid";
 export { __setUnderlyingValue } from "../internal/datetime-valueprops";
 
 /*
@@ -18,11 +19,10 @@ nice to have:
  - Field ordering by localization
 */
 
-class MultiInputSubstition {
-  constructor(inpnode, options) {
-    if (!window.MutationObserver)
-      return; //best to leave it alone
+abstract class MultiInputSubstition {
+  protected _replacednode: HTMLInputElement;
 
+  constructor(inpnode, options) {
     this.options = {
       baseclass: 'datetime',
       ...options
@@ -35,8 +35,10 @@ class MultiInputSubstition {
     this._replacednode.setAttribute("tabindex", "-1"); //disable focus by tabbing replaced field
     this._replacednode.addEventListener('change', () => this._onOriginalChange());
 
-    this._observer = new MutationObserver(() => this._onObserve());
-    this._observer.observe(this._replacednode, { attributes: true, attributeFilter: ['disabled', 'required', 'class'], subtree: false, childList: false });
+    if (window.MutationObserver) {
+      const _observer = new MutationObserver(() => this._onObserve());
+      _observer.observe(this._replacednode, { attributes: true, attributeFilter: ['disabled', 'required', 'class'], subtree: false, childList: false });
+    }
 
     this._nodes = {};
     setupMyValueProperty(this._replacednode);
@@ -64,29 +66,30 @@ class MultiInputSubstition {
   _handlePastedValue(inval) {
     return false;
   }
-  _handleBaseOnInput(field) {
+  protected _onInput(field: HTMLInputElement | null) {
     //now with EARLY focus
     //FIXME cleanup field first?
     //FIXME determine whether to use NUMBER of TEL.
     // if(field && field.input.length == )
-    if (field) { //we're being invoked for a field
-      if (this._handlePastedValue(field.value)) {
-        this._refreshReplacingFields();
-        return true;
-      }
+    if (!field)
+      return false;
 
-      const maxlength = this._getFieldTextLength(field);
-      if (field.value.length >= maxlength) {
-        const nextfield = this._getNextField(field);
-        if (nextfield) {
-          dompack.focus(nextfield);
+    if (this._handlePastedValue(field.value)) {
+      this._refreshReplacingFields();
+      return true;
+    }
 
-          if (field.value.length > maxlength) { //copy over remaining contents
-            nextfield.value = field.value.substr(maxlength);
-            field.value = field.value.substr(0, maxlength);
-            dompack.dispatchDomEvent(nextfield, 'input');
-            return true; //the next field's _onInput will deal with all the normal validations
-          }
+    const maxlength = this._getFieldTextLength(field);
+    if (field.value.length >= maxlength) {
+      const nextfield = this._getNextField(field);
+      if (nextfield) {
+        dompack.focus(nextfield);
+
+        if (field.value.length > maxlength) { //copy over remaining contents
+          nextfield.value = field.value.substr(maxlength);
+          field.value = field.value.substr(0, maxlength);
+          dompack.dispatchDomEvent(nextfield, 'input');
+          return true; //the next field's _onInput will deal with all the normal validations
         }
       }
     }
@@ -400,13 +403,28 @@ export class DateField extends MultiInputSubstition {
     return false;
   }
 
-  _onInput(field) {
-    if (this._handleBaseOnInput(field))
-      return;
+  private getInputValues() {
+    return {
+      year: this._nodes.year.value,
+      month: this._nodes.month.value,
+      day: this._nodes.day.value
+    };
+  }
 
-    let year = parseInt(this._nodes.year.value, 0);
-    const month = parseInt(this._nodes.month.value, 0);
-    const day = parseInt(this._nodes.day.value, 0);
+  _onInput(field: HTMLInputElement | null) {
+    if (super._onInput(field))
+      return true;
+
+    const fields = this.getInputValues();
+    if (!fields.year && !fields.month && !fields.day) { //full field clear
+      this._replacednode.setCustomValidity('');
+      this._setReplacedValue("");
+      return;
+    }
+
+    let year = parseInt(fields.year, 0);
+    const month = parseInt(fields.month, 0);
+    const day = parseInt(fields.day, 0);
 
     if (year >= 0 && year <= 99 && this._replacednode.dataset.shortyearcutoff != "") {
       const cutoff = parseInt(this._replacednode.dataset.shortyearcutoff);
@@ -416,7 +434,10 @@ export class DateField extends MultiInputSubstition {
         year += 1900;
     }
 
-    this._setReplacedValue(datehelpers.formatISODate(year, month, day));
+    const finaldate = datehelpers.formatISODate(year, month, day);
+    this._replacednode.setCustomValidity(finaldate ? "" : getTid("publisher:site.forms.commonerrors.date"));
+    this._setReplacedValue(finaldate);
+    return true;
   }
 
   _onKeyPress(evt, key) {
@@ -551,6 +572,8 @@ export class TimeField extends MultiInputSubstition {
         if (!this._spinNode(this._getSubInputs()[nodeidx - 1], nodeidx - 1, change))
           return false;
     }
+
+    //Cannot use dompack.changeValue here as we need to explicitly tell onInput not to move the next field
     node.value = ('000' + newval).slice(nodeidx == 3 ? -3 : -2);
     return true;
   }
@@ -602,16 +625,35 @@ export class TimeField extends MultiInputSubstition {
     ];
   }
 
-  _onInput(field) {
-    if (this._handleBaseOnInput(field))
+  private getInputValues() {
+    return {
+      hour: this._nodes.hour.value,
+      minute: this._nodes.minute.value,
+      second: this._nodes.second?.value ?? "",
+      msec: this._nodes.msec?.value ?? ""
+    };
+  }
+
+  _onInput(field: HTMLInputElement | null) {
+    if (super._onInput(field))
+      return true;
+
+    const fields = this.getInputValues();
+    if (!fields.hour && !fields.minute && !fields.second && !fields.msec) { //full field clear
+      this._replacednode.setCustomValidity('');
+      this._setReplacedValue("");
       return;
+    }
 
-    const hour = parseInt(this._nodes.hour.value, 0);
-    const minute = parseInt(this._nodes.minute.value, 0);
-    const second = this._nodes.second ? parseInt(this._nodes.second.value, 0) : 0;
-    const msec = this._nodes.msec ? parseInt(this._nodes.msec.value, 0) : 0;
+    const hour = parseInt(fields.hour, 0);
+    const minute = parseInt(fields.minute, 0);
+    const second = parseInt(fields.second, 0);
+    const msec = parseInt(fields.msec, 0);
 
-    this._setReplacedValue(datehelpers.formatISOTime(hour, minute, this._showsecond ? second : null, this._showmsec ? msec : null));
+    const finaltime = datehelpers.formatISOTime(hour, minute, this._showsecond ? second : null, this._showmsec ? msec : null);
+    this._replacednode.setCustomValidity(finaltime ? "" : getTid("publisher:site.forms.commonerrors.time"));
+    this._setReplacedValue(finaltime);
+    return true;
   }
 
   _onKeyPress(evt, key) {

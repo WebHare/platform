@@ -183,6 +183,36 @@ test.registerTests([
     test.eq("", test.qR("#datetimeform-time").value);
     test.eq("", hourfield.value);
   },
+
+  "Test invalid dates",
+  async function() {
+    await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
+    test.fill('#datetimeform-require_fields', false);
+
+    const dayfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[1];
+    const monthfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[2];
+    const yearfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[3];
+
+    //set to nonexisting leap year
+    test.fill(dayfield, '29');
+    test.fill(monthfield, '2');
+    test.fill(yearfield, '2023');
+
+    const hourfield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[1];
+    const minutefield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[2];
+    const secondfield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[3];
+
+    test.fill(hourfield_sec, '23');
+    test.fill(minutefield_sec, '61');
+    test.fill(secondfield_sec, '33');
+
+    test.click(test.qSA('[type=submit]')[0]);
+    await test.wait('ui');
+
+    test.assert(test.qR('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
+    test.assert(test.qR('[data-wh-form-group-for=time_sec]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
+  },
+
   // * /
   "Test the date picker",
   async function() {

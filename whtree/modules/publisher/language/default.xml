@@ -1457,6 +1457,7 @@
         <text tid="badfiletype">This file type is not allowed</text>
         <text tid="cannotprocessfile">This file looks suspicious and can unfortunately not be uploaded</text>
         <text tid="check">You must select between <param p="1"/> and <param p="2"/> choices.</text>
+        <text tid="date">This is not a valid date</text>
         <text tid="default">This value seems to be invalid.</text>
         <text tid="digits">This value should be digits.</text>
         <text tid="email">This value should be a valid email.</text>
@@ -1480,6 +1481,7 @@
         <text tid="required">This value is required.</text>
         <text tid="step1mismatch">The value must be a whole number</text>
         <text tid="stepmismatch">The value should be a multiple of <param p="1"/>.</text>
+        <text tid="time">This is not a valid time</text>
         <text tid="unacceptableemail">This email address is not acceptable here</text>
         <text tid="upload_cannotcheck">This file cannot be uploaded as we are currently unable to verify it</text>
         <text tid="upload_suspicious">This file looks suspicious and can unfortunately not be uploaded</text>
