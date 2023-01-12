@@ -4,6 +4,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
+import runWebHareService from "@mod-system/js/internal/webhareservice";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -90,7 +91,8 @@ async function getActiveMessagePortCount() {
 }
 
 async function runWebHareServiceTest_JS() {
-  await test.throws(/Could not connect to global port/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
+  await test.throws(/Service 'webharedev_jsbridges:nosuchservice' is unavailable.*/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
+  await new Promise(r => setTimeout(r, 5));
   test.eq(0, await getActiveMessagePortCount());
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
@@ -158,6 +160,23 @@ async function testDisconnects() {
   test.eq(0, await getActiveMessagePortCount());
 }
 
+async function testServiceTimeout() {
+  const customservicename = "webhare_testsuite:servicetimeouttest_" + Math.random();
+  test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100 }));
+
+  const slowserviceconnection = services.openBackendService(customservicename, [], { timeout: 3000 });
+  await test.sleep(100); //give the connection time to fail
+
+  //set it up
+  const customservice = await runWebHareService(customservicename, () => new class { whatsMyName() { return "doggie dog"; } });
+  const slowserviceconnected = await slowserviceconnection;
+  test.eq("doggie dog", await slowserviceconnected.whatsMyName());
+  customservice.close();
+  slowserviceconnected.close();
+
+  test.eq(0, await getActiveMessagePortCount());
+}
+
 async function runWebHareServiceTest_HS() {
   await test.throws(/Invalid/, services.openBackendService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:webhareservicetest", ["abort"]));
@@ -205,6 +224,7 @@ async function main() {
       testServices,
       testResources,
       testDisconnects,
+      testServiceTimeout,
       runWebHareServiceTest_JS,
       runWebHareServiceTest_HS,
     ], { wrdauth: false });

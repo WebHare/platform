@@ -69,27 +69,44 @@ export interface BackendServiceOptions {
 /** Open a WebHare backend service
  *  @param name - Service name (a module:service pair)
  *  @param args - Arguments to pass to the constructor
- *  @param options - timeout: Maximum time to wait for the service to come online (default: 30sec)
+ *  @param options - timeout: Maximum time to wait for the service to come online in msecs (default: 30sec)
  *                   linger: If true, service requires an explicit close() and will keep the process running
  */
 export async function openBackendService<T extends object = DefaultWebHareServiceClient>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<T & ServiceBase> {
-  const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
-  const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
-  result.catch(() => false); // don't want this one to turn into a uncaught rejection
 
-  try {
-    await link.activate();
+  const startconnect = Date.now(); //only used for exception reporting
+  const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
 
-    const description = await result;
+  for (; ;) { //repeat until we're connected
+    const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
+    const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
+    result.catch(() => false); // don't want this one to turn into an uncaught rejection
 
-    if (!options?.linger)
-      link.dropReference();
+    //Try to setup a link. Loop until deadline if activate() fails
+    try {
+      //wrap activate() in a promise returning true, so we can differentiate from the deadline returning false
+      const linkpromise = (async () => { await link.activate(); return true; })();
 
-    return new Proxy({}, new ServiceProxy(link, description)) as T & ServiceBase;
-  } catch (e) {
-    // The request will fail too, but that's expected if activation fails. The activation error is more important to throw.
-    link.close();
-    throw e;
+      const connected = await Promise.race([linkpromise, deadline]);
+      if (!connected) {
+        link.close();
+        break; //timeout!
+      }
+    } catch (e) {
+      link.close();
+      continue;
+    }
+
+    try {
+      const description = await result;
+      if (!options?.linger)
+        link.dropReference();
+
+      return new Proxy({}, new ServiceProxy(link, description)) as T & ServiceBase;
+    } catch (e) {
+      link.close();
+      throw e; //not relooping if describing fails
+    }
   }
+  throw new Error(`Service '${name}' is unavailable (tried to connect for ${Date.now() - startconnect} ms)`);
 }
-

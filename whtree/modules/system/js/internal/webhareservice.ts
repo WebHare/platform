@@ -154,6 +154,10 @@ class WebHareService { //EXTEND IPCPortHandlerBase
   async _onException(link: WebHareServiceIPCLinkType["AcceptEndPoint"], msg: WebHareServiceIPCLinkType["ExceptionPacket"]) {
     // ignore exceptions, not sent by connecting endpoints
   }
+
+  close() {
+    this._port.close();
+  }
 }
 
 /** Launch a WebHare service.
