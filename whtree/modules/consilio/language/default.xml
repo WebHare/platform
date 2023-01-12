@@ -297,6 +297,7 @@
         <text tid="internallinknonexisting">The linked file does not exist anymore</text>
         <text tid="internallinknotpublished">The linked file is not published</text>
         <text tid="internalservererror">Internal server error</text>
+        <text tid="invalidurl">Invalid URL</text>
         <text tid="lengthrequired">Length required</text>
         <text tid="methodnotallowed">Method not allowed</text>
         <text tid="movedpermanently">Moved permanently</text>

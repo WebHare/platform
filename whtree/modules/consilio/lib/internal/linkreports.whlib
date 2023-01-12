@@ -323,6 +323,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE 415 { RETURN GetTid("consilio:report.linkcheck.status.unsupportedmediatype"); }
     CASE 416 { RETURN GetTid("consilio:report.linkcheck.status.requestrangenotsatisfiable"); }
     CASE 417 { RETURN GetTid("consilio:report.linkcheck.status.expectationfailed"); }
+    CASE 499 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); }
     // 5xx: Server Error
     CASE 500 { RETURN GetTid("consilio:report.linkcheck.status.internalservererror"); }
     CASE 501 { RETURN GetTid("consilio:report.linkcheck.status.notimplemented"); }
