@@ -1,5 +1,5 @@
 /* eslint-disable */
-/// @ts-nocheck -- These property hacks aren't simple to convert TS (and we may need an even more moden approach) so split them off for now
+/// @ts-nocheck -- These property hacks aren't simple to convert TS (and we may need an even more modern approach) so split them off for now
 
 ///////////////////////////////////////
 //
