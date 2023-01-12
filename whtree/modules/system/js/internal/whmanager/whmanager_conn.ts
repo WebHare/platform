@@ -3,10 +3,11 @@ import EventSource from "../eventsource";
 import { RefTracker, RefLock } from "./refs";
 import { parseRPC, createRPC } from "./whmanager_rpc";
 import { WHMResponse, WHMRequest } from "./whmanager_rpcdefs";
+import * as envbackend from "@webhare/env/src/envbackend";
 
 export * from "./whmanager_rpcdefs";
 
-const logpackets = false;
+const logpackets = envbackend.getWHDebugFlags().ipcpackets;
 
 type WHManagerConnectionEvents = {
   data: WHMResponse;
