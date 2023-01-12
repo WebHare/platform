@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime';
@@ -5,41 +6,39 @@ import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime';
 let datechangeevents = 0;
 let timechangeevents = 0;
 
-test.registerTests(
-  [  "Run unreplaced for compatibility test"
+test.registerTests([
+    "Run unreplaced for compatibility test",
 
-   , async function()
-     {
-       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
-       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1');
+    async function () {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1');
 
-       dompack.changeValue(test.qS("#datetimeform-dateofbirth"),"2012-11-13");
-       dompack.changeValue(test.qS("#datetimeform-time"),"15:30");
+      test.fill("#datetimeform-dateofbirth", "2012-11-13");
+      test.fill("#datetimeform-time", "15:30");
 
-       test.click(test.qSA('[type=submit]')[0]);
-       await test.wait('ui');
+      test.click(test.qSA('[type=submit]')[0]);
+      await test.wait('ui');
 
-       let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
-       test.eq("2012-11-13T00:00:00.000Z", result.form.dateofbirth);
-       test.eq(55800000, result.form.time);
+      let result = JSON.parse(test.qR("#dynamicformsubmitresponse").textContent);
+      test.eq("2012-11-13T00:00:00.000Z", result.form.dateofbirth);
+      test.eq(55800000, result.form.time);
 
-     }
+    },
 
-  , "Run with split versions"
-  , async function()
-    {
+    "Run with split versions",
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
 
       //the fields inside the select controls should be initially disabled but not required
-      test.assert(test.qS("#datetimeform-choice_date").disabled);
-      test.assert(!test.qS("#datetimeform-choice_date").required);
-      test.assert(test.qS("#datetimeform-choice_time").disabled);
-      test.assert(!test.qS("#datetimeform-choice_time").required);
+      test.assert(test.qR("#datetimeform-choice_date").disabled);
+      test.assert(!test.qR("#datetimeform-choice_date").required);
+      test.assert(test.qR("#datetimeform-choice_time").disabled);
+      test.assert(!test.qR("#datetimeform-choice_time").required);
 
-      test.assert(test.qS("#datetimeform-choice_date~* input").disabled);
-      test.assert(!test.qS("#datetimeform-choice_date~* input").required);
-      test.assert(test.qS("#datetimeform-choice_time~* input").disabled);
-      test.assert(!test.qS("#datetimeform-choice_time~* input").required);
+      test.eq(3, test.qSA("#datetimeform-choice_date~* input[disabled]").length);
+      test.eq(3, test.qSA("#datetimeform-choice_date~* input:not([required])").length);
+      test.eq(2, test.qSA("#datetimeform-choice_time~* input[disabled]").length);
+      test.eq(2, test.qSA("#datetimeform-choice_time~* input:not([required])").length);
 
       let now = new Date;
       let dayfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[1]; //fixme properly find day fieldin any locale
@@ -49,10 +48,10 @@ test.registerTests(
       let minutefield = test.qSA("[data-wh-form-group-for=time] input")[2];
       test.eq(now.getDate(), parseInt(dayfield.value));
 
-      test.qS("#datetimeform-dateofbirth").addEventListener("change", () => ++datechangeevents);
+      test.qR("#datetimeform-dateofbirth").addEventListener("change", () => ++datechangeevents);
 
       //test date direct assignment
-      test.qS("#datetimeform-dateofbirth").value = "2018-06-15";
+      test.qR("#datetimeform-dateofbirth").value = "2018-06-15";
       test.eq("15", dayfield.value);
       test.eq(0, datechangeevents);
 
@@ -61,13 +60,13 @@ test.registerTests(
       test.eq(0, datechangeevents);
 
       //test date setting
-      dompack.changeValue(test.qS("#datetimeform-dateofbirth"),"2018-06-01");
+      dompack.changeValue(test.qR("#datetimeform-dateofbirth"), "2018-06-01");
       test.eq("01", dayfield.value);
       test.eq(1, datechangeevents);
 
-       //test time setting, direct events first
-      test.qS("#datetimeform-time").addEventListener("change", () => ++timechangeevents);
-      test.qS("#datetimeform-time").value = "06:08";
+      //test time setting, direct events first
+      test.qR("#datetimeform-time").addEventListener("change", () => ++timechangeevents);
+      test.qR("#datetimeform-time").value = "06:08";
       test.eq("06", hourfield.value);
       test.eq(0, timechangeevents);
 
@@ -75,12 +74,12 @@ test.registerTests(
       dompack.dispatchDomEvent(minutefield, 'input');
       test.eq(0, timechangeevents);
 
-      dompack.changeValue(test.qS("#datetimeform-time"),"07:09");
+      dompack.changeValue(test.qR("#datetimeform-time"), "07:09");
       test.eq("07", hourfield.value);
       test.eq("09", minutefield.value);
       test.eq(1, timechangeevents);
 
-      dompack.changeValue(test.qS("#datetimeform-time_sec"),"07:09:15");
+      dompack.changeValue(test.qR("#datetimeform-time_sec"), "07:09:15");
       let hourfield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[1];
       let minutefield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[2];
       let secondfield_sec = test.qSA("[data-wh-form-group-for=time_sec] input")[3];
@@ -89,49 +88,49 @@ test.registerTests(
       test.eq("15", secondfield_sec.value);
 
       //test disabling the date
-      test.assert(!test.qS("[name=dateofbirth]").disabled);
-      test.assert(!test.qS("[name=time]").disabled);
+      test.assert(!test.qR("[name=dateofbirth]").disabled);
+      test.assert(!test.qR("[name=time]").disabled);
 
-      test.qS("[name=dateofbirth]").disabled=true;
-      test.qS("[name=time]").disabled=true;
+      test.qR("[name=dateofbirth]").disabled = true;
+      test.qR("[name=time]").disabled = true;
       await test.wait('tick'); //wait for the observer to disable the rest
 
       test.assert(dayfield.disabled);
       test.assert(hourfield.disabled);
 
-      test.qS("[name=dateofbirth]").disabled=false;
-      test.qS("[name=time]").disabled=false;
+      test.qR("[name=dateofbirth]").disabled = false;
+      test.qR("[name=time]").disabled = false;
       await test.wait('tick');
 
       test.assert(!dayfield.disabled);
       test.assert(!hourfield.disabled);
 
       //clear current value - date
-      test.assert(true, test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--required'), "Field should be marked as required");
-      test.eq("2018-06-01", test.qS("#datetimeform-dateofbirth").value);
+      test.assert(test.qR('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--required'), "Field should be marked as required");
+      test.eq("2018-06-01", test.qR("#datetimeform-dateofbirth").value);
       test.eq(1, datechangeevents, "should still be at one event");
-      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[1],'');
+      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[1], '');
       test.eq(2, datechangeevents, "making date invalid should be a change event");
-      test.eq("", test.qS("#datetimeform-dateofbirth").value);
-      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[2],'');
+      test.eq("", test.qR("#datetimeform-dateofbirth").value);
+      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[2], '');
       test.eq(2, datechangeevents, "keeping it invalid should not be a change");
-      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[3],'');
+      dompack.changeValue(test.qSA("[data-wh-form-group-for=dateofbirth] input")[3], '');
       test.eq(2, datechangeevents, "keeping it invalid should not be a change #2");
 
       //clear current value - time
-      test.assert(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
-      test.eq("07:09", test.qS("#datetimeform-time").value);
+      test.assert(test.qR('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
+      test.eq("07:09", test.qR("#datetimeform-time").value);
       test.eq(1, timechangeevents, "should still be at one event");
-      dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[1],'');
+      dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[1], '');
       test.eq(2, timechangeevents, "making time invalid should be a change event");
-      test.eq("", test.qS("#datetimeform-time").value);
-      dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[2],'');
+      test.eq("", test.qR("#datetimeform-time").value);
+      dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[2], '');
       test.eq(2, timechangeevents, "keeping it invalid should not be a change");
 
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('tick');
-      test.assert(test.qS('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
-      test.assert(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--error'), "Time field should be in error state");
+      test.assert(test.qR('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
+      test.assert(test.qR('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--error'), "Time field should be in error state");
 
       //Test that we can type a date
       test.eq(2, datechangeevents, "#changes should still be 2");
@@ -140,7 +139,7 @@ test.registerTests(
       test.eq(2, datechangeevents, "#changes should still be 2, 13-11 is not valid...");
       test.fill(yearfield, '2012');
       test.eq(3, datechangeevents, "#changes should still now be 3, we made it valid!");
-      test.eq('2012-11-13', test.qS("#datetimeform-dateofbirth").value);
+      test.eq('2012-11-13', test.qR("#datetimeform-dateofbirth").value);
 
       //On Safari next test fails because it triggers 2x ArrowUp/Down event
       dayfield.focus();
@@ -154,12 +153,12 @@ test.registerTests(
       //And a time
       test.fill(hourfield, '15');
       test.fill(minutefield, '30');
-      test.eq('15:30', test.qS("#datetimeform-time").value);
+      test.eq('15:30', test.qR("#datetimeform-time").value);
 
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+      let result = JSON.parse(test.qR("#dynamicformsubmitresponse").textContent);
       test.eq("2012-11-13T00:00:00.000Z", result.form.dateofbirth);
       test.eq(55800000, result.form.time);
 
@@ -169,34 +168,33 @@ test.registerTests(
       test.eq("08", minutefield.value);
 
       // test leap days and arrowup
-      test.qS("#datetimeform-dateofbirth").value = "1984-02-29";
+      test.qR("#datetimeform-dateofbirth").value = "1984-02-29";
       yearfield.focus();
       await test.pressKey('ArrowUp');
-      test.eq("1985-03-01", test.qS("#datetimeform-dateofbirth").value);
+      test.eq("1985-03-01", test.qR("#datetimeform-dateofbirth").value);
 
       //test reset
       test.click('[data-wh-form-group-for="dateofbirth"] .datetime__reset');
-      test.eq("", test.qS("#datetimeform-dateofbirth").value);
+      test.eq("", test.qR("#datetimeform-dateofbirth").value);
       test.eq("", dayfield.value);
 
       //test reset
       test.click('[data-wh-form-group-for="time"] .datetime__reset');
-      test.eq("", test.qS("#datetimeform-time").value);
+      test.eq("", test.qR("#datetimeform-time").value);
       test.eq("", hourfield.value);
-    }
-   // * /
-  , "Test the date picker"
-  , async function()
-    {
+    },
+    // * /
+    "Test the date picker",
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
 
-      var changeevents = 0;
-      test.qS("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
+      let changeevents = 0;
+      test.qR("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
 
-      test.qS("[name=dateofbirth]").disabled = true;
+      test.qR("[name=dateofbirth]").disabled = true;
       test.click('[name=dateofbirth] + * .datetime__togglepicker');
       test.eq(0, test.qSA('.datetime__picker').length, "Not allowed to open an empty date picker!");
-      test.qS("[name=dateofbirth]").disabled = false;
+      test.qR("[name=dateofbirth]").disabled = false;
 
       test.click('[name=dateofbirth] + * .datetime__togglepicker');
       test.eq(1, test.qSA('.datetime__picker').length);
@@ -204,41 +202,41 @@ test.registerTests(
       test.eq(1, test.qSA('.datetime__picker').length, "shouldn't kill this one and shouldn't add another datepicker");
 
       //verify the picker sticks to the bottom of our input
-      let datepicker = test.qS('.datetime__picker');
-      let replacingnode = test.qS("[name=dateofbirth]").nextSibling;
+      let datepicker = test.qR('.datetime__picker');
+      let replacingnode = test.qR("[name=dateofbirth]").nextSibling;
       test.eq(Math.ceil(replacingnode.getBoundingClientRect().bottom), datepicker.getBoundingClientRect().top);
 
       test.eq(1, test.qSA(".datetime__picker__day--today").length, "should be only one 'TODAY'");
       test.eq(1, test.qSA(".datetime__picker__day--selected").length, "should be only one selected");
-      test.assert(test.qS(".datetime__picker__day--today").classList.contains("datetime__picker__day--selected"), "TODAY should be SELECTED");
+      test.assert(test.qR(".datetime__picker__day--today").classList.contains("datetime__picker__day--selected"), "TODAY should be SELECTED");
 
       //changing the date should update the date picker
-      test.qS('[name=dateofbirth]').value="2014-02-01";
-      test.eq("2014-01-27", test.qS(".datetime__picker__day").dataset.whDatepickerDate, "toplevel date should be 2014-01-27");
-      test.eq("2", test.qS('.datetime__picker__monthselect').value);
-      test.eq("2014", test.qS('.datetime__picker__yearselect').value);
+      test.qR('[name=dateofbirth]').value = "2014-02-01";
+      test.eq("2014-01-27", test.qSA(".datetime__picker__day")[0].dataset.whDatepickerDate, "toplevel date should be 2014-01-27");
+      test.eq("2", test.qR('.datetime__picker__monthselect').value);
+      test.eq("2014", test.qR('.datetime__picker__yearselect').value);
       test.eq(1, test.qSA(".datetime__picker__day--selected").length, "should be only one selected");
       test.eq(0, test.qSA(".datetime__picker__day--today").length, "Today should be out of sight");
 
-      test.assert(test.qS("[data-wh-datepicker-date='2014-01-27']").classList.contains("datetime__picker__day--othermonth"));
-      test.assert(!test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--othermonth"));
-      test.assert(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--selected"));
-      test.assert(test.qS("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--sat"));
+      test.assert(test.qR("[data-wh-datepicker-date='2014-01-27']").classList.contains("datetime__picker__day--othermonth"));
+      test.assert(!test.qR("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--othermonth"));
+      test.assert(test.qR("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--selected"));
+      test.assert(test.qR("[data-wh-datepicker-date='2014-02-01']").classList.contains("datetime__picker__day--sat"));
 
       //test next month
       test.click('.datetime__picker__previous');
-      test.eq("2013-12-30", test.qS(".datetime__picker__day").dataset.whDatepickerDate, "toplevel date should be 2013-12-30");
+      test.eq("2013-12-30", test.qSA(".datetime__picker__day")[0].dataset.whDatepickerDate, "toplevel date should be 2013-12-30");
 
       test.click('.datetime__picker__previous');
-      test.eq("2013-11-25", test.qS(".datetime__picker__day").dataset.whDatepickerDate, "toplevel date should be 2013-11-25");
+      test.eq("2013-11-25", test.qSA(".datetime__picker__day")[0].dataset.whDatepickerDate, "toplevel date should be 2013-11-25");
 
-      test.eq("12", test.qS('.datetime__picker__monthselect').value);
-      test.eq("2013", test.qS('.datetime__picker__yearselect').value);
+      test.eq("12", test.qR('.datetime__picker__monthselect').value);
+      test.eq("2013", test.qR('.datetime__picker__yearselect').value);
       test.click('.datetime__picker__next');
-      test.eq("2013-12-30", test.qS(".datetime__picker__day").dataset.whDatepickerDate, "toplevel date should be 2013-12-30");
+      test.eq("2013-12-30", test.qSA(".datetime__picker__day")[0].dataset.whDatepickerDate, "toplevel date should be 2013-12-30");
 
-      test.eq("1", test.qS('.datetime__picker__monthselect').value);
-      test.eq("2014", test.qS('.datetime__picker__yearselect').value);
+      test.eq("1", test.qR('.datetime__picker__monthselect').value);
+      test.eq("2014", test.qR('.datetime__picker__yearselect').value);
 
       //clicking outside the datepicker should kill it
       test.click('h1');
@@ -251,25 +249,24 @@ test.registerTests(
       test.eq(0, changeevents);
 
       //clicking a date should select it
-      test.click(test.qS("[data-wh-datepicker-date='2014-02-13']"));
-      test.eq('2014-02-13', test.qS('[name=dateofbirth]').value);
+      test.click(test.qR("[data-wh-datepicker-date='2014-02-13']"));
+      test.eq('2014-02-13', test.qR('[name=dateofbirth]').value);
       test.eq(1, changeevents);
       test.assert(!test.qS('.datetime__picker'));
-    }
+    },
 
-  , "Test focus datepicker day"
-  , async function()
-    {
+    "Test focus datepicker day",
+    async function () {
       test.click('[name=dateofbirth] + * .datetime__togglepicker');
 
       //Focus should be on currently selected day
-      test.eq('13',test.qS(".datetime__picker__day:focus").textContent);
+      test.eq('13', test.qR(".datetime__picker__day:focus").textContent);
 
       await test.pressKey('Tab');//Goto next day
-      test.eq('14',test.qS(".datetime__picker__day:focus").textContent);
+      test.eq('14', test.qR(".datetime__picker__day:focus").textContent);
 
       await test.pressKey('Enter');//confirm selected day (and closes datepicker)
-      test.eq('2014-02-14', test.qS('[name=dateofbirth]').value);
+      test.eq('2014-02-14', test.qR('[name=dateofbirth]').value);
 
       //After closing focus should be on last replaced date input (year)
       test.eq(1, test.qSA('[name=dateofbirth] + * input.datetime__year:focus').length);
@@ -280,36 +277,33 @@ test.registerTests(
       //Close datepicker with Escape key
       await test.pressKey('Escape');
       test.assert(!test.qS('.datetime__picker'));
-   }
+    },
 
-  , "Test weeknumbers"
-  , async function()
-    {
+    "Test weeknumbers",
+    async function () {
       test.click('[name=weeknumbers] + * .datetime__togglepicker');
-      test.eq('27', test.qS(".datetime__picker__weeknr").textContent);
-      test.eq('1', test.qS(".datetime__picker__day").textContent); //first day should be '1', july 2019 started on a monday
-    }
+      test.eq('27', test.qSA(".datetime__picker__weeknr")[0].textContent);
+      test.eq('1', test.qSA(".datetime__picker__day")[0].textContent); //first day should be '1', july 2019 started on a monday
+    },
 
-  , "Test datepicker reset"
-  , async function()
-    {
+    "Test datepicker reset",
+    async function () {
       //resetting it should reset the value AND close the picker
       test.click('[data-wh-form-group-for="dateofbirth"] .datetime__reset');
-      test.eq("", test.qS("#datetimeform-time").value);
+      test.eq("", test.qR("#datetimeform-time").value);
       test.assert(!test.qS('.datetime__picker'));
-    }
+    },
 
-  , "Test keyboard for date field"
-  , async function()
-    {
+    "Test keyboard for date field",
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1&webharevalidation=1');
-      dompack.changeValue(test.qS("#datetimeform-dateofbirth"),"1979-06-13");
+      dompack.changeValue(test.qR("#datetimeform-dateofbirth"), "1979-06-13");
 
-      var changeevents = 0;
-      test.qS("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
+      let changeevents = 0;
+      test.qR("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
 
-      var inputevents = 0;
-      test.qS("[name=dateofbirth]").addEventListener("input", () => ++inputevents);
+      let inputevents = 0;
+      test.qR("[name=dateofbirth]").addEventListener("input", () => ++inputevents);
 
       test.focus('#datetimeform-show_fields');
       await test.pressKey('Tab');
@@ -320,13 +314,13 @@ test.registerTests(
       await test.pressKey('2');
       test.eq(1, changeevents);
       test.eq(1, inputevents);
-      test.eq('1979-06-02', test.qS("[name=dateofbirth]").value);
+      test.eq('1979-06-02', test.qR("[name=dateofbirth]").value);
 
       await test.pressKey('3');
 
       test.eq(2, changeevents);
       test.eq(2, inputevents);
-      test.eq('1979-06-23', test.qS("[name=dateofbirth]").value);
+      test.eq('1979-06-23', test.qR("[name=dateofbirth]").value);
 
       let dayfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[1]; //fixme properly find field in any locale
       let monthfield = test.qSA("[data-wh-form-group-for=dateofbirth] input")[2]; //fixme properly find field in any locale
@@ -376,21 +370,20 @@ test.registerTests(
       //test 'pasting' a date!
       test.getDoc().activeElement.value = '13-5-2011';
       dompack.dispatchDomEvent(test.getDoc().activeElement, 'input');
-      test.eq('2011-05-13', test.qS("[name=dateofbirth]").value);
+      test.eq('2011-05-13', test.qR("[name=dateofbirth]").value);
       test.eq('13', dayfield.value);
       test.eq('05', monthfield.value);
       test.eq('2011', yearfield.value);
-    }
+    },
 
-  , "Test keyboard for time field"
-  , async function()
-    {
-      var changeevents = 0;
-      var inputevents = 0;
+    "Test keyboard for time field",
+    async function () {
+      let changeevents = 0;
+      let inputevents = 0;
 
-      test.qS("[name=time]").value = '15:30';
-      test.qS("[name=time]").addEventListener("change", () => ++changeevents);
-      test.qS("[name=time]").addEventListener("input", () => ++inputevents);
+      test.qR("[name=time]").value = '15:30';
+      test.qR("[name=time]").addEventListener("change", () => ++changeevents);
+      test.qR("[name=time]").addEventListener("input", () => ++inputevents);
 
       test.focus('#datetimeform-show_fields');
       await test.pressKey('Tab');
@@ -404,13 +397,13 @@ test.registerTests(
       await test.pressKey('2');
       test.eq(1, changeevents);
       test.eq(1, inputevents);
-      test.eq('02:30', test.qS("[name=time]").value);
+      test.eq('02:30', test.qR("[name=time]").value);
 
       await test.pressKey('3');
 
       test.eq(2, changeevents);
       test.eq(2, inputevents);
-      test.eq('23:30', test.qS("[name=time]").value);
+      test.eq('23:30', test.qR("[name=time]").value);
 
       let hourfield = test.qSA("[data-wh-form-group-for=time] input")[1];
       let minutefield = test.qSA("[data-wh-form-group-for=time] input")[2];
@@ -447,45 +440,43 @@ test.registerTests(
       // TODO add suport for pasting time
       // test.getDoc().activeElement.value = '13-5-2011';
       // dompack.dispatchDomEvent(test.getDoc().activeElement, 'input');
-      // test.eq('2011-05-13', test.qS("[name=time]").value);
-    }
+      // test.eq('2011-05-13', test.qR("[name=time]").value);
+    },
 
-  , "Test direct value changing"
-  , async function()
-    {
+    "Test direct value changing",
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
-       __setUnderlyingValue(test.qS("#datetimeform-dateofbirth"),"2012-11-13");
-      dompack.dispatchDomEvent(test.qS("#datetimeform-dateofbirth"), 'change');
+      __setUnderlyingValue(test.qR("#datetimeform-dateofbirth"), "2012-11-13");
+      dompack.dispatchDomEvent(test.qR("#datetimeform-dateofbirth"), 'change');
 
-      test.eq('13',test.qSA("[data-wh-form-group-for=dateofbirth] input")[1].value);
-      test.eq('11',test.qSA("[data-wh-form-group-for=dateofbirth] input")[2].value);
-      test.eq('2012',test.qSA("[data-wh-form-group-for=dateofbirth] input")[3].value);
+      test.eq('13', test.qSA("[data-wh-form-group-for=dateofbirth] input")[1].value);
+      test.eq('11', test.qSA("[data-wh-form-group-for=dateofbirth] input")[2].value);
+      test.eq('2012', test.qSA("[data-wh-form-group-for=dateofbirth] input")[3].value);
 
-       __setUnderlyingValue(test.qS("#datetimeform-time"),"15:30");
-      dompack.dispatchDomEvent(test.qS("#datetimeform-time"), 'change');
+      __setUnderlyingValue(test.qR("#datetimeform-time"), "15:30");
+      dompack.dispatchDomEvent(test.qR("#datetimeform-time"), 'change');
 
       test.eq('15', test.qSA("[data-wh-form-group-for=time] input")[1].value);
       test.eq('30', test.qSA("[data-wh-form-group-for=time] input")[2].value);
-    }
+    },
 
-  , "Test api"
-  , async function()
-    {
+    "Test api",
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
-      dompack.changeValue(test.qS("#datetimeform-dateofbirth"),"1979-06-13");
+      dompack.changeValue(test.qR("#datetimeform-dateofbirth"), "1979-06-13");
 
-      var changeevents = 0;
-      test.qS("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
+      let changeevents = 0;
+      test.qR("[name=dateofbirth]").addEventListener("change", () => ++changeevents);
 
       test.click('[name=dateofbirth] + * .datetime__togglepicker');
       test.eq(1, test.qSA('.datetime__picker').length);
 
-      test.qS('[name=dateofbirth]').formtestDateHandler.closePicker();
+      (test.qR('[name=dateofbirth]')).formtestDateHandler.closePicker();
       test.eq(0, test.qSA('.datetime__picker').length);
 
-      test.qS('[name=dateofbirth]').formtestDateHandler.closePicker(); //double invocation should be fine
+      (test.qR('[name=dateofbirth]')).formtestDateHandler.closePicker(); //double invocation should be fine
       test.eq(0, test.qSA('.datetime__picker').length);
       test.eq(0, changeevents);
-      test.eq('1979-06-13', test.qS("#datetimeform-dateofbirth").value);
-    }
-  ]);
+      test.eq('1979-06-13', test.qR("#datetimeform-dateofbirth").value);
+  }
+]);
