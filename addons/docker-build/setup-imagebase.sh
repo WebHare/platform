@@ -17,7 +17,7 @@
 
 
 # Fail on any error
-set +e
+set -eo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
@@ -37,8 +37,8 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 # Chrome headless sometimes crashes if fonts are missing. Not sure why, but see https://bugs.chromium.org/p/chromium/issues/detail?id=695212
 # Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
 ( curl -sL https://deb.nodesource.com/setup_18.x | bash - )
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8
+apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8 #MariaDB key
+apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
 # ( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
@@ -144,9 +144,6 @@ rm /etc/java-8-openjdk/accessibility.properties
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
 
-# Marker file to detect that we're in Docker
-true > /opt/wh/whtree/etc/is-webhare-in-docker
-
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then
   echo "Certbot failed!"
@@ -161,9 +158,9 @@ fi
 
 # Install chrome
 curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-dpkg -i /tmp/chrome.deb
+apt-get install -y /tmp/chrome.deb
 rm /tmp/chrome.deb
-apt-get -qy --fix-broken install
+# apt-get -qy --fix-broken install
 
 CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
 CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
