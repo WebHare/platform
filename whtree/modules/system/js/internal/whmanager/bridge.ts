@@ -858,9 +858,12 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   allocateLinkid() {
-    /// Get next uint32_t this.linkidcounter that is not in use yet ('>>> 0' has same effect as % 2**32)
-    for (; this.linkidcounter == 0 || this.links.get(this.linkidcounter); this.linkidcounter = ((this.linkidcounter + 1) >>> 0));
-    return this.linkidcounter;
+    /// Keep local link ids below 2^31, and skip link 0. Ignoring the possiblity 2^31 links are open.
+    for (; ;) {
+      this.linkidcounter = (this.linkidcounter % 2147483647) + 1;
+      if (!this.links.get(this.linkidcounter))
+        return this.linkidcounter;
+    }
   }
 
   allocateRequestId(): number {
