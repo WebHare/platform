@@ -29,6 +29,13 @@ type EventHandlerRecord<T> = {
   filter?: EventFilter<T, keyof T>;
 };
 
+/** Options for event handlers
+*/
+interface EventHandlerOptions<T, K extends keyof T> {
+  /** If set, call filter for every event, only emit events where the filter function returns true */
+  filter?: EventFilter<T, K>;
+}
+
 /** Event source
     @typeParam T - Record with the possible callbacks and their types (eg `{ data: string, end: undefined }`)
 */
@@ -40,42 +47,42 @@ export default class EventSource<T extends Record<string, unknown>> {
       @typeParam K - Type of the eventname (usually inferred automatically, for type checking purposes)
       @param eventname - Event name to match.
       @param callback - Callback to invoke
-      @param filter - Optional filter to execute on the event
+      @param options - Options
       @returns Listener ID that can be used to deregister with {@link off}.
   */
-  on<K extends keyof T>(eventname: K, callback: EventCallback<T, K>, filter?: EventFilter<T, K>): ListenerId {
+  on<K extends keyof T>(eventname: K, callback: EventCallback<T, K>, options: EventHandlerOptions<T, K> = {}): ListenerId {
     const id = ++this._nextid;
     this._on_handlers.set(id, {
       eventname,
       callback: callback as EventCallback<T, keyof T>,
-      filter: filter as EventFilter<T, keyof T>
+      filter: options.filter as (EventFilter<T, keyof T> | undefined)
     });
     return id;
   }
 
   /** Register a callback that will listen for all events (useful for forwarding or debugging)
       @param callback - Callback to invoke. The event name will be in the second parameter
-      @param filter - Optional filter to execute on the event
+      @param filter - Options
       @returns Listener ID that can be used to deregister with {@link off}
   */
-  onAll(callback: EventCallback<T, keyof T>, filter?: EventFilter<T, keyof T>): ListenerId {
+  onAll(callback: EventCallback<T, keyof T>, options: EventHandlerOptions<T, keyof T>): ListenerId {
     const id = ++this._nextid;
-    this._on_handlers.set(id, { eventname: "*", callback, filter }); //webpack doesn't support options?. - radboud_events still needs this file
+    this._on_handlers.set(id, { eventname: "*", callback, filter: options?.filter }); //webpack doesn't support options?. - radboud_events still needs this file
     return id;
   }
 
   /** Return a promise waiting for the next occurence of the specified event
       @typeParam K - Type of the eventname (usually inferred automatically, for type checking purposes)
       @param eventname - Event name to match
-      @param filter - Optional filter to execute on the event
+      @param filter - Options
       @returns Data of triggered event
   */
-  waitOn<K extends keyof T>(eventname: K, filter?: EventFilter<T, K>): Promise<T[K]> {
+  waitOn<K extends keyof T>(eventname: K, options?: EventHandlerOptions<T, K>): Promise<T[K]> {
     return new Promise(resolve => {
       const id = this.on(eventname, data => {
         this.off(id);
         resolve(data);
-      }, filter);
+      }, options);
     });
   }
 
