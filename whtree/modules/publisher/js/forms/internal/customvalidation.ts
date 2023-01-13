@@ -44,7 +44,7 @@ function setupServerErrorClear(field) {
 }
 
 
-export function setFieldError(field, error, options) {
+export function setFieldError(field: HTMLElement, error: string, options?) {
   if (dompack.debugflags.fhv)
     console.log(`[fhv] ${error ? "Setting" : "Clearing"} error for field ${field.name}`, field, error, options);
 
@@ -87,8 +87,6 @@ export function setFieldError(field, error, options) {
     if (!options.reportimmediately || reportValidity(field))
       return;
   }
-  if (error) //if we're not setting an error, it's not an issue that we can't show one
-    throw new Error("No handler available to process setFieldError request");
 }
 
 export function setupValidator(node, checker) {
