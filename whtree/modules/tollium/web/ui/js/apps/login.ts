@@ -65,7 +65,7 @@ class LoginApp {
         ]
         , width: "1pr"
         , height: "1pr"
-        , spacers: {}
+        , spacers: { top: true }
       }
 
       , secondfactortop: {
