@@ -13,13 +13,14 @@ import { generateBase64UniqueID } from "../util/crypto";
 import * as stacktrace_parser from "stacktrace-parser";
 import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
 import * as inspector from "node:inspector";
+import * as envbackend from "@webhare/env/src/envbackend";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
-const logpackets = false;
-const logmessages = false;
+const logmessages = envbackend.getWHDebugFlags().ipc;
+const logpackets = envbackend.getWHDebugFlags().ipcpackets;
 
 /// Number of milliseconds before connection to whmanager times out
 const whmanager_connection_timeout = 1500;

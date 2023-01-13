@@ -10,7 +10,7 @@ interface Trackable {
 const ports = new Array<WeakRef<MessagePort>>();
 
 function setTrackingSymbol(obj: unknown, title = "unknown") {
-  (obj as Trackable)[titlesymbol] = `MessagePort: ${title}"\n${new Error(`MessagePort created`).stack || ""}`;
+  (obj as Trackable)[titlesymbol] = `MessagePort: '${title}'\n${new Error(`MessagePort created`).stack || ""}`;
 }
 
 export interface TypedMessagePort<SendType extends object, ReceiveType extends object> {
