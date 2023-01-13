@@ -3,8 +3,13 @@ import * as storage from 'dompack/extra/storage';
 
 interface Config {
   [key: string]: unknown;
-  obj: unknown;
-  site: unknown;
+
+  //NOTE: existing code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing obeject'
+  /** Page (targetobject) specific settings */
+  obj: object;
+  /** Site specific settings */
+  site: object;
+
   /** True if the current WebHare is in production or acceptance DTAP stage. Often used to show/hide developer-targed runtime warnings */
   islive: boolean;
   /** Current WebHare's DTAP stage */
@@ -176,10 +181,10 @@ function getIntegrationConfig(): Config {
   return {
     islive: true,
     dtapstage: "production",
-    obj: null,
-    site: null,
     server: 0,
-    ...config
+    ...config,
+    obj: config?.obj || {},
+    site: config?.site || {}
   };
 }
 
@@ -187,4 +192,3 @@ if (typeof window !== "undefined" && !document.documentElement.classList.contain
   setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
 
 export const config = getIntegrationConfig();
-
