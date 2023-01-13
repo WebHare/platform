@@ -62,12 +62,12 @@ export default class EventSource<T extends Record<string, unknown>> {
 
   /** Register a callback that will listen for all events (useful for forwarding or debugging)
       @param callback - Callback to invoke. The event name will be in the second parameter
-      @param filter - Options
+      @param options - Options
       @returns Listener ID that can be used to deregister with {@link off}
   */
-  onAll(callback: EventCallback<T, keyof T>, options: EventHandlerOptions<T, keyof T>): ListenerId {
+  onAll(callback: EventCallback<T, keyof T>, options?: EventHandlerOptions<T, keyof T>): ListenerId {
     const id = ++this._nextid;
-    this._on_handlers.set(id, { eventname: "*", callback, filter: options?.filter }); //webpack doesn't support options?. - radboud_events still needs this file
+    this._on_handlers.set(id, { eventname: "*", callback, filter: options?.filter });
     return id;
   }
 
