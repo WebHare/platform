@@ -4,7 +4,7 @@ import * as storage from 'dompack/extra/storage';
 interface Config {
   [key: string]: unknown;
 
-  //NOTE: existing code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing obeject'
+  //NOTE: existing code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing object'
   /** Page (targetobject) specific settings */
   obj: object;
   /** Site specific settings */
