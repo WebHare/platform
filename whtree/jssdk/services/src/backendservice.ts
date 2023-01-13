@@ -85,7 +85,7 @@ export async function openBackendService<T extends object = DefaultWebHareServic
     //Try to setup a link. Loop until deadline if activate() fails
     try {
       //wrap activate() in a promise returning true, so we can differentiate from the deadline returning false
-      const linkpromise = (async () => { await link.activate(); return true; })();
+      const linkpromise = link.activate().then(() => true);
 
       const connected = await Promise.race([linkpromise, deadline]);
       if (!connected) {
