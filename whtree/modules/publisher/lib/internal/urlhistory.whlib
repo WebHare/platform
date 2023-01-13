@@ -139,22 +139,3 @@ PUBLIC RECORD ARRAY FUNCTION GetURLHistoryData(INTEGER fileid)
 {
   RETURN SELECT id, url, creationdate FROM publisher.urlhistory WHERE fsobject = fileid;
 }
-
-PUBLIC RECORD FUNCTION GetURLEventsSettings(INTEGER objid)
-{
-  RETURN GetApplyTesterForObject(objid)->GetCachedProperty("urlevents", [ enabled := FALSE ]);
-}
-
-PUBLIC MACRO BroadcastURLEventIfNeeded(INTEGER fileid, STRING url, BOOLEAN exists)
-{
-  RECORD urlevents := GetURLEventsSettings(fileid);
-  IF(NOT urlevents.enabled)
-    RETURN;
-
-  BroadcastURLEvent(fileid, url, exists);
-}
-
-PUBLIC MACRO BroadcastURLEvent(INTEGER fileid, STRING url, BOOLEAN exists)
-{
-  BroadcastEvent("publisher:url", [ fileid := fileid, url := url, event := exists ? "pub" : "del" ]);
-}
