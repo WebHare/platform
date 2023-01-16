@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 /* A math library for safe calculation with money amounts in JS. If you don't
@@ -11,8 +10,7 @@
 
 //a 'price' is a string of the form "nnn[.NNNN]"
 
-function isSafeInteger(value) //Number.isSafeInteger is unavailable in IE11
-{
+function isSafeInteger(value) { //Number.isSafeInteger is unavailable in IE11
   return Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
 }
 
@@ -24,8 +22,7 @@ function stripUnneededDecimals(num, decimals) {
     if (isneg)
       num = -num;
 
-    while (decimals > 6) //truncate excess digits
-    {
+    while (decimals > 6) { //truncate excess digits
       num = Math.floor(num / 10);
       --decimals;
     }
@@ -54,7 +51,7 @@ function toText(amount, decimalpoint, mindecimals) {
   ({ num, decimals } = stripUnneededDecimals(amount.num, amount.decimals));
 
   // Strip sign from number, may need to prefix it
-  let isnegative = num < 0;
+  const isnegative = num < 0;
   if (isnegative)
     num = -num;
 
@@ -79,8 +76,8 @@ function toText(amount, decimalpoint, mindecimals) {
 }
 
 /** Convert a price of any format to a price parts object
-    @param money Either an integer number, string with a number of a price object
-    @return Price parts object
+    @param money - Either an integer number, string with a number of a price object
+    @returns Price parts object
 */
 function splitPrice(money) {
   if (typeof money == 'number') {
@@ -93,13 +90,13 @@ function splitPrice(money) {
   if (typeof money != 'string')
     throw new Error("splitPrice should receive either number or string, got " + money);
 
-  let split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/);
+  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/);
   if (!split)
     throw new Error(`splitPrice received illegal price: '${money}'`);
 
-  let sign = split[1] == '-' ? -1 : 1;
-  let decimals = split[3] ? split[3].length - 1 : 0;
-  let num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  const sign = split[1] == '-' ? -1 : 1;
+  const decimals = split[3] ? split[3].length - 1 : 0;
+  const num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
   if (!isSafeInteger(num))
     throw new Error(`The value '${money}' is outside the safe value range`);
 
@@ -113,7 +110,7 @@ function joinPrice(parts) {
 }
 
 function adjustDecimals(amount, requiredecimals) {
-  let toadd = requiredecimals - amount.decimals;
+  const toadd = requiredecimals - amount.decimals;
   if (toadd <= 0)
     return;
 
@@ -138,7 +135,7 @@ export function isValidPrice(money) {
 
 function __add(lhs, rhs) {
   //equalize # of decimals, and then it's a simple addition
-  let requiredecimals = Math.max(lhs.decimals, rhs.decimals);
+  const requiredecimals = Math.max(lhs.decimals, rhs.decimals);
   adjustDecimals(lhs, requiredecimals);
   adjustDecimals(rhs, requiredecimals);
   return { num: lhs.num + rhs.num, decimals: requiredecimals };
@@ -153,7 +150,7 @@ export function add(amount1, amount2) {
 /** Subtracts a number from another number
 */
 export function subtract(amount, tosubtract) {
-  let lhs = splitPrice(amount), rhs = splitPrice(tosubtract);
+  const lhs = splitPrice(amount), rhs = splitPrice(tosubtract);
   rhs.num = -rhs.num;
   return joinPrice(__add(lhs, rhs));
 }
@@ -166,27 +163,27 @@ function __multiply(lhs, rhs) {
 /** Multiplies two numbers together
 */
 export function multiply(amount1, amount2) {
-  let lhs = splitPrice(amount1), rhs = splitPrice(amount2);
+  const lhs = splitPrice(amount1), rhs = splitPrice(amount2);
   return joinPrice(__multiply(lhs, rhs));
 }
 
 /** Compares two numbers
-    @param amount1
-    @param amount2
-    @return Returns 0 if amount1 == amount2, -1 if amount1 < amount2, 1 if amount1 > amount2
+    @param amount1 - Left hand value
+    @param amount2 - Right hand value
+    @returns Returns 0 if amount1 == amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
 */
 export function cmp(amount1, amount2) {
-  let diff = __add(splitPrice(amount1), __multiply(splitPrice(amount2), { num: -1, decimals: 0 }));
+  const diff = __add(splitPrice(amount1), __multiply(splitPrice(amount2), { num: -1, decimals: 0 }));
   return diff.num < 0 ? -1 : diff.num == 0 ? 0 : 1;
 }
 
 /** Returns a percentage of an amount
-    @param amount Original amount
-    @param perc Percentage of the amount to return
-    @return Percentage of the amount
+    @param amount - Original amount
+    @param perc - Percentage of the amount to return
+    @returns Percentage of the amount
 */
 export function getPercentageOfAmount(amount, perc) {
-  let lhs = splitPrice(amount), rhs = splitPrice(perc);
+  const lhs = splitPrice(amount), rhs = splitPrice(perc);
   amount = __multiply(lhs, rhs);
   amount.decimals += 2;
   return joinPrice(normalize(amount));
@@ -208,7 +205,7 @@ export function formatPrice(money, decimalpoint, decimals) {
 //OBSOLETE - webshops before 3.3.1 still need it though
 export function getCostFromTable(costtable, total) {
   let bestcost = null;
-  for (let row of costtable) {
+  for (const row of costtable) {
     if (cmp(total, row.fromtotal) < 0) //total not high enough to trigger this row
       continue;
 
@@ -220,7 +217,7 @@ export function getCostFromTable(costtable, total) {
 
 // === Math.trunc, but ie doesn't support that
 function truncateFloat(value) {
-  let isnegative = value < 0;
+  const isnegative = value < 0;
   value = Math.floor(Math.abs(value));
   return isnegative && value ? -value : value; // no -0, please
 }
@@ -295,9 +292,9 @@ export function __roundIntegerToMultiple(value, roundunit, mode) {
 }
 
 /** Rounds a value to a multiple of a unit, with a specific rounding mode
-    @param value Value to round
-    @param unit The value will be rounded to a mulitple of this unit (except when rounding mode is 'none')
-    @param mode Rounding mode. Possible values:<br>
+    @param value - Value to round
+    @param unit - The value will be rounded to a mulitple of this unit (except when rounding mode is 'none')
+    @param mode - Rounding mode. Possible values:<br>
       <ul>
         <li>none: No rounding</li>
         <li>toward-zero: Round toward zero</li>
@@ -307,24 +304,24 @@ export function __roundIntegerToMultiple(value, roundunit, mode) {
         <li>half-down: Round nearest multiple, round half of a multiple toward negative infinity</li>
         <li>half-up: Round nearest multiple, round half of a multiple toward positive infity</li>
       </ul>
-    @return The rounded value
+    @returns The rounded value
 */
 export function roundToMultiple(value, unit, mode) {
   value = splitPrice(value);
   unit = splitPrice(unit);
 
-  let requiredecimals = Math.max(value.decimals, unit.decimals);
+  const requiredecimals = Math.max(value.decimals, unit.decimals);
   adjustDecimals(value, requiredecimals);
   adjustDecimals(unit, requiredecimals);
 
-  let result = { num: __roundIntegerToMultiple(value.num, unit.num, mode), decimals: value.decimals };
+  const result = { num: __roundIntegerToMultiple(value.num, unit.num, mode), decimals: value.decimals };
   return joinPrice(result);
 }
 
 /** Returns the minimum of all the arguments
-    @param amount First value
-    @param amounts Rest of the values
-    @return The lowest value among amount and amounts
+    @param amount - First value
+    @param amounts - Rest of the values
+    @returns The lowest value among amount and amounts
 */
 export function min(amount, ...amounts) {
   for (const val of amounts)
@@ -334,9 +331,9 @@ export function min(amount, ...amounts) {
 }
 
 /** Returns the maximum of all the arguments
-    @param amount First value
-    @param amounts Rest of the values
-    @return The highest value among amount and amounts
+    @param amount - First value
+    @param amounts - Rest of the values
+    @returns The highest value among amount and amounts
 */
 export function max(amount, ...amounts) {
   for (const val of amounts)
@@ -346,8 +343,8 @@ export function max(amount, ...amounts) {
 }
 
 /** Returns a power of 10
-    @param exp Integer power, must be 0 or bigger
-    @return Requested power of 10
+    @param exp - Integer power, must be 0 or bigger
+    @returns Requested power of 10
 */
 function getNonNegativePowerOf10(exp) {
   let retval = 1, running_exp = 10;
@@ -361,9 +358,9 @@ function getNonNegativePowerOf10(exp) {
 }
 
 /** Divides two values, with 5 decimals of precision
-    @param value Value To divide
-    @param divisor Divisor
-    @return Divided value, with 5 decimals of precision
+    @param value - Value To divide
+    @param divisor - Divisor
+    @returns Divided value, with 5 decimals of precision
 */
 export function divide(value, divisor) {
   const lhs = splitPrice(value), rhs = splitPrice(divisor);
@@ -373,18 +370,17 @@ export function divide(value, divisor) {
   return joinPrice({ num: __roundIntegerToMultiple(mulfactor * lhs.num / rhs.num, roundunit, "half-toward-infinity"), decimals: 5 });
 }
 
-export function moneyDivide(value, divisor) //divide was added in 5.0. remove this old name eventually
-{
+export function moneyDivide(value, divisor) { //divide was added in 5.0. remove this old name eventually
   return divide(value, divisor);
 }
 
 /** Test whether two values have a specific relation
-    @param lhs Left hand value
-    @param relation One of '<', '<=', '==', '!=', '>', '>=''
-    @param rhs Right hand value
-    @return TRUE if the relation holds
+    @param lhs - Left hand value
+    @param relation - One of '\<', '\<=', '==', '!=', '\>', '\>=''
+    @param rhs - Right hand value
+    @returns TRUE if the relation holds
     @example
-      console.log(finmath.test(1, '<', 2)); // prints 'true'
+      console.log(finmath.test(1, '\<', 2)); // prints 'true'
 */
 export function test(lhs, relation, rhs) {
   const compareresult = cmp(lhs, rhs);
