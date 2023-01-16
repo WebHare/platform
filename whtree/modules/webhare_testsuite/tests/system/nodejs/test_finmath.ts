@@ -4,7 +4,7 @@ import * as test from "@webhare/test";
 //TODO swap the test.eq arguments...
 
 // Keep in sync with test_numbers.whscr
-function testRoundingCall(base: number, mode: string, expect: number[]) {
+function testRoundingCall(base: number, mode: finmath.RoundMode, expect: number[]) {
   const got = [], mgot = [], mexpect = [];
 
   for (let i = -base; i <= base; ++i) {
