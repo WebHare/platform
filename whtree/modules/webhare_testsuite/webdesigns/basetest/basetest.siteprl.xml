@@ -838,17 +838,6 @@
     <opengraph xmlns="http://www.webhare.net/xmlns/socialite" site_name="PluginTest" />
   </apply>
 
-  <!-- URL events -->
-  <apply>
-    <to type="all" pathmask="*urlevents*" />
-    <urlevents enabled="1" />
-  </apply>
-
-  <apply>
-    <to type="all" pathmask="*noevents*" />
-    <urlevents enabled="false" />
-  </apply>
-
   <!-- URLHistory -->
   <apply>
     <to type="all" pathmask="/tmp/*follow*" />

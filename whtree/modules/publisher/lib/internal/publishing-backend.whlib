@@ -357,26 +357,6 @@ STATIC OBJECTTYPE PublicationRun
       this->errordata := this->outputmedia->current_error.msg;
     }
 
-    IF (this->outputdriver EXTENDSFROM LocalFSOutputMedia)
-    {
-      IF (GetURLEventsSettings(this->filedata.fileid).enabled)
-      {
-        //ADDME perhaps we can use CalculateFSObjectFullPathAndURL here
-        STRING baseurl := this->filedata.folderurl;
-        FOREVERY (RECORD subfile FROM this->outputmedia->generatedfiles)
-        {
-          STRING fullurl := baseurl || subfile.path;
-          IF(ToLowercase(GetNameFromPath(fullurl)) IN whconstant_webserver_indexpages)
-            fullurl := GetDirectoryFromPath(fullurl);
-
-          DEBUGPRINT("BroadcaseURLEvent '" || fullurl || "' published (if needed)");
-          BroadcastURLEvent(this->filedata.fileid, fullurl, TRUE);
-        }
-      }
-      ELSE
-        DEBUGPRINT("Not pushing published url " || this->filedata.url);
-    }
-
     this->outputmedia := DEFAULT OBJECT;
     RETURN 0;
   }

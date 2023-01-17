@@ -868,7 +868,6 @@
       <xs:element name="webdesign" type="WebDesign" />
       <xs:element ref="urlhistory" />
       <xs:element ref="preview" />
-      <xs:element name="urlevents" type="UrlEvents" />
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
@@ -1350,10 +1349,6 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-
-  <xs:complexType name="UrlEvents">
-    <xs:attribute name="enabled" type="xs:boolean" />
-  </xs:complexType>
 
   <xs:complexType name="MSWordConversion">
     <xs:sequence>

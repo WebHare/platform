@@ -33,6 +33,8 @@ MACRO Normalizations()
 
   TestEq("//www.example.org/", NormalizeHistoryURL("https://www.example.org/#-stayinformed"));
   TestEq("//www.example.org/%23-stayinformed", NormalizeHistoryURL("https://www.example.org/%23-stayinformed"));
+  TestEq("//www.example.org/wijnkist-ch\u00E2teau", NormalizeHistoryURL("https://www.example.org/wijnkist-ch%E2teau"));
+  TestAssert(IsValidUTF8(NormalizeHistoryURL("https://www.example.org/wijnkist-ch%E2teau")));
 }
 
 MACRO Prepare()

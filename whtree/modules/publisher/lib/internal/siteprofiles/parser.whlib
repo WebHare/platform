@@ -833,7 +833,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , tagsources := DEFAULT RECORD ARRAY
                     , typemappings := DEFAULT RECORD ARRAY
                     , uploadtypemapping := DEFAULT RECORD ARRAY
-                    , urlevents := DEFAULT RECORD
                     , urlhistory := DEFAULT RECORD
                     , preview := DEFAULT RECORD
                     , usepublishtemplate := DEFAULT RECORD
@@ -942,13 +941,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                   , store := ParseXSBoolean(node->GetAttribute("store"))
                                   , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
                                   ];
-              CONTINUE;
-            }
-            CASE "urlevents"
-            {
-              apply.urlevents := [ haslist := GetHasList(node, ["enabled"])
-                                 , enabled := ParseXSBoolean(node->GetAttribute("enabled"))
-                                 ];
               CONTINUE;
             }
             CASE "bodyrenderer"
