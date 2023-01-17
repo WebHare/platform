@@ -8,6 +8,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
 
 STATIC OBJECTTYPE BridgeConnection
 <
@@ -15,20 +17,6 @@ STATIC OBJECTTYPE BridgeConnection
 
   MACRO NEW()
   {
-  }
-
-  MACRO CheckFailedJobs()
-  {
-    FOREVERY(RECORD job FROM this->myjobs)
-      IF(job.job->IsSignalled())
-      {
-        DumpValue(job.job->GetErrors(),'boxed');
-        job.job->Close();
-        DELETE FROM this->myjobs WHERE myjobs.job = job.job;
-      }
-
-    IF(Length(this->myjobs) > 0)
-      RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->CheckFailedJobs);
   }
 
   PUBLIC ASYNC FUNCTION invokeAnyFunction(STRING funcname, VARIANT ARRAY args, RECORD options)
@@ -43,13 +31,23 @@ STATIC OBJECTTYPE BridgeConnection
     IF(Length(jobrecord.errors) > 0)
       THROW NEW Exception(`Failed to start HSVM job: ${jobrecord.errors[0].message}`);
 
+    jobrecord.job->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->CheckJobErrors(jobrecord.job));
     jobrecord.job->Start();
     INSERT jobrecord INTO this->myjobs AT END;
 
-    IF(Length(this->myjobs) = 1) //first job!
-      RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->CheckFailedJobs);
-
     RETURN "system:bridge_hsmv_" || jobrecord.job->groupid;
+  }
+
+  MACRO CheckJobErrors(OBJECT job)
+  {
+    RECORD ARRAY errors := job->GetErrors();
+    IF(Length(errors) > 0)
+    {
+      Print(FormatHarescriptErrors(errors));
+      LogHarescriptException(NEW HarescriptErrorException(errors));
+    }
+    job->Close();
+    DELETE FROM this->myjobs WHERE myjobs.job = VAR job;
   }
 
   PUBLIC RECORD FUNCTION GetConfig()
