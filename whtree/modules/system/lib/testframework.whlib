@@ -1520,17 +1520,16 @@ STATIC OBJECTTYPE TestFramework
                                , sitename := "webhare_testsuite.site"
                                , outputpath := "/"
                                , enableoutput := TRUE
+                               , webdesign := ""
                                , webfeatures := STRING[]
                                ], options);
 
 
     OBJECT siteroot := this->GetWHFSTestRoot()->EnsureFolder( [ name := options.sitename, type := options.sitetype ] );
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
-    IF(Length(options.webfeatures) != 0)
-    {
-      newsite->UpdateSiteMetadata([ webfeatures := options.webfeatures
-                                  ]);
-    }
+    newsite->UpdateSiteMetadata(CELL[ options.webdesign
+                                    , options.webfeatures
+                                    ]);
 
     IF(options.enableoutput)
       SetupSiteTestOutput(newsite, MergePath("webhare_testsuite.testoutput/", options.outputpath));
