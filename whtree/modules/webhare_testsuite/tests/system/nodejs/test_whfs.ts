@@ -21,11 +21,28 @@ async function testWHFS() {
   test.assert(markdownfile);
   test.assert(markdownfile.isfile);
   test.eq(testsite.webroot + "TestPages/markdownpage/", markdownfile.link);
+  test.eq("/TestPages/markdownpage", markdownfile.fullpath);
+  test.eq(testsite.id, markdownfile.parentsite);
+
+  const rootfolder = await testsite.openFolder(".");
+  test.eq(testsite.id, rootfolder.id);
+  test.assert(rootfolder.indexdoc);
+  test.eq("index.rtd", (await whfs.openFile(rootfolder.indexdoc)).name);
+
+  const testpagesfolder = await whfs.openFolder(markdownfile.parent);
+  test.eq("TestPages", testpagesfolder.name);
+  test.eq(0, testpagesfolder.indexdoc);
 
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
   test.eq(markdownfile.id, (await whfs.openFile(markdownfile.id)).id);
   test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfspath)).id);
+
+  test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
+  test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);
+  test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages/")).id);
+  test.eq(testpagesfolder.id, (await whfs.openFolder(testpagesfolder.id)).id);
+  test.eq(testpagesfolder.id, (await whfs.openFolder("whfs::" + testpagesfolder.whfspath)).id);
 }
 
 async function testSiteProfiles() {

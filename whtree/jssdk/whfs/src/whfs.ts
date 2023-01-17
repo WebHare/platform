@@ -45,17 +45,23 @@ interface FsObjectRow {
 
   //manually added
   link: string;
+  fullpath: string;
   whfspath: string;
+  parentsite: number;
 }
 
 class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
 
   get id() { return this.dbrecord.id; }
+  get name() { return this.dbrecord.name; }
+  get parent() { return this.dbrecord.parent; }
   get isfile() { return !this.dbrecord.isfolder; }
   get isfolder() { return !this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
+  get fullpath() { return this.dbrecord.fullpath; }
   get whfspath() { return this.dbrecord.whfspath; }
+  get parentsite() { return this.dbrecord.parentsite; }
 
   constructor(dbrecord: FsObjectRow) {
     this.dbrecord = dbrecord;
@@ -76,6 +82,7 @@ class WHFSFolder extends WHFSObject {
     super(dbrecord);
   }
 
+  get indexdoc() { return this.dbrecord.indexdoc || 0; }
 }
 
 function formatPathOrId(path: number | string) {
@@ -164,7 +171,9 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
   if (location > 0) //FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
     dbrecord = (await sql`select *
                                , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link
+                               , webhare_proc_fs_objects_fullpath(id,isfolder) as fullpath
                                , webhare_proc_fs_objects_whfspath(id,isfolder) as whfspath
+                               , webhare_proc_fs_objects_highestparent(id) as parentsite
                             from system.fs_objects where id=${location}`) as FsObjectRow[];
 
   if (!dbrecord?.[0]) {
@@ -195,6 +204,12 @@ class Site {
   async openFile(path: string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
   async openFile(path: string, options?: { allowMissing: boolean }) {
     return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`);
+  }
+
+  async openFolder(path: string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
+  async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
+  async openFolder(path: string, options?: { allowMissing: boolean }) {
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`);
   }
 }
 
@@ -231,4 +246,12 @@ export async function openFile(path: number | string, options?: { allowMissing: 
 /** Open a file */
 export async function openFile(path: number | string, options?: { allowMissing: boolean }) {
   return openWHFSObject(0, path, true, options?.allowMissing ?? false, "");
+}
+
+export async function openFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
+export async function openFolder(path: number | string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
+
+/** Open a folder */
+export async function openFolder(path: number | string, options?: { allowMissing: boolean }) {
+  return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
 }
