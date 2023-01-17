@@ -2,7 +2,7 @@
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { openHSVM } from "@webhare/services/src/hsvm";
+import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
@@ -42,10 +42,19 @@ async function testServices() {
   ensureProperPath(serverconfig.module.system.root);
 }
 
+async function runOpenPrimary(hsvm: HSVM) {
+  const database = await hsvm.loadlib("mod::system/lib/database.whlib");
+  const primary = await database.openPrimary();
+  test.eq(1, await hsvm.__getNumRemoteObjects());
+  test.assert(primary);
+}
+
 async function testHSVM() {
   const hsvm = await openHSVM();
-  const database = await hsvm.loadlib("mod::system/lib/database.whlib");
-  await database.openPrimary();
+
+  await runOpenPrimary(hsvm); //split off so GC can clean up 'primaryu'
+  test.triggerGarbageCollection();
+  await test.wait(async () => (await hsvm.__getNumRemoteObjects()) === 0);
 
   const siteapi = await hsvm.loadlib("mod::publisher/lib/siteapi.whlib");
   const testsite: any = await siteapi.openSiteByName("webhare_testsuite.testsite");

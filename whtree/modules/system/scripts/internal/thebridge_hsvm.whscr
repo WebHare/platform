@@ -43,6 +43,14 @@ OBJECTTYPE Controller
 
     RETURN Unmap(AWAIT CallFunctionPtrVA(GetObjectMethodPtr(ob,name), args));
   }
+  PUBLIC INTEGER FUNCTION GetNumObjects()
+  {
+    RETURN Length(objecttable);
+  }
+  PUBLIC MACRO ObjCleanup(INTEGER objid)
+  {
+    DELETE FROM objecttable WHERE id = objid;
+  }
 >;
 
 OBJECT FUNCTION CreateController()

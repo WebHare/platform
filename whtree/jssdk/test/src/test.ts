@@ -1,4 +1,5 @@
 import { scheduleLingeringProcessCheck } from './testsupport';
+export { triggerGarbageCollection } from './testsupport';
 
 // Want more than the default 10 stack frames in errors
 Error.stackTraceLimit = 25;
