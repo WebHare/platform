@@ -1,14 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
   <meta>
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <version excludefromfeedbackversions="true">4.31.0</version>
     <validation>
-      <exclude mask="tests/tollium/language/gettid.whscr" why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
+      <exclude mask="tests/tollium/language/gettid.whscr"
+               why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
       <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />
       <exclude mask="tests/system/modules/data/brokenscreen.xml" why="these testfiles contain errors on purpose" />
       <exclude mask="tests/tollium/nodejs/test_gettid.es" why="these testfiles contain errors on purpose" />
+
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
       <eslint mask="nosuch.js" />
@@ -17,33 +18,35 @@
   </meta>
 
   <servicemanager>
-    <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
-    <runonce       tag="setuppwasite" script="tests/publisher/pwa/setuppwasite.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
-    <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks">
+    <runonce script="scripts/whcommands/reset.whscr" tag="setuptestsite" when="poststart" ifenvironset="WEBHARE_CI" />
+    <runonce script="tests/publisher/pwa/setuppwasite.whscr" tag="setuppwasite" when="poststart" ifenvironset="WEBHARE_CI" />
+
+    <task script="scripts/tasks/singleshottest.whscr" tag="singleshottest" description="Test singleshot tasks">
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
     </task>
-    <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
+    <task runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" tag="resettestsite" description="Periodically reset testsite and testdata" />
 
     <taskcluster harescriptworkers="2" tag="testcluster" />
 
-    <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
-    <managedtask   type="applyruletask" library="lib/internal/tasks.whlib" objectname="applyruletask"/> <!-- used by actions.whscr -->
-    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask" failreschedule="4000" />
-    <managedtask   type="pingretry2" objectname="lib/internal/tasks.whlib#pingtask" maxfailures="1"/>
-    <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
-    <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
-    <managedtask   type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
-    <managedtask   type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
-    <managedtask   type="doublescheduletask" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" cluster="testcluster" />
-    <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask"/>
+    <managedtask type="aftercompile" objectname="lib/internal/tasks.whlib#aftercompiletask" />  <!-- used by assetmgr-brokentest -->
+    <managedtask type="applyruletask" objectname="lib/internal/tasks.whlib#applyruletask" />  <!-- used by actions.whscr -->
+    <managedtask type="ping" failreschedule="4000" objectname="lib/internal/tasks.whlib#pingtask" />
+    <managedtask type="pingretry2" maxfailures="1" objectname="lib/internal/tasks.whlib#pingtask" />
+    <managedtask type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask" />
+    <managedtask type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask" />
+    <managedtask type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
+    <managedtask type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
+    <managedtask type="doublescheduletask" cluster="testcluster" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" />
+
+    <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask" />
     <ephemeraltask type="nodetask" library="js/task.es" />
   </servicemanager>
 
   <portal>
-    <linkapp name="localtests" group="system:development" link="/tests/" tid="localtests.apptitle" isdeveloperapp="true">
+    <linkapp name="localtests" group="system:development" isdeveloperapp="true" link="/tests/" tid="localtests.apptitle">
       <accesscheck>
-        <requireright right="system:sysop"/>
+        <requireright right="system:sysop" />
       </accesscheck>
     </linkapp>
 
@@ -84,39 +87,42 @@
       <accesscheck />
     </application>
 
-    <notification name="eventservertest" tid="module.eventservertest" descriptiontid="module.eventservertest-desc" defaultenabled="true" />
+    <notification name="eventservertest"
+                  defaultenabled="true"
+                  descriptiontid="module.eventservertest-desc"
+                  tid="module.eventservertest" />
   </portal>
 
   <tollium>
-    <components namespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" xmlschema="testcomponents.xsd"/>
+    <components namespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" xmlschema="testcomponents.xsd" />
   </tollium>
 
   <services>
     <backendservice name="demoservice" handler="js/demoservice.ts#openDemoService" />
 
-    <webservice name="test" transports="jsonrpc whremoting" library="lib/webservicetest.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
+    <webservice name="test"
+                library="lib/webservicetest.whlib"
+                prefix="RPC_"
+                primarytrans="auto"
+                requirewhaccount="true"
+                transports="jsonrpc whremoting">
       <accesscheck>
-        <requireright right="system:sysop"/>
+        <requireright right="system:sysop" />
       </accesscheck>
-      <addheader header=" X-Test-Header :  * "/>
+      <addheader header=" X-Test-Header :  * " />
     </webservice>
-    <webservice name="testnoauth" transports="jsonrpc whremoting" library="lib/webservicetest.whlib" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="testnoauth" library="lib/webservicetest.whlib" prefix="RPC_" transports="jsonrpc whremoting">
+      <accesscheck />
     </webservice>
-    <webservice name="testnoauthjs" transports="jsonrpc" service="js/jsonrpc/service.ts#TestNoAuthJS">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="testnoauthjs" service="js/jsonrpc/service.ts#TestNoAuthJS" transports="jsonrpc">
+      <accesscheck />
     </webservice>
-
-    <webservice name="sharedtests" transports="jsonrpc" library="lib/sharedtests.whlib" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
+    <webservice name="sharedtests" library="lib/sharedtests.whlib" prefix="RPC_" transports="jsonrpc">
+      <accesscheck />
     </webservice>
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getapprunnerconfig" />
   </services>
-
 
   <rights>
     <!-- Rights for tests -->
@@ -151,83 +157,90 @@
   </rights>
 
   <backend>
-    <webrule path="root:/.webhare_testsuite/tests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" />
+    <webrule path="root:/.webhare_testsuite/tests/"
+             match="initial"
+             allowallmethods="true"
+             redirecttodir="web:/tests/"
+             maxservertype="development" />
     <webrule path="root:/.webhare_testsuite/tests/csp" match="initial">
       <csp policy="frame-ancestors [webhare];script-src 'self'" />
     </webrule>
     <webrule path="root:/.webhare_testsuite/tests/pages/captcha" match="initial">
-      <csp policy="frame-ancestors [webhare];script-src 'self' https://www.google.com https://www.gstatic.com" /> <!-- needed for publisher.components.test-captcha -->
+      <csp policy="frame-ancestors [webhare];script-src 'self' https://www.google.com https://www.gstatic.com" />  <!-- needed for publisher.components.test-captcha -->
     </webrule>
-    <webrule path="root:/.webhare_testsuite/tests/searchallcases/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" searchallcases="true" />
-
+    <webrule path="root:/.webhare_testsuite/tests/searchallcases/"
+             match="initial"
+             allowallmethods="true"
+             redirecttodir="web:/tests/"
+             searchallcases="true"
+             maxservertype="development" />
     <webruleset name="testset" tid="module.webruleset">
-      <webrule match="initial" path="/xyz/" redirecttoscript="urls/xyz.shtml"/>
+      <webrule path="/xyz/" match="initial" redirecttoscript="urls/xyz.shtml" />
     </webruleset>
     <webruleset name="testframework" title="WebHare test framework: B-Lex testsuite testsite">
-      <webrule path="/" match="initial" wrdschema="wrd:testschema"/>
+      <webrule path="/" match="initial" wrdschema="wrd:testschema" />
     </webruleset>
-    <webrule match="initial" path="root:/betatesting/testset/" applyruleset="webhare_testsuite:testset"/>
-
+    <webrule path="root:/betatesting/testset/" match="initial" applyruleset="webhare_testsuite:testset" />
     <webruleset name="thirdpartytest" title="Testsuite: testwrdauthplugin thirdpartytest">
       <webrule path="/wrd/authtest/webhare_testsuite.shtml" match="exact" handlebyscript="web/tests/wrd/authdebug.shtml" />
-      <webrule path="/wrd/authtest/accessruleaccounts/" authmode="ipandaccess" match="initial" authscript="webdesigns/basetest/lib/webhare-auth-portal1.whscr" requirewhaccount="true" handlebydir="web/tests/" />
+      <webrule path="/wrd/authtest/accessruleaccounts/"
+               match="initial"
+               authmode="ipandaccess"
+               authscript="webdesigns/basetest/lib/webhare-auth-portal1.whscr"
+               handlebydir="web/tests/"
+               requirewhaccount="true" />
     </webruleset>
-
     <webruleset name="securityheaders" title="Testsuite: security headers">
       <webrule path="/" match="initial">
-        <addheader header="X-Frame-Options" value="SAMEORIGIN"/>
-        <addheader header="Strict-Transport-Security" value="max-age=15552000"/>
-        <addheader header="X-XSS-Protection" value="1; mode=block"/>
-        <csp policy="script-src 'self'"/>
+        <addheader header="X-Frame-Options" value="SAMEORIGIN" />
+        <addheader header="Strict-Transport-Security" value="max-age=15552000" />
+        <addheader header="X-XSS-Protection" value="1; mode=block" />
+        <csp policy="script-src 'self'" />
       </webrule>
     </webruleset>
-    <restapi path="root:/.webhare_testsuite/restapi/" apispec="tests/wh/webserver/remoting/restapi/restapi.xml" />
-
+    <restapi apispec="tests/wh/webserver/remoting/restapi/restapi.xml" path="root:/.webhare_testsuite/restapi/" />
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
       <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
-      <tryfolder resolver="sha256b16" path="storage::webhare_testsuite/tmp/foldersha/" />
-      <tryfolder resolver="sha256b16_directory" path="storage::webhare_testsuite/tmp/foldersha_dir/" />
+      <tryfolder path="storage::webhare_testsuite/tmp/foldersha/" resolver="sha256b16" />
+      <tryfolder path="storage::webhare_testsuite/tmp/foldersha_dir/" resolver="sha256b16_directory" />
       <tryfile path="storage::webhare_testsuite/tmp/file.shtml" />
       <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
     </webrule>
-
-    <usereditpolicy name="usereditpolicy" title="webhare_testsuite test user edit policy"
+    <usereditpolicy name="usereditpolicy"
+                    title="webhare_testsuite test user edit policy"
                     usereditedmanagedtask="usereditedtask" />
-
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
     <d:table name="rights_tree" primarykey="id">
-      <d:integer name="id" autonumberstart="1"/>
-      <d:varchar name="name" maxlength="256" nullable="0"/>
-      <d:integer name="parent" references=".rights_tree" ondelete="cascade"/>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="name" maxlength="256" nullable="0" />
+      <d:integer name="parent" ondelete="cascade" references=".rights_tree" />
     </d:table>
 
     <d:table name="consilio_index" primarykey="id">
-      <d:integer name="id" autonumberstart="1"/>
-      <d:varchar name="groupid" maxlength="1024"/>
-      <d:varchar name="objectid" maxlength="1024"/>
-      <d:varchar name="text" maxlength="1024"/>
-      <d:datetime name="adate"/>
-      <d:datetime name="grouprequiredindexdate"/> <!-- ignored when default -->
-      <d:datetime name="objectrequiredindexdate"/> <!-- ignored when default -->
-      <d:datetime name="indexdate"/>
-      <d:integer name="spiderfrom" references=".consilio_index" ondelete="cascade"/>
+      <d:integer name="id" autonumberstart="1" />
+      <d:varchar name="groupid" maxlength="1024" />
+      <d:varchar name="objectid" maxlength="1024" />
+      <d:varchar name="text" maxlength="1024" />
+      <d:datetime name="adate" />
+      <d:datetime name="grouprequiredindexdate" />  <!-- ignored when default -->
+      <d:datetime name="objectrequiredindexdate" />  <!-- ignored when default -->
+      <d:datetime name="indexdate" />
+      <d:integer name="spiderfrom" ondelete="cascade" references=".consilio_index" />
       <d:varchar name="extradata" maxlength="4096" />
     </d:table>
 
     <d:obsoletetable name="hosted_blobs" />
 
     <d:table name="exporttest" primarykey="id">
-      <d:integer name="id"/>
-      <d:varchar name="text" maxlength="4096"/>
+      <d:integer name="id" />
+      <d:varchar name="text" maxlength="4096" />
     </d:table>
-
   </databaseschema>
 
-
   <logging>
-    <log name="test" filename="betatest" rotates="4" mseconds="true"/>
+    <log name="test" filename="betatest" mseconds="true" rotates="4" />
   </logging>
 
   <moduleregistry>
@@ -253,41 +266,73 @@
   </moduleregistry>
 
   <publisher>
-    <siteprofile path="data/webhare_testsuite.siteprl.xml"/>
-    <siteprofile path="tests/consilio/data/consiliotests.siteprl.xml"/>
+    <siteprofile path="data/webhare_testsuite.siteprl.xml" />
+    <siteprofile path="tests/consilio/data/consiliotests.siteprl.xml" />
+
     <virtualfs name="beta_tests" objectname="lib/myvirtualfs.whlib#BetaFS">
       <accesscheck>
-        <requireright right="system:sysop"/>
+        <requireright right="system:sysop" />
       </accesscheck>
     </virtualfs>
     <virtualfs name="beta_tests2" objectname="lib/myvirtualfs.whlib#BetaModularFS">
       <accesscheck>
-        <requireright right="system:sysop"/>
+        <requireright right="system:sysop" />
       </accesscheck>
     </virtualfs>
+
     <worklisttype name="filteredlist" filterscreen="tests/publisher/tollium/data/worklistfilter.xml#FilteredListPanel" />
-    <webdesign hidden="true" name="basetest" title="WH testsuite: selftest 'basetest'" siteprofile="webdesigns/basetest/basetest.siteprl.xml">
-      <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl ps" compatibility="es2016" />
-    </webdesign>
-    <webdesign hidden="true" name="pwatest" title="WH testsuite: pwatest" siteprofile="webdesigns/pwatest/pwatest.siteprl.xml">
-      <assetpack entrypoint="webdesigns/pwatest/pwatest.es" supportedlanguages="en" compatibility="es2016" /> <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
-    </webdesign>
-    <webdesign hidden="true" name="alttest" title="WH testsuite: selftest 'attest'" siteprofile="webdesigns/basetest/alttest.siteprl.xml">
-    </webdesign>
-    <webdesign name="neverused_compiletest"
+
+    <webdesign name="basetest"
+               title="WH testsuite: selftest 'basetest'"
                hidden="true"
-               siteprofile="webdesigns/basetest/neverused_compiletest.siteprl.xml"
-               title="WH testsuite: never used siteprl" />
+               siteprofile="webdesigns/basetest/basetest.siteprl.xml">
+      <assetpack compatibility="es2016" entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl ps" />
+    </webdesign>
+    <webdesign name="pwatest"
+               title="WH testsuite: pwatest"
+               hidden="true"
+               siteprofile="webdesigns/pwatest/pwatest.siteprl.xml">
+      <assetpack compatibility="es2016" entrypoint="webdesigns/pwatest/pwatest.es" supportedlanguages="en" />  <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
+    </webdesign>
+    <webdesign name="alttest"
+               title="WH testsuite: selftest 'attest'"
+               hidden="true"
+               siteprofile="webdesigns/basetest/alttest.siteprl.xml" />
+    <webdesign name="neverused_compiletest"
+               title="WH testsuite: never used siteprl"
+               hidden="true"
+               siteprofile="webdesigns/basetest/neverused_compiletest.siteprl.xml" />
 
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
-    <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
-    <webfeature hidden="true" name="testfeature" title="WH testsuite: Test feature" siteprofile="webfeatures/testfeature.siteprl.xml"/>
-    <webfeature hidden="true" name="insecure_interface" title="WH testsuite: Unprotected WebHare backend" siteprofile="webfeatures/insecure_interface.siteprl.xml"/>
-    <webfeature hidden="true" name="siteprl_datastorage" title="WH testsuite: siteprl_datastorage" siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"/>
-    <webfeature hidden="true" name="siteprl_datastorage2" title="WH testsuite: siteprl_datastorage2" siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"/>
-    <webfeature hidden="true" name="conversionstest" title="WH testsuite: conversionstest" siteprofile="webfeatures/conversionstest.siteprl.xml"/>
-    <webfeature hidden="true" name="actions" title="WH testsuite: actions" siteprofile="webfeatures/actions.siteprl.xml"/>
-    <webfeature hidden="true" name="versioned" title="WH testsuite: versioned" siteprofile="webfeatures/versioned.siteprl.xml"/>
+
+    <addtowebdesign siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml"
+                    webdesign="webhare_testsuite:basetest" />
+
+    <webfeature name="testfeature"
+                hidden="true"
+                siteprofile="webfeatures/testfeature.siteprl.xml"
+                title="WH testsuite: Test feature" />
+    <webfeature name="insecure_interface"
+                hidden="true"
+                siteprofile="webfeatures/insecure_interface.siteprl.xml"
+                title="WH testsuite: Unprotected WebHare backend" />
+    <webfeature name="siteprl_datastorage"
+                hidden="true"
+                siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"
+                title="WH testsuite: siteprl_datastorage" />
+    <webfeature name="siteprl_datastorage2"
+                hidden="true"
+                siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"
+                title="WH testsuite: siteprl_datastorage2" />
+    <webfeature name="conversionstest"
+                hidden="true"
+                siteprofile="webfeatures/conversionstest.siteprl.xml"
+                title="WH testsuite: conversionstest" />
+    <webfeature name="actions" hidden="true" siteprofile="webfeatures/actions.siteprl.xml" title="WH testsuite: actions" />
+    <webfeature name="versioned"
+                hidden="true"
+                siteprofile="webfeatures/versioned.siteprl.xml"
+                title="WH testsuite: versioned" />
     <webfeature name="unusedfeature"
                 hidden="true"
                 siteprofile="webfeatures/neverused_feature.siteprl.xml"
@@ -295,51 +340,80 @@
 
     <customnode name="test" namespace="urn:xyz" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
-    <webdesignplugin name="test" namespace="http://www.webhare.net/xmlns/webhare_testsuite" objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" hooksfeatures="preparemail" />
+
+    <webdesignplugin name="test"
+                     hooksfeatures="preparemail"
+                     namespace="http://www.webhare.net/xmlns/webhare_testsuite"
+                     objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" />
 
     <filemgrextension>
       <accesscheck>
-        <requireright right="system:sysop"/>
+        <requireright right="system:sysop" />
       </accesscheck>
-      <addaction tid="module.testaction" screen="feedback.frompublisher" addtomenu="actions" />
+      <addaction addtomenu="actions" screen="feedback.frompublisher" tid="module.testaction" />
     </filemgrextension>
 
-    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="textfield" tokenized="true"/>
-    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="keywordfield" />
-    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="test_whfsrefarray" />
-    <indexfield name="contenttypefield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testfield" />
+    <indexfield member="textfield"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest"
+                tokenized="true" />
+    <indexfield member="keywordfield"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" />
+    <indexfield member="test_whfsrefarray"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" />
+    <indexfield name="contenttypefield"
+                member="testfield"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" />
     <indexfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#gettestfield" />
-    <indexfield name="arrayfield" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
+    <indexfield name="arrayfield"
+                member="testarray"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest">
       <arrayfield member="arrayfield" />
       <arrayfield name="date_otherfield" member="otherfield" />
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
       <arrayfield member="deeper_whfsrefarray" />
     </indexfield>
-    <indexfield name="purearray" namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest" member="testarray">
+    <indexfield name="purearray"
+                member="testarray"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest">
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
     </indexfield>
 
     <!-- test overwrites -->
-    <indexfield namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest2" member="keywordfield" />
+    <indexfield member="keywordfield"
+                namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest2" />
 
-    <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" xmlschema="tests/publisher/forms/data/testformcomponents.xsd"/>
+    <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
+                    xmlschema="tests/publisher/forms/data/testformcomponents.xsd" />
 
-    <registerslot name="testsite" tid="module.testsite.title" descriptiontid="module.testsite.description" initialvalue="site::webhare_testsuite.testsite" type="site" />
-    <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot" type="folder" fallback="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot-fallback"/>
+    <registerslot name="testsite"
+                  type="site"
+                  descriptiontid="module.testsite.description"
+                  initialvalue="site::webhare_testsuite.testsite"
+                  tid="module.testsite.title" />
+    <registerslot name="testslot"
+                  type="folder"
+                  description="Test Description"
+                  fallback="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot-fallback"
+                  initialvalue="whfs::/webhare-tests/webhare_testsuite.testfolder/testslot"
+                  title="Test Slot" />
 
     <searchcontentprovider name="testprovider" objectname="lib/publisher/publishersearch.whlib#testprovider" version="1.0.0" />
-    <shorturls domain="test2.bea.gl" urllisthook="tests/publisher/shorturl/shorturltests.whlib#HookURLList" urlpropsextension="tests/publisher/shorturl/shorturltests.xml#ExtendURLProps" />
+
+    <shorturls domain="test2.bea.gl"
+               urllisthook="tests/publisher/shorturl/shorturltests.whlib#HookURLList"
+               urlpropsextension="tests/publisher/shorturl/shorturltests.xml#ExtendURLProps" />
   </publisher>
 
   <consilio>
     <!-- modern syntax -->
-    <obsoletecatalog tag="obsoletecatalog"/>
-
-    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" priority="9" fieldgroups="pagelistfields consilio:sitecontent">
-      <customsource tag="loremindex" contentobject="lib/consilio/loremindex.whlib#IndexLibrary"  />
-      <customsource tag="dbindex" contentobject="lib/consilio/dbindex.whlib#DBContent"  />
+    <obsoletecatalog tag="obsoletecatalog" />
+    <catalog tag="testsitecatalog"
+             fieldgroups="pagelistfields consilio:sitecontent"
+             ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources"
+             priority="9">
+      <customsource contentobject="lib/consilio/loremindex.whlib#IndexLibrary" tag="loremindex" />
+      <customsource contentobject="lib/consilio/dbindex.whlib#DBContent" tag="dbindex" />
     </catalog>
-
     <fieldgroup tag="pagelistfields">
       <text name="myfield1" />
       <integer name="fieldgroup_integer" />
@@ -348,7 +422,6 @@
       <boolean name="fieldgroup_boolean" />
       <datetime name="fieldgroup_datetime" />
     </fieldgroup>
-
     <fieldgroup tag="nested_records">
       <record name="record_field">
         <text name="firstname" />
@@ -367,10 +440,8 @@
         </nested>
       </nested>
     </fieldgroup>
-
     <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
     <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" />
-
     <fieldgroup tag="testindexfields">
       <datetime name="@timestamp" />
       <text name="title" />
@@ -390,12 +461,12 @@
       <ipaddress name="ip_field" />
       <latlng name="latlng_field" />
       <addfieldgroup ref="testgroup" />
-      <record name="documents"> <!-- some modules will store record *arrays* into a field like this -->
+      <record name="documents">
+        <!-- some modules will store record *arrays* into a field like this -->
         <text name="title" />
         <keyword name="slug" />
       </record>
     </fieldgroup>
-
     <fieldgroup tag="conflicttest_blue">
       <text name="c_text" />
       <keyword name="c_keyword" />
@@ -403,7 +474,6 @@
       <keyword name="c_ignoreabove" />
       <nested name="c_nested" include_in_parent="true" />
     </fieldgroup>
-
     <fieldgroup tag="conflicttest_red">
       <keyword name="c_text" />
       <text name="c_keyword" />
@@ -411,7 +481,6 @@
       <keyword name="c_ignoreabove" ignore_above="256" />
       <nested name="c_nested" include_in_root="true" />
     </fieldgroup>
-
     <fieldgroup tag="testgroup">
       <integer name="group_int_field" />
       <record name="group_record_field">
@@ -425,31 +494,24 @@
       <latlng name="where" />
       <boolean name="db_*" />
     </fieldgroup>
-
-    <catalog tag="module_reference" managed="false" fieldgroups="consilio:test_reference_group" />
-
+    <catalog tag="module_reference" fieldgroups="consilio:test_reference_group" managed="false" />
     <catalog tag="emptycatalog" managed="false" />
-
     <fieldgroup tag="test_reference_group">
       <text name="testsuite" />
     </fieldgroup>
-
     <fieldgroup tag="circular_test_reference_group">
       <addfieldgroup ref="consilio:circular_test_reference_group" />
     </fieldgroup>
-
-    <obsoletecatalog tag="duplicate_fieldnames" /> <!-- added and removed during 5.02 development -->
+    <obsoletecatalog tag="duplicate_fieldnames" />  <!-- added and removed during 5.02 development -->
     <fieldgroup tag="fields_1">
       <text name="textfield" />
     </fieldgroup>
     <fieldgroup tag="fields_2">
       <text name="textfield" />
     </fieldgroup>
-
     <fieldgroup tag="circular">
       <addfieldgroup ref="circular" />
     </fieldgroup>
-
     <fieldgroup tag="circular_1">
       <record name="record_1">
         <addfieldgroup ref="circular_2" />
@@ -460,19 +522,17 @@
         <addfieldgroup ref="circular_1" />
       </record>
     </fieldgroup>
-
     <fieldgroup tag="nosuchfieldyet">
       <keyword name="nosuchfieldyet_extra" />
       <keyword name="nosuchfieldyet_extra2" />
       <record name="no">
         <record name="such">
           <record name="field">
-            <integer name="yet"/>
+            <integer name="yet" />
           </record>
         </record>
       </record>
     </fieldgroup>
-
     <fieldgroup tag="ignore_nosuchfieldyet">
       <keyword name="nosuchfieldyet_extra" />
       <record name="no">
@@ -481,22 +541,18 @@
         </record>
       </record>
     </fieldgroup>
-
     <fieldgroup tag="storeonly">
       <keyword name="indexed" ignore_above="16" />
       <keyword name="stored" ignore_above="16" storeonly="true" />
     </fieldgroup>
-
     <fieldgroup tag="extrafield">
       <text name="extrafield" />
       <keyword name="pagekeywords" />
     </fieldgroup>
-
-    <addtowhfsindex privatefolder="addtowhfsindex/aftersites" priority="aftersites" />
-    <addtowhfsindex privatefolder="addtowhfsindex/beforerepository" priority="beforerepository" />
-    <addtowhfsindex privatefolder="addtowhfsindex/beforesites" priority="beforesites" />
+    <addtowhfsindex priority="aftersites" privatefolder="addtowhfsindex/aftersites" />
+    <addtowhfsindex priority="beforerepository" privatefolder="addtowhfsindex/beforerepository" />
+    <addtowhfsindex priority="beforesites" privatefolder="addtowhfsindex/beforesites" />
     <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
-
 
     <!-- legacy syntax -->
     <index tag="toolslog">
@@ -512,7 +568,9 @@
 
   <hooking>
     <target name="siteprofilehook" />
-    <intercept name="publisher_whfsindex" target="publisher:whfsindex_priority" interceptfunction="lib/internal/hooks.whlib#HookPublisherIndexPriorities" />
+    <intercept name="publisher_whfsindex"
+               interceptfunction="lib/internal/hooks.whlib#HookPublisherIndexPriorities"
+               target="publisher:whfsindex_priority" />
   </hooking>
 
   <documentation>
