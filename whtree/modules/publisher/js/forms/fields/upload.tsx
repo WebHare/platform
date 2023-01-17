@@ -25,7 +25,7 @@ function getLabelText(node) {
 
 
 export default class UploadField extends FileEditBase {
-  constructor(node, options) {
+  constructor(node, options?) {
     super(node, options);
     if (!this.node)
       return; //init cancelled

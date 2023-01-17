@@ -24,7 +24,7 @@ export function readBackgroundUrl(imgnode) {
 }
 
 export default class ImgEditField extends FileEditBase {
-  constructor(node, options) {
+  constructor(node, options?) {
     super(node, options);
     this.node.addEventListener('click', evt => this.selectFile(evt));
     this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
