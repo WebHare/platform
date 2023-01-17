@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
@@ -8,16 +9,47 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
-
 STATIC OBJECTTYPE BridgeConnection
 <
+  RECORD ARRAY myjobs;
+
   MACRO NEW()
   {
+  }
+
+  MACRO CheckFailedJobs()
+  {
+    FOREVERY(RECORD job FROM this->myjobs)
+      IF(job.job->IsSignalled())
+      {
+        DumpValue(job.job->GetErrors(),'boxed');
+        job.job->Close();
+        DELETE FROM this->myjobs WHERE myjobs.job = job.job;
+      }
+
+    IF(Length(this->myjobs) > 0)
+      RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->CheckFailedJobs);
   }
 
   PUBLIC ASYNC FUNCTION invokeAnyFunction(STRING funcname, VARIANT ARRAY args, RECORD options)
   {
     RETURN AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/modules/bridgesupport.whlib#InvokeInsideJob", funcname, args, options);
+  }
+
+  PUBLIC STRING FUNCTION OpenHSVM()
+  {
+    //FIXME Detect link termination and destroy associated jobs
+    RECORD jobrecord := CreateJob(Resolve("thebridge_hsvm.whscr"));
+    IF(Length(jobrecord.errors) > 0)
+      THROW NEW Exception(`Failed to start HSVM job: ${jobrecord.errors[0].message}`);
+
+    jobrecord.job->Start();
+    INSERT jobrecord INTO this->myjobs AT END;
+
+    IF(Length(this->myjobs) = 1) //first job!
+      RegisterTimedCallback(AddTimeToDate(500, GetCurrentDateTime()), PTR this->CheckFailedJobs);
+
+    RETURN "system:bridge_hsmv_" || jobrecord.job->groupid;
   }
 
   PUBLIC RECORD FUNCTION GetConfig()

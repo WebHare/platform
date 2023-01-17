@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+RECORD ARRAY objecttable;
+INTEGER nextobjectid := 24000;
+
+VARIANT FUNCTION Unmap(VARIANT input)
+{
+  IF(TYPEID(input) = TYPEID(OBJECT))
+  {
+    IF(NOT ObjectExists(input))
+      RETURN DEFAULT RECORD;
+
+    INTEGER objid := SELECT AS INTEGER id FROM objecttable WHERE obj = input;
+    IF(objid != 0)
+      RETURN [ __type := "object", id := objid ];
+
+    nextobjectid := nextobjectid + 1;
+    INSERT [ id := nextobjectid, obj := input ] INTO objecttable AT END;
+    RETURN [ __type := "object", id := nextobjectid ];
+  }
+
+  RETURN input;
+}
+
+OBJECTTYPE Controller
+<
+  PUBLIC ASYNC FUNCTION Invoke(STRING lib, STRING name, VARIANT ARRAY args)
+  {
+    RETURN Unmap(AWAIT CallFunctionPtrVA(MakeFunctionPtr(lib,name), args));
+  }
+  PUBLIC ASYNC FUNCTION ObjInvoke(INTEGER objid, STRING name, VARIANT ARRAY args)
+  {
+    OBJECT ob := SELECT AS OBJECT obj FROM objecttable WHERE id = objid;
+    IF(NOT ObjectExists(ob))
+      THROW NEW Exception(`No such object ${objid}`);
+
+    IF(ToUppercase(name) = "GET")
+      RETURN GetMember(ob, args[0]);
+
+    RETURN Unmap(AWAIT CallFunctionPtrVA(GetObjectMethodPtr(ob,name), args));
+  }
+>;
+
+OBJECT FUNCTION CreateController()
+{
+  RETURN NEW Controller;
+}
+
+RunWebhareService("system:bridge_hsmv_" || GetCurrentGroupId(), PTR CreateController, [ autorestart := FALSE ]);
