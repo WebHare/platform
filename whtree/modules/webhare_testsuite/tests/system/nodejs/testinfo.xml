@@ -10,7 +10,7 @@
   <test script="test_waitabletimer.ts" />
   <test script="test_utf8.ts" />
   <test script="test_tsconfig.whscr" />
-  <jstest file="testfinmath.es" />
+  <test script="test_finmath.ts" />
   <test script="test_hsmarshalling.whscr" />
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
