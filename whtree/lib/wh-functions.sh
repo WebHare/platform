@@ -197,7 +197,7 @@ setup_node()
   getwhparameters
   export NODE_PATH=$WEBHARE_DATAROOT/node_modules
   export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
-  export TS_NODE_PROJECT="${WEBHARE_DATAROOT}tsconfig.json"
+  export TS_NODE_PROJECT="$WEBHARE_DATAROOT/tsconfig.json"
 }
 
 getlog()
