@@ -1,5 +1,4 @@
 <?wh
-/// This test tests setting up and the functionality of 'publisher:blank'
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::filetypes/css.whlib";
