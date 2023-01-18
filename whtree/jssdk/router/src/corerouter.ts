@@ -3,7 +3,7 @@ import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
 
-async function lookupPublishedTarget(url: string) {
+export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
   const lookupresult = await callHareScript("mod::publisher/lib/publisher.whlib#LookupPublisherURL", [url], { openPrimary: true }) as { file: number }; //TODO also send the clientwebserver id
   if (!lookupresult.file)
@@ -35,5 +35,6 @@ export async function coreWebHareRouter(request: WebRequest, response: WebRespon
 
   const renderfunction: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderfunction) as WebHareWHFSRouter;
   const whfsreq = new SiteRequest(request, target.fileinfo);
+
   await renderfunction(whfsreq, response);
 }

@@ -545,6 +545,14 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
 
+    IF(GetExtensionFromPath(Tokenize(webdesigninfo.objectname,'#')[0]) IN whconstant_javascript_extensions)
+    { //webdesign is JS. we currently (and may never) have no way to transfer control here, it should have been done higher up
+      IF(webdesigninfo.objectname LIKE "mod::webhare_testsuite/*") //TODO remove this!
+        webdesigninfo.objectname := "mod::publisher/webdesigns/nowebdesign/nowebdesign.whlib#NoWebdesign"; //fallback to not break all of CI while setting up JS design (and causing too much to fix)
+      ELSE
+        ABORT(`Attempting to invoke a JS-based webdesign object '${webdesigninfo.objectname}' through HareScript's InstantiateWebDesign`);
+    }
+
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
     IF(NOT MemberExists(designobj, "__PREPAREPAGE"))
       THROW NEW Exception(`The design object ${webdesigninfo.objectname} does not derive from WebDesignBase`);
