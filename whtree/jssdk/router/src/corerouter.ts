@@ -1,7 +1,7 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, WHFSRequest } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
 
 async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -26,7 +26,7 @@ async function lookupPublishedTarget(url: string) {
 
 export async function coreWebHareRouter(request: WebRequest, response: WebResponse) {
   const target = await lookupPublishedTarget(request.url); //"Kijkt in database. Haalt file info en publisher info op"
-  if (!target)
+  if (!target) //FIXME avoid new Error - it forces a stacktrace to be generated
     throw new Error("404 Unable to resolve the target. How do we route to a 404?"); //TODO perhaps there should be WebserverError exceptions similar to AbortWithHTTPError - and toplevel routers catch these ?
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
@@ -34,6 +34,6 @@ export async function coreWebHareRouter(request: WebRequest, response: WebRespon
     throw new Error("500 Unspecified render function");
 
   const renderfunction: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderfunction) as WebHareWHFSRouter;
-  const whfsreq = new WHFSRequest(request, target.fileinfo);
+  const whfsreq = new SiteRequest(request, target.fileinfo);
   await renderfunction(whfsreq, response);
 }
