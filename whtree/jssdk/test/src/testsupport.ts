@@ -1,10 +1,13 @@
 import * as fs from "node:fs";
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import * as stacktrace_parser from "stacktrace-parser";
 import * as path from "path";
 import ts from "typescript";
 import { SchemaObject } from "ajv";
 import * as TJS from "typescript-json-schema";
 import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
+
 
 export function reportAssertError(stack: string) {
   const badline = stacktrace_parser.parse(stack)[1];
@@ -102,4 +105,10 @@ function dumpHandlesAndRequests() {
 
 export function scheduleLingeringProcessCheck() {
   setTimeout(() => dumpHandlesAndRequests(), 5000).unref();
+}
+
+export async function triggerGarbageCollection() {
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc');
+  setImmediate(() => gc());
 }

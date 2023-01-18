@@ -25,3 +25,7 @@ export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject>
 export function scheduleLingeringProcessCheck(): void {
   // not needed in browser, only in Node
 }
+
+export async function triggerGarbageCollection() {
+  throw new Error("triggerGarbageCollection not (yet) implemented for browser test environment");
+}

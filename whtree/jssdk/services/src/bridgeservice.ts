@@ -25,10 +25,11 @@ export interface WebHareBackendConfiguration {
   module: WebHareModuleMap;
 }
 
-interface BridgeService {
+export interface BridgeService {
   //TODO if backendservice becomes a proxy, we can use mixed case here
   INVOKEANYFUNCTION(func: string, args: unknown[], options: InvokeOptions): Promise<unknown>;
   GETCONFIG(): Promise<WebHareBackendConfiguration>;
+  OPENHSVM(): Promise<string>;
 }
 
 let bridgeservice: BridgeService;
