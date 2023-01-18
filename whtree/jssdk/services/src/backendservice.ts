@@ -2,7 +2,7 @@ import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHa
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 
 /** Interface for the client object we present to the connecting user
-    TODO: model this more after jsonrpc-client? Would make it easier to deal with case insensitive HS services */
+*/
 interface DefaultWebHareServiceClient {
   /** Our methods */
   [key: string]: (...args: unknown[]) => Promise<unknown>;
@@ -26,6 +26,8 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
   get(target: object, prop: string, receiver: unknown) {
     if (prop === 'close') //create a close() function
       return () => this.closeService();
+    if (!this.isjs)
+      prop = prop.toUpperCase();
 
     if (this.description.methods.find(m => m.name === prop)) {
       return (...args: unknown[]) => this.remotingFunc({ name: prop }, args);
@@ -35,6 +37,8 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
   }
 
   has(target: object, prop: string): boolean {
+    if (!this.isjs)
+      prop = prop.toUpperCase();
     return Boolean(this.description.methods.find(m => m.name === prop)) || prop == "close";
   }
 

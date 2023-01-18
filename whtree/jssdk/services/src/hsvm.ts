@@ -113,7 +113,7 @@ export class HSVMLibraryProxy {
 
 export async function openHSVM() {
   const bridge = await getBridgeService();
-  const servicename = await bridge.OPENHSVM();
+  const servicename = await bridge.openHSVM();
   const jobservice = await openBackendService<JobService>(servicename);
   return new HSVM(bridge, jobservice);
 }
