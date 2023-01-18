@@ -696,7 +696,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             IF(applyto.whfspathregex != "")
               this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
             IF(Length(applyto.prebuiltmasks) > 0)
-              this->AddHint(crit, "Future versions of WebHare may remove <prebuiltpage> - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
+              this->AddWarning(crit, "A future WebHare version will drop <prebuiltpage> support - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
 
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
@@ -1187,7 +1187,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               IF("title" NOT IN haslist AND node->HasAttribute("tid"))
                 INSERT "title" INTO haslist AT END;
 
-              this->AddHint(node, "Future versions of WebHare may remove <prebuiltpage> - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
+              this->AddWarning(node, "A future WebHare version will drop <prebuiltpage> support - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
               IF(applyblock->localname != "apply")
                 this->AddError(node, "<prebuiltpage> cannot be used on a <filetype> or <foldertype>");
 

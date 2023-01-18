@@ -24,11 +24,8 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
   testfw->BeginWork(); */
 
   OBJECT dynamicpageshtml := siteroot->CreateFile([name:="dynamicpage.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/dynamicpage.shtml"), publish := TRUE ]);
-  OBJECT prebuiltshtml := siteroot->CreateFile([name:="prebuiltshtml", type := 39, publish := TRUE ]);
-  prebuiltshtml->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuiltshtml" ]);
-
-  OBJECT prebuilthtml := siteroot->CreateFile([name:="prebuilthtml", type := 39, publish := TRUE ]);
-  prebuilthtml->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuilthtml" ]);
+  OBJECT prebuiltshtml := siteroot->CreateFile([name:="prebuiltshtml", typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml", publish := TRUE ]);
+  OBJECT prebuilthtml := siteroot->CreateFile([name:="prebuilthtml", typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml", publish := TRUE ]);
 
   OBJECT standalonedynamicpageshtml := siteroot->CreateFile([name:="standalone-dynamicpage.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/standalone-dynamicpage.shtml"), publish := TRUE ]);
   OBJECT contentlinkshtml := siteroot->CreateFile([name:="contentlink.shtml", type := 20, filelink := dynamicpageshtml->id, publish := TRUE ]);

@@ -11,6 +11,67 @@
     <dynamicexecution webpageobjectname="pages/exclusiveaccesstest/exclusiveaccesstest.whlib#ExclusiveAccessTestPage" />
   </filetype>
 
+  <!-- Test pages etc -->
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/formtest"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="pages/formtest/formtest.whlib#FormTestPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/internal/testsite.whlib#TestRequireSysopPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/listtest"
+            kind="virtualfile">
+    <bodyrenderer objectname="pages/listtest/listtest.whlib#ListTestPage" />
+  </filetype>
+
+  <!-- WRDAuth tests prebuilts -->
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthtestPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static"
+            kind="virtualfile">
+    <bodyrenderer objectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthStaticPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router"
+            kind="virtualfile">
+    <dynamicexecution routerfunction="pages/wrdauthtest/wrdauthtest.whlib#WRDauthRouter" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="pages/basetestpages.whlib#DynamicPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
+  </filetype>
+
+
+  <!-- Special pages -->
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml"
+            kind="virtualfile">
+    <dynamicexecution webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
+    <sitelanguage lang="nl" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml"
+            kind="virtualfile">
+    <bodyrenderer objectname="pages/basetestpages.whlib#WebStaticPage" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml_csp"
+            kind="virtualfile"
+            capturesubpaths="true">
+    <dynamicexecution webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
+  </filetype>
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml_csp"
+            kind="virtualfile"
+            capturesubpaths="true">
+    <bodyrenderer objectname="pages/basetestpages.whlib#WebStaticPage" />
+  </filetype>
+
+
+
+
   <!-- Global site settings -->
   <apply>
     <to type="all" />
@@ -63,34 +124,10 @@
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
 
-    <!-- Test pages etc -->
-    <prebuiltpage type="dynamic" tag="formtest" webpageobjectname="pages/formtest/formtest.whlib#FormTestPage" />
     <formdefinitions path="pages/formtest/formtest.formdef.xml" />
     <!-- also load through a name to test that this name doesn't appear in the formid -->
     <formdefinitions name="webhare_testsuite:formdefs" path="pages/formtest/formtest.formdef.xml" />
     <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
-    <prebuiltpage type="dynamic"
-                  tag="requiresysoptest"
-                  webpageobjectname="mod::webhare_testsuite/lib/internal/testsite.whlib#TestRequireSysopPage" />
-    <prebuiltpage type="static" tag="listtest" webpageobjectname="pages/listtest/listtest.whlib#ListTestPage" />
-    <prebuiltpage type="dynamic" tag="wrdauthtest" webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthtestPage" />
-    <prebuiltpage type="static"
-                  tag="wrdauthtest-static"
-                  webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthStaticPage" />
-    <prebuiltpage type="dynamic" routerfunction="pages/wrdauthtest/wrdauthtest.whlib#WRDauthRouter" tag="wrdauthtest-router" />
-    <prebuiltpage type="dynamic" tag="dynamicpage" webpageobjectname="pages/basetestpages.whlib#DynamicPage" />
-    <prebuiltpage type="dynamic"
-                  tag="wrdauthtest_codeprotected"
-                  webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
-
-    <!-- Special pages -->
-    <prebuiltpage type="dynamic" tag="prebuiltshtml" webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
-    <prebuiltpage type="static" tag="prebuilthtml" webpageobjectname="pages/xxx.whlib#XXXPage" />
-    <prebuiltpage type="dynamic"
-                  capturesubpaths="true"
-                  tag="prebuiltshtml_csp"
-                  webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
-    <prebuiltpage type="static" capturesubpaths="true" tag="prebuilthtml_csp" webpageobjectname="pages/xxx.whlib#XXXPage" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
@@ -274,18 +311,6 @@
       <source path="site::webhare_testsuite.testsite/tmp/templates/" />
       <source path="site::webhare_testsuite.testsite/tmp/templates2/" />
     </mailtemplate>
-  </apply>
-
-  <apply>
-    <to type="file" prebuiltmasks="prebuilthtml" />
-    <to type="file" prebuiltmasks="prebuilthtml_csp" />
-    <prebuiltpage type="static" tag="prebuilthtml" webpageobjectname="pages/basetestpages.whlib#WebStaticPage" />
-    <prebuiltpage type="static" tag="prebuilthtml_csp" webpageobjectname="pages/basetestpages.whlib#WebStaticPage" />
-  </apply>
-
-  <apply>
-    <to type="file" prebuiltmasks="prebuiltSHTM? xxx" />  <!-- odd mask to test like-ing and casesensitive -->
-    <sitelanguage lang="nl" />
   </apply>
 
   <apply>

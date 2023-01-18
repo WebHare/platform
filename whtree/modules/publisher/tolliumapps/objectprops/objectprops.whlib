@@ -515,7 +515,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     {
       IF(this->curtype.id = 39) //prebuiltpage
       {
-        // FIXME: what happens with a contentlink to a prebuilt page?
         STRING prebuilttag;
 
         OBJECT comp :=
