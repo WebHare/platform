@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 
@@ -167,7 +168,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           runner := GetWebHareResourceDiskPath(script);
           arguments := testinfo.arguments;
         }
-        ELSE IF(script LIKE "*.js" OR script LIKE "*.ts")
+        ELSE IF(GetExtensionFromPath(script) IN whconstant_javascript_extensions)
         {
           runner := GetInstallationRoot() || "bin/wh";
           arguments := [ "run", "--validate", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];

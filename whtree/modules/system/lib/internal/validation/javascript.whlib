@@ -249,7 +249,7 @@ PUBLIC STRING FUNCTION RecursivelyFindTypeScriptFile(STRING root, STRING subpath
   {
     IF (rec.name = "node_modules" OR rec.name = "vendor" OR rec.name LIKE ".*")
       CONTINUE;
-    IF (rec.name LIKE "*.ts" OR rec.name LIKE "*.tsx")
+    IF (GetExtensionFromPath(rec.name) IN whconstant_typescript_extensions)
       RETURN subpath = "" ? rec.name : MergePath(subpath, rec.name);
     IF (rec.type = 1)
     {
@@ -482,7 +482,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
       ? GetWebhareConfiguration().installationroot || "jssdk/"
       : "mod::" || module;
 
-  RECORD ARRAY files := GetFilesToValidate([ root ], [ extensions := [ ".es", ".js", ".ts", ".tsx" ]]);
+  RECORD ARRAY files := GetFilesToValidate([ root ], [ extensions := whconstant_javascript_extensions ]);
 
   RECORD ARRAY toformat;
   FOREVERY (RECORD rec FROM files)

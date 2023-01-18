@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/internal/validation/svg.whlib";
 LOADLIB "mod::system/lib/internal/validation/witty.whlib";
 LOADLIB "mod::system/lib/internal/validation/xml.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib" EXPORT XMLValidatorBase;
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 BOOLEAN FUNCTION IsHareScriptFile(STRING path)
@@ -235,9 +236,10 @@ BOOLEAN FUNCTION CanValidateFile(STRING resourcename, BOOLEAN onlytids)
     RETURN TRUE;
   IF(IsSVGIconFile(resourcename))
     RETURN onlytids ? FALSE : TRUE;
-
+  IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions)
+    RETURN TRUE;
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
-  IF(ext IN [".WITTY",".ES",".JS",".TS",".TSX",".XML",".XSD",".SITEPRL",".IXO"])
+  IF(ext IN [".WITTY",".XML",".XSD",".SITEPRL",".IXO"])
     RETURN TRUE;
   IF(ext = ".IXO")
     RETURN onlytids ? FALSE : TRUE;
@@ -255,7 +257,8 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
 
   IF(ToUppercase(resourcename) LIKE "*/WEB/IMG/*.SVG")
     RETURN RunSVGIconValidator(doc_blob, resourcename, options);
-
+  IF(GetExtensionFromPath(resourcename) IN whconstant_javascript_extensions)
+      RETURN RunJSValidator(doc_blob, resourcename, options);
 
   STRING ext := ToUppercase(GetExtensionFromPath(resourcename));
   SWITCH(ext)
@@ -263,10 +266,6 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
     CASE ".WITTY"
     {
       RETURN RunWittyValidator(doc_blob, resourcename, options);
-    }
-    CASE ".ES", ".JS", ".TS", ".TSX"
-    {
-      RETURN RunJSValidator(doc_blob, resourcename, options);
     }
     CASE ".XML", ".XSD", ".SITEPRL", ".IXO"
     {

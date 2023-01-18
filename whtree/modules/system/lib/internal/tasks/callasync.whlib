@@ -3,6 +3,7 @@
 LOADLIB "wh::async.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
@@ -11,6 +12,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 PUBLIC OBJECT ipcparentlink;
@@ -123,7 +125,7 @@ ASYNC MACRO HandleRemoteInvoke(OBJECT link, RECORD cmd, INTEGER64 msgid)
       THROW NEW Exception(`Got remote-invoke command in callasync runner`);
 
     STRING lib := Tokenize(cmd.func, "#")[0];
-    BOOLEAN is_javascript := lib LIKE "*.js" OR lib LIKE "*.es" OR lib LIKE "*.ts" OR lib LIKE "*.tsx";
+    BOOLEAN is_javascript := GetExtensionFromPath(lib) IN whconstant_javascript_extensions;
 
     // Set option 'raw', so the javascript values are not decoded in this process
     RECORD command := CELL
@@ -339,7 +341,7 @@ PUBLIC ASYNC FUNCTION CallAsync(STRING func, VARIANT ARRAY args, RECORD options 
   INSERT CELL raw := FALSE INTO options;
 
   STRING lib := Tokenize(func, "#")[0];
-  BOOLEAN is_javascript := lib LIKE "*.js" OR lib LIKE "*.es" OR lib LIKE "*.ts" OR lib LIKE "*.tsx";
+  BOOLEAN is_javascript := GetExtensionFromPath(lib) IN whconstant_javascript_extensions;
 
   RECORD command := CELL
       [ cmd :=      (ObjectExists(ipcparentlink) AND is_javascript) ? "remote-invoke" : "invoke"
