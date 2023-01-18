@@ -1,9 +1,13 @@
 import { sql } from "@webhare/whdb";
-import * as siteprofiles from "./siteprofiles";
+import { describeFileType, PublicFileTypeInfo } from "./siteprofiles";
 import { FsObjectRow, SiteRow } from "./dbschema";
 
-class WHFSObject {
+export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
+
+  constructor(dbrecord: FsObjectRow) {
+    this.dbrecord = dbrecord;
+  }
 
   get id() { return this.dbrecord.id; }
   get name() { return this.dbrecord.name; }
@@ -14,22 +18,18 @@ class WHFSObject {
   get fullpath() { return this.dbrecord.fullpath; }
   get whfspath() { return this.dbrecord.whfspath; }
   get parentsite() { return this.dbrecord.parentsite; }
-
-  constructor(dbrecord: FsObjectRow) {
-    this.dbrecord = dbrecord;
-  }
 }
 
 export class WHFSFile extends WHFSObject {
-  get type(): siteprofiles.PublicFileTypeInfo {
-    return siteprofiles.describeFileType(this.dbrecord.type, { mockifmissing: true });
-  }
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
+  get type(): PublicFileTypeInfo {
+    return describeFileType(this.dbrecord.type, { mockifmissing: true });
+  }
 }
 
-class WHFSFolder extends WHFSObject {
+export class WHFSFolder extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }

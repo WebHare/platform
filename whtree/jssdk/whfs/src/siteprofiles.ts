@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- FIXME a lot of siteprofile rules are still any[] */
 import * as services from '@webhare/services';
 import * as fs from 'node:fs';
 
@@ -54,13 +55,141 @@ interface CSPContentType {
   wittycomponent: string;
 }
 
-interface CachedSiteProfiles {
+export interface CSPPluginData {
+  addressoptions: string[];
+  addressvalidationkey: string;
+  addressvalidationschema: string;
+  allowsubmittype: boolean;
+  countrylist: string[];
+  defaultstoredays: number;
+  dontencodewebpackquestions: boolean;
+  enableinfotexts: boolean;
+  enablepagetitles: boolean;
+  infotextrtdtype: string;
+  mailrtdtype: string;
+  maxstoredays: number;
+  processdays: number;
+  usecaptcha: boolean;
+  webtoolformhooks: string;
+  __attributes: string[];
+  __location: string;
+}
+
+export interface CSPPlugin {
+  combine: boolean;
+  //data stored by the plugin parser, format only known to the plugin itself
+  data: unknown;
+  hooksfeatures: any[];
+  hooksplugins: any[];
+  name: string;
+  namespace: string;
+  objectname: string;
+  wittyname: string;
+}
+
+export interface CSPRtddoc {
+  rtdtype: string;
+}
+
+/** subtests (eg AND, OR ...) */
+export interface CSPApplyToSubs {
+  type: "and" | "or" | "not" | "xor";
+  criteria: CSPApplyTo[];
+}
+
+export interface CSPApplyToTestData {
+  type: "testdata";
+  target: "parent" | "root" | "self";
+}
+
+export interface CSPApplyToTo {
+  type: "to";
+  contentfiletype: string;
+  filetype: string;
+  foldertype: string;
+  match_all: boolean;
+  match_file: boolean;
+  match_folder: boolean;
+  match_index: boolean;
+  parentmask: string;
+  parentregex: string;
+  parenttype: string;
+  pathmask: string;
+  pathregex: string;
+  prebuiltmasks: any[];
+  sitetype: string;
+  typeneedstemplate: boolean;
+  webfeatures: any[];
+  whfspathmask: string;
+  whfspathregex: string;
+  withintype: string;
+  sitename?: string;
+  sitemask?: string;
+  siteregex?: string;
+  webrootregex?: string;
+}
+
+export type CSPApplyTo = CSPApplyToTo | CSPApplyToTestData | CSPApplyToSubs;
+
+interface CSPWebtoolsformrule {
+  allow: boolean;
+  comp: string;
+  type: string;
+}
+
+export interface CSPApplyRule {
+  tos: CSPApplyTo[];
+
+  applyindex: number;
+  applynodetype: string;
+  baseproperties?: any;
+  bodyrenderer?: any;
+  col: number;
+  contentlisting?: any;
+  customnodes: any[];
+  defaultsettings: any[];
+  disablelegacysitesettings: boolean;
+  disabletemplateprofile: boolean;
+  extendproperties: any[];
+  folderindex?: any;
+  foldersettings?: any;
+  formdefinitions: any[];
+  hookintercepts: any[];
+  line: number;
+  mailtemplates: any[];
+  modifyfiletypes: any[];
+  modifyfoldertypes: any[];
+  plugins: CSPPlugin[];
+  prebuiltpages: any[];
+  preview?: any;
+  priority: number;
+  republishes: any[];
+  rtddoc: CSPRtddoc;
+  schedulemanagedtasks: any[];
+  scheduletasknows: any[];
+  setlibrary: any[];
+  setobjecteditor?: any;
+  setwidget: any[];
+  sitelanguage?: any;
+  siteprofile: string;
+  siteprofileids: any[];
+  tagsources: any[];
+  typemappings: any[];
+  uploadtypemapping: any[];
+  urlhistory?: any;
+  usepublishtemplate?: any;
+  webdesign?: any;
+  webtoolsformrules: CSPWebtoolsformrule[];
+}
+
+export interface CachedSiteProfiles {
   contenttypes: CSPContentType[];
+  applies: CSPApplyRule[];
 }
 
 let csp: CachedSiteProfiles;
 
-function getCachedSiteProfiles() {
+export function getCachedSiteProfiles() {
   if (!csp)
     csp = JSON.parse(fs.readFileSync(services.toFSPath("storage::system/config/siteprofiles.json")).toString()) as CachedSiteProfiles;
 

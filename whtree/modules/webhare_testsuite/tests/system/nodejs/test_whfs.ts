@@ -1,6 +1,7 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
 import * as services from "@webhare/services";
+import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 async function testWHFS() {
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
@@ -49,6 +50,12 @@ async function testSiteProfiles() {
   await services.ready();
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type.namespace);
+
+  const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
+  test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
 }
 
-test.run([testWHFS, testSiteProfiles]);
+test.run([
+  testWHFS,
+  testSiteProfiles
+]);
