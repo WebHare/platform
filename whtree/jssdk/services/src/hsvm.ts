@@ -5,10 +5,10 @@ import { openBackendService } from "./backendservice";
 
 export interface JobService {
   //TODO if backendservice becomes a proxy, we can use mixed case here
-  INVOKE(library: string, callname: string, args: unknown[]): Promise<unknown>;
-  OBJINVOKE(objid: number, callname: string, args: unknown[]): Promise<unknown>;
-  GETNUMOBJECTS(): Promise<number>;
-  OBJCLEANUP(objid: number): Promise<never>;
+  invoke(library: string, callname: string, args: unknown[]): Promise<unknown>;
+  objInvoke(objid: number, callname: string, args: unknown[]): Promise<unknown>;
+  getNumObjects(): Promise<number>;
+  objCleanup(objid: number): Promise<never>;
 }
 
 interface MappedObject {
@@ -34,7 +34,7 @@ export class HSVM {
   }
 
   async __getNumRemoteObjects(): Promise<number> {
-    return this.job.GETNUMOBJECTS();
+    return this.job.getNumObjects();
   }
 
   async loadlib(name: string): Promise<HSCallsProxy> {
@@ -51,7 +51,7 @@ export class HSVM {
     //Set up a registry to detect object being garbage collected on our side, so we can forward it to HS
     if (!this.finalizer) {
       this.finalizer = new FinalizationRegistry((cleanedupobjid: number) => {
-        this.job.OBJCLEANUP(cleanedupobjid).catch(() => false); //don't care if this sending fails..
+        this.job.objCleanup(cleanedupobjid).catch(() => false); //don't care if this sending fails..
       });
     }
 
@@ -86,7 +86,7 @@ export class HSVMObject {
   }
 
   async invoke(name: string, args: unknown[]) {
-    return this.vm.unmap(await this.vm.job.OBJINVOKE(this.objid, name, args));
+    return this.vm.unmap(await this.vm.job.objInvoke(this.objid, name, args));
   }
 }
 
@@ -107,7 +107,7 @@ export class HSVMLibraryProxy {
   }
 
   async invoke(name: string, args: unknown[]) {
-    return this.vm.unmap(await this.vm.job.INVOKE(this.lib, name, args));
+    return this.vm.unmap(await this.vm.job.invoke(this.lib, name, args));
   }
 }
 
