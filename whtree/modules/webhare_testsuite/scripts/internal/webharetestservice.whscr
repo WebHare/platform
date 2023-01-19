@@ -87,6 +87,11 @@ ASYNC MACRO HandleLink(OBJECT link)
         link->SendReply([ type := "reply" ], rec.msgid);
         link->Close();
       }
+      CASE "reflect"
+      {
+        link->SendReply([ ...rec.msg, type := "reflectreply" ], rec.msgid);
+        link->Close();
+      }
     }
   }
 }

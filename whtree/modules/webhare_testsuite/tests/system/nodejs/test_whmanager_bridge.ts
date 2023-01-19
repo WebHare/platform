@@ -83,6 +83,20 @@ async function testBridge() {
       replyto: sendres
     }, await gl_fifo.asyncShift());
     test.eq(null, await gl_fifo.asyncShift());
+    globallink.close();
+  }
+
+  // STORY: sending and receiving fragmented messages to/from harescript
+  {
+    const globallink = bridge.connect("webhare_testsuite:globalport", { global: true });
+    const buffer = Buffer.alloc(1000000);
+    for (let i = 0; i < buffer.byteLength / 4; ++i) {
+      buffer.writeInt32BE(i * 4, i * 4);
+    }
+    await globallink.activate();
+    const reply = await globallink.doRequest({ type: "reflect", buffer }) as { type: string; buffer: Buffer };
+    test.eq(0, Buffer.compare(buffer, reply.buffer), "Buffer compare should return 0 (==equal)");
+    globallink.close();
   }
 
   // STORY: connect to nonexisting port
