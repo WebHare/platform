@@ -58,8 +58,6 @@ before_repo->EnsureFile([ name := "boosted" ]);
 before_repo->EnsureFile([ name := "boosted_more" ]);
 before_repo->EnsureFile([ name := "nonboosted" ]);
 
-OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
-
 //root index
 testsite->rootobject->CreateFile(
   [ name := "index.rtd"
@@ -76,13 +74,11 @@ FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])
   portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
 
   OBJECT testrequiresysopfolder := portal1folder->CreateFolder([name := "requiresysop"]);
-  OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ type := prebuilttype->id, name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
+  OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
   OBJECT testrequiresysopcompressable := testrequiresysopfolder->CreateFile( [ type := 21, name := "test.txt", publish := TRUE, data:= StringToBlob(RepeatText("Hello, World!\n",100)) ]);
 
-  prebuilttype->SetInstanceData(testrequiresysopfile->id, [ prebuilttag := "requiresysoptest"]);
   OBJECT testrequiresysoporconsiliofile := portal1folder->CreateFolder([name := "requiresysop-or-consilio"])
-                                   ->CreateFile( [ type := prebuilttype->id, name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
-  prebuilttype->SetInstanceData(testrequiresysoporconsiliofile->id, [ prebuilttag := "requiresysoptest"]);
+                                   ->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
 }
 
 OBJECT portal2folder  := testsite->rootobject->CreateFolder( [ name := "portal2" ] );
@@ -131,8 +127,7 @@ portalidpfolder->CreateFile([ name := "portal-idp", typens := "http://www.webhar
 portalidpfolder->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
 
 OBJECT portalidpfolder_formlogin := testsamlfolder->CreateFolder([name := "portal-idp-formlogin"]);
-OBJECT idp_formlogin := portalidpfolder_formlogin->CreateFile([ name := "portal-idp", type := prebuilttype->id, publish := TRUE ], [setindex := TRUE]);
-prebuilttype->SetInstanceData(idp_formlogin->id, [ prebuilttag := "wrdauthtest-router" ]);
+OBJECT idp_formlogin := portalidpfolder_formlogin->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ], [setindex := TRUE]);
 portalidpfolder_formlogin->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
 
 OBJECT portalspfolder := testsamlfolder->CreateFolder([name := "portal-sp"]);
@@ -206,13 +201,11 @@ actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xm
 
 //Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
 OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
-OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE, title := "Various formdefinition testforms" ] );
-prebuilttype->SetInstanceData(formtest->id, [ prebuilttag := "formtest" ]);
+OBJECT formtest := testpages->CreateFile( [ name := "formtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/formtest", publish := TRUE, title := "Various formdefinition testforms" ] );
 
 OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
 
-OBJECT listtest := testpages->CreateFile( [ name := "listtest", type := prebuilttype->id, publish := TRUE ] );
-prebuilttype->SetInstanceData(listtest->id, [ prebuilttag := "listtest" ]);
+OBJECT listtest := testpages->CreateFile( [ name := "listtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/listtest", publish := TRUE ] );
 
 OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
 OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
@@ -230,20 +223,15 @@ foldertemplatetestsub->CreateFile( [ name := "externallink", typens := "http://w
 
 FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
 {
-  OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, type := prebuilttype->id, publish := TRUE ] );
-  prebuilttype->SetInstanceData(wrdauthtest->id, [ prebuilttag := "wrdauthtest" ]);
+  OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
 
-  OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", type := prebuilttype->id, publish := TRUE ] );
-  prebuilttype->SetInstanceData(wrdauthtest_router->id, [ prebuilttag := "wrdauthtest-router" ]);
+  OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
-  OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", type := prebuilttype->id, publish := TRUE ] );
-  prebuilttype->SetInstanceData(wrdauthtest_router_extended->id, [ prebuilttag := "wrdauthtest-router" ]);
+  OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
-  OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", type := prebuilttype->id, publish := TRUE ] );
-  prebuilttype->SetInstanceData(wrdauthtest_router_broken->id, [ prebuilttag := "wrdauthtest-router" ]);
+  OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
-  OBJECT wrdauthtest_static := testpages->CreateFile( [ name := basename || "-static", type := prebuilttype->id, publish := TRUE ] );
-  prebuilttype->SetInstanceData(wrdauthtest_static->id, [ prebuilttag := "wrdauthtest-static" ]);
+  OBJECT wrdauthtest_static := testpages->CreateFile( [ name := basename || "-static",typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static", publish := TRUE ] );
 }
 
 OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
@@ -270,8 +258,7 @@ testpages->CreateFile( [ name := "search-customized", typens := "http://www.webh
 OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
 testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
 
-OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", type := prebuilttype->id, publish := TRUE ] );
-prebuilttype->SetInstanceData(dynamicpage->id, [ prebuilttag := "dynamicpage" ]);
+OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage", publish := TRUE ] );
 
 testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
 testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
@@ -287,9 +274,9 @@ authtest_router_protected_folder->CreateFile(
 
 authtest_router_protected_folder->CreateFile(
     [ name := "codeprotected"
-    , type := prebuilttype->id
+    , typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected"
     , publish := TRUE
-    ])->SetInstanceData(prebuilttype->namespace, [ prebuilttag := "wrdauthtest_codeprotected" ]);
+    ]);
 
 testsite->rootobject->EnsureFolder([name := "tmp"]);
 

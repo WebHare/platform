@@ -278,17 +278,15 @@ MACRO TestCaptureSubPaths()
 
   OBJECT file_prebuilt_static := captures->CreateFile(
         [ name := "prebuilt_static"
-        , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage")->id
+        , typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml_csp"
         , publish := TRUE
         ]);
-  file_prebuilt_static->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuilthtml_csp" ]);
 
   OBJECT file_prebuilt_dynamic := captures->CreateFile(
         [ name := "prebuilt_dynamic"
-        , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage")->id
+        , typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml_csp"
         , publish := TRUE
         ]);
-  file_prebuilt_dynamic->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuiltshtml_csp" ]);
 
   OBJECT capture_in_capturedir := captureindexdir->CreateFolder([name := "indexdir"]);
   OBJECT capture_in_captureindex := capture_in_capturedir->CreateFile(
