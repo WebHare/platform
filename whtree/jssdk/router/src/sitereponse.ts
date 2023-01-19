@@ -5,7 +5,7 @@ import { SiteRequest } from "./siterequest";
 export class SiteResponse<T extends object> {
   siterequest: SiteRequest;
   webresponse: WebResponse;
-  private contents = "";
+  protected contents = "";
 
   /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageconfig: T;
@@ -29,7 +29,7 @@ export class SiteResponse<T extends object> {
     this.contents += text;
   }
 
-  flush() {
+  async finish(): Promise<void> {
     //TODO: format the final body using htmlhead/htmlbody and our own headers. See WebDesignBase::RunPageWitty for all the classes etc we need
     const body = `<!DOCTYPE html>`
       + `<html>` //lang etc

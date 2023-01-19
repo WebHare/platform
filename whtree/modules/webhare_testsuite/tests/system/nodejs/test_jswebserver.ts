@@ -46,8 +46,7 @@ async function testOurWebserver() {
   const markdowndocurl = new URL(markdowndoc.link);
 
   const response = await (await fetch("http://127.0.0.1:" + port + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
-  test.eqMatch(/h2.*>.*Markdown file</, response);
-
+  test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
   ws.close(); //without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why.
 }
 

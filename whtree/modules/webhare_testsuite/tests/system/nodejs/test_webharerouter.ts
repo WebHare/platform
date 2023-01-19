@@ -21,7 +21,7 @@ async function testSiteResponse() {
   test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageconfig.whfspath);
 
   typedoutputpage.appendHTML(`<p>This is a body!</p>`);
-  typedoutputpage.flush();
+  await typedoutputpage.finish();
 
   const page = response.getFinalPage();
   test.eqMatch(/<html>.*<body>.*<p>This is a body!<\/p><\/body><\/html>/, page.body);
@@ -39,10 +39,10 @@ async function runARouter(router: WebHareRouter, request: WebRequest) {
 
 async function testRouter() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-
   const result = await runARouter(coreWebHareRouter, new WebRequest("GET", markdowndoc.link));
+
   //FIXME noone asked for <h2 id="markdown-file">Markdown file</h2> - we want class="heading2" and we need to check how WebHare would generate these IDs. (RTD compatibility)
-  test.eqMatch(/<html>.*<h2.*>Markdown file<\/h2>/, result.body);
+  test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, result.body);
 }
 
 test.run([
