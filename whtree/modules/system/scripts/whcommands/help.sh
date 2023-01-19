@@ -48,7 +48,7 @@ show_module_commands() # modulename
 {
   getmoduledir MODULEDIR "$1"
   SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
-  for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+  for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
     if [ -f "$SCRIPTPATH" ]; then
       FILENAME="${SCRIPTPATH##*/}"
       INSTR="$MODULE:${FILENAME%.*}"
@@ -63,7 +63,7 @@ SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
 
 if [ -z "$FORMODULE" ] || [ "$FORMODULE" == "system" ]; then
   for SCRIPTDIR in $SCRIPTDIRS; do
-    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
       if [ -f "$SCRIPTPATH" ]; then
         FILENAME="${SCRIPTPATH##*/}"
         INSTR="${FILENAME%.*}"

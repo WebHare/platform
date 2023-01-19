@@ -2,6 +2,8 @@ import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { DebugMgrClientLink, DebugMgrClientLinkRequestType, ProcessType } from "@mod-system/js/internal/whmanager/debug";
 
+/// short: Control WebHare bridge connections (ie. javascript processes)
+
 async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<bigint> {
   try {
     return BigInt(instance);
