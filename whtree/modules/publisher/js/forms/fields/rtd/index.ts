@@ -12,7 +12,7 @@ let richeditor;
 /** options.onInsertVideo: function(node) - should return a promise resolving to an instance if the insertion is successful, or resolve to null if cancelled. receives the html rteedit node on which we're invoked */
 
 export default class RTDField {
-  constructor(node, options) {
+  constructor(node, options?) {
     this.node = node;
     this.node.whRTDField = this;
     this.options = { ...options };

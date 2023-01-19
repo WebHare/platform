@@ -4,9 +4,11 @@
 */
 
 import { WHFSFile } from "@webhare/whfs";
+import { SiteResponse } from "./sitereponse";
 import { WebRequest } from "./request";
+import { WebResponse } from "./response";
 
-export class WHFSRequest implements WebRequest {
+export class SiteRequest implements WebRequest {
   readonly request: WebRequest;
   readonly targetobject: WHFSFile;
 
@@ -16,5 +18,9 @@ export class WHFSRequest implements WebRequest {
   constructor(request: WebRequest, targetobject: WHFSFile) {
     this.request = request;
     this.targetobject = targetobject;
+  }
+
+  async createComposer(response: WebResponse): Promise<SiteResponse> { //async because we may delay loading the actual webdesign code until this point
+    return new SiteResponse(this, response);
   }
 }
