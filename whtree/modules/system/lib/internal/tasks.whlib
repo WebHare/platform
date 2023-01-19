@@ -3,6 +3,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -36,7 +37,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   STRING objectname := tasknode->GetAttribute("objectname");
   STRING cluster := tasknode->GetAttribute("cluster");
   INTEGER timeout := ToInteger(tasknode->GetAttribute("timeout"), 0);
-  BOOLEAN isnode := library LIKE "*.js" OR library LIKE "*.es";
+  BOOLEAN isnode := GetExtensionFromPath(library) IN whconstant_javascript_extensions;
   INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
   INTEGER failreschedule := ToInteger(tasknode->GetAttribute("failreschedule"), whconstant_default_failreschedule);
   BOOLEAN allowifrestore := ParseXSBoolean(tasknode->GetAttribute("allowifrestore"));

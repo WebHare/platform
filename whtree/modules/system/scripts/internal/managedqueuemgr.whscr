@@ -92,7 +92,7 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
 {
   // Log javascript exceptions here, javascript runner does not have access to logs
   // Errors such as no-such-task do not have executeinfo
-  IF (CellExists(item->taskdata, "EXECUTEINFO") AND (item->taskdata.executeinfo.library LIKE "*.js" OR item->taskdata.executeinfo.library LIKE "*.es" OR item->taskdata.executeinfo.library LIKE "*.ts"))
+  IF (CellExists(item->taskdata, "EXECUTEINFO") AND GetExtensionFromPath(item->taskdata.executeinfo.library) IN whconstant_javascript_extensions)
   {
     STRING mainscript := GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.ts";
 
