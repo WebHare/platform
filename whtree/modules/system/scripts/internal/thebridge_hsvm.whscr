@@ -1,6 +1,8 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -26,8 +28,16 @@ VARIANT FUNCTION Unmap(VARIANT input)
   RETURN input;
 }
 
+INTEGER connecttimeout_cb := RegisterTimedCallback(AddTimeToDate(10000, GetCurrentDateTime()), PTR TerminateScriptWithError("HSVM bridge job not connected to within 10 seconds"));
+
 OBJECTTYPE Controller
 <
+  MACRO NEW()
+  {
+    IF (connecttimeout_cb != 0)
+      UnregisterCallback(connecttimeout_cb);
+    connecttimeout_cb := 0;
+  }
   PUBLIC ASYNC FUNCTION Invoke(STRING lib, STRING name, VARIANT ARRAY args)
   {
     RETURN Unmap(AWAIT CallFunctionPtrVA(MakeFunctionPtr(lib,name), args));
@@ -50,6 +60,12 @@ OBJECTTYPE Controller
   PUBLIC MACRO ObjCleanup(INTEGER objid)
   {
     DELETE FROM objecttable WHERE id = objid;
+  }
+
+  // Called when service link is closed
+  PUBLIC MACRO OnClose()
+  {
+    TerminateScript();
   }
 >;
 

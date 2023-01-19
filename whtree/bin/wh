@@ -282,7 +282,7 @@ list_commands()
   SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
 
   for SCRIPTDIR in $SCRIPTDIRS; do
-    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
       if [ -f $SCRIPTPATH ]; then
         FILENAME="${SCRIPTPATH##*/}"
         INSTR="${FILENAME%.*}"
@@ -296,7 +296,7 @@ list_commands()
       if [ "$MODULE" != "system" ]; then
         getmoduledir MODULEDIR $MODULE
         SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
-        for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh; do
+        for SCRIPTPATH in "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
           if [ -f $SCRIPTPATH ]; then
             FILENAME="${SCRIPTPATH##*/}"
             INSTR="$MODULE:${FILENAME%.*}"

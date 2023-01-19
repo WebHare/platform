@@ -27,13 +27,13 @@ export async function ready(): Promise<void> {
 */
 export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
-  return (await getBridgeService()).INVOKEANYFUNCTION(func, args, options || {});
+  return (await getBridgeService()).invokeAnyFunction(func, args, options || {});
 }
 
 let config: WebHareBackendConfiguration | null = null;
 
 WHBridge.onConfigurationUpdate(async () => {
-  const newconfig = await (await getBridgeService()).GETCONFIG();
+  const newconfig = await (await getBridgeService()).getConfig();
   config = Object.freeze(newconfig);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- it has to be set at initialization.
   configresolve!();

@@ -421,7 +421,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   portregisterrequests = new Map<bigint, PortRegistration>;
 
   linkidcounter = 0;
-  links = new Map<number, { name: string; port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage> }>;
+  links = new Map<number, { name: string; port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>; partialmessages: Map<bigint, Buffer[]> }>;
 
   requestcounter = 34000; // start here to aid debugging
   flushlogrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
@@ -631,8 +631,18 @@ class MainBridge extends EventSource<BridgeEvents> {
       case WHMResponseOpcode.IncomingMessage: {
         const reg = this.links.get(data.linkid);
         if (reg) {
-          if (data.islastpart) {
-            const buffer = data.messagedata.buffer.slice(data.messagedata.byteOffset, data.messagedata.byteOffset + data.messagedata.byteLength);
+          const partial = reg.partialmessages.get(data.msgid);
+          if (!data.islastpart) {
+            if (!partial) {
+              reg.partialmessages.set(data.msgid, [data.messagedata]);
+            } else
+              partial.push(data.messagedata);
+          } else {
+            const buffer = bufferToArrayBuffer(partial
+              ? Buffer.concat([...partial, data.messagedata])
+              : data.messagedata);
+            if (partial)
+              reg.partialmessages.delete(data.msgid);
             const msg: IPCEndPointImplControlMessage = {
               type: IPCEndPointImplControlMessageType.Message,
               msgid: data.msgid,
@@ -874,7 +884,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   initLinkHandling(portname: string, linkid: number, msgid: bigint, port: TypedMessagePort<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>) {
-    this.links.set(linkid, { name: portname, port: port });
+    this.links.set(linkid, { name: portname, port: port, partialmessages: new Map });
     port.on("message", (ctrlmsg: IPCEndPointImplControlMessage) => {
       if (logmessages)
         console.log(`main bridge: incoming message from local endpoint of ${linkid} (${portname})`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] });
@@ -887,8 +897,18 @@ class MainBridge extends EventSource<BridgeEvents> {
           }
         } break;
         case IPCEndPointImplControlMessageType.Message: {
-          // FIXME: implement message splitting
-          this.sendData({ opcode: WHMRequestOpcode.SendMessageOverLink, linkid: linkid, msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, islastpart: true, messagedata: ctrlmsg.buffer });
+          const fragmentsize = 511 * 1024;
+          for (let fragmentpos = 0; fragmentpos < ctrlmsg.buffer.byteLength; fragmentpos += fragmentsize) {
+            const part = new Uint8Array(ctrlmsg.buffer, fragmentpos, Math.min(fragmentsize, ctrlmsg.buffer.byteLength - fragmentpos));
+            this.sendData({
+              opcode: WHMRequestOpcode.SendMessageOverLink,
+              linkid: linkid,
+              msgid: ctrlmsg.msgid,
+              replyto: ctrlmsg.replyto,
+              islastpart: fragmentpos + fragmentsize >= ctrlmsg.buffer.byteLength,
+              messagedata: part
+            });
+          }
         } break;
       }
     });

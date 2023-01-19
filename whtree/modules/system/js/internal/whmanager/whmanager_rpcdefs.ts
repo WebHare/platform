@@ -78,7 +78,7 @@ export type WHMRequest_SendMessageOverLink = {
   msgid: bigint;
   replyto: bigint;
   islastpart: boolean;
-  messagedata: Buffer | ArrayBuffer;
+  messagedata: Uint8Array | ArrayBuffer;
 };
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;

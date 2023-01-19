@@ -4,6 +4,7 @@ import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './
 import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';
 import { RefTracker } from "./refs";
+import { bufferToArrayBuffer } from "./transport";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as envbackend from "@webhare/env/src/envbackend";
 
@@ -271,7 +272,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     const msgid = ++this.msgidcounter;
     const packet = writeMarshalPacket(message);
     // Copy the packet data into a new ArrayBuffer we can transfer over the MessagePort
-    const buffer = packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
+    const buffer = bufferToArrayBuffer(packet);
     this.sendPortMessage({
       type: IPCEndPointImplControlMessageType.Message,
       msgid,

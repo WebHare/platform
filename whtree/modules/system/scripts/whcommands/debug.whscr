@@ -1,7 +1,10 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
@@ -26,6 +29,7 @@ Commands:
   mark [text]                         Write a mark with optional text to all primary logfiles
   processlist                         Show the list of processes
   joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
+  alljobs                             Show all jobs of all processes
   terminate [process] [mask]          Terminate jobs in a process
   listflags                           List available debug flags
   enable <flag>...                    Enable the specified debug flag
@@ -207,6 +211,31 @@ ASYNC FUNCTION SearchJobByParam(STRING prefix)
   RETURN result;
 }
 
+ASYNC FUNCTION GetJobList(OBJECT process)
+{
+  TRY
+  {
+    OBJECT joblistener := process->GetJobListener();
+    RECORD ARRAY joblist := AWAIT joblistener->RequestUpdate();
+    joblistener->Close();
+    RETURN joblist;
+  }
+  CATCH
+    RETURN RECORD[];
+}
+
+STRING FUNCTION PadTrunc(STRING str, INTEGER len)
+{
+  RETURN Left(str || RepeatText(" ", len), len);
+}
+
+STRING FUNCTION LeftPad(STRING str, INTEGER len)
+{
+  IF (LENGTH(str) >= len)
+    RETURN str;
+  RETURN Right(RepeatText(" ", len) || str, len);
+}
+
 ASYNC MACRO RunCommand()
 {
   SWITCH (args.command)
@@ -258,6 +287,73 @@ ASYNC MACRO RunCommand()
         DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
       }
     }
+    CASE "alljobs"
+    {
+      ParseSubArgs(
+            [ [ name := "sort", type := "stringopt" ]
+            ]);
+
+      IF (args.sort NOT IN [ "", "processcode", "creationdate"])
+        THROW NEW Exception(`Illegal sort flag, allowed: 'processcode', 'creationdate'`);
+
+      OBJECT processlistener := connection->GetProcessListener();
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+      RECORD ARRAY processes := AWAIT processlistener->RequestUpdate();
+      processlistener->Close();
+
+      OBJECT ARRAY joblist_promises;
+      FOREVERY (RECORD rec FROM processes)
+        INSERT rec.present ? GetJobList(rec.obj) : CreateResolvedPromise(VARIANT[]) INTO joblist_promises AT END;
+
+      PRINT(`${PadTrunc("Process", 80)} ${LeftPad(`code`, 6)} `);
+      PRINT(` job creationdate     groupid               `);
+      PRINT(` ${LeftPad("objs", 6)} ${LeftPad("hndl", 4)}`);
+      PRINT(` ${LeftPad("memuse", 11)}`);
+      PRINT(` jobscript\n`);
+
+      VARIANT ARRAY joblists := AWAIT CreatePromiseAll(joblist_promises);
+      RECORD ARRAY alljobs;
+
+      FOREVERY (RECORD process FROM processes)
+      {
+        IF (NOT process.present)
+          CONTINUE;
+        FOREVERY (RECORD job FROM SELECT * FROM joblists[#process] ORDER BY creationdate)
+          INSERT CELL[ process, job ] INTO alljobs AT END;
+      }
+
+      IF (args.sort != "processcode")
+        alljobs := SELECT * FROM alljobs ORDER BY job.creationdate;
+
+      FOREVERY (RECORD rec FROM alljobs)
+      {
+        RECORD handlelist;
+        RECORD stats;
+
+        IF (rec.job.groupid != GetCurrentGroupId())
+        {
+          TRY
+          {
+            OBJECT jobconnector := rec.process.obj->ConnectToJob(rec.job.groupid);
+            OBJECT job := AWAIT jobconnector->promise;
+            IF (RecordExists(job->laststatus.statistics))
+              stats := job->laststatus.statistics;
+            AWAIT job->Pause();
+            handlelist := AWAIT job->GetHandleList();
+            job->Close();
+          }
+          CATCH;
+        }
+
+        PRINT(`${PadTrunc(rec.process.clientname, 80)} ${LeftPad(`${rec.process.processcode}`, 6)} `);
+        PRINT(` ${FormatISO8601DateTime(rec.job.creationdate)} ${rec.job.groupid}`);
+        PRINT(` ${LeftPad(RecordExists(stats) ? ToString(stats.objectcount) : "-", 6)} ${LeftPad(RecordExists(handlelist) ? ToString(LENGTH(handlelist.rawdata.items)) : "-", 4)}`);
+        PRINT(` ${LeftPad(RecordExists(stats) ? FormatMoney(MONEY(stats.backingstore + stats.blobstore + stats.heap + stats.stack), 0, ".", "_", FALSE) || "KB": "-", 11)}`);
+        PRINT(` ${rec.job.script}\n`);
+      }
+    }
+
+
     CASE "stacktrace", "jobstats", "jobhandles", "jobadhoccache"
     {
       ParseSubArgs(
