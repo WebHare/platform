@@ -12,7 +12,7 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
                                           , nomissingtids := FALSE
                                           , nowarnings := FALSE
                                           , documentation := FALSE
-                                          , eslintmasks := whconstant_typescript_extensions
+                                          , eslintmasks := STRING[ "*.ts", "*.tsx" ]
                                           , formatmasks := STRING[]
                                           , formatexcludemasks := STRING[]
                                           ];
