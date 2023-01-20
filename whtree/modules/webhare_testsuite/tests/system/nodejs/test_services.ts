@@ -2,7 +2,7 @@
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
+import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
@@ -83,6 +83,14 @@ async function testHSVMFptrs() {
   await runPrintCallbackTest(hsvm);
   test.triggerGarbageCollection();
   await test.wait(async () => (await hsvm.__getNumRemoteUnmarshallables()) === 0);
+
+  //test invoking MACROs on OBJECTs (A MACRO cannot be used as a FUNCTION, it has no return value)
+  const jsonobject = await hsvm.loadlib("wh::system.whlib").DecodeJSON('{x:42,y:43}', {}, { wrapobjects: true }) as HSVMObject;
+  test.eq(undefined, await jsonobject.DeleteProp("x"));
+  test.eq({ y: 43 }, await jsonobject.GetValue());
+
+  //test invoking a MACRO directly
+  test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Hello, World!\n"));
 }
 
 

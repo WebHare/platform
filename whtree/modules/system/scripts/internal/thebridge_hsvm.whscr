@@ -76,6 +76,19 @@ VARIANT FUNCTION MapFromBridge(VARIANT input)
 
 INTEGER connecttimeout_cb := RegisterTimedCallback(AddTimeToDate(10000, GetCurrentDateTime()), PTR TerminateScriptWithError("HSVM bridge job not connected to within 10 seconds"));
 
+VARIANT FUNCTION InvokeFPTR(FUNCTION PTR fptr, VARIANT ARRAY args)
+{
+  IF(__INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE(fptr) IN [ 0, 2 ]) //it's a macro!
+  {
+    CallMacroPTRVA(fptr, args);
+    RETURN [ __unmarshallable_type := "undefined" ];
+  }
+  ELSE
+  {
+    RETURN MapToBridge(CallFunctionPtrVA(fptr, args));
+  }
+}
+
 OBJECTTYPE Controller
 <
   MACRO NEW()
@@ -96,7 +109,7 @@ OBJECTTYPE Controller
       Print(`[bridge_hsvm] Invoke('${lib}', '${name}', ${Length(args)} arguments)\n`);
 
     args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
-    RETURN MapToBridge(AWAIT CallFunctionPtrVA(MakeFunctionPtr(lib,name), args));
+    RETURN InvokeFPTR(MakeFunctionPtr(lib,name), args);
   }
   PUBLIC ASYNC FUNCTION ObjInvoke(VARIANT obj, STRING name, VARIANT ARRAY args)
   {
@@ -108,13 +121,9 @@ OBJECTTYPE Controller
 
     VARIANT retval;
     IF(ToUppercase(name) = "GET")
-      retval := GetMember(obj, args[0]);
+      RETURN MapToBridge(GetMember(obj, args[0]));
     ELSE
-      retval := AWAIT CallFunctionPtrVA(GetObjectMethodPtr(obj, name), args);
-
-    retval := MapToBridge(retval);
-    // DumpValue(retval);
-    RETURN retval;
+      RETURN InvokeFPTR(GetObjectMethodPtr(obj, name), args);
   }
   PUBLIC INTEGER FUNCTION GetNumObjects()
   {
