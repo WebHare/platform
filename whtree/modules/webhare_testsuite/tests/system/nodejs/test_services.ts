@@ -45,16 +45,17 @@ async function testServices() {
 async function runOpenPrimary(hsvm: HSVM) {
   const database = await hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
-  test.eq(1, await hsvm.__getNumRemoteObjects());
+  test.eq(1, await hsvm.__getNumRemoteUnmarshallables());
   test.assert(primary);
 }
+
 
 async function testHSVM() {
   const hsvm = await openHSVM();
 
   await runOpenPrimary(hsvm); //split off so GC can clean up 'primaryu'
   test.triggerGarbageCollection();
-  await test.wait(async () => (await hsvm.__getNumRemoteObjects()) === 0);
+  await test.wait(async () => (await hsvm.__getNumRemoteUnmarshallables()) === 0);
 
   const siteapi = await hsvm.loadlib("mod::publisher/lib/siteapi.whlib");
   const testsite: any = await siteapi.openSiteByName("webhare_testsuite.testsite");
@@ -64,7 +65,26 @@ async function testHSVM() {
   const sitetype: any = await utils.openWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
   const testsitesettings = await sitetype.getInstanceData(testsiteid);
   test.eq("webhare_testsuite:basetest", testsitesettings.sitedesign);
+
+  //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
 }
+
+async function runPrintCallbackTest(hsvm: HSVM) {
+  //Ensure we can setup simple 'callbacks' that just print placeholders
+  const print_helloworld_callback = await hsvm.createPrintCallback(`Hello, world!`);
+  const fileswhlib = await hsvm.loadlib("wh::files.whlib");
+  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer;
+  test.eq("Hello, world!", capture_helloworld.toString());
+}
+
+async function testHSVMFptrs() {
+  const hsvm = await openHSVM();
+
+  await runPrintCallbackTest(hsvm);
+  test.triggerGarbageCollection();
+  await test.wait(async () => (await hsvm.__getNumRemoteUnmarshallables()) === 0);
+}
+
 
 async function testResources() {
   test.assert(serverconfig);
@@ -249,6 +269,7 @@ async function main() {
     [
       testServices,
       testHSVM,
+      testHSVMFptrs,
       testResources,
       testDisconnects,
       testServiceTimeout,

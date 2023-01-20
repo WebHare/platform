@@ -3,29 +3,75 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 
-RECORD ARRAY objecttable;
-INTEGER nextobjectid := 24000;
+RECORD ARRAY untransferred_table;
+INTEGER next_untransferred_id := 24000;
+BOOLEAN debug := FALSE;
 
-VARIANT FUNCTION Unmap(VARIANT input)
+VARIANT FUNCTION MapToBridgeRecursive(VARIANT input)
 {
-  IF(TYPEID(input) = TYPEID(OBJECT))
+  IF(TYPEID(input) = TYPEID(RECORD))
   {
-    IF(NOT ObjectExists(input))
+    IF(NOT RecordExists(input))
+      RETURN DEFAULT RECORD;
+    RETURN RepackRecord(SELECT *, value := MapToBridgeRecursive(value) FROM UnpackRecord(input));
+  }
+
+  IF(TYPEID(input) IN [TYPEID(OBJECT), TYPEID(FUNCTION PTR)])
+  {
+    IF(NOT IsValueSet(input))
       RETURN DEFAULT RECORD;
 
-    INTEGER objid := SELECT AS INTEGER id FROM objecttable WHERE obj = input;
-    IF(objid != 0)
-      RETURN [ __type := "object", id := objid ];
+    INTEGER handleid := SELECT AS INTEGER id FROM untransferred_table WHERE TYPEID(val) = TYPEID(input) ? val = input : FALSE;
+    IF(handleid != 0)
+      RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := handleid ];
 
-    nextobjectid := nextobjectid + 1;
-    INSERT [ id := nextobjectid, obj := input ] INTO objecttable AT END;
-    RETURN [ __type := "object", id := nextobjectid ];
+    next_untransferred_id := next_untransferred_id + 1;
+    INSERT [ id := next_untransferred_id, val := input ] INTO untransferred_table AT END;
+    RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := next_untransferred_id ];
   }
 
   RETURN input;
+}
+
+VARIANT FUNCTION MapToBridge(VARIANT input)
+{
+  VARIANT retval := MapToBridgeRecursive(input);
+  IF(debug)
+    DumpValue(retval, [ name := "MapToBridge" ]);
+  RETURN retval;
+}
+
+VARIANT FUNCTION MapFromBridgeRecursive(VARIANT input)
+{
+  IF(TYPEID(input) = TYPEID(RECORD) AND CellExists(input, "__unmarshallable_type"))
+  {
+    RECORD match := SELECT * FROM untransferred_table WHERE id = input.id;
+    IF(NOT RecordExists(match))
+      THROW NEW Exception(`No such unmarshallable #${input.id}`);
+    RETURN match.val;
+  }
+  RETURN input;
+
+  IF(TYPEID(input) = TYPEID(RECORD))
+  {
+    IF(NOT RecordExists(input))
+      RETURN DEFAULT RECORD;
+    RETURN RepackRecord(SELECT *, value := MapFromBridgeRecursive(value) FROM UnpackRecord(input));
+  }
+
+  RETURN input;
+}
+
+VARIANT FUNCTION MapFromBridge(VARIANT input)
+{
+  VARIANT retval := MapFromBridgeRecursive(input);
+  IF(debug)
+    DumpValue(retval, [ name := "MapFromBridge" ]);
+  RETURN retval;
 }
 
 INTEGER connecttimeout_cb := RegisterTimedCallback(AddTimeToDate(10000, GetCurrentDateTime()), PTR TerminateScriptWithError("HSVM bridge job not connected to within 10 seconds"));
@@ -38,33 +84,59 @@ OBJECTTYPE Controller
       UnregisterCallback(connecttimeout_cb);
     connecttimeout_cb := 0;
   }
+  PUBLIC ASYNC FUNCTION CreatePrintCallback(STRING text)
+  {
+    IF(debug)
+      Print(`[bridge_hsvm] CreatePrintCallback(...)\n`);
+    RETURN MapToBridge(PTR Print(text));
+  }
   PUBLIC ASYNC FUNCTION Invoke(STRING lib, STRING name, VARIANT ARRAY args)
   {
-    RETURN Unmap(AWAIT CallFunctionPtrVA(MakeFunctionPtr(lib,name), args));
+    IF(debug)
+      Print(`[bridge_hsvm] Invoke('${lib}', '${name}', ${Length(args)} arguments)\n`);
+
+    args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
+    RETURN MapToBridge(AWAIT CallFunctionPtrVA(MakeFunctionPtr(lib,name), args));
   }
-  PUBLIC ASYNC FUNCTION ObjInvoke(INTEGER objid, STRING name, VARIANT ARRAY args)
+  PUBLIC ASYNC FUNCTION ObjInvoke(VARIANT obj, STRING name, VARIANT ARRAY args)
   {
-    OBJECT ob := SELECT AS OBJECT obj FROM objecttable WHERE id = objid;
-    IF(NOT ObjectExists(ob))
-      THROW NEW Exception(`No such object ${objid}`);
+    IF(debug)
+      Print(`[bridge_hsvm] ObjInvoke(obj, '${name}', ${Length(args)} arguments)\n`);
 
+    obj := MapFromBridge(obj);
+    args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
+
+    VARIANT retval;
     IF(ToUppercase(name) = "GET")
-      RETURN GetMember(ob, args[0]);
+      retval := GetMember(obj, args[0]);
+    ELSE
+      retval := AWAIT CallFunctionPtrVA(GetObjectMethodPtr(obj, name), args);
 
-    RETURN Unmap(AWAIT CallFunctionPtrVA(GetObjectMethodPtr(ob,name), args));
+    retval := MapToBridge(retval);
+    // DumpValue(retval);
+    RETURN retval;
   }
   PUBLIC INTEGER FUNCTION GetNumObjects()
   {
-    RETURN Length(objecttable);
+    IF(debug)
+      Print(`[bridge_hsvm] GetNumObjects()\n`);
+
+    RETURN Length(untransferred_table);
   }
   PUBLIC MACRO ObjCleanup(INTEGER objid)
   {
-    DELETE FROM objecttable WHERE id = objid;
+    IF(debug)
+      Print(`[bridge_hsvm] ObjCleanup(${objid})\n`);
+
+    DELETE FROM untransferred_table WHERE id = objid;
   }
 
   // Called when service link is closed
   PUBLIC MACRO OnClose()
   {
+    IF(debug)
+      Print(`[bridge_hsvm] OnClose()\n`);
+
     TerminateScript();
   }
 >;
