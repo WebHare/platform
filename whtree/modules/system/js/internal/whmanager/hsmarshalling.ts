@@ -1,4 +1,5 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
+import * as finmath from '@mod-system/js/util/finmath';
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
@@ -111,6 +112,34 @@ export class Money {
   static isMoney(value: unknown): value is Money {
     return typeof value === "object" && Boolean(value) && ((value as { __hstype: unknown }).__hstype === VariableType.Money);
   }
+
+  add(right: Money) {
+    return new Money(finmath.add(this.value, right.value));
+  }
+
+  subtract(right: Money) {
+    return new Money(finmath.subtract(this.value, right.value));
+  }
+
+  roundToMultiple(right: Money, mode: finmath.RoundMode) {
+    return new Money(finmath.roundToMultiple(this.value, right.value, mode));
+  }
+
+  cmp(right: Money) {
+    return finmath.cmp(this.value, right.value);
+  }
+
+  multiply(right: Money) {
+    return new Money(finmath.multiply(this.value, right.value));
+  }
+
+  divide(right: Money) {
+    return new Money(finmath.divide(this.value, right.value));
+  }
+}
+
+export function isDate(value: unknown): value is Date {
+  return Boolean(typeof value === "object" && value && "getDate" in value);
 }
 
 const MarshalFormatType = 2;
@@ -356,7 +385,7 @@ function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
   return VariableType.Variant;
 }
 
-function determineType(value: unknown): VariableType {
+export function determineType(value: unknown): VariableType {
   if (Array.isArray(value)) {
     if (value && typeof value == "object" && "__hstype" in value) {
       const rec = value as Record<"__hstype", VariableType>;
@@ -375,7 +404,7 @@ function determineType(value: unknown): VariableType {
     case "object": {
       if (value instanceof Uint8Array || value instanceof ArrayBuffer)
         return VariableType.Blob;
-      if (value instanceof Date)
+      if (isDate(value))
         return VariableType.DateTime;
       if (value && "__hstype" in value) {
         const rec = value as Record<"__hstype", VariableType>;
