@@ -42,8 +42,7 @@ export class HSVM {
     return this.unmapFromBridge(await this.job.createPrintCallback(text)) as HSVMUnmarshallable;
   }
 
-  async loadlib(name: string): Promise<HSCallsProxy> {
-    //We're not async now, but might be in the future...
+  loadlib(name: string): HSCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
     return proxy;
   }
@@ -140,7 +139,7 @@ export async function openHSVM(options?: HSVMOptions) {
   const hsvm = new HSVM(bridge, jobservice);
 
   if (options?.openPrimary) {
-    const database = await hsvm.loadlib("mod::system/lib/database.whlib");
+    const database = hsvm.loadlib("mod::system/lib/database.whlib");
     await database.openPrimary();
   }
 
