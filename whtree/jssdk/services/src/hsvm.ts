@@ -6,13 +6,14 @@ import { openBackendService } from "./backendservice";
 export interface JobService {
   //TODO if backendservice becomes a proxy, we can use mixed case here
   invoke(library: string, callname: string, args: unknown[]): Promise<unknown>;
-  objInvoke(objid: number, callname: string, args: unknown[]): Promise<unknown>;
+  objInvoke(objid: unknown, callname: string, args: unknown[]): Promise<unknown>;
   getNumObjects(): Promise<number>;
+  createPrintCallback(text: string): Promise<number>;
   objCleanup(objid: number): Promise<never>;
 }
 
-interface MappedObject {
-  __type: "object";
+interface MappedUnmarshallable {
+  __unmarshallable_type: string;
   id: number;
 }
 
@@ -25,7 +26,7 @@ export type HSVMLibrary = HSCallsProxy;
 export class HSVM {
   bridge: BridgeService;
   job: JobService;
-  objects: Map<number, WeakRef<object>> = new Map;
+  unmarshallables: Map<number, WeakRef<HSVMUnmarshallable>> = new Map;
   finalizer: FinalizationRegistry<number> | null = null;
 
   constructor(bridge: BridgeService, job: JobService) {
@@ -33,20 +34,34 @@ export class HSVM {
     this.job = job;
   }
 
-  async __getNumRemoteObjects(): Promise<number> {
+  async __getNumRemoteUnmarshallables(): Promise<number> {
     return this.job.getNumObjects();
   }
 
-  async loadlib(name: string): Promise<HSCallsProxy> {
-    //We're not async now, but might be in the future...
+  async createPrintCallback(text: string): Promise<HSVMUnmarshallable> {
+    return this.unmapFromBridge(await this.job.createPrintCallback(text)) as HSVMUnmarshallable;
+  }
+
+  loadlib(name: string): HSCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
     return proxy;
   }
 
-  private unmapObject(objid: number) {
-    let proxy = this.objects.get(objid)?.deref();
-    if (proxy)
-      return proxy;
+  unmapFromBridge(data: unknown): unknown {
+    const bridgetype = (data as MappedUnmarshallable)?.__unmarshallable_type;
+    if (!bridgetype)
+      return data;
+
+    const id = (data as MappedUnmarshallable).id;
+    const existing = this.unmarshallables.get(id)?.deref();
+    if (existing)
+      return existing;
+
+    const type = (data as MappedUnmarshallable).__unmarshallable_type;
+    let unmarshallable = new HSVMUnmarshallable(this, type, id);
+    if (type === "OBJECT") {
+      unmarshallable = new Proxy<HSVMUnmarshallable>(unmarshallable, new HSVMObject(this, id));
+    }
 
     //Set up a registry to detect object being garbage collected on our side, so we can forward it to HS
     if (!this.finalizer) {
@@ -55,27 +70,27 @@ export class HSVM {
       });
     }
 
-    proxy = new Proxy({}, new HSVMObject(this, objid));
-    this.finalizer.register(proxy, objid);
-    this.objects.set(objid, new WeakRef(proxy));
-    return proxy;
-  }
-
-  unmap(data: unknown): unknown {
-    if ((data as MappedObject)?.__type === "object")
-      return this.unmapObject((data as MappedObject).id);
-
-    return data;
+    this.finalizer.register(unmarshallable, id);
+    return unmarshallable;
   }
 }
 
-export class HSVMObject {
-  private readonly vm: HSVM;
-  private readonly objid: number;
+export class HSVMUnmarshallable {
+  readonly vm: HSVM;
+  readonly id: number;
+  readonly bridgetype: string;
 
-  constructor(vm: HSVM, objid: number) {
+  constructor(vm: HSVM, bridgetype: string, id: number) {
     this.vm = vm;
-    this.objid = objid;
+    this.id = id;
+    this.bridgetype = bridgetype;
+  }
+
+}
+
+export class HSVMObject extends HSVMUnmarshallable {
+  constructor(vm: HSVM, objid: number) {
+    super(vm, "OBJECT", objid);
   }
 
   get(target: object, prop: string, receiver: unknown) {
@@ -86,7 +101,8 @@ export class HSVMObject {
   }
 
   async invoke(name: string, args: unknown[]) {
-    return this.vm.unmap(await this.vm.job.objInvoke(this.objid, name, args));
+    args = args.map(mapToBridge);
+    return this.vm.unmapFromBridge(await this.vm.job.objInvoke(mapToBridge(this), name, args));
   }
 }
 
@@ -107,13 +123,33 @@ export class HSVMLibraryProxy {
   }
 
   async invoke(name: string, args: unknown[]) {
-    return this.vm.unmap(await this.vm.job.invoke(this.lib, name, args));
+    args = args.map(mapToBridge);
+    return this.vm.unmapFromBridge(await this.vm.job.invoke(this.lib, name, args));
   }
 }
 
-export async function openHSVM() {
+export interface HSVMOptions {
+  openPrimary?: boolean;
+}
+
+export async function openHSVM(options?: HSVMOptions) {
   const bridge = await getBridgeService();
   const servicename = await bridge.openHSVM();
   const jobservice = await openBackendService<JobService>(servicename);
-  return new HSVM(bridge, jobservice);
+  const hsvm = new HSVM(bridge, jobservice);
+
+  if (options?.openPrimary) {
+    const database = hsvm.loadlib("mod::system/lib/database.whlib");
+    await database.openPrimary();
+  }
+
+  return hsvm;
+}
+
+function mapToBridge(arg: unknown) {
+  if (arg instanceof HSVMUnmarshallable) {
+    return { __unmarshallable_type: arg.bridgetype, id: arg.id };
+  }
+
+  return arg;
 }

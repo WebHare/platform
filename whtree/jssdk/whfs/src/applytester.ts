@@ -20,7 +20,7 @@ interface SiteApplicabilityInfo {
 
 async function promiseVM() {
   const vm = await openHSVM();
-  const database = await vm.loadlib("mod::system/lib/database.whlib");
+  const database = vm.loadlib("mod::system/lib/database.whlib");
   await database.openPrimary();
   return vm;
 }
@@ -30,7 +30,7 @@ async function getSiteApplicabilityInfo(siteid: number) {
   if (!myvm)
     myvm = promiseVM();
 
-  const readerwhlib = await (await myvm).loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
+  const readerwhlib = (await myvm).loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
   return await readerwhlib.GetSiteApplicabilityInfo(siteid) as SiteApplicabilityInfo;
 }
 
