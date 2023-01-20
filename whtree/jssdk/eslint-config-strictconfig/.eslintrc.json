@@ -67,6 +67,8 @@
         "prefer-rest-params": "error",
         "prefer-spread": "error",
         "yoda": "error",
+        "default-case-last": "error",
+        "no-fallthrough": "error",
         //Prevent these from accidentally lingering in code
         "no-alert": "error",
         //Things that make diffing hard
