@@ -34,6 +34,7 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
   private locks = new Set<RefLock>();
   private initialref?: RefLock;
   private hasref: boolean;
+  private objhasref: boolean;
   private obj: Referencable;
 
   constructor(obj: Referencable, { initialref }: { initialref?: boolean } = {}) {
@@ -41,6 +42,7 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
     this.obj = obj;
     obj[reftrackersymbol] = this;
     this.hasref = initialref ?? false;
+    this.objhasref = this.hasref;
     if (initialref) {
       this.initialref = new RefLock(this, "initial reference");
       this.locks.add(this.initialref);
@@ -60,28 +62,38 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
 
   private updateRef() {
     const newhasref = this.locks.size !== 0;
-    if (this.hasref !== newhasref) {
-      this.hasref = newhasref;
-      if (newhasref) {
+    if (newhasref && !this.hasref) {
+      this.hasref = true;
+      this.emit("ref", void (0));
+    }
+    setImmediate(() => this.asyncUpdateRef());
+  }
+
+  private asyncUpdateRef() {
+    const newhasref = this.locks.size !== 0;
+    if (this.hasref && !newhasref) {
+      this.hasref = true;
+      this.emit("unref", void (0));
+    }
+    if (this.objhasref !== newhasref) {
+      this.objhasref = newhasref;
+      if (newhasref)
         this.obj.ref();
-        this.emit("ref", void (0));
-      } else {
+      else
         this.obj.unref();
-        this.emit("unref", void (0));
-      }
     }
   }
 
   private _add(lock: RefLock) {
     this.locks.add(lock);
     if (this.locks.size === 1) {
-      setImmediate(() => this.updateRef());
+      this.updateRef();
     }
   }
 
   _remove(lock: RefLock) {
     this.locks.delete(lock);
-    setImmediate(() => this.updateRef());
+    this.updateRef();
   }
 
   _getLocks() {
