@@ -28,9 +28,9 @@ function onTestExit(exitCode: number) {
 export async function run(tests: Array<() => unknown>, options?: object) {
   //TODO register once in case we're loaded as a module ?
   process.on("exit", onTestExit);
-
+  let idx = 0;
   try {
-    for (let idx = 0; idx < tests.length; ++idx) {
+    for (; idx < tests.length; ++idx) {
       const result = await tests[idx]();
       if (typeof result !== "undefined") {
         // this may be accidentally passing a non test-function eg testing `() => myTest` instead of `() => myTest()`
@@ -39,6 +39,9 @@ export async function run(tests: Array<() => unknown>, options?: object) {
       }
     }
     testscompleted = true;
+  } catch (e) {
+    console.error(`Unexpected exception from test #${idx} (${tests[idx].name}):`, e);
+    throw e; //TODO don't rethrow but *do* mark the tests as failed
   } finally {
     // Dump all resources keeping the script alive after 5 seconds after finishing the tests
     scheduleLingeringProcessCheck();
