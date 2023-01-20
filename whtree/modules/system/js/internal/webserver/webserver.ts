@@ -25,12 +25,11 @@ class WebServer {
 
       //Translate nodejs request to our Router stuff
       const webreq = new WebRequest(req.method, finalurl);
-      const webresp = new WebResponse;
+      const response = new WebResponse;
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
-      await coreWebHareRouter(webreq, webresp);
+      await coreWebHareRouter(webreq, response);
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
-      const final = await webresp.getFinalPage();
-      res.write(final.body);
+      res.write(response.body);
       res.end();
     } catch (e) {
       res.statusCode = 500;

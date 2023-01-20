@@ -4,14 +4,14 @@
 */
 
 import { WHFSFile } from "@webhare/whfs";
-import { SiteResponse } from "./sitereponse";
+import { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { WebRequest } from "./request";
 import { WebResponse } from "./response";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
 
-export type WebDesignFunction<T extends object> = (request: SiteRequest, webresponse: WebResponse) => Promise<SiteResponse<T>>;
+export type WebDesignFunction<T extends object> = (request: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
 
 export class SiteRequest implements WebRequest {
   readonly request: WebRequest;
@@ -33,6 +33,10 @@ export class SiteRequest implements WebRequest {
       return wrapHSWebdesign<T>(this, response);
 
     const webdesignfunction = await resourcetools.loadJSFunction(webdesignfunctionname) as WebDesignFunction<T>;
-    return await webdesignfunction(this, response);
+    const settings: SiteResponseSettings = { //TODO is it useful to transfer these from siteprl to webdesign? why can't the user's WebDesignFunction manage these?
+      assetpack: publicationsettings.assetpack,
+      witty: publicationsettings.witty
+    };
+    return await webdesignfunction(this, response, settings);
   }
 }
