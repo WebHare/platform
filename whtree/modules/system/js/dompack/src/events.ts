@@ -30,7 +30,7 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
 
   //FIXME the load/scroll is buggy and we should be probably be using new Event (but an earlier attempt at that triggered quite a few test failures)
   const createtype = /*["load","scroll"].includes(eventtype) == "load" ? "UIEvents" :*/["focus", "blur", "focusin", "focusout"].includes(eventtype) ? "FocusEvent" : eventtype == "click" ? "MouseEvents" : "HTMLEvents";
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we verified its non-null ness above but TS doesn't really understand that
+  //we verified its non-null ness above but TS doesn't really understand that
   const evt = (element as Node).ownerDocument!.createEvent(createtype);
   evt.initEvent(eventtype, options.bubbles, options.cancelable);
   if (options.detail)
