@@ -534,9 +534,9 @@ MACRO WittyErrorHandling()
   TestThrowsLike('*Missing*parameter*', PTR TestParse("[:html]", "HTML"));
   TestThrowsLike('*Unknown encoding*', PTR TestParse("[data:]", "HTML"));
   TestThrowsLike('*Unknown encoding*', PTR TestParse("[data : boem]", "HTML"));
-  TestThrowsLike('*Unknown encoding*', PTR TestParse("[data:html java]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[data:html java]", "HTML"));
   TestThrowsLike('*Missing*parameter*', PTR TestParse("[gettid]", "HTML"));
-  TestThrowsLike('*Unknown encoding*', PTR TestParse("[gettid data:html java]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[gettid data:html java]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[if test test][/if]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[if test][elseif test test][/if]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[if test][/if test]", "HTML"));

@@ -524,7 +524,7 @@ bool ParsedFile::ParseEncoding(unsigned linenum, unsigned columnnum, const char 
 
         // Parse encoding until first whitespace
         last_end = encoding_start;
-        while (last_end != limit && !Blex::IsWhitespace(*encoding_start))
+        while (last_end != limit && !Blex::IsWhitespace(*last_end))
             ++last_end;
 
         *encoding = ReadEncoding(encoding_start, last_end);
