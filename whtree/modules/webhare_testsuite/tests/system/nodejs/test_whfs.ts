@@ -30,9 +30,23 @@ async function testWHFS() {
   test.assert(rootfolder.indexdoc);
   test.eq("index.rtd", (await whfs.openFile(rootfolder.indexdoc)).name);
 
+  test.assert(markdownfile.parent);
   const testpagesfolder = await whfs.openFolder(markdownfile.parent);
   test.eq("TestPages", testpagesfolder.name);
-  test.eq(0, testpagesfolder.indexdoc);
+  test.eq(null, testpagesfolder.indexdoc);
+
+  const list = await testpagesfolder.list(["parent"]);
+  test.assert(list.length > 5, "should be a lot of files/folders in this list");
+  test.eq([
+    {
+      id: markdownfile.id,
+      name: markdownfile.name,
+      isfolder: false,
+      parent: testpagesfolder.id,
+    }
+  ], list.filter(e => e.name == markdownfile.name));
+  for (let i = 0; i < list.length - 1; ++i)
+    test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);

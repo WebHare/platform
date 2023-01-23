@@ -7,6 +7,7 @@ import ts from "typescript";
 import { SchemaObject } from "ajv";
 import * as TJS from "typescript-json-schema";
 import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
+import '@mod-system/js/internal/whmanager/bridge'; // for whmanager registration and automatic error reporting
 
 
 export function reportAssertError(stack: string) {

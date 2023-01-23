@@ -26,12 +26,12 @@ async function promiseVM() {
 }
 
 ///describe a specific site for apply testing
-async function getSiteApplicabilityInfo(siteid: number) {
+async function getSiteApplicabilityInfo(siteid: number | null) {
   if (!myvm)
     myvm = promiseVM();
 
   const readerwhlib = (await myvm).loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
-  return await readerwhlib.GetSiteApplicabilityInfo(siteid) as SiteApplicabilityInfo;
+  return await readerwhlib.GetSiteApplicabilityInfo(siteid ?? 0) as SiteApplicabilityInfo;
 }
 
 function matchPathRegex(pattern: string, path: string): boolean {
@@ -42,7 +42,7 @@ function matchPathRegex(pattern: string, path: string): boolean {
 interface BaseInfo extends SiteApplicabilityInfo {
   site: SiteRow | null;
   obj: WHFSObject;
-  parent: WHFSFolder;
+  parent: WHFSFolder | null;
   isfile: boolean;
   isfake: boolean;
 }
@@ -70,7 +70,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     obj,
     site,
     parent: obj.parentsite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
-      : (await openFolder(obj.parent)),
+      : obj.parent ? (await openFolder(obj.parent)) : null,
     isfile: obj.isfile,
     isfake: false
   };
@@ -90,7 +90,7 @@ export class WHFSApplyTester {
 */
 
   //TODO shouldn't take access to dbrecord, just need to add some more fields to the base types
-  private async toIsMatch(element: CSPApplyTo, site: SiteRow | null, folder: WHFSFolder): Promise<boolean> {
+  private async toIsMatch(element: CSPApplyTo, site: SiteRow | null, folder: WHFSFolder | null): Promise<boolean> {
     switch (element.type) {
       case "and":
         for (const crit of element.criteria)
@@ -120,7 +120,7 @@ export class WHFSApplyTester {
       }
 
       case "testdata": {
-        const totest = element.target == "parent" ? folder.id : element.target == "root" ? site?.id || 0 : this.objinfo.obj.id;
+        const totest = element.target == "parent" ? folder && folder.id : element.target == "root" ? site?.id || 0 : this.objinfo.obj.id;
         if (!totest)
           return false;
 
@@ -182,7 +182,7 @@ export class WHFSApplyTester {
     return true;
   }
 
-  testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder): boolean {
+  testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): boolean {
     if (rec.pathmask && isNotLike(this.objinfo.obj.fullpath.toUpperCase(), rec.pathmask.toUpperCase()))
       return false;
     if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullpath.toUpperCase(), rec.parentmask.toUpperCase())))

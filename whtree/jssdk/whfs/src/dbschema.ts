@@ -7,7 +7,7 @@ export interface SiteRow {
   lockreason: string;
   name: string;
   outputfolder: string;
-  outputweb: number;
+  outputweb: number | null;
   versioningpolicy: string;
 
   //manually added
@@ -21,9 +21,9 @@ export interface FsObjectRow {
   description: string;
   errordata: string;
   externallink: string;
-  filelink: number;
+  filelink: number | null;
   // firstpublishdate: timestamp;
-  indexdoc: number;
+  indexdoc: number | null;
   isfolder: boolean;
   ispinned: boolean;
   keywords: string;
@@ -31,10 +31,10 @@ export interface FsObjectRow {
   lastpublishsize: number;
   lastpublishtime: number;
   // modificationdate: timestamp;
-  modifiedby: number;
+  modifiedby: number | null;
   name: string;
   ordering: number;
-  parent: number;
+  parent: number | null;
   published: number;
   scandata: string;
   title: string;
@@ -44,5 +44,5 @@ export interface FsObjectRow {
   link: string;
   fullpath: string;
   whfspath: string;
-  parentsite: number;
+  parentsite: number | null;
 }

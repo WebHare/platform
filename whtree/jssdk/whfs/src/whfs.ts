@@ -1,6 +1,7 @@
 import { sql } from "@webhare/whdb";
 import { describeFileType, PublicFileTypeInfo } from "./siteprofiles";
 import { FsObjectRow, SiteRow } from "./dbschema";
+import { pick } from "@mod-system/js/internal/util/algorithms";
 
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
@@ -34,7 +35,25 @@ export class WHFSFolder extends WHFSObject {
     super(dbrecord);
   }
 
-  get indexdoc() { return this.dbrecord.indexdoc || 0; }
+  get indexdoc() { return this.dbrecord.indexdoc; }
+
+  async list<K extends keyof FsObjectRow>(keys: K[]): Promise<Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>> {
+    const selectkeys: Array<K | "id" | "name" | "isfolder"> = ["id", "name", "isfolder"];
+    for (const k of keys)
+      if (!selectkeys.includes(k))
+        selectkeys.push(k);
+
+    const dbrecords = (await sql`
+  SELECT *
+       , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) AS link
+       , webhare_proc_fs_objects_fullpath(id,isfolder) AS fullpath
+       , webhare_proc_fs_objects_whfspath(id,isfolder) AS whfspath
+       , webhare_proc_fs_objects_highestparent(id, NULL) AS parentsite
+    FROM system.fs_objects WHERE parent = ${this.id}
+ORDER BY name`) as FsObjectRow[];
+
+    return pick(dbrecords, selectkeys);
+  }
 }
 
 function formatPathOrId(path: number | string) {
@@ -125,7 +144,7 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
                                , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link
                                , webhare_proc_fs_objects_fullpath(id,isfolder) as fullpath
                                , webhare_proc_fs_objects_whfspath(id,isfolder) as whfspath
-                               , webhare_proc_fs_objects_highestparent(id) as parentsite
+                               , webhare_proc_fs_objects_highestparent(id, 0) as parentsite
                             from system.fs_objects where id=${location}`) as FsObjectRow[];
 
   if (!dbrecord?.[0]) {

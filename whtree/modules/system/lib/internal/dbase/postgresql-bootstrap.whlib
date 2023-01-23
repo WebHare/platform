@@ -275,8 +275,8 @@ END;$$`
         ]
       , [ name :=   "webhare_proc_fs_objects_highestparent"
         , code :=   `
-CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_highestparent(_id int4) RETURNS int4
-  STRICT STABLE LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_highestparent(_id int4, defaultretval int4 default 0) RETURNS int4
+  CALLED ON NULL INPUT STABLE LANGUAGE plpgsql AS $$
 DECLARE
   _maxdepth int4;
   _site int4;
@@ -292,7 +292,7 @@ BEGIN
     END IF;
     _maxdepth := _maxdepth - 1;
   END LOOP;
-  RETURN 0;
+  RETURN defaultretval;
 END;$$`
         ]
       , [ name :=   "webhare_proc_fs_objects_fullpath"
@@ -627,6 +627,12 @@ END;$$`
         ]
       ];
 
+  RECORD ARRAY obsolete_procedures :=
+      [ [ name :=   "webhare_proc_fs_objects_highestparent"
+        , code :=   `
+DROP FUNCTION IF EXISTS webhare_proc_fs_objects_highestparent(_id int4)`
+        ]
+      ];
   trans->BeginWork();
   FOREVERY (RECORD rec FROM stored_procedures)
   {
@@ -642,5 +648,7 @@ END;$$`
       trans->__ExecSQL(rec.code);
     }
   }
+  FOREVERY (RECORD rec FROM obsolete_procedures)
+    trans->__ExecSQL(rec.code);
   trans->CommitWork();
 }
