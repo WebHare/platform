@@ -30,6 +30,7 @@ async function testWHFS() {
   test.assert(rootfolder.indexdoc);
   test.eq("index.rtd", (await whfs.openFile(rootfolder.indexdoc)).name);
 
+  test.assert(markdownfile.parent);
   const testpagesfolder = await whfs.openFolder(markdownfile.parent);
   test.eq("TestPages", testpagesfolder.name);
   test.eq(null, testpagesfolder.indexdoc);
