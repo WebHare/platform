@@ -4,7 +4,7 @@ import { Money, isDate, determineType, VariableType } from "@mod-system/js/inter
 
 type ComparableType = number | null | bigint | string | Date | Money | boolean;
 
-// needed for interface definitions, don't want to sprinkle the file with eslint-disables or diable globally
+// needed for interface definitions, don't want to sprinkle the file with eslint-disables or disable globally
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -14,12 +14,12 @@ type UnknownNonNullish = {};
 /* Explanation for the signature of the recordLowerBound family:
    T: all keys mentioned in k should be required and of type ComparableType. If the keys can't be determined
      (because T is any and S is any, or because if invalid values in the k array), just allow any value.
-   S: all keys mentioned in k should be required, should existi and T and be of the same type as the
+   S: all keys mentioned in K should be required, should exist and T and be of the same type as the
       corresponding property in T. If the keys can't be determined (because T is any and S is any,
-      or because if invalid values in the k array), just allow any value. Also done so errors in the
-      k array are flagged first., instead of giving an error in s.
+      or because of invalid values in the k array), just allow any value. Also done so errors in the
+      k array are flagged first, instead of giving an error in s.
    K: Try to use the keys of T. If T is any, fallback to the keys of S. If the keys of both are unknown,
-      we'll all any for T and for S.
+      we'll all any key.
 */
 
 export function recordLowerBound<
