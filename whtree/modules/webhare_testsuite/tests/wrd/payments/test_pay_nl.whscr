@@ -1,4 +1,10 @@
 <?wh
+/* Test buckaroo
+   WebHare.bv developers can obtain credentials using:
+   Q secrets/load-into-webhare pay_nl
+
+   Note that we currently don't have a test account offering iDEAL so we can't actually run this test at the moment.
+*/
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
@@ -38,6 +44,7 @@ ASYNC MACRO SetupPayNL()
   TT("paymentextension->testmode")->value := TRUE;
 
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  Dumpvalue(TT("{select}:Methods")->options); //Always dump methods so we can see which ones *did* exist if ideal is missing
   TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
   TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
