@@ -90,8 +90,7 @@ class Work {
     if (!this.open)
       throw new Error(`Work is already closed`);
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    await this.client!.query("COMMIT");
+    await this.client.query("COMMIT");
     this.client.updateRefcount(-1);
   }
 

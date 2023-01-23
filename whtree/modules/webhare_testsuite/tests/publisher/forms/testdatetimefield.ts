@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime';

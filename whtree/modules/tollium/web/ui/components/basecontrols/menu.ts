@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion -- we have to do this because 'controller' is pretty anoying */
 import * as dompack from 'dompack';
 import './menu.css';
 

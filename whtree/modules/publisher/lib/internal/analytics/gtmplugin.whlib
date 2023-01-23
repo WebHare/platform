@@ -33,11 +33,7 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   {
     this->webdesign := webdesign;
 
-    //Check the registry for an override - unless it's our own testcontainer
     this->pvt_account := config.account;
-    IF(this->pvt_account != ourgtmtestcontainer)
-      this->pvt_account := ReadRegistryKey("socialite.localoverrides.tagmanager") ?? this->pvt_account;
-
     this->pvt_integration := config.integration;
     this->pvt_launch := config.launch;
   }

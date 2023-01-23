@@ -34,14 +34,7 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalyticsPlugin EXTEND WebDesignPluginBase
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
   {
     this->webdesign := webdesign;
-
-    //Check the registry for an override
-    STRING usecode := ReadRegistryKey("socialite.localoverrides.universalanalytics");
-    IF(usecode = "")//not overridden
-      usecode := config.account;
-
-    this->account := usecode;
-
+    this->account := config.account;
     this->tracklinks := config.tracklinks;
     this->sendpageview := config.sendpageview;
     this->anonymizeip := config.anonymizeip;

@@ -71,6 +71,8 @@
         "no-fallthrough": "error",
         //Prevent these from accidentally lingering in code
         "no-alert": "error",
+        //We're fine with explicit ! assertions.
+        "@typescript-eslint/no-non-null-assertion": "off",
         //Things that make diffing hard
         "no-tabs": "error",
         "no-trailing-spaces": "error",
