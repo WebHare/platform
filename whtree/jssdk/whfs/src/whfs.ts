@@ -25,8 +25,6 @@ export class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  get parent(): number { return this.dbrecord.parent!; }
   get type(): PublicFileTypeInfo {
     return describeFileType(this.dbrecord.type, { mockifmissing: true });
   }
