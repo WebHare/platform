@@ -4,6 +4,7 @@ import { WebRequest, WebResponse, WebHareRouter, SiteRequest } from "@webhare/ro
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 import { XMLParser } from "fast-xml-parser";
+import { captureJSDesign } from "@mod-publisher/js/internal/capturejsdesign";
 
 function parseHTMLDoc(html: string) {
   const parsingOptions = {
@@ -59,6 +60,15 @@ async function testSiteResponse() {
   test.eq("text/html; charset=utf-8", response.headers["content-type"]);
 }
 
+async function testCaptureJSDesign() {
+  //Test capturing a JS WebDesign for reuse in a HareScript page
+  const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
+  const resultpage = await captureJSDesign(targetpage.id);
+  test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
+  test.eqMatch(/<html.*<body.*<div id="content">$/, resultpage.parts[0].replaceAll("\n", " "));
+  test.eqMatch(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
+}
+
 //TODO should this be a router API?  but will there ever be another router to run than coreWebHareRouter? is this more about caching ?
 async function runARouter(router: WebHareRouter, request: WebRequest) {
   const response = new WebResponse;
@@ -83,6 +93,7 @@ async function testRouter_JSWebDesign() {
 
 test.run([
   testSiteResponse,
+  testCaptureJSDesign,
   testRouter_HSWebDesign,
   testRouter_JSWebDesign
 ]);
