@@ -23,6 +23,8 @@ interface HSCallsProxy {
 
 export type HSVMLibrary = HSCallsProxy;
 
+export type HSVMObject = HSCallsProxy;
+
 export class HSVM {
   bridge: BridgeService;
   job: JobService;
@@ -42,6 +44,10 @@ export class HSVM {
     return this.unmapFromBridge(await this.job.createPrintCallback(text)) as HSVMUnmarshallable;
   }
 
+  async makeObject(objectname: string, ...args: unknown[]): Promise<HSVMObject> {
+    return await this.loadlib("wh::system.whlib").makeObject(objectname, ...args) as Promise<HSVMObject>;
+  }
+
   loadlib(name: string): HSCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
     return proxy;
@@ -52,15 +58,17 @@ export class HSVM {
     if (!bridgetype)
       return data;
 
+    if (bridgetype === 'undefined') //MACRO call
+      return undefined;
+
     const id = (data as MappedUnmarshallable).id;
     const existing = this.unmarshallables.get(id)?.deref();
     if (existing)
       return existing;
 
-    const type = (data as MappedUnmarshallable).__unmarshallable_type;
-    let unmarshallable = new HSVMUnmarshallable(this, type, id);
-    if (type === "OBJECT") {
-      unmarshallable = new Proxy<HSVMUnmarshallable>(unmarshallable, new HSVMObject(this, id));
+    let unmarshallable = new HSVMUnmarshallable(this, bridgetype, id);
+    if (bridgetype === "OBJECT") {
+      unmarshallable = new Proxy<HSVMUnmarshallable>(unmarshallable, new HSVMObjectProxy(this, id));
     }
 
     //Set up a registry to detect object being garbage collected on our side, so we can forward it to HS
@@ -88,7 +96,7 @@ export class HSVMUnmarshallable {
 
 }
 
-export class HSVMObject extends HSVMUnmarshallable {
+export class HSVMObjectProxy extends HSVMUnmarshallable {
   constructor(vm: HSVM, objid: number) {
     super(vm, "OBJECT", objid);
   }

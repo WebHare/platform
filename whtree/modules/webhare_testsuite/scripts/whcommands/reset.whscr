@@ -45,257 +45,270 @@ trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
 
-OBJECT testsite := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontents := TRUE
-                                                                , webdesign := "webhare_testsuite:basetest"
-                                                                ]);
+OBJECT testsite_hs := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontents := TRUE
+                                                                   , webdesign := "webhare_testsuite:basetest"
+                                                                   ]);
+OBJECT testsite_js := EnsureTestSite("webhare_testsuite.testsitejs", [ recyclecontents := TRUE
+                                                                     , webdesign := "webhare_testsuite:basetestjs"
+                                                                     ]);
 
-OBJECT addtowhfsindex := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "addtowhfsindex"]);
-OBJECT before_repo := addtowhfsindex->EnsureFolder([name := "beforerepository"]);
-addtowhfsindex->EnsureFolder([name := "beforesites"]);
-addtowhfsindex->EnsureFolder([name := "aftersites"]);
-addtowhfsindex->EnsureFolder([name := "anywhere"]);
-before_repo->EnsureFile([ name := "boosted" ]);
-before_repo->EnsureFile([ name := "boosted_more" ]);
-before_repo->EnsureFile([ name := "nonboosted" ]);
-
-//root index
-testsite->rootobject->CreateFile(
-  [ name := "index.rtd"
-  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-  , publish := TRUE
-  ], [setindex := TRUE])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-                        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Welcome to the testsite</p></body></html>') ]
-                        ]);
-
-//'legacy' tests
-FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])
+MACRO SetupTestSite(OBJECT testsite)
 {
-  OBJECT portal1folder  := testsite->rootobject->CreateFolder( [ name := basename ] );
-  portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+  OBJECT addtowhfsindex := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "addtowhfsindex"]);
+  OBJECT before_repo := addtowhfsindex->EnsureFolder([name := "beforerepository"]);
+  addtowhfsindex->EnsureFolder([name := "beforesites"]);
+  addtowhfsindex->EnsureFolder([name := "aftersites"]);
+  addtowhfsindex->EnsureFolder([name := "anywhere"]);
+  before_repo->EnsureFile([ name := "boosted" ]);
+  before_repo->EnsureFile([ name := "boosted_more" ]);
+  before_repo->EnsureFile([ name := "nonboosted" ]);
 
-  OBJECT testrequiresysopfolder := portal1folder->CreateFolder([name := "requiresysop"]);
-  OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
-  OBJECT testrequiresysopcompressable := testrequiresysopfolder->CreateFile( [ type := 21, name := "test.txt", publish := TRUE, data:= StringToBlob(RepeatText("Hello, World!\n",100)) ]);
-
-  OBJECT testrequiresysoporconsiliofile := portal1folder->CreateFolder([name := "requiresysop-or-consilio"])
-                                   ->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
-}
-
-OBJECT portal2folder  := testsite->rootobject->CreateFolder( [ name := "portal2" ] );
-portal2folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
-
-OBJECT testsuiteportalfolder  := testsite->rootobject->CreateFolder( [ name := "testsuiteportal" ] );
-testsuiteportalfolder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
-
-testsite->rootobject->CreateFolder([name := "staticlogin"])->CreateFile(
-  [ name := "login"
-  , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
-  , publish := TRUE
-  , data := StringToBlob(` <form id="form" class="wh-wrdauth__loginform" method="post">
-                              login: <input id="login" name="login" value="" /><br/>
-                              password: <input id="password" name="password" type="password" /><br/> <input type="submit" />
-                            </form>
-                            Login result: <span id="loginresult" style="display: none">failed</span>`)
-  ], [setindex := TRUE]);
-
-testsite->rootobject->CreateFolder([ name := "staticprotected" ])->CreateFile(
-  [ name := "document.rtd"
-  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-  , publish := TRUE
-  ],[ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-      [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE FIRST PROTECTED CONTENT</p></body></html>') ]
-      ]);
-
-testsite->rootobject->CreateFolder([ name := "staticprotected2" ])->CreateFile(
-  [ name := "document.rtd"
-  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-  , publish := TRUE
-  ], [ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-      [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE PROTECTED CONTENT</p></body></html>') ]
-      ]);
-
-//SAML test
-OBJECT testsamlfolder := testsite->rootobject->CreateFolder([name := "test-saml"]);
-testsamlfolder->CreateFile(
-  [ name := "document.rtd"
-  , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-  , publish := TRUE
-  ],[setindex := TRUE]);
-
-OBJECT portalidpfolder := testsamlfolder->CreateFolder([name := "portal-idp"]);
-portalidpfolder->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
-portalidpfolder->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
-
-OBJECT portalidpfolder_formlogin := testsamlfolder->CreateFolder([name := "portal-idp-formlogin"]);
-OBJECT idp_formlogin := portalidpfolder_formlogin->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ], [setindex := TRUE]);
-portalidpfolder_formlogin->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
-
-OBJECT portalspfolder := testsamlfolder->CreateFolder([name := "portal-sp"]);
-portalspfolder->CreateFile([ name := "portal-sp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
-portalspfolder->CreateFile([ name := "portal-sp-nologout", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ]);
-portalspfolder->CreateFile([ name := "saml-sp-test-sp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlspendpoint" ]);
-
-//Set up webtools test space
-OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools" ] );
-OBJECT pollfile   := webtools->CreateFile( [ name := "polltest", typens := "http://www.webhare.net/xmlns/publisher/pollwebtool", publish := TRUE ]);
-OpenPoll(pollfile->id)->SetOptions([ [ title := "Blue" ], [ title := "Red"] ]);
-OBJECT pollfile2  := pollfile->CopyTo(webtools, "polltest2");
-
-OBJECT pollholder := webtools->CreateFile([ name:= "pollholder", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-pollholder->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-        [ data := [ htmltext := StringToBlob(
-                                                   `<html><body>
-                                                     <p class="normal">polltest:</p>
-                                                     <div class="wh-rtd-embeddedobject" data-instanceid="holder1"></div>
-                                                     <p class="normal">polltest:</p>
-                                                     <div class="wh-rtd-embeddedobject" data-instanceid="holder2"></div>
-                                                   </body></html>`)
-                  , instances := [ [ instanceid := "holder1"
-                                   , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
-                                             , widgets := INTEGER[pollfile->id]
-                                             ]
-                                   ]
-                                 , [ instanceid := "holder2"
-                                   , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
-                                             , widgets := INTEGER[pollfile2->id]
-                                             ]
-                                   ]
-                                 ]
-                  ]
-        ]);
-
-OBJECT forumcommentsfile := webtools->CreateFile([ name:= "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-OBJECT forumcommentsfile2 := webtools->CreateFile([ name:= "forumcomments-closedate", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-OBJECT forumcommentsfile3 := webtools->CreateFile([ name:= "forumcomments-recaptcha", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-
-OBJECT mailresultcustomwitty := webtools->CreateFile( [ name := "mailresult-custom.html.witty", data := StringToBlob(`
-  <body>
-    [if iscancel]
-      Too bad you've cancelled [field.firstname.text]!
-    [else]
-      Hello [field.firstname.text]! <a id="editlink" href="[pagedata.editlink]">Edit!</a>
-    [/if]
-  </body>"
-`)]);
-OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty", data := StringToBlob("<body>[if iscancel]Too bad you've cancelled [field.firstname.text]![else]Hello [field.firstname.text]![/if]</body>") ]);
-
-//Set up a photoalbum
-OBJECT photoalbumfolder := testsite->rootobject->CreateFolder([ name := "photoalbum", type := 3 ]);
-photoalbumfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/publisher/contentlisting", publish := TRUE ], [ setindex := TRUE ]);
-photoalbumfolder->CreateFile([ name := "landscape_5.jpg", type := 12, publish := TRUE, ordering := 1, data := GetWebHareResource("mod::webhare_testsuite/data/test/landscape_5.jpg")
-                             , title := "A waterfall, in landscape"
-                             , description := "A picture of a waterfall in jungle-like forest with the number 5 in the middle"
-                             ]);
-photoalbumfolder->CreateFile([ name := "portrait_4.jpg",  type := 12, publish := TRUE, ordering := 2, data := GetWebHareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/portrait_4.jpg")
-                             , title := "A waterfall, in portrait"
-                             , description := "A picture of a waterfall near a road with the number 4 in the middle"
-                             ]);
-photoalbumfolder->CreateFile([ name := "snowbeagle.jpg",  type := 12, publish := TRUE, ordering := 3, data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg")
-                             , title := "Snowy-nose"
-                             , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
-                             ]);
-
-//Set up active content tests
-OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
-actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
-
-//Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
-OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
-OBJECT formtest := testpages->CreateFile( [ name := "formtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/formtest", publish := TRUE, title := "Various formdefinition testforms" ] );
-
-OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
-
-OBJECT listtest := testpages->CreateFile( [ name := "listtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/listtest", publish := TRUE ] );
-
-OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
-OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
-
-OBJECT foldertemplatetest := testpages->CreateFolder( [ name := "foldertemplate", typens := "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder", title := "Testsuite Folder Template", ispinned := TRUE ] );
-foldertemplatetest->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
-OBJECT foldertemplatetestindex := foldertemplatetest->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ], [ setindex := TRUE ]);
-
-
-OBJECT foldertemplatetestsub := foldertemplatetest->CreateFolder([name := "sub"]);
-foldertemplatetestsub->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-foldertemplatetestsub->CreateFile( [ name := "internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
-foldertemplatetestsub->CreateFile( [ name := "contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
-foldertemplatetestsub->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/", publish := TRUE ]);
-
-FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
-{
-  OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
-
-  OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
-
-  OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
-
-  OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
-
-  OBJECT wrdauthtest_static := testpages->CreateFile( [ name := basename || "-static",typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static", publish := TRUE ] );
-}
-
-OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-staticpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-                        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">This is StaticPage in TestPages</p></body></html>') ]
-                        ]);
-testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-
-OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE ]);
-markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
-  [ data := [ type := "publisher:markdown"
-            , text := StringToBlob(`## Markdown file\nThis is a marked down file`)
-            ]
-  ]);
-
-testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
-testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
-testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
-testpages->CreateFile( [ name := "unknownfile", type := 0, publish := TRUE, data := StringToBlob("\x00\x01\x02\x03") ]);
-testpages->CreateFile( [ name := "search", typens := "http://www.webhare.net/xmlns/consilio/searchpage", title := "Search", publish := TRUE ]);
-testpages->CreateFile( [ name := "search-customized", typens := "http://www.webhare.net/xmlns/consilio/searchpage", title := "Search - customized", publish := TRUE ]);
-
-OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
-testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
-
-OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage", publish := TRUE ] );
-
-testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
-testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
-
-OBJECT authtest_router_protected_folder := testpages->CreateFolder([ name := "wrdauthtest-router-protected" ]);
-authtest_router_protected_folder->CreateFile(
-    [ name := "accessruleprotected"
+  //root index
+  testsite->rootobject->CreateFile(
+    [ name := "index.rtd"
     , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
     , publish := TRUE
-    ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE ACCESSRULE PROTECTED CONTENT</p></body></html>') ]
+    ], [setindex := TRUE])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                          [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Welcome to the testsite</p></body></html>') ]
+                          ]);
+
+  //'legacy' tests
+  FOREVERY(STRING basename FROM ["portal1","portal1-domainless"])
+  {
+    OBJECT portal1folder  := testsite->rootobject->CreateFolder( [ name := basename ] );
+    portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+    OBJECT testrequiresysopfolder := portal1folder->CreateFolder([name := "requiresysop"]);
+    OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
+    OBJECT testrequiresysopcompressable := testrequiresysopfolder->CreateFile( [ type := 21, name := "test.txt", publish := TRUE, data:= StringToBlob(RepeatText("Hello, World!\n",100)) ]);
+
+    OBJECT testrequiresysoporconsiliofile := portal1folder->CreateFolder([name := "requiresysop-or-consilio"])
+                                     ->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);
+  }
+
+  OBJECT portal2folder  := testsite->rootobject->CreateFolder( [ name := "portal2" ] );
+  portal2folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+  OBJECT testsuiteportalfolder  := testsite->rootobject->CreateFolder( [ name := "testsuiteportal" ] );
+  testsuiteportalfolder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+
+  testsite->rootobject->CreateFolder([name := "staticlogin"])->CreateFile(
+    [ name := "login"
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    , publish := TRUE
+    , data := StringToBlob(` <form id="form" class="wh-wrdauth__loginform" method="post">
+                                login: <input id="login" name="login" value="" /><br/>
+                                password: <input id="password" name="password" type="password" /><br/> <input type="submit" />
+                              </form>
+                              Login result: <span id="loginresult" style="display: none">failed</span>`)
+    ], [setindex := TRUE]);
+
+  testsite->rootobject->CreateFolder([ name := "staticprotected" ])->CreateFile(
+    [ name := "document.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := TRUE
+    ],[ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE FIRST PROTECTED CONTENT</p></body></html>') ]
         ]);
 
-authtest_router_protected_folder->CreateFile(
-    [ name := "codeprotected"
-    , typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected"
+  testsite->rootobject->CreateFolder([ name := "staticprotected2" ])->CreateFile(
+    [ name := "document.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
     , publish := TRUE
+    ], [ setindex := TRUE ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE PROTECTED CONTENT</p></body></html>') ]
+        ]);
+
+  //SAML test
+  OBJECT testsamlfolder := testsite->rootobject->CreateFolder([name := "test-saml"]);
+  testsamlfolder->CreateFile(
+    [ name := "document.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := TRUE
+    ],[setindex := TRUE]);
+
+  OBJECT portalidpfolder := testsamlfolder->CreateFolder([name := "portal-idp"]);
+  portalidpfolder->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+  portalidpfolder->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
+
+  OBJECT portalidpfolder_formlogin := testsamlfolder->CreateFolder([name := "portal-idp-formlogin"]);
+  OBJECT idp_formlogin := portalidpfolder_formlogin->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ], [setindex := TRUE]);
+  portalidpfolder_formlogin->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
+
+  OBJECT portalspfolder := testsamlfolder->CreateFolder([name := "portal-sp"]);
+  portalspfolder->CreateFile([ name := "portal-sp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+  portalspfolder->CreateFile([ name := "portal-sp-nologout", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ]);
+  portalspfolder->CreateFile([ name := "saml-sp-test-sp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlspendpoint" ]);
+
+  //Set up webtools test space
+  OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools" ] );
+  OBJECT pollfile   := webtools->CreateFile( [ name := "polltest", typens := "http://www.webhare.net/xmlns/publisher/pollwebtool", publish := TRUE ]);
+  OpenPoll(pollfile->id)->SetOptions([ [ title := "Blue" ], [ title := "Red"] ]);
+  OBJECT pollfile2  := pollfile->CopyTo(webtools, "polltest2");
+
+  OBJECT pollholder := webtools->CreateFile([ name:= "pollholder", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  pollholder->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+          [ data := [ htmltext := StringToBlob(
+                                                    `<html><body>
+                                                      <p class="normal">polltest:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="holder1"></div>
+                                                      <p class="normal">polltest:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="holder2"></div>
+                                                    </body></html>`)
+                    , instances := [ [ instanceid := "holder1"
+                                    , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
+                                              , widgets := INTEGER[pollfile->id]
+                                              ]
+                                    ]
+                                  , [ instanceid := "holder2"
+                                    , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
+                                              , widgets := INTEGER[pollfile2->id]
+                                              ]
+                                    ]
+                                  ]
+                    ]
+          ]);
+
+  OBJECT forumcommentsfile := webtools->CreateFile([ name:= "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  OBJECT forumcommentsfile2 := webtools->CreateFile([ name:= "forumcomments-closedate", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  OBJECT forumcommentsfile3 := webtools->CreateFile([ name:= "forumcomments-recaptcha", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+  OBJECT mailresultcustomwitty := webtools->CreateFile( [ name := "mailresult-custom.html.witty", data := StringToBlob(`
+    <body>
+      [if iscancel]
+        Too bad you've cancelled [field.firstname.text]!
+      [else]
+        Hello [field.firstname.text]! <a id="editlink" href="[pagedata.editlink]">Edit!</a>
+      [/if]
+    </body>"
+  `)]);
+  OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty", data := StringToBlob("<body>[if iscancel]Too bad you've cancelled [field.firstname.text]![else]Hello [field.firstname.text]![/if]</body>") ]);
+
+  //Set up a photoalbum
+  OBJECT photoalbumfolder := testsite->rootobject->CreateFolder([ name := "photoalbum", type := 3 ]);
+  photoalbumfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/publisher/contentlisting", publish := TRUE ], [ setindex := TRUE ]);
+  photoalbumfolder->CreateFile([ name := "landscape_5.jpg", type := 12, publish := TRUE, ordering := 1, data := GetWebHareResource("mod::webhare_testsuite/data/test/landscape_5.jpg")
+                              , title := "A waterfall, in landscape"
+                              , description := "A picture of a waterfall in jungle-like forest with the number 5 in the middle"
+                              ]);
+  photoalbumfolder->CreateFile([ name := "portrait_4.jpg",  type := 12, publish := TRUE, ordering := 2, data := GetWebHareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/portrait_4.jpg")
+                              , title := "A waterfall, in portrait"
+                              , description := "A picture of a waterfall near a road with the number 4 in the middle"
+                              ]);
+  photoalbumfolder->CreateFile([ name := "snowbeagle.jpg",  type := 12, publish := TRUE, ordering := 3, data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg")
+                              , title := "Snowy-nose"
+                              , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
+                              ]);
+
+  //Set up active content tests
+  OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
+  actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
+
+  //Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
+  OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
+  OBJECT formtest := testpages->CreateFile( [ name := "formtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/formtest", publish := TRUE, title := "Various formdefinition testforms" ] );
+
+  OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
+
+  OBJECT listtest := testpages->CreateFile( [ name := "listtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/listtest", publish := TRUE ] );
+
+  OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
+  OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
+
+  OBJECT foldertemplatetest := testpages->CreateFolder( [ name := "foldertemplate", typens := "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder", title := "Testsuite Folder Template", ispinned := TRUE ] );
+  foldertemplatetest->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
+  OBJECT foldertemplatetestindex := foldertemplatetest->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ], [ setindex := TRUE ]);
+
+
+  OBJECT foldertemplatetestsub := foldertemplatetest->CreateFolder([name := "sub"]);
+  foldertemplatetestsub->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  foldertemplatetestsub->CreateFile( [ name := "internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
+  foldertemplatetestsub->CreateFile( [ name := "contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
+  foldertemplatetestsub->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/", publish := TRUE ]);
+
+  FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
+  {
+    OBJECT wrdauthtest := testpages->CreateFile( [ name := basename, typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
+
+    OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
+
+    OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
+
+    OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
+
+    OBJECT wrdauthtest_static := testpages->CreateFile( [ name := basename || "-static",typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static", publish := TRUE ] );
+  }
+
+  OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  staticpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                          [ data := [ htmltext := StringToBlob('<html><body><p class="normal">This is StaticPage in TestPages</p></body></html>') ]
+                          ]);
+  testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+  OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE ]);
+  markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
+    [ data := [ type := "publisher:markdown"
+              , text := StringToBlob(`## Markdown file\nThis is a marked down file`)
+              ]
     ]);
 
-testsite->rootobject->EnsureFolder([name := "tmp"]);
+  testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
+  testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
+  testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
+  testpages->CreateFile( [ name := "unknownfile", type := 0, publish := TRUE, data := StringToBlob("\x00\x01\x02\x03") ]);
+  testpages->CreateFile( [ name := "search", typens := "http://www.webhare.net/xmlns/consilio/searchpage", title := "Search", publish := TRUE ]);
+  testpages->CreateFile( [ name := "search-customized", typens := "http://www.webhare.net/xmlns/consilio/searchpage", title := "Search - customized", publish := TRUE ]);
 
-FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.rtd"])
-{
-  OBJECT testfile  := testpages->CreateFile([name := filename, typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-        [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">${filename} - OneOfTheSimpleFiles</p><div class="wh-rtd-embeddedobject" data-instanceid="videoobject"></div></body></html>`)
-                  , instances := [[ instanceid := "videoobject"
-                                  , data := MakeVideoEmbedInstance("youtube", "BAf7lcYEXag")
+  OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
+  testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
+
+  OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage", publish := TRUE ] );
+
+  testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
+  testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
+
+  OBJECT authtest_router_protected_folder := testpages->CreateFolder([ name := "wrdauthtest-router-protected" ]);
+  authtest_router_protected_folder->CreateFile(
+      [ name := "accessruleprotected"
+      , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , publish := TRUE
+      ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+          [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE ACCESSRULE PROTECTED CONTENT</p></body></html>') ]
+          ]);
+
+  authtest_router_protected_folder->CreateFile(
+      [ name := "codeprotected"
+      , typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected"
+      , publish := TRUE
+      ]);
+
+  testsite->rootobject->EnsureFolder([name := "tmp"]);
+
+  FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.rtd"])
+  {
+    OBJECT testfile  := testpages->CreateFile([name := filename, typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+    testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+          [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">${filename} - OneOfTheSimpleFiles</p><div class="wh-rtd-embeddedobject" data-instanceid="videoobject"></div></body></html>`)
+                    , instances := [[ instanceid := "videoobject"
+                                    , data := MakeVideoEmbedInstance("youtube", "BAf7lcYEXag")
+                                    ]
                                   ]
-                                 ]
-                  ]
-        ]);
+                    ]
+          ]);
+  }
+
+  testpages->CreateFile( [ name := "exclusiveaccesstest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest", publish := TRUE ] );
+
+  ScheduleFolderRepublish(testsite->id,TRUE,TRUE);
 }
 
-testpages->CreateFile( [ name := "exclusiveaccesstest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest", publish := TRUE ] );
+SetupTestSite(testsite_hs);
+SetupTestSite(testsite_js);
 
-ScheduleFolderRepublish(testsite->id,TRUE,TRUE);
+//we're not ready yet to succesfully publish a JS based site
+FOREVERY(INTEGER file FROM testsite_js->rootobject->GetDescendantFileIds())
+  OpenWHFSObject(file)->UpdateMetadata([ publish := FALSE ]);
 
 STRING alttestsitehost := ReadRegistryKey("webhare_testsuite.tests.alttestsitehost");
 OBJECT alttestsite;
@@ -373,7 +386,9 @@ IF(ObjectExists(alttestsite))
 }
 
 LogDebug("webhare_testsuite:reset", "Waiting for publish completion");
-WaitForPublishCompletion(testsite->id); //the testsite better be published as tests will be using it!
+//the testsite better be published before poststartdone as tests will be using it!
+WaitForPublishCompletion(testsite_hs->id);
+WaitForPublishCompletion(testsite_js->id, [ accepterrors := TRUE ]); //TODO JS site should not require accepting errors
 IF(ObjectExists(alttestsite))
   WaitForPublishCompletion(alttestsite->id);
 

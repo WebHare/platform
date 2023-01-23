@@ -14,5 +14,5 @@ export async function renderMarkdown(request: SiteRequest, response: WebResponse
 
   const outputpage = await request.createComposer(response);
   outputpage.appendHTML(html);
-  outputpage.flush();
+  await outputpage.finish();
 }

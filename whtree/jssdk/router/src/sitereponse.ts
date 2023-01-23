@@ -2,14 +2,18 @@ import { WebResponse } from "./response";
 import { SiteRequest } from "./siterequest";
 
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
-export class SiteResponse {
+export class SiteResponse<T extends object> {
   siterequest: SiteRequest;
   webresponse: WebResponse;
-  private contents = "";
+  protected contents = "";
 
-  constructor(siterequest: SiteRequest, webresponse: WebResponse) {
+  /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
+  pageconfig: T;
+
+  constructor(pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse) {
     this.siterequest = siterequest;
     this.webresponse = webresponse;
+    this.pageconfig = pageconfig;
   }
 
   /** Render the contents of the specified witty component (path#component) with the specified data
@@ -25,7 +29,7 @@ export class SiteResponse {
     this.contents += text;
   }
 
-  flush() {
+  async finish(): Promise<void> {
     //TODO: format the final body using htmlhead/htmlbody and our own headers. See WebDesignBase::RunPageWitty for all the classes etc we need
     const body = `<!DOCTYPE html>`
       + `<html>` //lang etc

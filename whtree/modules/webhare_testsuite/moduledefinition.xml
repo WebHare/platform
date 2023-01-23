@@ -402,6 +402,10 @@
     <shorturls domain="test2.bea.gl"
                urllisthook="tests/publisher/shorturl/shorturltests.whlib#HookURLList"
                urlpropsextension="tests/publisher/shorturl/shorturltests.xml#ExtendURLProps" />
+
+    <webdesign name="basetestjs" title="BasetestJS" siteprofile="webdesigns/basetestjs/basetestjs.siteprl.xml">
+      <assetpack entrypoint="webdesigns/basetestjs/frontend/frontend" supportedlanguages="en" />
+    </webdesign>
   </publisher>
 
   <consilio>
