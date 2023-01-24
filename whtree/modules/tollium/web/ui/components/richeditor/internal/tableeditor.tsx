@@ -231,7 +231,7 @@ export class TableEditor {
       this.numcolumns = this.columns.lastChild.childNodes.length;
     } else {
       // Calculate the total number of columns
-      Array.from(getBodyTRs(this.node)[0].cells).forEach(function(td) {
+      Array.from(getBodyTRs(this.node)[0].cells).forEach((td) => {
         this.numcolumns += td.colSpan;
       });
     }
@@ -1032,7 +1032,7 @@ export class TableEditor {
 
     // create the trs to insert, and insert them
     const toinsert = [];
-    for (let idx = 0; idx < num; ++idx)
+    for (let tridx = 0; tridx < num; ++tridx)
       toinsert.push(dompack.create("tr"));
 
     const referencetr = getBodyTRs(this.node)[idx];

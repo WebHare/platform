@@ -97,7 +97,7 @@ export default class StructuredEditor extends EditorBase {
   _onStyleSwitch(event, style) {
     const findcontainertag = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
     const currentstyle = this.getSelectionState().blockstyle;
-    const availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag.toUpperCase() == findcontainertag);
+    const availablestyles = this.getAvailableBlockStyles().filter(fstyle => fstyle.def.containertag.toUpperCase() == findcontainertag);
     const currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
     if (availablestyles.length == 0)
       return;
@@ -973,7 +973,8 @@ export default class StructuredEditor extends EditorBase {
     // FIXME: take allowed styles in current block node into account!
 
     // Walk through styles in order, only handle those that are mentioned in formatting.textstyles
-    for (var i = 0; i < this.textstyletags.length; ++i) {
+    let i;
+    for (i = 0; i < this.textstyletags.length; ++i) {
       const textstyletag = this.textstyletags[i];
       if (!formatting.hasTextStyle(textstyletag))
         continue;
@@ -1690,11 +1691,11 @@ export default class StructuredEditor extends EditorBase {
           case 'table':
             {
               if (intable || inblock || inlist) { //squash the unexpected table
-                node.nodes.forEach(rownode => {
-                  rownode.nodes.forEach(cellitemnode => {
+                for (const rownode of node.nodes) {
+                  for (const cellitemnode of rownode.nodes) {
                     locator = this._insertParsed(locator, cellitemnode.nodes, inblock, inlist, intable, preservelocators, undoitem);
-                  });
-                });
+                  }
+                }
               } else {
                 const tablenode = this._createTableNode(node);
                 locator = this._insertTableNode(locator, tablenode, preservelocators, undoitem).afternodelocator;
@@ -2038,7 +2039,7 @@ export default class StructuredEditor extends EditorBase {
     if (typeof blockstyle == "string")
       blockstyle = this.structure.getBlockStyleByTag(blockstyle);
     if (!blockstyle)
-      throw new Error("Invalid blockstyle ") + newblockstyle;
+      throw new Error("Invalid blockstyle " + newblockstyle);
 
     //console.log('ssbs', newblockstyle);
 
@@ -2321,7 +2322,7 @@ export default class StructuredEditor extends EditorBase {
 
     if (range.isCollapsed()) {
       // range is collapsed
-      const block = this.getBlockAtNode(range.start.getNearestNode());
+      let block = this.getBlockAtNode(range.start.getNearestNode());
       if (this._isEmptyBlock(block.contentnode)) {
         // See if there is a legal position to place the cursor after deleting this
         let newpos;
@@ -2374,7 +2375,7 @@ export default class StructuredEditor extends EditorBase {
         const moveres = newpos.moveLeft(this.getBody(), { checkblock });
         if (moveres) {
           // See if the previous block is empty. If so, remove it.
-          const block = this.getBlockAtNode(newpos.getNearestNode());
+          block = this.getBlockAtNode(newpos.getNearestNode());
           if (this._isEmptyBlock(block.contentnode)) {
             block.contentnode.remove();
             if (block.node !== block.contentnode && this._isEmptyBlock(block.node)) // removed last li in list node?
@@ -2607,7 +2608,7 @@ export default class StructuredEditor extends EditorBase {
 
     // See if there is content at start of document not wrapped in block
     locator = new domlevel.Locator(this.getBody());
-    const res = locator.scanForward(this.getBody(), { whitespace: true });
+    let res = locator.scanForward(this.getBody(), { whitespace: true });
 
     // Yes, there is visible content.
     if (!['innerblock'].includes(res.type) && !(res.type == 'node' && domlevel.isEmbeddedObject(res.data))) {
@@ -2618,7 +2619,7 @@ export default class StructuredEditor extends EditorBase {
       const parts = domlevel.splitDom(this.getBody(), [{ locator: locator, toward: 'start' }], preservelocators);
 
       // Wrap range in block
-      const res = this.insertBlockNode(parts[1].start, this.structure.defaultblockstyle, preservelocators, null);
+      res = this.insertBlockNode(parts[1].start, this.structure.defaultblockstyle, preservelocators, null);
       domlevel.moveSimpleRangeTo(parts[0], res.contentlocator, preservelocators);
       this.requireVisibleContentInBlockAfterLocator(res.contentlocator, preservelocators);
     }

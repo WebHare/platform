@@ -1354,7 +1354,7 @@ function correctBlockFillerUse(locator, block, preservelocators) {
   } else {
     // There is stuff that makes the block visible. Filler br is not needed, see if there is one
     const up = locator.clone();
-    const upres = up.scanForward(block, { whitespace: true, blocks: true });
+    let upres = up.scanForward(block, { whitespace: true, blocks: true });
 
     //console.log(' got down visible', richdebug.getStructuredOuterHTML(block, { locator: locator, down: down, up: up }));
 
@@ -1363,7 +1363,7 @@ function correctBlockFillerUse(locator, block, preservelocators) {
       const firstbr = up.clone();
       ++up.offset;
 
-      const upres = up.scanForward(block, { whitespace: true, blocks: true });
+      upres = up.scanForward(block, { whitespace: true, blocks: true });
       if (upres.type == 'outerblock' && upres.data == block) {
         firstbr.removeNode(preservelocators);
         //console.log(' removed br', richdebug.getStructuredOuterHTML(block, { locator: locator, down: down, firstbr: firstbr }));
@@ -2091,7 +2091,7 @@ class Locator {
           if (this.element != maxancestor)
             this.ascend(maxancestor, false);
 
-          const res = this.scanBackward(maxancestor, { whitespace: true });
+          res = this.scanBackward(maxancestor, { whitespace: true });
           if ((res.type === "node" || res.type === "innerblock") && options.checkblock && !options.checkblock(res.data)) {
             this.assign(original);
             return false;
@@ -2150,7 +2150,7 @@ class Locator {
           if (this.element != maxancestor)
             this.ascend(maxancestor, true);
 
-          const res = this.scanForward(maxancestor, { whitespace: true });
+          res = this.scanForward(maxancestor, { whitespace: true });
           if ((res.type === "node" || res.type === "innerblock") && options.checkblock && !options.checkblock(res.data)) {
             this.assign(original);
             return false;

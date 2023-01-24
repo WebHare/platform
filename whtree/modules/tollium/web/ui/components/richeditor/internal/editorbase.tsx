@@ -873,7 +873,7 @@ export default class EditorBase {
     if (dompack.debugflags.rte)
       console.warn('[rte] start recording undo item', item);
 
-    item.onfinish = (item) => this._updateUndoNodeForNewUndoItem(item);
+    item.onfinish = (finisheditem) => this._updateUndoNodeForNewUndoItem(finisheditem);
     return new UndoLock(item);
   }
 
@@ -1294,7 +1294,8 @@ export default class EditorBase {
       //var range = sel.GetRange();
       const path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
 
-      for (var i = path.length - 1; i >= 0; --i)
+      let i;
+      for (i = path.length - 1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() == 'a') {
           this.selectRange(Range.withinNode(path[i]));
           break;
@@ -1435,8 +1436,8 @@ export default class EditorBase {
         item.getAsString(function(str) { console.warn(str); });
       else if (item.kind == "file") {
         const reader = new FileReader();
-        reader.onload = function(event) {
-          console.warn(event.target.result);
+        reader.onload = function(loadevent) {
+          console.warn(loadevent.target.result);
         };
         reader.readAsDataURL(item.getAsFile());
       }
@@ -1598,7 +1599,8 @@ export default class EditorBase {
     // Update all table editors as tables' positions or contents may have changed
     this.updateTableEditors();
 
-    this.onstatechange && this.onstatechange({ firstcall: firstcall });
+    if (this.onstatechange)
+      this.onstatechange({ firstcall: firstcall });
   }
 
   getSelectionState(forceupdate) {
