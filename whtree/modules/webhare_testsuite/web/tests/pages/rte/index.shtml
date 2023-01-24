@@ -46,6 +46,5 @@ MACRO RunBody(OBJECT testcontext)
 
 OpenPrimary();
 //There is no way for externals to hook into this page.es, so we need a temporary explicit exception
-BOOLEAN nextrte := IsWHDebugOptionSet("nextrte") OR "nextrte" IN Tokenize(GetWebVariable("wh-debug"),",");
-InvokeTestPage(PTR RunBody, [ jsfile := nextrte ? "page-nextrte.es" : "page.es"
+InvokeTestPage(PTR RunBody, [ jsfile := "page.es"
                             ]);
