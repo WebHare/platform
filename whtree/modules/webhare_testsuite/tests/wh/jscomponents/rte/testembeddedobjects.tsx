@@ -16,8 +16,8 @@ function generateEmbeddedObjectHTML(instanceref, title, htmltext) {
 function getInlineElementPreview(innernode) //mimick widgtpreview.witty
 {
   return (
-    <div class="wh-rtd__inlinepreview" >
-      <div class="wh-rtd__inlinepreview__iconholder" >
+    <div class="wh-rtd__inlinepreview">
+      <div class="wh-rtd__inlinepreview__iconholder">
         <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="tollium:files/widget|16|16|b,c" />
       </div>
       <div class="wh-rtd__inlinepreview__title">
@@ -203,9 +203,8 @@ test.registerTests(
       //position cursor one cursor before before the inline obj. Deleting here caused the inline object to be ripped apart
       rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length - 1 });
       await test.pressKey("Delete");
-      test.eq('"Dit is een paragraaf tekst waar(*0*)(*1*)"', rtetest.getHTML(body.childNodes[0].childNodes[0]));
-      test.assert(body.childNodes[0].childNodes[1].matches(".wh-rtd-embeddedobject--inline")); //should not be killed
-      test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
+      rtetest.testEqSelHTMLEx(null,
+        '<p class="normal">"Dit is een paragraaf tekst waar(*0*)(*1*)"<span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline wh-rtd-embeddedobject--hasinlinepreview" data-instanceref="undefined"></span>" HIER een object ingevoegd gaat worden"</p>');
     },
 
     "Expansion of previews when started in disabled mode",

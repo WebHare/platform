@@ -260,7 +260,7 @@ test.registerTests(
 
         //Select around element
         const myembobjcode = myembobj.outerHTML;
-        rtetest.setStructuredContent(rte.getEditor().getBody(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+        rtetest.setStructuredContent(rte, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
 
         await rtetest.runWithUndo(rte.getEditor(), () => rtetest.paste(rte.getEditor(),
           {

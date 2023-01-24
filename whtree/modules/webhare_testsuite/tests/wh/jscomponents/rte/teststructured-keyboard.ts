@@ -1,13 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from "dompack";
-import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-import * as domlevel from "@mod-tollium/web/ui/components/richeditor/internal/domlevel";
-import * as richdebug from "@mod-tollium/web/ui/components/richeditor/internal/richdebug";
-import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
 
 test.registerTests(

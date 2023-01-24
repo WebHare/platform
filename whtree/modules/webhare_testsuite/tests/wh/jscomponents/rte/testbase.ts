@@ -4,7 +4,7 @@
 import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-const domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
+import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
 const useblockfill = true;
