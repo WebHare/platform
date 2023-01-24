@@ -1,10 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import * as dompack from 'dompack';
 
-import { qSA } from 'dompack';
-
-export function fixupScopeTRs(node) {
-  for (const tr of qSA(node, 'tr')) {
+export function fixupScopeTRs(node: HTMLElement) {
+  for (const tr of dompack.qSA(node, 'tr')) {
     const scoperow = Boolean(tr.querySelector('th[scope=row]'));
     tr.classList.toggle('wh-rtd--hasrowheader', scoperow);
 
