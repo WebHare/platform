@@ -1,3 +1,6 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 

@@ -1,3 +1,6 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { encodeValue } from 'dompack/types/text';

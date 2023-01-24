@@ -1,3 +1,6 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 var richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');

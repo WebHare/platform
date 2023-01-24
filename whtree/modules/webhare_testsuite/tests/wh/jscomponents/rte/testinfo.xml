@@ -1,31 +1,18 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="rte">
-  <jstest file="testdomlevel.es" />
-  <jstest file="test_converthtmltoplaintext.es" />
-  <jstest file="testbase.es" />
-  <jstest file="testfree-allowtags.es" />
-  <jstest file="testtableedit-free.es" />
-  <jstest file="teststructured.es" />
-  <jstest file="testtableedit-structured.es" />
-  <jstest file="teststructured-table.es" />
-  <jstest file="teststructured-table2.es" />
-  <jstest file="teststructured-delete.es" />
-  <jstest file="teststructured-copypaste.es" />
-  <jstest file="teststructured-restructuring.es" />
-  <jstest file="teststructured-keyboard.es" />
-  <jstest file="testpageframe.es" />
-  <jstest file="testfocus.es" />
-  <jstest file="testembeddedobjects.es" />
-
-  <!-- dummy, toggled br block fill
-  FIXME: Rob, wat is de meerwaarde/doel van deze test precies ?  waarom onder 'dummy' mode ? (gok: IE workarounds kunnen testen op andere browsers?)
-  <jstest file="testbase.es" />
-      <arg value="dummy" />
-      <arg value="toggleblockfill" />
-  </jstest>
-  <jstest file="teststructured.es" />
-      <arg value="dummy" />
-      <arg value="toggleblockfill" />
-  </jstest>
--->
-
+  <jstest file="testdomlevel.ts" />
+  <jstest file="test_converthtmltoplaintext.ts" />
+  <jstest file="testbase.ts" />
+  <jstest file="testfree-allowtags.ts" />
+  <jstest file="testtableedit-free.ts" />
+  <jstest file="teststructured.ts" />
+  <jstest file="testtableedit-structured.ts" />
+  <jstest file="teststructured-table.ts" />
+  <jstest file="teststructured-table2.ts" />
+  <jstest file="teststructured-delete.ts" />
+  <jstest file="teststructured-copypaste.ts" />
+  <jstest file="teststructured-restructuring.ts" />
+  <jstest file="teststructured-keyboard.ts" />
+  <jstest file="testpageframe.ts" />
+  <jstest file="testfocus.ts" />
+  <jstest file="testembeddedobjects.ts" />
 </group>

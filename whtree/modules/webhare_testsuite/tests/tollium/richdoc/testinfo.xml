@@ -1,16 +1,16 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="rte">
-  <jstest file="testfree.es" />
-  <jstest file="teststructured.es" />
-  <jstest file="teststructured-tables.es" />
-  <jstest file="teststructured-scroll.es" />
-  <jstest name="testobjects-block" file="testobjects.es">
+  <jstest file="testfree.ts" />
+  <jstest file="teststructured.ts" />
+  <jstest file="teststructured-tables.ts" />
+  <jstest file="teststructured-scroll.ts" />
+  <jstest name="testobjects-block" file="testobjects.ts">
     <arg value="block" />
   </jstest>
-  <jstest name="testobjects-inline" file="testobjects.es">
+  <jstest name="testobjects-inline" file="testobjects.ts">
     <arg value="inline" />
   </jstest>
-  <jstest file="testfree-allowformat.es" />
-  <jstest file="testfree-imgrotate.es" />
+  <jstest file="testfree-allowformat.ts" />
+  <jstest file="testfree-imgrotate.ts" />
   <test script="testrteservice.whscr" />
   <test script="testrtecomponent.whscr" />
 </group>

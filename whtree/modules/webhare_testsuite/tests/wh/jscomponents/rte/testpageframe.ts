@@ -1,3 +1,6 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 
 //TODO I'm not sure this test makes any sense since we've long stopped using iframes.... but at least it's not about page-mode

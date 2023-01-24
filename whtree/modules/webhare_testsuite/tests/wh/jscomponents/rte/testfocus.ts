@@ -1,3 +1,6 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
