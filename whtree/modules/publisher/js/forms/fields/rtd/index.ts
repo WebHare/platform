@@ -58,12 +58,9 @@ export default class RTDField {
   }
   async setupRTE(node, rtdoptions) {
     if (!richeditor)
-      if (typeof System !== 'undefined')
-        richeditor = await System.import('@mod-tollium/web/ui/components/richeditor/editor');
-      else
-        richeditor = await import('@mod-tollium/web/ui/components/richeditor/editor');
+      richeditor = await import('@mod-tollium/web/ui/components/richeditor');
 
-    this.rte = new richeditor.RTE(node, {
+    this.rte = new richeditor.createRTE(node, {
       ...rtdoptions
       , enabled: this._getEnabled() //initial enabled state
     });

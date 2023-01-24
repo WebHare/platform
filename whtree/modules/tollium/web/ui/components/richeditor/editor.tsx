@@ -7,6 +7,7 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as browser from "dompack/extra/browser";
 import * as preload from 'dompack/extra/preload';
+import * as styleloader from "./internal/styleloader";
 
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
@@ -169,9 +170,9 @@ export class RTE {
 
     this.gotPageFrameLoad();
 
-    RTE.register(this);
+    styleloader.register(this);
     if (this.options.preloadedcss)
-      RTE.unregister(this.options.preloadedcss);
+      styleloader.unregister(this.options.preloadedcss);
     this.clearDirty();
   }
 
@@ -667,7 +668,7 @@ export class RTE {
     this.disconnectCurrentEditor();
     this.cachededitors.forEach(editor => editor.destroy());
     this.toolbarnode.remove();
-    RTE.unregister(this);
+    styleloader.unregister(this);
   }
 
   getContainer() {
@@ -875,104 +876,3 @@ export class RTE {
     throw new Error("Unsupported method for plaintext conversion: " + method);
   }
 }
-
-RTE.addedcss = [];
-
-RTE.findCSSRule = function(addcss) {
-  for (let i = 0; i < RTE.addedcss.length; ++i)
-    if (RTE.addedcss[i].type == addcss.type && RTE.addedcss[i].src == addcss.src)
-      return { idx: i, rule: RTE.addedcss[i] };
-
-  return null;
-};
-
-/// Register this RTE in the list of active RTE's
-RTE.register = function(rte) {
-  if (dompack.debugflags.rte)
-    console.log('[wh.rich] Register new rte');
-
-  const rules = [];
-
-  //Add any missing stylesheets
-  for (let i = 0; i < rte.addcss.length; ++i) {
-    const rulepos = this.findCSSRule(rte.addcss[i]);
-    if (rulepos) {
-      rulepos.rule.rtes.push(rte);
-      rules.push(rulepos.rule);
-    } else {
-      var node, promise;
-      if (rte.addcss[i].type == 'link') {
-        node = dompack.create("link", {
-          href: rte.addcss[i].src,
-          rel: "stylesheet",
-          dataset: { whRtdTempstyle: "" }
-        });
-        promise = preload.promiseNewLinkNode(node);
-        promise.catch(() => null); // ignore rejections that aren't handled
-        qS('head,body').appendChild(node);
-      } else {
-        node = dompack.create("style", {
-          type: "text/css",
-          dataset: { whRtdTempstyle: "" }
-        });
-        qS('head,body').appendChild(node);
-        try {
-          node.innerHTML = rte.addcss[i].src;
-        } catch (e)//IE
-        {
-          node.styleSheet.cssText = rte.addcss[i].src;
-        }
-
-      }
-      const rule = {
-        type: rte.addcss[i].type,
-        src: rte.addcss[i].src,
-        node: node,
-        rtes: [rte],
-        promise
-      };
-      RTE.addedcss.push(rule);
-      rules.push(rule);
-    }
-    return rules;
-  }
-};
-
-/// Unregister this RTE
-RTE.unregister = function(rte) {
-  if (dompack.debugflags.rte)
-    console.log('[wh.rich] Unregister new rte');
-
-  for (let i = rte.addcss.length - 1; i >= 0; --i) {
-    const rulepos = this.findCSSRule(rte.addcss[i]);
-    if (rulepos) {
-      rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el != rte); //erase us from the list
-      if (!rulepos.rule.rtes.length) {
-        rulepos.rule.node.remove();
-        RTE.addedcss.splice(rulepos.idx, 1);
-      }
-    }
-  }
-};
-
-RTE.getForNode = function(node) {
-  return node.whRTD || null;
-};
-
-class PreloadedCSS {
-  constructor(links) {
-    this.addcss = links.map(href => ({ type: "link", src: href }));
-
-    const rules = RTE.register(this);
-    // Wait for all rule promises, return false if any gave back an error
-    this.loadpromise = Promise.all(rules.map(rule => rule.promise.then(r => true, e => false))).then(arr => arr.every(_ => _));
-  }
-
-  clone() {
-    return new PreloadedCSS(this.addcss.map(e => e.src));
-  }
-}
-
-RTE.preloadCSS = function(links) {
-  return new PreloadedCSS(links);
-};
