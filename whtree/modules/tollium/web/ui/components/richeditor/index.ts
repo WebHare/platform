@@ -10,6 +10,7 @@ import './internal/buttons.scss';
 import './internal/widgets.scss';
 
 export { preloadCSS } from "./internal/styleloader";
+export { getTargetInfo } from "./internal/support";
 
 export function createRTE(parentnode: HTMLElement, options: RTESettings) {
   return new RTE(parentnode, options);

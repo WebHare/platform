@@ -235,7 +235,7 @@ export default class ObjRTE extends ComponentBase {
     }
     if (["action-properties", "webhare-inspect"].includes(action)) {
       //FIXME RTE should always send us getTargetInfo reslt...
-      let affectednodeinfo = event.detail.actiontargetinfo || event.detail.rte.getTargetInfo(event.detail.actiontarget);
+      let affectednodeinfo = event.detail.actiontargetinfo || rteapi.getTargetInfo(event.detail.actiontarget);
 
       if (affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
       {

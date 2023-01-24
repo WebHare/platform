@@ -11,6 +11,7 @@ import * as styleloader from "./internal/styleloader";
 
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
+import * as support from './internal/support';
 import FreeEditor from './internal/free-editor';
 const TableEditor = require('./internal/tableeditor');
 import RTEToolbar from './internal/toolbar';
@@ -211,7 +212,7 @@ export class RTE {
     if (!selectionstate)
       return;
 
-    const actiontarget = selectionstate.propstarget ? this.getTargetInfo({ __node: selectionstate.propstarget }) : null;
+    const actiontarget = selectionstate.propstarget ? getTargetInfo({ __node: selectionstate.propstarget }) : null;
 
     const menuitems = [];
     for (const menuitem of
@@ -480,84 +481,6 @@ export class RTE {
     this._checkDirty();
   }
 
-  getTargetInfo(actiontarget) //provide JSON-safe information about the action target
-  {
-    const node = actiontarget.__node;
-    if (node.matches('a')) {
-      return {
-        type: 'hyperlink',
-        link: node.getAttribute("href"), //note that getAttribute gives the 'true' link but 'href' may give a resolved link
-        target: node.target || '',
-        __node: node
-      };
-    } else if (node.matches('td,th,caption')) {
-      const tablenode = node.closest('table');
-      const editor = TableEditor.getEditorForNode(tablenode);
-      let targetinfo = {
-        tablecaption: editor.getCaption(),
-        tablestyletag: tablenode.classList[0],
-        numrows: editor.numrows,
-        numcolumns: editor.numcolumns,
-        datacell: editor.locateFirstDataCell()
-      };
-
-      if (node.matches('td,th')) {
-        targetinfo = {
-          ...targetinfo,
-          type: 'cell',
-          cellstyletag: node.classList[1] || '',
-          __node: node
-        };
-      } else {
-        targetinfo = {
-          ...targetinfo,
-          type: 'table',
-          __node: tablenode
-        };
-      }
-      return targetinfo;
-    } else if (node.matches('caption')) {
-      const tablenode = node.closest('table');
-      const editor = TableEditor.getEditorForNode(tablenode);
-      return {
-        type: 'cell',
-        tablecaption: editor.getCaption(),
-        tablestyletag: tablenode.classList[0],
-        cellstyletag: node.classList[1] || '',
-        datacell: editor.locateFirstDataCell(),
-        numrows: editor.numrows,
-        numcolumns: editor.numcolumns,
-        __node: node
-      };
-    } else if (node.matches('.wh-rtd-embeddedobject')) {
-      return {
-        type: 'embeddedobject',
-        instanceref: node.dataset.instanceref,
-        __node: node
-      };
-    } else if (node.matches('img')) {
-      const align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
-      let linkinfo = null;
-      const link = node.closest('a');
-      if (link)
-        linkinfo = {
-          link: link.href,
-          target: link.target || ''
-        };
-
-      return {
-        type: 'img',
-        align: align,
-        width: parseInt(node.getAttribute("width")) || 0,
-        height: parseInt(node.getAttribute("height")) || 0,
-        alttext: node.alt,
-        link: linkinfo,
-        src: node.src,
-        __node: node
-      };
-    }
-    return null;
-  }
   updateTarget(actiontarget, settings) {
     const undolock = this.getEditor().getUndoLock();
 

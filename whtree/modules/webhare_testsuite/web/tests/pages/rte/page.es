@@ -180,7 +180,7 @@ function gotPropertiesEvent(event)
 {
   if(event.detail.actiontarget)
   {
-    let affectednodeinfo = event.detail.rte.getTargetInfo(event.detail.actiontarget);
+    let affectednodeinfo = rteapi.getTargetInfo(event.detail.actiontarget);
     if(affectednodeinfo && affectednodeinfo.type == 'hyperlink')
     {
       event.preventDefault();

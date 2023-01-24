@@ -5,6 +5,7 @@ import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
+import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
 const useblockfill = true;
@@ -821,7 +822,7 @@ test.registerTests(
         const result = await propsevent;
 
         //Modify the hyperlink
-        const targetinfo = win.rte.getTargetInfo(result.detail.actiontarget);
+        const targetinfo = rteapi.getTargetInfo(result.detail.actiontarget);
         test.eq('hyperlink', targetinfo.type);
         test.eq('http://www.b-lex.nl/', targetinfo.link);
         test.eq('_blank', targetinfo.target);
