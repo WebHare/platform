@@ -1302,6 +1302,9 @@ export function cleanupTree(tree) {
   // Remove table style and colgroup classes
   qSA(tree, ".wh-rtd__table").forEach(node => node.removeAttribute("style"));
   qSA(tree, ".wh-rtd__table > colgroup").forEach(node => node.removeAttribute("class"));
+  // Remove the style from <tr>s, which are filled by Safari with their height, causing the editor to be marked as dirty when
+  // nothing has actually changed
+  qSA(tree, ".wh-rtd__table tr[style]").forEach(node => node.removeAttribute("style"));
 }
 
 //Capture all load events, see if we need to resize tables

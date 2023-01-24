@@ -297,6 +297,7 @@
         <text tid="internallinknonexisting">Het gelinkte bestand bestaat niet meer</text>
         <text tid="internallinknotpublished">Het gelinkte bestand wordt niet gepubliceerd</text>
         <text tid="internalservererror">Interne serverfout</text>
+        <text tid="invalidurl">Ongeldige URL</text>
         <text tid="lengthrequired">Length required</text>
         <text tid="methodnotallowed">Method not allowed</text>
         <text tid="movedpermanently">Moved permanently</text>
