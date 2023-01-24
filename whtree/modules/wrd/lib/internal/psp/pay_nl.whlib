@@ -11,6 +11,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/cache.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
@@ -128,6 +129,13 @@ RECORD ARRAY FUNCTION AddAddress(STRING prefix, RECORD address)
          ];
 }
 
+RECORD FUNCTION GetCachedMethods(RECORD settings, BOOLEAN forcerefresh)
+{
+  RETURN WaitForPromise(GetPrecalculatedData(CELL[ type := "wrd:pay_nl.methods", settings.apiuser, settings.apitoken, settings.saleslocation ]
+                                            , Resolve("#GetCacheableMethods")
+                                            , CELL[forcerefresh]));
+}
+
 PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
 <
   RECORD paymentdata;
@@ -139,7 +147,8 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
   {
-    RECORD methodsresponse := GetAdhocCached(CELL[ type := "methods", apiuser := this->settings.apiuser, saleslocation := this->settings.saleslocation ], PTR GetCacheableMethods(this->settings));
+    RECORD methodsresponse := GetCachedMethods(this->settings, FALSE); //do not force a remote lookup - we may be invoked for the frontend!
+
     IF(NOT RecordExists(methodsresponse))
       THROW NEW Exception(`Unable to request payment methods`);
 
@@ -300,7 +309,7 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
   }
 >;
 
-RECORD FUNCTION GetCacheableMethods(RECORD creds)
+PUBLIC RECORD FUNCTION GetCacheableMethods(RECORD creds)
 {
   IF(IsTestCredentials(creds))
   {
@@ -316,7 +325,8 @@ RECORD FUNCTION GetCacheableMethods(RECORD creds)
                                      ]
                                    ]
                      ]
-           , ttl := 15* 60 * 1000
+           , softttl := 60 * 60 * 1000 // recheck every hour
+           , liverefreshtimeout := 5000
            ];
   }
 
@@ -490,7 +500,8 @@ RECORD FUNCTION GetCacheableMethods(RECORD creds)
 
   IF(NOT CellExists(methodsresponse,'COUNTRYOPTIONLIST')) //guess it failed
     RETURN [ value := DEFAULT RECORD
-           , ttl := 1
+           , softttl := 5 * 1000 // recheck very soon
+           , liverefreshtimeout := 5000
            ];
 
   RECORD ARRAY methods;
@@ -512,10 +523,11 @@ RECORD FUNCTION GetCacheableMethods(RECORD creds)
                  ] INTO methods AT END;
     }
 
-  RETURN CELL[ value := CELL[ methods
-                            ]
-             , ttl := 15*60*1000
-             ];
+  RETURN [ value := CELL[ methods
+                        ]
+         , softttl := 60 * 60 * 1000 // recheck every hour
+         , liverefreshtimeout := 5000
+         ];
 }
 
 PUBLIC RECORD FUNCTION CheckPayNLMerchant(STRING apiuser, STRING apitoken, STRING saleslocation)
@@ -523,7 +535,7 @@ PUBLIC RECORD FUNCTION CheckPayNLMerchant(STRING apiuser, STRING apitoken, STRIN
   IF(apitoken = "" OR apiuser = "" OR saleslocation = "")
     RETURN DEFAULT RECORD;
 
-  RECORD methods := GetCacheableMethods(CELL[apiuser, apitoken, saleslocation]).value;
+  RECORD methods := GetCachedMethods(CELL[apiuser, apitoken, saleslocation], TRUE);
   IF(NOT RecordExists(methods))
     RETURN DEFAULT RECORD;
 

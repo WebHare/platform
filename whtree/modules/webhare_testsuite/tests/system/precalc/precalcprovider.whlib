@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 
 
 PUBLIC RECORD FUNCTION TestFunc(RECORD keydata)
@@ -62,6 +63,8 @@ PUBLIC RECORD FUNCTION TestFunc6(RECORD keydata)
   Sleep(keydata.sleep);
   IF (GetCurrentDateTime() > keydata.crashat)
     THROW NEW Exception("crashing!");
+  IF(ReadRegistryKey("webhare_testsuite.tests.response") = "crash")
+    THROW NEW Exception("crashing by regkey!");
   RETURN
       [ value :=              [ result := 15, now := GetCurrentDateTime() ]
       , softeventmasks :=     [ "webhare_testsuite:test.system.precalc.cache.f6.soft" ]

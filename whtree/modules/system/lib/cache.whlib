@@ -283,11 +283,12 @@ PUBLIC RECORD FUNCTION WrapCachedImage(RECORD wrappedimage, RECORD processingmet
 
         Initial crashes are cached for 60 seconds.
     @cell options.waitforrefresh If TRUE, wait for recalculation of soft-expired data too (waiting until recalculation is finished, ignoring liverefreshtimeout)
+    @cell options.forcerefresh If TRUE, for recalculation even if not soft-expired yet.
     @return Precalculated data
 */
 PUBLIC ASYNC FUNCTION GetPrecalculatedData(RECORD keydata, STRING func, RECORD options DEFAULTSTO CELL[])
 {
-  options := ValidateOptions(CELL[ waitforrefresh := FALSE ], options);
+  options := ValidateOptions(CELL[ waitforrefresh := FALSE, forcerefresh := FALSE ], options);
   OBJECT link := AWAIT OpenWebHareService("system:precalc");
   TRY
     RETURN AWAIT link->GetPrecalculatedData(keydata, func, options);

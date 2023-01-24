@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/precalc/cache.whlib";
@@ -39,6 +40,9 @@ ASYNC MACRO PrecalcTest()
   RegisterEventCallback("webhare_testsuite:system.precalc.*", PTR GotTestFuncRun);
 
   DATETIME timetag := GetCurrentDateTime();
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.response", "");
+  testfw->CommitWork();
 
   OBJECT data1 := GetPrecalculatedData(CELL[ type := "test1", timetag ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc");
   OBJECT data2 := GetPrecalculatedData(CELL[ type := "test1", timetag ], "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc");
@@ -174,6 +178,34 @@ ASYNC MACRO PrecalcTest()
           CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
           "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
     TestEQ(TRUE, val2.now = val3.now);
+
+    // should be able to force a refresh
+    RECORD val4 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6", [ forcerefresh := TRUE ]);
+
+    TestEq(FALSE, val2.now = val4.now);
+    TestEq(TRUE, val2.result = val4.result);
+
+    //crash the refresh
+    testfw->BeginWork();
+    WriteRegistryKey("webhare_testsuite.tests.response", "crash");
+    testfw->CommitWork();
+
+    TestRejectedLike("crashing by regkey!", GetPrecalculatedData(
+                    CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+                    "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6", [ forcerefresh := TRUE ]));
+
+    //should not have broken the previous unexpired value
+    RECORD val5 := AWAIT GetPrecalculatedData(
+          CELL[ type := "test7", sleep := 100, liverefreshtimeout := 1000, crashat := MAX_DATETIME ],
+          "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc6");
+    TestEq(TRUE, val4.now = val5.now);
+    TestEq(TRUE, val4.result = val5.result);
+
+    testfw->BeginWork();
+    WriteRegistryKey("webhare_testsuite.tests.response", "");
+    testfw->CommitWork();
   }
 
   {
