@@ -335,7 +335,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _gotMouseClick(event) {
-    if (!event.target || !this.rte._isActive())
+    if (!event.target || !this.isEditable())
       return;
 
     let button;
@@ -373,7 +373,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _gotDoubleClick(event) {
-    if (!event.target || !this.rte._isActive())
+    if (!event.target || !this.isEditable())
       return;
 
     if (event.target) {

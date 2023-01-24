@@ -364,6 +364,18 @@ export default class EditorBase {
     //    this.stateHasChanged();
   }
 
+  qS(selector) {
+    return this.getBody().querySelector(selector);
+  }
+
+  qSA(selector) {
+    return Array.from(this.getBody().querySelectorAll(selector));
+  }
+
+  isEditable() {
+    return this.rte._isActive();
+  }
+
   setupUndoNode() {
     if (this.undonode && this.options.allowundo) {
       this.undonode.innerHTML = '0';
@@ -1454,9 +1466,9 @@ export default class EditorBase {
 
   async handlePasteDone() {
     //Check for and remove hostile nodes
-    dompack.qSA(this.getBody(), "script,style,head").forEach(node => node.remove());
+    this.qSA("script,style,head").forEach(node => node.remove());
 
-    let imgs = qSA(this.getBody(), 'img');
+    let imgs = this.qSA('img');
     imgs = imgs.filter(img => !this.rte.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
     if (!imgs.length) //nothing to do
       return;
@@ -2009,7 +2021,7 @@ export default class EditorBase {
 
   _getEditableTables() {
     const retval = [];
-    for (const node of qSA(this.getBody(), "table")) {
+    for (const node of this.qSA("table")) {
       if (!node.isContentEditable)
         continue;
       const tableresizing = this._getResizingOptionsForTable(node);
@@ -2272,7 +2284,7 @@ export default class EditorBase {
   }
 
   _gotDoubleClick(event) {
-    if (!event.target || !this.rte._isActive())
+    if (!event.target || !this.isEditable())
       return;
     //ADDME should there be more doubleclickable?
     if (event.target && event.target.nodeName.toUpperCase() == "IMG") { //double click on an image should open the action props
