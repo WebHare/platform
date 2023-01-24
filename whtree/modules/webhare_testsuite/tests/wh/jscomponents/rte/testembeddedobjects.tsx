@@ -6,31 +6,28 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 import * as dompack from 'dompack';
 
 // use structuredwin when htmltext is structured
-function generateInlineEmbeddedObjectHTML(instanceref, title, htmltext)
-{
+function generateInlineEmbeddedObjectHTML(instanceref, title, htmltext) {
   return (<span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref={instanceref} />).outerHTML;
 }
-function generateEmbeddedObjectHTML(instanceref, title, htmltext)
-{
+function generateEmbeddedObjectHTML(instanceref, title, htmltext) {
   return (<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref={instanceref} />).outerHTML;
 }
 
 function getInlineElementPreview(innernode) //mimick widgtpreview.witty
 {
   return (
-      <div class="wh-rtd__inlinepreview">
-        <div class="wh-rtd__inlinepreview__iconholder">
-          <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="tollium:files/widget|16|16|b,c" />
-        </div>
-        <div class="wh-rtd__inlinepreview__title">
-          {innernode}
-        </div>
-      </div>).outerHTML;
+    <div class="wh-rtd__inlinepreview" >
+      <div class="wh-rtd__inlinepreview__iconholder" >
+        <img class="wh-rtd__inlinepreview__icon" width="16" height="16" data-toddimg="tollium:files/widget|16|16|b,c" />
+      </div>
+      <div class="wh-rtd__inlinepreview__title">
+        {innernode}
+      </div>
+    </div>).outerHTML;
 }
 
 var escapeEl;
-function escapeHTML(html)
-{
+function escapeHTML(html) {
   escapeEl = escapeEl || document.createElement('textarea');
   escapeEl.textContent = html;
   return escapeEl.innerHTML;
@@ -38,65 +35,66 @@ function escapeHTML(html)
 
 test.registerTests(
   [
-    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
+    {
+      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
     }
 
-  , { name: 'clean-embeddedobject'
-    , test: function(doc, win)
-      {
-        var rte=test.getWin().rte.getEditor();
+    , {
+      name: 'clean-embeddedobject'
+      , test: function(doc, win) {
+        var rte = test.getWin().rte.getEditor();
 
         //processing embedded object
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
-                           +'<p class="normal">ondertekst</p>');
+          + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
+          + '<p class="normal">ondertekst</p>');
 
         test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
-                  +'<p class="normal">ondertekst</p>'
-                  , test.getWin().rte.getValue());
+          + generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
+          + '<p class="normal">ondertekst</p>'
+          , test.getWin().rte.getValue());
 
         //processing inline embedded object
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="inline1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></span> object</p>');
+          + '<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="inline1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></span> object</p>');
 
         test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  + '<p class="normal">Paragraph with inline ' + generateInlineEmbeddedObjectHTML('inline1', 'title', 'c<b>d</b>') + ' object</p>'
-                  ,  test.getWin().rte.getValue());
+          + '<p class="normal">Paragraph with inline ' + generateInlineEmbeddedObjectHTML('inline1', 'title', 'c<b>d</b>') + ' object</p>'
+          , test.getWin().rte.getValue());
 
         //div inside <h1> should be moved out
         rte.setContentsHTML('<h1 class="heading1">Kop'
-                           +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
-                           +'</h1>');
+          + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
+          + '</h1>');
         test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
-                  , test.getWin().rte.getValue());
+          + generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
+          , test.getWin().rte.getValue());
 
         //embedded content should be ignored (ADDME previously it was preserved in blockcomponents. Something to restore? (rob says: I think not))
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;">vroem</div>'
-                           );
+          + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;">vroem</div>'
+        );
         test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
-//                  +'<div class="-wh-rtd-embeddedobject" contenteditable="false" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;" tabindex="-1">c<b>d</b></div>'
-                  , test.getWin().rte.getValue());
+          + generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
+          //                  +'<div class="-wh-rtd-embeddedobject" contenteditable="false" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;" tabindex="-1">c<b>d</b></div>'
+          , test.getWin().rte.getValue());
 
         //div without a class should be ignored
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div data-instanceref="inst1"></div>');
+          + '<div data-instanceref="inst1"></div>');
         test.eqHTML('<h1 class="heading1">Kop</h1>', test.getWin().rte.getValue());
 
         //missing the optional members should be fine
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1"></div>');
+          + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1"></div>');
         test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  +generateEmbeddedObjectHTML('inst1', '', '')
-//                  +'<div class="-wh-rtd-embeddedobject" contenteditable="false" data-instanceref="inst1" tabindex="-1"></div>'
-                  , test.getWin().rte.getValue());
+          + generateEmbeddedObjectHTML('inst1', '', '')
+          //                  +'<div class="-wh-rtd-embeddedobject" contenteditable="false" data-instanceref="inst1" tabindex="-1"></div>'
+          , test.getWin().rte.getValue());
 
         //obsolete block component should be removed
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div class="wh-rtd-blockcomponent" data-blockns="urn:blockns" data-blocktype="blockie" data-extra="UrData" style="width:222px;height:111px" data-innerhtml-contents="<b>bold!</b>" src="about:blank"></div>');
+          + '<div class="wh-rtd-blockcomponent" data-blockns="urn:blockns" data-blocktype="blockie" data-extra="UrData" style="width:222px;height:111px" data-innerhtml-contents="<b>bold!</b>" src="about:blank"></div>');
         test.eqHTML('<h1 class="heading1">Kop</h1>', test.getWin().rte.getValue());
 
         //found in practice, got wrapped in a <p> incorrectly
@@ -110,29 +108,28 @@ test.registerTests(
     }
 
     // Now test creating one from scratch
-  , { name: 'create-embeddedobject'
-    , test: async function(doc, win)
-      {
-        var rte=test.getWin().rte.getEditor();
+    , {
+      name: 'create-embeddedobject'
+      , test: async function(doc, win) {
+        var rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
-        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' } ));
+        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' }));
 
         var body = rte.getContentBodyNode();
         test.eq(3, body.childNodes.length);
-        test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>',body.childNodes[0].outerHTML);
-        test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>',body.childNodes[2].outerHTML);
+        test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>', body.childNodes[0].outerHTML);
+        test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>', body.childNodes[2].outerHTML);
 
         test.assert(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
         test.assert(rte.getSelectionState().propstarget);
       }
     }
 
-  , "Test block object selection"
-  , async function()
-    {
+    , "Test block object selection"
+    , async function() {
       const rte = test.getWin().rte.getEditor();
       const body = rte.getContentBodyNode();
 
@@ -149,19 +146,19 @@ test.registerTests(
       test.eq(body.childNodes[1], result.detail.actiontargetinfo.__node);
     }
 
-  , { name: 'embeddedobject-contentsignore'
-    , test: function(doc, win)
-      {
-        var rte=test.getWin().rte.getEditor();
+    , {
+      name: 'embeddedobject-contentsignore'
+      , test: function(doc, win) {
+        var rte = test.getWin().rte.getEditor();
 
         var href_contents = escapeHTML(
-            "x<a href='example.com'>link</a>y" +
-            "<ul><li>1</li><li>2<ul><li>2.1</li></ul></li></ul>");
+          "x<a href='example.com'>link</a>y" +
+          "<ul><li>1</li><li>2<ul><li>2.1</li></ul></li></ul>");
 
         //processing embedded object
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
-                           +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceid="inst1" data-innerhtml-contents="'+href_contents+'"></div>'
-                           +'<p class="normal">ondertekst</p>');
+          + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceid="inst1" data-innerhtml-contents="' + href_contents + '"></div>'
+          + '<p class="normal">ondertekst</p>');
 
         rte.selectNodeOuter(rte.getContentBodyNode().getElementsByTagName('div')[0]);
 
@@ -171,84 +168,81 @@ test.registerTests(
     }
 
     // Now test creating one from scratch
-  , { name: 'create-inlineobject'
-    , test: async function(doc, win)
-      {
-        var rte=test.getWin().rte.getEditor();
+    , {
+      name: 'create-inlineobject'
+      , test: async function(doc, win) {
+        var rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
-        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' } ));
+        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' }));
 
         var body = rte.getContentBodyNode();
         test.eq(1, body.childNodes.length);
         test.eq(3, body.childNodes[0].childNodes.length);
-        test.eq('Dit is een paragraaf tekst waar ',body.childNodes[0].childNodes[0].textContent);
-        test.eq(' een object ingevoegd gaat worden',body.childNodes[0].childNodes[2].textContent);
+        test.eq('Dit is een paragraaf tekst waar ', body.childNodes[0].childNodes[0].textContent);
+        test.eq(' een object ingevoegd gaat worden', body.childNodes[0].childNodes[2].textContent);
 
         test.assert(rte.getSelectionState().propstarget);
 
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)(*1*) HIER een object ingevoegd gaat worden"</p>');
-        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject( { instanceid: 'inst', htmltext: getInlineElementPreview(<span>De <b>inhoud</b></span>), title: 'title', embedtype: 'inline' } ));
+        await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: getInlineElementPreview(<span>De <b> inhoud </b></span >), title: 'title', embedtype: 'inline' }));
 
         test.eq(3, body.childNodes[0].childNodes.length);
-        test.eq('Dit is een paragraaf tekst waar ',body.childNodes[0].childNodes[0].textContent);
-        test.eq(' HIER een object ingevoegd gaat worden',body.childNodes[0].childNodes[2].textContent);
+        test.eq('Dit is een paragraaf tekst waar ', body.childNodes[0].childNodes[0].textContent);
+        test.eq(' HIER een object ingevoegd gaat worden', body.childNodes[0].childNodes[2].textContent);
       }
     }
 
-  , "Should not be able to delete inline objects"
-  , async function()
-    {
-      var rte=test.getWin().rte.getEditor();
+    , "Should not be able to delete inline objects"
+    , async function() {
+      var rte = test.getWin().rte.getEditor();
       var body = rte.getContentBodyNode();
 
       //position cursor one cursor before before the inline obj. Deleting here caused the inline object to be ripped apart
-      rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length-1 });
+      rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length - 1 });
       await test.pressKey("Delete");
       test.eq('"Dit is een paragraaf tekst waar(*0*)(*1*)"', rtetest.getHTML(body.childNodes[0].childNodes[0]));
       test.assert(body.childNodes[0].childNodes[1].matches(".wh-rtd-embeddedobject--inline")); //should not be killed
       test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
     }
 
-  , "Expansion of previews when started in disabled mode"
-  , async function()
-    {
+    , "Expansion of previews when started in disabled mode"
+    , async function() {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
 
       //processing embedded object
       test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'
-                                 +'<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
-                                 +'<p class="normal">ondertekst</p>');
+        + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1" data-innerhtml-contents="c&lt;b&gt;d&lt;/b&gt;"></div>'
+        + '<p class="normal">ondertekst</p>');
 
       test.eqHTML('<h1 class="heading1">Kop</h1>'
-                +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
-                +'<p class="normal">ondertekst</p>'
-                , test.getWin().rte.getValue());
+        + generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
+        + '<p class="normal">ondertekst</p>'
+        , test.getWin().rte.getValue());
     }
 
     , "Cursor positioning after last inline object in paragraph"
-    , async function()
-      {
-        // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
-        // fixed by added a bogus br after it
-        await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
+    , async function() {
+      // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
+      // fixed by added a bogus br after it
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
 
-        //processing embedded object
-        test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'
-                                   +'<p class="normal"><span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="inst1" data-innerhtml-contents="inline-embed"></span></p>'
-                                   +'<p class="normal">ondertekst</p>');
+      //processing embedded object
+      test.getWin().rte.setValue('<h1 class="heading1">Kop</h1>'
+        + '<p class="normal"><span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="inst1" data-innerhtml-contents="inline-embed"></span></p>'
+        + '<p class="normal">ondertekst</p>');
 
-        /* Could not find a way to get the shown caret position in Chrome, the getClientRects of a collapsed selection
-           Range is {0,0,0,0} when the cursor is between an inline embedded block and a CSS line start/break/end.
-           Last tested 2022-06-27 on Chrome 103
-        */
+      /* Could not find a way to get the shown caret position in Chrome, the getClientRects of a collapsed selection
+         Range is {0,0,0,0} when the cursor is between an inline embedded block and a CSS line start/break/end.
+         Last tested 2022-06-27 on Chrome 103
+      */
 
-        // A bogus BR should be added after the inline
-        test.eqHTML('<h1 class="heading1">Kop</h1>'
-                  +'<p class="normal">' + generateInlineEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>') + '<br data-wh-rte="bogus"></p>'
-                  +'<p class="normal">ondertekst</p>'
-                  , test.getWin().rte.getValue());
-      }
+      // A bogus BR should be added after the inline
+      test.eqHTML('<h1 class="heading1">Kop</h1>'
+        + '<p class="normal">' + generateInlineEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>') + '<br data-wh-rte="bogus"></p>'
+        + '<p class="normal">ondertekst</p>'
+        , test.getWin().rte.getValue());
+    }
   ]);

@@ -14,5 +14,5 @@
   <jstest file="teststructured-keyboard.ts" />
   <jstest file="testpageframe.ts" />
   <jstest file="testfocus.ts" />
-  <jstest file="testembeddedobjects.ts" />
+  <jstest file="testembeddedobjects.tsx" />
 </group>
