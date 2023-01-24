@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { WittyTemplate, EncodingStyles, WittyError } from "@webhare/witty";
+import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode } from "@webhare/witty";
 import { encodeValue } from "dompack/types/text";
 
 async function simpleTestWTE() {
@@ -278,7 +278,7 @@ async function wittyErrorHandling() {
       //test.eq("", e->library);
       test.eq(1, e.errors.length);
       test.eq(1, e.errors[0].line);
-      test.eq(5, e.errors[0].code);
+      test.eq(WittyErrorCode.ReservedWordAsCell, e.errors[0].code);
       test.eq("first", e.errors[0].arg);
     }
   }
