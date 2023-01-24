@@ -42,7 +42,7 @@ export class RTEDriver {
   }
 
   get body() {
-    return this.editor.getContentBodyNode();
+    return this.editor.getBody();
   }
 
   setSelection(startContainer, startOffset, endContainer, endOffset) {
@@ -132,7 +132,7 @@ export function testEqSelHTMLEx(win, expect) {
 
 export function testEqSelHTMLEx2(unused, rte, expect) {
   var range = rte.getSelectionRange();
-  testEqHTMLEx(unused, expect, rte.getContentBodyNode(), [range.start, range.end]);
+  testEqHTMLEx(unused, expect, rte.getBody(), [range.start, range.end]);
 }
 
 export function getHTML(node) {
@@ -175,9 +175,9 @@ export function setStructuredContent(win, structuredhtml, options) {
   else
     rte.setContentsHTML(structuredhtml);
 
-  var locators = richdebug.unstructureDom(win, rte.getContentBodyNode());
+  var locators = richdebug.unstructureDom(win, rte.getBody());
   if (options.verify)
-    testEqHTMLEx(win, structuredhtml, rte.getContentBodyNode(), locators);
+    testEqHTMLEx(win, structuredhtml, rte.getBody(), locators);
 
   if (locators[0]) {
     if (locators[1])
@@ -186,7 +186,7 @@ export function setStructuredContent(win, structuredhtml, options) {
       rte.setCursorAtLocator(locators[0]);
   }
   else // Must set selection because of our unstructuredom manipulations
-    rte.setCursorAtLocator(new domlevel.Locator(rte.getContentBodyNode()));
+    rte.setCursorAtLocator(new domlevel.Locator(rte.getBody()));
 
   return locators;
 }
@@ -210,7 +210,7 @@ export function getRTE(win, toddname) {
 }
 
 export function getPreActionState(rte) {
-  let snapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  let snapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   return { __snapshot: snapshot, __undopos: rte.undopos };
 }
 
@@ -235,7 +235,7 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
   //console.log("wait for undo stack to update");
   await test.sleep(1);
 
-  let currentsnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  let currentsnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   // console.log(`testUndoRedo current`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
   // console.log('undo supported: ', document.queryCommandSupported("undo"), rte.undonode);
@@ -249,7 +249,7 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
 
   // console.log(`testUndoRedo after undo`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
-  let undosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  let undosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot)) {
     console.log(`State after undo doesn't match pre-action state.`);
     console.log(`Expected:\n`, snapshots.dumpSnapShot(preactionstate.__snapshot));
@@ -273,7 +273,7 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
 
   //console.log(`testUndoRedo after redo`, "\n" + dumpSnapShot(currentsnapshot));
 
-  let redosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
+  let redosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   if (!snapshots.snapshotsEqual(currentsnapshot, redosnapshot)) {
     console.log(`State after redo doesn't match original state. Expected:`);
     console.log(snapshots.dumpSnapShot(currentsnapshot), `Got:`);
@@ -308,7 +308,7 @@ export async function runWithUndo(rte, func, options = {}) {
   await func();
 
   //wait for all uploads to complete
-  await test.wait(() => !rte.getContentBodyNode().querySelector(".wh-rtd__img--uploading"));
+  await test.wait(() => !rte.getBody().querySelector(".wh-rtd__img--uploading"));
 
   if (options.waits)
     await test.wait(options.waits);

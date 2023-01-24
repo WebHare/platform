@@ -38,7 +38,7 @@ test.registerTests(
       name: 'init'
       , test: function(doc, win) {
         rte = win.rte.getEditor();
-        table = rte.getContentBodyNode().getElementsByTagName('table')[0];
+        table = rte.getBody().getElementsByTagName('table')[0];
       }
     }
 
@@ -485,7 +485,7 @@ test.registerTests(
       name: 'tableeditor-scrolled'
       , test: function(doc, win) {
         // Injects some brs before the table
-        var br = rte.getContentBodyNode().getElementsByTagName('br')[0];
+        var br = rte.getBody().getElementsByTagName('br')[0];
         for (var i = 0; i < 40; ++i)
           dompack.after(br, doc.createElement('br'));
 
@@ -493,11 +493,11 @@ test.registerTests(
         rte.stateHasChanged();
 
         // Scroll to the last td
-        var last_td = Array.from(rte.getContentBodyNode().getElementsByTagName('td')).at(-1);
+        var last_td = Array.from(rte.getBody().getElementsByTagName('td')).at(-1);
         last_td.scrollIntoView();
 
         // See if we really scrolled
-        test.assert(rte.getContentBodyNode().parentNode.scrollTop > 100);
+        test.assert(rte.getBody().parentNode.scrollTop > 100);
 
         // Resize the table, making it wider
         var coords = getRoundedCoordinates(table);

@@ -200,7 +200,7 @@ test.registerTests(
       let invalidembed3 = document.createElement("div");
       invalidembed3.className = "wh-rtd-embeddedobject";
 
-      var bodynode = rte.getEditor().getContentBodyNode();
+      var bodynode = rte.getEditor().getBody();
       bodynode.append(invalidembed3);
 
       // Execute a paste to trigger revalidation
@@ -261,7 +261,7 @@ test.registerTests(
 
       //Select around element
       let myembobjcode = myembobj.outerHTML;
-      rtetest.setStructuredContent(rte.getEditor().getContentBodyNode(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+      rtetest.setStructuredContent(rte.getEditor().getBody(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
 
       await rtetest.runWithUndo(rte.getEditor(), () => rtetest.paste(rte.getEditor(),
         {

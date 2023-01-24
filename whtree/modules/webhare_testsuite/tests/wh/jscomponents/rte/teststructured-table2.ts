@@ -17,7 +17,7 @@ test.registerTests(
       name: 'checktable'
       , test: function(doc, win) {
         var rte = win.rte.getEditor();
-        var tables = rte.getContentBodyNode().getElementsByTagName('table');
+        var tables = rte.getBody().getElementsByTagName('table');
         test.eq(2, tables.length);
       }
     }
@@ -27,7 +27,7 @@ test.registerTests(
       // STORY: paste of entiry paragraph at end of table cell left an empty paragraph
       // STORY: paste of entiry paragraph at end of table cell broke the table into two subtables
       let rte = win.rte.getEditor();
-      let body = rte.getContentBodyNode();
+      let body = rte.getBody();
       await test.sleep(10);
       body.focus();
 
@@ -46,7 +46,7 @@ test.registerTests(
         }), { waits: 1 });
 
       // table not split into two tables?
-      let tables = rte.getContentBodyNode().getElementsByTagName('table');
+      let tables = rte.getBody().getElementsByTagName('table');
       test.eq(1, tables.length);
 
       // no trailing empty paragraph left?

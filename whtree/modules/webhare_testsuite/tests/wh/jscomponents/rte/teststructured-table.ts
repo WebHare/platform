@@ -109,15 +109,15 @@ test.registerTests(
       name: 'checkresizers'
       , test: function(doc, win) {
         var rte = win.rte.getEditor();
-        var table = rte.getContentBodyNode().getElementsByTagName('table')[0];
+        var table = rte.getBody().getElementsByTagName('table')[0];
         const driver = new rtetest.RTEDriver;
 
         // Check if all resizers are present
-        var resizers = rte.getContentBodyNode().parentNode.querySelectorAll('.wh-tableeditor-resize-col');
+        var resizers = rte.getBody().parentNode.querySelectorAll('.wh-tableeditor-resize-col');
         test.eq(2, resizers.length, "column resizers");
-        resizers = rte.getContentBodyNode().parentNode.querySelectorAll('.wh-tableeditor-resize-row');
+        resizers = rte.getBody().parentNode.querySelectorAll('.wh-tableeditor-resize-row');
         test.eq(2, resizers.length, "row resizers");
-        resizers = rte.getContentBodyNode().parentNode.querySelectorAll('.wh-tableeditor-resize-table');
+        resizers = rte.getBody().parentNode.querySelectorAll('.wh-tableeditor-resize-table');
         test.eq(2, resizers.length, "table resizers");
 
         // Check resizer positions
@@ -179,7 +179,7 @@ test.registerTests(
           + '<p class="normal">9</p></td></tr>'
           + '</tbody></table>');
 
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
         let trs = body.querySelectorAll('tr');
         test.eq(3, trs.length);
         test.eq("wh-rtd__tablecell red", trs[0].querySelectorAll("td")[0].className);
@@ -194,10 +194,10 @@ test.registerTests(
       name: 'insertcolumnbefore'
       , test: async function(doc, win) {
         var rte = win.rte.getEditor();
-        rte.setCursor(rte.getContentBodyNode().querySelectorAll('td > p')[1], 0);
+        rte.setCursor(rte.getBody().querySelectorAll('td > p')[1], 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addcolumn-before'));
 
-        let colgroups = rte.getContentBodyNode().querySelectorAll('col');
+        let colgroups = rte.getBody().querySelectorAll('col');
         test.eq(4, colgroups.length);
         test.assert(parseInt(colgroups[1].style.width) < 40); //properly inserted and smallest
       }
@@ -207,11 +207,11 @@ test.registerTests(
       name: 'insertrowafter'
       , test: async function(doc, win) {
         var rte = win.rte.getEditor();
-        let extendfromcell = rte.getContentBodyNode().querySelectorAll('td')[2];
+        let extendfromcell = rte.getBody().querySelectorAll('td')[2];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addrow-after'));
 
-        let trs = rte.getContentBodyNode().querySelectorAll('tr');
+        let trs = rte.getBody().querySelectorAll('tr');
         test.eq(4, trs.length);
 
         //Adding a row should not change our selection
@@ -229,11 +229,11 @@ test.registerTests(
       name: 'insertrowabove'
       , test: async function(doc, win) {
         var rte = win.rte.getEditor();
-        let extendfromcell = rte.getContentBodyNode().querySelectorAll('tr')[2].cells[0];
+        let extendfromcell = rte.getBody().querySelectorAll('tr')[2].cells[0];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addrow-before'));
 
-        let trs = rte.getContentBodyNode().querySelectorAll('tr');
+        let trs = rte.getBody().querySelectorAll('tr');
         let newtd = trs[2].cells[2];
         test.assert(newtd.offsetHeight < 50, "shouldn't have copied height from original row");
       }
@@ -249,25 +249,25 @@ test.registerTests(
           + '<tr> <td><p class="normal">7</p></td> <td><p class="normal">8</p></td> <td><p class="normal">9</p></td> </tr>'
           + '</tbody></table>');
 
-        let tdp = rte.getContentBodyNode().querySelectorAll('td > p')[4];
+        let tdp = rte.getBody().querySelectorAll('td > p')[4];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-mergeright'));
         test.eq(2, tdp.parentNode.colSpan);
         test.eq('56', tdp.parentNode.textContent);
-        test.eq(8, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(8, rte.getBody().querySelectorAll('td').length);
 
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitcols'));
         test.eq(1, tdp.parentNode.colSpan);
         test.eq('56', tdp.parentNode.textContent);
-        test.eq(9, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(9, rte.getBody().querySelectorAll('td').length);
 
-        tdp = rte.getContentBodyNode().querySelectorAll('td > p')[0];
+        tdp = rte.getBody().querySelectorAll('td > p')[0];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-mergeright'));
-        test.eq(8, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(8, rte.getBody().querySelectorAll('td').length);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitcols'));
-        test.eq(9, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(9, rte.getBody().querySelectorAll('td').length);
         test.eq('12', tdp.parentNode.textContent);
       }
     }
@@ -282,25 +282,25 @@ test.registerTests(
           + '<tr> <td><p class="normal">7</p></td> <td><p class="normal">8</p></td> <td><p class="normal">9</p></td> </tr>'
           + '</tbody></table>');
 
-        let tdp = rte.getContentBodyNode().querySelectorAll('td > p')[4];
+        let tdp = rte.getBody().querySelectorAll('td > p')[4];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-mergedown'));
         test.eq(2, tdp.parentNode.rowSpan);
         test.eq('58', tdp.parentNode.textContent);
-        test.eq(8, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(8, rte.getBody().querySelectorAll('td').length);
 
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitrows'));
         test.eq(1, tdp.parentNode.rowSpan);
         test.eq('58', tdp.parentNode.textContent);
-        test.eq(9, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(9, rte.getBody().querySelectorAll('td').length);
 
-        tdp = rte.getContentBodyNode().querySelectorAll('td > p')[0];
+        tdp = rte.getBody().querySelectorAll('td > p')[0];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-mergedown'));
-        test.eq(8, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(8, rte.getBody().querySelectorAll('td').length);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitrows'));
-        test.eq(9, rte.getContentBodyNode().querySelectorAll('td').length);
+        test.eq(9, rte.getBody().querySelectorAll('td').length);
         test.eq('14', tdp.parentNode.textContent);
       }
     }
@@ -317,7 +317,7 @@ test.registerTests(
           + '<tr> <td><p class="normal">7</p></td> <td><p class="normal">8</p></td> <td><p class="normal">9</p></td> </tr>'
           + '</tbody></table>');
 
-        tdp = rte.getContentBodyNode().querySelectorAll('td > p')[0];
+        tdp = rte.getBody().querySelectorAll('td > p')[0];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitcols'));
 
@@ -335,11 +335,11 @@ test.registerTests(
           + '<tr> <td><p class="normal">7</p></td> <td><p class="normal">8</p></td> <td><p class="normal">9</p></td> </tr>'
           + '</tbody></table>');
 
-        tdp = rte.getContentBodyNode().querySelectorAll('td > p')[0];
+        tdp = rte.getBody().querySelectorAll('td > p')[0];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-splitrows'));
 
-        let trs = rte.getContentBodyNode().querySelectorAll('tr');
+        let trs = rte.getBody().querySelectorAll('tr');
 
         test.eq(2, trs[0].firstChild.colSpan);
         test.eq(1, trs[0].firstChild.rowSpan);
@@ -368,9 +368,9 @@ test.registerTests(
           `td-1-1,td-1-1,td-2-1,td-1-1\n` +
           `td-1-2,` + `td-2-1\n` +
           `td-1-1,td-1-1,td-1-1`,
-          Array.from(rte.getContentBodyNode().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
+          Array.from(rte.getBody().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
 
-        let tdp = rte.getContentBodyNode().querySelectorAll('td > p')[4];
+        let tdp = rte.getBody().querySelectorAll('td > p')[4];
         rte.setCursor(tdp, 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addrow-after'));
 
@@ -383,7 +383,7 @@ test.registerTests(
           `td-1-2,` + `td-3-1\n` +
           `td-1-2,` + `td-1-1` + `\n` +
           `td-1-1,td-1-1,td-1-1` + ``,
-          Array.from(rte.getContentBodyNode().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
+          Array.from(rte.getBody().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
       }
     }
 

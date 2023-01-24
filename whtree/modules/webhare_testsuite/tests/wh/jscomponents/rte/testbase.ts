@@ -83,12 +83,12 @@ test.registerTests(
           console.log('test ', i, tests[i]);
 
           let locators = rtetest.setStructuredContent(win, tests[i]);
-          locators[0].check(rte.getContentBodyNode());
-          locators[1].check(rte.getContentBodyNode());
+          locators[0].check(rte.getBody());
+          locators[1].check(rte.getBody());
           let range = new Range(locators[0], locators[1]);
           rte.selectRange(range);
-          range.normalize(rte.getContentBodyNode());
-          rtetest.testEqHTMLEx(win, tests[i], rte.getContentBodyNode(), [locators[0], locators[1], range.start, range.end]);
+          range.normalize(rte.getBody());
+          rtetest.testEqHTMLEx(win, tests[i], rte.getBody(), [locators[0], locators[1], range.start, range.end]);
         }
 
         // Test selection setting
@@ -103,7 +103,7 @@ test.registerTests(
           locators[2].assign(range.start);
           locators[3].assign(range.end);
 
-          rtetest.testEqHTMLEx(win, tests[i], rte.getContentBodyNode(), locators);
+          rtetest.testEqHTMLEx(win, tests[i], rte.getBody(), locators);
         }
       }
     }
@@ -118,7 +118,7 @@ test.registerTests(
         rte.setContentsHTML('hey <b>bold</b> text');
         test.eq('hey <b>bold</b> text', win.rte.getValue().toLowerCase());
 
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.firstChild
           , startOffset: 0
@@ -138,7 +138,7 @@ test.registerTests(
         test.assert(rte.getSelectionState().hasTextStyle('b'));
 
         rte.setContentsHTML('<B>this text a b<I>old</I> text</B>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.firstChild
           , startOffset: 1
@@ -154,7 +154,7 @@ test.registerTests(
         test.assert(rte.getSelectionState().hasTextStyle('b'));
 
         rte.setContentsHTML('<B>this text a b<I>old</I> text</B>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         let t1 = body.firstChild.firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: t1
@@ -190,7 +190,7 @@ test.registerTests(
 
         // Test various cursor and selection positions
         rte.setContentsHTML('ab<br/>c');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         t1 = body.firstChild;
 
         rtetest.setRTESelection(win, rte, {
@@ -252,8 +252,8 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '"ab"<br/>"c(*0*)(*1*)"');
 
         rte.setContentsHTML('ab<b>c</b>');
-        var pastb = new domlevel.Locator(rte.getContentBodyNode().firstChild, 2); // "ab|"<b>...
-        var prec = new domlevel.Locator(rte.getContentBodyNode().firstChild.nextSibling.firstChild, 0); // "ab|"<b>"|c...
+        var pastb = new domlevel.Locator(rte.getBody().firstChild, 2); // "ab|"<b>...
+        var prec = new domlevel.Locator(rte.getBody().firstChild.nextSibling.firstChild, 0); // "ab|"<b>"|c...
 
         rte.selectRange(new Range(pastb, pastb));
         rtetest.testEqSelHTMLEx(win, '"ab(*0*)(*1*)"<b>"c"</b>');
@@ -288,7 +288,7 @@ test.registerTests(
           + ' een <a id="anchor" name="anchor">anchor</a> '
           + ' en een img in een link <a id="link2" href="../link2"><img id="img2" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" /></a>');
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
 
         /* ADDME should also work with simple cursor positioning ?
         rte.setCursor(body.getElementsByTagName('b')[0],2);
@@ -313,7 +313,7 @@ test.registerTests(
 
         // When settings selection at start of link text, browser puts selection outside of link
         rte.setCursor(test.qS('#link').firstChild, 0);
-        //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
+        //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
         test.assert(!rte.getSelectionState().propstarget);
 
 
@@ -362,8 +362,8 @@ test.registerTests(
 
         await test.wait("events"); // FF needs to load the image
         await test.sleep(100); // chrome needs some extra wait too
-        test.click(test.qS(rte.getContentBodyNode(), "img"));
-        test.click(test.qS(rte.getContentBodyNode(), "img")); //doubleclick
+        test.click(test.qS(rte.getBody(), "img"));
+        test.click(test.qS(rte.getBody(), "img")); //doubleclick
         test.eq(null, win.imgpropshandler); //ensure it was invoked
       }
     }
@@ -429,7 +429,7 @@ test.registerTests(
         rte.insertImage("/tollium_todd.res/webhare_testsuite/tollium/logo.png", 50, 50);
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="50" width="50">(*1*)" tekst"</b>');
 
-        rte.selectNodeOuter(test.qS(rte.getContentBodyNode(), "img"));
+        rte.selectNodeOuter(test.qS(rte.getBody(), "img"));
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="50" width="50" >(*1*)" tekst"</b>');
         rte.insertImage("/tollium_todd.res/webhare_testsuite/tollium/radiobutton.png", 16, 16);
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/radiobutton.png" height="16" width="16">(*1*)"\u00a0tekst"</b>');
@@ -449,13 +449,13 @@ test.registerTests(
       name: 'simplereadwritetest'
       , test: function(doc, win) {
         var rte = win.rte.getEditor();
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
 
         rte.setContentsHTML('<b>this text a bold text</b>');
         test.eq('<b>this text a bold text</b>', win.rte.getValue().toLowerCase());
 
         //Select 'old'
-        var boldelement = rte.getContentBodyNode().firstChild;
+        var boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.firstChild
           , startOffset: 13
@@ -473,7 +473,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<b>"this text a b"<i>"(*0*)old(*1*)"</i>" text"</b>');
 
         //Select 'a bo'
-        boldelement = rte.getContentBodyNode().firstChild;
+        boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.firstChild
           , startOffset: 10
@@ -500,7 +500,7 @@ test.registerTests(
 
         rte.applyTextStyle('b', true);
 
-        rte.selectNodeInner(rte.getContentBodyNode());
+        rte.selectNodeInner(rte.getBody());
         // TODO Implement node combine when adding stuff
         rtetest.testEqSelHTMLEx(win, '<b>"(*0*)this text "<u>"a b"<i>"o"</i></u><i>"ld"</i>" tex"</b><b>"t(*1*)"</b>', win.rte.getValue().toLowerCase());
 
@@ -512,7 +512,7 @@ test.registerTests(
         rte.setContentsHTML('this text no bold text');
 
         //Select nothing in the middle
-        let textelement = rte.getContentBodyNode().firstChild;
+        let textelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: textelement
           , startOffset: 14
@@ -530,7 +530,7 @@ test.registerTests(
         rte.setContentsHTML('this text no bold text');
 
         //Select nothing in the middle
-        textelement = rte.getContentBodyNode().firstChild;
+        textelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: textelement
           , startOffset: 14
@@ -546,7 +546,7 @@ test.registerTests(
 
         rte.setContentsHTML('<b>bold<i>bold,italic</i></b><u>underlined</u>');
 
-        var italictextelement = rte.getContentBodyNode().firstChild.firstChild.nextSibling.firstChild;
+        var italictextelement = rte.getBody().firstChild.firstChild.nextSibling.firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: italictextelement
           , startOffset: 1
@@ -560,7 +560,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<b>"bold"<i>"b"</i></b><i>"x(*0*)(*1*)"</i><b><i>"old,italic"</i></b><u>"underlined"</u>');
 
         rte.setContentsHTML('<ul><li>ab</li><li>cd</li></ul>');
-        var ullement = rte.getContentBodyNode().firstChild;
+        var ullement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: ullement.firstChild.firstChild
           , startOffset: 1
@@ -585,7 +585,7 @@ test.registerTests(
         test.eq('<b>this text a b<span>old</span> text</b>', win.rte.getValue().toLowerCase());
 
         //Select 'old'
-        var boldelement = rte.getContentBodyNode().firstChild;
+        var boldelement = rte.getBody().firstChild;
         var spanelement = boldelement.firstChild.nextSibling;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement
@@ -613,7 +613,7 @@ test.registerTests(
 
         //Select 'a bo'
 
-        boldelement = rte.getContentBodyNode().firstChild;
+        boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.firstChild
           , startOffset: 10
@@ -637,7 +637,7 @@ test.registerTests(
 
         rte.setContentsHTML('<b>this text a bold text</b>');
         test.eq('<b>this text a bold text</b>', win.rte.getValue().toLowerCase());
-        let boldelement = rte.getContentBodyNode().firstChild;
+        let boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.firstChild
           , startOffset: 'this '.length
@@ -650,7 +650,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<b>"this "<i>"(*0*)text(*1*)"</i>" a bold text"</b>');
 
         //partial overlap syntax reapply, overlap on right end
-        boldelement = rte.getContentBodyNode().firstChild;
+        boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.childNodes[1].firstChild // <i>
           , startOffset: 'xt'.length
@@ -663,14 +663,14 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<b>"this "<i>"te"</i><i>"(*0*)xt"" a bo(*1*)"</i>"ld text"</b>');
 
         //all underlines should go!
-        rte.selectNodeInner(rte.getContentBodyNode());
+        rte.selectNodeInner(rte.getBody());
         rtetest.testEqSelHTMLEx(win, '<b>"(*0*)this "<i>"te"</i><i>"xt"" a bo"</i>"ld text(*1*)"</b>');
         rte.applyTextStyle('i', false);
         rtetest.testEqSelHTMLEx(win, '<b>"(*0*)this ""te""xt"" a bo""ld text(*1*)"</b>');
 
         //full overlap reapply
         rte.setContentsHTML('<b>this text a bold text</b>');
-        boldelement = rte.getContentBodyNode().firstChild;
+        boldelement = rte.getBody().firstChild;
         rtetest.setRTESelection(win, rte, {
           startContainer: boldelement.firstChild
           , startOffset: 'this '.length
@@ -695,7 +695,7 @@ test.registerTests(
         test.eq('just another text. <b>bold 1</b>, <i>italic 1</i>, <b>secondbold</b>, <u>underline 1</u>', win.rte.getValue().toLowerCase());
 
         //make everything from 'another' until 'italic' bold. should eliminate the bold tags around bold1
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.firstChild
           , startOffset: 'Just '.length
@@ -716,7 +716,7 @@ test.registerTests(
         var rte = win.rte.getEditor();
         rte.setContentsHTML('a<br>b<br>c<br>');
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
 
         rtetest.setRTESelection(win, rte, {
           startContainer: body
@@ -741,7 +741,7 @@ test.registerTests(
         //testEqHTML( '<p>haikus are easy</p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'
         //                   , win.rte.getValue().toLowerCase());
 
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.childNodes[0].firstChild
           , startOffset: 'Haikus are '.length
@@ -758,7 +758,7 @@ test.registerTests(
         //testEqHTML('<p>ab</p><p>cd</p><div><p>ef</p>gh</div><p>ij</p>'
         //    , win.rte.getValue().toLowerCase());
 
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.childNodes[0].firstChild
           , startOffset: 'A'.length
@@ -782,7 +782,7 @@ test.registerTests(
         win.rte.setValue('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
         test.assert(!win.rte.isDirty());
 
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.childNodes[0].firstChild
           , startOffset: 'Haikus are'.length
@@ -839,11 +839,11 @@ test.registerTests(
         test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'
           , win.rte.getValue().toLowerCase());
 
-        rte.selectNodeInner(rte.getContentBodyNode());
+        rte.selectNodeInner(rte.getBody());
         test.eq(true, rte.getSelectionState().hyperlink);
 
         rte.setContentsHTML('abcd');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.firstChild
           , startOffset: 'a'.length
@@ -853,7 +853,7 @@ test.registerTests(
 
         //verify that hyperlinks get preserved as-is
         rte.insertHyperlink('#top');
-        test.eq("#top", rte.getContentBodyNode().getElementsByTagName("A")[0].getAttribute("href"));
+        test.eq("#top", rte.getBody().getElementsByTagName("A")[0].getAttribute("href"));
         rtetest.testEqSelHTMLEx(win, '"a"<a href="#top">"(*0*)bc(*1*)"</a>"d"');
 
         rte.insertHyperlink('http://www.b-lex.nl/');
@@ -879,7 +879,7 @@ test.registerTests(
         var rte = win.rte.getEditor();
         rte.setContentsHTML('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
         rtetest.setRTESelection(win, rte, {
           startContainer: body.childNodes[0].firstChild
           , startOffset: body.childNodes[0].firstChild.nodeValue.length
@@ -907,8 +907,8 @@ test.registerTests(
 
         test.eq(['p', '#text: But sometimes they don\'t make sense', 'p', '#text: Refrigerator'], rtetest.RunIteratorOnRange2(win, rte.getSelectionRange()));
 
-        rte.selectNodeInner(rte.getContentBodyNode());
-        //console.log(win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
+        rte.selectNodeInner(rte.getBody());
+        //console.log(win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
 
         //var topnode = getTestArgument(0)=='contenteditable' ? 'div' : 'body';
         test.eq([ /*topnode, */'p', '#text: Haikus are easy', 'p', '#text: But sometimes they don\'t make sense', 'p', '#text: Refrigerator'], rtetest.RunIteratorOnRange2(win, rte.getSelectionRange()));
@@ -920,7 +920,7 @@ test.registerTests(
           , endOffset: 0
         });
 
-        //console.log(win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
+        //console.log(win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
         test.eq([], rtetest.RunIteratorOnRange2(win, rte.getSelectionRange()));
 
         rtetest.setRTESelection(win, rte, {

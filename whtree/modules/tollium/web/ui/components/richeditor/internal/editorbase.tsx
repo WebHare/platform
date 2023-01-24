@@ -204,7 +204,7 @@ class EditorUndoItem {
 
     // Watch all changes happening within this undoitem
     this.undoChangeObserver = new MutationObserver((records) => this.undoRecords.push(...records));
-    this.undoChangeObserver.observe(editor.getContentBodyNode(),
+    this.undoChangeObserver.observe(editor.getBody(),
       {
         childList: true
         , subtree: true
@@ -230,12 +230,12 @@ class EditorUndoItem {
   }
 
   undo() {
-    this.redoRecords = undoMutationEvents(this.editor.getContentBodyNode(), this.undoRecords, !this.redoRecords) || this.redoRecords;
+    this.redoRecords = undoMutationEvents(this.editor.getBody(), this.undoRecords, !this.redoRecords) || this.redoRecords;
     this.editor.selectRange(this.preselection);
   }
 
   redo() {
-    undoMutationEvents(this.editor.getContentBodyNode(), this.redoRecords, false);
+    undoMutationEvents(this.editor.getBody(), this.redoRecords, false);
     this.editor.selectRange(this.postselection);
   }
 }
@@ -390,7 +390,7 @@ export default class EditorBase {
   }
 
   refocusAfterUndoUpdate() {
-    setTimeout(() => this.getContentBodyNode().focus());
+    setTimeout(() => this.getBody().focus());
     this.stateHasChanged();
   }
 
@@ -455,7 +455,7 @@ export default class EditorBase {
       let node = endpath[i];
       if (node.nodeType === 1 && node.nodeName.toLowerCase() === "table") {
         let locator = domlevel.Locator.newPointingTo(node);
-        locator.scanBackward(this.getContentBodyNode(), { whitespace: true, blocks: true }); // if we set past the last block elt, we'll delete that linebreak too, too dangerous
+        locator.scanBackward(this.getBody(), { whitespace: true, blocks: true }); // if we set past the last block elt, we'll delete that linebreak too, too dangerous
         if (range.start.compare(locator) <= 0)
           range.end.assign(locator);
         else
@@ -489,14 +489,14 @@ export default class EditorBase {
   // Public API
   //
 
-  getContentBodyNode() {
+  getBody() {
     return this.bodydiv;
   }
 
   setContentsHTML(htmlcode, options) {
     //note: WE don't use 'raw', but the structurededitor does! raw bypasses its cleanup
     this.bodydiv.innerHTML = htmlcode;
-    this.setCursorAtLocator(new domlevel.Locator(this.getContentBodyNode()));
+    this.setCursorAtLocator(new domlevel.Locator(this.getBody()));
   }
   setContentsHTMLRaw(htmlcode) {
     this.setContentsHTML(htmlcode, { raw: true });
@@ -513,7 +513,7 @@ export default class EditorBase {
   }
 
   _fixChromeInitialPositionBug(range) {
-    const bodynode = this.getContentBodyNode();
+    const bodynode = this.getBody();
 
     // Fixes chrome positioning the cursor at the first node when the document starts with embedded blocks, and then selecting an empty paragraph after those blocks
     if (range.end.element === bodynode && range.end.offset === 0) {
@@ -530,7 +530,7 @@ export default class EditorBase {
       this.selectionitf.selectRange(range);
 
       if (modified && (Range.getLogLevel() & 4))
-        console.log('getSelectionRange native was not legal (contentEditable error). After normalize', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), range.start, range.end);
+        console.log('getSelectionRange native was not legal (contentEditable error). After normalize', richdebug.getStructuredOuterHTML(this.getBody(), range, true), range.start, range.end);
     }
   }
 
@@ -542,22 +542,22 @@ export default class EditorBase {
   getSelectionRange(options) {
     var skipnormalize = options && options.skipnormalize;
 
-    var bodynode = this.getContentBodyNode();
+    var bodynode = this.getBody();
 
     if (this.hasFocus()) {
       var range = this.selectionitf.getSelectionRange();
       if (range) {
         if (Range.getLogLevel() & 4)
-          console.log('getSelectionRange have native selection (limited to body node)', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), Object.assign({}, range.start), Object.assign({}, range.end));
+          console.log('getSelectionRange have native selection (limited to body node)', richdebug.getStructuredOuterHTML(this.getBody(), range, true), Object.assign({}, range.start), Object.assign({}, range.end));
 
         range.limitToNode(bodynode);
-        if (!range.isLegal(this.getContentBodyNode())) {
+        if (!range.isLegal(this.getBody())) {
           console.log('normalize illegal range');
-          range.normalize(this.getContentBodyNode());
+          range.normalize(this.getBody());
           this.selectionitf.selectRange(range);
 
           if (Range.getLogLevel() & 4)
-            console.log('getSelectionRange native was not legal. After normalize', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), range.start, range.end);
+            console.log('getSelectionRange native was not legal. After normalize', richdebug.getStructuredOuterHTML(this.getBody(), range, true), range.start, range.end);
         }
 
         this._fixChromeInitialPositionBug(range);
@@ -567,14 +567,14 @@ export default class EditorBase {
         this.currentrange.limitToNode(bodynode);
 
         if (Range.getLogLevel() & 4)
-          console.log('getSelectionRange no native selection, use saved', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
+          console.log('getSelectionRange no native selection, use saved', richdebug.getStructuredOuterHTML(this.getBody(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
       }
     }
     else if (this.currentrange) {
       this.currentrange.limitToNode(bodynode);
 
       if (Range.getLogLevel() & 4)
-        console.log('getSelectionRange no focus, use saved', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
+        console.log('getSelectionRange no focus, use saved', richdebug.getStructuredOuterHTML(this.getBody(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
     if (!this.currentrange) {
@@ -582,14 +582,14 @@ export default class EditorBase {
       var locator = new domlevel.Locator(bodynode);
       this.currentrange = new Range(locator, locator);
       if (Range.getLogLevel() & 4)
-        console.log('getSelectionRange no saved selection', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
+        console.log('getSelectionRange no saved selection', richdebug.getStructuredOuterHTML(this.getBody(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
     var retval = this.currentrange.clone();
     if (!skipnormalize) {
       retval.normalize(bodynode, true);
       if (Range.getLogLevel() & 4)
-        console.log('getSelectionRange normalized selection', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), retval, true), retval.start, retval.end);
+        console.log('getSelectionRange normalized selection', richdebug.getStructuredOuterHTML(this.getBody(), retval, true), retval.start, retval.end);
     }
 
     return retval;
@@ -604,7 +604,7 @@ export default class EditorBase {
     if (!domlevel.isNodeSplittable(range.end.element))
       throw new Error("Trying to put end of selection within an unsplittable element (" + range.end.element.nodeName + ')');
 
-    var body = this.getContentBodyNode();
+    var body = this.getBody();
     this.currentrange = range.clone();
 
     if (Range.getLogLevel() & 64)
@@ -619,7 +619,7 @@ export default class EditorBase {
         console.log('selectrange after normalize', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
-    //console.log('B selectingrange set', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true));
+    //console.log('B selectingrange set', richdebug.getStructuredOuterHTML(this.getBody(), range, true));
     this.selectingrange = true;
 
     if (this.hasFocus())
@@ -629,7 +629,7 @@ export default class EditorBase {
       console.log('EA selectRange', this.connected, richdebug.getStructuredOuterHTML(body, range, false));
 
     this.selectingrange = false;
-    //console.log('B selectingrange res', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange(), true));
+    //console.log('B selectingrange res', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange(), true));
 
     this.selectionHasChanged(this.currentrange);
     this.stateHasChanged();
@@ -685,7 +685,7 @@ export default class EditorBase {
 
   /// reprocess stuff like icons in embedded blocks
   _reprocessEmbeddedAutoElements() {
-    icons.loadMissingImages({ node: this.getContentBodyNode() });
+    icons.loadMissingImages({ node: this.getBody() });
   }
 
   SetBackgroundColor(color) //FIXME must be unused...
@@ -785,7 +785,7 @@ export default class EditorBase {
   }
 
   SelectAll() {
-    this.selectNodeInner(this.getContentBodyNode());
+    this.selectNodeInner(this.getBody());
     this.stateHasChanged();
   }
 
@@ -799,7 +799,7 @@ export default class EditorBase {
   }
 
   insertTextAtCursor(text) {
-    //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
+    //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getBody(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
 
     var range = this.getSelectionRange();
     if (!range.isCollapsed())
@@ -807,7 +807,7 @@ export default class EditorBase {
 
     // selection is collapsed, so range start = range end, so we can just use range start
     //    console.log('insertTextAtCursor DescendLocatorToLeafNode locators.start');
-    range.start.descendToLeafNode(this.getContentBodyNode());
+    range.start.descendToLeafNode(this.getBody());
 
     // locators.start should now point to a text node, insert the text
     var textnode = range.start.element;
@@ -841,7 +841,7 @@ export default class EditorBase {
     this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
     this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
 
-    this.getContentBodyNode().focus();
+    this.getBody().focus();
     this.selectRange(item.postselection);
 
     if (dompack.debugflags.rte)
@@ -922,7 +922,7 @@ export default class EditorBase {
   */
   getBlockAtNode(node) {
     // Look out - can also be used within document fragments!
-    let root = this.getContentBodyNode();
+    let root = this.getBody();
 
     let res =
     {
@@ -1014,7 +1014,7 @@ export default class EditorBase {
 
     // No need to do work on empty selections
     if (normalize)
-      range.normalize(this.getContentBodyNode());
+      range.normalize(this.getBody());
     if (range.isCollapsed())
       return range.start.clone();
 
@@ -1066,7 +1066,7 @@ export default class EditorBase {
     // Content to append?
     if (!parts[2].start.equals(parts[2].end)) {
       let locator = parts[2].start.clone();
-      locator.descendToLeafNode(this.getContentBodyNode());
+      locator.descendToLeafNode(this.getBody());
 
       // See if there is a block in the removed fragment. If so, move only its contents.
       var restblock = this.getBlockAtNode(locator.getNearestNode());
@@ -1115,15 +1115,15 @@ export default class EditorBase {
       locator = domlevel.combineAdjacentTextNodes(locator, null, undoitem);
 
     const prevlocator = locator.clone();
-    const prevres = prevlocator.scanBackward(this.getContentBodyNode(), {});
+    const prevres = prevlocator.scanBackward(this.getBody(), {});
     if (prevres.type === "whitespace")
-      domlevel.rewriteWhitespace(this.getContentBodyNode(), prevlocator, [locator], undoitem);
+      domlevel.rewriteWhitespace(this.getBody(), prevlocator, [locator], undoitem);
 
     if (!prevlocator.equals(locator)) {
       const nextlocator = locator.clone();
-      const nextres = nextlocator.scanForward(this.getContentBodyNode(), {});
+      const nextres = nextlocator.scanForward(this.getBody(), {});
       if (nextres.type === "whitespace")
-        domlevel.rewriteWhitespace(this.getContentBodyNode(), nextlocator, [locator], undoitem);
+        domlevel.rewriteWhitespace(this.getBody(), nextlocator, [locator], undoitem);
     }
 
     return locator;
@@ -1186,14 +1186,14 @@ export default class EditorBase {
     var range = this.getSelectionRange();
 
     // Find blockquotes at start - but don't break through tables
-    var breakparent = domlevel.findParent(range.start.element, ['blockquote', 'th', 'td'], this.getContentBodyNode());
+    var breakparent = domlevel.findParent(range.start.element, ['blockquote', 'th', 'td'], this.getBody());
     var topblockquote;
     while (breakparent) {
       if (breakparent.nodeName.toLowerCase() != 'blockquote')
         break;
 
       topblockquote = breakparent;
-      breakparent = domlevel.findParent(breakparent.parentNode, ['blockquote', 'th', 'td'], this.getContentBodyNode());
+      breakparent = domlevel.findParent(breakparent.parentNode, ['blockquote', 'th', 'td'], this.getBody());
     }
 
     if (topblockquote) {
@@ -1226,10 +1226,10 @@ export default class EditorBase {
     if (locators.start.element != locators.end.element || locators.start.offset != locators.end.offset)
       splitlocators.push({ locator: locators.end, toward: 'end' });
 
-    //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), splitlocators.map(function(item){return item.locator;})));
+    //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function(item){return item.locator;})));
     var parts = domlevel.splitDom(splitparent, splitlocators, undolock.undoitem);
     //console.log(parts);
-    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), parts));
+    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
 
     // Find last node before cursor position (highest ancestor of right element of first part)
     var leftborder = parts[0].end.element;
@@ -1241,7 +1241,7 @@ export default class EditorBase {
     while (rightborder.parentNode && rightborder.parentNode != splitparent)
       rightborder = rightborder.parentNode;
 
-    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { leftborder: leftborder, rightborder: rightborder, splitparent: splitparent }));
+    //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), { leftborder: leftborder, rightborder: rightborder, splitparent: splitparent }));
 
     if (leftborder.parentNode != splitparent || rightborder.parentNode != splitparent)
       return;
@@ -1293,7 +1293,7 @@ export default class EditorBase {
       // No selection: find the A node that is the parent of the cursor and select that one
       // ADDME: unselect and keep current cursor position
       //var range = sel.GetRange();
-      var path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getContentBodyNode());
+      var path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
 
       for (var i = path.length - 1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() == 'a') {
@@ -1317,7 +1317,7 @@ export default class EditorBase {
     if (cols <= 0 || rows <= 0)
       return;
 
-    var body = this.getContentBodyNode();
+    var body = this.getBody();
     //    var selobj = this.GetSelectionObject();
     //    var range = selobj.GetRange();
     //    if (!range)
@@ -1372,7 +1372,7 @@ export default class EditorBase {
 
   _clearFormatting() {
     //ADDME: Only clear formatting of selected contents?
-    var body = this.getContentBodyNode();
+    var body = this.getBody();
     this.setContentsHTML(GetOuterPlain(body, true));
     this.stateHasChanged();
   }
@@ -1457,9 +1457,9 @@ export default class EditorBase {
 
   async handlePasteDone() {
     //Check for and remove hostile nodes
-    dompack.qSA(this.getContentBodyNode(), "script,style,head").forEach(node => node.remove());
+    dompack.qSA(this.getBody(), "script,style,head").forEach(node => node.remove());
 
-    let imgs = qSA(this.getContentBodyNode(), 'img');
+    let imgs = qSA(this.getBody(), 'img');
     imgs = imgs.filter(img => !this.rte.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
     if (!imgs.length) //nothing to do
       return;
@@ -1554,10 +1554,10 @@ export default class EditorBase {
   }
 
   surroundRange(range, elementinfo, undoitem) {
-    //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range));
+    //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //var result = domlevel.surroundRange(range, elementinfo);
 
-    domlevel.removeNodesFromRange(range, this.getContentBodyNode(), elementinfo.element, null, undoitem);
+    domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null, undoitem);
 
     if (elementinfo.wrapin) {
       console.log(elementinfo);
@@ -1570,7 +1570,7 @@ export default class EditorBase {
         undoitem);
     }
 
-    //console.log('surroundrange end', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range));
+    //console.log('surroundrange end', richdebug.getStructuredOuterHTML(this.getBody(), range));
   }
 
   _surroundSelection(elementinfo) {
@@ -1779,19 +1779,19 @@ export default class EditorBase {
 
     var listoptions = this.getAvailableListActions(range);
 
-    var actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getContentBodyNode());
+    var actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getBody());
     formatting.actionparent = actionparent;
 
     // When the cursor is at the start of the next block, correct the end position to the end of the previous block element.
     var end_locator = range.end.clone();
-    end_locator.scanBackward(this.getContentBodyNode(), { blocks: true, alwaysvisibleblocks: true });
+    end_locator.scanBackward(this.getBody(), { blocks: true, alwaysvisibleblocks: true });
     if (range.start.compare(end_locator) > 0) // Don't go past start
       end_locator = range.start;
 
     var startblock = this.getBlockAtNode(range.start.element).contentnode;
     var limitblock = this.getBlockAtNode(end_locator.element).contentnode;
 
-    var tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getContentBodyNode());
+    var tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody());
     formatting.cellparent = tdparent;
 
     var allow_td_actions = startblock == limitblock && tdparent;
@@ -1928,8 +1928,8 @@ export default class EditorBase {
 
   _gotCopy(event) {
     // Add the copy-indicator class to the body node, to make sure embedded objects can be copied. Clear when the event is handled.
-    this.getContentBodyNode().classList.add("wh-rtd-editor-bodynode--copying");
-    Promise.resolve().then(() => this.getContentBodyNode().classList.remove("wh-rtd-editor-bodynode--copying"));
+    this.getBody().classList.add("wh-rtd-editor-bodynode--copying");
+    Promise.resolve().then(() => this.getBody().classList.remove("wh-rtd-editor-bodynode--copying"));
   }
 
   _gotCut(event) {
@@ -1958,7 +1958,7 @@ export default class EditorBase {
   _gotDOMNodeRemoved(event) {
     // Node removed that's a child of the content node? Check the dom!
     // Needed because of select all+delete in context menu in ff & no selection change events
-    if (event.relatedNode == this.getContentBodyNode())
+    if (event.relatedNode == this.getBody())
       this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
   }
 
@@ -2002,7 +2002,7 @@ export default class EditorBase {
       options.resize_table = resizing.includes("all") || resizing.includes("table");
     }
 
-    editor = new tablesupport.TableEditor(tablenode, this.getContentBodyNode(), options);
+    editor = new tablesupport.TableEditor(tablenode, this.getBody(), options);
     this.tableeditors.push(editor);
   }
 
@@ -2012,7 +2012,7 @@ export default class EditorBase {
 
   _getEditableTables() {
     let retval = [];
-    for (let node of qSA(this.getContentBodyNode(), "table")) {
+    for (let node of qSA(this.getBody(), "table")) {
       if (!node.isContentEditable)
         continue;
       let tableresizing = this._getResizingOptionsForTable(node);
@@ -2139,13 +2139,13 @@ export default class EditorBase {
     const range = this.getSelectionRange();
     let b = range.start, e = range.end;
 
-    const bres = b.scanForward(this.getContentBodyNode(), {});
-    const eres = e.scanBackward(this.getContentBodyNode(), {});
+    const bres = b.scanForward(this.getBody(), {});
+    const eres = e.scanBackward(this.getBody(), {});
 
-    const br = range.start.clone(); br.moveRight(this.getContentBodyNode());
-    const el = range.end.clone(); el.moveLeft(this.getContentBodyNode());
+    const br = range.start.clone(); br.moveRight(this.getBody());
+    const el = range.end.clone(); el.moveLeft(this.getBody());
 
-    console.log('inspectres', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range, b, e, br, el }, { indent: 1 }), bres, eres);
+    console.log('inspectres', richdebug.getStructuredOuterHTML(this.getBody(), { range, b, e, br, el }, { indent: 1 }), bres, eres);
     console.log({ b, e, br, el });
   }
 
@@ -2195,16 +2195,16 @@ export default class EditorBase {
 
     var range = this.getSelectionRange();
 
-    //console.log('keypressed', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range));
+    //console.log('keypressed', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //console.log(range.isCollapsed(), this.delayedsurrounds.length);
     if (this.delayedsurrounds.length) {
       if (!range.isCollapsed() || eventdata.key.length !== 1)
         this.ClearDelayedSurrounds();
       else {
         // Insert the pressed character at the current cursor position
-        //console.log('pre sst "' + String.fromCharCode(charCode) + '"', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange()));
+        //console.log('pre sst "' + String.fromCharCode(charCode) + '"', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange()));
         this.insertTextAtCursor(eventdata.key);
-        //console.log('post sst', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange()));
+        //console.log('post sst', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange()));
 
         //console.log('onKeyPressed, delay, pre: ', this.getContentsHTML());
 
@@ -2294,11 +2294,11 @@ export default class EditorBase {
 
     if (attach) {
       document.addEventListener('selectionchange', this.inputeventfunction);
-      this.getContentBodyNode().addEventListener('input', this.inputeventfunction);
+      this.getBody().addEventListener('input', this.inputeventfunction);
     }
     else {
       document.removeEventListener('selectionchange', this.inputeventfunction);
-      this.getContentBodyNode().removeEventListener('input', this.inputeventfunction);
+      this.getBody().removeEventListener('input', this.inputeventfunction);
     }
 
     this.attachedinputevents = attach;
@@ -2348,12 +2348,12 @@ export default class EditorBase {
   }
 
   setShowFormatting(show) {
-    this.getContentBodyNode().classList.toggle('wh-rtd-formatting', Boolean(show));
+    this.getBody().classList.toggle('wh-rtd-formatting', Boolean(show));
     this.stateHasChanged();
   }
 
   getShowFormatting() {
-    return this.getContentBodyNode().classList.contains("wh-rtd-formatting");
+    return this.getBody().classList.contains("wh-rtd-formatting");
   }
   executeDefaultPropertiesAction(event) {
     if (event.target.nodeName == 'A') {
