@@ -273,7 +273,7 @@ class SourceDebugger {
     this.el = el;
     this.boxel = boxel;
     this.editpr = null;
-    this.rte.getContainer().addEventListener("wh:richeditor-statechange", () => this.onStateChange());
+    this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this.onStateChange());
   }
   refresh() {
     this.onStateChange(null);
