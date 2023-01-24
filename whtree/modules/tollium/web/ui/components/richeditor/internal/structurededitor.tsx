@@ -419,8 +419,8 @@ export default class StructuredEditor extends EditorBase {
 
   /** Returns whether 2 nodes can be combined together without unintented consequenses (list concatenation
       of adjacent nodes is an intented consequense)
-      @param node
-      @param toright
+      @param node -
+      @param toright -
   */
   canCombineNodes(denylist, left, right) {
     var res;
@@ -440,10 +440,10 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Combines <b>s, <ol>s and the likes together while possible
-      @param ancestor
-      @param locator
-      @param keeplocators Locators to keep at valid locations
-      @return locator, adjusted
+      @param ancestor -
+      @param locator -
+      @param keeplocators - Locators to keep at valid locations
+      @returns locator, adjusted
   */
   combineAtLocator(ancestor, locator, towardsend, denylist, preservelocators, undoitem) {
     domlevel.combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, this.canCombineNodes.bind(this, denylist || []), preservelocators || [], undoitem);
@@ -485,11 +485,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Inserts a node into the DOM, auto-splitting textnodes if inserting within them
-      @param locator Place to insert the node
-      @param node Node to insert
-      @return
-      @cell return.locator Locator pointing to new inserted node
-      @cell return.next Locator point to node after the newly inserted node
+      @param locator - Place to insert the node
+      @param node - Node to insert
+      @returns
+      \@cell return.locator Locator pointing to new inserted node
+      \@cell return.next Locator point to node after the newly inserted node
   */
   insertNodeAutoSplit(locator, node, preservelocators, undoitem) {
     // Within the middle of a text node?
@@ -524,11 +524,11 @@ export default class StructuredEditor extends EditorBase {
 
   /** Inserts a block node into a specific position, modifies DOM to maintain correct structure. Breaks out
       of existing blocks when inserting new (non-list) blocks
-      @param locator
-      @param blockstyle
-      @return
-      @cell return.node
-      @cell return.contentlocator
+      @param locator -
+      @param blockstyle -
+      @returns
+      \@cell return.node
+      \@cell return.contentlocator
   */
   insertBlockNode(locator, blockstyle, insertli, preservelocators, undoitem, anchor) {
     //    console.log('insertBlockNode: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -1063,13 +1063,13 @@ export default class StructuredEditor extends EditorBase {
 
   /** Describes the first ancestor blocknode of a block. If no block is found, the block section node is returned
       in all values.
-      @param node Block node (or child thereof)
-      @return
-      @cell return.blockstyle Determined style of the block node
-      @cell return.node Block top node (p/h1..h6/ol/ul)
-      @cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
-      @cell return.blockparent Parent of the block node
-      @cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
+      @param node - Block node (or child thereof)
+      @returns
+      \@cell return.blockstyle Determined style of the block node
+      \@cell return.node Block top node (p/h1..h6/ol/ul)
+      \@cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
+      \@cell return.blockparent Parent of the block node
+      \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
   getBlockAtNode(node) {
     var res = super.getBlockAtNode(node);
@@ -1082,11 +1082,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Returns all the blocks in a range
-      @param range
-      @return
-      @cell type 'block'/'range'
-      @cell range
-      @cell block
+      @param range -
+      @returns
+      \@cell type 'block'/'range'
+      \@cell range
+      \@cell block
   */
   getBlocksInRange(range, withinnerlists) {
     range = range.clone();
@@ -1231,9 +1231,9 @@ export default class StructuredEditor extends EditorBase {
 
   /** Node that parses an incoming (paste, initial set) node and tries to recognize it
       based on the configuration of this editor
-      @return
-      @cell return.type
-      @cell return.style
+      @returns
+      \@cell return.type
+      \@cell return.style
   */
   parseNode(node) {
     // text nodes?
@@ -1849,14 +1849,14 @@ export default class StructuredEditor extends EditorBase {
     }
   }
 
-  /** @param locator
-      @param node Container whose contents will be parsed and inserted
-      @param options
-      @cell options.externalcontent External content (remove trailing br, empty paragraphs)
-      @cell options.inblock
-      @cell options.breakafter Add a new (default) paragraph after the inserted content (ADDME list?)
-      @param undoitem
-      @return Locator pointing to node just after inserted content
+  /** @param locator -
+      @param node - Container whose contents will be parsed and inserted
+      @param options -
+      \@cell options.externalcontent External content (remove trailing br, empty paragraphs)
+      \@cell options.inblock
+      \@cell options.breakafter Add a new (default) paragraph after the inserted content (ADDME list?)
+      @param undoitem -
+      @returns Locator pointing to node just after inserted content
   */
   insertContainerContents(locator, node, options, preservelocators, undoitem) {
     preservelocators = preservelocators || [];

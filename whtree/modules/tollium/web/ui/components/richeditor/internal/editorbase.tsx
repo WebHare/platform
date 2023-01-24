@@ -913,12 +913,12 @@ export default class EditorBase {
 
   /** Describes the first ancestor blocknode of a block. If no block is found, the block section node is returned
       in all values.
-      @param node Block node (or child thereof)
-      @return
-      @cell return.node Block top node (p/h1..h6/ol/ul)
-      @cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
-      @cell return.blockparent Parent of the block node
-      @cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
+      @param node - Block node (or child thereof)
+      @returns
+      \@cell return.node Block top node (p/h1..h6/ol/ul)
+      \@cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
+      \@cell return.blockparent Parent of the block node
+      \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
   getBlockAtNode(node) {
     // Look out - can also be used within document fragments!
@@ -1003,11 +1003,11 @@ export default class EditorBase {
   }
 
   /** Removes a range and move the contents after the ranges inside the block at the start range
-      @param range Range to remove
-      @param preservelocators Locators to keep valid
-      @param undoitem Undo item
-      @cell options.normalize Normalize the range before executing
-      @return Locator at place of removed range
+      @param range - Range to remove
+      @param preservelocators - Locators to keep valid
+      @param undoitem - Undo item
+      \@cell options.normalize Normalize the range before executing
+      @returns Locator at place of removed range
   */
   _removeRangeAndStitch(range, preservelocators, undoitem, { normalize = true } = {}) {
     preservelocators = (preservelocators || []).slice();
