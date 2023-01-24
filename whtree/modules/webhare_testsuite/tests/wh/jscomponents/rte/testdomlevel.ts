@@ -78,7 +78,7 @@ test.registerTests(
           console.log('test ', i, movetests[i]);
 
           rte.setContentsHTML(movetests[i]);
-          const locators = richdebug.unstructureDom(win, rte.getBody());
+          const locators = richdebug.unstructureDom(rte.getBody());
           const range = new Range(locators[0], locators[1]);
           range.normalize(rte.getBody());
 
@@ -227,7 +227,7 @@ test.registerTests(
         for (let i = 0; i < movetests.length; ++i) {
           console.log('test ', i, movetests[i]);
           rte.setContentsHTML(movetests[i]);
-          const locators = richdebug.unstructureDom(win, rte.getBody());
+          const locators = richdebug.unstructureDom(rte.getBody());
           const result = [locators[0].clone(), locators[0].clone(), locators[0].clone(), locators[0].clone(), locators[0].clone(), locators[0].clone(), locators[0].clone()];
 
           result[1].movePastLastVisible(rte.getBody().firstChild, false, false);
@@ -962,11 +962,11 @@ test.registerTests(
         let placedlocators, alllocators, italicelement;
 
         rte.setContentsHTML('<i>"a(*0*)"(*1*)</i>');
-        placedlocators = richdebug.unstructureDom(win, rte.getBody());
+        placedlocators = richdebug.unstructureDom(rte.getBody());
 
         const testcontents = '<i>"a(*0*)"(*1*)"(*2*)b"</i>';
         rte.setContentsHTML(testcontents);
-        placedlocators = richdebug.unstructureDom(win, rte.getBody());
+        placedlocators = richdebug.unstructureDom(rte.getBody());
         italicelement = rte.getBody().firstChild;
         alllocators = getAllLocators(win, italicelement);
         domlevel.combineAdjacentTextNodes(placedlocators[0], alllocators);
@@ -1079,21 +1079,21 @@ test.registerTests(
         let placedlocators, alllocators, italicelement;
 
         rte.setContentsHTML('<i>"a (*0*) b"</i>');
-        placedlocators = richdebug.unstructureDom(win, rte.getBody());
+        placedlocators = richdebug.unstructureDom(rte.getBody());
         italicelement = rte.getBody().firstChild;
         alllocators = getAllLocators(win, italicelement);
         domlevel.rewriteWhitespace(rte.getBody(), placedlocators[0], alllocators);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*) (*3*)\u00a0(*4*)b(*5*)"(*6*)</i>', rte.getBody(), alllocators);
 
         rte.setContentsHTML('<i>"(*0*) b"</i>');
-        placedlocators = richdebug.unstructureDom(win, rte.getBody());
+        placedlocators = richdebug.unstructureDom(rte.getBody());
         italicelement = rte.getBody().firstChild;
         alllocators = getAllLocators(win, italicelement);
         domlevel.rewriteWhitespace(rte.getBody(), placedlocators[0], alllocators);
         testEqHTMLEx('<i>(*0*)"(*1*)\u00a0(*2*)b(*3*)"(*4*)</i>', rte.getBody(), alllocators);
 
         rte.setContentsHTML('<i>"a\u00a0(*0*)  \u00a0   b"</i>');
-        placedlocators = richdebug.unstructureDom(win, rte.getBody());
+        placedlocators = richdebug.unstructureDom(rte.getBody());
         italicelement = rte.getBody().firstChild;
         alllocators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)\u00a0(*3*) (*4*) (*5*)\u00a0(*6*) (*7*) (*8*) (*9*)b(*10*)"(*11*)</i>', rte.getBody(), alllocators);

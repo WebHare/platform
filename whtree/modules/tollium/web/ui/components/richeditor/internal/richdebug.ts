@@ -182,14 +182,14 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
   return node.nodeName;
 }
 
-function unstructureDom(win, node, locators) {
+function unstructureDom(node, locators) {
   locators = locators || [];
   let foundlocator = false;
   for (let i = 0; i < node.childNodes.length;) {
     const child = node.childNodes[i];
 
     if (child.nodeType != 3) {
-      unstructureDom(win, child, locators);
+      unstructureDom(child, locators);
       ++i;
       continue;
     }

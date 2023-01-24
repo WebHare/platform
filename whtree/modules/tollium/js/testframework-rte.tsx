@@ -175,7 +175,7 @@ export function setStructuredContent(win, structuredhtml, options) {
   else
     rte.setContentsHTML(structuredhtml);
 
-  var locators = richdebug.unstructureDom(win, rte.getBody());
+  var locators = richdebug.unstructureDom(rte.getBody());
   if (options.verify)
     testEqHTMLEx(win, structuredhtml, rte.getBody(), locators);
 
