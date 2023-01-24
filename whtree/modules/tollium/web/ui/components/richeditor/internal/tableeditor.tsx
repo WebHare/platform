@@ -784,7 +784,7 @@ export class TableEditor {
         }
       }
     },
-      (tr, row, limitcol) => {
+      (tr, row) => {
         if (thisnode && row > thisnode.row && row < thisnode.limitrow)
           splitappends.push({ tr, td: lastrowcellinrow });
         lastrowcellinrow = null;
@@ -1109,7 +1109,7 @@ export class TableEditor {
     fixTableMissingCells(this.node);
 
     const changes = [];
-    iterateTableCells(this.node, function(node, row, col) {
+    iterateTableCells(this.node, function(node, row) {
       changes.push(this._removeRange(node, row, row + node.rowSpan, remove_start, remove_limit));
     }.bind(this));
 

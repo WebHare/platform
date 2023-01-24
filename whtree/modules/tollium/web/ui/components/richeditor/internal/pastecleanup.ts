@@ -29,10 +29,6 @@ class PasteCleanup {
 
     const todelete = [];
 
-    const imgs = this.data.querySelectorAll('img');
-    for (let i = 0; i < imgs.length; ++i) {
-    }
-
     // Remove the interchange nodes - and all nodes that are left empty because of their removal.
     // FIXME: test for partial table selection
     for (let i = 0; i < todelete.length; ++i) {

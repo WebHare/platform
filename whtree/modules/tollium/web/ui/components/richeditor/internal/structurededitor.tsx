@@ -219,7 +219,7 @@ export default class StructuredEditor extends EditorBase {
 
         // Convert \n to <br>, keep rest as normal html (will be converted to paragraphs in parsing code)
         const lines = text.split('\n');
-        lines.forEach((line, idx) => {
+        lines.forEach((line) => {
           pastecontent.appendChild(document.createTextNode(line));
 
           // Always add br (br at end of DIV will be ignored)
