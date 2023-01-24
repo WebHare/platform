@@ -313,7 +313,7 @@ function getVisualEquivalenceRangeInBlock(maxancestor, locator, correctpastlastb
     let lastfoundwhitespaceres = null;
 
     const downw = locator.clone();
-    while (true) {
+    for (; ;) {
       const downwres = downw.scanBackward(maxancestor, {}); // stop at blocks & whitespace
 
       if (downwres.type == 'whitespace') {
@@ -1058,7 +1058,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
   // console.log('RNFR start', richdebug.getStructuredOuterHTML(maxancestor, range));
 
   // Is an ancestor of the range a match? If so, split the dom around the range and remove the node.
-  while (true) {
+  for (; ;) {
     ancestor = range.getAncestorElement();
     const typeparent = findParent(ancestor, filter, maxancestor);
 
@@ -1093,7 +1093,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
   }
 
   //
-  while (true) {
+  for (; ;) {
     const typeparent = findParent(range.start.element, filter, ancestor);
     if (!typeparent)
       break;
@@ -1104,7 +1104,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
     range.start.assign(parts[1].start);
   }
 
-  while (true) {
+  for (; ;) {
     const typeparent = findParent(range.end.element, filter, ancestor);
     if (!typeparent)
       break;
@@ -1453,14 +1453,14 @@ function combineAdjacentTextNodes(locator, preservelocators) {
     throw new Error("Locator does not point to a text node");
   }
 
-  while (true) {
+  for (; ;) {
     const prev = pointednode.previousSibling;
     if (!prev || ![3, 4].includes(prev.nodeType))
       break;
     pointednode = prev;
   }
 
-  while (true) {
+  for (; ;) {
     const next = pointednode.nextSibling;
     if (!next || ![3, 4].includes(next.nodeType))
       break;
@@ -1878,7 +1878,7 @@ class Locator {
     if (typeof ignore.li == "undefined")
       ignore.li = ignore.blocks;
 
-    while (true) {
+    for (; ;) {
       if (this.offset == 0) {
         // At start of node, need to exit it
         const isblock = isNodeBlockElement(this.element);
@@ -1981,7 +1981,7 @@ class Locator {
       throw new Error("Maxancestor is not ancestor of locator");
     }
 
-    while (true) {
+    for (; ;) {
       if (this.pointsPastChildrenEnd()) {
         const isblock = isNodeBlockElement(this.element);
         if (isblock || this.element == maxancestor) {
@@ -2200,7 +2200,7 @@ class Locator {
       \@cell return.node Relevant block
   */
   moveToPreviousBlockBoundary(maxancestor, ignoreinnerblock) {
-    while (true) {
+    for (; ;) {
       //console.log('mtnbb iter', richdebug.getStructuredOuterHTML(this.element.parentNode, { locator: this }));
 
       // Don't do stuff within data nodes
@@ -2237,7 +2237,7 @@ class Locator {
       \@cell return.node Relevant block
   */
   moveToNextBlockBoundary(maxancestor, ignoreinnerblock) {
-    while (true) {
+    for (; ;) {
       //console.log('mtnbb iter', richdebug.getStructuredOuterHTML(this.element.parentNode, { locator: this }));
 
       // Don't do stuff within data nodes

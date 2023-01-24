@@ -380,7 +380,7 @@ export default class StructuredEditor extends EditorBase {
       // Find outer embedded object
       let embobj = event.target.closest('.wh-rtd-embeddedobject');
       if (embobj) {
-        while (true) {
+        for (; ;) {
           const parentembobj = embobj.parentNode.closest('.wh-rtd-embeddedobject');
           if (!parentembobj)
             break;
@@ -2288,7 +2288,7 @@ export default class StructuredEditor extends EditorBase {
   // Scans backward, skipping over embedded blocks
   _scanBackwardSkipEmbedded(ancestor, locator) {
     locator = locator.clone();
-    while (true) {
+    for (; ;) {
       const bres = locator.scanBackward(this.getBody(), { whitespace: true, blocks: true });
       if (bres.type === "outerblock")
         return bres.data === ancestor ? null : locator;
@@ -2305,7 +2305,7 @@ export default class StructuredEditor extends EditorBase {
   // Scans forward, skipping over embedded blocks
   _scanForwardSkipEmbedded(ancestor, locator) {
     locator = locator.clone();
-    while (true) {
+    for (; ;) {
       const fres = locator.scanForward(ancestor, { whitespace: true, blocks: true });
       if (fres.type === "outerblock")
         return fres.data === ancestor ? null : locator;
