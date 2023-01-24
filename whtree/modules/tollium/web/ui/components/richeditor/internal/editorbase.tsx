@@ -137,7 +137,7 @@ function undoMutationEvents(ancestor, records, recordrecords) {
   let redoObserver;
 
   if (recordrecords) {
-    redoObserver = new MutationObserver((records) => redoRecords.push(...records));
+    redoObserver = new MutationObserver((newrecords) => redoRecords.push(...newrecords));
     redoObserver.observe(ancestor,
       {
         childList: true,
@@ -235,7 +235,8 @@ class EditorUndoItem {
     this.postselection = selection.clone();
     this.finished = true;
 
-    this.onfinish && this.onfinish(this);
+    if (this.onfinish)
+      this.onfinish(this);
   }
 
   undo() {
@@ -340,7 +341,8 @@ export default class EditorBase {
     //if(this.options.log) console.log('apply saved state');
     //this.stateHasChanged(true);
 
-    this.onload && this.onload();
+    if (this.onload)
+      this.onload();
 
     this._mouseupcallback = e => this._gotMouseUp(e);
 
