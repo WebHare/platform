@@ -1,47 +1,51 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
   [
-    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    {
+      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
     }
 
-/* test scenario's
-
-   delete normal character within text - no selection
-   delete selection within text
-   delete selection extending to next p
-   delete selection extending to next li
-   delete selection over embedded object, table
-
-   delete before end of paragraph - no selection
-     - with next normal paragraph
-     - with next list (combine with contents of first list node)
-     - with next table (don't do anything)
-     - with next embedded object (don't do anything)
-     - within empty paragraph
-     - within empty li
-     - within empty table cell
-     - at last paragraph
-
-   backspace normal character - no selection
-   backspace selection within text
-   backspace selection extending to previous p
-   backspace selection extending to previous li
-   backspace selection over embbedded object, table
-
-   backspace at start of paragraph - no selection
-     - with previous normal paragraph
-     - with previous list (combine with contents of first list node)
-     - with previous table (don't do anything)
-     - with previous embedded object (don't do anything)
-     - within empty paragraph
-     - within empty li
-     - within empty table cell
-     - at first paragraph
-*/
-  , { test: async (doc, win) =>
-      {
+    /* test scenario's
+    
+       delete normal character within text - no selection
+       delete selection within text
+       delete selection extending to next p
+       delete selection extending to next li
+       delete selection over embedded object, table
+    
+       delete before end of paragraph - no selection
+         - with next normal paragraph
+         - with next list (combine with contents of first list node)
+         - with next table (don't do anything)
+         - with next embedded object (don't do anything)
+         - within empty paragraph
+         - within empty li
+         - within empty table cell
+         - at last paragraph
+    
+       backspace normal character - no selection
+       backspace selection within text
+       backspace selection extending to previous p
+       backspace selection extending to previous li
+       backspace selection over embbedded object, table
+    
+       backspace at start of paragraph - no selection
+         - with previous normal paragraph
+         - with previous list (combine with contents of first list node)
+         - with previous table (don't do anything)
+         - with previous embedded object (don't do anything)
+         - within empty paragraph
+         - within empty li
+         - within empty table cell
+         - at first paragraph
+    */
+    , {
+      test: async (doc, win) => {
         var rte = win.rte.getEditor();
 
         rte.getContentBodyNode().focus();
@@ -58,21 +62,21 @@ test.registerTests(
         test.eq("ac", rte.getContentBodyNode().textContent);
 
         // word/line delete - not implemented yet
-/*        test.subtest("Delete rest of word");
-        rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"</p>');
-        await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
-        test.eq("a def ghi", rte.getContentBodyNode().textContent);
-
-        test.subtest("Delete next word");
-        rtetest.setStructuredContent(win, '<p class="normal">"a(*0*) bc def ghi"</p>');
-        await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
-        test.eq("a def ghi", rte.getContentBodyNode().textContent);
-
-        test.subtest("Delete rest of line");
-        rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"<br>"jkl"</p>');
-        await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Shift+Delete"));
-        test.eq("ajkl", rte.getContentBodyNode().textContent);
-*/
+        /*        test.subtest("Delete rest of word");
+                rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"</p>');
+                await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
+                test.eq("a def ghi", rte.getContentBodyNode().textContent);
+        
+                test.subtest("Delete next word");
+                rtetest.setStructuredContent(win, '<p class="normal">"a(*0*) bc def ghi"</p>');
+                await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
+                test.eq("a def ghi", rte.getContentBodyNode().textContent);
+        
+                test.subtest("Delete rest of line");
+                rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"<br>"jkl"</p>');
+                await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Shift+Delete"));
+                test.eq("ajkl", rte.getContentBodyNode().textContent);
+        */
         test.subtest("Delete spanning two paragraphs");
         rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)b"</p><p class="normal">"d(*1*)e"</p>');
         await rtetest.runWithUndo(rte, () => test.pressKey("Delete"));

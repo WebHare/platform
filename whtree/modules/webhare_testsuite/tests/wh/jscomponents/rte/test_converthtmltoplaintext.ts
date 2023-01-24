@@ -1,8 +1,10 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
 import * as test from "@mod-tollium/js/testframework";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
-function jsdom(code)
-{
+function jsdom(code) {
   let div = document.createElement("div");
   div.innerHTML = code;
   return div;
@@ -12,14 +14,12 @@ function jsdom(code)
 
 test.registerTests(
   [
-    function()
-    {
+    function() {
       let dom = jsdom("<html><body> \r\n\ra\r\n\r\n\r\nb\r\n\r\n\r\n\r\nc \r\nd");
       // jsdom removes \r while parsing.
       test.eq("a b c d", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       // coalescing
@@ -27,24 +27,20 @@ test.registerTests(
       test.eq("a b ", convertHtmlToPlainText(dom));
     }
 
-  , function()
-    {
+    , function() {
       let dom = jsdom("a<br>b");
       // jsdom removes \r...
       test.eq("a\r\nb", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom = jsdom("<body><style>a</style></body>");
       test.eq("", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom = jsdom("<body><title>a</title></body>");
       test.eq("", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       dom = jsdom("<a href='http://a'>a</a>");
@@ -65,8 +61,7 @@ test.registerTests(
       dom = jsdom("<a href='a'>a</a>");
       test.eq("a", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       dom = jsdom("<img alt='' />");
@@ -82,8 +77,7 @@ test.registerTests(
       dom = jsdom("<img alt='alt' />");
       test.eq("[[alt]", convertHtmlToPlainText(dom, 1));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       dom = jsdom("<ul><li>a</li><li>b</li></ul>");
@@ -104,8 +98,7 @@ test.registerTests(
       dom = jsdom("<ol start='-1'><li>a</li></ol>");
       test.eq("1. a", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       dom = jsdom("<table><tr><th>a</th><td>b</td></tr><tr><td>c</td><td>d</td></tr>");
@@ -114,8 +107,7 @@ test.registerTests(
       dom = jsdom("<table><tr><td><ul><li>a</li></ul></td></tr>");
       test.eq("* a\r\n", convertHtmlToPlainText(dom));
     }
-  , function()
-    {
+    , function() {
       let dom;
 
       dom = jsdom("<p>a<br>b<br><br><br><br><br><br>c</p>");

@@ -170,8 +170,8 @@ function cleanClosingMenus() {
 }
 
 function getParents(node: HTMLElement) {
-  const retval = [node];
-  while (!(node = node.parentNode as HTMLElement) !== false)
+  const retval = [];
+  for (; node; node = node.parentNode as HTMLElement)
     retval.push(node);
   return retval;
 }
