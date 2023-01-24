@@ -17,7 +17,7 @@ test.registerTests(
       name: 'init'
       , test: function(doc, win) {
         rte = win.rte.getEditor();
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
 
         //test contentareawidth issues
         test.eq('450px', body.style.width, 'contentareawidth not applied!');

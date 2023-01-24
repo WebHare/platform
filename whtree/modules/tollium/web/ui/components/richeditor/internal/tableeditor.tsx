@@ -6,7 +6,6 @@ import { qSA } from "dompack";
 import * as movable from 'dompack/browserfix/movable';
 import * as domlevel from "./domlevel";
 import * as rtesupport from "./support";
-import * as browser from "dompack/extra/browser";
 
 let activetables = [];
 
@@ -28,9 +27,9 @@ export function getCols(tablenode) {
 
 /** Iterates over all cells of a table, calling a callback with the tr and the row and column
     position. Can handle node replaces, but not table layout changes (insertions, deletions, col/rowspan changes).
-    @param tablenode
-    @param cellfunc Called for every cell (cellnode, startrow, startcol)
-    @param rowfunc Called for every row (rownode, rownr, limitcol)
+    @param tablenode -
+    @param cellfunc - Called for every cell (cellnode, startrow, startcol)
+    @param rowfunc - Called for every row (rownode, rownr, limitcol)
 */
 function iterateTableCells(tablenode, cellfunc, rowfunc) {
   let rowspans = [];
@@ -67,9 +66,9 @@ function iterateTableCells(tablenode, cellfunc, rowfunc) {
 }
 
 /** Get table dimensions (number of cells and rows)
-    @return
-    @cell return.rows
-    @cell return.cols
+    @returns
+    \@cell return.rows
+    \@cell return.cols
 */
 export function getTableDimensions(tablenode) {
   var rows = 0;
@@ -88,9 +87,9 @@ export function getTableDimensions(tablenode) {
 }
 
 /** Return the row and column position of the first data cell in the table
-    @return
-    @cell return.row
-    @cell return.col
+    @returns
+    \@cell return.row
+    \@cell return.col
 */
 export function locateFirstDataCell(tablenode) {
   var bottomcols = 0;
@@ -134,7 +133,7 @@ function fixTableMissingCells(tablenode) {
   });
 }
 
-/** @short Make a table's rows and columns resizable by dragging cell borders
+/** Make a table's rows and columns resizable by dragging cell borders
 */
 export class TableEditor {
   // ---------------------------------------------------------------------------
@@ -142,16 +141,16 @@ export class TableEditor {
   // Public API
   //
 
-  /** @short Initialize the editor for a table using the given options
-      @long To control the table cell sizes, this object will rewrite table dimensions
-      @param node The table node
-      @param containernode The container of the table node (normally the editor body node)
-      @param options Editor options
-      @cell options.resizer_size Width of the resizer areas
-      @cell options.placeholder_size Width of the dragging placeholder
-      @cell options.resize_columns Whether columns can be resized
-      @cell options.resize_rows Whether rows can be resized
-      @cell options.resize_table If columns and/or rows can be resized, whether the whole table can be resized as well
+  /** Initialize the editor for a table using the given options.
+      To control the table cell sizes, this object will rewrite table dimensions
+      @param node - The table node
+      @param containernode - The container of the table node (normally the editor body node)
+      @param options - Editor options
+      \@cell options.resizer_size Width of the resizer areas
+      \@cell options.placeholder_size Width of the dragging placeholder
+      \@cell options.resize_columns Whether columns can be resized
+      \@cell options.resize_rows Whether rows can be resized
+      \@cell options.resize_table If columns and/or rows can be resized, whether the whole table can be resized as well
   */
   constructor(node, containernode, options) {
     this.node_win = null;
@@ -186,7 +185,7 @@ export class TableEditor {
     activetables.push(this);
   }
 
-  /** @short Reinitialize the resizers, for example after the table structure has changed (they can be removed again using
+  /** Reinitialize the resizers, for example after the table structure has changed (they can be removed again using
              cleanup())
   */
   reset() {
@@ -339,7 +338,7 @@ export class TableEditor {
     this.updateResizers();
   }
 
-  /** @short Clean up any inserted nodes (they can be added again using reset())
+  /** Clean up any inserted nodes (they can be added again using reset())
   */
   cleanup() {
     // Destroy tfoot with column td's
@@ -360,13 +359,13 @@ export class TableEditor {
       activetables.splice(pos, 1);
   }
 
-  /** @short If the table is still present in the DOM and editable
+  /** If the table is still present in the DOM and editable
   */
   isActive() {
     return !!this.node.parentNode && this.node.isContentEditable;
   }
 
-  /** @short Deactivate and remove the editor
+  /** Deactivate and remove the editor
   */
   destroy() {
     this.cleanup();
@@ -379,13 +378,13 @@ export class TableEditor {
     return this.options.getUndoLock ? this.options.getUndoLock() : null;
   }
 
-  /** @short Add one or more columns to the table
-      @param td The column to insert the new columns after
-      @param before Whether to add the columns before or after the td
-      @param num The number of columns to add
-      @param width The width of the new columns
-      @param options Further options
-      @cell options.newcell_callback Called with every new created table cell node
+  /** Add one or more columns to the table
+      @param td - The column to insert the new columns after
+      @param before - Whether to add the columns before or after the td
+      @param num - The number of columns to add
+      @param width - The width of the new columns
+      @param options - Further options
+      \@cell options.newcell_callback Called with every new created table cell node
   */
   insertColumns(td, before, num, width, options) {
     var table = td.closest("table");
@@ -404,13 +403,13 @@ export class TableEditor {
     undolock.close();
   }
 
-  /** @short Add one or more rows to the table
-      @param td The row to insert the new rows after
-      @param before Whether to add the rows before or after the td
-      @param num The number of rows to add
-      @param width The width of the new rows
-      @param options Further options
-      @cell options.newcell_callback Called with every new created table cell node
+  /** Add one or more rows to the table
+      @param td - The row to insert the new rows after
+      @param before - Whether to add the rows before or after the td
+      @param num - The number of rows to add
+      @param width - The width of the new rows
+      @param options - Further options
+      \@cell options.newcell_callback Called with every new created table cell node
   */
   insertRows(td, before, num, width, options) {
     var table = td.closest("table");
@@ -429,9 +428,9 @@ export class TableEditor {
     undolock.close();
   }
 
-  /** @short Add one or more columns to the table
-      @param td A td within the column to delete
-      @param num The number of columns to delete
+  /** Add one or more columns to the table
+      @param td - A td within the column to delete
+      @param num - The number of columns to delete
   */
   deleteColumns(td, num) {
     var table = td.closest("table");
@@ -448,9 +447,9 @@ export class TableEditor {
     undolock.close();
   }
 
-  /** @short Add one or more columns to the table
-      @param td A td within the row to delete
-      @param num The number of rowss to delete
+  /** Add one or more columns to the table
+      @param td - A td within the row to delete
+      @param num - The number of rowss to delete
   */
   deleteRows(td, num) {
     var table = td.closest("table");
@@ -581,17 +580,17 @@ export class TableEditor {
   }
 
   /** Return the row and column position of the first data cell in the table
-      @return
-      @cell return.row
-      @cell return.col
+      @returns
+      \@cell return.row
+      \@cell return.col
   */
   locateFirstDataCell(tablenode) {
     return locateFirstDataCell(this.node);
   }
 
   /** Set the first data cell in the table (correctly mark TH's and TD's)
-      @param datacellrow Row of first data cell
-      @param datacellcol Column of first data cell
+      @param datacellrow - Row of first data cell
+      @param datacellcol - Column of first data cell
   */
   setFirstDataCell(datacellrow, datacellcol) {
     let havechange = false;
@@ -860,12 +859,12 @@ export class TableEditor {
   }
 
   /** Get the current and maximum size of the table. Does a reflow, so cache the results
-      @return
-      @cell return.maxsize Maximum size (only use .x)
-      @cell return.maxsize.x Maximum width
-      @cell return.cursize Current size
-      @cell return.cursize.x Current width
-      @cell return.cursize.y Current height
+      @returns
+      \@cell return.maxsize Maximum size (only use .x)
+      \@cell return.maxsize.x Maximum width
+      \@cell return.cursize Current size
+      \@cell return.cursize.x Current width
+      \@cell return.cursize.y Current height
   */
   _getSizes() {
     let cursize = getSize(this.node);
@@ -880,8 +879,8 @@ export class TableEditor {
   }
 
   /** Resize a set of columns
-      @param leftidx Left column (negative to count from right, -1 for rightmost column)
-      @param sizediff Amount of pixels to add to the left column
+      @param leftidx - Left column (negative to count from right, -1 for rightmost column)
+      @param sizediff - Amount of pixels to add to the left column
   */
   _resizeColumns(leftidx, sizediff) {
     // Get the current widths

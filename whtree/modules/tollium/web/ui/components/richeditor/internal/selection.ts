@@ -79,7 +79,7 @@ export default class SelectionInterface {
   }
 
   /** Sets the current selection to the range in a Range object
-      @param range Range to select
+      @param range - Range to select
   */
   selectRange(range) {
     return selectRange(range); //use the freestanding version, we can autoderive current node etc from the range

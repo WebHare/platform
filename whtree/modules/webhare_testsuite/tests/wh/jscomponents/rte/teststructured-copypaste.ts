@@ -13,7 +13,7 @@ test.registerTests(
       name: "simulate paste"
       , test: async function(doc, win) {
         let rte = win.rte.getEditor();
-        let body = rte.getContentBodyNode();
+        let body = rte.getBody();
         body.focus();
 
         test.subtest("chrome/ff/edge html paste");

@@ -61,7 +61,7 @@ test.registerTests(
       test.assert(rte.hasFocus());
       test.eq('DIV', doc.activeElement.nodeName);
 
-      rte.selectNodeInner(rte.getContentBodyNode().getElementsByTagName('b')[0]);
+      rte.selectNodeInner(rte.getBody().getElementsByTagName('b')[0]);
       test.assert(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
       win.rte.setEnabled(false);
 
@@ -124,10 +124,10 @@ test.registerTests(
 
       //make sure setenabled(true) didn't ruin selection after sleep..
       rtetest.testEqSelHTMLEx(win, std_contents);
-      //console.log('pre setcursor', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), { range: rte.getSelectionRange() }));
+      //console.log('pre setcursor', win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), { range: rte.getSelectionRange() }));
 
-      rte.setCursor(rte.getContentBodyNode().getElementsByTagName('b')[0].firstChild, 2);
-      //console.log('post setcursor', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), { range: rte.getSelectionRange() }));
+      rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
+      //console.log('post setcursor', win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), { range: rte.getSelectionRange() }));
 
       var sel = rte.getSelectionState();
       test.assert(sel.hasTextStyle('b'));
@@ -146,7 +146,7 @@ test.registerTests(
       rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
 
       // Cursor selection doesn't work here on IE 8
-      rte.setCursor(rte.getContentBodyNode().getElementsByTagName('b')[0].firstChild, 2);
+      rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
       rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
     }
   }
@@ -158,7 +158,7 @@ test.registerTests(
       var rte = win.rte.getEditor();
       test.qS('#holder').style.display = "";
       rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
-      rte.setCursor(rte.getContentBodyNode().getElementsByTagName('b')[0].firstChild, 2);
+      rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
       rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
       win.reparent_rte();
     }
@@ -200,8 +200,8 @@ test.registerTests(
       rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
       //sometimes we get here, sometimes we don't
       //        var range = rte.debugGetRawRawSelectionRange();
-      //        range.normalize(rte.getContentBodyNode());
-      //        rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getContentBodyNode(), [ range.start, range.end ]);
+      //        range.normalize(rte.getBody());
+      //        rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getBody(), [ range.start, range.end ]);
     }
   }
 
@@ -224,7 +224,7 @@ test.registerTests(
     , wait: function(doc, win, callback) {
       var rte = win.rte.getEditor();
       console.log('TEST set cursor');
-      rte.setCursor(rte.getContentBodyNode().getElementsByTagName('b')[0].firstChild, 2);
+      rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
       console.log('TEST set cursor done, hiding');
 
       // FF sometimes fails restoring. trying this to find out why
@@ -276,12 +276,12 @@ test.registerTests(
       var rte = win.rte.getEditor();
       var range = rte.debugGetRawSelectionRange();
       //        console.log('Real DOM range', range);
-      //        console.log('REALRANGE', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), { range: range }));
+      //        console.log('REALRANGE', win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), { range: range }));
 
       rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
 
-      range.normalize(rte.getContentBodyNode());
-      rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getContentBodyNode(), [range.start, range.end]);
+      range.normalize(rte.getBody());
+      rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getBody(), [range.start, range.end]);
     }
   }
 
@@ -306,7 +306,7 @@ test.registerTests(
     name: 'selectionrestore-setwhenhidden-show'
     , wait: function(doc, win, callback) {
       var rte = win.rte.getEditor();
-      rte.setCursor(rte.getContentBodyNode().getElementsByTagName('b')[0].firstChild, 2);
+      rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
       test.qS('#holder').style.display = "";
       setTimeout(callback, 100);
     }
@@ -329,12 +329,12 @@ test.registerTests(
       var rte = win.rte.getEditor();
       var range = rte.debugGetRawSelectionRange();
       //console.log('Real DOM range', range);
-      //console.log('REALRANGE', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), { range: range }));
+      //console.log('REALRANGE', win.$wh.Rich.getStructuredOuterHTML(rte.getBody(), { range: range }));
 
       rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
 
-      range.normalize(rte.getContentBodyNode());
-      rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getContentBodyNode(), [range.start, range.end]);
+      range.normalize(rte.getBody());
+      rtetest.testEqHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>', rte.getBody(), [range.start, range.end]);
     }
   }
 

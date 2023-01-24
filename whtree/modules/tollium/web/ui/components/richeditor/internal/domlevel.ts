@@ -1,8 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const rangy = require('@mod-system/js/frameworks/rangy/rangy13');
-import * as richdebug from "./richdebug";
+import rangy from '@mod-system/js/frameworks/rangy/rangy13';
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
 
@@ -554,8 +553,8 @@ function _redoSplitElement(oldelt, nodes, newelt) {
 }
 
 /** Corrects this locator for changes made when splitting a node
-    @param splitlocator Position where the split was made
-    @param newnode New node, that received the contents of the parent node after the split position.
+    @param splitlocator - Position where the split was made
+    @param newnode - New node, that received the contents of the parent node after the split position.
 */
 function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect) {
 
@@ -575,12 +574,12 @@ function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect) {
 /** Split the dom in-place beneath an ancestor node for a list of locators.
     For every split part, locators pointing to the start and the end of the fragment are provided
     (but only if the fragments had any elements)
-    @param ancestor Ancestor node
-    @param splitpoints Points to split the locators on
-    @cell splitpoints.locator
-    @cell splitpoints.toward 'start'/'end'
-    @param preservelocators Optional list of locators/ranges to preserve
-    @return Array of Range objects, describing the space betweent the splitpoints (all with parent = ancestor)
+    @param ancestor - Ancestor node
+    @param splitpoints - Points to split the locators on
+    \@cell splitpoints.locator
+    \@cell splitpoints.toward 'start'/'end'
+    @param preservelocators - Optional list of locators/ranges to preserve
+    @returns Array of Range objects, describing the space betweent the splitpoints (all with parent = ancestor)
 */
 function splitDom(ancestor, splitpoints, preservelocators, undoitem) {
   if (!ancestor)
@@ -666,8 +665,8 @@ function splitDom(ancestor, splitpoints, preservelocators, undoitem) {
 }
 
 /** Corrects this locator for the moving of the splitting locator upstream
-    @param orglocator Original splitting locator
-    @param locator
+    @param orglocator - Original splitting locator
+    @param locator -
 */
 function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newlocator, tocorrect) {
   if (tocorrect.compare(rangestart) > (includebounds ? -1 : 0) && tocorrect.compare(rangeend) < (includebounds ? 1 : 0))
@@ -676,9 +675,9 @@ function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newloc
 
 /** Combines a node and its previous sibling (moves all childnodes from node into its previousSibling)
     and keeps a list of locators as close as possible to their original place
-    @param node
-    @param preservelocators
-    @return Place where stuff was inserted
+    @param node -
+    @param preservelocators -
+    @returns Place where stuff was inserted
 */
 function combineNodeWithPreviousNode(node, preservelocators, undoitem) {
   if (!node)
@@ -698,10 +697,10 @@ function combineNodeWithPreviousNode(node, preservelocators, undoitem) {
     as close as possible to their original place. Keeps a list of locators/ranges as close as possible to
     their original place (locators between the insert position and the moved content are repositioned to
     the insertposition)
-    @param insertlocator
-    @param right
-    @param preservelocators
-    @return Node & locator where stuff was inserted & locator after place where stuff was inserted
+    @param insertlocator -
+    @param right -
+    @param preservelocators -
+    @returns Node & locator where stuff was inserted & locator after place where stuff was inserted
 */
 function combineNodes(insertlocator, right, preservelocators, undoitem) {
   insertlocator = insertlocator.clone();
@@ -776,8 +775,8 @@ function combineNodes(insertlocator, right, preservelocators, undoitem) {
 }
 
 /** Corrects this locator for changes made when combining a node. Called before actual changes are made!
-    @param appendlocator Place where childnodes of the removed node were placed
-    @param newnode New node, that received the contents of the parent node after the split position.
+    @param appendlocator - Place where childnodes of the removed node were placed
+    @param newnode - New node, that received the contents of the parent node after the split position.
 */
 function _correctForNodeCombine(insertlocator, removednode, removedlocator, afterremovedlocator, moveforward, tocorrect) {
   // Correct the insert locator for removed node
@@ -1135,10 +1134,10 @@ function removeNodesFromTree(node, filter, preservelocators, undoitem) {
 
 /** Removes nodes from a range, when the nodes to remove have already been split on the range
     boundaries
-    @param ancestor Ancestor to start at
-    @param range Range to remove nodes
-    @param filter Filter function to test the nodes on, or nodename
-    @param preservelocators Locators/ranges to preserver
+    @param ancestor - Ancestor to start at
+    @param range - Range to remove nodes
+    @param filter - Filter function to test the nodes on, or nodename
+    @param preservelocators - Locators/ranges to preserver
 */
 function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators, undoitem) {
   // FIXME: combine adjacesnt same (text)nodes
@@ -1182,10 +1181,10 @@ function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preserve
 }
 
 /** Removes nodes that match a filter from a tree (but keeps their contents)
-    @param range Range to remove the nodes from (is kept valid)
-    @param maxancestor Ancestor to stop at
-    @param filter Filter for nodes to remove (either string for nodename match or function)
-    @param preservelocators Additional locators/ranges to preserve
+    @param range - Range to remove the nodes from (is kept valid)
+    @param maxancestor - Ancestor to stop at
+    @param filter - Filter for nodes to remove (either string for nodename match or function)
+    @param preservelocators - Additional locators/ranges to preserve
 */
 function removeNodesFromRange(range, maxancestor, filter, preservelocators, undoitem) {
   preservelocators = (preservelocators || []).slice();
@@ -1375,12 +1374,12 @@ function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, pre
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively
-    @param locator Locator to the place to combine the nodes
-    @param ancestor Ancestor node
-    @param towardsend Direction to go (used when locator is placed within empty node)
-    @param combinetest Test to check whether nodes. Can be nodeName, array of nodeNames or bool function. If false,
+    @param locator - Locator to the place to combine the nodes
+    @param ancestor - Ancestor node
+    @param towardsend - Direction to go (used when locator is placed within empty node)
+    @param combinetest - Test to check whether nodes. Can be nodeName, array of nodeNames or bool function. If false,
         only text nodes will be combined.
-    @param preservelocators Locators/ranges to preserve the location of
+    @param preservelocators - Locators/ranges to preserve the location of
  */
 function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combinetest, preservelocators, undoitem) {
   if (!ancestor.contains(locator.element))
@@ -1519,9 +1518,9 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
 
 /** Make sure there is visible content in the current block after the locator
     If not, a 'br' is inserted.
-    @param locator Locator within block
-    @param maxancestor Block node
-    @param preservelocators Locators to preserver
+    @param locator - Locator within block
+    @param maxancestor - Block node
+    @param preservelocators - Locators to preserver
 */
 function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preservelocators, undoitem) {
   return correctBlockFillerUse(locator, maxancestor, preservelocators, undoitem);
@@ -2030,14 +2029,14 @@ class Locator {
   }
 
   /** Scan downstream to the previous visible element
-      @param ignore .whitespace .blocks .li .alwaysvisibleblocks
-      @return
-      @cell return.type 'innerblock', 'outerblock', 'node', 'char', 'br', 'whitespace'
-      @cell return.data
-      @cell return.blockboundary
-      @cell return.alwaysvisible
-      @cell return.segmentbreak
-      @cell return.whitespace
+      @param ignore - .whitespace .blocks .li .alwaysvisibleblocks
+      @returns
+      \@cell return.type 'innerblock', 'outerblock', 'node', 'char', 'br', 'whitespace'
+      \@cell return.data
+      \@cell return.blockboundary
+      \@cell return.alwaysvisible
+      \@cell return.segmentbreak
+      \@cell return.whitespace
   */
   scanBackward(maxancestor, ignore) {
     if (!maxancestor)
@@ -2137,15 +2136,15 @@ class Locator {
   scanUpStream(maxancestor, ignore) { return this.scanForward(maxancestor, ignore); }
 
   /** Scan upstream to the next visible element
-      @param
-      @param ignore .whitespace .blocks
-      @return
-      @cell return.type 'innerblock', 'outerblock', 'node', 'char', 'br', 'whitespace'
-      @cell return.data
-      @cell return.blockboundary
-      @cell return.alwaysvisible
-      @cell return.segmentbreak
-      @cell return.whitespace
+      @param maxancestor -
+      @param ignore - .whitespace .blocks
+      @returns
+      \@cell return.type 'innerblock', 'outerblock', 'node', 'char', 'br', 'whitespace'
+      \@cell return.data
+      \@cell return.blockboundary
+      \@cell return.alwaysvisible
+      \@cell return.segmentbreak
+      \@cell return.whitespace
   */
   scanForward(maxancestor, ignore) {
     if (!maxancestor.contains(this.element)) {
@@ -2367,10 +2366,10 @@ class Locator {
   }
 
   /** Move the locator to the previous block tag, or the start of the current block
-      @param maxancestor Ancestor to treat as parent block
-      @return Locator is positioned just before block boundary
-      @cell return.type 'innerblock', 'outerblock'
-      @cell return.node Relevant block
+      @param maxancestor - Ancestor to treat as parent block
+      @returns Locator is positioned just before block boundary
+      \@cell return.type 'innerblock', 'outerblock'
+      \@cell return.node Relevant block
   */
   moveToPreviousBlockBoundary(maxancestor, ignoreinnerblock) {
     while (true) {
@@ -2405,10 +2404,10 @@ class Locator {
 
 
   /** Move the locator to the next block tag, or the end of the current block
-      @param maxancestor Ancestor to treat as parent block
-      @return Locator is positioned just before block boundary
-      @cell return.type 'innerblock', 'outerblock'
-      @cell return.node Relevant block
+      @param maxancestor - Ancestor to treat as parent block
+      @returns Locator is positioned just before block boundary
+      \@cell return.type 'innerblock', 'outerblock'
+      \@cell return.node Relevant block
   */
   moveToNextBlockBoundary(maxancestor, ignoreinnerblock) {
     while (true) {

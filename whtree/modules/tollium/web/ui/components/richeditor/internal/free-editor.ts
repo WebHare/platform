@@ -65,7 +65,7 @@ export default class FreeEditor extends EditorBase {
   }
 
   getAvailableListActions(range) {
-    let insidelist = range.getAncestorClosest("ul,ol", this.getContentBodyNode());
+    let insidelist = range.getAncestorClosest("ul,ol", this.getBody());
     let havelist = range.querySelectorAll("ul,ol,li").length;
 
     return {

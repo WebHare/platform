@@ -9,7 +9,7 @@ import ParsedStructure from "@mod-tollium/web/ui/components/richeditor/internal/
 // Runs restructuring tests from mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib
 
 function getFixedRTEInput(rte) {
-  return getComparableRTEText(rte.getContentBodyNode());
+  return getComparableRTEText(rte.getBody());
 }
 
 function getComparableRTEText(rtenode) {

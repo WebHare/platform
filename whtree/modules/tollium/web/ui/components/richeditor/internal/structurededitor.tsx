@@ -10,12 +10,10 @@ import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
-require('./pastecleanup');
-
-var tableeditor = require("./tableeditor");
+import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
 import EditorBase from './editorbase';
-var PasteCleanup = require('./pastecleanup');
+import PasteCleanup from './pastecleanup';
 
 //debug flags
 const debugicc = false; //debug insert container contents. needed to figure out rewriting errors eg on fill
@@ -249,11 +247,11 @@ export default class StructuredEditor extends EditorBase {
   async _pasteContent(pastecontent, mode) {
     let undolock = this.getUndoLock();
 
-    //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     var locator = this.removeSelection();
 
-    //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     await this._pasteContentAt(pastecontent, locator, mode);
 
@@ -263,7 +261,7 @@ export default class StructuredEditor extends EditorBase {
   //validate all our embedded objects on the server, make sure none are broken (eg by bad pastes)
   async _validateEmbeddedObjects() {
     //FIXME also handle duplicates? but not sure yet how to reproduce/test those
-    let embobjs = domlevel.queryEmbeddedObjects(this.getContentBodyNode());
+    let embobjs = domlevel.queryEmbeddedObjects(this.getBody());
     if (embobjs.length == 0)
       return;
 
@@ -298,13 +296,13 @@ export default class StructuredEditor extends EditorBase {
     // We'll use it to change the selection when it totally includes the first paragraph
     //console.log('onselectionchange');
     var rawselection = this.getSelectionRange();
-    rawselection.limitToNode(this.getContentBodyNode());
+    rawselection.limitToNode(this.getBody());
 
-    var up = new domlevel.Locator(this.getContentBodyNode());
-    var upres = up.scanForward(this.getContentBodyNode(), { whitespace: true, blocks: true });
+    var up = new domlevel.Locator(this.getBody());
+    var upres = up.scanForward(this.getBody(), { whitespace: true, blocks: true });
 
     // We're before the first content block?
-    if ((upres.type != 'outerblock' || upres.data != this.getContentBodyNode()) && rawselection.start.compare(up) < 0) {
+    if ((upres.type != 'outerblock' || upres.data != this.getBody()) && rawselection.start.compare(up) < 0) {
       //console.log('need to fix selection');
       rawselection.start.assign(up);
       if (up.compare(rawselection.end) > 0)
@@ -325,7 +323,7 @@ export default class StructuredEditor extends EditorBase {
   selectionHasChanged(selection) {
     //select all wh-rtd-embeddedobject unless they're in another wh-rtd-embeddedobject
     let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
-    let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
+    let currently_selected = Array.from(this.getBody().querySelectorAll(".wh-rtd-embeddedobject--selected"));
     embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
     currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
   }
@@ -419,8 +417,8 @@ export default class StructuredEditor extends EditorBase {
 
   /** Returns whether 2 nodes can be combined together without unintented consequenses (list concatenation
       of adjacent nodes is an intented consequense)
-      @param node
-      @param toright
+      @param node -
+      @param toright -
   */
   canCombineNodes(denylist, left, right) {
     var res;
@@ -440,10 +438,10 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Combines <b>s, <ol>s and the likes together while possible
-      @param ancestor
-      @param locator
-      @param keeplocators Locators to keep at valid locations
-      @return locator, adjusted
+      @param ancestor -
+      @param locator -
+      @param keeplocators - Locators to keep at valid locations
+      @returns locator, adjusted
   */
   combineAtLocator(ancestor, locator, towardsend, denylist, preservelocators, undoitem) {
     domlevel.combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, this.canCombineNodes.bind(this, denylist || []), preservelocators || [], undoitem);
@@ -485,11 +483,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Inserts a node into the DOM, auto-splitting textnodes if inserting within them
-      @param locator Place to insert the node
-      @param node Node to insert
-      @return
-      @cell return.locator Locator pointing to new inserted node
-      @cell return.next Locator point to node after the newly inserted node
+      @param locator - Place to insert the node
+      @param node - Node to insert
+      @returns
+      \@cell return.locator Locator pointing to new inserted node
+      \@cell return.next Locator point to node after the newly inserted node
   */
   insertNodeAutoSplit(locator, node, preservelocators, undoitem) {
     // Within the middle of a text node?
@@ -512,26 +510,26 @@ export default class StructuredEditor extends EditorBase {
     //var block = this.getBlockAtNode(locator.getNearestNode());
 
     locator = locator.clone();
-    var res = locator.scanForward(this.getContentBodyNode(), {});
+    var res = locator.scanForward(this.getBody(), {});
     if (res.type != 'br')
       return null;
     //    if ((!res.segmentbreak && !res.zerowidthspace) || res.blockboundary) // Segment break that is not a block boundary is a <br> or (not implemented) a visible '\n'
     //      return null;
 
-    var x = domlevel.getInvisibleSegmentBreakRange(locator, this.getContentBodyNode());
+    var x = domlevel.getInvisibleSegmentBreakRange(locator, this.getBody());
     return x;
   }
 
   /** Inserts a block node into a specific position, modifies DOM to maintain correct structure. Breaks out
       of existing blocks when inserting new (non-list) blocks
-      @param locator
-      @param blockstyle
-      @return
-      @cell return.node
-      @cell return.contentlocator
+      @param locator -
+      @param blockstyle -
+      @returns
+      \@cell return.node
+      \@cell return.contentlocator
   */
   insertBlockNode(locator, blockstyle, insertli, preservelocators, undoitem, anchor) {
-    //    console.log('insertBlockNode: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //    console.log('insertBlockNode: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
     //    console.log(locator);
 
     // Get info about the current block & block root
@@ -542,7 +540,7 @@ export default class StructuredEditor extends EditorBase {
     if (block.blockroot != block.node)
       segmentbreakrange = this.pointsToLastBlockBR(locator);
 
-    //console.log('insertBlockNode albr: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, segmentbreakrange: segmentbreakrange }));
+    //console.log('insertBlockNode albr: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, segmentbreakrange: segmentbreakrange }));
     //console.log(lastbr);
 
     if (block.blockstyle && block.blockstyle.islist && blockstyle.islist) {
@@ -624,7 +622,7 @@ export default class StructuredEditor extends EditorBase {
         blockstyle = block.blockstyle;
       }
 
-      //console.log('insertblock presplit', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, block: block }, true));
+      //console.log('insertblock presplit', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, block: block }, true));
       var parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
 
       // Get the locator at the insertpoint
@@ -632,7 +630,7 @@ export default class StructuredEditor extends EditorBase {
       locator.ascend(block.blockroot);
     }
 
-    //console.log('going insert node: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('going insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     // Insert the new blocknode at the locator
     var bres = this.createBlockStyleElement(blockstyle, true, anchor);
@@ -641,7 +639,7 @@ export default class StructuredEditor extends EditorBase {
 
     locator.insertNode(bres.node, preservelocators, undoitem);
 
-    //console.log('post insert node: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('post insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     var contentlocator = new domlevel.Locator(bres.node, 0);
     if (blockstyle.islist) {
@@ -656,13 +654,13 @@ export default class StructuredEditor extends EditorBase {
     if (blockstyle.islist && insertli) {
       contentnode = document.createElement('li');
       contentlocator.insertNode(contentnode, preservelocators, undoitem);
-      contentlocator.descendToLeafNode(this.getContentBodyNode());
+      contentlocator.descendToLeafNode(this.getBody());
     }
 
     var afternodelocator = new domlevel.Locator(blocknode, "end");
     afternodelocator.moveToParent(true);
 
-    // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: bres.node, contentlocator: contentlocator }));
+    // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
     return (
       {
@@ -715,7 +713,7 @@ export default class StructuredEditor extends EditorBase {
       var afternodelocator = new domlevel.Locator(blocknode, "end");
       afternodelocator.moveToParent(true);
 
-      // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: bres.node, contentlocator: contentlocator }));
+      // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
       return (
         {
@@ -761,7 +759,7 @@ export default class StructuredEditor extends EditorBase {
     }
 
     // Set default column width. FIXME don't assume 1px border width
-    let colwidth = Math.floor((parseInt(window.getComputedStyle(this.getContentBodyNode()).width) - cols) / cols);
+    let colwidth = Math.floor((parseInt(window.getComputedStyle(this.getBody()).width) - cols) / cols);
     for (let i = 0; i < cols; ++i)
       block.colwidths.push(colwidth);
 
@@ -814,7 +812,7 @@ export default class StructuredEditor extends EditorBase {
     var afternodelocator = new domlevel.Locator(blocknode, "end");
     afternodelocator.moveToParent(true);
 
-    // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: bres.node, contentlocator: contentlocator }));
+    // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
     return (
       {
@@ -856,11 +854,11 @@ export default class StructuredEditor extends EditorBase {
 
     // If we're at the start of a block, don't pass inblock so the first pasted block will replace the current block
     var down = insertlocator.clone();
-    var downres = down.scanBackward(this.getContentBodyNode(), { whitespace: true });
+    var downres = down.scanBackward(this.getBody(), { whitespace: true });
     var atblockstart = ['innerblock', 'outerblock'].includes(downres.type);
 
     if (dompack.debugflags.rte)
-      console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { down: down, insertlocator: insertlocator }));
+      console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
     var cleanupper = new PasteCleanup({ mode: mode || '' });
     var res = cleanupper.applyCleanup(pastecontent);
@@ -967,15 +965,15 @@ export default class StructuredEditor extends EditorBase {
   }
 
   insertInlineFormattedNode(locator, node, formatting, preservelocators, undoitem) {
-    //console.log('IIFN pre descend: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('IIFN pre descend: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     // Go to leaf node. FIXME: detect and do not descend into img/other stuff
-    // console.log('IIFN pre descend: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
-    locator.descendToLeafNode(this.getContentBodyNode());
+    // console.log('IIFN pre descend: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
+    locator.descendToLeafNode(this.getBody());
 
-    //console.log('IIFN post descend: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('IIFN post descend: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    //console.log('IIFN post ascend: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { plocator: plocator, cn: block.contentnode }));
+    //console.log('IIFN post ascend: ', richdebug.getStructuredOuterHTML(this.getBody(), { plocator: plocator, cn: block.contentnode }));
 
     // Get path from the block level to the locator
     var block = this.getBlockAtNode(locator.getNearestNode());
@@ -1000,12 +998,12 @@ export default class StructuredEditor extends EditorBase {
       path.splice(0, 1);
     }
 
-    //console.log('IIFN post stylematching: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('IIFN post stylematching: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     if (path.length || !locator.parentIsElementOrFragmentNode()) {
       var breaknode = path.length ? path[0].parentNode : locator.element.parentNode;
 
-      // console.log('IIFN pre ascend html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, breaknode: breaknode }));
+      // console.log('IIFN pre ascend html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, breaknode: breaknode }));
       locator.ascend(breaknode, true);
 
       if (locator.element != breaknode) {
@@ -1015,15 +1013,15 @@ export default class StructuredEditor extends EditorBase {
         //        if (splitparent.nodeType != 1)
         //          splitparent = splitparent.parentNode;
 
-        // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+        // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
         var parts = domlevel.splitDom(breaknode, [{ locator: locator, toward: 'start' }], preservelocators, undoitem);
-        // console.log('IIFN post split html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), parts));
+        // console.log('IIFN post split html: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
 
         locator = parts[0].end.clone();
       }
     }
 
-    //console.log('IIFN post split: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+    //console.log('IIFN post split: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
 
     // Create the missing textstyle tags
@@ -1063,13 +1061,13 @@ export default class StructuredEditor extends EditorBase {
 
   /** Describes the first ancestor blocknode of a block. If no block is found, the block section node is returned
       in all values.
-      @param node Block node (or child thereof)
-      @return
-      @cell return.blockstyle Determined style of the block node
-      @cell return.node Block top node (p/h1..h6/ol/ul)
-      @cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
-      @cell return.blockparent Parent of the block node
-      @cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
+      @param node - Block node (or child thereof)
+      @returns
+      \@cell return.blockstyle Determined style of the block node
+      \@cell return.node Block top node (p/h1..h6/ol/ul)
+      \@cell return.contentnode Block content node (li if node is the li node of a list or inside of it, otherwise equal to the block top node)
+      \@cell return.blockparent Parent of the block node
+      \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
   getBlockAtNode(node) {
     var res = super.getBlockAtNode(node);
@@ -1082,11 +1080,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Returns all the blocks in a range
-      @param range
-      @return
-      @cell type 'block'/'range'
-      @cell range
-      @cell block
+      @param range -
+      @returns
+      \@cell type 'block'/'range'
+      \@cell range
+      \@cell block
   */
   getBlocksInRange(range, withinnerlists) {
     range = range.clone();
@@ -1094,24 +1092,24 @@ export default class StructuredEditor extends EditorBase {
 
     /* minimize the range, so we're inside a block (when outside a block, the following code
        range moving can go into embedded objects) */
-    range.descendToLeafNodes(this.getContentBodyNode());
+    range.descendToLeafNodes(this.getBody());
 
     // Move range to include the whole block (including sublists)
-    range.start.moveToPreviousBlockBoundary(this.getContentBodyNode(), true);
+    range.start.moveToPreviousBlockBoundary(this.getBody(), true);
 
     // If end is placed before all visible content in a block, need to place it before the its block (but after range.start!)
-    if (range.end.movePastLastVisible(this.getContentBodyNode()).type == 'outerblock') {
+    if (range.end.movePastLastVisible(this.getBody()).type == 'outerblock') {
       // When <p>...</p><p>(*end*), place the end in the previous block
-      range.end.ascend(this.getContentBodyNode(), false);
+      range.end.ascend(this.getBody(), false);
       // Now: <p>...</p>(*end*)<p> or <body>(*end*)<p>
       // Make sure no content is left between the left block and the end locator
-      range.end.moveToPreviousBlockBoundary(this.getContentBodyNode(), false);
+      range.end.moveToPreviousBlockBoundary(this.getBody(), false);
       // And keep the range valid
       if (range.end.compare(range.start) < 0)
         range.end.assign(range.start);
     }
     else {
-      range.end.moveToNextBlockBoundary(this.getContentBodyNode(), !withinnerlists);
+      range.end.moveToNextBlockBoundary(this.getBody(), !withinnerlists);
     }
 
     var blocknodes = [];
@@ -1146,14 +1144,14 @@ export default class StructuredEditor extends EditorBase {
         else {
           var startrange = range.clone();
           startrange.end.assign(startrange.start);
-          startrange.end.moveToNextBlockBoundary(this.getContentBodyNode());
+          startrange.end.moveToNextBlockBoundary(this.getBody());
 
           if (!startrange.isCollapsed())
             blocks.unshift({ type: 'range', range: startrange });
 
           var endrange = range.clone();
           endrange.start.assign(startrange.start);
-          endrange.start.moveToPreviousBlockBoundary(this.getContentBodyNode());
+          endrange.start.moveToPreviousBlockBoundary(this.getBody());
 
           if (!endrange.isCollapsed())
             blocks.push({ type: 'range', range: endrange });
@@ -1231,9 +1229,9 @@ export default class StructuredEditor extends EditorBase {
 
   /** Node that parses an incoming (paste, initial set) node and tries to recognize it
       based on the configuration of this editor
-      @return
-      @cell return.type
-      @cell return.style
+      @returns
+      \@cell return.type
+      \@cell return.style
   */
   parseNode(node) {
     // text nodes?
@@ -1689,17 +1687,17 @@ export default class StructuredEditor extends EditorBase {
                 // Insert block node (allow li inserts)
                 var res = this.insertBlockNode(locator, node.style, true, preservelocators, undoitem, node.anchor);
 
-                //console.log(' inserted blocknode, now', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
+                //console.log(' inserted blocknode, now', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
 
                 locator = this._insertParsed(res.contentlocator, node.nodes, true, false, intable, preservelocators, undoitem);
-                //console.log(' inserted blocknode, prs', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
+                //console.log(' inserted blocknode, prs', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
 
                 if (node.forcevisible)
                   this.requireVisibleContentInBlockAfterLocator(locator, [locator, ...(preservelocators || [])], undoitem);
                 else if (!domlevel.hasNodeVisibleContent(res.node)) {
                   domlevel.Locator.newPointingTo(res.node).removeNode([res.contentlocator, locator, ...(preservelocators || [])], undoitem);
                 }
-                //console.log(' inserted blocknode, fnl', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
+                //console.log(' inserted blocknode, fnl', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
               }
             } break;
           case 'embeddedobject':
@@ -1797,7 +1795,7 @@ export default class StructuredEditor extends EditorBase {
           }
         }
       }
-      //console.log('post-insert parsed node ', node.type, 'at', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
+      //console.log('post-insert parsed node ', node.type, 'at', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
     }
     return locator;
   }
@@ -1849,14 +1847,14 @@ export default class StructuredEditor extends EditorBase {
     }
   }
 
-  /** @param locator
-      @param node Container whose contents will be parsed and inserted
-      @param options
-      @cell options.externalcontent External content (remove trailing br, empty paragraphs)
-      @cell options.inblock
-      @cell options.breakafter Add a new (default) paragraph after the inserted content (ADDME list?)
-      @param undoitem
-      @return Locator pointing to node just after inserted content
+  /** @param locator -
+      @param node - Container whose contents will be parsed and inserted
+      @param options -
+      \@cell options.externalcontent External content (remove trailing br, empty paragraphs)
+      \@cell options.inblock
+      \@cell options.breakafter Add a new (default) paragraph after the inserted content (ADDME list?)
+      @param undoitem -
+      @returns Locator pointing to node just after inserted content
   */
   insertContainerContents(locator, node, options, preservelocators, undoitem) {
     preservelocators = preservelocators || [];
@@ -1868,7 +1866,7 @@ export default class StructuredEditor extends EditorBase {
     let breakblock = false;
     if (typeof options.inblock == "undefined") {
       //      console.warn("inblock not specified, checking if at start of block");
-      const downres = locator.clone().scanBackward(this.getContentBodyNode(), { whitespace: true });
+      const downres = locator.clone().scanBackward(this.getBody(), { whitespace: true });
       if (downres.type == 'outerblock') {
         options.inblock = false;
         breakblock = true;
@@ -1886,7 +1884,7 @@ export default class StructuredEditor extends EditorBase {
       console.log('[rte] parsed container contents', parsed, { breakblock });
 
     if (breakblock) {
-      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
+      let upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
       if (upres.bogussegmentbreak && !block.inlist && parsed.length) {
         // paragraph is empty, just delete it
         locator = domlevel.Locator.newPointingTo(block.node);
@@ -1896,7 +1894,7 @@ export default class StructuredEditor extends EditorBase {
         // break block at insert position into two, append at the end of the first part
         if (block.contentnode != block.blockroot) {
           let down = locator.clone();
-          down.scanBackward(this.getContentBodyNode(), { whitespace: true });
+          down.scanBackward(this.getBody(), { whitespace: true });
 
           let splitres = domlevel.splitDom(block.blockparent, [{ locator: down, toward: 'start', preservetoward: 'end' }], null);
           locator = splitres[0].end;
@@ -1917,7 +1915,7 @@ export default class StructuredEditor extends EditorBase {
     // If the copied selection contains a trailing segment break, make sure a segment break is inserted only
     // if the insert locator doesn't point to a segment break (ignoring whitespace).
     if (options.breakafter) {
-      let upres = locator.clone().scanForward(this.getContentBodyNode(), { whitespace: true });
+      let upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
       if ((upres.type === "node" || upres.type === "char") && !upres.segmentbreak)
         parsed.push({ type: 'block', style: this.structure.defaultblockstyle, nodes: [] });
     }
@@ -1925,25 +1923,25 @@ export default class StructuredEditor extends EditorBase {
     if (debugicc) {
       console.log('parsed (' + (options.externalcontent ? 'post' : 'no') + ' clean)');
       this.showParsed(parsed, 1);
-      console.log('pre insertParsed: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }));
+      console.log('pre insertParsed: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
     }
 
     var res = this._insertParsed(locator, parsed, options.inblock, inlist, options.isintable, preservelocators, undoitem);
     if (debugicc)
-      console.log('post insert: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator, res: res }));
+      console.log('post insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator, res: res }));
 
     // Combine text nodes around parsed stuff
-    locator = this.combineAtLocator(this.getContentBodyNode(), locator, true, [], [res, ...preservelocators], undoitem);
-    res = this.combineAtLocator(this.getContentBodyNode(), res, true, [], [locator, ...preservelocators], undoitem);
+    locator = this.combineAtLocator(this.getBody(), locator, true, [], [res, ...preservelocators], undoitem);
+    res = this.combineAtLocator(this.getBody(), res, true, [], [locator, ...preservelocators], undoitem);
     if (debugicc)
-      console.log('post combine: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator, res }));
+      console.log('post combine: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator, res }));
 
     if (debugicc)
-      console.log('ICC postinsert, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
+      console.log('ICC postinsert, html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, res: res }));
     var range = new Range(res, res);
     this.checkDomStructure(range, [locator, res, ...(preservelocators || [])], undoitem);
     if (debugicc)
-      console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
+      console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, res: res }));
 
     domlevel.cleanupBogusBreaks(range.getAncestorElement(), [locator, res, ...(preservelocators || [])], undoitem);
 
@@ -1959,19 +1957,19 @@ export default class StructuredEditor extends EditorBase {
     var content = document.createElement('div');
     content.innerHTML = text;
 
-    var insertlocator = new domlevel.Locator(this.getContentBodyNode());
+    var insertlocator = new domlevel.Locator(this.getBody());
 
     // console.log('setContentsHTML, html: ', richdebug.getStructuredOuterHTML(content, {}));
 
     this.insertContainerContents(insertlocator, content, { externalcontent: true });
 
-    //console.log('post setContentsHTML: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { insertlocator: insertlocator }));
+    //console.log('post setContentsHTML: ', richdebug.getStructuredOuterHTML(this.getBody(), { insertlocator: insertlocator }));
 
-    var cursorpos = new domlevel.Locator(this.getContentBodyNode());
+    var cursorpos = new domlevel.Locator(this.getBody());
     this.setCursorAtLocator(cursorpos);
     this.stateHasChanged();
 
-    //console.log('post setContentsHTML: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange()));
+    //console.log('post setContentsHTML: ', richdebug.getStructuredOuterHTML(this.getBody(), this.getSelectionRange()));
     this._reprocessEmbeddedAutoElements();
   }
 
@@ -2121,7 +2119,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   refilterContent(externalcontent) {
-    var body = this.getContentBodyNode();
+    var body = this.getBody();
     // console.log("before refilter", body.innerHTML);
 
     var oldcontent = document.createElement('div');
@@ -2170,7 +2168,7 @@ export default class StructuredEditor extends EditorBase {
     var debughardenter = false;
     let undolock = this.getUndoLock();
     if (debughardenter)
-      console.log('hard enter start:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range }));
+      console.log('hard enter start:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range }));
 
     this.checkDomStructure(range);
 
@@ -2179,7 +2177,7 @@ export default class StructuredEditor extends EditorBase {
     let endblock = this.getBlockAtNode(range.end.element);
 
     if (debughardenter)
-      console.log('hard pre:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range, startblock: startblock, endblock: endblock }));
+      console.log('hard pre:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range, startblock: startblock, endblock: endblock }));
 
     // Expand selection to first/last visible, sres and eres contain the type of content next to the range
     let sres = range.start.movePastLastVisible(startblock.contentnode);
@@ -2206,7 +2204,7 @@ export default class StructuredEditor extends EditorBase {
 
     if (debughardenter) {
       console.log(sres, eres);
-      console.log('hard outscan:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range }));
+      console.log('hard outscan:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range }));
     }
 
     // Are we removing from the start of a block? If so, we insert a block node that should follow the previous block
@@ -2267,7 +2265,7 @@ export default class StructuredEditor extends EditorBase {
     }
 
     if (debughardenter)
-      console.log('post-insert:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range: range, newblockcontent }));
+      console.log('post-insert:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range, newblockcontent }));
 
     if (merge_with_new_block)
       range.start = newblockcontent;
@@ -2277,13 +2275,13 @@ export default class StructuredEditor extends EditorBase {
     }
 
     if (debughardenter)
-      console.log('pre remove:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range }));
+      console.log('pre remove:', richdebug.getStructuredOuterHTML(this.getBody(), { range }));
 
     // range now contains the range from the start of the newly inserted block until the end of the removed content. Remove the range
     let loc = this._removeRangeAndStitch(range, null, undolock.undoitem, { normalize: false });
 
     if (debughardenter)
-      console.log('after remove:', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range }));
+      console.log('after remove:', richdebug.getStructuredOuterHTML(this.getBody(), { range }));
 
 
     let block = this.getBlockAtNode(loc.element);
@@ -2318,7 +2316,7 @@ export default class StructuredEditor extends EditorBase {
   _scanBackwardSkipEmbedded(ancestor, locator) {
     locator = locator.clone();
     while (true) {
-      let bres = locator.scanBackward(this.getContentBodyNode(), { whitespace: true, blocks: true });
+      let bres = locator.scanBackward(this.getBody(), { whitespace: true, blocks: true });
       if (bres.type === "outerblock")
         return bres.data === ancestor ? null : locator;
       if (bres.type !== "node" || !bres.data.classList.contains("wh-rtd-embeddedobject")) {
@@ -2371,7 +2369,7 @@ export default class StructuredEditor extends EditorBase {
         if (block.islist) // last li?
         {
           let innerloc = new domlevel.Locator(block.node, 0);
-          if (innerloc.moveToNextBlockBoundary(this.getContentBodyNode(), false).type === "outerblock") {
+          if (innerloc.moveToNextBlockBoundary(this.getBody(), false).type === "outerblock") {
             locator = domlevel.Locator.newPointingTo(block.node);
             locator.removeNode([newpos], undolock.undoitem);
           }
@@ -2392,7 +2390,7 @@ export default class StructuredEditor extends EditorBase {
 
       let newpos = range.end.clone();
       if (forward) {
-        let moveres = newpos.moveRight(this.getContentBodyNode(), { checkblock });
+        let moveres = newpos.moveRight(this.getBody(), { checkblock });
         if (moveres)
           range.end.assign(newpos);
         else {
@@ -2401,7 +2399,7 @@ export default class StructuredEditor extends EditorBase {
         }
       }
       else {
-        let moveres = newpos.moveLeft(this.getContentBodyNode(), { checkblock });
+        let moveres = newpos.moveLeft(this.getBody(), { checkblock });
         if (moveres) {
           // See if the previous block is empty. If so, remove it.
           let block = this.getBlockAtNode(newpos.getNearestNode());
@@ -2421,10 +2419,10 @@ export default class StructuredEditor extends EditorBase {
         }
       }
 
-      //console.log('moved right', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, { indent: true }));
+      //console.log('moved right', richdebug.getStructuredOuterHTML(this.getBody(), range, { indent: true }));
     }
 
-    //console.log('pre constrain', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, { indent: true }));
+    //console.log('pre constrain', richdebug.getStructuredOuterHTML(this.getBody(), range, { indent: true }));
     range = this._constrainRangeCrossTDSelections(range).range;
 
     let locator = this._removeRangeAndStitch(range, null, undolock.undoitem);
@@ -2463,9 +2461,9 @@ export default class StructuredEditor extends EditorBase {
     var range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
-    var filtered = lists.getLevelActionableListNodes(range, this.getContentBodyNode()).addable;
+    var filtered = lists.getLevelActionableListNodes(range, this.getBody()).addable;
 
-    //console.log('addlistlevel todo', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), filtered, true));
+    //console.log('addlistlevel todo', richdebug.getStructuredOuterHTML(this.getBody(), filtered, true));
 
     for (var i = 0; i < filtered.length; ++i) {
       var node = filtered[i];
@@ -2500,7 +2498,7 @@ export default class StructuredEditor extends EditorBase {
         insertpos.removeNode([range], undolock.undoitem);
       }
 
-      //console.log('addlistlevel combine', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), {range:range,insertpos:insertpos,prev:prev}, true));
+      //console.log('addlistlevel combine', richdebug.getStructuredOuterHTML(this.getBody(), {range:range,insertpos:insertpos,prev:prev}, true));
 
       // If there was a list at the end of prev, merge it with the newly inserted list
       this.combineAdjacentLists(ancestor, insertpos, [range], undolock.undoitem);
@@ -2516,9 +2514,9 @@ export default class StructuredEditor extends EditorBase {
     const undolock = this.getUndoLock();
     var orgrange = range.clone();
 
-    var filtered = lists.getLevelActionableListNodes(range, this.getContentBodyNode()).removeable;
+    var filtered = lists.getLevelActionableListNodes(range, this.getBody()).removeable;
 
-    //console.log('rll pre', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { blocks: filtered, orgrange: orgrange }, true));
+    //console.log('rll pre', richdebug.getStructuredOuterHTML(this.getBody(), { blocks: filtered, orgrange: orgrange }, true));
 
     for (var i = 0; i < filtered.length; ++i) {
       var node = filtered[i];
@@ -2551,12 +2549,12 @@ export default class StructuredEditor extends EditorBase {
       */
       var splitpoint = new domlevel.Locator(node);
 
-      //console.log('rll presplit', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { splitpoint: splitpoint, node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
+      //console.log('rll presplit', richdebug.getStructuredOuterHTML(this.getBody(), { splitpoint: splitpoint, node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
 
       // Split the dom to separate the non-list contents of the parent li and the selected list item
       var parts = domlevel.splitDom(parentblock.node, [{ locator: splitpoint, toward: 'start' }], [orgrange], undolock.undoitem);
 
-      //console.log('rll postsplit', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
+      //console.log('rll postsplit', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
 
       /*    Now:
             <ol>parentblock
@@ -2578,7 +2576,7 @@ export default class StructuredEditor extends EditorBase {
       var cres = domlevel.combineNodes(insertlocator, node, [orgrange], undolock.undoitem);
       var afterlocator = cres.afterlocator;
 
-      //console.log('rll postcombine1', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: node, blocks: filtered, orgrange: orgrange }, true));
+      //console.log('rll postcombine1', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange }, true));
 
 
       /*    Now:
@@ -2598,16 +2596,16 @@ export default class StructuredEditor extends EditorBase {
       // If the nodes before and after the afterlocator are both lists, combine them
       this.combineAdjacentLists(newli, afterlocator, [orgrange], undolock.undoitem);
 
-      //console.log('rll postcombine2', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: node, blocks: filtered, orgrange: orgrange }, true));
+      //console.log('rll postcombine2', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange }, true));
 
       if (parent.parentNode && parent.childNodes.length == 0)
         domlevel.Locator.newPointingTo(parent).removeNode([orgrange], undolock.undoitem);
 
       this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(newli, 0), [orgrange], undolock.undoitem);
-      //console.log('rll iter end', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { node: node, blocks: filtered, orgrange: orgrange }, true));
+      //console.log('rll iter end', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange }, true));
     }
 
-    //console.log('rll done', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { orgrange: orgrange }, true));
+    //console.log('rll done', richdebug.getStructuredOuterHTML(this.getBody(), { orgrange: orgrange }, true));
 
     this.selectRange(orgrange);
     undolock.close();
@@ -2616,7 +2614,7 @@ export default class StructuredEditor extends EditorBase {
 
   // Correct dom structure after del & backspace (that may remove the first block node & just leave the body
   checkDomStructure(range, preservelocators) {
-    //console.log('start checkDomStructure', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range), range, preservelocators);
+    //console.log('start checkDomStructure', richdebug.getStructuredOuterHTML(this.getBody(), range), range, preservelocators);
 
     var restoreselection = !range;
     if (restoreselection)
@@ -2637,16 +2635,16 @@ export default class StructuredEditor extends EditorBase {
     }
 
     // See if there is content at start of document not wrapped in block
-    locator = new domlevel.Locator(this.getContentBodyNode());
-    let res = locator.scanForward(this.getContentBodyNode(), { whitespace: true });
+    locator = new domlevel.Locator(this.getBody());
+    let res = locator.scanForward(this.getBody(), { whitespace: true });
 
     // Yes, there is visible content.
     if (!['innerblock'].includes(res.type) && !(res.type == 'node' && domlevel.isEmbeddedObject(res.data))) {
       // Wrap everything until next block
-      locator.moveToNextBlockBoundary(this.getContentBodyNode(), false);
+      locator.moveToNextBlockBoundary(this.getBody(), false);
 
       // Make sure we handle something like bla<i><p>etc gracefully, can only move simple ranges
-      var parts = domlevel.splitDom(this.getContentBodyNode(), [{ locator: locator, toward: 'start' }], preservelocators);
+      var parts = domlevel.splitDom(this.getBody(), [{ locator: locator, toward: 'start' }], preservelocators);
 
       // Wrap range in block
       let res = this.insertBlockNode(parts[1].start, this.structure.defaultblockstyle, preservelocators, null);
@@ -2655,16 +2653,16 @@ export default class StructuredEditor extends EditorBase {
     }
 
     // Do some combining for DOM niceness
-    this.combineAtLocator(this.getContentBodyNode(), range.start, false, [], preservelocators);
+    this.combineAtLocator(this.getBody(), range.start, false, [], preservelocators);
     // ADDME: might be funny
-    // this.combineAtLocator(this.getContentBodyNode(), range.end, true, [], preservelocators);
+    // this.combineAtLocator(this.getBody(), range.end, true, [], preservelocators);
 
     if (restoreselection) {
       this.selectRange(range);
       this.stateHasChanged();
     }
 
-    //    console.log('end checkDomStructure', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range), range, preservelocators);
+    //    console.log('end checkDomStructure', richdebug.getStructuredOuterHTML(this.getBody(), range), range, preservelocators);
   }
 
   //////////////////////////////////////
@@ -2874,7 +2872,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   requireBottomParagraph() {
-    let body = this.getContentBodyNode();
+    let body = this.getBody();
     let locator = new domlevel.Locator(body, "end");
     let res = locator.scanBackward(body, { whitespace: true });
     switch (res.type) {
@@ -2907,7 +2905,7 @@ export default class StructuredEditor extends EditorBase {
   // Lists
   //
   getAvailableListActions(range) {
-    var listdata = lists.getLevelActionableListNodes(range, this.getContentBodyNode());
+    var listdata = lists.getLevelActionableListNodes(range, this.getBody());
     return {
       canincrease: listdata.addable.length != 0
       , candecrease: listdata.removeable.length != 0

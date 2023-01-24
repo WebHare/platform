@@ -5,9 +5,9 @@ import * as domlevel from "../domlevel";
 
 /** Updates a path with the next node. All elements that are not a proper ancestor of node are removed, then
     node is appended.
-    @param path Current path
-    @param node New node
-    @return Whether the node had no ancestor in the old path
+    @param path - Current path
+    @param node - New node
+    @returns Whether the node had no ancestor in the old path
 */
 function updatePathForNextNode(path, node) {
   var found = false;

@@ -32,7 +32,7 @@ test.registerTests(
       name: 'verifyclasses'
       , test: function(doc, win) {
         let rte = win.rte.getEditor();
-        var bodynode = rte.getContentBodyNode();
+        var bodynode = rte.getBody();
         test.assert(bodynode.className.indexOf('html-class') == -1);
         test.assert(bodynode.className.indexOf('body-class') != -1);
         test.assert(bodynode.parentNode.className.indexOf('html-class') != -1);
@@ -41,7 +41,7 @@ test.registerTests(
     , {
       name: 'verifybodymargin'
       , test: function(doc, win) {
-        var body = win.rte.getEditor().getContentBodyNode();
+        var body = win.rte.getEditor().getBody();
         var html = body.parentNode;
         var h1 = body.getElementsByTagName('h1')[0];
 
@@ -63,11 +63,11 @@ test.registerTests(
         // Initial cursor must be placed at start of document
         let rte = win.rte.getEditor();
         var range = rte.getSelectionRange();
-        range.normalize(rte.getContentBodyNode());
+        range.normalize(rte.getBody());
 
-        var testlocator = new domlevel.Locator(rte.getContentBodyNode());
+        var testlocator = new domlevel.Locator(rte.getBody());
         var testrange = new Range(testlocator, testlocator);
-        testrange.normalize(rte.getContentBodyNode());
+        testrange.normalize(rte.getBody());
 
         test.eq(testrange, range);
 
@@ -133,7 +133,7 @@ test.registerTests(
 
         rtetest.setRawStructuredContent(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>');
         var range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>', rte.getBody(), [range.start, range.end]);
       }
     }
 
@@ -151,7 +151,7 @@ test.registerTests(
         // * (*here)
         rte.setContentsHTMLRaw('<ol class="ordered"><li></li></ol>');
 
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_li = body.getElementsByTagName("LI")[0];
 
         rte.insertBlockNode(new domlevel.Locator(node_li), style_ordered, true);
@@ -160,8 +160,8 @@ test.registerTests(
         // Insert list node (raw setting, this html has different semantics in IE/vs the rest)
         // * (*here)
         rte.setContentsHTMLRaw('<ol class="ordered"><li><br></li></ol>');
-        //console.log('li with br', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
-        body = rte.getContentBodyNode();
+        //console.log('li with br', richdebug.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
+        body = rte.getBody();
         node_li = body.getElementsByTagName("LI")[0];
         rte.insertBlockNode(new domlevel.Locator(node_li), style_ordered, true);
         if (useblockfill)
@@ -172,7 +172,7 @@ test.registerTests(
         // Insert list node
         // * a(*here)
         rte.setContentsHTML('<ol class="ordered"><li>a</li></ol>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_li = body.getElementsByTagName("LI")[0];
         rte.insertBlockNode(new domlevel.Locator(node_li, 1), style_ordered, true);
         test.eqHTML('<ol class="ordered"><li>a<ol class="ordered"><li></li></ol></li></ol>', getContentsHTMLRaw(win));
@@ -180,7 +180,7 @@ test.registerTests(
         // Insert list node
         // * (*here)a
         rte.setContentsHTML('<ol class="ordered"><li>a</li></ol>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_li = body.getElementsByTagName("LI")[0];
         rte.insertBlockNode(new domlevel.Locator(node_li), style_ordered, true);
         test.eqHTML('<ol class="ordered"><li><ol class="ordered"><li></li></ol></li><li>a</li></ol>', getContentsHTMLRaw(win));
@@ -188,8 +188,8 @@ test.registerTests(
         // Insert list node
         // * a(*here)a
         rte.setContentsHTML('<ol class="ordered"><li>aa</li></ol>');
-        //console.log('empty ol', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
-        body = rte.getContentBodyNode();
+        //console.log('empty ol', richdebug.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
+        body = rte.getBody();
         node_li = body.getElementsByTagName("LI")[0];
         rte.insertBlockNode(new domlevel.Locator(node_li.firstChild, 1), style_ordered, true);
         test.eqHTML('<ol class="ordered"><li>a<ol class="ordered"><li></li></ol></li><li>a</li></ol>', getContentsHTMLRaw(win));
@@ -197,8 +197,8 @@ test.registerTests(
         // Insert non-list into non-list (kinda illegal code, but must be handled gracefully)
         // H1 (*here)
         rte.setContentsHTMLRaw('<h1 class="heading1"></h1>');
-        //        console.log('empty h1', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
-        body = rte.getContentBodyNode();
+        //        console.log('empty h1', richdebug.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
+        body = rte.getBody();
         node_h1 = body.getElementsByTagName("H1")[0];
         rte.insertBlockNode(new domlevel.Locator(node_h1), style_normal);
         test.eqHTML('<h1 class="heading1"></h1><p class="normal"></p>', getContentsHTMLRaw(win));
@@ -206,7 +206,7 @@ test.registerTests(
         // Insert non-list into non-list
         // H1 (*here) <br>
         rte.setContentsHTML('<h1 class="heading1"><br></h1>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_h1 = body.getElementsByTagName("H1")[0];
         rte.insertBlockNode(new domlevel.Locator(node_h1), style_normal);
         test.eqHTML('<h1 class="heading1">' + blockfill + '</h1><p class="normal"></p>', getContentsHTMLRaw(win));
@@ -214,7 +214,7 @@ test.registerTests(
         // Insert non-list into non-list
         // H1 (*here)a
         rte.setContentsHTML('<h1 class="heading1">a</h1>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_h1 = body.getElementsByTagName("H1")[0];
         rte.insertBlockNode(new domlevel.Locator(node_h1), style_normal);
         test.eqHTML('<p class="normal"></p><h1 class="heading1">a</h1>', getContentsHTMLRaw(win));
@@ -222,7 +222,7 @@ test.registerTests(
         // Insert non-list into non-list
         // H1 a(*here)
         rte.setContentsHTML('<h1 class="heading1">a</h1>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         node_h1 = body.getElementsByTagName("H1")[0];
         rte.insertBlockNode(new domlevel.Locator(node_h1, 1), style_normal);
         test.eqHTML('<h1 class="heading1">a</h1><p class="normal">' + ieblockfill + '</p>', win.rte.getValue());
@@ -237,61 +237,61 @@ test.registerTests(
 
 
         // Stitch toward start
-        rte.getContentBodyNode().innerHTML = '<p class="normal"><b><br></b><b><br></b></p>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<p class="normal"><b><br></b><b><br></b></p>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[1];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, false);
+        rte.combineAtLocator(rte.getBody(), locator, false);
         test.eqHTML('<p class="normal"><b><br><br></b>' + ieblockfill + '</p>', win.rte.getValue());
 
         // Stitch toward start, multiple levels
-        rte.getContentBodyNode().innerHTML = '<p class="normal"><b><i><br></i></b><b><i><br></i></b></p>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<p class="normal"><b><i><br></i></b><b><i><br></i></b></p>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[1];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, false);
+        rte.combineAtLocator(rte.getBody(), locator, false);
         test.eqHTML('<p class="normal"><b><i><br><br></i></b>' + ieblockfill + '</p>', win.rte.getValue());
 
         // Stitch toward start, list
-        rte.getContentBodyNode().innerHTML = '<ol class="ordered"><li><br></li></ol><ol class="ordered"><li><br></li></ol>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<ol class="ordered"><li><br></li></ol><ol class="ordered"><li><br></li></ol>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[1];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, false);
+        rte.combineAtLocator(rte.getBody(), locator, false);
         test.eqHTML('<ol class="ordered"><li><br>' + ieblockfill + '</li><li><br>' + ieblockfill + '</li></ol>', win.rte.getValue());
 
         // Stitch toward end
-        rte.getContentBodyNode().innerHTML = '<p class="normal"><b><br></b><b><br></b></p>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<p class="normal"><b><br></b><b><br></b></p>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[0];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, true);
+        rte.combineAtLocator(rte.getBody(), locator, true);
         test.eqHTML('<p class="normal"><b><br><br></b>' + ieblockfill + '</p>', win.rte.getValue());
 
         // Stitch toward end, multiple levels
-        rte.getContentBodyNode().innerHTML = '<p class="normal"><b><i><br></i></b><b><i><br></i></b></p>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<p class="normal"><b><i><br></i></b><b><i><br></i></b></p>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[0];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, true);
+        rte.combineAtLocator(rte.getBody(), locator, true);
         test.eqHTML('<p class="normal"><b><i><br><br></i></b>' + ieblockfill + '</p>', win.rte.getValue());
 
         // Stitch toward end, list
-        rte.getContentBodyNode().innerHTML = '<ol class="ordered"><li><br></li></ol><ol class="ordered"><li><br></li></ol>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<ol class="ordered"><li><br></li></ol><ol class="ordered"><li><br></li></ol>';
+        body = rte.getBody();
         node_br = body.getElementsByTagName("BR")[0];
         locator = new domlevel.Locator(node_br, 0);
-        rte.combineAtLocator(rte.getContentBodyNode(), locator, true);
+        rte.combineAtLocator(rte.getBody(), locator, true);
         test.eqHTML('<ol class="ordered"><li><br>' + ieblockfill + '</li><li><br>' + ieblockfill + '</li></ol>', win.rte.getValue());
 
         // Stitch list both sides, with empty OL in the middle
-        rte.getContentBodyNode().innerHTML = '<ol class="ordered"><li>1</li></ol><ol class="ordered"></ol><ol class="ordered"><li>2</li></ol>';
-        body = rte.getContentBodyNode();
+        rte.getBody().innerHTML = '<ol class="ordered"><li>1</li></ol><ol class="ordered"></ol><ol class="ordered"><li>2</li></ol>';
+        body = rte.getBody();
         var node_ol = body.getElementsByTagName("OL")[1]; // second OL node
         locator = new domlevel.Locator(node_ol, 0);
 
-        locator = rte.combineAtLocator(rte.getContentBodyNode(), locator, false);
-        locator = rte.combineAtLocator(rte.getContentBodyNode(), locator, true);
+        locator = rte.combineAtLocator(rte.getBody(), locator, false);
+        locator = rte.combineAtLocator(rte.getBody(), locator, true);
 
         test.eqHTML('<ol class="ordered"><li>1</li><li>2</li></ol>', win.rte.getValue());
         test.eq(1, body.getElementsByTagName("OL").length);
@@ -308,7 +308,7 @@ test.registerTests(
         let rte = win.rte.getEditor();
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/" trash="true">stijl</a>.</p>');
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
 
         //this is the style we applied to HEADING1, we're expecting the rte to have properly set the class
         var h1 = body.getElementsByTagName("H1")[0];
@@ -357,7 +357,7 @@ test.registerTests(
 
         rtetest.setStructuredContent(win, '<p class="normal"><b>"a"</b><i>"b"</i></p');
         var range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal"><b>"(*0*)(*1*)a"</b><i>"b"</i></p', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal"><b>"(*0*)(*1*)a"</b><i>"b"</i></p', rte.getBody(), [range.start, range.end]);
 
         let withtable =
           '<p class="normal">"(*0*)a"</p>' +
@@ -366,13 +366,13 @@ test.registerTests(
           '</table>' +
           '<p class="normal">"b(*1*)"</p>';
         rtetest.setStructuredContent(win, withtable);
-        rte.selectNodeInner(rte.getContentBodyNode());
+        rte.selectNodeInner(rte.getBody());
         prestate = rtetest.getPreActionState(rte);
         test.assert(rte.setSelectionBlockStyle("heading1"));
         range = rte.getSelectionRange();
         await rtetest.testUndoRedo(rte, prestate);
 
-        rtetest.testEqHTMLEx(win, withtable.replace(/\<p class="normal"/g, '<h1 class="heading1"').replace(/\<\/p/g, '</h1'), rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, withtable.replace(/\<p class="normal"/g, '<h1 class="heading1"').replace(/\<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
       }
     }
 
@@ -400,14 +400,14 @@ test.registerTests(
         // Normal converts
 
         /*        // No block to list (interesting case, but disabled because the expected behaviour hasn't been determined yet)
-                rte.getContentBodyNode().innerHTML = '<i>a</i>';
-                rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+                rte.getBody().innerHTML = '<i>a</i>';
+                rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
                 rte._toggleBulletedList();
                 testEqHTML('<ul class="unordered"><li><i>a</i></li></ul>', win.rte.getValue());
         */
         // Blockstyle to list
         rte.setContentsHTML('<p class="normal"><i>a</i></p>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -415,7 +415,7 @@ test.registerTests(
 
         // Other list type to list
         rte.setContentsHTML('<ol class="ordered"><li><i>a</i></li></ol>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -423,7 +423,7 @@ test.registerTests(
 
         // List type to default blockstyle
         rte.setContentsHTML('<ul class="unordered"><li><i>a</i></li></ul>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -431,17 +431,17 @@ test.registerTests(
 
         // Blockstyle to list, within other lists
         rte.setContentsHTMLRaw('<ul class="unordered"><li>1</li></ul><p class="normal"><i>a</i></p><ul class="unordered"><li>2</li></ul>');
-        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getContentBodyNode(), []);
+        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getBody(), []);
 
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"(*0*)(*1*)a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getContentBodyNode(), [range.start, range.end]);
-        //console.log('test pre setsel', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
+        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"(*0*)(*1*)a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getBody(), [range.start, range.end]);
+        //console.log('test pre setsel', richdebug.getStructuredOuterHTML(rte.getBody(), rte.getSelectionRange()));
 
         rte.setContentsHTML('<ul class="unordered"><li>1</li></ul><p class="normal"><i>a</i></p><ul class="unordered"><li>2</li></ul>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"(*0*)(*1*)a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ul class="unordered"><li>"1"</li></ul><p class="normal"><i>"(*0*)(*1*)a"</i></p><ul class="unordered"><li>"2"</li></ul>', rte.getBody(), [range.start, range.end]);
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -449,7 +449,7 @@ test.registerTests(
 
         // Other list to list, within other lists
         rte.setContentsHTML('<ul class="unordered"><li>1</li></ul><ol class="ordered"><li><i>a</i></li></ol><ul class="unordered"><li>2</li></ul>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -457,7 +457,7 @@ test.registerTests(
 
         // Unlist, within list
         rte.setContentsHTML('<ul class="unordered"><li>1</li><li><i>a</i></li><li>2</li></ul>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName("I")[0]);
+        rte.setCursor(rte.getBody().getElementsByTagName("I")[0]);
 
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
@@ -503,7 +503,7 @@ test.registerTests(
         //make sure that passing empty content, creates and sets the default style
         rte.setContentsHTML('');
 
-        var p = rte.getContentBodyNode().firstChild;
+        var p = rte.getBody().firstChild;
         test.eq("P", p.nodeName);
         test.eq("normal", p.className);
         selectstate = rte.getSelectionState();
@@ -518,7 +518,7 @@ test.registerTests(
         let body, prestate;
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn stijl.</p>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         var h1 = body.getElementsByTagName("H1")[0];
         rte.setCursor(h1.firstChild, 3);
 
@@ -534,12 +534,12 @@ test.registerTests(
         test.eq(null, h1.nextSibling.nextSibling.nextSibling);
 
         rte.setContentsHTML('<p class="normal">123</p>');
-        body = rte.getContentBodyNode();
+        body = rte.getBody();
         var p = body.getElementsByTagName("P")[0];
-        //console.log('test pre setsel', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), Range.fromDOMRange(rte.GetSelectionObject().GetRange())));
-        //console.log('fc', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), { fc: p.firstChild }));
+        //console.log('test pre setsel', richdebug.getStructuredOuterHTML(rte.getBody(), Range.fromDOMRange(rte.GetSelectionObject().GetRange())));
+        //console.log('fc', richdebug.getStructuredOuterHTML(rte.getBody(), { fc: p.firstChild }));
         rte.selectRange(new Range(new domlevel.Locator(p.firstChild, 1), new domlevel.Locator(p.firstChild, 2)));
-        //console.log('test post setsel', richdebug.getStructuredOuterHTML(rte.getContentBodyNode(), Range.fromDOMRange(rte.GetSelectionObject().GetRange())));
+        //console.log('test post setsel', richdebug.getStructuredOuterHTML(rte.getBody(), Range.fromDOMRange(rte.GetSelectionObject().GetRange())));
 
         rte.executeHardEnter();
 
@@ -551,7 +551,7 @@ test.registerTests(
                 rte.executeHardEnter();
         
                 var range = rte.getSelectionRange();
-                rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getContentBodyNode(), [ range.start, range.end ]);
+                rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getBody(), [ range.start, range.end ]);
                 */
       }
     }
@@ -564,8 +564,8 @@ test.registerTests(
 
         // Within paragraph
         rte.setContentsHTML('<p class="normal">ab</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getBody(), locators);
 
         rte.setCursor(locators[3].element, locators[3].offset);
         prestate = rtetest.getPreActionState(rte);
@@ -573,14 +573,14 @@ test.registerTests(
         await rtetest.testUndoRedo(rte, prestate);
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)b"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)b"</p>', rte.getBody(), [range.start, range.end]);
 
         // At start of paragraph
         // Undo barrier to make sure sfari doesn't coalesce updates into one undo
         await rtetest.undoBarrier();
         rte.setContentsHTML('<p class="normal">ab</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getBody(), locators);
 
         rte.setCursor(locators[2].element, locators[2].offset);
         prestate = rtetest.getPreActionState(rte);
@@ -588,69 +588,69 @@ test.registerTests(
         await rtetest.testUndoRedo(rte, prestate);
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal"><br>"(*0*)(*1*)ab"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal"><br>"(*0*)(*1*)ab"</p>', rte.getBody(), [range.start, range.end]);
 
         // At end of paragraph
         rte.setContentsHTML('<p class="normal">ab</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getBody(), locators);
 
         rte.setCursor(locators[4].element, locators[4].offset);
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"<br>' + quotedloc01blockfill + '</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"<br>' + quotedloc01blockfill + '</p>', rte.getBody(), [range.start, range.end]);
 
         // Spanning paragraphs
         rte.setContentsHTML('<p class="normal">ab</p><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)"(*8*)c(*9*)d(*10*)"(*11*)</p>(*12*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)"(*8*)c(*9*)d(*10*)"(*11*)</p>(*12*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[9]));
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         range = rte.getSelectionRange();
         if (blockfillistext)
-          rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)d"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+          rtetest.testEqHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)d"</p>', rte.getBody(), [range.start, range.end]);
 
         // Within LI
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)', rte.getBody(), locators);
 
         rte.setCursor(locators[4].element, locators[4].offset);
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<br>"(*0*)(*1*)b"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<br>"(*0*)(*1*)b"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Li spanning to within P
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[4], locators[11]));
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<br>"(*0*)(*1*)d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<br>"(*0*)(*1*)d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Start of li to middle of block
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[11]));
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li><br>"(*0*)(*1*)d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li><br>"(*0*)(*1*)d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Start of li to end of block
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[12]));
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li><br>' + quotedloc01blockfill + '</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li><br>' + quotedloc01blockfill + '</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setRawStructuredContent(win, '<p class="normal">"a(*0*) "<br data-wh-rte="bogus"></p>');
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
@@ -666,177 +666,177 @@ test.registerTests(
 
         // in empty paragraph
         rte.setContentsHTML('<p class="normal"><br></p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
         if (useblockfill)
-          rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)<br data-wh-rte="bogus">(*2*)</p>(*3*)', rte.getContentBodyNode(), locators);
+          rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)<br data-wh-rte="bogus">(*2*)</p>(*3*)', rte.getBody(), locators);
         else
-          rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)</p>(*2*)', rte.getContentBodyNode(), locators);
+          rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)</p>(*2*)', rte.getBody(), locators);
 
         rte.setCursor(locators[1].element, locators[1].offset);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedblockfill + '</p><p class="normal">' + quotedloc01blockfill + '</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedblockfill + '</p><p class="normal">' + quotedloc01blockfill + '</p>', rte.getBody(), [range.start, range.end]);
 
         // Within paragraph
         rte.setContentsHTML('<p class="normal">ab</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getBody(), locators);
 
         rte.setCursor(locators[3].element, locators[3].offset);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"a"</p><p class="normal">"(*0*)(*1*)b"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"a"</p><p class="normal">"(*0*)(*1*)b"</p>', rte.getBody(), [range.start, range.end]);
 
         // At start of paragraph
         rte.setContentsHTML('<p class="normal">ab</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)', rte.getBody(), locators);
 
         rte.setCursor(locators[2].element, locators[2].offset);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedblockfill + '</p><p class="normal">"(*0*)(*1*)ab"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedblockfill + '</p><p class="normal">"(*0*)(*1*)ab"</p>', rte.getBody(), [range.start, range.end]);
 
         // At start of paragraph, after heading1 with heading2 as next block type
         rte.setContentsHTML('<h1 class="heading1">h1</h1><h2 class="heading2">h2</h2>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<h1 class="heading1">(*1*)"(*2*)h(*3*)1(*4*)"(*5*)</h1>(*6*)<h2 class="heading2">(*7*)"(*8*)h(*9*)2(*10*)"(*11*)</h2>(*12*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<h1 class="heading1">(*1*)"(*2*)h(*3*)1(*4*)"(*5*)</h1>(*6*)<h2 class="heading2">(*7*)"(*8*)h(*9*)2(*10*)"(*11*)</h2>(*12*)', rte.getBody(), locators);
 
         rte.setCursor(locators[8].element, locators[8].offset);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"h1"</h1><h2 class="heading2">' + quotedblockfill + '</h2><h2 class="heading2">"(*0*)(*1*)h2"</h2>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"h1"</h1><h2 class="heading2">' + quotedblockfill + '</h2><h2 class="heading2">"(*0*)(*1*)h2"</h2>', rte.getBody(), [range.start, range.end]);
 
         // Spanning paragraphs
         rte.setContentsHTML('<p class="normal">ab</p><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)"(*8*)c(*9*)d(*10*)"(*11*)</p>(*12*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)"(*8*)c(*9*)d(*10*)"(*11*)</p>(*12*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[9]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"a"</p><p class="normal">"(*0*)(*1*)d"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"a"</p><p class="normal">"(*0*)(*1*)d"</p>', rte.getBody(), [range.start, range.end]);
 
         // Within LI
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)', rte.getBody(), locators);
 
         rte.setCursor(locators[4].element, locators[4].offset);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)b"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)b"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Within LI containing a soft break
         rte.setContentsHTML('<ol class="ordered"><li>abcd<br>efgh</li></ol>');
-        var li = rte.getContentBodyNode().querySelector('li');
+        var li = rte.getBody().querySelector('li');
         rte.setCursor(li.firstChild, 2);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"ab"</li><li>"(*0*)(*1*)cd"<br>"efgh"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"ab"</li><li>"(*0*)(*1*)cd"<br>"efgh"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // End of li, spanning to within P
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[5], locators[11]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"ab"</li><li>"(*0*)(*1*)d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"ab"</li><li>"(*0*)(*1*)d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Li spanning to within P
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[4], locators[11]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Start of li to end of block
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[11]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>' + quotedblockfill + '</li><li>"(*0*)(*1*)d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>' + quotedblockfill + '</li><li>"(*0*)(*1*)d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // Start of li to end of block
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[12]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedloc01blockfill + '</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedloc01blockfill + '</p>', rte.getBody(), [range.start, range.end]);
 
         // Start of li to end of block
         rte.setContentsHTML('<ol class="ordered"><li>ab</li></ol><p class="normal">cd</p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)b(*5*)"(*6*)</li>(*7*)</ol>(*8*)<p class="normal">(*9*)"(*10*)c(*11*)d(*12*)"(*13*)</p>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[3], locators[12]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedloc01blockfill + '</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">' + quotedloc01blockfill + '</p>', rte.getBody(), [range.start, range.end]);
 
         // End of block (with next block an image)
         rte.setContentsHTML('<p class="normal">ab</p><p class="normal"><img src="/tests/webhare.png" width="50" height="50"></p>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">(*8*)</p>(*9*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">(*8*)</p>(*9*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[4], locators[4]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"</p><p class="normal">' + quotedloc01blockfill + '</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"</p><p class="normal">' + quotedloc01blockfill + '</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></p>', rte.getBody(), [range.start, range.end]);
 
         // End of filled nested li
         rte.setContentsHTML('<ol class="ordered"><li>a<ol class="ordered"><li>b</li></ol></li></ol>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)"(*8*)b(*9*)"(*10*)</li>(*11*)</ol>(*12*)</li>(*13*)</ol>(*14*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)"(*8*)b(*9*)"(*10*)</li>(*11*)</ol>(*12*)</li>(*13*)</ol>(*14*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[9], locators[9]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>' + quotedloc01blockfill + '</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>' + quotedloc01blockfill + '</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         // End of filled nested li  , with filled next li
         rte.setContentsHTML('<ol class="ordered"><li>a<ol class="ordered"><li>b</li><li>c</li></ol></li></ol>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)"(*8*)b(*9*)"(*10*)</li>(*11*)<li>(*12*)"(*13*)c(*14*)"(*15*)</li>(*16*)</ol>(*17*)</li>(*18*)</ol>(*19*)', rte.getContentBodyNode(), locators);
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
+        rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)"(*8*)b(*9*)"(*10*)</li>(*11*)<li>(*12*)"(*13*)c(*14*)"(*15*)</li>(*16*)</ol>(*17*)</li>(*18*)</ol>(*19*)', rte.getBody(), locators);
 
         rte.selectRange(new Range(locators[9], locators[9]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>' + quotedloc01blockfill + '</li><li>"c"</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>' + quotedloc01blockfill + '</li><li>"c"</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         // End of empty nested li
         rte.setContentsHTML('<ol class="ordered"><li>a<ol class="ordered"><li><br></li></ol></li></ol>');
-        locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
+        locators = richdebug.getAllLocatorsInNode(rte.getBody());
         if (useblockfill)
-          rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)' + blockfill + '(*8*)</li>(*9*)</ol>(*10*)</li>(*11*)</ol>(*12*)', rte.getContentBodyNode(), locators);
+          rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)' + blockfill + '(*8*)</li>(*9*)</ol>(*10*)</li>(*11*)</ol>(*12*)', rte.getBody(), locators);
         else
-          rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)</li>(*8*)</ol>(*9*)</li>(*10*)</ol>(*11*)', rte.getContentBodyNode(), locators);
+          rtetest.testEqHTMLEx(win, '(*0*)<ol class="ordered">(*1*)<li>(*2*)"(*3*)a(*4*)"(*5*)<ol class="ordered">(*6*)<li>(*7*)</li>(*8*)</ol>(*9*)</li>(*10*)</ol>(*11*)', rte.getBody(), locators);
 
         // Enter inside empty (nested) li, must remove it
         rte.selectRange(new Range(locators[7], locators[7]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>' + quotedloc01blockfill + '</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>' + quotedloc01blockfill + '</li></ol>', rte.getBody(), [range.start, range.end]);
 
         // End of document
         rte.setContentsHTML('<p class="normal">This is the end</p>');
-        rte.setCursor(rte.getContentBodyNode().getElementsByTagName('p')[0].firstChild, 'This is the end'.length);
+        rte.setCursor(rte.getBody().getElementsByTagName('p')[0].firstChild, 'This is the end'.length);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"This is the end"</p><p class="normal">' + quotedloc01blockfill + '</p>', win.rte.getValue());
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
@@ -865,32 +865,32 @@ test.registerTests(
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)(*1*)b"</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)(*1*)b"</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"b(*0*)"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b(*0*)(*1*)"</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b(*0*)(*1*)"</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>(*0*)"b"</li><li>"c"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)(*1*)b"</li></ol></li><li>"c"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)(*1*)b"</li></ol></li><li>"c"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c"</li></ol></li><li>"d"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"<ol class="ordered"><li>"(*0*)(*1*)c"</li></ol></li></ol></li><li>"d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"<ol class="ordered"><li>"(*0*)(*1*)c"</li></ol></li></ol></li><li>"d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"b"<ol class="ordered"><li>"(*0*)c"</li></ol></li><li>"d(*1*)"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b"<ol class="ordered"><li>"(*0*)c"</li><li>"d(*1*)"</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b"<ol class="ordered"><li>"(*0*)c"</li><li>"d(*1*)"</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b"</li><li>"c"</li><li>"d(*1*)"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)b"</li><li>"c"</li><li>"d(*1*)"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"(*0*)b"</li><li>"c"</li><li>"d(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ul class="unordered"><li>"a"</li><li>"(*0*)b"</li><li>"(*1*)c"</li></ul>');
         await rtetest.runWithUndo(rte, () => rte.addListLevel());
@@ -919,27 +919,27 @@ test.registerTests(
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li><ol class="ordered"><li>"(*0*)b"</li></ol></li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)b"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)(*1*)b"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li><ol class="ordered"><li>"(*0*)b(*1*)"</li><li>"c"</li></ol></li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li><ol class="ordered"><li>"(*0*)b(*1*)"</li><li>"c"</li></ol></li><li>"d"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"<ol class="ordered"><li>"(*0*)c(*1*)"</li></ol></li></ol></li><li>"d"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c(*1*)"</li></ol></li><li>"d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c(*1*)"</li></ol></li><li>"d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"<ol class="ordered"><li>"(*0*)c"</li></ol></li></ol></li><li>"d(*1*)"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c"</li></ol></li><li>"d(*1*)"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c"</li></ol></li><li>"d(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
       }
     }
 
@@ -952,12 +952,12 @@ test.registerTests(
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b(*0*)"<ol class="ordered"><li>"c"</li></ol></li></ol></li><li>"d"</li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b(*0*)(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b(*0*)(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"b(*0*)"<ol class="ordered"><li>"c(*1*)"</li></ol></li></ol>');
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b"(*0*)</li><li>"c(*1*)"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b"(*0*)</li><li>"c(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
       }
     }
 
@@ -974,21 +974,21 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(macwordpaste, true), locators[0]));
 
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf."</p><p class="normal"><b>"MSWord normal(*0*)(*1*)"</b></p><p class="normal">"after"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf."</p><p class="normal"><b>"MSWord normal(*0*)(*1*)"</b></p><p class="normal">"after"</p>', rte.getBody(), [range.start, range.end]);
 
         //test with empty p's, p's filled with only br and p's filled with zwsp
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<p>p1</p><p></p><p>p2</p><p><br></p><p>p3</p><p>&#8203;</p><p>p4</p>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"testp1"</p><p class="normal">"p2"</p><p class="normal">' + blockfill + '</p><p class="normal">"p3"</p><p class="normal">' + blockfill + '</p><p class="normal">"p4(*0*)(*1*)"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"testp1"</p><p class="normal">"p2"</p><p class="normal">' + blockfill + '</p><p class="normal">"p3"</p><p class="normal">' + blockfill + '</p><p class="normal">"p4(*0*)(*1*)"</p>', rte.getBody(), [range.start, range.end]);
 
         //test with list with embedded p
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<ol><li><p>a</p></li></ol>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a(*0*)(*1*)"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a(*0*)(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         //multiple list items
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
@@ -996,21 +996,21 @@ test.registerTests(
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a"</li><li>"b"</li><li>"c"</li><li>"d"</li><li>"e(*0*)(*1*)"</li></ol>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a"</li><li>"b"</li><li>"c"</li><li>"d"</li><li>"e(*0*)(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
 
         //test li nodes at root
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<li>a</li><li>b<ol><li><p>c</p></li></ol></li><li>d</li>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ul class="unordered"><li>"a"</li><li>"b"<ol class="ordered"><li>"c"</li></ol></li><li>"d(*0*)(*1*)"</li></ul>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ul class="unordered"><li>"a"</li><li>"b"<ol class="ordered"><li>"c"</li></ol></li><li>"d(*0*)(*1*)"</li></ul>', rte.getBody(), [range.start, range.end]);
 
         //test li nodes at root
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<li>a</li>b<li>c</li>d<li>e</li>f' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ul class="unordered"><li>"a"</li></ul><p class="normal">"b"</p><ul class="unordered"><li>"c"</li></ul><p class="normal">"d"</p><ul class="unordered"><li>"e"</li></ul><p class="normal">"f(*0*)(*1*)"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ul class="unordered"><li>"a"</li></ul><p class="normal">"b"</p><ul class="unordered"><li>"c"</li></ul><p class="normal">"d"</p><ul class="unordered"><li>"e"</li></ul><p class="normal">"f(*0*)(*1*)"</p>', rte.getBody(), [range.start, range.end]);
 
         //test li nodes at root, bug concatenated content
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
@@ -1018,7 +1018,7 @@ test.registerTests(
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a"</li><li>"b"</li></ol><ul class="unordered"><li>"c(*0*)(*1*)"</li></ul>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"test"</p><ol class="ordered"><li>"a"</li><li>"b"</li></ol><ul class="unordered"><li>"c(*0*)(*1*)"</li></ul>', rte.getBody(), [range.start, range.end]);
 
         //Test unwrapped content (inline paste)
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
@@ -1065,7 +1065,7 @@ test.registerTests(
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        imglocator = domlevel.Locator.newPointingTo(rte.getContentBodyNode().querySelector('img'));
+        imglocator = domlevel.Locator.newPointingTo(rte.getBody().querySelector('img'));
 
         //the selector should be behind the image
         test.eq(-1, imglocator.compare(range.start));
@@ -1076,7 +1076,7 @@ test.registerTests(
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
-        imglocator = domlevel.Locator.newPointingTo(rte.getContentBodyNode().querySelector('img'));
+        imglocator = domlevel.Locator.newPointingTo(rte.getBody().querySelector('img'));
 
         //the selector should be behind the image
         test.eq(-1, imglocator.compare(range.start));
@@ -1116,14 +1116,14 @@ test.registerTests(
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
         topaste = dompack.create("div", { innerHTML: '<ul><li><b>b</b></li></ul><h1 class="heading1"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></h1><ul><li>c</li></ul>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        let imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
+        let imgsrc = dompack.qS(rte.getBody(), "img").getAttribute("src", 2);
         rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"test"</h1><ul class="unordered"><li>"b"</li></ul><p class="normal"><img class="wh-rtd__img" src="${imgsrc}"></p><ul class="unordered"><li>"c"</li></ul><h1 class="heading1">"(*0*)(*1*)ing"</h1>`);
 
         // Paste forbidden inline styles
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
         topaste = dompack.create("div", { innerHTML: '<b>b</b><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
+        imgsrc = dompack.qS(rte.getBody(), "img").getAttribute("src", 2);
         rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"testb"</h1><p class="normal"><img class="wh-rtd__img" src="${imgsrc}">(*0*)(*1*)</p><h1 class="heading1">"ing"</h1>`);
 
         // Paste breaking content found on our gitlab wiki
@@ -1153,7 +1153,7 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(dompack.create("span", { textContent: "ik ben een testje" }), true), locators[0]));
 
         var range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.ik ben een testje(*0*)(*1*)"</p>', rte.getContentBodyNode(), [range.start, range.end]);
+        rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.ik ben een testje(*0*)(*1*)"</p>', rte.getBody(), [range.start, range.end]);
       }
     }
 

@@ -1,7 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from "dompack";
 import * as domlevel from "./domlevel";
 import { encodeValue } from "dompack/types/text";
 
@@ -138,9 +137,9 @@ function restoreSnapshotRecursive(doc, node, resultlist) {
 }
 
 /** Takes a snapshot of the current contents of rootnode
-    @param rootnode Rootnode to take the snapshot of
-    @param range Range to save (selection range)
-    @return Snapshot record
+    @param rootnode - Rootnode to take the snapshot of
+    @param range - Range to save (selection range)
+    @returns Snapshot record
 */
 export function generateSnapshot(rootnode, range) {
   var snapshot =
@@ -157,9 +156,9 @@ export function generateSnapshot(rootnode, range) {
 }
 
 /** Restores a snapshot taken earlier
-    @param rootnode Rootnode to restore the snapshot to
-    @param range Range to save (selection range)
-    @return Selection range to restore
+    @param rootnode - Rootnode to restore the snapshot to
+    @param range - Range to save (selection range)
+    @returns Selection range to restore
 */
 export function restoreSnapshot(rootnode, snapshot) {
   restoreSnapshotRecursive(rootnode.ownerDocument, rootnode, snapshot.childNodes);

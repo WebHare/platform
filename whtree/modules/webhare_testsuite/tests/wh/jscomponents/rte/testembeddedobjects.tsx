@@ -101,7 +101,7 @@ test.registerTests(
         console.error("--SetContentsHTML");
         test.getWin().rte.setValue('<html><body><div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="x8ywN3uVVV7vLJ64BkQCRQ" data-innerhtml-contents="&#60;div style=&#34;height:110px&#34;&#62;&#60;img class=&#34;wh-rtd-color-on-hover&#34; src=&#34;/.system/dl/ic~AQJzxwQAE6MtAzA5CwA-MYcDBwHBeABaAIA6SOg&#34; style=&#34;position:absolute;left:10px;top:10px;border-radius:5px;&#34; width=&#34;120&#34; height=&#34;90&#34; /&#62;&#60;div style=&#34;position:absolute;left:140px;right:60px;top:10px;bottom:10px;overflow:hidden&#34;&#62;&#60;div style=&#34;font-weight:bold;font-size:120%&#34;&#62;&#38;#20027;&#38;#20154;&#38;#29992;&#38;#36965;&#38;#25511;&#38;#36710;&#38;#25226;&#38;#19968;&#38;#32676;&#38;#23567;&#38;#29454;&#38;#29356;&#38;#29609;&#38;#22351;&#38;#20102;&#38;#65292;&#38;#30475;&#38;#30528;&#38;#25105;&#38;#37117;&#38;#24819;&#38;#26469;&#38;#19968;&#38;#20010;&#60;/div&#62;&#60;div style=&#34;margin-bottom:5px&#34;&#62;03-08-2014 1:13&#60;/div&#62;@&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#12298;&#38;#27704;&#38;#21033;(&#38;#28145;&#38;#22323;)&#38;#29305;&#38;#31181;&#38;#21360;&#38;#21047;&#38;#26377;&#38;#38480;&#38;#20844;&#38;#21496;&#38;#12299;&#38;#25105;&#38;#20204;&#38;#19981;&#38;#29983;&#38;#20135;&#38;#35270;&#38;#39057;&#38;#65292;&#38;#25105;&#38;#20204;&#38;#21482;&#38;#26159;&#38;#22269;&#38;#22806;youtube&#38;#23448;&#38;#32593;&#38;#35270;&#38;#39057;&#38;#30340;&#38;#25644;&#38;#36816;&#38;#24037;&#38;#65292;&#38;#27599;&#38;#22825;&#38;#20026;&#38;#20320;&#38;#26356;&#38;#26032;&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#35805;&#38;#39064;&#38;#12290;&#38;#33391;&#38;#24515;&#38;#20986;&#38;#21697;&#38;#12290;&#38;#27426;&#38;#36814;&#38;#35746;&#38;#38405;&#38;#26412;&#38;#20154;&#38;#20248;&#38;#37239;&#38;#31354;&#38;#38388;&#38;#65281;@&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#27714;&#38;#21508;&#38;#20301;&#38;#32769;&#38;#22823;&#38;#28857;&#38;#20010;&#38;#36190;&#38;#65281;&#38;#35874;&#38;#35874;&#60;/div&#62;&#60;img src=&#34;/tollium_todd.res/socialite/img/youku.png&#34; alt=&#34;&#34; class=&#34;wh-rtd-color-on-hover&#34; style=&#34;position:absolute; bottom:5px; right:5px&#34; /&#62;&#60;/div&#62;"></div></body></html>');
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
         test.eq(1, body.childNodes.length);
         test.eqHTML('<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="x8ywN3uVVV7vLJ64BkQCRQ"></div>', test.getWin().rte.getValue());
       }
@@ -118,7 +118,7 @@ test.registerTests(
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' }));
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
         test.eq(3, body.childNodes.length);
         test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>', body.childNodes[0].outerHTML);
         test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>', body.childNodes[2].outerHTML);
@@ -131,7 +131,7 @@ test.registerTests(
     , "Test block object selection"
     , async function() {
       const rte = test.getWin().rte.getEditor();
-      const body = rte.getContentBodyNode();
+      const body = rte.getBody();
 
       rte.selectNodeOuter(body.childNodes[0]);
       test.assert(!body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
@@ -160,7 +160,7 @@ test.registerTests(
           + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceid="inst1" data-innerhtml-contents="' + href_contents + '"></div>'
           + '<p class="normal">ondertekst</p>');
 
-        rte.selectNodeOuter(rte.getContentBodyNode().getElementsByTagName('div')[0]);
+        rte.selectNodeOuter(rte.getBody().getElementsByTagName('div')[0]);
 
         // Selection should not pick up the <a> in the embedded object
         test.eq("DIV", rte.getSelectionState().propstarget.tagName);
@@ -178,7 +178,7 @@ test.registerTests(
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' }));
 
-        var body = rte.getContentBodyNode();
+        var body = rte.getBody();
         test.eq(1, body.childNodes.length);
         test.eq(3, body.childNodes[0].childNodes.length);
         test.eq('Dit is een paragraaf tekst waar ', body.childNodes[0].childNodes[0].textContent);
@@ -198,7 +198,7 @@ test.registerTests(
     , "Should not be able to delete inline objects"
     , async function() {
       var rte = test.getWin().rte.getEditor();
-      var body = rte.getContentBodyNode();
+      var body = rte.getBody();
 
       //position cursor one cursor before before the inline obj. Deleting here caused the inline object to be ripped apart
       rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length - 1 });
