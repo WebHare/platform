@@ -2027,8 +2027,8 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Changes the blockstyle of the selection.
-      @param newblockstyle
-      @param forced If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
+      @param newblockstyle -
+      @param forced - If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
          is changed to the default blockstyle.
   */
   setSelectionBlockStyle(newblockstyle, forced) {

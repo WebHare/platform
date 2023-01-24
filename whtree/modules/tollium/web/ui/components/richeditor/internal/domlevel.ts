@@ -54,8 +54,8 @@ function setAttributes(node, attrs) {
 //
 
 /** Returns whether a node matches a filter
-    @param node Node to test
-    @param filter Filter to execute. True is returned for the different types of filter when:
+    @param node - Node to test
+    @param filter - Filter to execute. True is returned for the different types of filter when:
               string: nodeName is equal (case insensitive)
               array: contains lowercase nodeName
               function: filter(node) returns TRUE
@@ -117,9 +117,9 @@ function getNodeChildCount(element) {
 
 /** Searches for a parent with a specific nodename (or test function). Stops testing after ancestor has been encountered.
     (ancestor may be returned)
-    @param node Node to start at
-    @param filter Filter to use (see isNodeFilterMatch for types of filters)
-    @param maxancestor Node to stop at (no parent of the ancestor will be given back,
+    @param node - Node to start at
+    @param filter - Filter to use (see isNodeFilterMatch for types of filters)
+    @param maxancestor - Node to stop at (no parent of the ancestor will be given back,
 */
 function findParent(node, filter, maxancestor) {
   for (; node; node = node.parentNode) {
@@ -217,7 +217,7 @@ function isNodeSplittable(node) {
     && uname != 'SVG';
 }
 
-/** When locator points to segmentbreak (<br> or '\r', '\n'), see if the next position
+/** When locator points to segmentbreak (<br> or '\\r', '\\n'), see if the next position
     is a block boundary. If so, the break isn't visible (except on IE8 and lower)
     Assumes locator points at a real segment boundary.
 */
@@ -241,12 +241,12 @@ function getInvisibleSegmentBreakRange(locator, maxancestor) {
 
 /** Get the range around the locator where the cursor would be displayed at the same visual position. <del>If placed
     after the last br in a blockon non-ie, autocorrected to range before br.</del>
-    @return
-    @cell return.valid Whether the cursor could be placed here
-    @cell return.down Downstream locator position
-    @cell return.downres scanBackward result for the downstream position
-    @cell return.up Upstream locator position
-    @cell return.upres scanForward result for the upstream position
+    @returns
+    \@cell return.valid Whether the cursor could be placed here
+    \@cell return.down Downstream locator position
+    \@cell return.downres scanBackward result for the downstream position
+    \@cell return.up Upstream locator position
+    \@cell return.upres scanForward result for the upstream position
 */
 function getVisualEquivalenceRangeInBlock(maxancestor, locator, correctpastlastbr) {
   /* Whitespace handling table: (inv: invalid, norm: normal, ign: ignore whitespace)
@@ -426,10 +426,10 @@ function getVisualEquivalenceRange(maxancestor, locator) {
 //
 
 /** Splits a data node at a locator, can keep other locators at the same position
-    @param locator Place to split the data node
-    @param preservelocators List of locators/ranges to keep valid.
-    @param preservetoward 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
-    @return Locator pointing to new element
+    @param locator - Place to split the data node
+    @param preservelocators - List of locators/ranges to keep valid.
+    @param preservetoward - 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
+    @returns Locator pointing to new element
 */
 function splitDataNode(locator, preservelocators, preservetoward) {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
@@ -447,9 +447,10 @@ function splitDataNode(locator, preservelocators, preservetoward) {
 }
 
 /** Splits an element node at a locator, can keep other locators at the same position
-    @param preservelocators List of locators/ranges to keep valid.
-    @param preservetoward 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
-    @return Locator pointing to new element
+    @param locator - Place to split the element node
+    @param preservelocators - List of locators/ranges to keep valid.
+    @param preservetoward - 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
+    @returns Locator pointing to new element
 */
 function splitElement(locator, preservelocators, preservetoward) {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
@@ -908,9 +909,9 @@ function replaceSingleNodeWithItsContents(node, preservelocators) {
 }
 
 /** Corrects the range for changes made when a node is replaced with its contents
-    @param locator Locator of the removed node
-    @param endlocator Locator of the end of inserted children (locator.element == endlocator.element)
-    @param removednode Removed node
+    @param locator - Locator of the removed node
+    @param endlocator - Locator of the end of inserted children (locator.element == endlocator.element)
+    @param removednode - Removed node
 */
 function _correctForReplaceWithChildren(locator, removednode, childcount, tocorrect) {
   if (tocorrect.element == removednode) // Within the removed element? Adjust to new place within old element
@@ -925,10 +926,10 @@ function _correctForReplaceWithChildren(locator, removednode, childcount, tocorr
 
 /** Wraps the nodes point to by locator (and nodecount-1 of its siblings) in a new node, that is then
     inserted at that location
-    @param Locator Locator pointing to node to wrap
-    @param nodecount Nr of nodes to wrap
-    @param newnode Node to replace the nodes with
-    @param preservelocators Locators/ranges to preserve
+    @param Locator - Locator pointing to node to wrap
+    @param nodecount - Nr of nodes to wrap
+    @param newnode - Node to replace the nodes with
+    @param preservelocators - Locators/ranges to preserve
 */
 function wrapSimpleRangeInNewNode(range, newnode, preservelocators) {
   if (range.start.element != range.end.element)
@@ -942,10 +943,10 @@ function wrapSimpleRangeInNewNode(range, newnode, preservelocators) {
 
 /** Wraps the nodes point to by locator (and nodecount-1 of its siblings) in a new node, that is then
     inserted at that location
-    @param Locator Locator pointing to node to wrap
-    @param nodecount Nr of nodes to wrap
-    @param newnode Node to replace the nodes with
-    @param preservelocators Locators/ranges to preserver
+    @param Locator - Locator pointing to node to wrap
+    @param nodecount - Nr of nodes to wrap
+    @param newnode - Node to replace the nodes with
+    @param preservelocators - Locators/ranges to preserver
 */
 function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators) {
   //console.log('WNINN pre', richdebug.getStructuredOuterHTML(locator.element, preservelocators, true), newnode);
@@ -1384,8 +1385,8 @@ function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preserve
 }
 
 /** Cleanup the bogus breaks that aren't needed anymore
-    @param node Node to test the children of
-    @param preservelocators Locators to preserver
+    @param node - Node to test the children of
+    @param preservelocators - Locators to preserver
 */
 function cleanupBogusBreaks(node, preservelocators) {
   const breaks = node.querySelectorAll(`br[data-wh-rte="bogus"]`);
@@ -1617,7 +1618,7 @@ class Locator {
   }
 
   /** Get the path through the dom tree from the ancestor to an element, not including the ancestor
-      @param ancestor
+      @param ancestor -
   */
   getPathFromAncestor(ancestor) {
     let treenodes = [], element = this.element;
@@ -1635,7 +1636,7 @@ class Locator {
   }
 
   /** Returns whether the locator points to an element within a specific parent node
-      @param parentNode
+      @param parentNode -
   */
   isWithinNode(parentNode) {
     let current = this.element;
