@@ -71,8 +71,7 @@ export default class RangeIterator2 {
       if (this.localstart.equals(this.range.start)) {
         //console.log(' localstart == range.start');
         this.localstart = null;
-      }
-      else {
+      } else {
         this.localstart = this.range.start.clone();
         this.localstart.ascend(this.node, false, true);
 
@@ -93,8 +92,7 @@ export default class RangeIterator2 {
         //console.log(' at end');
         this.node = null;
         return false;
-      }
-      else {
+      } else {
         //console.log(' ok');
         this.node = this.current.getPointedNode();
         return true;
@@ -118,8 +116,7 @@ export default class RangeIterator2 {
 
       this.node = this.current.getPointedNode();
       return true;
-    }
-    else {
+    } else {
       //console.log(' into child', richdebug.getStructuredOuterHTML(this.ancestor, { range: this.range, localstart: this.localstart, localend: this.localend, current: this.current }, true));
 
       this.current.element = this.node;

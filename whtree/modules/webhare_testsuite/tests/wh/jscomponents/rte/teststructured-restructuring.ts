@@ -18,7 +18,7 @@ function getComparableRTEText(rtenode) {
   // Ignore width and height styling, they can differ between browsers
   input = input.replaceAll(/ style="(width|height):[^"]*"/g, "");
 
-  let tempdiv = document.createElement("div");
+  const tempdiv = document.createElement("div");
   tempdiv.innerHTML = input;
   test.qSA(tempdiv, `[contenteditable="false"]`).forEach(_ => _.removeAttribute("contenteditable"));
   test.qSA(tempdiv, `.wh-rtd-embeddedobject`).forEach(_ => _.innerHTML = "");
@@ -30,27 +30,27 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
-    }
+    },
 
-    , {
-      name: 'restructuring'
-      , test: async function(doc, win) {
-        var rte = win.rte.getEditor();
-        let rpc = new JSONRPC(
+    {
+      name: 'restructuring',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
+        const rpc = new JSONRPC(
           {
-            url: "/wh_services/webhare_testsuite/sharedtests/"
-            , appendfunctionname: true
+            url: "/wh_services/webhare_testsuite/sharedtests/",
+            appendfunctionname: true
           });
 
-        let tests = await rpc.async('GetRestructuringTests');
+        const tests = await rpc.async('GetRestructuringTests');
 
-        for (let subtest of tests) {
+        for (const subtest of tests) {
           test.subtest(subtest.title);
           rte.structure = new ParsedStructure(subtest.structure);
           rte.setContentsHTML(subtest.input);
 
-          let parser = new DOMParser();
-          let expect_doc = parser.parseFromString(subtest.expect, "text/html");
+          const parser = new DOMParser();
+          const expect_doc = parser.parseFromString(subtest.expect, "text/html");
 
           test.eqHTML(getComparableRTEText(expect_doc.querySelector("body")), getFixedRTEInput(rte), `input: ${subtest.input}`);
 

@@ -8,7 +8,7 @@ import Range from './dom/range';
 function getIndentedLineBreak(indent, incr) {
   if (!indent) return '';
   indent += incr || 0;
-  var result = '\n'; while (--indent) result += ' ';
+  let result = '\n'; while (--indent) result += ' ';
   return result;
 }
 
@@ -18,31 +18,29 @@ function getStructuredOuterHTML(node, namedlocators, options) {
   else
     options = options || {};
 
-  var locators = {};
-  var indent = options.indent ? 1 : 0;
+  const locators = {};
+  const indent = options.indent ? 1 : 0;
 
   // Detect all locators & elements in namedlocators in the first 2 levels (array/record), move to single level object
-  for (var n in namedlocators) {
-    let elt = namedlocators[n];
+  for (const n in namedlocators) {
+    const elt = namedlocators[n];
     if (elt && typeof elt == "object") {
       if (elt.element)
         locators[n] = elt;
       else if (elt.nodeType) {
         locators[n + '#elt'] = new domlevel.Locator(elt);
         locators[n + '#elt'].moveToParent();
-      }
-      else {
-        for (var m in elt) {
+      } else {
+        for (const m in elt) {
           if (elt[m] && typeof elt[m] == "object") {
             if (elt[m].element)
               locators[n + '.' + m] = elt[m];
             else if (elt[m].nodeType) {
               locators[n + '.' + m + '#elt'] = new domlevel.Locator(elt[m]);
               locators[n + '.' + m + '#elt'].moveToParent();
-            }
-            else {
-              var subelt = elt[m];
-              for (var k in subelt) {
+            } else {
+              const subelt = elt[m];
+              for (const k in subelt) {
                 if (subelt[k] && typeof subelt[k] == "object") {
                   if (subelt[k].element)
                     locators[n + '.' + m + '.' + k] = subelt[k];
@@ -60,22 +58,22 @@ function getStructuredOuterHTML(node, namedlocators, options) {
   }
 
   if (!node) {
-    var min, max;
-    for (let n in locators) {
-      let elt = locators[n];
+    let min, max;
+    for (const n in locators) {
+      const elt = locators[n];
       if (!min || min.compare(elt) > 0)
         min = elt;
       if (!max || max.compare(elt) < 0)
         max = elt;
     }
-    var range = new Range(min, max);
+    const range = new Range(min, max);
     node = range.getAncestorElement();
   }
 
-  var retval = '';
+  let retval = '';
   if (node.parentNode) {
-    var parent = node.parentNode;
-    for (let n in locators)
+    const parent = node.parentNode;
+    for (const n in locators)
       if (locators[n].element == parent && locators[n].offset < parent.childNodes.length && parent.childNodes[locators[n].offset] == node)
         retval += getLocatorText(n, locators[n]);
   }
@@ -87,7 +85,7 @@ function getStructuredOuterHTML(node, namedlocators, options) {
     retval = options.title + " " + retval;
   if (options.colorize) {
     retval = ["%c" + retval.replace(/\(#/g, "%c(#").replace(/#\)/g, ")%c")];
-    for (var i = 0, e = retval[0].split("%c").length - 1; i < e; ++i)
+    for (let i = 0, e = retval[0].split("%c").length - 1; i < e; ++i)
       retval.push((i % 2) == 0 ? "color:black;" : "color:red;");
   }
   return retval;
@@ -98,8 +96,8 @@ function getLocatorText(name, locator) {
 }
 
 function getNamedLocatorsText(namedlocators, node, offset, indent, incr) {
-  var locatortext = '';
-  for (var n in namedlocators)
+  let locatortext = '';
+  for (const n in namedlocators)
     if (namedlocators[n].element == node && namedlocators[n].offset == offset)
       locatortext += getLocatorText(n, namedlocators[n]);
 
@@ -114,7 +112,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
   if (!node)
     return '<undefined>';
 
-  var retval = '';
+  let retval = '';
   if (node.nodeType == 11 || node.nodeType == 9) {
     for (var i = 0; i < node.childNodes.length; ++i) {
       if (i != 0 && !indent)
@@ -131,9 +129,9 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
   if (node.nodeType == 1) {
     retval += '<' + texttype.encodeValue(node.nodeName);
     for (let i = 0; i < node.attributes.length; ++i) {
-      var attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
+      const attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
       if (attrvalue) {
-        var attrname = node.attributes[i].nodeName + '';
+        const attrname = String(node.attributes[i].nodeName);
         if (attrvalue.substr(0, 9) == "function(") // Readability for IE8
           continue;
         retval += ' ' + texttype.encodeValue(attrname) + '="' + texttype.encodeValue(attrvalue) + '"';
@@ -144,7 +142,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
       retval += ':' + node._xtest;
     retval += '>';
 
-    var nodecontents = '';
+    let nodecontents = '';
     for (let i = 0; i < node.childNodes.length; ++i) {
       if (i != 0 && !indent)
         nodecontents += ' ';
@@ -171,13 +169,13 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     if (node._xtest)
       retval += node._xtest + ':';
 
-    var text = '', intext = node.nodeValue; //use temp as accessing long nodeValues is slow on IE
+    let text = '', intext = node.nodeValue; //use temp as accessing long nodeValues is slow on IE
     for (i = 0; i < intext.length; ++i) {
       text += getNamedLocatorsText(namedlocators, node, i);
       text += intext.substr(i, 1);
     }
     text += getNamedLocatorsText(namedlocators, node, intext.length);
-    var valenc = unescape(escape(texttype.encodeValue(text)).split('%u').join('\\u').split('%A0').join('\\u00A0'));
+    const valenc = unescape(escape(texttype.encodeValue(text)).split('%u').join('\\u').split('%A0').join('\\u00A0'));
     retval += '"' + valenc + '"';// + (valenc != urienc ? ' - "' + urienc + '"' : '');
     return retval;
   }
@@ -186,9 +184,9 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
 
 function unstructureDom(win, node, locators) {
   locators = locators || [];
-  var foundlocator = false;
-  for (var i = 0; i < node.childNodes.length;) {
-    var child = node.childNodes[i];
+  let foundlocator = false;
+  for (let i = 0; i < node.childNodes.length;) {
+    const child = node.childNodes[i];
 
     if (child.nodeType != 3) {
       unstructureDom(win, child, locators);
@@ -196,16 +194,16 @@ function unstructureDom(win, node, locators) {
       continue;
     }
 
-    var text = child.nodeValue;
-    var result = null;
-    var quoted = false;
+    const text = child.nodeValue;
+    let result = null;
+    let quoted = false;
     let locator = new domlevel.Locator(node, i);
     //var hadlocator = false;
-    for (var a = 0; a < text.length;) {
+    for (let a = 0; a < text.length;) {
       if (text.substr(a, 2) == '(*') {
-        var endpos = text.indexOf('*)', a);
+        const endpos = text.indexOf('*)', a);
 
-        var pos = parseInt(text.substring(a + 2, endpos));
+        const pos = parseInt(text.substring(a + 2, endpos));
         while (locators.length <= pos)
           locators.push(null);
         if (locators[pos])
@@ -218,8 +216,8 @@ function unstructureDom(win, node, locators) {
       if (text.substr(a, 1) == '"') {
         if (!quoted) {
           if (!(result === null)) {
-            let next = child.nextSibling;
-            let newnode = document.createTextNode(text.substr(a));
+            const next = child.nextSibling;
+            const newnode = document.createTextNode(text.substr(a));
             if (next)
               node.insertBefore(newnode, next);
             else
@@ -229,8 +227,7 @@ function unstructureDom(win, node, locators) {
           quoted = true;
           locator = new domlevel.Locator(child, 0);
           result = '';
-        }
-        else {
+        } else {
           quoted = false;
           locator = new domlevel.Locator(node, i + 1);
         }
@@ -240,8 +237,7 @@ function unstructureDom(win, node, locators) {
       if (quoted) {
         result += text.substr(a, 1);
         ++locator.offset;
-      }
-      else
+      } else
         throw new Error("Unquoted content! " + node.innerHTML);
       ++a;
     }
@@ -259,10 +255,10 @@ function unstructureDom(win, node, locators) {
 
   // If we removed all the text content with the locators, add a br at the end of the node
   if (foundlocator && ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'blockquote', "li"].includes(node.nodeName.toLowerCase())) {
-    let locator = new domlevel.Locator(node);
-    var res = locator.scanForward(node, { whitespace: true }); // only whitespace?
+    const locator = new domlevel.Locator(node);
+    const res = locator.scanForward(node, { whitespace: true }); // only whitespace?
     if (res.type == 'outerblock') {
-      var br = node.ownerDocument.createElement('br');
+      const br = node.ownerDocument.createElement('br');
       br.setAttribute("data-wh-rte", "bogus");
       locator.insertNode(br);
     }
@@ -284,17 +280,17 @@ class SourceDebugger {
   }
   onStateChange() {
     try {
-      let editor = this.rte.getEditor();
+      const editor = this.rte.getEditor();
       if (!editor)
         return;
 
-      var range = editor.getSelectionRange();
-      var orgrange = editor.debugGetRawSelectionRange() || range;
+      const range = editor.getSelectionRange();
+      const orgrange = editor.debugGetRawSelectionRange() || range;
 
-      let locators =
+      const locators =
       {
-        start: range.start
-        , end: range.end
+        start: range.start,
+        end: range.end
       };
 
       if (!orgrange.start.equals(range.start))
@@ -302,7 +298,7 @@ class SourceDebugger {
       if (!orgrange.end.equals(range.end))
         locators.orgend = orgrange.end;
 
-      var overlap = range.clone();
+      const overlap = range.clone();
       if (overlap.start.compare(orgrange.start) > 0)
         overlap.start.assign(orgrange.start);
       if (overlap.end.compare(orgrange.end) < 0)
@@ -314,10 +310,9 @@ class SourceDebugger {
       domrange.setStart(locators.start.element, locators.start.offset);
       domrange.setEnd(locators.end.element, locators.end.offset);
       const rangerect = domrange.getBoundingClientRect();
-      let toshow = { left: rangerect.left, top: rangerect.top, right: rangerect.right, bottom: rangerect.bottom };
+      const toshow = { left: rangerect.left, top: rangerect.top, right: rangerect.right, bottom: rangerect.bottom };
       this.boxel.value = JSON.stringify(toshow);
-    }
-    catch (e) {
+    } catch (e) {
       console.error(e);
       this.el.value = "Exception retrieving outerhtml " + e;
     }
@@ -326,12 +321,11 @@ class SourceDebugger {
 
 
 function getAllLocatorsInNode(node) {
-  var list = [];
+  let list = [];
   if (node.nodeType == 3) {
     for (let i = 0; i <= node.nodeValue.length; ++i)
       list.push(new domlevel.Locator(node, i));
-  }
-  else {
+  } else {
     if (node.nodeName && ["br", "img", "svg"].includes(node.nodeName.toLowerCase()))
       return list;
 
@@ -357,7 +351,7 @@ function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
   }
 
   //  var nodes = [];
-  var copy = node.cloneNode(false);
+  const copy = node.cloneNode(false);
   if (domlevel.isEmbeddedObject(copy)) {
     copy.removeAttribute("contenteditable");
     return copy;
@@ -366,11 +360,11 @@ function cloneNodeWithTextQuotesAndMarkedLocators(node, locators) {
   for (let i = 0; i <= node.childNodes.length; ++i) {
     for (let l = 0; l < locators.length; ++l)
       if (locators[l].element == node && locators[l].offset == i) {
-        let text = '(*' + l + '*)';
-        var textnode = document.createTextNode(text);
+        const text = '(*' + l + '*)';
+        const textnode = document.createTextNode(text);
         copy.appendChild(textnode);
       }
-    var child = node.childNodes[i];
+    const child = node.childNodes[i];
     if (child)
       copy.appendChild(cloneNodeWithTextQuotesAndMarkedLocators(child, locators));
   }

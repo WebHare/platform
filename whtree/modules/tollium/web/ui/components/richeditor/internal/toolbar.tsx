@@ -26,7 +26,7 @@ class ToolbarButtonBase extends Toolbar.Button {
   }
 
   updateState(selstate) {
-    var actionstate = (selstate && selstate.actionstate[this.type]);
+    const actionstate = (selstate && selstate.actionstate[this.type]);
     if (actionstate) {
       this.available = actionstate.available || false;
       this.active = actionstate.active || false;
@@ -46,13 +46,13 @@ class ToolbarSimpleButtonBase extends ToolbarButtonBase {
 
     this.node = dompack.create('span',
       {
-        className: "wh-rtd-button"
-        , on: {
-          "mousedown": this.mousedown.bind(this)
-          , "click": this.click.bind(this)
-          , "mouseover": this.mouseover.bind(this)
-        }
-        , dataset: { button: buttonname }
+        className: "wh-rtd-button",
+        on: {
+          "mousedown": this.mousedown.bind(this),
+          "click": this.click.bind(this),
+          "mouseover": this.mouseover.bind(this)
+        },
+        dataset: { button: buttonname }
       });
   }
 
@@ -84,8 +84,8 @@ class ToolbarSimpleButtonBase extends ToolbarButtonBase {
   updateButtonRendering() {
     dompack.toggleClasses(this.node,
       {
-        disabled: !(this.available && this.toolbar.rte.isEditable())
-        , active: this.active
+        disabled: !(this.available && this.toolbar.rte.isEditable()),
+        active: this.active
       });
   }
 }
@@ -140,9 +140,9 @@ class MenuButton extends SimpleToggleButton {
 
     this.listnode = dompack.create('ul');
     this.node.appendChild(dompack.create("div", {
-      style: { display: "none" }
-      , childNodes: [this.listnode]
-      , onClick: evt => this.activateItem(evt)
+      style: { display: "none" },
+      childNodes: [this.listnode],
+      onClick: evt => this.activateItem(evt)
     }));
   }
 
@@ -190,12 +190,12 @@ class StyleButtonBase extends ToolbarButtonBase {
     dompack.empty(this.select);
     this.optionlist = [];
 
-    let styles = this.getAvailableStyles(selstate);
+    const styles = this.getAvailableStyles(selstate);
 
-    for (var i = 0; i < styles.length; ++i) {
-      var bs = styles[i];
-      var title = bs.def.title ? bs.def.title : bs.tag;
-      var opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
+    for (let i = 0; i < styles.length; ++i) {
+      const bs = styles[i];
+      const title = bs.def.title ? bs.def.title : bs.tag;
+      const opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
       //ADDME toolbarcss? but 'style: { cssText: bs.def.toolbarcss' is CSP risky
 
       opt.blockstyle = bs;
@@ -224,7 +224,7 @@ class StyleButtonBase extends ToolbarButtonBase {
   }
 
   selectStyle() {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (editor) {
       this.setStyle(this.select.value);
       editor.takeFocus();
@@ -237,7 +237,7 @@ class CellStyleButton extends StyleButtonBase {
     super(toolbar, "td-class");
   }
   getAvailableStyles(selstate) {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (editor && selstate && selstate.cellparent)
       return editor.getAvailableCellStyles(selstate).map(style => ({ ...style, tag: style.tag.toLowerCase() }));
 
@@ -250,7 +250,7 @@ class CellStyleButton extends StyleButtonBase {
     return null;
   }
   setStyle(value) {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (editor)
       editor.setSelectionCellStyle(value);
   }
@@ -261,7 +261,7 @@ class BlockStyleButton extends StyleButtonBase {
     super(toolbar, "p-class");
   }
   getAvailableStyles(selstate) {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (!editor)
       return [];
 
@@ -272,7 +272,7 @@ class BlockStyleButton extends StyleButtonBase {
     return selstate && selstate.blockstyle ? selstate.blockstyle.tag : null;
   }
   setStyle(value) {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (editor)
       editor.setSelectionBlockStyle(value);
   }
@@ -280,7 +280,7 @@ class BlockStyleButton extends StyleButtonBase {
 
 class ShowFormattingButton extends SimpleToggleButton {
   updateState() {
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     this.active = editor && editor.getShowFormatting();
     this.updateButtonRendering();
   }
@@ -294,7 +294,7 @@ class ShowFormattingButton extends SimpleToggleButton {
     event.stopPropagation();
     event.preventDefault();
 
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (!this.available || !this.toolbar.rte.isEditable())
       return;
 
@@ -317,24 +317,24 @@ class InsertTableButton extends MenuButton {
     this.listnode.addEventListener("mouseleave", this.hoverItem.bind(this));
     this.listnode.addEventListener("mousemove", this.hoverItem.bind(this));
     this.listnode.addEventListener("click", event => this.doInsertTable(event));
-    for (var row = 0; row < this.initialrows; ++row)
-      for (var col = 0; col < this.initialcolumns; ++col) {
-        var classNames = ["wh-rtd-tablemenuitem"];
+    for (let row = 0; row < this.initialrows; ++row)
+      for (let col = 0; col < this.initialcolumns; ++col) {
+        const classNames = ["wh-rtd-tablemenuitem"];
         if (col == 0)
           classNames.push("wh-rtd-tablemenuitem-newrow");
         if (row == 0)
           classNames.push("wh-rtd-tablemenuitem-newcol");
         this.listnode.appendChild(new dompack.create("li",
           {
-            innerHTML: "&nbsp;"
-            , className: classNames.join(" ")
-            , dataset: { col: col + 1, row: row + 1 }
+            innerHTML: "&nbsp;",
+            className: classNames.join(" "),
+            dataset: { col: col + 1, row: row + 1 }
           }));
       }
 
     this.statusnode = dompack.create("li", {
-      "textContent": ""
-      , "className": "wh-rtd-tablemenustatus disabled"
+      "textContent": "",
+      "className": "wh-rtd-tablemenustatus disabled"
     });
     this.listnode.appendChild(this.statusnode);
   }
@@ -357,26 +357,26 @@ class InsertTableButton extends MenuButton {
     if (event.name == "mousemove" && event.target.nodeName.toUpperCase() != "LI")
       return;
 
-    var selsize = this.getItemSize(event.target);
+    const selsize = this.getItemSize(event.target);
 
     dompack.qSA(this.listnode, "li").forEach((menuitem, i) => {
-      var size = this.getItemSize(menuitem);
-      menuitem.classList.toggle("selected", !!selsize && !!size && size.x <= selsize.x && size.y <= selsize.y);
+      const size = this.getItemSize(menuitem);
+      menuitem.classList.toggle("selected", Boolean(selsize) && Boolean(size) && size.x <= selsize.x && size.y <= selsize.y);
     });
     this.statusnode.textContent = selsize ? (selsize.x + "x" + selsize.y) : "";
   }
 
   doInsertTable(event) {
     dompack.stop(event);
-    let editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte.getEditor();
     if (!editor)
       return;
 
-    var size = this.getItemSize(event.target);
+    const size = this.getItemSize(event.target);
     if (size)
       editor.executeAction({
-        action: 'table'
-        , size: size
+        action: 'table',
+        size: size
       });
     super.activateItem(event);
   }
@@ -384,37 +384,37 @@ class InsertTableButton extends MenuButton {
   // Return the col and row for a menu item
   getItemSize(menuitem) {
     if (menuitem && menuitem.getAttribute) {
-      var x = parseInt(menuitem.getAttribute("data-col"), 10);
-      var y = parseInt(menuitem.getAttribute("data-row"), 10);
+      const x = parseInt(menuitem.getAttribute("data-col"), 10);
+      const y = parseInt(menuitem.getAttribute("data-row"), 10);
       if (x > 0 && y > 0)
         return { x: x, y: y };
     }
   }
 }
 
-var supportedbuttons =
+const supportedbuttons =
 {
-  "a-href": ToolbarButton
-  , "b": SimpleToggleButton
-  , "i": SimpleToggleButton
-  , "u": SimpleToggleButton
-  , "strike": SimpleToggleButton
-  , "sup": SimpleToggleButton
-  , "sub": SimpleToggleButton
-  , "img": ToolbarButton
-  , "action-properties": ToolbarButton
-  , "action-clearformatting": ToolbarButton
-  , "action-showformatting": ShowFormattingButton
-  , "td-class": CellStyleButton
-  , "p-class": BlockStyleButton
+  "a-href": ToolbarButton,
+  "b": SimpleToggleButton,
+  "i": SimpleToggleButton,
+  "u": SimpleToggleButton,
+  "strike": SimpleToggleButton,
+  "sup": SimpleToggleButton,
+  "sub": SimpleToggleButton,
+  "img": ToolbarButton,
+  "action-properties": ToolbarButton,
+  "action-clearformatting": ToolbarButton,
+  "action-showformatting": ShowFormattingButton,
+  "td-class": CellStyleButton,
+  "p-class": BlockStyleButton,
 
-  , "ol": SimpleToggleButton
-  , "ul": SimpleToggleButton
-  , "li-decrease-level": ToolbarButton
-  , "li-increase-level": ToolbarButton
-  , "object-insert": ToolbarButton
-  , "object-video": ToolbarButton
-  , "table": InsertTableButton
+  "ol": SimpleToggleButton,
+  "ul": SimpleToggleButton,
+  "li-decrease-level": ToolbarButton,
+  "li-increase-level": ToolbarButton,
+  "object-insert": ToolbarButton,
+  "object-video": ToolbarButton,
+  "table": InsertTableButton
 };
 
 export default class RTEToolbar {
@@ -422,13 +422,13 @@ export default class RTEToolbar {
     this.rte = rte;
     this.options =
     {
-      hidebuttons: []
+      hidebuttons: [],
       //button layout. top level array is rows, consists of groups, and a group is either a single button (p-class) or an array of buttons
       //ADDME: Note, if new buttons are added, we probably need to update tollium (field-)rte.js to hide these in nonstructured mode
-      , layout: []
-      , compact: false
-      , allowtags: null
-      , ...options
+      layout: [],
+      compact: false,
+      allowtags: null,
+      ...options
     };
 
     this.buttons = [];
@@ -443,11 +443,11 @@ export default class RTEToolbar {
     if (this.options.hidebuttons.includes(buttonname))
       return null;
 
-    var buttontype = supportedbuttons[buttonname];
+    const buttontype = supportedbuttons[buttonname];
     if (!buttontype)
       return null;
 
-    var newbutton = new buttontype(this, buttonname);
+    const newbutton = new buttontype(this, buttonname);
     if (this.options.allowtags && !newbutton.isAllowed(this.options.allowtags)) //filtering tags?
       return null;
 
@@ -458,14 +458,14 @@ export default class RTEToolbar {
   buildButtonBar() {
     dompack.empty(this.el);
 
-    for (var rowidx = 0; rowidx < this.options.layout.length; ++rowidx) {
-      var row = this.options.layout[rowidx];
-      for (var groupidx = 0; groupidx < row.length; ++groupidx) {
-        var group = row[groupidx];
+    for (let rowidx = 0; rowidx < this.options.layout.length; ++rowidx) {
+      const row = this.options.layout[rowidx];
+      for (let groupidx = 0; groupidx < row.length; ++groupidx) {
+        const group = row[groupidx];
 
         if (typeof group == "string") //button in own group
         {
-          let buttonobj = this.createButtonObject(group);
+          const buttonobj = this.createButtonObject(group);
           if (!buttonobj)
             continue;
 
@@ -473,11 +473,11 @@ export default class RTEToolbar {
           continue;
         }
 
-        var currentgroup = null;
+        let currentgroup = null;
 
-        for (var buttonidx = 0; buttonidx < group.length; ++buttonidx) {
-          var button = group[buttonidx];
-          let buttonobj = this.createButtonObject(button);
+        for (let buttonidx = 0; buttonidx < group.length; ++buttonidx) {
+          const button = group[buttonidx];
+          const buttonobj = this.createButtonObject(button);
           if (!buttonobj)
             continue;
 
@@ -496,21 +496,21 @@ export default class RTEToolbar {
   }
 
   onStateChange() {
-    var selstate = this.rte.getSelectionState();
-    for (var i = 0; i < this.buttons.length; ++i) //ADDME Perhaps we shouldn't have separators inside the button array, but separate button-layout from list-of-buttons
+    const selstate = this.rte.getSelectionState();
+    for (let i = 0; i < this.buttons.length; ++i) //ADDME Perhaps we shouldn't have separators inside the button array, but separate button-layout from list-of-buttons
       this.buttons[i].updateState(selstate);
 
     /*  FIXME restore
         this.UpdateButtonState("bold", selstate.bold);
         this.UpdateButtonState("italic", selstate.italic);
         this.UpdateButtonState("underline", selstate.underline);
-    
+
         this.SetButtonEnabled("insert_hyperlink", selstate.haveselection);
         this.SetButtonEnabled("remove_hyperlink", selstate.hyperlink);
-    
+
         this.UpdateButtonState("bulleted_list", selstate.bulletedlist);
         this.UpdateButtonState("numbered_list", selstate.numberedlist);
-    
+
         this.UpdateButtonState("align_left", selstate.alignleft);
         this.UpdateButtonState("align_center", selstate.aligncenter);
         this.UpdateButtonState("align_right", selstate.alignright);
@@ -518,7 +518,7 @@ export default class RTEToolbar {
   }
 
   getButton(buttonname) {
-    for (var i = 0; i < this.buttons.length; ++i)
+    for (let i = 0; i < this.buttons.length; ++i)
       if (this.buttons[i].type == buttonname)
         return this.buttons[i];
   }
@@ -542,7 +542,7 @@ export default class RTEToolbar {
   }
 
   UpdateButtonState(action, newstate) {
-    var button = this.getButton(action);
+    const button = this.getButton(action);
     if (!button)
       return;
     button.active = newstate;

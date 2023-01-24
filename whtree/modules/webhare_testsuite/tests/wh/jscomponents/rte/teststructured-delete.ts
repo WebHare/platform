@@ -8,16 +8,16 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
-    }
+    },
 
     /* test scenario's
-    
+
        delete normal character within text - no selection
        delete selection within text
        delete selection extending to next p
        delete selection extending to next li
        delete selection over embedded object, table
-    
+
        delete before end of paragraph - no selection
          - with next normal paragraph
          - with next list (combine with contents of first list node)
@@ -27,13 +27,13 @@ test.registerTests(
          - within empty li
          - within empty table cell
          - at last paragraph
-    
+
        backspace normal character - no selection
        backspace selection within text
        backspace selection extending to previous p
        backspace selection extending to previous li
        backspace selection over embbedded object, table
-    
+
        backspace at start of paragraph - no selection
          - with previous normal paragraph
          - with previous list (combine with contents of first list node)
@@ -44,9 +44,9 @@ test.registerTests(
          - within empty table cell
          - at first paragraph
     */
-    , {
+    {
       test: async (doc, win) => {
-        var rte = win.rte.getEditor();
+        const rte = win.rte.getEditor();
 
         rte.getBody().focus();
         await test.wait("events");
@@ -66,12 +66,12 @@ test.registerTests(
                 rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"</p>');
                 await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
                 test.eq("a def ghi", rte.getBody().textContent);
-        
+
                 test.subtest("Delete next word");
                 rtetest.setStructuredContent(win, '<p class="normal">"a(*0*) bc def ghi"</p>');
                 await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Delete"));
                 test.eq("a def ghi", rte.getBody().textContent);
-        
+
                 test.subtest("Delete rest of line");
                 rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)bc def ghi"<br>"jkl"</p>');
                 await rtetest.runWithUndo(rte, () => test.pressKey("Ctrl+Shift+Delete"));

@@ -14,7 +14,7 @@ import * as browser from "dompack/extra/browser";
    32: log domlevel
    64: log iframelevel.js selectrange
 */
-var rangelog = 0;
+const rangelog = 0;
 //rangelog = 1+2+4+8+16+32+64;
 
 export default class Range {
@@ -56,7 +56,7 @@ export default class Range {
     if (!scope)
       throw new Error("Scope is required");
 
-    let theclosest = this.getAncestorElement().closest(selector);
+    const theclosest = this.getAncestorElement().closest(selector);
     return scope.contains(theclosest) ? theclosest : null;
   }
 
@@ -113,8 +113,8 @@ export default class Range {
         console.log('normalize collapsed ', richdebug.getStructuredOuterHTML(maxancestor, this, false));
 
       // We're now in reversed order:  end-start
-      var enda = findParent(this.end.getNearestNode(), 'a', maxancestor);
-      var starta = findParent(this.start.getNearestNode(), 'a', maxancestor);
+      const enda = findParent(this.end.getNearestNode(), 'a', maxancestor);
+      const starta = findParent(this.start.getNearestNode(), 'a', maxancestor);
 
       if (starta != enda && enda)
         this.end.assign(this.start);
@@ -129,7 +129,7 @@ export default class Range {
     if (!maxancestor)
       throw new Error("Missing maxancestor");
 
-    var ancestor = this.getAncestor();
+    const ancestor = this.getAncestor();
 
     if (this.isCollapsed())
       return;
@@ -163,7 +163,7 @@ export default class Range {
       // Start still inside a text node?
       if (!this.start.parentIsElementOrFragmentNode()) {
         // Split data node
-        var newloc = splitDataNode(this.start, (preservelocators || []).concat([this.end]), 'end', undoitem);
+        const newloc = splitDataNode(this.start, (preservelocators || []).concat([this.end]), 'end', undoitem);
 
         // Point start node to new text element
         this.start.assign(newloc);
@@ -181,7 +181,7 @@ export default class Range {
     if (!this.start.parentIsElementOrFragmentNode())
       this.splitStartBoundary(preservelocators, undoitem);
 
-    var retval = this.start.clone();
+    const retval = this.start.clone();
     /*var newnode = */this.start.insertNode(node, (preservelocators || []).concat(this), undoitem);
     //    ++this.start.offset;
     //    if (this.end.element == this.start.element)
@@ -201,8 +201,7 @@ export default class Range {
         this.end.assign(this.start);
       else
         this.moveEndToPastLastVisible(maxancestor);
-    }
-    else {
+    } else {
       this.start.descendToLeafNode(maxancestor);
       this.end.assign(this.start);
     }
@@ -231,7 +230,7 @@ export default class Range {
   }
 
   limitToNode(node) {
-    var noderange = Range.fromNodeInner(node);
+    const noderange = Range.fromNodeInner(node);
     if (!this.isInDOM()) // safety
     {
       this.start.assign(noderange.start);
@@ -244,8 +243,8 @@ export default class Range {
   /** Returns a range of all the childnodes of node that are (partially) included in this range
   */
   getLocalRangeInNode(node) {
-    var copy = this.clone();
-    var noderange = Range.fromNodeInner(node);
+    const copy = this.clone();
+    const noderange = Range.fromNodeInner(node);
     copy.insersect(noderange);
 
     copy.start.ascend(node, false, true);
@@ -261,8 +260,8 @@ export default class Range {
   querySelectorAll(selector) {
     // console.log('Range gebtn', richdebug.getStructuredOuterHTML(this.getAncestorElement(), this));
 
-    var copy = this.clone();
-    var ancestor = copy.getAncestorElement();
+    const copy = this.clone();
+    const ancestor = copy.getAncestorElement();
     //    console.log(copy, ancestor);
     if (!ancestor)
       return [];
@@ -272,20 +271,19 @@ export default class Range {
 
     //    console.log(' ascended', richdebug.getStructuredOuterHTML(this.getAncestorElement() || this.getAncestor(), copy));
 
-    var result = [];
-    for (var itr = copy.start.clone(); itr.offset < copy.end.offset; ++itr.offset) {
-      var child = itr.getPointedNode();
+    let result = [];
+    for (let itr = copy.start.clone(); itr.offset < copy.end.offset; ++itr.offset) {
+      const child = itr.getPointedNode();
       if (child.nodeType == 1) {
         if (child.matches(selector))
           result.push(child);
 
         if (itr.offset == copy.start.offset || itr.offset == copy.end.offset - 1) // May be partial!
         {
-          var subrange = this.clone().intersect(Range.fromNodeInner(child));
+          const subrange = this.clone().intersect(Range.fromNodeInner(child));
           result = result.concat(subrange.querySelectorAll(selector));
-        }
-        else {
-          var nodes = Array.from(child.querySelectorAll(selector));
+        } else {
+          const nodes = Array.from(child.querySelectorAll(selector));
           // console.log('  child ', child, nodes);
           result = result.concat(nodes);
         }
@@ -296,12 +294,12 @@ export default class Range {
   }
 
   toDOMRange() {
-    var result =
+    const result =
     {
-      startContainer: this.start.element
-      , startOffset: this.start.offset
-      , endContainer: this.end.element
-      , endOffset: this.end.offset
+      startContainer: this.start.element,
+      startOffset: this.start.offset,
+      endContainer: this.end.element,
+      endOffset: this.end.offset
     };
     return result;
   }
@@ -318,7 +316,7 @@ export default class Range {
     this.start.legalize(maxancestor, false);
     this.end.legalize(maxancestor, true);
 
-    var start_contenteditable = this.start.getParentContentEditable(maxancestor);
+    const start_contenteditable = this.start.getParentContentEditable(maxancestor);
     if (start_contenteditable !== this.end.getParentContentEditable(maxancestor))
       this.limitToNode(start_contenteditable);
 

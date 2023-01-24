@@ -27,7 +27,7 @@ import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
 
-var editableFix;
+let editableFix;
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,14 +46,14 @@ function GetOuterPlain(node) {
     if (('|br|hr|img|').indexOf('|' + node.nodeName.toLowerCase() + '|') >= 0)
       return GetNodeXML(node);
 
-    var nodes = [];
+    const nodes = [];
 
     // Leave some element tags
     if (('|blockquote|table|tbody|tr|th|td|').indexOf('|' + node.nodeName.toLowerCase() + '|') >= 0)
       nodes.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '>');
 
     // Get subnode texts
-    for (var subnode = node.firstChild; subnode; subnode = subnode.nextSibling)
+    for (let subnode = node.firstChild; subnode; subnode = subnode.nextSibling)
       nodes.push(GetOuterPlain(subnode));
 
     // Add newline after certain elements
@@ -69,7 +69,7 @@ function GetOuterPlain(node) {
   if (node.nodeType == 3) {
     if (!node.nodeValue)
       return '';
-    var value = texttype.encodeValue(node.nodeValue);
+    let value = texttype.encodeValue(node.nodeValue);
 
     // Replace newlines with <br> nodes within pre elements
     for (node = node.parentNode; node; node = node.parentNode)
@@ -90,7 +90,7 @@ function GetNodeXML(node, inner) {
   if (!node)
     return '';
 
-  var s = [];
+  const s = [];
   switch (node.nodeType) {
     case 9: // document
       if (!inner)
@@ -108,11 +108,10 @@ function GetNodeXML(node, inner) {
           break;
         if (!inner)
           s.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '/>');
-      }
-      else {
+      } else {
         if (!inner)
           s.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '>');
-        for (var child = node.firstChild; child; child = child.nextSibling)
+        for (let child = node.firstChild; child; child = child.nextSibling)
           s.push(GetNodeXML(child, false));
         if (!inner)
           s.push('</' + node.nodeName.toLowerCase() + '>');
@@ -127,31 +126,31 @@ function GetNodeXML(node, inner) {
 }
 
 function GetNodeXML_Attributes(node) {
-  var s = [];
-  for (var i = 0; i < node.attributes.length; ++i)
+  const s = [];
+  for (let i = 0; i < node.attributes.length; ++i)
     s.push(' ' + node.attributes[i].nodeName.toLowerCase() + '="' + texttype.encodeValue(node.attributes[i].nodeValue) + '"');
   return s.join('');
 }
 
 function undoMutationEvents(ancestor, records, recordrecords) {
-  let redoRecords = [];
+  const redoRecords = [];
   let redoObserver;
 
   if (recordrecords) {
     redoObserver = new MutationObserver((records) => redoRecords.push(...records));
     redoObserver.observe(ancestor,
       {
-        childList: true
-        , subtree: true
-        , attributes: true
-        , attributeOldValue: true
-        , characterData: true
-        , characterDataOldValue: true
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeOldValue: true,
+        characterData: true,
+        characterDataOldValue: true
       });
   }
 
   //console.log(`start undo of `, records);
-  for (let rec of records.reverse()) {
+  for (const rec of records.reverse()) {
     //console.log(`undoing record`, rec);
     switch (rec.type) {
       case "attributes":
@@ -173,10 +172,10 @@ function undoMutationEvents(ancestor, records, recordrecords) {
         } break;
       case "childList":
         {
-          for (let node of rec.addedNodes)
+          for (const node of rec.addedNodes)
             node.remove();
           if (rec.removedNodes.length) {
-            let nodes = Array.from(rec.removedNodes);
+            const nodes = Array.from(rec.removedNodes);
             if (rec.nextSibling)
               rec.nextSibling.before(...nodes);
             else
@@ -216,12 +215,12 @@ class EditorUndoItem {
     this.undoChangeObserver = new MutationObserver((records) => this.undoRecords.push(...records));
     this.undoChangeObserver.observe(editor.getBody(),
       {
-        childList: true
-        , subtree: true
-        , attributes: true
-        , attributeOldValue: true
-        , characterData: true
-        , characterDataOldValue: true
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeOldValue: true,
+        characterData: true,
+        characterDataOldValue: true
       });
   }
 
@@ -264,7 +263,7 @@ class UndoLock {
 
   close() {
     if (this._undoitem) {
-      let closedlock = this._undoitem.locks.pop();
+      const closedlock = this._undoitem.locks.pop();
       if (closedlock !== this)
         throw new Error(`Inner lock was not closed!, this lock stack:`, this.stack, `inner lock stack:`, closedlock.stack);
 
@@ -275,7 +274,7 @@ class UndoLock {
 }
 
 
-var defaultimgplaceholder = "data:image/png;base64,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";
+const defaultimgplaceholder = "data:image/png;base64,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";
 
 
 
@@ -326,13 +325,13 @@ export default class EditorBase {
     rangy.init();
     this.options =
     {
-      allowtags: null
-      , log: false
-      , contentareawidth: null
-      , allowundo: false
-      , imgloadplaceholder: null //image loader GIF image to use (defaults to embedded spinning loader)
-      , eventnode: null
-      , ...options
+      allowtags: null,
+      log: false,
+      contentareawidth: null,
+      allowundo: false,
+      imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
+      eventnode: null,
+      ...options
     };
 
     //elements that respond to action-properties
@@ -374,12 +373,11 @@ export default class EditorBase {
         this.undoNodeMutationObserver.observe(
           this.undonode,
           {
-            characterData: true
-            , subtree: true
-            , childList: true
+            characterData: true,
+            subtree: true,
+            childList: true
           });
-      }
-      else
+      } else
         this.undonode.addEventListener('input', evt => this.gotUndoChange('input', evt));
 
       // Revert focus back to contentEditable node ASAP
@@ -390,7 +388,7 @@ export default class EditorBase {
   }
 
   gotUndoChange(name, event) {
-    var elt = parseInt(this.undonode.innerHTML);
+    const elt = parseInt(this.undonode.innerHTML);
     //console.log('gotUndoChange', name, event, "new indopos: ", elt, 'current undopos: ', this.undopos);
     if (elt == this.undopos)
       return;
@@ -421,8 +419,7 @@ export default class EditorBase {
     try {
       // execCommand should be called on the document, not the editable area (contenteditable/designmode)
       this.bodydiv.ownerDocument.execCommand(command, p1, p2);
-    }
-    catch (e) {
+    } catch (e) {
       if (this.options.log)
         console.log('ExecCommand exception', e);
       return false;
@@ -448,7 +445,7 @@ export default class EditorBase {
     range = range.clone();
     const startpath = range.start.getPathFromAncestor(base).reverse();
     for (let i = 0; i < startpath.length; ++i) {
-      let node = startpath[i];
+      const node = startpath[i];
       if (node.nodeType === 1 && (["td", "th"].includes(node.nodeName.toLowerCase()))) {
         range.intersect(Range.fromNodeInner(node));
         changed = true;
@@ -460,11 +457,11 @@ export default class EditorBase {
     base = range.getAncestorElement();
 
     // if the end locator points within an inner table
-    let endpath = range.end.getPathFromAncestor(base).reverse();
+    const endpath = range.end.getPathFromAncestor(base).reverse();
     for (let i = 0; i < endpath.length; ++i) {
-      let node = endpath[i];
+      const node = endpath[i];
       if (node.nodeType === 1 && node.nodeName.toLowerCase() === "table") {
-        let locator = domlevel.Locator.newPointingTo(node);
+        const locator = domlevel.Locator.newPointingTo(node);
         locator.scanBackward(this.getBody(), { whitespace: true, blocks: true }); // if we set past the last block elt, we'll delete that linebreak too, too dangerous
         if (range.start.compare(locator) <= 0)
           range.end.assign(locator);
@@ -484,10 +481,10 @@ export default class EditorBase {
   //
 
   hasFocus() {
-    var active = document.activeElement;
+    let active = document.activeElement;
     while (active && active != this.bodydiv)
       active = active.parentNode;
-    return !!active;
+    return Boolean(active);
   }
 
   takeFocus() {
@@ -550,15 +547,15 @@ export default class EditorBase {
       @return Copy of the current selection
   */
   getSelectionRange(options) {
-    var skipnormalize = options && options.skipnormalize;
+    const skipnormalize = options && options.skipnormalize;
 
-    var bodynode = this.getBody();
+    const bodynode = this.getBody();
 
     if (this.hasFocus()) {
-      var range = this.selectionitf.getSelectionRange();
+      const range = this.selectionitf.getSelectionRange();
       if (range) {
         if (Range.getLogLevel() & 4)
-          console.log('getSelectionRange have native selection (limited to body node)', richdebug.getStructuredOuterHTML(this.getBody(), range, true), Object.assign({}, range.start), Object.assign({}, range.end));
+          console.log('getSelectionRange have native selection (limited to body node)', richdebug.getStructuredOuterHTML(this.getBody(), range, true), { ...range.start }, { ...range.end });
 
         range.limitToNode(bodynode);
         if (!range.isLegal(this.getBody())) {
@@ -572,15 +569,13 @@ export default class EditorBase {
 
         this._fixChromeInitialPositionBug(range);
         this.currentrange = range;
-      }
-      else if (this.currentrange) {
+      } else if (this.currentrange) {
         this.currentrange.limitToNode(bodynode);
 
         if (Range.getLogLevel() & 4)
           console.log('getSelectionRange no native selection, use saved', richdebug.getStructuredOuterHTML(this.getBody(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
       }
-    }
-    else if (this.currentrange) {
+    } else if (this.currentrange) {
       this.currentrange.limitToNode(bodynode);
 
       if (Range.getLogLevel() & 4)
@@ -589,13 +584,13 @@ export default class EditorBase {
 
     if (!this.currentrange) {
       // No focus yet, and no saved selection - use default (start of document)
-      var locator = new domlevel.Locator(bodynode);
+      const locator = new domlevel.Locator(bodynode);
       this.currentrange = new Range(locator, locator);
       if (Range.getLogLevel() & 4)
         console.log('getSelectionRange no saved selection', richdebug.getStructuredOuterHTML(this.getBody(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
-    var retval = this.currentrange.clone();
+    const retval = this.currentrange.clone();
     if (!skipnormalize) {
       retval.normalize(bodynode, true);
       if (Range.getLogLevel() & 4)
@@ -614,7 +609,7 @@ export default class EditorBase {
     if (!domlevel.isNodeSplittable(range.end.element))
       throw new Error("Trying to put end of selection within an unsplittable element (" + range.end.element.nodeName + ')');
 
-    var body = this.getBody();
+    const body = this.getBody();
     this.currentrange = range.clone();
 
     if (Range.getLogLevel() & 64)
@@ -658,7 +653,7 @@ export default class EditorBase {
   }
 
   collapseSelection(tostart) {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     if (tostart)
       range.end.assign(range.start);
     else
@@ -687,7 +682,7 @@ export default class EditorBase {
     this.currentrange = null;
     this.delayedsurrounds = [];
 
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     this.selectRange(range);
 
     this._reprocessEmbeddedAutoElements();
@@ -770,10 +765,10 @@ export default class EditorBase {
       console.warn("ADDME: Didn't test ApplyTextStyle for '" + textstyle + "' yet");
 
     this.DelayedSurroundSelection({
-      element: textstyle
-      , wrapin: apply
-      , splitprohibits: ['a']
-      , splitblockelements: false
+      element: textstyle,
+      wrapin: apply,
+      splitprohibits: ['a'],
+      splitblockelements: false
     });
   }
 
@@ -811,7 +806,7 @@ export default class EditorBase {
   insertTextAtCursor(text) {
     //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getBody(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
 
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     if (!range.isCollapsed())
       throw new Error("insertTextAtCursor does not support selections");
 
@@ -820,8 +815,8 @@ export default class EditorBase {
     range.start.descendToLeafNode(this.getBody());
 
     // locators.start should now point to a text node, insert the text
-    var textnode = range.start.element;
-    var textoffset = range.start.offset;
+    let textnode = range.start.element;
+    let textoffset = range.start.offset;
     if (textnode.nodeType != 3) // If it's not a text node (e.g. in an empty document), create one
     {
       if (textnode.childNodes.length)
@@ -830,7 +825,7 @@ export default class EditorBase {
         textnode = textnode.appendChild(document.createTextNode(''));
       textoffset = 0;
     }
-    var nodetext = textnode.nodeValue;
+    let nodetext = textnode.nodeValue;
     nodetext = nodetext.substr(0, textoffset) + text + nodetext.substr(textoffset);
     textnode.nodeValue = nodetext;
 
@@ -849,7 +844,7 @@ export default class EditorBase {
     this.undonode.focus();
 
     this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
-    this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
+    this.undonode.ownerDocument.execCommand("InsertHTML", false, String(this.undopos));
 
     this.getBody().focus();
     this.selectRange(item.postselection);
@@ -866,12 +861,12 @@ export default class EditorBase {
     if (!this.options.allowundo)
       return new UndoLock(null);
 
-    let last = this.undostack.length && this.undostack[this.undostack.length - 1];
+    const last = this.undostack.length && this.undostack[this.undostack.length - 1];
     if (last && !last.finished)
       return new UndoLock(last);
 
     // Allocate a new undo item, place it on the undo stack (erase redoable items)
-    let item = new EditorUndoItem(this, this.getSelectionRange());
+    const item = new EditorUndoItem(this, this.getSelectionRange());
     this.undostack.splice(this.undopos, this.undostack.length - this.undopos, item);
     ++this.undopos;
 
@@ -895,7 +890,7 @@ export default class EditorBase {
   }
 
   changeUndoPosition(newpos) {
-    var nothrow = false;
+    let nothrow = false;
     try {
       while (newpos < this.undopos) {
         --this.undopos;
@@ -907,8 +902,7 @@ export default class EditorBase {
       }
       this.undopos = newpos;
       nothrow = true;
-    }
-    finally {
+    } finally {
       if (!nothrow) {
         this.undostack = [];
         this.undopos = 0;
@@ -934,14 +928,14 @@ export default class EditorBase {
     // Look out - can also be used within document fragments!
     let root = this.getBody();
 
-    let res =
+    const res =
     {
-      node: null
-      , contentnode: null
-      , blockroot: null
-      , blockparent: null
-      , islist: false
-      , isintable: false
+      node: null,
+      contentnode: null,
+      blockroot: null,
+      blockparent: null,
+      islist: false,
+      isintable: false
     };
 
     let curnode = node;
@@ -953,7 +947,7 @@ export default class EditorBase {
         if (curnode.nodeName.toLowerCase() == 'li')
           res.contentnode = curnode;
         else if (domlevel.isNodeBlockElement(curnode)) {
-          let islist = ['ol', 'ul'].includes(curnode.nodeName.toLowerCase());
+          const islist = ['ol', 'ul'].includes(curnode.nodeName.toLowerCase());
           if (this.structure && this.structure.getBlockStyleByTag) //FIXME why do we care?
             res.blockstyle = curnode.className ? this.structure.getBlockStyleByTag(curnode.className) : null;
           res.node = curnode;
@@ -961,8 +955,7 @@ export default class EditorBase {
           res.blockparent = curnode.parentNode;
           res.islist = islist;
           break;
-        }
-        else if (this.blockroots.includes(curnode.nodeName.toLowerCase())) // FIXME: better name for listunbreakablenodes
+        } else if (this.blockroots.includes(curnode.nodeName.toLowerCase())) // FIXME: better name for listunbreakablenodes
         {
           res.node = curnode;
           res.contentnode = curnode;
@@ -970,8 +963,7 @@ export default class EditorBase {
           res.blockparent = curnode.parentNode;
           break;
         }
-      }
-      else if (curnode.nodeType == 11)
+      } else if (curnode.nodeType == 11)
         root = curnode;
 
     for (; curnode && curnode != root; curnode = curnode.parentNode) {
@@ -1008,7 +1000,7 @@ export default class EditorBase {
       @param undoitem
   */
   requireVisibleContentInBlockAfterLocator(locator, preservelocators, undoitem) {
-    var blocknode = this.getBlockAtNode(locator.element).contentnode;
+    const blocknode = this.getBlockAtNode(locator.element).contentnode;
     domlevel.requireVisibleContentInBlockAfterLocator(locator, blocknode, preservelocators, undoitem);
   }
 
@@ -1031,31 +1023,30 @@ export default class EditorBase {
     // Make sure we can insert at the start, and insert a temporary node to make sure splitdom
     // returns the current block in part[0]
     range.splitStartBoundary(preservelocators, undoitem);
-    var insertpos = range.start.clone();
+    const insertpos = range.start.clone();
 
-    var tnode = document.createElement("img"); // Img elements are more stable than text nodes - not combined
+    const tnode = document.createElement("img"); // Img elements are more stable than text nodes - not combined
     range.start = range.start.insertNode(tnode, [range.end, ...preservelocators], undoitem);
 
     // Determine which blocks we start&end in
-    var startblock = this.getBlockAtNode(range.start.getNearestNode());
-    var endblock = this.getBlockAtNode(range.end.getNearestNode());
-    var blockend = null;
+    const startblock = this.getBlockAtNode(range.start.getNearestNode());
+    const endblock = this.getBlockAtNode(range.end.getNearestNode());
+    let blockend = null;
 
     // Determine the root we are splitting in
-    var root = range.getAncestorElement();
+    const root = range.getAncestorElement();
 
     // Spanning different blocks!
     if (startblock.contentnode != endblock.contentnode) {
       blockend = new domlevel.Locator(endblock.contentnode, "end");
-    }
-    else {
+    } else {
       blockend = new domlevel.Locator(range.end.element, "end");
     }
 
     //console.log('removeRangeAndStitch start:', richdebug.getStructuredOuterHTML(root, { root:root, range:range, blockend: blockend }));
 
     //console.log('enter presplit:  ', richdebug.getStructuredOuterHTML(root, { range_start: range.start, range_end: range.end, blockend: blockend }));
-    var parts = domlevel.splitDom(root, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }, { locator: blockend, toward: 'end' }], preservelocators, undoitem);
+    const parts = domlevel.splitDom(root, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }, { locator: blockend, toward: 'end' }], preservelocators, undoitem);
     //console.log('enter postsplit: ', richdebug.getStructuredOuterHTML(root, parts));
 
     // Ranges:
@@ -1070,30 +1061,29 @@ export default class EditorBase {
     // Remove the contents of range 1, keep the other part locators valid
     domlevel.removeSimpleRange(parts[1], preservelocators, undoitem);
 
-    var insertlocator = domlevel.Locator.newPointingTo(tnode);
+    let insertlocator = domlevel.Locator.newPointingTo(tnode);
     insertlocator.removeNode(preservelocators, undoitem);
 
     // Content to append?
     if (!parts[2].start.equals(parts[2].end)) {
-      let locator = parts[2].start.clone();
+      const locator = parts[2].start.clone();
       locator.descendToLeafNode(this.getBody());
 
       // See if there is a block in the removed fragment. If so, move only its contents.
-      var restblock = this.getBlockAtNode(locator.getNearestNode());
+      const restblock = this.getBlockAtNode(locator.getNearestNode());
 
       // restblock.contentnode contains the data. But it might also be the rootblock. Intersect with parts[2] for that!
       range = Range.fromNodeInner(restblock.contentnode);
       range.intersect(parts[2]);
 
-      var res = domlevel.moveSimpleRangeTo(range, insertlocator, parts, undoitem);
+      const res = domlevel.moveSimpleRangeTo(range, insertlocator, parts, undoitem);
 
       // Calculate range to remove
       range = new Range(res.afterlocator, parts[2].end);
       range.start.ascend(root, true, true);
 
       domlevel.removeSimpleRange(range, preservelocators, undoitem);
-    }
-    else {
+    } else {
       //console.log('no preinsert');
       this.requireVisibleContentInBlockAfterLocator(insertlocator, preservelocators, undoitem);
     }
@@ -1108,7 +1098,7 @@ export default class EditorBase {
   }
 
   appendNodeContentsAfterRemove(insertlocator, contentnode, preservelocator, undoitem) {
-    var nodes = domlevel.removeNodeContents(contentnode, undoitem);
+    const nodes = domlevel.removeNodeContents(contentnode, undoitem);
     domlevel.insertNodesAtLocator(nodes, insertlocator, [], undoitem);
     return insertlocator;
   }
@@ -1148,7 +1138,7 @@ export default class EditorBase {
 
   replaceSelectionWithNode(newnode, select) {
     const undolock = this.getUndoLock();
-    var res = this.replaceRangeWithNode(this.getSelectionRange(), newnode, undolock.undoitem);
+    const res = this.replaceRangeWithNode(this.getSelectionRange(), newnode, undolock.undoitem);
     if (select)
       this.selectNodeOuter(newnode);
     else
@@ -1163,13 +1153,13 @@ export default class EditorBase {
   //
 
   executeSoftEnter() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
-    var iscollapsed = range.isCollapsed();
+    const iscollapsed = range.isCollapsed();
 
     // First insert the new br node
-    var newbr = document.createElement('br');
+    const newbr = document.createElement('br');
     /*var res = */range.insertBefore(newbr, [], undolock.undoitem);
 
     // If we had a selection, then remove it
@@ -1177,8 +1167,7 @@ export default class EditorBase {
     if (iscollapsed) {
       this.requireVisibleContentInBlockAfterLocator(range.start, null, undolock.undoitem);
       loc = this._correctWhitespaceAroundLocator(range.start, undolock.undoitem);
-    }
-    else
+    } else
       loc = this._removeRangeAndStitch(range, null, undolock.undoitem);
 
     loc = this._correctWhitespaceAroundLocator(loc, undolock.undoitem);
@@ -1193,11 +1182,11 @@ export default class EditorBase {
       @return Whether browser implementation is to be used
   */
   executeHardEnter() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
 
     // Find blockquotes at start - but don't break through tables
-    var breakparent = domlevel.findParent(range.start.element, ['blockquote', 'th', 'td'], this.getBody());
-    var topblockquote;
+    let breakparent = domlevel.findParent(range.start.element, ['blockquote', 'th', 'td'], this.getBody());
+    let topblockquote;
     while (breakparent) {
       if (breakparent.nodeName.toLowerCase() != 'blockquote')
         break;
@@ -1208,7 +1197,7 @@ export default class EditorBase {
 
     if (topblockquote) {
       const undolock = this.getUndoLock();
-      var parts = domlevel.splitDom(topblockquote.parentNode, [{ locator: range.start, toward: 'end' }], range, undolock.undoitem);
+      const parts = domlevel.splitDom(topblockquote.parentNode, [{ locator: range.start, toward: 'end' }], range, undolock.undoitem);
       parts[1].start.insertNode(document.createElement('br'), [], undolock.undoitem);
       this.setCursorAtLocator(parts[1].start);
       undolock.close();
@@ -1224,30 +1213,30 @@ export default class EditorBase {
   //
 
   ReplaceSelection(splitparent, newnode) {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
-    var locators = range;
+    const locators = range;
 
     if (!splitparent)
       splitparent = domlevel.Locator.findCommonAncestorElement(locators.start, locators.end);
 
     // Split the splitparent at selection start (and end if selection isn't empty)
-    var splitlocators = [{ locator: locators.start, toward: 'start' }];
+    const splitlocators = [{ locator: locators.start, toward: 'start' }];
     if (locators.start.element != locators.end.element || locators.start.offset != locators.end.offset)
       splitlocators.push({ locator: locators.end, toward: 'end' });
 
     //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function(item){return item.locator;})));
-    var parts = domlevel.splitDom(splitparent, splitlocators, undolock.undoitem);
+    const parts = domlevel.splitDom(splitparent, splitlocators, undolock.undoitem);
     //console.log(parts);
     //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
 
     // Find last node before cursor position (highest ancestor of right element of first part)
-    var leftborder = parts[0].end.element;
+    let leftborder = parts[0].end.element;
     while (leftborder.parentNode && leftborder.parentNode != splitparent)
       leftborder = leftborder.parentNode;
 
     // Find first node after cursor position (highest ancestor of left element of last part)
-    var rightborder = parts[parts.length - 1].start.element;
+    let rightborder = parts[parts.length - 1].start.element;
     while (rightborder.parentNode && rightborder.parentNode != splitparent)
       rightborder = rightborder.parentNode;
 
@@ -1273,7 +1262,7 @@ export default class EditorBase {
   }
 
   insertImage(url, width, height) {
-    var img = <img src={url} class="wh-rtd__img" />;
+    const img = <img src={url} class="wh-rtd__img" />;
     if (width && height) {
       img.height = height;
       img.width = width;
@@ -1285,25 +1274,25 @@ export default class EditorBase {
 
   insertHyperlink(url, options) {
     this._surroundSelection({
-      element: 'a'
-      , wrapin: true
-      , attrs: {
-        href: url
-        , target: options && options.target ? options.target : null
-      }
-      , splitprohibits: []
-      , avoidwhitespace: true
+      element: 'a',
+      wrapin: true,
+      attrs: {
+        href: url,
+        target: options && options.target ? options.target : null
+      },
+      splitprohibits: [],
+      avoidwhitespace: true
     });
     this.stateHasChanged();
   }
 
   removeHyperlink() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     if (range.isCollapsed()) {
       // No selection: find the A node that is the parent of the cursor and select that one
       // ADDME: unselect and keep current cursor position
       //var range = sel.GetRange();
-      var path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
+      const path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
 
       for (var i = path.length - 1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() == 'a') {
@@ -1317,9 +1306,9 @@ export default class EditorBase {
     }
 
     this._surroundSelection({
-      element: 'a'
-      , wrapin: false
-      , splitprohibits: []
+      element: 'a',
+      wrapin: false,
+      splitprohibits: []
     });
   }
 
@@ -1327,26 +1316,26 @@ export default class EditorBase {
     if (cols <= 0 || rows <= 0)
       return;
 
-    var body = this.getBody();
+    const body = this.getBody();
     //    var selobj = this.GetSelectionObject();
     //    var range = selobj.GetRange();
     //    if (!range)
     //      return;
-    var locators = this.getSelectionRange();
+    const locators = this.getSelectionRange();
     if (!locators)
       return;
     //$wh.Rich.Locator.getFromRange(range);
 
     const undolock = this.getUndoLock();
 
-    var startelement = locators.start.element;
+    let startelement = locators.start.element;
     if (startelement == body)
       startelement = body.firstChild;
     else
       while (startelement.parentNode != body)
         startelement = startelement.parentNode;
 
-    var endelement = locators.end.element;
+    let endelement = locators.end.element;
     if (endelement == body)
       endelement = body.lastChild;
     else
@@ -1355,13 +1344,13 @@ export default class EditorBase {
     endelement = endelement.nextSibling;
 
     // Create the table
-    var tablenode = document.createElement('table');
+    const tablenode = document.createElement('table');
 
     tablenode.appendChild(document.createElement('tbody'));
-    for (var row = 0; row < rows; ++row) {
-      var tr = tablenode.lastChild.appendChild(document.createElement('tr'));
-      for (var col = 0; col < cols; ++col) {
-        var td = tr.appendChild(document.createElement('td'));
+    for (let row = 0; row < rows; ++row) {
+      const tr = tablenode.lastChild.appendChild(document.createElement('tr'));
+      for (let col = 0; col < cols; ++col) {
+        const td = tr.appendChild(document.createElement('td'));
         td.appendChild(document.createTextNode((col + 1) + "," + (row + 1)));
       }
     }
@@ -1382,7 +1371,7 @@ export default class EditorBase {
 
   _clearFormatting() {
     //ADDME: Only clear formatting of selected contents?
-    var body = this.getBody();
+    const body = this.getBody();
     this.setContentsHTML(GetOuterPlain(body, true));
     this.stateHasChanged();
   }
@@ -1400,16 +1389,16 @@ export default class EditorBase {
       this.bodydiv.addEventListener('focusin', this.onFocusIn.bind(this));
       new KeyboardHandler.default(this.bodydiv,
         {
-          "Accel+Alt+1": event => this._onStyleSwitch(event, 1)
-          , "Accel+Alt+2": event => this._onStyleSwitch(event, 2)
-          , "Accel+Alt+3": event => this._onStyleSwitch(event, 3)
-          , "Accel+Alt+4": event => this._onStyleSwitch(event, 4)
-          , "Accel+Alt+5": event => this._onStyleSwitch(event, 5)
-          , "Accel+Alt+6": event => this._onStyleSwitch(event, 6)
-          , "Accel+Alt+7": event => this._onStyleSwitch(event, 7)
-          , "Accel+Alt+8": event => this._onStyleSwitch(event, 8)
-          , "Accel+Alt+9": event => this._onStyleSwitch(event, 9)
-          , "Accel+Alt+0": event => this._onStyleSwitch(event, 0)
+          "Accel+Alt+1": event => this._onStyleSwitch(event, 1),
+          "Accel+Alt+2": event => this._onStyleSwitch(event, 2),
+          "Accel+Alt+3": event => this._onStyleSwitch(event, 3),
+          "Accel+Alt+4": event => this._onStyleSwitch(event, 4),
+          "Accel+Alt+5": event => this._onStyleSwitch(event, 5),
+          "Accel+Alt+6": event => this._onStyleSwitch(event, 6),
+          "Accel+Alt+7": event => this._onStyleSwitch(event, 7),
+          "Accel+Alt+8": event => this._onStyleSwitch(event, 8),
+          "Accel+Alt+9": event => this._onStyleSwitch(event, 9),
+          "Accel+Alt+0": event => this._onStyleSwitch(event, 0)
         });
       this.bodydiv.addEventListener('keydown', this._gotKeyDown.bind(this));
       this.bodydiv.addEventListener('keypress', this._gotKeyPress.bind(this));
@@ -1445,7 +1434,7 @@ export default class EditorBase {
       if (item.kind == "string")
         item.getAsString(function(str) { console.warn(str); });
       else if (item.kind == "file") {
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onload = function(event) {
           console.warn(event.target.result);
         };
@@ -1474,11 +1463,11 @@ export default class EditorBase {
     if (!imgs.length) //nothing to do
       return;
 
-    let busylock = dompack.flagUIBusy();
+    const busylock = dompack.flagUIBusy();
     try {
-      let replacementpromises = [];
-      for (let img of imgs) {
-        let downloadsrc = img.src;
+      const replacementpromises = [];
+      for (const img of imgs) {
+        const downloadsrc = img.src;
         img.src = this._getImageDownloadURL();
         img.classList.add("wh-rtd__img--uploading");
 
@@ -1487,8 +1476,7 @@ export default class EditorBase {
           .catch(result => this._handleUploadedRemoteImage(img, null)));
       }
       await Promise.all(replacementpromises);
-    }
-    finally {
+    } finally {
       busylock.release();
     }
   }
@@ -1497,8 +1485,7 @@ export default class EditorBase {
     img.classList.remove("wh-rtd__img--uploading");
     if (!properurl) {
       img.remove();
-    }
-    else {
+    } else {
       img.src = properurl;
       img.removeAttribute("width");
       img.removeAttribute("height");
@@ -1512,8 +1499,8 @@ export default class EditorBase {
       //console.log('Delaying SurroundSelection');
 
       // If already on queue, see if canceling or repeating old action
-      for (var i = 0; i < this.delayedsurrounds.length; ++i) {
-        var info = this.delayedsurrounds[i];
+      for (let i = 0; i < this.delayedsurrounds.length; ++i) {
+        const info = this.delayedsurrounds[i];
         if (info.element == elementinfo.element) {
           if (info.wrapin == elementinfo.wrapin)
             return; // Already on queue
@@ -1529,8 +1516,7 @@ export default class EditorBase {
       this.delayedsurrounds.push(elementinfo);
       //console.log('Currently '+this.delayedsurrounds.length+' surrounds delayed');
       this.stateHasChanged();
-    }
-    else {
+    } else {
       // We have a selection, so execute the action immediately
       this._surroundSelection(elementinfo);
     }
@@ -1543,10 +1529,10 @@ export default class EditorBase {
   }
 
   _createNodeFromElementInfo(elementinfo) {
-    var newnode = document.createElement(elementinfo.element);
+    const newnode = document.createElement(elementinfo.element);
     if (elementinfo.attrs) {
-      var attrnames = Object.keys(elementinfo.attrs).sort();
-      for (var i = 0; i < attrnames.length; ++i)
+      const attrnames = Object.keys(elementinfo.attrs).sort();
+      for (let i = 0; i < attrnames.length; ++i)
         if (elementinfo.attrs[attrnames[i]] !== null)
           newnode.setAttribute(attrnames[i], elementinfo.attrs[attrnames[i]]);
     }
@@ -1584,9 +1570,9 @@ export default class EditorBase {
   }
 
   _surroundSelection(elementinfo) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     if (elementinfo.avoidwhitespace) {
       //Try to remove spaces at begin and end iterator
       while (range.start.element.nodeType == 3 && range.start.element.textContent[range.start.offset] == ' ' && range.start.compare(range.end) < 0)
@@ -1625,7 +1611,7 @@ export default class EditorBase {
   }
 
   getTextStyleRecordFromNode(node) {
-    var nodeName = node.nodeName.toLowerCase();
+    let nodeName = node.nodeName.toLowerCase();
     if (nodeName == 'strong')
       nodeName = 'b';
     else if (nodeName == 'em')
@@ -1650,7 +1636,7 @@ export default class EditorBase {
     if (Range.getLogLevel() & 16)
       console.log("gFSR received range", range, range.start, range.end);
 
-    var formatting = new TextFormattingState();
+    const formatting = new TextFormattingState();
 
     // Range might be null, when we have an uninitialized iframe
     if (!range)
@@ -1672,11 +1658,11 @@ export default class EditorBase {
          hyperlink at current character?
     */
 
-    var alignment = '';
+    let alignment = '';
 
     formatting.haveselection = !range.isCollapsed();
 
-    var locator = range.start.clone();
+    const locator = range.start.clone();
 
     if (Range.getLogLevel() & 16)
       console.log('selected before ascend', richdebug.getStructuredOuterHTML(range.getAncestorElement(), range));
@@ -1684,7 +1670,7 @@ export default class EditorBase {
     //    console.log('selected after ascend', richdebug.getStructuredOuterHTML(range.getAncestorElement(), range));
 
 
-    var anchornode = locator.element && locator.getNearestNode();
+    const anchornode = locator.element && locator.getNearestNode();
 
     //    if(this.options.log)
     //      console.log("Iterate parents");
@@ -1700,7 +1686,7 @@ export default class EditorBase {
         case 'SUB':
         case 'STRIKE':
           {
-            let style = this.getTextStyleRecordFromNode(curnode);
+            const style = this.getTextStyleRecordFromNode(curnode);
             if (style)
               formatting.textstyles.push(style);
           }
@@ -1742,7 +1728,7 @@ export default class EditorBase {
        - second from ancestor to root
     */
 
-    var relevantnodes = range.querySelectorAll('*');
+    let relevantnodes = range.querySelectorAll('*');
 
     // Filter out non-contenteditable nodes (allow embbeded objects within a contenteditable parent)
     relevantnodes = relevantnodes.filter(node => node.isContentEditable || (domlevel.isEmbeddedObject(node) && node.parentNode.isContentEditable));
@@ -1754,7 +1740,7 @@ export default class EditorBase {
       console.log('all gfsfr relevantnodes', relevantnodes);
 
     for (let i = 0; i < relevantnodes.length; ++i) {
-      var node = relevantnodes[i];
+      const node = relevantnodes[i];
 
       switch (node.nodeName.toUpperCase()) {
         case 'A':
@@ -1774,9 +1760,9 @@ export default class EditorBase {
 
     // check delayed surrounds
     for (let i = 0; i < this.delayedsurrounds.length; ++i) {
-      var info = this.delayedsurrounds[i];
-      var found = false;
-      for (var pos = 0; pos < formatting.textstyles.length; ++pos) {
+      const info = this.delayedsurrounds[i];
+      let found = false;
+      for (let pos = 0; pos < formatting.textstyles.length; ++pos) {
         if (formatting.textstyles[pos].nodeName == info.element) {
           formatting.textstyles.splice(pos, 1);
           found = true;
@@ -1787,101 +1773,101 @@ export default class EditorBase {
         formatting.textstyles.push({ nodeName: info.element });
     }
 
-    var listoptions = this.getAvailableListActions(range);
+    const listoptions = this.getAvailableListActions(range);
 
-    var actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getBody());
+    const actionparent = domlevel.findParent(anchornode, ['ol', 'ul', 'td', 'th'], this.getBody());
     formatting.actionparent = actionparent;
 
     // When the cursor is at the start of the next block, correct the end position to the end of the previous block element.
-    var end_locator = range.end.clone();
+    let end_locator = range.end.clone();
     end_locator.scanBackward(this.getBody(), { blocks: true, alwaysvisibleblocks: true });
     if (range.start.compare(end_locator) > 0) // Don't go past start
       end_locator = range.start;
 
-    var startblock = this.getBlockAtNode(range.start.element).contentnode;
-    var limitblock = this.getBlockAtNode(end_locator.element).contentnode;
+    const startblock = this.getBlockAtNode(range.start.element).contentnode;
+    const limitblock = this.getBlockAtNode(end_locator.element).contentnode;
 
-    var tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody());
+    const tdparent = domlevel.findParent(anchornode, ['td', 'th'], this.getBody());
     formatting.cellparent = tdparent;
 
-    var allow_td_actions = startblock == limitblock && tdparent;
-    var tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
-    var tableactionstate = tableeditor && tableeditor.getActionState(tdparent);
+    const allow_td_actions = startblock == limitblock && tdparent;
+    const tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
+    const tableactionstate = tableeditor && tableeditor.getActionState(tdparent);
 
     formatting.actionstate =
     {
       "li-increase-level":
       {
         available: listoptions.canincrease
-      }
-      , "li-decrease-level":
+      },
+      "li-decrease-level":
       {
         available: listoptions.candecrease
-      }
-      , "a-href":
+      },
+      "a-href":
       {
         available: !range.isCollapsed() || formatting.hyperlink
-      }
-      , "img":
+      },
+      "img":
       {
         available: true//formatting.hasTextStyle("img")
-      }
-      , "action-properties":
+      },
+      "action-properties":
       {
         available: formatting.propstarget
-      }
-      , "b":
+      },
+      "b":
       {
-        available: true
-        , active: formatting.hasTextStyle('b')
-      }
-      , "i":
+        available: true,
+        active: formatting.hasTextStyle('b')
+      },
+      "i":
       {
-        available: true
-        , active: formatting.hasTextStyle('i')
-      }
-      , "u":
+        available: true,
+        active: formatting.hasTextStyle('i')
+      },
+      "u":
       {
-        available: true
-        , active: formatting.hasTextStyle('u')
-      }
-      , "strike":
+        available: true,
+        active: formatting.hasTextStyle('u')
+      },
+      "strike":
       {
-        available: true
-        , active: formatting.hasTextStyle('strike')
-      }
-      , "sub":
+        available: true,
+        active: formatting.hasTextStyle('strike')
+      },
+      "sub":
       {
-        available: true
-        , active: formatting.hasTextStyle('sub')
-      }
-      , "sup":
+        available: true,
+        active: formatting.hasTextStyle('sub')
+      },
+      "sup":
       {
-        available: true
-        , active: formatting.hasTextStyle('sup')
-      }
-      , "ol":
+        available: true,
+        active: formatting.hasTextStyle('sup')
+      },
+      "ol":
       {
-        available: true
-        , active: actionparent && actionparent.nodeName.toLowerCase() == 'ol'
-      }
-      , "ul":
+        available: true,
+        active: actionparent && actionparent.nodeName.toLowerCase() == 'ol'
+      },
+      "ul":
       {
-        available: true
-        , active: actionparent && actionparent.nodeName.toLowerCase() == 'ul'
-      }
-      , "table-addrow-before": { available: allow_td_actions }
-      , "table-addrow-after": { available: allow_td_actions }
-      , "table-addpara-before": { available: allow_td_actions }
-      , "table-addpara-after": { available: allow_td_actions }
-      , "table-addcolumn-before": { available: allow_td_actions }
-      , "table-addcolumn-after": { available: allow_td_actions }
-      , "table-deleterow": { available: allow_td_actions && tableeditor && tableeditor.numrows != 1 }
-      , "table-deletecolumn": { available: allow_td_actions && tableeditor && tableeditor.numcolumns != 1 }
-      , "table-mergeright": tableactionstate && tableactionstate["table-mergeright"] || { available: false }
-      , "table-mergedown": tableactionstate && tableactionstate["table-mergedown"] || { available: false }
-      , "table-splitcols": tableactionstate && tableactionstate["table-splitcols"] || { available: false }
-      , "table-splitrows": tableactionstate && tableactionstate["table-splitrows"] || { available: false }
+        available: true,
+        active: actionparent && actionparent.nodeName.toLowerCase() == 'ul'
+      },
+      "table-addrow-before": { available: allow_td_actions },
+      "table-addrow-after": { available: allow_td_actions },
+      "table-addpara-before": { available: allow_td_actions },
+      "table-addpara-after": { available: allow_td_actions },
+      "table-addcolumn-before": { available: allow_td_actions },
+      "table-addcolumn-after": { available: allow_td_actions },
+      "table-deleterow": { available: allow_td_actions && tableeditor && tableeditor.numrows != 1 },
+      "table-deletecolumn": { available: allow_td_actions && tableeditor && tableeditor.numcolumns != 1 },
+      "table-mergeright": tableactionstate && tableactionstate["table-mergeright"] || { available: false },
+      "table-mergedown": tableactionstate && tableactionstate["table-mergedown"] || { available: false },
+      "table-splitcols": tableactionstate && tableactionstate["table-splitcols"] || { available: false },
+      "table-splitrows": tableactionstate && tableactionstate["table-splitrows"] || { available: false }
     };
 
     if (this.options.allowtags)
@@ -1893,25 +1879,26 @@ export default class EditorBase {
     if (!this.options.allowtags)
       return true;
 
-    var actionlist =
-      [{ name: 'img', requiretags: ['img'] }
-        , { name: 'a-href', requiretags: ['a'] }
-        , { name: 'remove_hyperlink', requiretags: ['a'] }
-        , { name: 'anchor', requiretags: ['a'] }
-        , { name: 'insert_table', requiretags: ['table', 'tr', 'td'] }
-        , { name: 'ul', requiretags: ['ul', 'li'] }
-        , { name: 'ol', requiretags: ['ol', 'li'] }
-        , { name: 'li-increase-level', requiretags: ['li'] }
-        , { name: 'li-decrease-level', requiretags: ['li'] }
-        , { name: 'b', requiretags: ['b'] }
-        , { name: 'u', requiretags: ['u'] }
-        , { name: 'i', requiretags: ['i'] }
-        , { name: 'strike', requiretags: ['strike'] }
-        , { name: 'sub', requiretags: ['sub'] }
-        , { name: 'sup', requiretags: ['sup'] }
+    const actionlist =
+      [
+        { name: 'img', requiretags: ['img'] },
+        { name: 'a-href', requiretags: ['a'] },
+        { name: 'remove_hyperlink', requiretags: ['a'] },
+        { name: 'anchor', requiretags: ['a'] },
+        { name: 'insert_table', requiretags: ['table', 'tr', 'td'] },
+        { name: 'ul', requiretags: ['ul', 'li'] },
+        { name: 'ol', requiretags: ['ol', 'li'] },
+        { name: 'li-increase-level', requiretags: ['li'] },
+        { name: 'li-decrease-level', requiretags: ['li'] },
+        { name: 'b', requiretags: ['b'] },
+        { name: 'u', requiretags: ['u'] },
+        { name: 'i', requiretags: ['i'] },
+        { name: 'strike', requiretags: ['strike'] },
+        { name: 'sub', requiretags: ['sub'] },
+        { name: 'sup', requiretags: ['sup'] }
       ];
 
-    var actiondata;
+    let actiondata;
     for (let i = 0; i < actionlist.length; ++i)
       if (actionlist[i].name == action) {
         actiondata = actionlist[i];
@@ -1999,13 +1986,13 @@ export default class EditorBase {
   }
 
   initializeTableEditor(tablenode, resizing) {
-    var editor = tablesupport.getEditorForNode(tablenode);
+    let editor = tablesupport.getEditorForNode(tablenode);
     if (editor) {
       editor.updateResizers();
       return;
     }
 
-    var options = { onStatechange: this.tableEditorStateHasChanged.bind(this), getUndoLock: () => this.getUndoLock() };
+    const options = { onStatechange: this.tableEditorStateHasChanged.bind(this), getUndoLock: () => this.getUndoLock() };
     if (resizing) {
       options.resize_columns = resizing.includes("all") || resizing.includes("columns");
       options.resize_rows = resizing.includes("all") || resizing.includes("rows");
@@ -2021,11 +2008,11 @@ export default class EditorBase {
   }
 
   _getEditableTables() {
-    let retval = [];
-    for (let node of qSA(this.getBody(), "table")) {
+    const retval = [];
+    for (const node of qSA(this.getBody(), "table")) {
       if (!node.isContentEditable)
         continue;
-      let tableresizing = this._getResizingOptionsForTable(node);
+      const tableresizing = this._getResizingOptionsForTable(node);
       if (tableresizing)
         retval.push({ node, tableresizing });
     }
@@ -2034,13 +2021,13 @@ export default class EditorBase {
 
   updateTableEditors() {
     // Get list of all editable tables
-    var list = this._getEditableTables();
+    const list = this._getEditableTables();
     list.forEach(listitem => this.initializeTableEditor(listitem.node, listitem.tableresizing));
 
     // Destroy editors that are no longer active (i.e. the associated table is no longer present in the DOM), update active
     // editors
     this.tableeditors = this.tableeditors.filter(editor => {
-      var active = editor.isActive();
+      const active = editor.isActive();
       if (!active)
         editor.destroy();
       return active;
@@ -2056,8 +2043,7 @@ export default class EditorBase {
         //whenever a font is loaded, resize table editors
         this.fontslistener = this.updateTableEditors.bind(this);
         document.fonts.addEventListener("loadingdone", this.fontslistener);
-      }
-      else // IE, Edge and Safari
+      } else // IE, Edge and Safari
       {
         // Keep updating the tableeditors for 5 seconds to give the rte time to load external css and fonts
         this.repeatupdatetableuntil = Date.now() + 5000;
@@ -2088,7 +2074,7 @@ export default class EditorBase {
   //
 
   _handleKeyCommand(event, names) {
-    for (let keyname of names) {
+    for (const keyname of names) {
       switch (keyname) {
         case "Accel+A": {
           event.preventDefault();
@@ -2147,7 +2133,7 @@ export default class EditorBase {
 
   _inspectCursorPosition() {
     const range = this.getSelectionRange();
-    let b = range.start, e = range.end;
+    const b = range.start, e = range.end;
 
     const bres = b.scanForward(this.getBody(), {});
     const eres = e.scanBackward(this.getBody(), {});
@@ -2190,7 +2176,7 @@ export default class EditorBase {
 
   _gotKeyPress(event) //ADDME generalize/configurable key mappings. should this really be part of the whrte core anyway?
   {
-    let eventdata = dompack.normalizeKeyboardEventData(event);
+    const eventdata = dompack.normalizeKeyboardEventData(event);
     if (eventdata.ctrlKey)
       return;
 
@@ -2203,7 +2189,7 @@ export default class EditorBase {
     // Check the dom structure before applying the change. The cursor might be in an illegal place.
     this.checkDomStructure();
 
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
 
     //console.log('keypressed', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //console.log(range.isCollapsed(), this.delayedsurrounds.length);
@@ -2219,7 +2205,7 @@ export default class EditorBase {
         //console.log('onKeyPressed, delay, pre: ', this.getContentsHTML());
 
         // Execute delayed surrounds
-        for (var i = 0; i < this.delayedsurrounds.length; ++i)
+        for (let i = 0; i < this.delayedsurrounds.length; ++i)
           this._surroundSelection(this.delayedsurrounds[i]);
         this.ClearDelayedSurrounds();
 
@@ -2239,7 +2225,7 @@ export default class EditorBase {
   }
 
   _gotKeyUp(event) {
-    let eventdata = dompack.normalizeKeyboardEventData(event);
+    const eventdata = dompack.normalizeKeyboardEventData(event);
 
     // Don't clear delayed surrounds on enter, so they'll be transferred to the next line
     if (eventdata.key !== "Enter")
@@ -2305,8 +2291,7 @@ export default class EditorBase {
     if (attach) {
       document.addEventListener('selectionchange', this.inputeventfunction);
       this.getBody().addEventListener('input', this.inputeventfunction);
-    }
-    else {
+    } else {
       document.removeEventListener('selectionchange', this.inputeventfunction);
       this.getBody().removeEventListener('input', this.inputeventfunction);
     }
@@ -2318,7 +2303,7 @@ export default class EditorBase {
     if (this.activeinputhandler == name)
       return;
 
-    for (var i = 0; i < this.oninputhandlers.length; ++i)
+    for (let i = 0; i < this.oninputhandlers.length; ++i)
       if (this.oninputhandlers[i].name == name)
         return;
 
@@ -2344,11 +2329,11 @@ export default class EditorBase {
 
     if (this.oninputhandlers.length) {
       //console.log('inputdelay activated by ' + (event ? 'event ' + event.type : 'timeout'));
-      var copy = this.oninputhandlers.slice();
+      const copy = this.oninputhandlers.slice();
       this.oninputhandlers = [];
       this.setInputEventAttach(false);
 
-      for (var i = 0; i < copy.length; ++i) {
+      for (let i = 0; i < copy.length; ++i) {
         this.activeinputhandler = copy[i].name;
         copy[i].callback();
       }
@@ -2367,7 +2352,7 @@ export default class EditorBase {
   }
   executeDefaultPropertiesAction(event) {
     if (event.target.nodeName == 'A') {
-      let url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
+      const url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
       if (url)
         event.target.href = url;
       return;
@@ -2375,30 +2360,29 @@ export default class EditorBase {
   }
 
   async newUploadInsertImage() {
-    let lock = dompack.flagUIBusy();
-    let files = await compatupload.selectFiles({ mimetypes: ["image/*"] });
+    const lock = dompack.flagUIBusy();
+    const files = await compatupload.selectFiles({ mimetypes: ["image/*"] });
     if (!files.length) {
       lock.release();
       return;
     }
 
     try {
-      let imgnode = this._createImageDownloadNode();
+      const imgnode = this._createImageDownloadNode();
       this.replaceSelectionWithNode(imgnode, true);
       await this.uploadImageToServer(files[0], imgnode);
-    }
-    finally {
+    } finally {
       lock.release();
     }
   }
 
   //Upload an image to the server, and then replace the src in the specified image node
   async uploadImageToServer(filetoupload, imgnode) {
-    let busylock = dompack.flagUIBusy();
+    const busylock = dompack.flagUIBusy();
     try {
-      let uploader = new compatupload.UploadSession([filetoupload]);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
-      let res = await uploader.upload();
-      let properurl = await formservice.getUploadedFileFinalURL(res[0].url);
+      const uploader = new compatupload.UploadSession([filetoupload]);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
+      const res = await uploader.upload();
+      const properurl = await formservice.getUploadedFileFinalURL(res[0].url);
       imgnode.src = properurl;
       this.rte.knownimages.push(imgnode.src);
       imgnode.classList.add("wh-rtd__img");
@@ -2408,25 +2392,24 @@ export default class EditorBase {
       imgnode.removeAttribute("height");
 
       await preload.promiseImage(imgnode.src); //don't return until the upload is done!
-    }
-    finally {
+    } finally {
       busylock.release();
     }
   }
   //FIXME if we can select embeddedobjects, we can merge this into executeAction
   launchActionPropertiesForNode(node, subaction) {
-    let action = {
-      action: 'action-properties'
-      , actiontarget: { __node: node }
-      , subaction: subaction
-      , rte: this.rte
+    const action = {
+      action: 'action-properties',
+      actiontarget: { __node: node },
+      subaction: subaction,
+      rte: this.rte
     };
 
     if (!dompack.dispatchCustomEvent(node, "wh:richeditor-action",
       {
-        bubbles: true
-        , cancelable: true
-        , detail: action
+        bubbles: true,
+        cancelable: true,
+        detail: action
       }))
       return;
 
@@ -2446,21 +2429,20 @@ export default class EditorBase {
     let actionnode = this.options.eventnode; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
     if (actiontarget) {
       action.actiontargetinfo = actiontarget;
-    }
-    else if (action) {
+    } else if (action) {
       if (!action.action)
         throw new Error("Expected an 'action' value");
 
       action.rte = this.rte; //this is the RTE object
 
       if (action.action == 'a-href') {
-        let selstate = this.getSelectionState();
+        const selstate = this.getSelectionState();
         if (selstate.hyperlink) //inside a hyperlink
           action.action = 'action-properties'; //rewrite to a properties action
       }
 
       if (action.action == 'action-properties') {
-        var selstate = this.getSelectionState();
+        const selstate = this.getSelectionState();
         if (!selstate.propstarget)
           return;
 
@@ -2472,9 +2454,9 @@ export default class EditorBase {
 
     if (!dompack.dispatchCustomEvent(actionnode, "wh:richeditor-action",
       {
-        bubbles: true
-        , cancelable: true
-        , detail: action
+        bubbles: true,
+        cancelable: true,
+        detail: action
       }))
       return;
 
@@ -2486,7 +2468,7 @@ export default class EditorBase {
         break;
       case 'a-href':
         {
-          let url = prompt(this.GetLanguageText('prompt_hyperlink'), "http://");
+          const url = prompt(this.GetLanguageText('prompt_hyperlink'), "http://");
           this.takeFocus();
           if (url)
             this.insertHyperlink(url);
@@ -2550,8 +2532,8 @@ export default class EditorBase {
       case "table-addpara-before":
       case "table-addpara-after":
         {
-          let node = this.getSelectionState().actionparent;
-          let tablenode = node.closest("table");
+          const node = this.getSelectionState().actionparent;
+          const tablenode = node.closest("table");
           this.insertEmptyParagraph(tablenode, action.action === "table-addpara-after");
         } break;
       case "table-addrow-before":
@@ -2565,9 +2547,9 @@ export default class EditorBase {
       case "table-splitcols":
       case "table-splitrows":
         {
-          var node = this.getSelectionState().actionparent;
-          var tablenode = node.closest("table");
-          var editor = tablesupport.getEditorForNode(tablenode);
+          const node = this.getSelectionState().actionparent;
+          const tablenode = node.closest("table");
+          const editor = tablesupport.getEditorForNode(tablenode);
           switch (action.action) {
             case "table-addrow-before":
             case "table-addrow-after": editor.insertRows(node, action.action === "table-addrow-before", 1, node.offsetHeight, { newcell_callback: this._initNewTableCell.bind(this) }); break;
@@ -2601,52 +2583,52 @@ export default class EditorBase {
       this._langtexts =
       {
         en: {
-          buttonbar_bold: "Bold"
-          , buttonbar_italic: "Italic"
-          , buttonbar_underline: "Underline"
-          , buttonbar_insert_image: "Insert Image"
-          , buttonbar_insert_hyperlink: "Insert Hyperlink"
-          , buttonbar_remove_hyperlink: "Remove Hyperlink"
-          , buttonbar_anchor: "Bookmark"
-          , buttonbar_insert_table: "Insert Table"
-          , buttonbar_bulleted_list: "Bulleted List"
-          , buttonbar_numbered_list: "Numbered List"
-          , buttonbar_align_left: "Align left"
-          , buttonbar_align_center: "Center"
-          , buttonbar_align_right: "Align right"
-          , buttonbar_align_justified: "Justify"
-          , buttonbar_undo: "Undo"
-          , buttonbar_redo: "Redo"
-          , buttonbar_clear_formatting: "Clear Formatting"
-          , prompt_hyperlink: "Hyperlink URL"
-          , messages_openlink: "%1<br/><b>Shift + click to open in a new window</b>"
-          , messages_anchor: "Bookmark #%1"
-          , messages_confirmclearformatting: "Are you sure you want to discard all style?\n\nThis operation cannot be undone."
-          , messages_confirmclearcontents: "Are you sure you want to delete all contents?\n\nThis operation cannot be undone."
-        }
-        , nl: {
-          buttonbar_bold: "Vet"
-          , buttonbar_italic: "Cursief"
-          , buttonbar_underline: "Onderstrepen"
-          , buttonbar_insert_image: "Afbeelding invoegen"
-          , buttonbar_insert_hyperlink: "Hyperlink invoegen"
-          , buttonbar_remove_hyperlink: "Hyperlink verwijderen"
-          , buttonbar_anchor: "Bladwijzer"
-          , buttonbar_insert_table: "Tabel invoegen"
-          , buttonbar_bulleted_list: "Lijst met opsommingstekens"
-          , buttonbar_numbered_list: "Genummerde lijst"
-          , buttonbar_align_left: "Links uitlijnen"
-          , buttonbar_align_center: "Centreren"
-          , buttonbar_align_right: "Rechts uitlijnen"
-          , buttonbar_align_justified: "Uitvullen"
-          , buttonbar_undo: "Ongedaan maken"
-          , buttonbar_redo: "Opnieuw"
-          , buttonbar_clear_formatting: "Opmaak verwijderen"
-          , prompt_hyperlink: "URL voor de hyperlink"
-          , messages_openlink: "%1<br/><b>Shift + klik om in een nieuw venster te openen</b>"
-          , messages_anchor: "Bladwijzer #%1"
-          , messages_confirmclearformatting: "Weet u zeker dat u alle opmaak wilt verwijderen?\n\nDeze operatie kan niet ongedaan gemaakt worden."
-          , messages_confirmclearcontents: "Weet u zeker dat u alle inhoud wilt verwijderen?\n\nDeze operatie kan niet ongedaan gemaakt worden."
+          buttonbar_bold: "Bold",
+          buttonbar_italic: "Italic",
+          buttonbar_underline: "Underline",
+          buttonbar_insert_image: "Insert Image",
+          buttonbar_insert_hyperlink: "Insert Hyperlink",
+          buttonbar_remove_hyperlink: "Remove Hyperlink",
+          buttonbar_anchor: "Bookmark",
+          buttonbar_insert_table: "Insert Table",
+          buttonbar_bulleted_list: "Bulleted List",
+          buttonbar_numbered_list: "Numbered List",
+          buttonbar_align_left: "Align left",
+          buttonbar_align_center: "Center",
+          buttonbar_align_right: "Align right",
+          buttonbar_align_justified: "Justify",
+          buttonbar_undo: "Undo",
+          buttonbar_redo: "Redo",
+          buttonbar_clear_formatting: "Clear Formatting",
+          prompt_hyperlink: "Hyperlink URL",
+          messages_openlink: "%1<br/><b>Shift + click to open in a new window</b>",
+          messages_anchor: "Bookmark #%1",
+          messages_confirmclearformatting: "Are you sure you want to discard all style?\n\nThis operation cannot be undone.",
+          messages_confirmclearcontents: "Are you sure you want to delete all contents?\n\nThis operation cannot be undone."
+        },
+        nl: {
+          buttonbar_bold: "Vet",
+          buttonbar_italic: "Cursief",
+          buttonbar_underline: "Onderstrepen",
+          buttonbar_insert_image: "Afbeelding invoegen",
+          buttonbar_insert_hyperlink: "Hyperlink invoegen",
+          buttonbar_remove_hyperlink: "Hyperlink verwijderen",
+          buttonbar_anchor: "Bladwijzer",
+          buttonbar_insert_table: "Tabel invoegen",
+          buttonbar_bulleted_list: "Lijst met opsommingstekens",
+          buttonbar_numbered_list: "Genummerde lijst",
+          buttonbar_align_left: "Links uitlijnen",
+          buttonbar_align_center: "Centreren",
+          buttonbar_align_right: "Rechts uitlijnen",
+          buttonbar_align_justified: "Uitvullen",
+          buttonbar_undo: "Ongedaan maken",
+          buttonbar_redo: "Opnieuw",
+          buttonbar_clear_formatting: "Opmaak verwijderen",
+          prompt_hyperlink: "URL voor de hyperlink",
+          messages_openlink: "%1<br/><b>Shift + klik om in een nieuw venster te openen</b>",
+          messages_anchor: "Bladwijzer #%1",
+          messages_confirmclearformatting: "Weet u zeker dat u alle opmaak wilt verwijderen?\n\nDeze operatie kan niet ongedaan gemaakt worden.",
+          messages_confirmclearcontents: "Weet u zeker dat u alle inhoud wilt verwijderen?\n\nDeze operatie kan niet ongedaan gemaakt worden."
         }
       };
     }
@@ -2654,7 +2636,7 @@ export default class EditorBase {
   }
 
   GetLanguageText(name, param1, param2) {
-    let langtexts = this._getLangTexts();
+    const langtexts = this._getLangTexts();
     if (langtexts[this.language] && langtexts[this.language][name])
       return (langtexts[this.language][name]).split('%1').join(param1).split('%2').join(param2);
     return "";
@@ -2691,7 +2673,7 @@ class TextFormattingState {
   }
 
   getTextStyleByNodeName(nodeName) {
-    for (var i = 0; i < this.textstyles.length; ++i)
+    for (let i = 0; i < this.textstyles.length; ++i)
       if (this.textstyles[i].nodeName == nodeName)
         return this.textstyles[i];
     return null;

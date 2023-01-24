@@ -16,13 +16,13 @@ import { encodeValue } from "dompack/types/text";
 
 function parseNode(node) {
   // Use a fixed record to describe nodes, JITs like them
-  let result =
+  const result =
   {
-    node: node
-    , type: ""
-    , childNodes: null
-    , attrs: null
-    , nodeValue: ""
+    node: node,
+    type: "",
+    childNodes: null,
+    attrs: null,
+    nodeValue: ""
   };
 
   switch (node.nodeType) {
@@ -32,8 +32,7 @@ function parseNode(node) {
           // No need to recurse into embedded objects (only done when result.childNodes is an array)
           result.type = "embedded";
           result.attrs = domlevel.getAllAttributes(node);
-        }
-        else {
+        } else {
           result.type = "element";
           result.childNodes = [];
           result.attrs = domlevel.getAllAttributes(node);
@@ -54,8 +53,8 @@ function parseNode(node) {
 }
 
 function generateSnapshotRecursive(node, resultlist) {
-  for (let subnode of Array.from(node.childNodes)) {
-    var parsed = parseNode(subnode);
+  for (const subnode of Array.from(node.childNodes)) {
+    const parsed = parseNode(subnode);
     resultlist.push(parsed);
 
     if (parsed.childNodes)
@@ -65,11 +64,11 @@ function generateSnapshotRecursive(node, resultlist) {
 
 // Make sure all attributes are set according to attrs, removes other attributes
 function restoreAttributes(node, attrs) {
-  let current = domlevel.getAllAttributes(node);
+  const current = domlevel.getAllAttributes(node);
   let needset = false;
 
   // Remove attributes that shouldn't be present, see if update is needed
-  for (let attr in current) {
+  for (const attr in current) {
     if (!(attr in attrs))
       node.removeAttribute(attr);
     else if (current[attr] != attrs[attr]) {
@@ -84,7 +83,7 @@ function restoreAttributes(node, attrs) {
   }
 
   // See if any attributes need to be added
-  for (let attr in attrs)
+  for (const attr in attrs)
     if (!(attr in current))
       needset = true;
 
@@ -95,7 +94,7 @@ function restoreAttributes(node, attrs) {
 
 /// Restores text and attributes of a node (non-recursive)
 function restoreNode(doc, item) {
-  var result = item.node;
+  let result = item.node;
   if (item.attrs)
     restoreAttributes(result, item.attrs);
   if (item.type === "text") {
@@ -103,8 +102,7 @@ function restoreNode(doc, item) {
       // IE sometimes transforms text nodes to EmptyTextNodes - can't change nodeValue, can't insert
       if (result.nodeValue != item.nodeValue)
         result.nodeValue = item.nodeValue;
-    }
-    catch (e) {
+    } catch (e) {
       // If that happens, don't care about browser undo anymore
       result = doc.createText(item.nodeValue);
     }
@@ -117,12 +115,12 @@ function restoreSnapshotRecursive(doc, node, resultlist) {
   let lastinserted = null;
 
   // Convert the nodes, insert them at the beginning of the node childlist
-  for (let item of resultlist) {
-    var subnode = restoreNode(doc, item);
+  for (const item of resultlist) {
+    const subnode = restoreNode(doc, item);
     if (item.childNodes)
       restoreSnapshotRecursive(doc, subnode, item.childNodes);
 
-    let insertbefore = lastinserted ? lastinserted.nextSibling : node.firstChild;
+    const insertbefore = lastinserted ? lastinserted.nextSibling : node.firstChild;
     lastinserted = subnode;
 
     if (insertbefore === subnode)
@@ -142,12 +140,12 @@ function restoreSnapshotRecursive(doc, node, resultlist) {
     @returns Snapshot record
 */
 export function generateSnapshot(rootnode, range) {
-  var snapshot =
+  const snapshot =
   {
-    node: rootnode
-    , type: "snapshot"
-    , childNodes: []
-    , range: range.clone()
+    node: rootnode,
+    type: "snapshot",
+    childNodes: [],
+    range: range.clone()
   };
 
   generateSnapshotRecursive(rootnode, snapshot.childNodes);
@@ -163,7 +161,7 @@ export function generateSnapshot(rootnode, range) {
 export function restoreSnapshot(rootnode, snapshot) {
   restoreSnapshotRecursive(rootnode.ownerDocument, rootnode, snapshot.childNodes);
 
-  var range = snapshot.range.clone();
+  const range = snapshot.range.clone();
   if (range.start.element == snapshot.node)
     range.start.element = rootnode;
   if (range.end.element == snapshot.node)
@@ -181,26 +179,26 @@ export function compressSnapshotChildNodes(left, right) {
   }
 
   let havechange = false;
-  left = Object.assign({}, left);
-  right = Object.assign({}, right);
+  left = { ...left };
+  right = { ...right };
 
   left.childNodes = [...left.childNodes];
   right.childNodes = [...right.childNodes];
 
-  let leftChildNodeLength = left.childNodes.length;
-  let rightChildNodeLength = right.childNodes.length;
+  const leftChildNodeLength = left.childNodes.length;
+  const rightChildNodeLength = right.childNodes.length;
 
   for (let li = 0; li < leftChildNodeLength; ++li) {
-    let l = left.childNodes[li];
+    const l = left.childNodes[li];
     if (!l.childNodes)
       continue;
 
     for (let ri = 0; ri < rightChildNodeLength; ++ri) {
-      let r = right.childNodes[ri];
+      const r = right.childNodes[ri];
       if (l.node === r.node && r.childNodes) {
         //console.log(` compare `, l, r);
 
-        let res = compressSnapshotChildNodes(l, r);
+        const res = compressSnapshotChildNodes(l, r);
         if (res) {
           havechange = true;
           left.childNodes[li] = res.left;
@@ -217,7 +215,7 @@ export function compressSnapshotChildNodes(left, right) {
   }
 
   for (let i = 0; i < leftChildNodeLength; ++i) {
-    let l = left.childNodes[i], r = right.childNodes[i];
+    const l = left.childNodes[i], r = right.childNodes[i];
 
     if (l.node !== r.node
       || l.type !== r.type
@@ -241,8 +239,8 @@ function attrsEqual(a, b, isimg) {
   if (!a || !b)
     return !a === !b;
 
-  let la = Object.entries(a);
-  let ra = Object.entries(b);
+  const la = Object.entries(a);
+  const ra = Object.entries(b);
 
   if (la.length !== ra.length)
     return false;
@@ -268,7 +266,7 @@ export function snapshotsEqual(left, right) {
     //    return false;
   }
 
-  let res = compressSnapshotChildNodes(left, right);
+  const res = compressSnapshotChildNodes(left, right);
   if (res)
     ({ left, right } = res);
 
@@ -287,7 +285,7 @@ export function dumpSnapShot(item, snapshot, indent) {
 
   let res = `<${item.node.nodeName}`;
   if (item.attrs) {
-    for (let a of Object.entries(item.attrs))
+    for (const a of Object.entries(item.attrs))
       res += ` ${a[0]}="${encodeValue(a[1])}"`;
   }
 

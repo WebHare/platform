@@ -8,8 +8,8 @@ class PasteCleanup {
     this.data = null;
     this.options =
     {
-      mode: '' // 'clipboarddata', 'framepaste'
-      , ...options
+      mode: '', // 'clipboarddata', 'framepaste'
+      ...options
     };
 
     if (!['clipboarddata', 'framepaste', ''].includes(this.options.mode))
@@ -19,7 +19,7 @@ class PasteCleanup {
   applyCleanup(data) {
     this.data = data;
 
-    var result =
+    const result =
     {
       breakafter: null // not yet known
     };
@@ -27,9 +27,9 @@ class PasteCleanup {
     if (this.options.mode == 'framepaste')
       result.breakafter = true;
 
-    var todelete = [];
+    const todelete = [];
 
-    let imgs = this.data.querySelectorAll('img');
+    const imgs = this.data.querySelectorAll('img');
     for (let i = 0; i < imgs.length; ++i) {
     }
 
@@ -38,36 +38,36 @@ class PasteCleanup {
     for (let i = 0; i < todelete.length; ++i) {
       let node = todelete[i];
       while (node != this.data && node.parentNode && !node.firstChild) {
-        let parent = node.parentNode;
+        const parent = node.parentNode;
         parent.removeChild(node);
         node = parent;
       }
     }
 
     // remove empty block (P, LI, OL & UL) nodes
-    var pnodes = this.data.querySelectorAll('*');
+    const pnodes = this.data.querySelectorAll('*');
     for (let i = pnodes.length - 1; i >= 0; --i)
       if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'li'].includes(pnodes[i].nodeName.toLowerCase())) {
-        let node = pnodes[i];
-        var locator = new domlevel.Locator(node, 0);
-        var res = locator.scanForward(node, { whitespace: true });
+        const node = pnodes[i];
+        const locator = new domlevel.Locator(node, 0);
+        const res = locator.scanForward(node, { whitespace: true });
         if (res.type == 'outerblock')
           pnodes[i].parentNode.removeChild(pnodes[i]);
       }
 
     // IE can copy LI nodes without their parent OL/UL. Create a UL, move them into it
-    var linodes = this.data.querySelectorAll('li');
+    const linodes = this.data.querySelectorAll('li');
     for (let i = 0; i < linodes.length; ++i) {
-      let parent = linodes[i].parentNode;
+      const parent = linodes[i].parentNode;
       if (!['ol', 'ul'].includes(parent.nodeName.toLowerCase())) {
         let node = linodes[i];
-        let nodes = [];
+        const nodes = [];
         for (; node && node.nodeType == 1 && node.nodeName.toLowerCase() == 'li'; node = node.nextSibling)
           nodes.push(node);
 
-        var listnode = document.createElement('ul');
+        const listnode = document.createElement('ul');
         parent.insertBefore(listnode, linodes[i]);
-        for (var j = 0; j < nodes.length; ++j)
+        for (let j = 0; j < nodes.length; ++j)
           listnode.appendChild(nodes[j]);
       }
     }
