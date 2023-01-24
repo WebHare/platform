@@ -509,11 +509,6 @@ export default class EditorBase {
     this.setContentsHTML(htmlcode, { raw: true });
   }
 
-  toElement() {
-    console.error("toelement");
-    return this.bodydiv;
-  }
-
   /// Returns raw selection range (for use in tests)
   debugGetRawSelectionRange() {
     return this.selectionitf.getSelectionRange();

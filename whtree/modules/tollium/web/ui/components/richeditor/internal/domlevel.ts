@@ -7,9 +7,6 @@ import * as dompack from "dompack";
 
 import Range from './dom/range';
 
-//var richdebug = require('./richdebug');
-
-
 rangy.config.alertOnFail = false; //prevent Rangy frmo complaining about missing document.body - that actually happens when location.href early redirects and we don't want that alert..
 
 function getAttributes(node, attrlist) {
@@ -1121,10 +1118,6 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
 }
 
 function canWrapNode(node, canwrapnodefunc, mustwrapnodefunc) {
-  /*
-  var mustanswer = mustwrapnodefunc && mustwrapnodefunc(node);
-  var cananswer = !canwrapnodefunc || canwrapnodefunc(node);
-  console.log('canWrapNode', node, mustanswer, cananswer);*/
   return (mustwrapnodefunc && mustwrapnodefunc(node)) || (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
@@ -2343,47 +2336,6 @@ class Locator {
   }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//  WHRTE range iterator
-//
-
-/*
-// Moves a locator that points past the last element to the next node (but never escapes the ancestor)
-function MoveLocatorToNextLowestNodeStart(ancestor, locator)
-{
-  if (locator.element && locator.offset == GetNodeEndOffset(locator.element))
-  {
-    while (locator.element != ancestor && !locator.element.nextSibling)
-      locator.element = locator.element.parentNode;
-
-    if (locator.element != ancestor)
-      locator.element = locator.element.nextSibling;
-    else
-      locator.element = null;
-    locator.offset = 0;
-  }
-
-  while (locator.element && locator.offset == 0 && !locator.element.previousSibling)
-  {
-    if (locator.element == ancestor)
-    {
-      locator.element = null;
-      break;
-    }
-    locator.element = locator.element.parentNode;
-  }
-
-  if (locator.element == null)
-  {
-    locator.element = ancestor;
-    locator.offset = ancestor.childNodes.length;
-    return false;
-  }
-  return true;
-}
-*/
-
 function GetNodeEndOffset(element) {
   if (element.nodeType == 1 || element.nodeType == 11)
     return element.childNodes.length; // for element nodes, document fragments, etc
@@ -2391,123 +2343,6 @@ function GetNodeEndOffset(element) {
     return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
 }
 
-/*
-class RangeIterator
-{ constructor(range)
-  {
-    this.locators = Locator.getFromRange(range);
-    this.ancestor = Locator.findCommonAncestor(this.locators.start, this.locators.end);
-    console.log('**', this.locators, range);
-    this.node = null;
-    this.depth = 0;
-    this.leftpath = null;
-    this.rightpath = null;
-
-    if (this.ancestor.nodeType == 3)
-      this.ancestor = this.ancestor.parentNode;
-    if (this.locators.end.element.nodeType == 3 && this.locators.end.offset != 0 && !this.locators.start.equals(this.locators.end))
-      this.locators.end.offset = this.locators.end.element.nodeValue.length;
-
-    //console.log('ITR init', richdebug.getStructuredOuterHTML(this.ancestor, this.locators));
-
-    MoveLocatorToNextLowestNodeStart(this.ancestor, this.locators.end);
-    if (!MoveLocatorToNextLowestNodeStart(this.ancestor, this.locators.start))
-    {
-      // start iterator past last ancestor element
-      //console.log('start past end',richdebug.getStructuredOuterHTML(this.ancestor, this.locators), this.locators);
-      return;
-    }
-
-    //console.log(this.locators.start.element.nodeName, this.ancestor.nodeName);
-    //console.log('ITR corrected',richdebug.getStructuredOuterHTML(this.ancestor, this.locators), this.locators);
-
-  //  console.log('ancestor',this.ancestor);
-  //  console.log('locators',this.locators);
-
-    this.leftpath = this.locators.start.getPathFromAncestor(this.ancestor);
-    this.rightpath = this.locators.end.getPathFromAncestor(this.ancestor);
-
-  //  console.log('leftpath: ', this.leftpath);
-  //  console.log('rightpath: ', this.rightpath);
-
-    this.node = this.locators.start.element;
-    this.depth = this.leftpath.length;
-
-    if (this.node == this.locators.end.element && this.locators.end.offset != GetNodeEndOffset(this.locators.end.element))
-    {
-      this.node = null;
-    }
-    else
-    {
-      this.depth = this.leftpath.length;
-      if (this.locators.start.offset == GetNodeEndOffset(this.node))
-        this.nextRecursive();
-    }
-    console.log('ITR init node', this.node, 'depth:', this.depth);
-  }
-
-  atEnd()
-  {
-    return !this.node;
-  }
-
-  nextRecursive()
-  {
-    console.log('ITR nextRecursive in', this.node, 'depth:', this.depth);
-    if (this.node.nodeType != 3 && this.node.firstChild)
-    {
-      this.node = this.node.firstChild;
-      ++this.depth;
-      if (this.node == this.locators.end.element)
-      {
-        this.node = null;
-        console.log('ITR nextRecursive at end');
-        return false;
-      }
-      console.log('ITR nextRecursive result:', this.node, 'depth:', this.depth);
-      return true;
-    }
-    else
-      return this.next();
-  }
-
-  next()
-  {
-    console.log('ITR next', this.node, 'depth:', this.depth);
-    while (!this.node.nextSibling && this.node != this.ancestor)
-    {
-      --this.depth;
-      this.node = this.node.parentNode;
-    }
-
-    console.log('candidate node:', this.node, 'depth:', this.depth);
-
-    if (this.node == this.ancestor)
-    {
-      console.log('ITR next at end');
-      this.node = null;
-      return false;
-    }
-    this.node = this.node.nextSibling;
-
-    // pre: this.itr != this.locators.end.element
-    if (this.rightpath.length >= this.depth)
-    {
-      var eltmax = this.depth ? this.rightpath[this.depth - 1] : this.ancestor;
-      var eltdeeper = this.rightpath.length > this.depth;
-
-      if (this.node == eltmax && !eltdeeper)
-        this.node = null;
-    }
-    if (this.node)
-      console.log('ITR next result:', this.node, 'depth:', this.depth);
-    else
-      console.log('ITR next at end');
-
-    return this.node != null;
-  }
-}
-*/
 
 export {
   setAttributes
