@@ -3,8 +3,8 @@
 
 import * as dompack from 'dompack';
 
-var Toolbar = require('../../toolbar/toolbars');
-var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
+import Toolbar from '@mod-tollium/web/ui/components/toolbar/toolbars';
+import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //

@@ -6,7 +6,6 @@ import { qSA } from "dompack";
 import * as movable from 'dompack/browserfix/movable';
 import * as domlevel from "./domlevel";
 import * as rtesupport from "./support";
-import * as browser from "dompack/extra/browser";
 
 let activetables = [];
 

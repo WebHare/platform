@@ -2,14 +2,24 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
+import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
+
+import RTEToolbar from './toolbar';
+import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
+import getTid from "@mod-tollium/js/gettid";
+import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
+
+import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
+import * as styleloader from './styleloader';
+
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as preload from 'dompack/extra/preload';
 import { qSA } from 'dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard"; //FIXME should become import KeyboardHandler as soon as our dompack has KeyboardHandler.getEventKeyNames
 import SelectionInterface from './selection';
-var tablesupport = require('./tableeditor');
-var rangy = require('@mod-system/js/frameworks/rangy/rangy13');
+import * as tablesupport from "./tableeditor";
+import rangy from "@mod-system/js/frameworks/rangy/rangy13";
 import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
 import * as compatupload from '@mod-system/js/compat/upload';

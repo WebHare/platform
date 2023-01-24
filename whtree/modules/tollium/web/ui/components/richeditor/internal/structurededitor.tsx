@@ -10,12 +10,10 @@ import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
 import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
-require('./pastecleanup');
-
-var tableeditor = require("./tableeditor");
+import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
 import EditorBase from './editorbase';
-var PasteCleanup = require('./pastecleanup');
+import PasteCleanup from './pastecleanup';
 
 //debug flags
 const debugicc = false; //debug insert container contents. needed to figure out rewriting errors eg on fill

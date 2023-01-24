@@ -1,7 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from "dompack";
 import * as domlevel from "./domlevel";
 import { encodeValue } from "dompack/types/text";
 

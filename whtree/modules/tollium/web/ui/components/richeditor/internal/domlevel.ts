@@ -1,8 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const rangy = require('@mod-system/js/frameworks/rangy/rangy13');
-import * as richdebug from "./richdebug";
+import rangy from '@mod-system/js/frameworks/rangy/rangy13';
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
 
