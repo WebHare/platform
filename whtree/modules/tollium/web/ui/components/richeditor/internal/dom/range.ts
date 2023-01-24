@@ -151,7 +151,7 @@ export default class Range {
     this.end.descendToLeafNode(maxancestor);
   }
 
-  splitStartBoundary(preservelocators, undoitem) {
+  splitStartBoundary(preservelocators) {
     if (!this.start.parentIsElementOrFragmentNode()) {
       // Try to move start to its parent (and try to move end too, in case start == end at end of text node)
       if (this.start.element == this.end.element)
@@ -163,7 +163,7 @@ export default class Range {
       // Start still inside a text node?
       if (!this.start.parentIsElementOrFragmentNode()) {
         // Split data node
-        const newloc = splitDataNode(this.start, (preservelocators || []).concat([this.end]), 'end', undoitem);
+        const newloc = splitDataNode(this.start, (preservelocators || []).concat([this.end]), 'end');
 
         // Point start node to new text element
         this.start.assign(newloc);
@@ -172,17 +172,16 @@ export default class Range {
   }
 
   /** Insert node just before the start of the range
-      @param node Node to insert
-      @param preservelocators Locators to preserver
-      @param undoitem
-      @return Locator pointing to new node
+      @param node - Node to insert
+      @param preservelocators - Locators to preserver
+      @returns Locator pointing to new node
   */
-  insertBefore(node, preservelocators, undoitem) {
+  insertBefore(node, preservelocators) {
     if (!this.start.parentIsElementOrFragmentNode())
-      this.splitStartBoundary(preservelocators, undoitem);
+      this.splitStartBoundary(preservelocators);
 
     const retval = this.start.clone();
-    /*var newnode = */this.start.insertNode(node, (preservelocators || []).concat(this), undoitem);
+    /*var newnode = */this.start.insertNode(node, (preservelocators || []).concat(this));
     //    ++this.start.offset;
     //    if (this.end.element == this.start.element)
     //      ++this.end.offset;

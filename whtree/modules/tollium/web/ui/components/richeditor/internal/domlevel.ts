@@ -48,49 +48,6 @@ function setAttributes(node, attrs) {
     node.setAttribute(keys[i], attrs[keys[i]]);
 }
 
-/** Class that gathers undo/redo items
-*/
-class UndoItem {
-  constructor(ancestor) {
-    this.ancestor = ancestor;
-    this.items = [];
-    this.finished = false;
-
-    this.onitemadded = null;
-    this.onstatechange = null;
-  }
-
-  addItem(undo, redo) {
-    if (this.finished)
-      throw new Error("Undo item already finished, can't add more items");
-
-    const item = { undo: undo, redo: redo };
-    this.items.push(item);
-    this.onitemadded && this.onitemadded(item);
-  }
-
-  finish() {
-    this.finished = true;
-  }
-
-  undo() {
-    //console.log('UNDO pre: ', richdebug.getStructuredOuterHTML(this.ancestor, null, true));
-    for (let i = this.items.length - 1; i >= 0; --i) {
-      this.items[i].undo();
-      this.onstatechange && this.onstatechange({ pos: i });
-    }
-  }
-
-  redo() {
-    //console.log('REDO pre: ', richdebug.getStructuredOuterHTML(this.ancestor, null, true));
-    for (let i = 0; i < this.items.length; ++i) {
-      this.items[i].redo();
-      //console.log('redo after item ' + i + ":", richdebug.getStructuredOuterHTML(this.ancestor, null, true));
-      this.onstatechange && this.onstatechange({ pos: i + 1 });
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
 //
 // Helper functions
@@ -474,49 +431,27 @@ function getVisualEquivalenceRange(maxancestor, locator) {
     @param preservetoward 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
     @return Locator pointing to new element
 */
-function splitDataNode(locator, preservelocators, preservetoward, undoitem) {
+function splitDataNode(locator, preservelocators, preservetoward) {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
     throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
   locator = locator.clone();
 
-  const oldvalue = locator.element.nodeValue;
-
   const newnode = rangy.dom.splitDataNode(locator.element, locator.offset);
 
-  if (undoitem)
-    undoitem.addItem(
-      _undoSplitDataNode.bind(this, locator.element, oldvalue, newnode, '', true),
-      _redoSplitDataNode.bind(this, locator.element, locator.element.nodeValue, newnode, newnode.nodeValue, true));
-
   // Correct preservelocators for the node split
-  applyPreserveFunc(preservelocators, _correctForNodeSplit.bind(this, locator, newnode, preservetoward == 'start'));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeSplit(locator, newnode, preservetoward == 'start', tocorrect));
 
   return Locator.newPointingTo(newnode);
 }
 
-function _undoSplitDataNode(oldelt, oldeltval, newelt, neweltval, handlenewelt) {
-  oldelt.nodeValue = oldeltval;
-  newelt.nodeValue = neweltval;
-  if (handlenewelt)
-    newelt.parentNode.removeChild(newelt);
-}
-
-function _redoSplitDataNode(oldelt, oldeltval, newelt, neweltval, handlenewelt) {
-  oldelt.nodeValue = oldeltval;
-  newelt.nodeValue = neweltval;
-  if (handlenewelt)
-    oldelt.parentNode.insertBefore(newelt, oldelt.nextSibling);
-}
-
 /** Splits an element node at a locator, can keep other locators at the same position
-    @param locator Place to split the element node
     @param preservelocators List of locators/ranges to keep valid.
     @param preservetoward 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
     @return Locator pointing to new element
 */
-function splitElement(locator, preservelocators, preservetoward, undoitem) {
+function splitElement(locator, preservelocators, preservetoward) {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
     throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
@@ -529,29 +464,16 @@ function splitElement(locator, preservelocators, preservetoward, undoitem) {
 
   // Create the new node, and insert it in the dom
   const newnode = locator.element.cloneNode(false);
-  result.insertNode(newnode, null, undoitem);
+  result.insertNode(newnode, null);
 
   // Move all nodes past locator to the new node
   const tocopy = Array.from(locator.element.childNodes).slice(locator.offset);
   appendNodes(tocopy, newnode);
 
-  if (undoitem)
-    undoitem.addItem(
-      _undoSplitElement.bind(this, locator.element, tocopy, newnode),
-      _redoSplitElement.bind(this, locator.element, tocopy, newnode));
-
   // Correct preservelocators for the node split
-  applyPreserveFunc(preservelocators, _correctForNodeSplit.bind(this, locator, newnode, preservetoward == 'start'));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeSplit(locator, newnode, preservetoward == 'start', tocorrect));
 
   return result;
-}
-
-function _undoSplitElement(oldelt, nodes, newelt) {
-  appendNodes(nodes, oldelt);
-}
-
-function _redoSplitElement(oldelt, nodes, newelt) {
-  appendNodes(nodes, newelt);
 }
 
 /** Corrects this locator for changes made when splitting a node
@@ -582,7 +504,7 @@ function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect) {
     @param preservelocators - Optional list of locators/ranges to preserve
     @returns Array of Range objects, describing the space betweent the splitpoints (all with parent = ancestor)
 */
-function splitDom(ancestor, splitpoints, preservelocators, undoitem) {
+function splitDom(ancestor, splitpoints, preservelocators) {
   if (!ancestor)
     throw new Error("No ancestor in splitdom!");
 
@@ -612,11 +534,11 @@ function splitDom(ancestor, splitpoints, preservelocators, undoitem) {
     const cmp = splitpoints[i].locator.compare(orglocator);
     if (cmp < 0) {
       // Correct preservelocators for the node split
-      applyPreserveFunc(preservelocators, _correctForSplitLocatorMove.bind(this, splitpoints[i].locator, orglocator, preservetoward == 'start', splitpoints[i].locator));
+      applyPreserveFunc(preservelocators, (tocorrect) => _correctForSplitLocatorMove(splitpoints[i].locator, orglocator, preservetoward == 'start', splitpoints[i].locator, tocorrect));
       splitpoints[i].preservetoward = 'start';
     } else if (cmp > 0) {
       // Correct preservelocators for the node split
-      applyPreserveFunc(preservelocators, _correctForSplitLocatorMove.bind(this, orglocator, splitpoints[i].locator, preservetoward == 'end', splitpoints[i].locator));
+      applyPreserveFunc(preservelocators, (tocorrect) => _correctForSplitLocatorMove(orglocator, splitpoints[i].locator, preservetoward == 'end', splitpoints[i].locator, tocorrect));
       splitpoints[i].preservetoward = 'end';
     }
   }
@@ -637,10 +559,10 @@ function splitDom(ancestor, splitpoints, preservelocators, undoitem) {
 
     // Within a text node? Split the text node, and retarget the locator to the new element
     if (locator.element.nodeType == 3)
-      locator = splitDataNode(locator, preservelocators, splitpoints[i].preservetoward, undoitem);
+      locator = splitDataNode(locator, preservelocators, splitpoints[i].preservetoward);
 
     while (locator.element != ancestor)
-      locator = splitElement(locator, preservelocators, splitpoints[i].preservetoward, undoitem);
+      locator = splitElement(locator, preservelocators, splitpoints[i].preservetoward);
 
     // Add to beginning to keep in correct order
     resultlocators.splice(0, 0, locator);
@@ -679,7 +601,7 @@ function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newloc
     @param preservelocators -
     @returns Place where stuff was inserted
 */
-function combineNodeWithPreviousNode(node, preservelocators, undoitem) {
+function combineNodeWithPreviousNode(node, preservelocators) {
   if (!node)
     throw new Error("Illegal parameter");
 
@@ -689,7 +611,7 @@ function combineNodeWithPreviousNode(node, preservelocators, undoitem) {
   if (!left)
     throw new Error("Node has no previous sibling to combine with");
 
-  return combineNodes(new Locator(left, "end"), right, preservelocators, undoitem);
+  return combineNodes(new Locator(left, "end"), right, preservelocators);
 }
 
 
@@ -702,7 +624,7 @@ function combineNodeWithPreviousNode(node, preservelocators, undoitem) {
     @param preservelocators -
     @returns Node & locator where stuff was inserted & locator after place where stuff was inserted
 */
-function combineNodes(insertlocator, right, preservelocators, undoitem) {
+function combineNodes(insertlocator, right, preservelocators) {
   insertlocator = insertlocator.clone();
   const left = insertlocator.element;
 
@@ -716,7 +638,7 @@ function combineNodes(insertlocator, right, preservelocators, undoitem) {
     var new_rightlocator = res.movedforward ? res.insertlocator : res.afterlocator;
 
     // Correct preservelocators for the node combine (before actual changes!)
-    applyPreserveFunc(preservelocators, _correctForNodeCombine2.bind(this, right, new_rightlocator));
+    applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeCombine2(right, new_rightlocator, tocorrect));
 
     var locator = Locator.newPointingTo(right);
     locator.removeNode(preservelocators.concat([ res.insertlocator, res.afterlocator ]));
@@ -740,7 +662,7 @@ function combineNodes(insertlocator, right, preservelocators, undoitem) {
     throw new Error("Can't move content inside removed node");
 
   // Correct preservelocators for the node combine (before actual changes!)
-  applyPreserveFunc(preservelocators, _correctForNodeCombine.bind(this, insertlocator, right, rightptr, afterrightptr, moveforward));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeCombine(insertlocator, right, rightptr, afterrightptr, moveforward, tocorrect));
 
   const afterlocator = insertlocator.clone();
   if (left.nodeType == 1) {
@@ -749,26 +671,13 @@ function combineNodes(insertlocator, right, preservelocators, undoitem) {
     const nodes = removeNodeContents(right);
     insertNodesAtLocator(nodes, insertlocator);
     afterlocator.offset += nodes.length;
-
-    if (undoitem)
-      undoitem.addItem(
-        appendNodes.bind(this, nodes, right),
-        insertNodesAtLocator.bind(this, nodes, insertlocator.clone()));
   } else {
-    const oldvalue = left.nodeValue;
-    const oldright = right.nodeValue;
     left.nodeValue = left.nodeValue.substr(0, insertlocator.offset) + right.nodeValue + left.nodeValue.substr(insertlocator.offset);
     afterlocator.offset += right.nodeValue.length;
-
-    if (undoitem)
-      undoitem.addItem(
-        _redoSplitDataNode.bind(this, left, oldvalue, right, oldright, false),
-        _undoSplitDataNode.bind(this, left, left.nodeValue, right, right.nodeValue, false));
-
   }
 
   rightptr = Locator.newPointingTo(right);
-  rightptr.removeNode([insertlocator, afterlocator], undoitem);
+  rightptr.removeNode([insertlocator, afterlocator]);
 
   return { node: left, locator: insertlocator, afterlocator: afterlocator };
 }
@@ -821,7 +730,7 @@ function _correctForNodeCombine(insertlocator, removednode, removedlocator, afte
   }
 }
 
-function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem) {
+function moveSimpleRangeTo(range, insertlocator, preservelocators) {
   if (range.start.element != range.end.element)
     throw new Error("moveRangeTo can only move a range with the start and end element the same");
 
@@ -857,7 +766,7 @@ function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem) {
   //console.log('#1', startlocator.element, preservelocators.contains(startlocator));
 
   // Correct preservelocators for the node combine (before actual changes!)
-  applyPreserveFunc(preservelocators, _correctForNodeMove.bind(this, startlocator, endlocator, orginsertlocator, insertlocator, moveforward));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeMove(startlocator, endlocator, orginsertlocator, insertlocator, moveforward, tocorrect));
 
   //console.log('#2', startlocator.element);
   //console.log(nodes);
@@ -869,21 +778,12 @@ function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem) {
   if (rangeisnode) {
     // Remove the nodes from the range. After this, the correct insertlocator is valid
     const nodes = Array.from(startlocator.element.childNodes).slice(startlocator.offset, endlocator.offset);
-    const oldafterlocator = afterlocator.clone();
 
     afterlocator = removeAndInsertNodesAtLocator(nodes, afterlocator);
-
-    if (undoitem)
-      undoitem.addItem(
-        removeAndInsertNodesAtLocator.bind(this, nodes, startlocator),
-        removeAndInsertNodesAtLocator.bind(this, nodes, oldafterlocator));
   } else {
     // Move data over from the original location to the new location
     const oldnode = startlocator.element;
     const newnode = insertlocator.element; // may be the same as oldnode!
-
-    const oldnodeoldval = oldnode.nodeValue;
-    const newnodeoldval = newnode.nodeValue;
 
     // First get the data to move, and remove it. Only after that, insertlocator is valid.
     const tomove = oldnode.nodeValue.substring(startlocator.offset, endlocator.offset);
@@ -892,11 +792,6 @@ function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem) {
     // insertlocator is now valid. Insert the data, adjust the afterlocator
     newnode.nodeValue = newnode.nodeValue.substr(0, insertlocator.offset) + tomove + newnode.nodeValue.substr(insertlocator.offset);
     afterlocator.offset += tomove.length;
-
-    if (undoitem)
-      undoitem.addItem(
-        _undoSplitDataNode.bind(this, oldnode, oldnodeoldval, newnode, newnodeoldval, false),
-        _redoSplitDataNode.bind(this, oldnode, oldnode.nodeValue, newnode, newnode.nodeValue, false));
   }
 
   return { insertlocator: insertlocator, afterlocator: afterlocator, movedforward: moveforward };
@@ -958,7 +853,7 @@ function _correctForNodeMove(startlocator, endlocator, insertlocator, corr_inser
   //console.log(' no correction needed');
 }
 
-function removeSimpleRange(range, preservelocators, undoitem) {
+function removeSimpleRange(range, preservelocators) {
   if (range.start.element != range.end.element)
     throw new Error("removeRange can only remove a range with the start and end element the same");
 
@@ -967,7 +862,7 @@ function removeSimpleRange(range, preservelocators, undoitem) {
   const rangeisnode = range.start.parentIsElementOrFragmentNode();
 
   // Correct preservelocators for the node combine (before actual changes!)
-  applyPreserveFunc(preservelocators, _correctForRangeRemove.bind(this, range));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForRangeRemove(range, tocorrect));
 
   const fragment = document.createDocumentFragment();
   if (rangeisnode) {
@@ -975,24 +870,12 @@ function removeSimpleRange(range, preservelocators, undoitem) {
     const nodes = Array.from(range.start.element.childNodes).slice(range.start.offset, range.end.offset);
     for (let i = 0; i < nodes.length; ++i)
       fragment.appendChild(nodes[i]);
-
-    if (undoitem)
-      undoitem.addItem(
-        removeAndInsertNodesAtLocator.bind(this, nodes, range.start),
-        removeSimpleRange.bind(this, range));
   } else {
     // Just remove the data
     const oldnode = range.start.element;
-    const oldvalue = oldnode.nodeValue;
     const tomove = oldnode.nodeValue.substring(range.start.offset, range.end.offset);
     oldnode.nodeValue = oldnode.nodeValue.substr(0, range.start.offset) + oldnode.nodeValue.substr(range.end.offset);
     fragment.appendChild(document.createTextNode(tomove));
-
-    // FIXME: bit too hacky!
-    if (undoitem)
-      undoitem.addItem(
-        _undoSplitDataNode.bind(this, oldnode, oldvalue, oldnode, oldvalue, false),
-        _redoSplitDataNode.bind(this, oldnode, oldnode.nodeValue, oldnode, oldnode.nodeValue, false));
   }
 
   return { fragment: fragment };
@@ -1007,7 +890,7 @@ function _correctForRangeRemove(range, tocorrect) {
 
 /** Replaces a node with its contents
 */
-function replaceSingleNodeWithItsContents(node, preservelocators, undoitem) {
+function replaceSingleNodeWithItsContents(node, preservelocators) {
   //var parent = node.parentNode;
 
   //    console.log('RNWIC pre ', richdebug.getStructuredOuterHTML(parent, preservelocators));
@@ -1016,16 +899,11 @@ function replaceSingleNodeWithItsContents(node, preservelocators, undoitem) {
   const nodes = removeNodeContents(node);
   insertNodesAtLocator(nodes, locator);
 
-  if (undoitem)
-    undoitem.addItem(
-      removeAndInsertNodesAtLocator.bind(this, nodes, new Locator(node)),
-      removeAndInsertNodesAtLocator.bind(this, nodes, locator));
-
   const nodelocator = Locator.newPointingTo(node);
-  nodelocator.removeNode(null, undoitem);
+  nodelocator.removeNode(null);
 
   // Correct preservelocators for the node combine
-  applyPreserveFunc(preservelocators, _correctForReplaceWithChildren.bind(this, locator, node, nodes.length));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForReplaceWithChildren(locator, node, nodes.length, tocorrect));
   //    console.log('RNWIC post', richdebug.getStructuredOuterHTML(parent, preservelocators));
 }
 
@@ -1052,13 +930,13 @@ function _correctForReplaceWithChildren(locator, removednode, childcount, tocorr
     @param newnode Node to replace the nodes with
     @param preservelocators Locators/ranges to preserve
 */
-function wrapSimpleRangeInNewNode(range, newnode, preservelocators, undoitem) {
+function wrapSimpleRangeInNewNode(range, newnode, preservelocators) {
   if (range.start.element != range.end.element)
     throw new Error("wrapSimpleRangeInNewNode only works with ranges where start element is equal to end element");
 
   // Preserve range too
   preservelocators = (preservelocators || []).concat(range);
-  return wrapNodesInNewNode(range.start, range.end.offset - range.start.offset, newnode, preservelocators, undoitem);
+  return wrapNodesInNewNode(range.start, range.end.offset - range.start.offset, newnode, preservelocators);
 }
 
 
@@ -1069,7 +947,7 @@ function wrapSimpleRangeInNewNode(range, newnode, preservelocators, undoitem) {
     @param newnode Node to replace the nodes with
     @param preservelocators Locators/ranges to preserver
 */
-function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators, undoitem) {
+function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators) {
   //console.log('WNINN pre', richdebug.getStructuredOuterHTML(locator.element, preservelocators, true), newnode);
 
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
@@ -1078,15 +956,10 @@ function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators, undoi
   const nodes = Array.from(locator.element.childNodes).slice(locator.offset, locator.offset + nodecount);
   appendNodes(nodes, newnode);
 
-  if (undoitem)
-    undoitem.addItem(
-      removeAndInsertNodesAtLocator.bind(this, nodes, locator.clone()),
-      removeAndInsertNodesAtLocator.bind(this, nodes, new Locator(newnode)));
-
-  locator.insertNode(newnode, null, undoitem);
+  locator.insertNode(newnode, null);
 
   // Correct preservelocators for the node split
-  applyPreserveFunc(preservelocators, _correctForNodeWrap.bind(this, locator, nodecount, newnode));
+  applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeWrap(locator, nodecount, newnode, tocorrect));
 
   //console.log('WNINN post', richdebug.getStructuredOuterHTML(locator.element, preservelocators, true));
 
@@ -1108,14 +981,14 @@ function _correctForNodeWrap(locator, childcount, newnode, tocorrect) {
 
 /** Removes all nodes in a tree that match a filter
 */
-function removeNodesFromTree(node, filter, preservelocators, undoitem) {
+function removeNodesFromTree(node, filter, preservelocators) {
   // FIXME: combine adjacesnt same (text)nodes
   for (let i = 0; i < node.childNodes.length;) {
     const child = node.childNodes[i];
     if (isNodeFilterMatch(child, filter))
-      replaceSingleNodeWithItsContents(child, preservelocators, undoitem);
+      replaceSingleNodeWithItsContents(child, preservelocators);
     else {
-      removeNodesFromTree(child, filter, preservelocators, undoitem);
+      removeNodesFromTree(child, filter, preservelocators);
       ++i;
     }
   }
@@ -1128,7 +1001,7 @@ function removeNodesFromTree(node, filter, preservelocators, undoitem) {
     @param filter - Filter function to test the nodes on, or nodename
     @param preservelocators - Locators/ranges to preserver
 */
-function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators, undoitem) {
+function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators) {
   // FIXME: combine adjacesnt same (text)nodes
 
   const xstart = range.start.clone();
@@ -1152,16 +1025,16 @@ function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preserve
     }
 
     if (isNodeFilterMatch(node, filter))
-      replaceSingleNodeWithItsContents(node, preservelocators, undoitem);
+      replaceSingleNodeWithItsContents(node, preservelocators);
     else {
       const noderange = Range.fromNodeInner(node);
       const subrange = range.clone();
       subrange.intersect(noderange);
 
       if (subrange.equals(noderange))
-        removeNodesFromTree(node, filter, preservelocators, undoitem);
+        removeNodesFromTree(node, filter, preservelocators);
       else
-        removeNodesFromRangeRecursiveInternal(node, subrange, filter, preservelocators, undoitem);
+        removeNodesFromRangeRecursiveInternal(node, subrange, filter, preservelocators);
       ++xstart.offset;
     }
   }
@@ -1175,7 +1048,7 @@ function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preserve
     @param filter - Filter for nodes to remove (either string for nodename match or function)
     @param preservelocators - Additional locators/ranges to preserve
 */
-function removeNodesFromRange(range, maxancestor, filter, preservelocators, undoitem) {
+function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
   preservelocators = (preservelocators || []).slice();
   preservelocators.push(range);
 
@@ -1195,7 +1068,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators, undo
     //      console.log('A locations ', richdebug.getStructuredOuterHTML(maxancestor, {ancestor:ancestor,typeparent: typeparent,range:range}));
 
     //      console.log('A split pre ', richdebug.getStructuredOuterHTML(typeparent.parentNode, {ancestor:ancestor,typeparent: typeparent,range:range}));
-    const parts = splitDom(typeparent.parentNode, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }], preservelocators, undoitem);
+    const parts = splitDom(typeparent.parentNode, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }], preservelocators);
     //      console.log('A split post', richdebug.getStructuredOuterHTML(typeparent.parentNode, {typeparent: typeparent,range:range}));
     //      console.log('A split post2', richdebug.getStructuredOuterHTML(typeparent.parentNode, parts));
 
@@ -1207,7 +1080,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators, undo
       const node = locator.getPointedNode();
       //        console.log('A replace pre', richdebug.getStructuredOuterHTML(typeparent.parentNode, {node:node, locator:locator}));
       ++locator.offset;
-      replaceSingleNodeWithItsContents(node, localpreserve, undoitem);
+      replaceSingleNodeWithItsContents(node, localpreserve);
       //        console.log('A replace post', richdebug.getStructuredOuterHTML(typeparent.parentNode, {node:node, locator:locator}));
     }
 
@@ -1225,7 +1098,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators, undo
       break;
 
     //      console.log('L split pre ', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
-    const parts = splitDom(typeparent.parentNode, [{ locator: range.start, toward: 'start' }], preservelocators, undoitem);
+    const parts = splitDom(typeparent.parentNode, [{ locator: range.start, toward: 'start' }], preservelocators);
     //      console.log('L split post', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
     range.start.assign(parts[1].start);
   }
@@ -1236,12 +1109,12 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators, undo
       break;
 
     //      console.log('R split pre ', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
-    const parts = splitDom(typeparent.parentNode, [{ locator: range.end, toward: 'end' }], preservelocators, undoitem);
+    const parts = splitDom(typeparent.parentNode, [{ locator: range.end, toward: 'end' }], preservelocators);
     //      console.log('R split post', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
     range.end.assign(parts[0].end);
   }
 
-  removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators, undoitem);
+  removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators);
 
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
@@ -1263,7 +1136,7 @@ function getWrappingSplitRoot(locator, ancestor, canwrapnodefunc, mustwrapnodefu
   return node;
 }
 
-function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators, undoitem) {
+function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1293,7 +1166,7 @@ function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnode
     if (!wrapstart.equals(localrange.start)) {
       const newnode = createnodefunc();
       // console.log('call wninn1', preservelocators);
-      wrapNodesInNewNode(wrapstart, localrange.start.offset - wrapstart.offset, newnode, preservelocators, undoitem);
+      wrapNodesInNewNode(wrapstart, localrange.start.offset - wrapstart.offset, newnode, preservelocators);
       ++wrapstart.offset;
     }
 
@@ -1303,7 +1176,7 @@ function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnode
     subrange.intersect(noderange);
 
     // Iterate into the node, and reset the start if the first wrappable node
-    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators, undoitem);
+    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
     ++wrapstart.offset;
     localrange.start.assign(wrapstart);
@@ -1313,13 +1186,13 @@ function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnode
   if (!wrapstart.equals(localrange.start)) {
     const newnode = createnodefunc();
     // console.log('call wninn2', preservelocators);
-    wrapNodesInNewNode(wrapstart, localrange.start.offset - wrapstart.offset, newnode, preservelocators, undoitem);
+    wrapNodesInNewNode(wrapstart, localrange.start.offset - wrapstart.offset, newnode, preservelocators);
   }
 
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators, undoitem) {
+function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators) {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
@@ -1344,7 +1217,7 @@ function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, pre
   //    console.log('WR startroot', richdebug.getStructuredOuterHTML(ancestor, {startroot:startroot}));
 
   //    console.log('WR going split2', richdebug.getStructuredOuterHTML(startroot, { loc: range.start }));
-  let parts = splitDom(startroot, [{ locator: range.start, toward: "end" }], preservelocators.concat([range.end]), undoitem);
+  let parts = splitDom(startroot, [{ locator: range.start, toward: "end" }], preservelocators.concat([range.end]));
 
   //    console.log('WR after start split', richdebug.getStructuredOuterHTML(ancestor, parts));
 
@@ -1353,13 +1226,13 @@ function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, pre
   const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc, mustwrapnodefunc);
   //    console.log('WR presplit', richdebug.getStructuredOuterHTML(ancestor, {endroot:endroot, range: range}));
 
-  parts = splitDom(endroot, [{ locator: range.end, toward: "start" }], preservelocators.concat([range.start]), undoitem);
+  parts = splitDom(endroot, [{ locator: range.end, toward: "start" }], preservelocators.concat([range.start]));
 
   range.end.assign(parts[0].end);
 
   //    console.log('WR after presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
-  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators, undoitem);
+  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively
@@ -1370,7 +1243,7 @@ function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, pre
         only text nodes will be combined.
     @param preservelocators - Locators/ranges to preserve the location of
  */
-function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combinetest, preservelocators, undoitem) {
+function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combinetest, preservelocators) {
   if (!ancestor.contains(locator.element))
     throw new Error("Locator position problem");
 
@@ -1415,7 +1288,7 @@ function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combin
         break;
     }
 
-    const res = combineNodeWithPreviousNode(right, preservelocators, undoitem);
+    const res = combineNodeWithPreviousNode(right, preservelocators);
     locator = res.locator;
   }
 }
@@ -1432,7 +1305,7 @@ function hasNodeVisibleContent(node) {
 /** Make sure the content before the locator (and the block itself) is visible. If the next item is
     a superfluous block filler, it is removed
 */
-function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
+function correctBlockFillerUse(locator, block, preservelocators) {
   const down = locator.clone();
   let downres = down.scanBackward(block, { whitespace: true });
 
@@ -1450,7 +1323,7 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
     if (upres.blockboundary) {
       const node = document.createElement('br');
       node.setAttribute('data-wh-rte', 'bogus');
-      up.insertNode(node, preservelocators, undoitem);
+      up.insertNode(node, preservelocators);
       //console.log(' inserted br', richdebug.getStructuredOuterHTML(block, { locator: locator, down: down, up: up }));
       return { locator: up, node: node };
     }
@@ -1472,7 +1345,7 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
 
       const node = document.createElement('br');
       node.setAttribute('data-wh-rte', 'bogus');
-      up.insertNode(node, preservelocators, undoitem);
+      up.insertNode(node, preservelocators);
 
       //console.log(' inserted br', richdebug.getStructuredOuterHTML(block, { locator: locator, down: down, up: up }));
       return { locator: up, node: node };
@@ -1491,7 +1364,7 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
 
       const upres = up.scanForward(block, { whitespace: true, blocks: true });
       if (upres.type == 'outerblock' && upres.data == block) {
-        firstbr.removeNode(preservelocators, undoitem);
+        firstbr.removeNode(preservelocators);
         //console.log(' removed br', richdebug.getStructuredOuterHTML(block, { locator: locator, down: down, firstbr: firstbr }));
       }
     }
@@ -1506,16 +1379,15 @@ function correctBlockFillerUse(locator, block, preservelocators, undoitem) {
     @param maxancestor - Block node
     @param preservelocators - Locators to preserver
 */
-function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preservelocators, undoitem) {
-  return correctBlockFillerUse(locator, maxancestor, preservelocators, undoitem);
+function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preservelocators) {
+  return correctBlockFillerUse(locator, maxancestor, preservelocators);
 }
 
 /** Cleanup the bogus breaks that aren't needed anymore
     @param node Node to test the children of
     @param preservelocators Locators to preserver
-    @param undoitem Undo item
 */
-function cleanupBogusBreaks(node, preservelocators, undoitem) {
+function cleanupBogusBreaks(node, preservelocators) {
   const breaks = node.querySelectorAll(`br[data-wh-rte="bogus"]`);
   for (const breaknode of breaks) {
     const brlocator = Locator.newPointingTo(breaknode);
@@ -1523,7 +1395,7 @@ function cleanupBogusBreaks(node, preservelocators, undoitem) {
     if ((downres.type == 'br' && !downres.bogussegmentbreak) || (downres.type == "outerblock") || (downres.type == "innerblock") || (downres.type == "node" && downres.data.classList.contains("wh-rtd-embeddedobject--inline")))
       continue;
 
-    brlocator.removeNode(preservelocators, undoitem);
+    brlocator.removeNode(preservelocators);
   }
 }
 
@@ -1543,15 +1415,10 @@ function removeAndInsertNodesAtLocator(nodes, locator) {
 /** Inserts nodes at a new location. undo only works if the items don't need to be restored to their
     original position!
 */
-function insertNodesAtLocator(nodes, locator, preservelocators, undoitem) {
+function insertNodesAtLocator(nodes, locator, preservelocators) {
   let insertpos = locator.clone();
   for (let i = 0; i < nodes.length; ++i)
     insertpos = insertpos.insertNode(nodes[i], preservelocators);
-
-  if (undoitem)
-    undoitem.addItem(
-      removeNodes.bind(this, nodes.slice()),
-      insertNodesAtLocator.bind(this, nodes, locator.clone()));
 
   return insertpos;
 }
@@ -1561,22 +1428,17 @@ function appendNodes(nodes, dest) {
     dest.appendChild(nodes[i]);
 }
 
-function removeNodeContents(node, undoitem) {
+function removeNodeContents(node) {
   /* Copy childNodes, then remove those from the dom. Must do it that way,
      because FF invents <br _moz_editor_bogus_node="TRUE"> when removing them one by one
   */
   const nodes = Array.from(node.childNodes);
   nodes.forEach(child => node.removeChild(child));
 
-  if (undoitem)
-    undoitem.addItem(
-      insertNodesAtLocator.bind(this, nodes, new Locator(node)),
-      removeNodeContents.bind(this, node));
-
   return nodes;
 }
 
-function combineAdjacentTextNodes(locator, preservelocators, undoitem) {
+function combineAdjacentTextNodes(locator, preservelocators) {
   const xlocator = locator;
   const orglocator = locator.clone();
   preservelocators = (preservelocators || []).concat([orglocator]);
@@ -1603,7 +1465,7 @@ function combineAdjacentTextNodes(locator, preservelocators, undoitem) {
       break;
 
     const insertlocator = new Locator(pointednode, "end");
-    combineNodes(insertlocator, next, preservelocators, undoitem);
+    combineNodes(insertlocator, next, preservelocators);
   }
 
   return orglocator;
@@ -1612,7 +1474,7 @@ function combineAdjacentTextNodes(locator, preservelocators, undoitem) {
 /** Given a locator that points inside a text node, the whitespaces/nbsps after the locator are rewritten
     to prevent whitespace collapsing and superfluous nbsps
 */
-function rewriteWhitespace(maxancestor, locator, preservelocators, undoitem) {
+function rewriteWhitespace(maxancestor, locator, preservelocators) {
   const orglocator = locator.clone();
   preservelocators = (preservelocators || []).concat(orglocator);
 
@@ -1670,8 +1532,6 @@ function rewriteWhitespace(maxancestor, locator, preservelocators, undoitem) {
   // apply changes if needed, record undo
   if (oldvalue !== newvalue) {
     elt.nodeValue = newvalue;
-    if (undoitem)
-      undoitem.addItem(() => elt.nodeValue = oldvalue, () => elt.nodeValue = newvalue);
   }
 
   return orglocator;
@@ -1877,7 +1737,7 @@ class Locator {
     return this;
   }
 
-  insertNode(node, preservelocators, undoitem) {
+  insertNode(node, preservelocators) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Inserting only allowed when parent is a node");
 
@@ -1886,11 +1746,10 @@ class Locator {
        Inserting a <br> of our own after it makes FF remove its br. Locators shouldn't be in <br>'s anyway,
        so no preservation needed.
     */
-    let bogusbr = null, newbr = null;
+    let newbr = null;
     if (this.offset) {
       const prev = this.element.childNodes[this.offset - 1];
       if (prev.nodeType == 1 && prev.nodeName.toLowerCase() == 'br' && prev.getAttribute('_moz_editor_bogus_node')) {
-        bogusbr = prev;
         newbr = document.createElement('br');
         this.element.insertBefore(newbr, this.getPointedNode());
         if (prev.parentNode) // Just to be sure.
@@ -1903,12 +1762,7 @@ class Locator {
     this.element.insertBefore(node, pointednode);
     const next = this.clone();
 
-    if (undoitem)
-      undoitem.addItem(
-        this._undoInsertNode.bind(this, this.element, node, bogusbr, newbr, pointednode),
-        this._redoInsertNode.bind(this, this.element, node, bogusbr, newbr, pointednode));
-
-    applyPreserveFunc(preservelocators, this._correctForNodeInsert.bind(this, next));
+    applyPreserveFunc(preservelocators, (tocorrect) => this._correctForNodeInsert(next, tocorrect));
 
     ++next.offset;
     return next;
@@ -1936,7 +1790,7 @@ class Locator {
       ++tocorrect.offset;
   }
 
-  removeNode(preservelocators, undoitem) {
+  removeNode(preservelocators) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
     if (this.offset >= this.getMaxChildOffset(this.element))
@@ -1945,15 +1799,8 @@ class Locator {
     const removed = this.element.childNodes[this.offset];
     this.element.removeChild(removed);
 
-    const pointednode = this.element.childNodes[this.offset] || null;
-
-    if (undoitem)
-      undoitem.addItem(
-        this._redoInsertNode.bind(this, this.element, removed, null, null, pointednode),
-        this._undoInsertNode.bind(this, this.element, removed, null, null, pointednode));
-
     const locator = this.clone();
-    applyPreserveFunc(preservelocators, this._correctForNodeRemove.bind(this, locator, removed));
+    applyPreserveFunc(preservelocators, (tocorrect) => this._correctForNodeRemove(locator, removed, tocorrect));
   }
 
   _correctForNodeRemove(locator, removed, tocorrect) {
@@ -1975,7 +1822,7 @@ class Locator {
     const oldnode = this.element.childNodes[this.offset];
     this.element.replaceChild(newnode, oldnode);
 
-    applyPreserveFunc(preservelocators, this._correctForNodeReplace.bind(this, oldnode, newnode));
+    applyPreserveFunc(preservelocators, (tocorrect) => this._correctForNodeReplace(oldnode, newnode, tocorrect));
   }
 
   _correctForNodeReplace(oldnode, newnode, tocorrect) {
@@ -2082,8 +1929,8 @@ class Locator {
                 bogussegmentbreak = true;
 
                 for (let i = this.offset, e = this.element.childNodes.length; i < e; ++i) {
-                  const node = this.element.childNodes[i];
-                  if (!([3, 4].includes(node.nodeType)) || node.nodeValue.trim()) {
+                  const itrnode = this.element.childNodes[i];
+                  if (!([3, 4].includes(itrnode.nodeType)) || itrnode.nodeValue.trim()) {
                     bogussegmentbreak = false;
                     break;
                   }
@@ -2664,7 +2511,6 @@ class RangeIterator
 export {
   setAttributes
   , getAllAttributes
-  , UndoItem
   , Locator
   , getAttributes
 
