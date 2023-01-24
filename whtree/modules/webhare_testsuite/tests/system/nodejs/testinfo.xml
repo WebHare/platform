@@ -18,5 +18,6 @@
   <test script="test_hmr.ts" />
   <test script="test_webharerouter.ts" />
   <test script="test_jswebserver.ts" />
+  <test script="test_witty.ts" />
   <test name="meta" path="meta/" />
 </group>
