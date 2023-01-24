@@ -212,7 +212,7 @@ export class RTE {
     if (!selectionstate)
       return;
 
-    const actiontarget = selectionstate.propstarget ? getTargetInfo({ __node: selectionstate.propstarget }) : null;
+    const actiontarget = selectionstate.propstarget ? support.getTargetInfo({ __node: selectionstate.propstarget }) : null;
 
     const menuitems = [];
     for (const menuitem of
@@ -754,33 +754,13 @@ export class RTE {
   }
 
   setHTMLClass(htmlclass) {
-    this.__replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
+    support.replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
     this.options.htmlclass = htmlclass;
   }
 
   setBodyClass(bodyclass) {
-    this.__replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
+    support.replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
     this.options.bodyclass = bodyclass;
-  }
-
-  __replaceClasses(node, removeclass, addclass) {
-    removeclass = removeclass.trim();
-    addclass = addclass.trim();
-
-    if (removeclass != "") {
-      // remove old classes (to keep extra classes set later intact)
-      for (const cname of removeclass.split(" ")) {
-        if (cname != "")
-          node.classList.remove(cname);
-      }
-    }
-
-    if (addclass != "") {
-      for (const cname of addclass.split(" ")) {
-        if (cname != "")
-          node.classList.add(cname);
-      }
-    }
   }
 
   getPlainText(method, options = []) {

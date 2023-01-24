@@ -37,7 +37,7 @@ export interface TargetInfo {
   align?: string;
 }
 
-export function getTargetInfo(actiontarget: { __node: HTMLElement }) : TargetInfo | null { //provide JSON-safe information about the action target
+export function getTargetInfo(actiontarget: { __node: HTMLElement }): TargetInfo | null { //provide JSON-safe information about the action target
   const node = actiontarget.__node;
   if (node.matches('a')) {
     return {
@@ -100,4 +100,24 @@ export function getTargetInfo(actiontarget: { __node: HTMLElement }) : TargetInf
     };
   }
   return null;
+}
+
+export function replaceClasses(node: HTMLElement, removeclass: string, addclass: string) {
+  removeclass = removeclass.trim();
+  addclass = addclass.trim();
+
+  if (removeclass != "") {
+    // remove old classes (to keep extra classes set later intact)
+    for (const cname of removeclass.split(" ")) {
+      if (cname != "")
+        node.classList.remove(cname);
+    }
+  }
+
+  if (addclass != "") {
+    for (const cname of addclass.split(" ")) {
+      if (cname != "")
+        node.classList.add(cname);
+    }
+  }
 }
