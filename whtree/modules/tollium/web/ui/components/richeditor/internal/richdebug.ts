@@ -22,7 +22,7 @@ function getStructuredOuterHTML(node, namedlocators, options) {
   const indent = options.indent ? 1 : 0;
 
   // Detect all locators & elements in namedlocators in the first 2 levels (array/record), move to single level object
-  for (const n in namedlocators) {
+  for (const n of Object.keys(namedlocators)) {
     const elt = namedlocators[n];
     if (elt && typeof elt == "object") {
       if (elt.element)
@@ -31,7 +31,7 @@ function getStructuredOuterHTML(node, namedlocators, options) {
         locators[n + '#elt'] = new domlevel.Locator(elt);
         locators[n + '#elt'].moveToParent();
       } else {
-        for (const m in elt) {
+        for (const m of Object.keys(elt)) {
           if (elt[m] && typeof elt[m] == "object") {
             if (elt[m].element)
               locators[n + '.' + m] = elt[m];
@@ -40,7 +40,7 @@ function getStructuredOuterHTML(node, namedlocators, options) {
               locators[n + '.' + m + '#elt'].moveToParent();
             } else {
               const subelt = elt[m];
-              for (const k in subelt) {
+              for (const k of Object.keys(subelt)) {
                 if (subelt[k] && typeof subelt[k] == "object") {
                   if (subelt[k].element)
                     locators[n + '.' + m + '.' + k] = subelt[k];
@@ -59,7 +59,7 @@ function getStructuredOuterHTML(node, namedlocators, options) {
 
   if (!node) {
     let min, max;
-    for (const n in locators) {
+    for (const n of Object.keys(locators)) {
       const elt = locators[n];
       if (!min || min.compare(elt) > 0)
         min = elt;
