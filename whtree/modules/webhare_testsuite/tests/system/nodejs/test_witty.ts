@@ -94,6 +94,12 @@ async function simpleTestWTE() {
 
   witty = new WittyTemplate("Test: [test\\]2]");
   test.eq("Test: x", await witty.run({ "test]2": "x" }));
+
+  // Parse error: keywords are case sensitive
+  await test.throws(/Unknown data/, () => new WittyTemplate("Test: [IF testProp]testProp[/IF]x"));
+  // Runtime error: cell names are case sensitive
+  witty = new WittyTemplate("Test: [testprop]x");
+  await test.throws(/No such cell/, witty.run({ testProp: "testProp" }));
 }
 
 async function foreveryMembersWTE() {

@@ -84,28 +84,28 @@ const wittyMessages = [
   /*  3 */ "Unknown data follows the value: '%0'",
   /*  4 */ "Unknown encoding '%0' requested",
   /*  5 */ "Reserved word '%0' cannot be used as print data",
-  /*  6 */ "An ELSE or ELSEIF must be inside an IF-block",
-  /*  7 */ "Duplicate ELSE in IF-block",
-  /*  8 */ "/IF must be inside an IF-block",
+  /*  6 */ "An [else] or [elseif] must be inside an [if]-block",
+  /*  7 */ "Duplicate [else] in [if]-block",
+  /*  8 */ "[/if] must be inside an [if]-block",
   /*  9 */ "Duplicate component name",
-  /* 10 */ "/COMPONENT must be inside a COMPONENT-block",
+  /* 10 */ "[/component] must be inside a [component]-block",
   /* 11 */ "Parameter passed must be a cell name",
-  /* 12 */ "/FOREVERY must be inside a FOREVERY-block",
+  /* 12 */ "[/forevery] must be inside a [forevery]-block",
   /* 13 */ "Unterminated block",
   /* 14 */ "Unterminated comment",
   /* 15 */ "No such cell '%0'",
   /* 16 */ "Cell '%0' did not evaluate to an array",
-  /* 17 */ "Requesting '%0' outside a FOREVERY-block",
+  /* 17 */ "Requesting '%0' outside a [forevery]-block",
   /* 18 */ "Don't know how to print cell '%0' of type '%1'",
-  /* 19 */ "Don't know how to evaluate the truth value of cell '%0' of type '%1'",
+  /* 19 */ "", // unused, formerly about truthy values
   /* 20 */ "No such component '%0'",
   /* 21 */ "Empty command",
   /* 22 */ "", // unused, formerly about /REPEAT
-  /* 23 */ "Cell '%0' did not evaluate to an INTEGER",
+  /* 23 */ "", // unused, formerly about INTEGER values
   /* 24 */ "Invalid closing tag '%0'",
-  /* 25 */ "Missing encoding after ':'",
+  /* 25 */ "", // unused, formerly about missing encoding
   /* 26 */ "Missing required parameter",
-  /* 27 */ "/RAWCOMPONENT must be inside a RAWCOMPONENT-block"
+  /* 27 */ "[/rawcomponent] must be inside a [rawcomponent]-block"
 ];
 
 class WittyErrorRec {
@@ -238,7 +238,7 @@ export class WittyTemplate {
         ++i;
         if (state == ParserStates.RawComponent) {
           // Looking for "/rawcomponent]"
-          if (endData - i > 14 && data.substring(i, i + 14).toLowerCase() == "/rawcomponent]") {
+          if (endData - i > 14 && data.substring(i, i + 14) == "/rawcomponent]") {
             endInstruction = i + 14 - 1;
           } else {
             this.addContentChar(lineNum, columnNum, "[");
