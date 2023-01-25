@@ -103,7 +103,8 @@ export enum WittyErrorCode {
   EmptyCommand,
   InvalidClosingTag,
   MissingParameter,
-  EndRawcomponentOutsideRawcomponent
+  EndRawcomponentOutsideRawcomponent,
+  MissingComponentName
 }
 
 const WittyMessages = {
@@ -129,7 +130,8 @@ const WittyMessages = {
   [WittyErrorCode.EmptyCommand]: "Empty command",
   [WittyErrorCode.InvalidClosingTag]: "Invalid closing tag '%0'",
   [WittyErrorCode.MissingParameter]: "Missing required parameter",
-  [WittyErrorCode.EndRawcomponentOutsideRawcomponent]: "[/rawcomponent] must be inside a [rawcomponent]-block"
+  [WittyErrorCode.EndRawcomponentOutsideRawcomponent]: "[/rawcomponent] must be inside a [rawcomponent]-block",
+  [WittyErrorCode.MissingComponentName]: "Missing component name in embedcomponent request for '%0'"
 };
 
 class WittyErrorRec {
@@ -173,8 +175,8 @@ export class WittyParseError extends WittyError {
 }
 
 export class WittyRunError extends WittyError {
-  constructor(errors: WittyErrorRec[]) {
-    super("Witty runtime error", errors);
+  constructor(error: WittyErrorRec) {
+    super("Witty runtime error", [error]);
   }
 }
 
@@ -187,9 +189,26 @@ type CallStackElement = {
   foreveryEltNr: number;
   foreveryEltLimit: number;
 };
+
 type VarStackElement = {
-  foreveryNonRA?: ParsedPart; // index within parts
-  wittyVar: unknown;
+  foreveryNonRA?: ParsedPart;
+  wittyVar: WittyData;
+};
+
+export interface WittyCallContext {
+  getWittyVariable: (name: string) => WittyData | WittyData[] | undefined;
+  embedWittyComponent: (name: string, wittyData?: WittyData) => Promise<string>;
+  encodeWittyVariable: (wittyVar?: WittyData | WittyData[]) => Promise<string>;
+}
+
+type WittyVar =
+  string | number | boolean | // base types
+  (() => string) | (() => Promise<string>) | // function callback without context argument
+  ((ctx: WittyCallContext) => string) | ((ctx: WittyCallContext) => Promise<string>) | // function callback with context argument
+  null; // null
+
+export type WittyData = WittyVar | WittyVar[] | {
+  [key: string]: WittyData | WittyData[];
 };
 
 export type WittyOptions = {
@@ -224,22 +243,22 @@ export class WittyTemplate {
       throw new WittyParseError(this.errors);
   }
 
-  async run(wittyData?: unknown): Promise<string> {
+  async run(wittyData?: WittyData): Promise<string> {
     if (this.errors.length)
       throw new Error("Cannot run, there were parse errors!");
     this.callStack = [];
     this.varStack = [];
 
-    return this.smRunComponent(true, "", wittyData);
+    return await this.smRunComponent(true, "", wittyData);
   }
 
-  async runComponent(name: string, wittyData?: unknown): Promise<string> {
+  async runComponent(name: string, wittyData?: WittyData): Promise<string> {
     if (this.errors.length)
       throw new Error("Cannot run, there were parse errors!");
     this.callStack = [];
     this.varStack = [];
 
-    return this.smRunComponent(true, name, wittyData);
+    return await this.callWittyComponent(true, name, wittyData);
   }
 
   hasComponent(name: string) {
@@ -810,7 +829,7 @@ export class WittyTemplate {
   // Running Witty
   //
 
-  protected async smRunComponent(newInvocation: boolean, name: string, wittyData?: unknown): Promise<string> {
+  protected async smRunComponent(newInvocation: boolean, name: string, wittyData?: WittyData): Promise<string> {
     let start = 0, limit = this.parts.length;
     if (name != "") {
       if (!this.startPositions.has(name))
@@ -819,18 +838,18 @@ export class WittyTemplate {
       start = component!;
       limit = this.parts[component! - 1].cmdLimit;
     }
-    this.smPush(newInvocation, start, limit, wittyData, true);
+    this.smPush(newInvocation, start, limit, true, wittyData);
     try {
       return await this.smRun();
     } catch (e) {
       if (e instanceof WittyErrorRec)
-        throw new WittyRunError([e]);
+        throw new WittyRunError(e);
       else
         throw e;
     }
   }
 
-  private smPush(newInvocation: boolean, itr: number, limit: number, wittyData: unknown, rootInvocation: boolean, foreveryNonRA?: ParsedPart) {
+  private smPush(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyData, foreveryNonRA?: ParsedPart) {
     const depth = this.callStack.length ? this.callStack[this.callStack.length - 1].depth + (newInvocation ? 1 : 0) : 1;
     const hasVariable = wittyData != undefined && ((typeof wittyData == "object" && !Array.isArray(wittyData)) || foreveryNonRA != undefined);
 
@@ -865,7 +884,7 @@ export class WittyTemplate {
       }
       const part = this.parts[elt.itr];
 
-      let wittyVar: unknown;
+      let wittyVar: WittyData | WittyData[] | undefined;
       let isHtml = false;
       if (![ParsedPartType.Content, ParsedPartType.Component, ParsedPartType.Embed, ParsedPartType.GetTid, ParsedPartType.GetHTMLTid].includes(part.type) && part.dataType == DataType.Cell) {
         wittyVar = this.findCellInStack(this.parts[elt.itr].content);
@@ -882,7 +901,7 @@ export class WittyTemplate {
           }
         case ParsedPartType.Data:
           {
-            output += this.smPrintCell(part, elt, wittyVar);
+            output += await this.smPrintCell(part, wittyVar);
             ++elt.itr;
             break;
           }
@@ -892,9 +911,9 @@ export class WittyTemplate {
             const matches = this.smEvaluateIf(part, wittyVar);
             if (matches != part.ifNot) {
               const recVar = typeof wittyVar == "object" && !Array.isArray(wittyVar) ? wittyVar : undefined;
-              this.smPush(false, elt.itr + 1, part.cmdLimit, recVar, false);
+              this.smPush(false, elt.itr + 1, part.cmdLimit, false, recVar);
             } else
-              this.smPush(false, part.cmdLimit, part.elseLimit, undefined, false);
+              this.smPush(false, part.cmdLimit, part.elseLimit, false, undefined);
             elt.itr = part.elseLimit;
             break;
           }
@@ -906,7 +925,7 @@ export class WittyTemplate {
           }
         case ParsedPartType.Embed:
           {
-            output += await this.smEmbed(part, elt);
+            output += await this.smEmbed(part);
             ++elt.itr;
             break;
           }
@@ -935,7 +954,7 @@ export class WittyTemplate {
               elt.foreveryEltLimit = -1;
             } else {
               const el = wittyVar[elt.foreveryEltNr];
-              this.smPush(false, elt.itr + 1, part.cmdLimit, wittyVar[elt.foreveryEltNr], false, typeof el != "object" ? part : undefined);
+              this.smPush(false, elt.itr + 1, part.cmdLimit, false, wittyVar[elt.foreveryEltNr], typeof el != "object" ? part : undefined);
             }
           }
       }
@@ -943,24 +962,11 @@ export class WittyTemplate {
     return output;
   }
 
-  private async smEmbed(part: ParsedPart, elt: CallStackElement): Promise<string> {
-    let component = part.content;
-    if (component.indexOf(":") > 0) {
-      let resource = component.split(":")[0];
-      component = component.substring(resource.length + 1);
-      if (resource.indexOf("::") < 0 && this.resource)
-        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
-      if (resource != this.resource) {
-        const witty = await loadWittyTemplate(resource);
-        witty.callStack = this.callStack;
-        witty.varStack = this.varStack;
-        return await witty.smRunComponent(false, component);
-      }
-    }
-    return await this.smRunComponent(false, component);
+  private async smEmbed(part: ParsedPart): Promise<string> {
+    return await this.callWittyComponent(false, part.content);
   }
 
-  private smPrintCell(part: ParsedPart, elt: CallStackElement, wittyVar: unknown): string {
+  private async smPrintCell(part: ParsedPart, wittyVar?: WittyData | WittyData[]): Promise<string> {
     switch (part.dataType) {
       case DataType.Seqnr:
         {
@@ -987,7 +993,20 @@ export class WittyTemplate {
               {
                 return this.printEncoded(wittyVar, part.encoding);
               }
-            //TODO: function ptr
+            case "function":
+              {
+                const ctx: WittyCallContext = {
+                  getWittyVariable: (name: string) => this.findCellInStack(name),
+                  embedWittyComponent: (name: string, wdata?: WittyData) => this.callWittyComponent(false, name, wdata),
+                  encodeWittyVariable: async (wvar?: WittyData | WittyData[]) => await this.smPrintCell(part, wvar)
+                };
+                return await wittyVar(ctx);
+              }
+            case "object":
+              {
+                if (wittyVar === null)
+                  return "";
+              } //fallthrough
             default:
               {
                 throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.CannotPrintCell, part.content, typeof wittyVar);
@@ -999,7 +1018,7 @@ export class WittyTemplate {
     }
   }
 
-  private smEvaluateIf(part: ParsedPart, wittyVar: unknown): boolean {
+  private smEvaluateIf(part: ParsedPart, wittyVar?: WittyData | WittyData[]): boolean {
     if (part.dataType == DataType.Cell) {
       if (Array.isArray(wittyVar))
         return wittyVar.length > 0;
@@ -1062,9 +1081,9 @@ export class WittyTemplate {
     return "";
   }
 
-  private findCellInStack(cellName: string) {
+  private findCellInStack(cellName: string): WittyData | WittyData[] | undefined {
     const cellParts = cellName.split(".");
-    let colVar;
+    let colVar: WittyData | WittyData[] | undefined = undefined;
     for (let i = this.varStack.length - 1; i >= 0 && colVar == undefined; --i) {
       const elem = this.varStack[i];
       if (cellParts.length == 1 && elem.foreveryNonRA != undefined) {
@@ -1090,6 +1109,26 @@ export class WittyTemplate {
         return this.callStack[i];
     }
     return undefined;
+  }
+
+  private async callWittyComponent(newInvocation: boolean, name: string, wittyData?: WittyData) {
+    const sep = name.lastIndexOf(":");
+    if (sep > 0) {
+      //Make sure we don't confuse a '::' for a component indicator
+      if (name[sep - 1] == ":")
+        throw new WittyErrorRec("", 0, 0, WittyErrorCode.MissingComponentName, name);
+      let resource = name.substring(0, sep);
+      name = name.substring(sep + 1);
+      if (resource.indexOf("::") < 0 && this.resource)
+        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
+      if (resource != this.resource) {
+        const witty = await loadWittyTemplate(resource);
+        witty.callStack = this.callStack;
+        witty.varStack = this.varStack;
+        return await witty.smRunComponent(newInvocation, name, wittyData);
+      }
+    }
+    return await this.smRunComponent(newInvocation, name, wittyData);
   }
 }
 
