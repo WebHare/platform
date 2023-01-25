@@ -1,4 +1,7 @@
+import { toFSPath } from "@webhare/services/src/services";
 import { encodeValue, encodeJSCompatibleJSON, encodeHTML } from "dompack/types/text";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 enum DataType {
   First = 1,
@@ -162,7 +165,6 @@ export class WittyError extends Error {
 }
 
 export class WittyParseError extends WittyError {
-
   constructor(errors: WittyErrorRec[]) {
     super("Witty parse error", errors);
   }
@@ -199,10 +201,11 @@ export class WittyTemplate {
   private printData = "";
   private blockstack: ParsedPart[] = [];
   private startPositions: Map<string, number> = new Map();
-  private _errors: WittyErrorRec[] = [];
+  private errors: WittyErrorRec[] = [];
   private getTidModule: string;
-  private callStack: CallStackElement[] = [];
-  private varStack: VarStackElement[] = [];
+  private resource: string;
+  protected callStack: CallStackElement[] = [];
+  protected varStack: VarStackElement[] = [];
 
 
   //-------------------------------------------------------------------------------------------------------------------------
@@ -210,28 +213,35 @@ export class WittyTemplate {
   // Public API
   //
 
-  constructor(data: string, options?: WittyOptions) {
+  constructor(data: string, options?: WittyOptions & { _resource?: string }) {
     this.es = options?.encoding || EncodingStyles.HTML;
     this.getTidModule = options?.getTidModule || "";
+    this.resource = options?._resource || "";
     this.readWitty(data);
-    if (this._errors.length)
-      throw new WittyParseError(this._errors);
+    if (this.errors.length)
+      throw new WittyParseError(this.errors);
   }
 
   async run(wittyData?: unknown): Promise<string> {
-    if (this._errors.length)
+    if (this.errors.length)
       throw new Error("Cannot run, there were parse errors!");
     this.callStack = [];
     this.varStack = [];
-    this.smPush(true, 0, this.parts.length, wittyData, true);
-    try {
-      return this.smRun();
-    } catch (e) {
-      if (e instanceof WittyErrorRec)
-        throw new WittyRunError([e]);
-      else
-        throw e;
-    }
+
+    return this.smRunComponent(true, "", wittyData);
+  }
+
+  async runComponent(name: string, wittyData?: unknown): Promise<string> {
+    if (this.errors.length)
+      throw new Error("Cannot run, there were parse errors!");
+    this.callStack = [];
+    this.varStack = [];
+
+    return this.smRunComponent(true, name, wittyData);
+  }
+
+  hasComponent(name: string) {
+    return this.startPositions.has(name);
   }
 
 
@@ -245,7 +255,7 @@ export class WittyTemplate {
 
     let inComment = false;
     let lineNum = 1, columnNum = 1;
-    this._errors = [];
+    this.errors = [];
     for (let i = 0, endData = data.length; i < endData;) {
       if (data[i] == "\xEF" && (endData - i) > 2 && data[i + 1] == "\xBB" && data[i + 2] == "\xBF") {
         i += 3;
@@ -384,7 +394,7 @@ export class WittyTemplate {
     if (inComment)
       this.addError(new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnterminatedComment));
 
-    return this._errors.length == 0;
+    return this.errors.length == 0;
   }
 
   private addContentChar(lineNum: number, columnNum: number, char: string) {
@@ -703,7 +713,7 @@ export class WittyTemplate {
           const newPart = new ParsedPart(lineNum, columnNum, ParsedPartType.Embed);
           this.parts.push(newPart);
 
-          const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, true, true);
+          const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, false, true);
           if (parsedParam.dataType != DataType.Cell)
             throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ParameterNotACell);
           newPart.content = parsedParam.param;
@@ -789,7 +799,7 @@ export class WittyTemplate {
   }
 
   private addError(error: WittyErrorRec) {
-    this._errors.push(error);
+    this.errors.push(error);
   }
 
 
@@ -797,6 +807,26 @@ export class WittyTemplate {
   //
   // Running Witty
   //
+
+  protected async smRunComponent(newInvocation: boolean, name: string, wittyData?: unknown): Promise<string> {
+    let start = 0, limit = this.parts.length;
+    if (name != "") {
+      if (!this.startPositions.has(name))
+        throw new WittyErrorRec(this.parts[0].lineNum, this.parts[0].columnNum, WittyErrorCode.NoSuchComponent, name);
+      const component = this.startPositions.get(name);
+      start = component!;
+      limit = this.parts[component! - 1].cmdLimit;
+    }
+    this.smPush(newInvocation, start, limit, wittyData, true);
+    try {
+      return await this.smRun();
+    } catch (e) {
+      if (e instanceof WittyErrorRec)
+        throw new WittyRunError([e]);
+      else
+        throw e;
+    }
+  }
 
   private smPush(newInvocation: boolean, itr: number, limit: number, wittyData: unknown, rootInvocation: boolean, foreveryNonRA?: ParsedPart) {
     const depth = this.callStack.length ? this.callStack[this.callStack.length - 1].depth + (newInvocation ? 1 : 0) : 1;
@@ -815,7 +845,7 @@ export class WittyTemplate {
       this.varStack.push({ foreveryNonRA, wittyVar: wittyData });
   }
 
-  private smRun(): string {
+  private async smRun(): Promise<string> {
     if (!this.callStack.length)
       throw new Error("Running on empty witty stack!");
 
@@ -874,7 +904,7 @@ export class WittyTemplate {
           }
         case ParsedPartType.Embed:
           {
-            output += this.smEmbed();
+            output += await this.smEmbed(part, elt);
             ++elt.itr;
             break;
           }
@@ -911,11 +941,24 @@ export class WittyTemplate {
     return output;
   }
 
-  smEmbed(): string {
-    throw new Error("Embed not yet implemented");//TODO
+  private async smEmbed(part: ParsedPart, elt: CallStackElement): Promise<string> {
+    let component = part.content;
+    if (component.indexOf(":") > 0) {
+      let resource = component.split(":")[0];
+      component = component.substring(resource.length + 1);
+      if (resource.indexOf("::") < 0 && this.resource)
+        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
+      if (resource != this.resource) {
+        const witty = await loadWittyTemplate(resource);
+        witty.callStack = this.callStack;
+        witty.varStack = this.varStack;
+        return await witty.smRunComponent(false, component);
+      }
+    }
+    return await this.smRunComponent(false, component);
   }
 
-  smPrintCell(part: ParsedPart, elt: CallStackElement, wittyVar: unknown): string {
+  private smPrintCell(part: ParsedPart, elt: CallStackElement, wittyVar: unknown): string {
     switch (part.dataType) {
       case DataType.Seqnr:
         {
@@ -954,7 +997,7 @@ export class WittyTemplate {
     }
   }
 
-  smEvaluateIf(part: ParsedPart, wittyVar: unknown): boolean {
+  private smEvaluateIf(part: ParsedPart, wittyVar: unknown): boolean {
     if (part.dataType == DataType.Cell) {
       if (Array.isArray(wittyVar))
         return wittyVar.length > 0;
@@ -995,7 +1038,7 @@ export class WittyTemplate {
     }
   }
 
-  printEncoded(value: string, encoding: ContentEncoding) {
+  private printEncoded(value: string, encoding: ContentEncoding) {
     switch (encoding) {
       case ContentEncoding.None:
         {
@@ -1017,7 +1060,7 @@ export class WittyTemplate {
     return "";
   }
 
-  findCellInStack(cellName: string) {
+  private findCellInStack(cellName: string) {
     const cellParts = cellName.split(".");
     let colVar;
     for (let i = this.varStack.length - 1; i >= 0 && colVar == undefined; --i) {
@@ -1039,11 +1082,23 @@ export class WittyTemplate {
     return colVar;
   }
 
-  findForeveryInStack(): CallStackElement | undefined {
+  private findForeveryInStack(): CallStackElement | undefined {
     for (let i = this.callStack.length - 1; i >= 0; --i) {
       if (this.callStack[i].foreveryEltLimit != -1)
         return this.callStack[i];
     }
     return undefined;
   }
+}
+
+export async function loadWittyTemplate(resource: string, options?: WittyOptions): Promise<WittyTemplate> {
+  const respath = toFSPath(resource);
+  return new Promise((resolve, reject) => {
+    fs.readFile(respath, { encoding: "utf8" }, (error, data) => {
+      if (error)
+        reject(new WittyError(`Cannot load library '${resource}'`, []));
+      else
+        resolve(new WittyTemplate(data, { ...options, _resource: resource }));
+    });
+  });
 }

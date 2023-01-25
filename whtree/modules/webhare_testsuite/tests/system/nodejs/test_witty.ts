@@ -1,6 +1,7 @@
 import * as test from "@webhare/test";
-import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode } from "@webhare/witty";
+import * as services from "@webhare/services/src/services";
 import { encodeValue } from "dompack/types/text";
+import { loadWittyTemplate, WittyTemplate, EncodingStyles, WittyError, WittyErrorCode } from "@webhare/witty";
 
 async function simpleTestWTE() {
   let witty: WittyTemplate;
@@ -200,33 +201,30 @@ async function wittyGetTid() {
 }
 
 async function wittyLibrarys() {
+  await services.ready();
+  let script = await loadWittyTemplate("mod::system/whlibs/tests/test.witty");
+  test.eq("Test: yes!", (await script.run({ bla: "yes!" })).trim());
+  test.eq("c7a-te", await script.runComponent("c7atext"));
+  test.eq("c7a-te:yes!", await script.runComponent("c7a", { bla: "no!", x: "yes!" }));
+
+  let script2 = await loadWittyTemplate("mod::system/whlibs/tests/test2.witty");
+  test.eq("", (await script2.run({ bla: "yes!" })).trim());
+
   /*TODO
-  INTEGER scriptid := ParseWittyLibrary("wh::tests/test.witty");
-  TEstEq(FALSE, scriptid<=0);
-  TestEq("Test: yes!", TrimWhitespace(CaptureWTE(scriptid,[ bla := "yes!" ])));
-
-  OBJECT script, script2;
-
-  script2 := LoadWittyLibrary("wh::tests/test2.witty");
-  TestEq("", TrimWhitespace(CaptureRun(script2, [ bla := "yes!" ])));
-
-  script := LoadWittyLibrary("wh::tests/test.witty");
-  TestEq("Test: yes!", TrimWhitespace(CaptureRun(script, [ bla := "yes!" ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("test2.witty:comp") ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty:comp") ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script2->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));
-
-  TestEq(TRUE, script->HasComponent("xyz"));
-  TestEq(TRUE, script->HasComponent("XYZ"));
-  TestEq(TRUE, script->HasComponent("Xyz"));
-  TestEq(FALSE, script->HasComponent(" Xyz"));
-  TestEq(FALSE, script->HasComponent("test.witty:Xyz"));
-  TestEq(FALSE, script->HasComponent("iets"));
-  TestEq(FALSE, script->HasComponent(""));
-
-  TestThrowsLike("*Missing component name*", PTR CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty") ]));
   */
+
+  test.eq(true, script.hasComponent("xyZ"));
+  test.eq(false, script.hasComponent("xyz")); // component names are case sensitive
+  test.eq(false, script.hasComponent(" xyZ"));
+  test.eq(false, script.hasComponent("test.witty:xyZ"));
+  test.eq(false, script.hasComponent("iets"));
+  test.eq(false, script.hasComponent(""));
+
+  //TODO: TestThrowsLike("*Missing component name*", PTR CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty") ]));
 }
 
 async function wittyFuncPtrsComponents() {
@@ -326,21 +324,24 @@ async function wittyErrorHandling() {
 }
 
 async function wittyCallComponent() {
+  await services.ready();
   /*TODO:
   let witty = new WittyTemplate("Test: [invoke][component comp](bla)[/component]");
   test.eq("Test: ", await witty.run({ invoke: PTR CallWittyComponent("bla", DEFAULT RECORD) }));
 
   test.eq("Test: (bla)", await witty.run({ invoke: PTR CallWittyComponent("comp", DEFAULT RECORD) }));
+  */
 
-  let script := LoadWittyLibrary("wh::tests/testsuite.witty");
-  test.eq("Simple", await witty.run({ bla: "yes!" }, "simpleembed"));
-  test.eq("subdir", await witty.run({ bla: "yes!" }, "subdirembed"));
-  test.eq("reverse", await witty.run({ bla: "yes!" }, "subdirreverseembed"));
+  let script = await loadWittyTemplate("mod::system/whlibs/tests/testsuite.witty");
+  test.eq("Simple", await script.runComponent("simpleembed", { bla: "yes!" }));
+  test.eq("subdir", await script.runComponent("subdirembed", { bla: "yes!" }));
+  test.eq("reverse", await script.runComponent("subdirreverseembed", { bla: "yes!" }));
 
-  test.eq("yes!", await witty.run({ bla: "yes!" }, "blatest"));
-  test.eq("yn", await witty.run({ ra: [ { x: 1 }, { x: 2 } ] }, "firsttest"));
-  test.eq("01", await witty.run({ ra: [ { x: 1 }, { x: 2 } ] }, "seqnrtest"));
+  test.eq("yes!", await script.runComponent("blatest", { bla: "yes!" }));
+  test.eq("yn", await script.runComponent("firsttest", { ra: [ { x: 1 }, { x: 2 } ] }));
+  test.eq("01", await script.runComponent("seqnrtest", { ra: [ { x: 1 }, { x: 2 } ] }));
 
+  /*TODO:
   test.eq("(module.appgroups.apps)", await witty.run([ gettid: PTR MyGetTid }, "gettidtest"));
 
   test.eq("yes!", await witty.run({ bla: "yes!", invokewittyvar: PTR PrintWittyVariable("bla") }, "wittyvar"));
