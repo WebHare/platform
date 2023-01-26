@@ -18,10 +18,6 @@ export function decodeValue(str: string) {
     .replace(/&amp;/g, "&");
 }
 
-export function encodeJSCompatibleJSON(value: unknown) {
-  return JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-}
-
 export function encodeHTML(str: string) {
   return encodeEntities(str, true);
 }

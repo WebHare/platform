@@ -1,4 +1,6 @@
-import { encodeValue, encodeJSCompatibleJSON, encodeHTML } from "dompack/types/text";
+import { encodeHTML, encodeValue } from "dompack/types/text";
+import { getHTMLTid, getTid } from "@mod-tollium/js/gettid";
+import * as path from "node:path";
 
 enum DataType {
   First = 1,
@@ -95,12 +97,13 @@ export enum WittyErrorCode {
   NoSuchCell,
   CellNotAnArray,
   ForeveryVarOutsideForevery,
-  CannotPrintCell,
+  CannotOutputCell,
   NoSuchComponent,
   EmptyCommand,
   InvalidClosingTag,
   MissingParameter,
-  EndRawcomponentOutsideRawcomponent
+  EndRawcomponentOutsideRawcomponent,
+  MissingComponentName
 }
 
 const WittyMessages = {
@@ -108,7 +111,7 @@ const WittyMessages = {
   [WittyErrorCode.LinefeedWithinInstruction]: "Linefeed appears inside instruction",
   [WittyErrorCode.UnknownData]: "Unknown data follows the value: '%0'",
   [WittyErrorCode.UnknownEncoding]: "Unknown encoding '%0' requested",
-  [WittyErrorCode.ReservedWordAsCell]: "Reserved word '%0' cannot be used as print data",
+  [WittyErrorCode.ReservedWordAsCell]: "Reserved word '%0' cannot be used as cell name",
   [WittyErrorCode.ElseOutsideIf]: "An [else] or [elseif] must be inside an [if]-block",
   [WittyErrorCode.DuplicateElse]: "Duplicate [else] in [if]-block",
   [WittyErrorCode.EndIfOutsideIf]: "[/if] must be inside an [if]-block",
@@ -121,15 +124,17 @@ const WittyMessages = {
   [WittyErrorCode.NoSuchCell]: "No such cell '%0'",
   [WittyErrorCode.CellNotAnArray]: "Cell '%0' did not evaluate to an array",
   [WittyErrorCode.ForeveryVarOutsideForevery]: "Requesting '%0' outside a [forevery]-block",
-  [WittyErrorCode.CannotPrintCell]: "Don't know how to print cell '%0' of type '%1'",
+  [WittyErrorCode.CannotOutputCell]: "Don't know how to output cell '%0' of type '%1'",
   [WittyErrorCode.NoSuchComponent]: "No such component '%0'",
   [WittyErrorCode.EmptyCommand]: "Empty command",
   [WittyErrorCode.InvalidClosingTag]: "Invalid closing tag '%0'",
   [WittyErrorCode.MissingParameter]: "Missing required parameter",
-  [WittyErrorCode.EndRawcomponentOutsideRawcomponent]: "[/rawcomponent] must be inside a [rawcomponent]-block"
+  [WittyErrorCode.EndRawcomponentOutsideRawcomponent]: "[/rawcomponent] must be inside a [rawcomponent]-block",
+  [WittyErrorCode.MissingComponentName]: "Missing component name in embedcomponent request for '%0'"
 };
 
 class WittyErrorRec {
+  readonly resource: string;
   readonly line: number;
   readonly column: number;
   readonly text: string;
@@ -137,8 +142,9 @@ class WittyErrorRec {
   readonly arg?: string;
   readonly arg2?: string;
 
-  constructor(lineNum: number, columnNum: number, errorCode: WittyErrorCode, arg = "", arg2 = "") {
-    this.text = WittyMessages[errorCode].replaceAll("%0", arg).replaceAll("%1", arg2);
+  constructor(resource: string, lineNum: number, columnNum: number, errorCode: WittyErrorCode, arg?: string, arg2?: string) {
+    this.text = WittyMessages[errorCode].replaceAll("%0", arg || "").replaceAll("%1", arg2 || "");
+    this.resource = resource;
     this.line = lineNum;
     this.column = columnNum;
     this.code = errorCode;
@@ -162,15 +168,14 @@ export class WittyError extends Error {
 }
 
 export class WittyParseError extends WittyError {
-
   constructor(errors: WittyErrorRec[]) {
     super("Witty parse error", errors);
   }
 }
 
 export class WittyRunError extends WittyError {
-  constructor(errors: WittyErrorRec[]) {
-    super("Witty runtime error", errors);
+  constructor(error: WittyErrorRec) {
+    super("Witty runtime error", [error]);
   }
 }
 
@@ -183,26 +188,51 @@ type CallStackElement = {
   foreveryEltNr: number;
   foreveryEltLimit: number;
 };
+
 type VarStackElement = {
-  foreveryNonRA?: ParsedPart; // index within parts
-  wittyVar: unknown;
+  foreveryNonRA?: ParsedPart;
+  wittyVar: WittyData;
+};
+
+export interface WittyCallContext {
+  get: (name: string) => WittyData | WittyData[] | undefined;
+  embed: (name: string, wittyData?: WittyData) => Promise<string>;
+  encode: (wittyVar?: WittyData | WittyData[]) => Promise<string>;
+}
+
+type WittyTemplateLoader = (resource: string) => Promise<string>;
+
+type WittyCallbackFunction =
+  (() => string) | (() => Promise<string>) | // function callback without context argument
+  ((ctx: WittyCallContext) => string) | ((ctx: WittyCallContext) => Promise<string>); // function callback with context argument
+
+type WittyVar =
+  string | number | boolean | // base types
+  WittyCallbackFunction |
+  null; // null
+
+export type WittyData = WittyVar | WittyVar[] | {
+  [key: string]: WittyData | WittyData[];
 };
 
 export type WittyOptions = {
   encoding?: EncodingStyles;
   getTidModule?: string;
+  loader?: WittyTemplateLoader;
 };
 
 export class WittyTemplate {
-  private es: EncodingStyles;
+  private encoding: EncodingStyles;
   private parts: ParsedPart[] = [];
-  private printData = "";
+  private stringSource = "";
   private blockstack: ParsedPart[] = [];
   private startPositions: Map<string, number> = new Map();
-  private _errors: WittyErrorRec[] = [];
+  private errors: WittyErrorRec[] = [];
   private getTidModule: string;
-  private callStack: CallStackElement[] = [];
-  private varStack: VarStackElement[] = [];
+  private resource: string;
+  private loader?: WittyTemplateLoader;
+  protected callStack: CallStackElement[] = [];
+  protected varStack: VarStackElement[] = [];
 
 
   //-------------------------------------------------------------------------------------------------------------------------
@@ -210,28 +240,65 @@ export class WittyTemplate {
   // Public API
   //
 
-  constructor(data: string, options?: WittyOptions) {
-    this.es = options?.encoding || EncodingStyles.HTML;
+  constructor(data: string, options?: WittyOptions & { _resource?: string }) {
+    this.encoding = options?.encoding || EncodingStyles.HTML;
+    this.loader = options?.loader;
+    this.resource = options?._resource || "";
+
     this.getTidModule = options?.getTidModule || "";
+    // If no tid module is explicitly specified, extract it from the resource
+    if (!this.getTidModule && this.resource) {
+      const namespace = this.resource.indexOf("::") + 2;
+      if (["mod::", "storage::"].includes(this.resource.substring(0, namespace).toLowerCase())) {
+        const nextslash = this.resource.indexOf('/', namespace);
+        this.getTidModule = nextslash <= namespace ? this.resource.substring(namespace) : this.resource.substring(namespace, nextslash);
+      }
+    }
+
     this.readWitty(data);
-    if (this._errors.length)
-      throw new WittyParseError(this._errors);
+    if (this.errors.length)
+      throw new WittyParseError(this.errors);
   }
 
-  async run(wittyData?: unknown): Promise<string> {
-    if (this._errors.length)
+  async run(wittyData?: WittyData): Promise<string> {
+    if (this.errors.length)
       throw new Error("Cannot run, there were parse errors!");
     this.callStack = [];
     this.varStack = [];
-    this.smPush(true, 0, this.parts.length, wittyData, true);
-    try {
-      return this.smRun();
-    } catch (e) {
-      if (e instanceof WittyErrorRec)
-        throw new WittyRunError([e]);
-      else
-        throw e;
-    }
+
+    return await this.runComponentInternal(true, "", wittyData);
+  }
+
+  async runComponent(name: string, wittyData?: WittyData): Promise<string> {
+    if (this.errors.length)
+      throw new Error("Cannot run, there were parse errors!");
+    this.callStack = [];
+    this.varStack = [];
+
+    return await this.callWittyComponent(true, name, wittyData);
+  }
+
+  hasComponent(name: string) {
+    return this.startPositions.has(name);
+  }
+
+  async callWithScope(func: WittyCallbackFunction, wittyData?: WittyData) {
+    if (this.errors.length)
+      throw new Error("Cannot run, there were parse errors!");
+
+    // Clone this witty
+    const tempWitty = new WittyTemplate("", {
+      encoding: this.encoding,
+      getTidModule: this.getTidModule,
+      loader: this.loader,
+      _resource: this.resource
+    });
+    tempWitty.callStack = this.callStack;
+    tempWitty.varStack = this.varStack;
+    // Push a dummy part with the context
+    tempWitty.pushState(true, 0, 0, true, wittyData);
+    // Run the function
+    return await this.runWittyFunction(tempWitty.parts[0], func);
   }
 
 
@@ -241,11 +308,11 @@ export class WittyTemplate {
   //
 
   private readWitty(data: string): boolean {
-    let state: ParserStates = this.es == EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
+    let state: ParserStates = this.encoding == EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
 
     let inComment = false;
     let lineNum = 1, columnNum = 1;
-    this._errors = [];
+    this.errors = [];
     for (let i = 0, endData = data.length; i < endData;) {
       if (data[i] == "\xEF" && (endData - i) > 2 && data[i + 1] == "\xBB" && data[i + 2] == "\xBF") {
         i += 3;
@@ -286,11 +353,11 @@ export class WittyTemplate {
           let haveError = false;
           for (; ;) {
             if (endInstruction == endData) {
-              this.addError(new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnterminatedInstruction));
+              this.addError(new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnterminatedInstruction));
               return false;
             }
             if (data[endInstruction] == "\n") {
-              this.addError(new WittyErrorRec(lineNum, columnNum, WittyErrorCode.LinefeedWithinInstruction));
+              this.addError(new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.LinefeedWithinInstruction));
               haveError = true;
               break;
             }
@@ -324,7 +391,7 @@ export class WittyTemplate {
             continue;
         }
         try {
-          const res = this.addInstruction(lineNum, columnNum, i, endInstruction, data, state == ParserStates.TagSQuote || state == ParserStates.TagDQuote || state == ParserStates.Tag ? ContentEncoding.Value : GetNonquoteEncoding(this.es), state);
+          const res = this.addInstruction(lineNum, columnNum, i, endInstruction, data, state == ParserStates.TagSQuote || state == ParserStates.TagDQuote || state == ParserStates.Tag ? ContentEncoding.Value : GetNonquoteEncoding(this.encoding), state);
           state = res.state;
           endInstruction = res.instrEnd;
         } catch (e) {
@@ -380,11 +447,11 @@ export class WittyTemplate {
     }
 
     if (this.blockstack.length)
-      this.addError(new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnterminatedBlock));
+      this.addError(new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnterminatedBlock));
     if (inComment)
-      this.addError(new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnterminatedComment));
+      this.addError(new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnterminatedComment));
 
-    return this._errors.length == 0;
+    return this.errors.length == 0;
   }
 
   private addContentChar(lineNum: number, columnNum: number, char: string) {
@@ -395,13 +462,13 @@ export class WittyTemplate {
     const lastPart = this.parts[this.parts.length - 1];
 
     if (lastPart.contentLen == 0) {
-      lastPart.contentPos = this.printData.length;
+      lastPart.contentPos = this.stringSource.length;
       lastPart.lineNum = lineNum;
       lastPart.columnNum = columnNum;
     }
 
     ++lastPart.contentLen;
-    this.printData += char;
+    this.stringSource += char;
   }
 
   private parseParameter(lineNum: number, columnNum: number, lastEnd: number, limit: number, data: string, dataType: DataType | undefined, stopAtColon: boolean, required: boolean): { haveParam: boolean; param: string; dataType?: DataType; paramEnd: number } {
@@ -450,7 +517,7 @@ export class WittyTemplate {
       }
 
     } else if (required)
-      throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.MissingParameter);
+      throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.MissingParameter);
 
     return { haveParam, param: parsedData, dataType, paramEnd: lastEnd };
   }
@@ -464,7 +531,7 @@ export class WittyTemplate {
     if (lastEnd == limit)
       return { haveEncoding: false, encoding, paramEnd: 0 };
     if (data[lastEnd] != ":")
-      throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnknownData, data.substring(lastEnd, limit));
+      throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnknownData, data.substring(lastEnd, limit));
 
     let encodingStart = ++lastEnd;
 
@@ -487,7 +554,7 @@ export class WittyTemplate {
       case "jsonvalue": encoding = ContentEncoding.JsonValue; break;
     }
     if (encoding == ContentEncoding.Invalid)
-      throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnknownEncoding, data.substring(encodingStart, lastEnd));
+      throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnknownEncoding, data.substring(encodingStart, lastEnd));
 
     return { haveEncoding: true, encoding, paramEnd: lastEnd };
   }
@@ -502,7 +569,7 @@ export class WittyTemplate {
 
     // No empty tags!
     if (start == limit)
-      throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EmptyCommand);
+      throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EmptyCommand);
 
     // Parse initial command (ignores "\ ", but that doesn't matter, that will come out as NotACommand)
     let commandEnd = start;
@@ -541,12 +608,12 @@ export class WittyTemplate {
         {
           //[elseif XXX] = [else][if XXX].....   and an extra endif layer at the end.....
           if (!this.blockstack.length)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
           const lastBlock = this.blockstack[this.blockstack.length - 1];
           if (lastBlock.type != ParsedPartType.If && lastBlock.type != ParsedPartType.ElseIf)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
           if (lastBlock.cmdLimit != 0)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.DuplicateElse);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.DuplicateElse);
 
           lastBlock.cmdLimit = this.parts.length;
 
@@ -577,12 +644,12 @@ export class WittyTemplate {
       case "else":
         {
           if (!this.blockstack.length)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
           const lastBlock = this.blockstack[this.blockstack.length - 1];
           if (lastBlock.type != ParsedPartType.If && lastBlock.type != ParsedPartType.ElseIf)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ElseOutsideIf);
           if (lastBlock.cmdLimit != 0)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.DuplicateElse);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.DuplicateElse);
 
           // Start a new content block
           lastBlock.cmdLimit = this.parts.length;
@@ -594,12 +661,12 @@ export class WittyTemplate {
         {
           for (; ;) {
             if (!this.blockstack.length)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndIfOutsideIf);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndIfOutsideIf);
             const lastBlock = this.blockstack[this.blockstack.length - 1];
 
             const thisType = lastBlock.type;
             if (thisType != ParsedPartType.If && thisType != ParsedPartType.ElseIf)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndIfOutsideIf);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndIfOutsideIf);
 
             if (!lastBlock.cmdLimit)
               lastBlock.cmdLimit = this.parts.length;
@@ -620,7 +687,7 @@ export class WittyTemplate {
 
           const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, true, true);
           if (parsedParam.dataType != DataType.Cell)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ParameterNotACell);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ParameterNotACell);
           newPart.content = parsedParam.param;
           newPart.dataType = parsedParam.dataType;
           newPart.encoding = suggestedEncoding;
@@ -633,10 +700,10 @@ export class WittyTemplate {
       case "/forevery":
         {
           if (!this.blockstack.length)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndForeveryOutsideForevery);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndForeveryOutsideForevery);
           const lastBlock = this.blockstack[this.blockstack.length - 1];
           if (lastBlock.type != ParsedPartType.Forevery)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndForeveryOutsideForevery);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndForeveryOutsideForevery);
           lastBlock.cmdLimit = this.parts.length;
           this.parts.push(new ParsedPart(lineNum, columnNum, ParsedPartType.Content));
           this.blockstack.pop();
@@ -651,13 +718,13 @@ export class WittyTemplate {
 
           const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, true, true);
           if (parsedParam.dataType != DataType.Cell)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ParameterNotACell);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ParameterNotACell);
           newPart.content = parsedParam.param;
           newPart.dataType = parsedParam.dataType;
           newPart.encoding = suggestedEncoding;
 
           if (this.startPositions.has(newPart.content))
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.DuplicateComponent);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.DuplicateComponent);
 
           this.startPositions.set(newPart.content, this.parts.length);
           this.blockstack.push(newPart);
@@ -675,16 +742,16 @@ export class WittyTemplate {
           let lastBlock: ParsedPart;
           if (cmd == "/component") {
             if (!this.blockstack.length)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndComponentOutsideComponent);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndComponentOutsideComponent);
             lastBlock = this.blockstack[this.blockstack.length - 1];
             if (lastBlock.type != ParsedPartType.Component || state == ParserStates.RawComponent)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndComponentOutsideComponent);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndComponentOutsideComponent);
           } else if (cmd == "/rawcomponent") {
             if (!this.blockstack.length)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndRawcomponentOutsideRawcomponent);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndRawcomponentOutsideRawcomponent);
             lastBlock = this.blockstack[this.blockstack.length - 1];
             if (lastBlock.type != ParsedPartType.Component || state != ParserStates.RawComponent)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.EndRawcomponentOutsideRawcomponent);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.EndRawcomponentOutsideRawcomponent);
           }
 
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TypeScript doesn't infer that cmd can only be "/component" or "/rawcomponent" and lastBlock will always be set
@@ -693,7 +760,7 @@ export class WittyTemplate {
           this.blockstack.pop();
           start = commandEnd;
           if (state == ParserStates.RawComponent)
-            state = this.es == EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
+            state = this.encoding == EncodingStyles.Text ? ParserStates.Text : ParserStates.Content;
           else if (state == ParserStates.Tag || state == ParserStates.TagSQuote || state == ParserStates.TagDQuote)
             state = ParserStates.Content;
           break;
@@ -703,9 +770,9 @@ export class WittyTemplate {
           const newPart = new ParsedPart(lineNum, columnNum, ParsedPartType.Embed);
           this.parts.push(newPart);
 
-          const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, true, true);
+          const parsedParam = this.parseParameter(lineNum, columnNum, commandEnd, limit, data, newPart.dataType, false, true);
           if (parsedParam.dataType != DataType.Cell)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ParameterNotACell);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ParameterNotACell);
           newPart.content = parsedParam.param;
           newPart.dataType = parsedParam.dataType;
           newPart.encoding = suggestedEncoding;
@@ -737,7 +804,7 @@ export class WittyTemplate {
             newPart.parameters.push(param);
 
             if (dataType != DataType.Cell)
-              throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ParameterNotACell);
+              throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ParameterNotACell);
 
             haveParam = true;
           }
@@ -759,7 +826,7 @@ export class WittyTemplate {
       default:
         {
           if (commandEnd != start && data[start] == "/")
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.InvalidClosingTag, data.substring(start, limit));
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.InvalidClosingTag, data.substring(start, limit));
 
           const newPart = new ParsedPart(lineNum, columnNum, ParsedPartType.Data);
           this.parts.push(newPart);
@@ -778,18 +845,18 @@ export class WittyTemplate {
           }
 
           if (newPart.dataType != DataType.Seqnr && newPart.dataType != DataType.Cell)
-            throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.ReservedWordAsCell, newPart.content);
+            throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.ReservedWordAsCell, newPart.content);
         }
     }
 
     if (start != limit)
-      throw new WittyErrorRec(lineNum, columnNum, WittyErrorCode.UnknownData, data.substring(start, limit));
+      throw new WittyErrorRec(this.resource, lineNum, columnNum, WittyErrorCode.UnknownData, data.substring(start, limit));
 
     return { state, instrEnd: limit };
   }
 
   private addError(error: WittyErrorRec) {
-    this._errors.push(error);
+    this.errors.push(error);
   }
 
 
@@ -798,7 +865,50 @@ export class WittyTemplate {
   // Running Witty
   //
 
-  private smPush(newInvocation: boolean, itr: number, limit: number, wittyData: unknown, rootInvocation: boolean, foreveryNonRA?: ParsedPart) {
+  private async callWittyComponent(newInvocation: boolean, name: string, wittyData?: WittyData) {
+    const sep = name.lastIndexOf(":");
+    if (sep > 0) {
+      //Make sure we don't confuse a '::' for a component indicator
+      if (name[sep - 1] == ":")
+        throw new WittyErrorRec("", 0, 0, WittyErrorCode.MissingComponentName, name);
+      let resource = name.substring(0, sep);
+      name = name.substring(sep + 1);
+      if (resource.indexOf("::") < 0 && this.resource)
+        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
+      if (resource != this.resource) {
+        if (!this.loader)
+          throw new WittyError(`Cannot load library '${resource}': No resource loader available`, []);
+
+        const witty = await loadWittyTemplate(resource, { loader: this.loader });
+        witty.callStack = this.callStack;
+        witty.varStack = this.varStack;
+        return await witty.runComponentInternal(newInvocation, name, wittyData);
+      }
+    }
+    return await this.runComponentInternal(newInvocation, name, wittyData);
+  }
+
+  protected async runComponentInternal(newInvocation: boolean, name: string, wittyData?: WittyData): Promise<string> {
+    let start = 0, limit = this.parts.length;
+    if (name != "") {
+      if (!this.startPositions.has(name))
+        throw new WittyErrorRec(this.resource, this.parts[0].lineNum, this.parts[0].columnNum, WittyErrorCode.NoSuchComponent, name);
+      const component = this.startPositions.get(name);
+      start = component!;
+      limit = this.parts[component! - 1].cmdLimit;
+    }
+    this.pushState(newInvocation, start, limit, true, wittyData);
+    try {
+      return await this.runStack();
+    } catch (e) {
+      if (e instanceof WittyErrorRec)
+        throw new WittyRunError(e);
+      else
+        throw e;
+    }
+  }
+
+  private pushState(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyData, foreveryNonRA?: ParsedPart) {
     const depth = this.callStack.length ? this.callStack[this.callStack.length - 1].depth + (newInvocation ? 1 : 0) : 1;
     const hasVariable = wittyData != undefined && ((typeof wittyData == "object" && !Array.isArray(wittyData)) || foreveryNonRA != undefined);
 
@@ -815,7 +925,7 @@ export class WittyTemplate {
       this.varStack.push({ foreveryNonRA, wittyVar: wittyData });
   }
 
-  private smRun(): string {
+  private async runStack(): Promise<string> {
     if (!this.callStack.length)
       throw new Error("Running on empty witty stack!");
 
@@ -833,36 +943,36 @@ export class WittyTemplate {
       }
       const part = this.parts[elt.itr];
 
-      let wittyVar: unknown;
+      let wittyVar: WittyData | WittyData[] | undefined;
       let isHtml = false;
       if (![ParsedPartType.Content, ParsedPartType.Component, ParsedPartType.Embed, ParsedPartType.GetTid, ParsedPartType.GetHTMLTid].includes(part.type) && part.dataType == DataType.Cell) {
         wittyVar = this.findCellInStack(this.parts[elt.itr].content);
         if (wittyVar === undefined)
-          throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.NoSuchCell, part.content);
+          throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.NoSuchCell, part.content);
       }
       switch (part.type) {
         case ParsedPartType.Content:
           {
             if (part.contentLen)
-              output += this.printData.substring(part.contentPos, part.contentPos + part.contentLen);
+              output += this.stringSource.substring(part.contentPos, part.contentPos + part.contentLen);
             ++elt.itr;
             break;
           }
         case ParsedPartType.Data:
           {
-            output += this.smPrintCell(part, elt, wittyVar);
+            output += await this.getOutputCell(part, wittyVar);
             ++elt.itr;
             break;
           }
         case ParsedPartType.If:
         case ParsedPartType.ElseIf:
           {
-            const matches = this.smEvaluateIf(part, wittyVar);
+            const matches = this.evaluateIf(part, wittyVar);
             if (matches != part.ifNot) {
               const recVar = typeof wittyVar == "object" && !Array.isArray(wittyVar) ? wittyVar : undefined;
-              this.smPush(false, elt.itr + 1, part.cmdLimit, recVar, false);
+              this.pushState(false, elt.itr + 1, part.cmdLimit, false, recVar);
             } else
-              this.smPush(false, part.cmdLimit, part.elseLimit, undefined, false);
+              this.pushState(false, part.cmdLimit, part.elseLimit, false, undefined);
             elt.itr = part.elseLimit;
             break;
           }
@@ -874,7 +984,7 @@ export class WittyTemplate {
           }
         case ParsedPartType.Embed:
           {
-            output += this.smEmbed();
+            output += await this.embed(part);
             ++elt.itr;
             break;
           }
@@ -884,13 +994,22 @@ export class WittyTemplate {
           } //fallthrough
         case ParsedPartType.GetTid:
           {
-            console.log("getTid", isHtml);//TODO: console.log isHtml to suppress 'unused var' warning
-            throw new Error("GetTid/GetHTMLTid not yet implemented");
+            const tid = part.parameters[0];
+            const p1 = part.parameters.length > 1 ? await this.getTidParam(part, part.parameters[1]) : undefined;
+            const p2 = part.parameters.length > 2 ? await this.getTidParam(part, part.parameters[2]) : undefined;
+            const p3 = part.parameters.length > 3 ? await this.getTidParam(part, part.parameters[3]) : undefined;
+            const p4 = part.parameters.length > 4 ? await this.getTidParam(part, part.parameters[4]) : undefined;
+            if (isHtml)
+              output += this.encodeString(getHTMLTid(tid, p1, p2, p3, p4), part.encoding);
+            else
+              output += this.encodeString(getTid(tid, p1, p2, p3, p4), part.encoding);
+            ++elt.itr;
+            break;
           }
         case ParsedPartType.Forevery:
           {
             if (!Array.isArray(wittyVar))
-              throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.CellNotAnArray, part.content);
+              throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.CellNotAnArray, part.content);
             if (elt.foreveryEltLimit == -1) {
               elt.foreveryEltLimit = wittyVar.length;
               elt.foreveryEltNr = 0;
@@ -903,7 +1022,7 @@ export class WittyTemplate {
               elt.foreveryEltLimit = -1;
             } else {
               const el = wittyVar[elt.foreveryEltNr];
-              this.smPush(false, elt.itr + 1, part.cmdLimit, wittyVar[elt.foreveryEltNr], false, typeof el != "object" ? part : undefined);
+              this.pushState(false, elt.itr + 1, part.cmdLimit, false, wittyVar[elt.foreveryEltNr], typeof el != "object" ? part : undefined);
             }
           }
       }
@@ -911,27 +1030,27 @@ export class WittyTemplate {
     return output;
   }
 
-  smEmbed(): string {
-    throw new Error("Embed not yet implemented");//TODO
+  private async embed(part: ParsedPart): Promise<string> {
+    return await this.callWittyComponent(false, part.content);
   }
 
-  smPrintCell(part: ParsedPart, elt: CallStackElement, wittyVar: unknown): string {
+  private async getOutputCell(part: ParsedPart, wittyVar?: WittyData | WittyData[]): Promise<string> {
     switch (part.dataType) {
       case DataType.Seqnr:
         {
           const forevery = this.findForeveryInStack();
           if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "seqnr");
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "seqnr");
           return forevery.foreveryEltNr.toString();
         }
       case DataType.Cell:
         {
           if (part.encoding == ContentEncoding.Json || part.encoding == ContentEncoding.JsonValue) {
-            const temp = encodeJSCompatibleJSON(wittyVar);
+            const temp = JSON.stringify(wittyVar);
             if (part.encoding == ContentEncoding.Json)
-              return this.printEncoded(temp, ContentEncoding.None);
+              return this.encodeString(temp, ContentEncoding.None);
             else
-              return this.printEncoded(temp, ContentEncoding.Value);
+              return this.encodeString(temp, ContentEncoding.Value);
           }
           switch (typeof wittyVar) {
             case "number":
@@ -940,62 +1059,29 @@ export class WittyTemplate {
               }
             case "string":
               {
-                return this.printEncoded(wittyVar, part.encoding);
+                return this.encodeString(wittyVar, part.encoding);
               }
-            //TODO: function ptr
+            case "function":
+              {
+                return await this.runWittyFunction(part, wittyVar);
+              }
+            case "object":
+              {
+                if (wittyVar === null)
+                  return "";
+              } //fallthrough
             default:
               {
-                throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.CannotPrintCell, part.content, typeof wittyVar);
+                throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.CannotOutputCell, part.content, typeof wittyVar);
               }
           }
         }
       default:
-        throw new Error("Unexpected datatype in data print statement");
+        throw new Error("Unexpected datatype in cell output statement");
     }
   }
 
-  smEvaluateIf(part: ParsedPart, wittyVar: unknown): boolean {
-    if (part.dataType == DataType.Cell) {
-      if (Array.isArray(wittyVar))
-        return wittyVar.length > 0;
-      return Boolean(wittyVar);
-    }
-    const forevery = this.findForeveryInStack();
-    switch (part.dataType) {
-      case DataType.First:
-        {
-          if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "first");
-          return forevery.foreveryEltNr == 0;
-        }
-      case DataType.Last:
-        {
-          if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "last");
-          return forevery.foreveryEltNr == forevery.foreveryEltLimit - 1;
-        }
-      case DataType.Odd:
-        {
-          if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "odd");
-          return forevery.foreveryEltNr % 2 == 1;
-        }
-      case DataType.Even:
-        {
-          if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "event");
-          return forevery.foreveryEltNr % 2 == 0;
-        }
-      case DataType.Seqnr:
-        {
-          if (!forevery)
-            throw new WittyErrorRec(part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "seqnr");
-          return forevery.foreveryEltNr != 0;
-        }
-    }
-  }
-
-  printEncoded(value: string, encoding: ContentEncoding) {
+  private encodeString(value: string, encoding: ContentEncoding) {
     switch (encoding) {
       case ContentEncoding.None:
         {
@@ -1017,9 +1103,70 @@ export class WittyTemplate {
     return "";
   }
 
-  findCellInStack(cellName: string) {
+  private async getTidParam(part: ParsedPart, param: string): Promise<string | number | undefined> {
+    const wittyVar = this.findCellInStack(param);
+    if (typeof wittyVar == "string")
+      return wittyVar;
+    if (typeof wittyVar == "number")
+      return wittyVar;
+    if (typeof wittyVar == "function")
+      return await this.runWittyFunction(part, wittyVar);
+    return undefined;
+  }
+
+  private async runWittyFunction(part: ParsedPart, func: WittyCallbackFunction) {
+    const ctx: WittyCallContext = {
+      get: (name: string) => this.findCellInStack(name),
+      embed: (name: string, wdata?: WittyData) => this.callWittyComponent(false, name, wdata),
+      encode: async (wvar?: WittyData | WittyData[]) => await this.getOutputCell(part, wvar)
+    };
+    return await func(ctx);
+  }
+
+  private evaluateIf(part: ParsedPart, wittyVar?: WittyData | WittyData[]): boolean {
+    if (part.dataType == DataType.Cell) {
+      if (Array.isArray(wittyVar))
+        return wittyVar.length > 0;
+      return Boolean(wittyVar);
+    }
+    const forevery = this.findForeveryInStack();
+    switch (part.dataType) {
+      case DataType.First:
+        {
+          if (!forevery)
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "first");
+          return forevery.foreveryEltNr == 0;
+        }
+      case DataType.Last:
+        {
+          if (!forevery)
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "last");
+          return forevery.foreveryEltNr == forevery.foreveryEltLimit - 1;
+        }
+      case DataType.Odd:
+        {
+          if (!forevery)
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "odd");
+          return forevery.foreveryEltNr % 2 == 1;
+        }
+      case DataType.Even:
+        {
+          if (!forevery)
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "event");
+          return forevery.foreveryEltNr % 2 == 0;
+        }
+      case DataType.Seqnr:
+        {
+          if (!forevery)
+            throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.ForeveryVarOutsideForevery, "seqnr");
+          return forevery.foreveryEltNr != 0;
+        }
+    }
+  }
+
+  private findCellInStack(cellName: string): WittyData | WittyData[] | undefined {
     const cellParts = cellName.split(".");
-    let colVar;
+    let colVar: WittyData | WittyData[] | undefined = undefined;
     for (let i = this.varStack.length - 1; i >= 0 && colVar == undefined; --i) {
       const elem = this.varStack[i];
       if (cellParts.length == 1 && elem.foreveryNonRA != undefined) {
@@ -1039,11 +1186,25 @@ export class WittyTemplate {
     return colVar;
   }
 
-  findForeveryInStack(): CallStackElement | undefined {
+  private findForeveryInStack(): CallStackElement | undefined {
     for (let i = this.callStack.length - 1; i >= 0; --i) {
       if (this.callStack[i].foreveryEltLimit != -1)
         return this.callStack[i];
     }
     return undefined;
+  }
+}
+
+export async function loadWittyTemplate(resource: string, options?: WittyOptions): Promise<WittyTemplate> {
+  if (!options?.loader)
+    throw new WittyError(`Cannot load library '${resource}': No WittyTemplateLoader specified`, []);
+
+  try {
+    const data = await options.loader(resource);
+    return new WittyTemplate(data, { ...options, _resource: resource });
+  } catch (e) {
+    if (e instanceof Error)
+      throw new WittyError(`Cannot load library '${resource}': ${e.message}`, []);
+    throw new WittyError(`Cannot load library '${resource}'`, []);
   }
 }

@@ -5,6 +5,7 @@
 let fs = require("fs");
 const services = require('@webhare/services');
 
+// Needed for non ES2019 compatible browsers (not needed in Chrome 72+, Firefox 64+, Safari 12.1+)
 function encodeJSCompatibleJSON(s)
 {
   return JSON.stringify(s).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
