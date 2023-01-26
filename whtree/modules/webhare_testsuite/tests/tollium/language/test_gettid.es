@@ -168,7 +168,7 @@ test.registerTests([
       let tids = test.getWin().getTidTest();
       test.eq("(cannot find text:webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
       test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
-      test.eq('Dit is <b>bold</b><br/>volgende<br/>regel', tids.richtext);
+      test.eq('Dit is <b>bold</b><br />volgende<br />regel', tids.richtext);
       test.eq('Please note: max 1 person', tids.maxextras_1);
       test.eq('Please note: max 2 persons', tids.maxextras_2);
 
