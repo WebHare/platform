@@ -1,9 +1,11 @@
 import WHBridge from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import * as path from "node:path";
+import * as fs from "node:fs";
 export { openBackendService } from "./backendservice";
 import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
 export { WebHareBackendConfiguration } from "./bridgeservice";
+import * as witty from '@webhare/witty';
 
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 
@@ -108,4 +110,21 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
     return null;
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
+}
+
+export function loadWittyResource(resource: string, options?: witty.WittyOptions): Promise<witty.WittyTemplate> {
+  const loader = options?.loader || readWittyResource;
+  return witty.loadWittyTemplate(resource, { ...options, loader });
+}
+
+function readWittyResource(resource: string): Promise<string> {
+  const respath = toFSPath(resource);
+  return new Promise((resolve, reject) => {
+    fs.readFile(respath, { encoding: "utf8" }, (error, data) => {
+      if (error)
+        reject(error);
+      else
+        resolve(data);
+    });
+  });
 }

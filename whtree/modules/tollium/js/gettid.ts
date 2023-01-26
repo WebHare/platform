@@ -2,6 +2,7 @@ import * as encoding from "dompack/types/text";
 import * as domdebug from "dompack/src/debug";
 // @ts-ignore Not converted to TypeScript yet
 import * as wh from "@mod-system/js/wh/integration";
+import { encodeHTML } from "dompack/types/text";
 
 /*
 Supported debug flags:
@@ -48,13 +49,6 @@ type TidParam = string | number | null;
 
 const allTids: CachedTids = {};
 let curLang = "";
-
-function encodeHTML(input: string) {
-  return input.split('&').join('&amp;')
-    .split('<').join('&lt;')
-    .split('>').join('&gt;')
-    .split('\n').join('<br/>');
-}
 
 function executeCompiledTidText(text: LanguageText, params: string[], rich: boolean) {
   if (typeof text == "object" && !Array.isArray(text))
@@ -234,6 +228,7 @@ export {
   getTid as default,
   getTid,
   getTidLanguage,
+  setTidLanguage,
   getHTMLTid,
   convertElementTids,
   registerTexts

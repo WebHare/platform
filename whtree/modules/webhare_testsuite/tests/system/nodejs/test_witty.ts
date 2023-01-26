@@ -1,13 +1,15 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
 import { encodeValue } from "dompack/types/text";
-import { loadWittyTemplate, WittyTemplate, EncodingStyles, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
+import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
+import { registerTexts, setTidLanguage } from "@mod-tollium/js/gettid";
+import { flags } from "@webhare/env";
 
 function testPrintYZ(ctx: WittyCallContext) {
-  return (ctx.getWittyVariable("y") as { z: string }).z;
+  return (ctx.get("y") as { z: string }).z;
 }
 
-async function simpleTestWTE() {
+async function simpleTest() {
   let witty: WittyTemplate;
 
   //Test whether WTE works at all
@@ -74,7 +76,7 @@ async function simpleTestWTE() {
     }
 
     printStuff(arg: string, ctx: WittyCallContext): string {
-      return [arg, this.stuff, ctx.getWittyVariable("bla")].join(", ");
+      return [arg, this.stuff, ctx.get("bla")].join(", ");
     }
   }
   test.eq("(argument, property, wittyvar)", await (new TestClass).run("argument"));
@@ -133,7 +135,7 @@ async function simpleTestWTE() {
   await test.throws(/No such cell/, witty.run({ testProp: "testProp" }));
 }
 
-async function foreveryMembersWTE() {
+async function foreveryMembers() {
   let witty: WittyTemplate;
 
   //Test whether WTE works at all
@@ -186,62 +188,75 @@ async function encodingSensitivity() {
   test.eq("\n", await witty.run({ test1: "\n" }));
 }
 
-async function wittyRawComponent() {
+async function rawComponent() {
   let witty: WittyTemplate;
   witty = new WittyTemplate("[rawcomponent x]<div>[[\n  <span>[test1]</span>\n</div>\n![/rawcomponent][embed x]");
   test.eq("<div>[[\n  <span>[test1]</span>\n</div>\n!", await witty.run({ test1: () => "yes" }));
 }
 
-async function wittyGetTid() {
+async function getTids() {
   let witty: WittyTemplate;
 
-  witty = new WittyTemplate("Test: [gettid bla]");
-  //TODO: test.eq("Test: (bla)", await witty.run({ gettid: PTR MyGetTid }));
+  flags.gtd = true;
 
-  witty = new WittyTemplate("Test: [gettid html]");
-  //TODO: test.eq("Test: (h&#38;l)", await witty.run({ gettid: PTR MyGetTid }));
+  // Register texts directly instead of relying on .lang.json files
+  registerTexts("__witty_test_texts", "en", {
+    "test": {
+      "bla": {
+        "": [{ t: "ifparam", p: 1, value: "", subs: ["(bla)"], subselse: ["(bla:", 1, 2, ")"] }],
+        "bla": [{ t: "ifparam", p: 1, value: "", subs: ["(bla.bla)"], subselse: ["(bla.bla:", 1, 2, ")"] }]
+      },
+      "html": "(h&l)",
+      "test": "(test)"
+    }
+  });
+  registerTexts("__witty_other_texts", "en", {
+    "html": "(html)"
+  });
+  setTidLanguage("en");
 
-  witty = new WittyTemplate("Test: [gethtmltid html]");
-  //TODO: test.eq("Test: (h&l)", await witty.run({ gethtmltid: PTR MyGetTid }));
+  witty = new WittyTemplate("Test: [gettid test.bla]", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (bla)", await witty.run());
 
-  witty = new WittyTemplate("Test: [gethtmltid html:html]");
-  //TODO: test.eq("Test: (h&#38;l)", await witty.run({ gethtmltid: PTR MyGetTid }));
+  // '&' gets HTML-encoded by default for normal tids
+  witty = new WittyTemplate("Test: [gettid test.html]", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (h&amp;l)", await witty.run());
 
-  witty = new WittyTemplate("Test: [gettid bla test]!");
-  //TODO: test.eq("Test: (bla:test123)!", await witty.run({ gettid: PTR MyGetTid, test: "test123" }));
+  // '&' gets HTML-encoded by getHTMLTid and isn't further encoded by Witty by default
+  witty = new WittyTemplate("Test: [gethtmltid test.html]", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (h&amp;l)", await witty.run());
 
-  witty = new WittyTemplate("Test: [gettid bla test test2]!");
-  //TODO: test.eq("Test: (bla:test123test456)!", await witty.run({ gettid: PTR MyGetTid, test: "test123", test2: "test456" }));
+  // If an encoding is specified, the (encoded) output of getHTMLTid is encoded again by Witty
+  witty = new WittyTemplate("Test: [gethtmltid test.html:html]", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (h&amp;amp;l)", await witty.run());
 
-  witty = new WittyTemplate("Test: [gettid bla.bla test.test]!");
-  //TODO: test.eq("Test: (bla.bla:test123)!", await witty.run({ gettid: PTR MyGetTid, test: [ test: "test123" ] }));
+  witty = new WittyTemplate("Test: [gettid test.bla test]!", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (bla:test123)!", await witty.run({ test: "test123" }));
 
-  witty = new WittyTemplate("Test: [gettid a\\:bla]");
-  //TODO: test.eq("Test: (a:bla)", await witty.run({ gettid: PTR MyGetTid }));
+  witty = new WittyTemplate("Test: [gettid test.bla test test2]!", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (bla:test123test456)!", await witty.run({ test: "test123", test2: "test456" }));
 
-  //TODO? __SETWITTYGETTIDFALLBACK(PTR GlobalGetTid, PTR GlobalGetHTMLTid);
+  witty = new WittyTemplate("Test: [gettid test.bla.bla test.test]!", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (bla.bla:test123)!", await witty.run({ test: { test: "test123" } }));
 
-  witty = new WittyTemplate("Test: [gettid test]");
-  //TODO: test.eq("Test: globalgettid:test", await witty.run({}));
-  //TODO: test.eq("Test: (test)", await witty.run( [ gettid: PTR MyGetTid ]));
-
-  witty = new WittyTemplate("Test: [embed testcomp][component testcomp][gettid test][/component]");
-  //TODO: test.eq("Test: globalgettid:test", await witty.run({}));
-  //TODO: test.eq("Test: (test)", await witty.run( [ gettid: PTR MyGetTid ]));
+  // Escaped ':' signifies mod:tid instead of tid:encoding
+  witty = new WittyTemplate("Test: [gettid __witty_other_texts\\:html]", { getTidModule: "__witty_test_texts" });
+  test.eq("Test: (html)", await witty.run());
 }
 
-async function wittyLibrarys() {
+async function libraries() {
   await services.ready();
-  const script = await loadWittyTemplate("mod::system/whlibs/tests/test.witty");
+
+  const script = await services.loadWittyResource("mod::system/whlibs/tests/test.witty");
   test.eq("Test: yes!", (await script.run({ bla: "yes!" })).trim());
   test.eq("c7a-te", await script.runComponent("c7atext"));
   test.eq("c7a-te:yes!", await script.runComponent("c7a", { bla: "no!", x: "yes!" }));
 
-  const script2 = await loadWittyTemplate("mod::system/whlibs/tests/test2.witty");
+  const script2 = await services.loadWittyResource("mod::system/whlibs/tests/test2.witty");
   test.eq("", (await script2.run({ bla: "yes!" })).trim());
 
-  test.eq("Test: compJE", (await script.run({ bla: (ctx: WittyCallContext) => ctx.embedWittyComponent("test2.witty:comp") })).trim());
-  test.eq("Test: compJE", (await script.run({ bla: (ctx: WittyCallContext) => ctx.embedWittyComponent("mod::system/whlibs/tests/test2.witty:comp") })).trim());
+  test.eq("Test: compJE", (await script.run({ bla: (ctx: WittyCallContext) => ctx.embed("test2.witty:comp") })).trim());
+  test.eq("Test: compJE", (await script.run({ bla: (ctx: WittyCallContext) => ctx.embed("mod::system/whlibs/tests/test2.witty:comp") })).trim());
   test.eq("Test: compJE", (await script.run({ bla: () => script.runComponent("test2.witty:comp") })).trim());
   test.eq("Test: compJE", (await script.run({ bla: () => script2.runComponent("test2.witty:comp") })).trim());
 
@@ -252,10 +267,10 @@ async function wittyLibrarys() {
   test.eq(false, script.hasComponent("iets"));
   test.eq(false, script.hasComponent(""));
 
-  await test.throws(/Missing component name/, () => script.run({ bla: (ctx: WittyCallContext) => ctx.embedWittyComponent("mod::system/whlibs/tests/test2.witty") }));
+  await test.throws(/Missing component name/, () => script.run({ bla: (ctx: WittyCallContext) => ctx.embed("mod::system/whlibs/tests/test2.witty") }));
 }
 
-async function wittyFuncPtrsComponents() {
+async function funcPtrsComponents() {
   let witty: WittyTemplate;
 
   //Why the exclamation points at the end? To make sure Witty didn't just 'stop' execution after the macro/embedcall.
@@ -270,7 +285,7 @@ async function wittyFuncPtrsComponents() {
   test.eq("yes!", await witty.runComponent("repeatable", { test1: () => "yes" }));
 
   witty = new WittyTemplate("[component repeatable][test1]![/component]Test: [body]");
-  test.eq("Test: yes!", await witty.run({ body: (ctx: WittyCallContext) => ctx.embedWittyComponent("repeatable", { test1: () => "yes" }) }));
+  test.eq("Test: yes!", await witty.run({ body: (ctx: WittyCallContext) => ctx.embed("repeatable", { test1: () => "yes" }) }));
 
   //Test IF and execution on function pointers
   witty = new WittyTemplate("Test: [if test1][test1]![else]nope[/if]");
@@ -282,7 +297,7 @@ async function wittyFuncPtrsComponents() {
   test.eq("Test: !", await witty.run({ test1: null }));
 }
 
-async function wittyErrorHandling() {
+async function errorHandling() {
   let witty: WittyTemplate;
 
   witty = new WittyTemplate("");
@@ -317,7 +332,8 @@ async function wittyErrorHandling() {
 
   await test.throws(/Invalid closing tag/, () => new WittyTemplate("[/unknown]"));
 
-  await test.throws(/Cannot load library/, () => loadWittyTemplate("mod::system/whlibs/tests/bestaatniet.witty"));
+  await services.ready();
+  await test.throws(/Cannot load library/, () => services.loadWittyResource("mod::system/whlibs/tests/bestaatniet.witty"));
 
   await test.throws(/Missing.*parameter/, () => new WittyTemplate("[:html]"));
   await test.throws(/Unknown encoding/, () => new WittyTemplate("[data:]"));
@@ -342,14 +358,14 @@ async function wittyErrorHandling() {
   await test.throws(/Unknown data/, () => new WittyTemplate("[if list test]"));
 }
 
-async function wittyCallComponent() {
+async function callComponent() {
   await services.ready();
 
   const witty = new WittyTemplate("Test: [invoke][component comp](bla)[/component]");
-  await test.throws(/No such component 'bla'/, () => witty.run({ invoke: (ctx: WittyCallContext) => ctx.embedWittyComponent("bla") }));
-  test.eq("Test: (bla)", await witty.run({ invoke: (ctx: WittyCallContext) => ctx.embedWittyComponent("comp") }));
+  await test.throws(/No such component 'bla'/, () => witty.run({ invoke: (ctx: WittyCallContext) => ctx.embed("bla") }));
+  test.eq("Test: (bla)", await witty.run({ invoke: (ctx: WittyCallContext) => ctx.embed("comp") }));
 
-  const script = await loadWittyTemplate("mod::system/whlibs/tests/testsuite.witty");
+  const script = await services.loadWittyResource("mod::system/whlibs/tests/testsuite.witty");
   test.eq("Simple", await script.runComponent("simpleembed", { bla: "yes!" }));
   test.eq("subdir", await script.runComponent("subdirembed", { bla: "yes!" }));
   test.eq("reverse", await script.runComponent("subdirreverseembed", { bla: "yes!" }));
@@ -358,12 +374,10 @@ async function wittyCallComponent() {
   test.eq("yn", await script.runComponent("firsttest", { ra: [{ x: 1 }, { x: 2 }] }));
   test.eq("01", await script.runComponent("seqnrtest", { ra: [{ x: 1 }, { x: 2 }] }));
 
-  //TODO: test.eq("(module.appgroups.apps)", await witty.run([ gettid: PTR MyGetTid }, "gettidtest"));
-
-  test.eq("yes!", await script.runComponent("wittyvar", { bla: "yes!", invokewittyvar: (ctx: WittyCallContext) => ctx.encodeWittyVariable(ctx.getWittyVariable("bla")) }));
+  test.eq("yes!", await script.runComponent("wittyvar", { bla: "yes!", invokewittyvar: (ctx: WittyCallContext) => ctx.encode(ctx.get("bla")) }));
 }
 
-async function wittyResolving() {
+async function resolving() {
   const witty = new WittyTemplate("Test: [forevery x][forevery x][x][/forevery][/forevery]");
   test.eq("Test: testtest2", await witty.run({ x: [{ x: [{ x: "test" }, { x: "test2" }] }] }));
 
@@ -382,7 +396,7 @@ async function wittyResolving() {
   */
 }
 
-async function wittyEncoding() {
+async function encoding() {
   let witty: WittyTemplate;
 
   witty = new WittyTemplate("Test: [bla]");
@@ -419,18 +433,73 @@ async function wittyEncoding() {
   await test.throws(/Witty parse error at 1:8: Unknown encoding 'java' requested/, () => new WittyTemplate("Test: [gettid bla test:java]"));
   await test.throws(/Witty parse error at 1:8: Unknown encoding 'base16' requested/, () => new WittyTemplate("Test: [gettid bla test:base16]"));
   await test.throws(/Witty parse error at 1:8: Unknown encoding 'base64' requested/, () => new WittyTemplate("Test: [gettid bla test:base64]"));
+
+  //Make sure the state is 'reset' at a new component, to avoid a html error confusing a whole lot more
+  await services.ready();
+  witty = await services.loadWittyResource("mod::system/whlibs/tests/encoding.witty");
+  test.eq("x<br />y", await witty.runComponent("masterinfo_popup", { ismaster: true, description: "x\ny", popupid: "", name: "" }));
+}
+
+let scopedcallbackcounter = 0;
+
+async function scopedCallback(type: string, ctx: WittyCallContext) {
+  ++scopedcallbackcounter;
+  switch (type) {
+    case "throw":
+      {
+        throw new Error("thrown");
+      }
+    case "test1":
+      {
+        test.eq("3", ctx.get("a"));
+        break;
+      }
+    case "embed-wittyvar":
+      {
+        return await ctx.embed("wittyvar");
+      }
+  }
+  return "";
+}
+
+function scopedCallbackFunc() {
+  ++scopedcallbackcounter;
+  return "4";
+}
+
+async function callWithScope() {
+  await services.ready();
+
+  const script = await services.loadWittyResource("mod::system/whlibs/tests/testsuite.witty");
+  test.eq("", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("test1", ctx), { a: "3" }));
+  test.eq(1, scopedcallbackcounter);
+
+  test.eq("4", await script.callWithScope(scopedCallbackFunc, { a: "3" }));
+  test.eq(2, scopedcallbackcounter);
+
+  await test.throws(/thrown/, () => script.callWithScope((ctx: WittyCallContext) => scopedCallback("throw", ctx), { a: "3" }));
+  test.eq(3, scopedcallbackcounter);
+
+  test.eq("yeey", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("embed-wittyvar", ctx), { invokewittyvar: "yeey" }));
+
+  // Test if embed from from embedtest.witty resolves to component 'local' in embedtest.witty
+  test.eq("local-embed", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("embed-wittyvar", ctx), { invokewittyvar: (ctx: WittyCallContext) => ctx.embed("local") }));
+
+  // Test if the CallWithScope to the base script within the context of embedtest.witty resets witty context to the base script
+  test.eq("local-testsuite", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("embed-wittyvar", ctx), { invokewittyvar: () => script.callWithScope((ctx: WittyCallContext) => ctx.embed("local")) }));
 }
 
 test.run([
-  simpleTestWTE,
-  foreveryMembersWTE,
+  simpleTest,
+  foreveryMembers,
   encodingSensitivity,
-  wittyRawComponent,
-  wittyGetTid,
-  wittyLibrarys,
-  wittyFuncPtrsComponents,
-  wittyErrorHandling,
-  wittyCallComponent,
-  wittyResolving,
-  wittyEncoding,
+  rawComponent,
+  getTids,
+  libraries,
+  funcPtrsComponents,
+  errorHandling,
+  callComponent,
+  resolving,
+  encoding,
+  callWithScope
 ]);

@@ -157,7 +157,7 @@ test.registerTests([
       test.eq("Vet!", getTid("html:tags"));
       test.eq("Codeer &lt;tag&gt; en &amp;lt;", getTid.html("html:encoding"));
       test.eq("Codeer <tag> en &lt;", getTid("html:encoding"));
-      test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br/></a>`, getTid.html("html:params", "<hr/>\n"));
+      test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br /></a>`, getTid.html("html:params", "<hr/>\n"));
       test.eq("<hr/>\n", getTid("html:params", "<hr/>\n"));
     }
 
