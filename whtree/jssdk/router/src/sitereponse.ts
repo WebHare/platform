@@ -1,19 +1,30 @@
+import { WittyTemplate } from "@webhare/witty";
+import { readFile } from "node:fs";
 import { WebResponse } from "./response";
 import { SiteRequest } from "./siterequest";
+import util from 'node:util';
+import * as services from "@webhare/services";
+
+export interface SiteResponseSettings {
+  assetpack: string;
+  witty: string;
+}
 
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
 export class SiteResponse<T extends object> {
   siterequest: SiteRequest;
   webresponse: WebResponse;
+  settings: SiteResponseSettings;
   protected contents = "";
 
   /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageconfig: T;
 
-  constructor(pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse) {
+  constructor(pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) {
     this.siterequest = siterequest;
     this.webresponse = webresponse;
     this.pageconfig = pageconfig;
+    this.settings = settings;
   }
 
   /** Render the contents of the specified witty component (path#component) with the specified data
@@ -30,13 +41,17 @@ export class SiteResponse<T extends object> {
   }
 
   async finish(): Promise<void> {
-    //TODO: format the final body using htmlhead/htmlbody and our own headers. See WebDesignBase::RunPageWitty for all the classes etc we need
-    const body = `<!DOCTYPE html>`
-      + `<html>` //lang etc
-      + `<head></head>`
-      + `<body>${this.contents}</body>`
-      + `</html>`;
+    const mywittytext = (await util.promisify(readFile)(services.toFSPath(this.settings.witty))).toString();
+    const mywitty = new WittyTemplate(mywittytext); //TODO check/handle errors? or Will It Throw?
+    let body = await mywitty.run({
+      ...this.pageconfig,
+      contents: this.contents
+    });
 
+    if (body === null)
+      throw new Error("Witty returned 'null' (it failed?)"); //FIXME shouldn't witty just throw? I presume callbacks inside witty will be able to throw anyway
+
+    body = `<html><head></head><body>` + body + `</body></html>`;
     this.webresponse.setBody(body);
   }
 }

@@ -1,14 +1,14 @@
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 import { WebResponse } from "./response";
-import { SiteResponse } from "./sitereponse";
+import { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { SiteRequest } from "./siterequest";
 
 class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;
   webdesign: HSVMObject;
 
-  constructor(hsvm: HSVM, webdesign: HSVMObject, pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse) {
-    super(pageconfig, siterequest, webresponse);
+  constructor(hsvm: HSVM, webdesign: HSVMObject, pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) {
+    super(pageconfig, siterequest, webresponse, settings);
     this.hsvm = hsvm;
     this.webdesign = webdesign;
   }
@@ -37,6 +37,5 @@ export async function wrapHSWebdesign<T extends object>(request: SiteRequest, we
   const webdesign = await siteprofileslib.GetWebDesign(request.targetobject.id) as HSVMObject;
   const pageconfig = await webdesign.get("pageconfig");
 
-
-  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, webresponse);
+  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, webresponse, { witty: "", assetpack: "" });
 }

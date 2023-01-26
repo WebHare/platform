@@ -3,6 +3,34 @@ import * as whfs from "@webhare/whfs";
 import { WebRequest, WebResponse, WebHareRouter, SiteRequest } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
+import { XMLParser } from "fast-xml-parser";
+import { captureJSDesign } from "@mod-publisher/js/internal/capturejsdesign";
+
+function parseHTMLDoc(html: string) {
+  const parsingOptions = {
+    ignoreAttributes: false,
+    unpairedTags: ["hr", "br", "link", "meta", "img"],
+    stopNodes: ["*.pre", "*.script"],
+    processEntities: true,
+    htmlEntities: true,
+    //convert about everything but known unique tags to arrays..
+    isArray: (name: string, jpath: unknown, isLeafNode: boolean, isAttribute: boolean) => !isAttribute && !["html", "head", "body", "main"].includes(name)
+  };
+  const parser = new XMLParser(parsingOptions);
+  return parser.parse(html);
+}
+
+function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
+  const doc = parseHTMLDoc(response.body);
+  const whfspathnode = doc.html.body.div.find((_: any) => _["@_id"] === "whfspath");
+  test.eq(markdowndoc.whfspath, whfspathnode["#text"], "Expect our whfspath to be in the source");
+
+  //FIXME noone asked for <h2 id="markdown-file">Markdown file</h2> - we want class="heading2" and we need to check how WebHare would generate these IDs. (RTD compatibility)
+  const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
+  test.eq("Markdown file", contentdiv.h2[0]["#text"]); //it has an id= so this one currently becomes an object
+  test.eq("This is a marked down file", contentdiv.p[0]);
+}
+
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
 async function testSiteResponse() {
@@ -23,29 +51,49 @@ async function testSiteResponse() {
   typedoutputpage.appendHTML(`<p>This is a body!</p>`);
   await typedoutputpage.finish();
 
-  const page = response.getFinalPage();
-  test.eqMatch(/<html>.*<body>.*<p>This is a body!<\/p><\/body><\/html>/, page.body);
-  test.eq("text/html; charset=utf-8", page.headers["content-type"]);
+  //Verify markdown contents
+  const doc = parseHTMLDoc(response.body);
+  test.eq("whfspath", doc.html.body.div[0]["@_id"]);
+  test.eq(markdowndoc.whfspath, doc.html.body.div[0]["#text"], "Expect our whfspath to be in the source");
+  const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
+  test.eq("This is a body!", contentdiv.p[0]);
+  test.eq("text/html; charset=utf-8", response.headers["content-type"]);
+}
+
+async function testCaptureJSDesign() {
+  //Test capturing a JS WebDesign for reuse in a HareScript page
+  const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
+  const resultpage = await captureJSDesign(targetpage.id);
+  test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
+  test.eqMatch(/<html.*<body.*<div id="content">$/, resultpage.parts[0].replaceAll("\n", " "));
+  test.eqMatch(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
 }
 
 //TODO should this be a router API?  but will there ever be another router to run than coreWebHareRouter? is this more about caching ?
 async function runARouter(router: WebHareRouter, request: WebRequest) {
-  //Unlike testSiteResponse we actually attempt to render the markdown document *and* go through the path lookup motions
   const response = new WebResponse;
   await router(request, response);
-
-  return response.getFinalPage();
+  return response;
 }
 
-async function testRouter() {
+//Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
+async function testRouter_HSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   const result = await runARouter(coreWebHareRouter, new WebRequest("GET", markdowndoc.link));
 
-  //FIXME noone asked for <h2 id="markdown-file">Markdown file</h2> - we want class="heading2" and we need to check how WebHare would generate these IDs. (RTD compatibility)
-  test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, result.body);
+  verifyMarkdownResponse(markdowndoc, result);
+}
+
+async function testRouter_JSWebDesign() {
+  const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
+  const result = await runARouter(coreWebHareRouter, new WebRequest("GET", markdowndoc.link));
+
+  verifyMarkdownResponse(markdowndoc, result);
 }
 
 test.run([
   testSiteResponse,
-  testRouter
+  testCaptureJSDesign,
+  testRouter_HSWebDesign,
+  testRouter_JSWebDesign
 ]);
