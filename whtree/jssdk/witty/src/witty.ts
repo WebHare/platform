@@ -97,7 +97,7 @@ export enum WittyErrorCode {
   NoSuchCell,
   CellNotAnArray,
   ForeveryVarOutsideForevery,
-  CannotPrintCell,
+  CannotOutputCell,
   NoSuchComponent,
   EmptyCommand,
   InvalidClosingTag,
@@ -111,7 +111,7 @@ const WittyMessages = {
   [WittyErrorCode.LinefeedWithinInstruction]: "Linefeed appears inside instruction",
   [WittyErrorCode.UnknownData]: "Unknown data follows the value: '%0'",
   [WittyErrorCode.UnknownEncoding]: "Unknown encoding '%0' requested",
-  [WittyErrorCode.ReservedWordAsCell]: "Reserved word '%0' cannot be used as print data",
+  [WittyErrorCode.ReservedWordAsCell]: "Reserved word '%0' cannot be used as cell name",
   [WittyErrorCode.ElseOutsideIf]: "An [else] or [elseif] must be inside an [if]-block",
   [WittyErrorCode.DuplicateElse]: "Duplicate [else] in [if]-block",
   [WittyErrorCode.EndIfOutsideIf]: "[/if] must be inside an [if]-block",
@@ -124,7 +124,7 @@ const WittyMessages = {
   [WittyErrorCode.NoSuchCell]: "No such cell '%0'",
   [WittyErrorCode.CellNotAnArray]: "Cell '%0' did not evaluate to an array",
   [WittyErrorCode.ForeveryVarOutsideForevery]: "Requesting '%0' outside a [forevery]-block",
-  [WittyErrorCode.CannotPrintCell]: "Don't know how to print cell '%0' of type '%1'",
+  [WittyErrorCode.CannotOutputCell]: "Don't know how to output cell '%0' of type '%1'",
   [WittyErrorCode.NoSuchComponent]: "No such component '%0'",
   [WittyErrorCode.EmptyCommand]: "Empty command",
   [WittyErrorCode.InvalidClosingTag]: "Invalid closing tag '%0'",
@@ -224,7 +224,7 @@ export type WittyOptions = {
 export class WittyTemplate {
   private encoding: EncodingStyles;
   private parts: ParsedPart[] = [];
-  private printData = "";
+  private stringSource = "";
   private blockstack: ParsedPart[] = [];
   private startPositions: Map<string, number> = new Map();
   private errors: WittyErrorRec[] = [];
@@ -296,7 +296,7 @@ export class WittyTemplate {
     tempWitty.callStack = this.callStack;
     tempWitty.varStack = this.varStack;
     // Push a dummy part with the context
-    tempWitty.PushState(true, 0, 0, true, wittyData);
+    tempWitty.pushState(true, 0, 0, true, wittyData);
     // Run the function
     return await this.runWittyFunction(tempWitty.parts[0], func);
   }
@@ -462,13 +462,13 @@ export class WittyTemplate {
     const lastPart = this.parts[this.parts.length - 1];
 
     if (lastPart.contentLen == 0) {
-      lastPart.contentPos = this.printData.length;
+      lastPart.contentPos = this.stringSource.length;
       lastPart.lineNum = lineNum;
       lastPart.columnNum = columnNum;
     }
 
     ++lastPart.contentLen;
-    this.printData += char;
+    this.stringSource += char;
   }
 
   private parseParameter(lineNum: number, columnNum: number, lastEnd: number, limit: number, data: string, dataType: DataType | undefined, stopAtColon: boolean, required: boolean): { haveParam: boolean; param: string; dataType?: DataType; paramEnd: number } {
@@ -865,6 +865,29 @@ export class WittyTemplate {
   // Running Witty
   //
 
+  private async callWittyComponent(newInvocation: boolean, name: string, wittyData?: WittyData) {
+    const sep = name.lastIndexOf(":");
+    if (sep > 0) {
+      //Make sure we don't confuse a '::' for a component indicator
+      if (name[sep - 1] == ":")
+        throw new WittyErrorRec("", 0, 0, WittyErrorCode.MissingComponentName, name);
+      let resource = name.substring(0, sep);
+      name = name.substring(sep + 1);
+      if (resource.indexOf("::") < 0 && this.resource)
+        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
+      if (resource != this.resource) {
+        if (!this.loader)
+          throw new WittyError(`Cannot load library '${resource}': No resource loader available`, []);
+
+        const witty = await loadWittyTemplate(resource, { loader: this.loader });
+        witty.callStack = this.callStack;
+        witty.varStack = this.varStack;
+        return await witty.runComponentInternal(newInvocation, name, wittyData);
+      }
+    }
+    return await this.runComponentInternal(newInvocation, name, wittyData);
+  }
+
   protected async runComponentInternal(newInvocation: boolean, name: string, wittyData?: WittyData): Promise<string> {
     let start = 0, limit = this.parts.length;
     if (name != "") {
@@ -874,9 +897,9 @@ export class WittyTemplate {
       start = component!;
       limit = this.parts[component! - 1].cmdLimit;
     }
-    this.PushState(newInvocation, start, limit, true, wittyData);
+    this.pushState(newInvocation, start, limit, true, wittyData);
     try {
-      return await this.Run();
+      return await this.runStack();
     } catch (e) {
       if (e instanceof WittyErrorRec)
         throw new WittyRunError(e);
@@ -885,7 +908,7 @@ export class WittyTemplate {
     }
   }
 
-  private PushState(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyData, foreveryNonRA?: ParsedPart) {
+  private pushState(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyData, foreveryNonRA?: ParsedPart) {
     const depth = this.callStack.length ? this.callStack[this.callStack.length - 1].depth + (newInvocation ? 1 : 0) : 1;
     const hasVariable = wittyData != undefined && ((typeof wittyData == "object" && !Array.isArray(wittyData)) || foreveryNonRA != undefined);
 
@@ -902,7 +925,7 @@ export class WittyTemplate {
       this.varStack.push({ foreveryNonRA, wittyVar: wittyData });
   }
 
-  private async Run(): Promise<string> {
+  private async runStack(): Promise<string> {
     if (!this.callStack.length)
       throw new Error("Running on empty witty stack!");
 
@@ -931,25 +954,25 @@ export class WittyTemplate {
         case ParsedPartType.Content:
           {
             if (part.contentLen)
-              output += this.printData.substring(part.contentPos, part.contentPos + part.contentLen);
+              output += this.stringSource.substring(part.contentPos, part.contentPos + part.contentLen);
             ++elt.itr;
             break;
           }
         case ParsedPartType.Data:
           {
-            output += await this.PrintCell(part, wittyVar);
+            output += await this.getOutputCell(part, wittyVar);
             ++elt.itr;
             break;
           }
         case ParsedPartType.If:
         case ParsedPartType.ElseIf:
           {
-            const matches = this.EvaluateIf(part, wittyVar);
+            const matches = this.evaluateIf(part, wittyVar);
             if (matches != part.ifNot) {
               const recVar = typeof wittyVar == "object" && !Array.isArray(wittyVar) ? wittyVar : undefined;
-              this.PushState(false, elt.itr + 1, part.cmdLimit, false, recVar);
+              this.pushState(false, elt.itr + 1, part.cmdLimit, false, recVar);
             } else
-              this.PushState(false, part.cmdLimit, part.elseLimit, false, undefined);
+              this.pushState(false, part.cmdLimit, part.elseLimit, false, undefined);
             elt.itr = part.elseLimit;
             break;
           }
@@ -961,7 +984,7 @@ export class WittyTemplate {
           }
         case ParsedPartType.Embed:
           {
-            output += await this.Embed(part);
+            output += await this.embed(part);
             ++elt.itr;
             break;
           }
@@ -977,9 +1000,9 @@ export class WittyTemplate {
             const p3 = part.parameters.length > 3 ? await this.getTidParam(part, part.parameters[3]) : undefined;
             const p4 = part.parameters.length > 4 ? await this.getTidParam(part, part.parameters[4]) : undefined;
             if (isHtml)
-              output += this.printEncoded(getHTMLTid(tid, p1, p2, p3, p4), part.encoding);
+              output += this.encodeString(getHTMLTid(tid, p1, p2, p3, p4), part.encoding);
             else
-              output += this.printEncoded(getTid(tid, p1, p2, p3, p4), part.encoding);
+              output += this.encodeString(getTid(tid, p1, p2, p3, p4), part.encoding);
             ++elt.itr;
             break;
           }
@@ -999,7 +1022,7 @@ export class WittyTemplate {
               elt.foreveryEltLimit = -1;
             } else {
               const el = wittyVar[elt.foreveryEltNr];
-              this.PushState(false, elt.itr + 1, part.cmdLimit, false, wittyVar[elt.foreveryEltNr], typeof el != "object" ? part : undefined);
+              this.pushState(false, elt.itr + 1, part.cmdLimit, false, wittyVar[elt.foreveryEltNr], typeof el != "object" ? part : undefined);
             }
           }
       }
@@ -1007,11 +1030,11 @@ export class WittyTemplate {
     return output;
   }
 
-  private async Embed(part: ParsedPart): Promise<string> {
+  private async embed(part: ParsedPart): Promise<string> {
     return await this.callWittyComponent(false, part.content);
   }
 
-  private async PrintCell(part: ParsedPart, wittyVar?: WittyData | WittyData[]): Promise<string> {
+  private async getOutputCell(part: ParsedPart, wittyVar?: WittyData | WittyData[]): Promise<string> {
     switch (part.dataType) {
       case DataType.Seqnr:
         {
@@ -1025,9 +1048,9 @@ export class WittyTemplate {
           if (part.encoding == ContentEncoding.Json || part.encoding == ContentEncoding.JsonValue) {
             const temp = JSON.stringify(wittyVar);
             if (part.encoding == ContentEncoding.Json)
-              return this.printEncoded(temp, ContentEncoding.None);
+              return this.encodeString(temp, ContentEncoding.None);
             else
-              return this.printEncoded(temp, ContentEncoding.Value);
+              return this.encodeString(temp, ContentEncoding.Value);
           }
           switch (typeof wittyVar) {
             case "number":
@@ -1036,7 +1059,7 @@ export class WittyTemplate {
               }
             case "string":
               {
-                return this.printEncoded(wittyVar, part.encoding);
+                return this.encodeString(wittyVar, part.encoding);
               }
             case "function":
               {
@@ -1049,16 +1072,16 @@ export class WittyTemplate {
               } //fallthrough
             default:
               {
-                throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.CannotPrintCell, part.content, typeof wittyVar);
+                throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.CannotOutputCell, part.content, typeof wittyVar);
               }
           }
         }
       default:
-        throw new Error("Unexpected datatype in data print statement");
+        throw new Error("Unexpected datatype in cell output statement");
     }
   }
 
-  private printEncoded(value: string, encoding: ContentEncoding) {
+  private encodeString(value: string, encoding: ContentEncoding) {
     switch (encoding) {
       case ContentEncoding.None:
         {
@@ -1095,12 +1118,12 @@ export class WittyTemplate {
     const ctx: WittyCallContext = {
       get: (name: string) => this.findCellInStack(name),
       embed: (name: string, wdata?: WittyData) => this.callWittyComponent(false, name, wdata),
-      encode: async (wvar?: WittyData | WittyData[]) => await this.PrintCell(part, wvar)
+      encode: async (wvar?: WittyData | WittyData[]) => await this.getOutputCell(part, wvar)
     };
     return await func(ctx);
   }
 
-  private EvaluateIf(part: ParsedPart, wittyVar?: WittyData | WittyData[]): boolean {
+  private evaluateIf(part: ParsedPart, wittyVar?: WittyData | WittyData[]): boolean {
     if (part.dataType == DataType.Cell) {
       if (Array.isArray(wittyVar))
         return wittyVar.length > 0;
@@ -1169,29 +1192,6 @@ export class WittyTemplate {
         return this.callStack[i];
     }
     return undefined;
-  }
-
-  private async callWittyComponent(newInvocation: boolean, name: string, wittyData?: WittyData) {
-    const sep = name.lastIndexOf(":");
-    if (sep > 0) {
-      //Make sure we don't confuse a '::' for a component indicator
-      if (name[sep - 1] == ":")
-        throw new WittyErrorRec("", 0, 0, WittyErrorCode.MissingComponentName, name);
-      let resource = name.substring(0, sep);
-      name = name.substring(sep + 1);
-      if (resource.indexOf("::") < 0 && this.resource)
-        resource = path.join(...this.resource.split("/").slice(0, -1), resource);
-      if (resource != this.resource) {
-        if (!this.loader)
-          throw new WittyError(`Cannot load library '${resource}': No resource loader available`, []);
-
-        const witty = await loadWittyTemplate(resource, { loader: this.loader });
-        witty.callStack = this.callStack;
-        witty.varStack = this.varStack;
-        return await witty.runComponentInternal(newInvocation, name, wittyData);
-      }
-    }
-    return await this.runComponentInternal(newInvocation, name, wittyData);
   }
 }
 
