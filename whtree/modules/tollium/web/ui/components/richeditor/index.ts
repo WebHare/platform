@@ -3,16 +3,15 @@
 
 import * as dompack from 'dompack';
 import { RTE } from "./editor";
+import { RTESettings } from "./internal/types";
 import "./styling";
+import './richeditor.scss';
+import './internal/buttons.scss';
+import './internal/widgets.scss';
 
-export function createRTE(parentnode, options) {
-  if (dompack.debugflags.nextrte && window.__NextRTE)
-    return window.__NextRTE(parentnode, options);
+export { preloadCSS } from "./internal/styleloader";
+export { getTargetInfo } from "./internal/support";
+
+export function createRTE(parentnode: HTMLElement, options: RTESettings) {
   return new RTE(parentnode, options);
-}
-
-export function preloadCSS(urls) {
-  if (dompack.debugflags.nextrte && window.__NextRTEPreloadCSS)
-    return window.__NextRTEPreloadCSS(urls);
-  return new RTE.preloadCSS(urls);
 }

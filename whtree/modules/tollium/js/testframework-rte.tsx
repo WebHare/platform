@@ -80,11 +80,11 @@ export function getTextChild(node) {
 }
 
 export function RunIteratorOnRange2(win, range) {
-  var itr = new RangeIterator2(range);
-  var list = [];
+  let itr = new RangeIterator2(range);
+  let list = [];
 
   while (!itr.atEnd()) {
-    var name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
+    let name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
     list.push(name);
     itr.nextRecursive();
   }
@@ -122,62 +122,46 @@ export function getCompStyle(node, prop) {
 }
 
 export function testEqHTMLEx(unused, expect, node, locators) {
-  var actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
+  let actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
   test.eqHTML(expect, actual);
 }
 
-export function testEqSelHTMLEx(win, expect) {
-  testEqSelHTMLEx2(null, test.getWin().rte.getEditor(), expect);
-}
-
-export function testEqSelHTMLEx2(unused, rte, expect) {
-  var range = rte.getSelectionRange();
-  testEqHTMLEx(unused, expect, rte.getBody(), [range.start, range.end]);
-}
-
-export function getHTML(node) {
-  let rte = rteGetForNode(node);
-  if (!rte)
-    throw new Error("Cannot find RTE for the node");
-
-  let range = rte.getEditor().getSelectionRange();
-  let result = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, [range.start, range.end]);
-  return result.nodeType == 3 ? result.textContent : result.outerHTML;
+export function testEqSelHTMLEx(unused, expect) {
+  let rte = test.getWin().rte.getEditor();
+  let range = rte.getSelectionRange();
+  testEqHTMLEx(undefined, expect, rte.getBody(), [range.start, range.end]);
 }
 
 export function setRawStructuredContent(win, structuredhtml) {
   setStructuredContent(win, structuredhtml, true);
 }
 
-// copied from richeditor/index.es, so we won't have to import the whole editor
-function rteGetForNode(node) {
-  for (; node; node = node.parentNode)
-    if (node.whRTD)
-      return node.whRTD;
-  return null;
-}
+export function setStructuredContent(rte, structuredhtml, options) {
+  options = { raw: false, verify: true, ...(typeof options == "boolean" ? { raw: options } : options || {}) };
 
-export function setStructuredContent(win, structuredhtml, options) {
-  options = Object.assign({ raw: false, verify: true }, typeof options == "boolean" ? { raw: options } : options || {});
-  let rte = null;
-  if (win && win.rte) {
-    rte = win.rte.getEditor();
+  if (!rte) {
+    rte = test.getWin().rte;
+    if (!rte)
+      throw new Error(`test.getWin() has no rte`);
   }
-  else {
-    let node = win.closest('.wh-rtd__editor');
-    if (!node)
-      throw new Error("Cannot find .wh-rtd__editor");
-    rte = rteGetForNode(node).getEditor();
+  else if (rte && !rte.bodydiv) //doesn't look like a RTE...
+  {
+    rte = rte.rte;
+    if (!rte)
+      throw new Error(`Window passed as first argument has no rte`);
   }
+
+  if (!rte.setContentsHTML && rte.editrte)
+    rte = rte.editrte; //needed until the RTE is 'flattened', ie no editmodes
 
   if (options.raw)
     rte.setContentsHTMLRaw(structuredhtml);
   else
     rte.setContentsHTML(structuredhtml);
 
-  var locators = richdebug.unstructureDom(win, rte.getBody());
+  let locators = richdebug.unstructureDom(rte.getBody());
   if (options.verify)
-    testEqHTMLEx(win, structuredhtml, rte.getBody(), locators);
+    testEqHTMLEx(undefined, structuredhtml, rte.getBody(), locators);
 
   if (locators[0]) {
     if (locators[1])
@@ -192,18 +176,18 @@ export function setStructuredContent(win, structuredhtml, options) {
 }
 
 export function getRawHTMLTextArea(win) {
-  var ta = test.compByName('code').querySelector('textarea');
+  let ta = test.compByName('code').querySelector('textarea');
   return ta;
 }
 
 export function getRawHTMLCode(win) {
-  var code = getRawHTMLTextArea(win).value;
+  let code = getRawHTMLTextArea(win).value;
   code = code.split('\n').join('').split('</html>')[0]; //strip comments behind the </html>
   return code;
 }
 
 export function getRTE(win, toddname) {
-  var comp = test.compByName(toddname);
+  let comp = test.compByName(toddname);
   if (!comp)
     throw new Error("No such component with name '" + toddname + "'");
   return comp.propTodd.rte;
@@ -340,7 +324,7 @@ export async function paste(rte, props) {
   let types = Object.keys(props.typesdata);
   types.contains = key => types.includes(key);
 
-  props = Object.assign({ types }, props);
+  props = { types, ...props };
   let cpdata = new ClipBoardEmul(props);
 
   evt.initEvent('paste', true, true);

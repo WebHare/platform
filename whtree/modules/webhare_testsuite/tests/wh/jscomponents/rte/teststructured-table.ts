@@ -1,9 +1,9 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as dompack from 'dompack';
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
+import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 test.registerTests(
   [
@@ -78,7 +78,7 @@ test.registerTests(
 
       //Test editing a cell through the properties action
       const cellaction = await driver.executeProperties();
-      const targetinfo = driver.rte.getTargetInfo(cellaction.detail.actiontarget);
+      const targetinfo = rteapi.getTargetInfo(cellaction.detail.actiontarget);
 
       //inspect the targetinfo
       test.eq("cell", targetinfo.type);

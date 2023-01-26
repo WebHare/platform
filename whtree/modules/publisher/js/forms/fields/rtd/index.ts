@@ -58,16 +58,14 @@ export default class RTDField {
   }
   async setupRTE(node, rtdoptions) {
     if (!richeditor)
-      if (typeof System !== 'undefined')
-        richeditor = await System.import('@mod-tollium/web/ui/components/richeditor/editor');
-      else
-        richeditor = await import('@mod-tollium/web/ui/components/richeditor/editor');
+      richeditor = await import('@mod-tollium/web/ui/components/richeditor');
 
-    this.rte = new richeditor.RTE(node, {
+    this.rte = new richeditor.createRTE(node, {
       ...rtdoptions
       , enabled: this._getEnabled() //initial enabled state
     });
 
+    node.rte = this.rte; //we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
     node.addEventListener('wh:form-getvalue', evt => { evt.preventDefault(); evt.detail.deferred.resolve(this.rte.getValue()); });
     node.addEventListener('wh:form-setvalue', evt => { evt.preventDefault(); this.rte.setValue(evt.detail.value); });
     node.addEventListener('wh:richeditor-action', evt => this.executeAction(evt));

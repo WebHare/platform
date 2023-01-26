@@ -137,7 +137,7 @@ function undoMutationEvents(ancestor, records, recordrecords) {
   let redoObserver;
 
   if (recordrecords) {
-    redoObserver = new MutationObserver((records) => redoRecords.push(...records));
+    redoObserver = new MutationObserver((newrecords) => redoRecords.push(...newrecords));
     redoObserver.observe(ancestor,
       {
         childList: true,
@@ -235,7 +235,8 @@ class EditorUndoItem {
     this.postselection = selection.clone();
     this.finished = true;
 
-    this.onfinish && this.onfinish(this);
+    if (this.onfinish)
+      this.onfinish(this);
   }
 
   undo() {
@@ -340,7 +341,8 @@ export default class EditorBase {
     //if(this.options.log) console.log('apply saved state');
     //this.stateHasChanged(true);
 
-    this.onload && this.onload();
+    if (this.onload)
+      this.onload();
 
     this._mouseupcallback = e => this._gotMouseUp(e);
 
@@ -360,6 +362,18 @@ export default class EditorBase {
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
     //    this.stateHasChanged();
+  }
+
+  qS(selector) {
+    return this.getBody().querySelector(selector);
+  }
+
+  qSA(selector) {
+    return Array.from(this.getBody().querySelectorAll(selector));
+  }
+
+  isEditable() {
+    return this.rte._isActive();
   }
 
   setupUndoNode() {
@@ -433,10 +447,10 @@ export default class EditorBase {
   //
 
   /** Make sure a range doesn't contain 2 tds or straddles into another table
-      @param range
-      @return
-      @cell changed
-      @cell range
+      @param range -
+      @returns
+      \@cell changed
+      \@cell range
   */
   _constrainRangeCrossTDSelections(range) {
     let changed = false;
@@ -509,11 +523,6 @@ export default class EditorBase {
     this.setContentsHTML(htmlcode, { raw: true });
   }
 
-  toElement() {
-    console.error("toelement");
-    return this.bodydiv;
-  }
-
   /// Returns raw selection range (for use in tests)
   debugGetRawSelectionRange() {
     return this.selectionitf.getSelectionRange();
@@ -526,7 +535,7 @@ export default class EditorBase {
     if (range.end.element === bodynode && range.end.offset === 0) {
       const loc = range.end.clone();
       let modified = false;
-      while (true) {
+      for (; ;) {
         const node = loc.getPointedNode();
         if ((!node) || (node.nodeType !== 1) || node.isContentEditable)
           break;
@@ -544,7 +553,7 @@ export default class EditorBase {
   /** Returns a $wh.Rich.range with the current selection, constrained to body node/editelement. The returned
       range is limited to the contentbodynode, and descended into leaf nodes.
 
-      @return Copy of the current selection
+      @returns Copy of the current selection
   */
   getSelectionRange(options) {
     const skipnormalize = options && options.skipnormalize;
@@ -601,7 +610,7 @@ export default class EditorBase {
   }
 
   /** Changes the current selection to the passed range
-      @param range Range to select
+      @param range - Range to select
   */
   selectRange(range, options) {
     if (!domlevel.isNodeSplittable(range.start.element))
@@ -873,7 +882,7 @@ export default class EditorBase {
     if (dompack.debugflags.rte)
       console.warn('[rte] start recording undo item', item);
 
-    item.onfinish = (item) => this._updateUndoNodeForNewUndoItem(item);
+    item.onfinish = (finisheditem) => this._updateUndoNodeForNewUndoItem(finisheditem);
     return new UndoLock(item);
   }
 
@@ -995,9 +1004,9 @@ export default class EditorBase {
 
   /** If the after the locator, there is no visible content inside the block element where the locator is placed,
       insert a <br> (only when browser needs it, and that means IE)
-      @param locator
-      @param preservelocators
-      @param undoitem
+      @param locator -
+      @param preservelocators -
+      @param undoitem -
   */
   requireVisibleContentInBlockAfterLocator(locator, preservelocators, undoitem) {
     const blocknode = this.getBlockAtNode(locator.element).contentnode;
@@ -1179,7 +1188,7 @@ export default class EditorBase {
   }
 
   /** Free RTE needs to break blockquotes - the rest of the browser implementation is good enough
-      @return Whether browser implementation is to be used
+      @returns Whether browser implementation is to be used
   */
   executeHardEnter() {
     const range = this.getSelectionRange();
@@ -1294,7 +1303,8 @@ export default class EditorBase {
       //var range = sel.GetRange();
       const path = (new domlevel.Locator(range.getAncestorElement())).getPathFromAncestor(this.getBody());
 
-      for (var i = path.length - 1; i >= 0; --i)
+      let i;
+      for (i = path.length - 1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() == 'a') {
           this.selectRange(Range.withinNode(path[i]));
           break;
@@ -1435,8 +1445,8 @@ export default class EditorBase {
         item.getAsString(function(str) { console.warn(str); });
       else if (item.kind == "file") {
         const reader = new FileReader();
-        reader.onload = function(event) {
-          console.warn(event.target.result);
+        reader.onload = function(loadevent) {
+          console.warn(loadevent.target.result);
         };
         reader.readAsDataURL(item.getAsFile());
       }
@@ -1456,9 +1466,9 @@ export default class EditorBase {
 
   async handlePasteDone() {
     //Check for and remove hostile nodes
-    dompack.qSA(this.getBody(), "script,style,head").forEach(node => node.remove());
+    this.qSA("script,style,head").forEach(node => node.remove());
 
-    let imgs = qSA(this.getBody(), 'img');
+    let imgs = this.qSA('img');
     imgs = imgs.filter(img => !this.rte.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
     if (!imgs.length) //nothing to do
       return;
@@ -1598,7 +1608,8 @@ export default class EditorBase {
     // Update all table editors as tables' positions or contents may have changed
     this.updateTableEditors();
 
-    this.onstatechange && this.onstatechange({ firstcall: firstcall });
+    if (this.onstatechange)
+      this.onstatechange({ firstcall: firstcall });
   }
 
   getSelectionState(forceupdate) {
@@ -1969,9 +1980,10 @@ export default class EditorBase {
   }
 
   /** Check DOM structure
-      @param range Range (optional, if range not set, use (& restore!) current selection)
+      @param range - Range (optional, if range not set, use (& restore!) current selection)
   */
   checkDomStructure(range, preservelocators) {
+    // eslint-disable-current-line no-empty-function
   }
 
   tableEditorStateHasChanged() {
@@ -2009,7 +2021,7 @@ export default class EditorBase {
 
   _getEditableTables() {
     const retval = [];
-    for (const node of qSA(this.getBody(), "table")) {
+    for (const node of this.qSA("table")) {
       if (!node.isContentEditable)
         continue;
       const tableresizing = this._getResizingOptionsForTable(node);
@@ -2268,9 +2280,11 @@ export default class EditorBase {
   }
 
   _gotMouseClick(event) {
+    // eslint-disable-current-line no-empty-function
   }
+
   _gotDoubleClick(event) {
-    if (!event.target || !this.rte._isActive())
+    if (!event.target || !this.isEditable())
       return;
     //ADDME should there be more doubleclickable?
     if (event.target && event.target.nodeName.toUpperCase() == "IMG") { //double click on an image should open the action props
@@ -2352,6 +2366,7 @@ export default class EditorBase {
   }
   executeDefaultPropertiesAction(event) {
     if (event.target.nodeName == 'A') {
+      // eslint-disable-next-line no-alert
       const url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
       if (url)
         event.target.href = url;
@@ -2468,6 +2483,7 @@ export default class EditorBase {
         break;
       case 'a-href':
         {
+          // eslint-disable-next-line no-alert
           const url = prompt(this.GetLanguageText('prompt_hyperlink'), "http://");
           this.takeFocus();
           if (url)
@@ -2506,6 +2522,7 @@ export default class EditorBase {
         this._redo();
         break;
       case 'action-clearformatting':
+        // eslint-disable-next-line no-alert
         if (confirm(this.GetLanguageText("messages_confirmclearformatting")))
           this._clearFormatting();
         break;
@@ -2568,9 +2585,10 @@ export default class EditorBase {
   }
 
   /** Initialize a new table cell created by table-addrow/table-addcolumn
-      @param cellnode Table cell node (td or th)
+      @param cellnode - Table cell node (td or th)
   */
   _initNewTableCell(cellnode) {
+    // eslint-disable-current-line no-empty-function
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

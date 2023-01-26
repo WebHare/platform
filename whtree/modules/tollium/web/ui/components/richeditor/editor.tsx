@@ -7,9 +7,11 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as browser from "dompack/extra/browser";
 import * as preload from 'dompack/extra/preload';
+import * as styleloader from "./internal/styleloader";
 
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
+import * as support from './internal/support';
 import FreeEditor from './internal/free-editor';
 const TableEditor = require('./internal/tableeditor');
 import RTEToolbar from './internal/toolbar';
@@ -169,9 +171,9 @@ export class RTE {
 
     this.gotPageFrameLoad();
 
-    RTE.register(this);
+    styleloader.register(this);
     if (this.options.preloadedcss)
-      RTE.unregister(this.options.preloadedcss);
+      styleloader.unregister(this.options.preloadedcss);
     this.clearDirty();
   }
 
@@ -210,7 +212,7 @@ export class RTE {
     if (!selectionstate)
       return;
 
-    const actiontarget = selectionstate.propstarget ? this.getTargetInfo({ __node: selectionstate.propstarget }) : null;
+    const actiontarget = selectionstate.propstarget ? support.getTargetInfo({ __node: selectionstate.propstarget }) : null;
 
     const menuitems = [];
     for (const menuitem of
@@ -479,84 +481,6 @@ export class RTE {
     this._checkDirty();
   }
 
-  getTargetInfo(actiontarget) //provide JSON-safe information about the action target
-  {
-    const node = actiontarget.__node;
-    if (node.matches('a')) {
-      return {
-        type: 'hyperlink',
-        link: node.getAttribute("href"), //note that getAttribute gives the 'true' link but 'href' may give a resolved link
-        target: node.target || '',
-        __node: node
-      };
-    } else if (node.matches('td,th,caption')) {
-      const tablenode = node.closest('table');
-      const editor = TableEditor.getEditorForNode(tablenode);
-      let targetinfo = {
-        tablecaption: editor.getCaption(),
-        tablestyletag: tablenode.classList[0],
-        numrows: editor.numrows,
-        numcolumns: editor.numcolumns,
-        datacell: editor.locateFirstDataCell()
-      };
-
-      if (node.matches('td,th')) {
-        targetinfo = {
-          ...targetinfo,
-          type: 'cell',
-          cellstyletag: node.classList[1] || '',
-          __node: node
-        };
-      } else {
-        targetinfo = {
-          ...targetinfo,
-          type: 'table',
-          __node: tablenode
-        };
-      }
-      return targetinfo;
-    } else if (node.matches('caption')) {
-      const tablenode = node.closest('table');
-      const editor = TableEditor.getEditorForNode(tablenode);
-      return {
-        type: 'cell',
-        tablecaption: editor.getCaption(),
-        tablestyletag: tablenode.classList[0],
-        cellstyletag: node.classList[1] || '',
-        datacell: editor.locateFirstDataCell(),
-        numrows: editor.numrows,
-        numcolumns: editor.numcolumns,
-        __node: node
-      };
-    } else if (node.matches('.wh-rtd-embeddedobject')) {
-      return {
-        type: 'embeddedobject',
-        instanceref: node.dataset.instanceref,
-        __node: node
-      };
-    } else if (node.matches('img')) {
-      const align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
-      let linkinfo = null;
-      const link = node.closest('a');
-      if (link)
-        linkinfo = {
-          link: link.href,
-          target: link.target || ''
-        };
-
-      return {
-        type: 'img',
-        align: align,
-        width: parseInt(node.getAttribute("width")) || 0,
-        height: parseInt(node.getAttribute("height")) || 0,
-        alttext: node.alt,
-        link: linkinfo,
-        src: node.src,
-        __node: node
-      };
-    }
-    return null;
-  }
   updateTarget(actiontarget, settings) {
     const undolock = this.getEditor().getUndoLock();
 
@@ -667,7 +591,7 @@ export class RTE {
     this.disconnectCurrentEditor();
     this.cachededitors.forEach(editor => editor.destroy());
     this.toolbarnode.remove();
-    RTE.unregister(this);
+    styleloader.unregister(this);
   }
 
   getContainer() {
@@ -830,33 +754,13 @@ export class RTE {
   }
 
   setHTMLClass(htmlclass) {
-    this.__replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
+    support.replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
     this.options.htmlclass = htmlclass;
   }
 
   setBodyClass(bodyclass) {
-    this.__replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
+    support.replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
     this.options.bodyclass = bodyclass;
-  }
-
-  __replaceClasses(node, removeclass, addclass) {
-    removeclass = removeclass.trim();
-    addclass = addclass.trim();
-
-    if (removeclass != "") {
-      // remove old classes (to keep extra classes set later intact)
-      for (const cname of removeclass.split(" ")) {
-        if (cname != "")
-          node.classList.remove(cname);
-      }
-    }
-
-    if (addclass != "") {
-      for (const cname of addclass.split(" ")) {
-        if (cname != "")
-          node.classList.add(cname);
-      }
-    }
   }
 
   getPlainText(method, options = []) {
@@ -875,104 +779,3 @@ export class RTE {
     throw new Error("Unsupported method for plaintext conversion: " + method);
   }
 }
-
-RTE.addedcss = [];
-
-RTE.findCSSRule = function(addcss) {
-  for (let i = 0; i < RTE.addedcss.length; ++i)
-    if (RTE.addedcss[i].type == addcss.type && RTE.addedcss[i].src == addcss.src)
-      return { idx: i, rule: RTE.addedcss[i] };
-
-  return null;
-};
-
-/// Register this RTE in the list of active RTE's
-RTE.register = function(rte) {
-  if (dompack.debugflags.rte)
-    console.log('[wh.rich] Register new rte');
-
-  const rules = [];
-
-  //Add any missing stylesheets
-  for (let i = 0; i < rte.addcss.length; ++i) {
-    const rulepos = this.findCSSRule(rte.addcss[i]);
-    if (rulepos) {
-      rulepos.rule.rtes.push(rte);
-      rules.push(rulepos.rule);
-    } else {
-      var node, promise;
-      if (rte.addcss[i].type == 'link') {
-        node = dompack.create("link", {
-          href: rte.addcss[i].src,
-          rel: "stylesheet",
-          dataset: { whRtdTempstyle: "" }
-        });
-        promise = preload.promiseNewLinkNode(node);
-        promise.catch(() => null); // ignore rejections that aren't handled
-        qS('head,body').appendChild(node);
-      } else {
-        node = dompack.create("style", {
-          type: "text/css",
-          dataset: { whRtdTempstyle: "" }
-        });
-        qS('head,body').appendChild(node);
-        try {
-          node.innerHTML = rte.addcss[i].src;
-        } catch (e)//IE
-        {
-          node.styleSheet.cssText = rte.addcss[i].src;
-        }
-
-      }
-      const rule = {
-        type: rte.addcss[i].type,
-        src: rte.addcss[i].src,
-        node: node,
-        rtes: [rte],
-        promise
-      };
-      RTE.addedcss.push(rule);
-      rules.push(rule);
-    }
-    return rules;
-  }
-};
-
-/// Unregister this RTE
-RTE.unregister = function(rte) {
-  if (dompack.debugflags.rte)
-    console.log('[wh.rich] Unregister new rte');
-
-  for (let i = rte.addcss.length - 1; i >= 0; --i) {
-    const rulepos = this.findCSSRule(rte.addcss[i]);
-    if (rulepos) {
-      rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el != rte); //erase us from the list
-      if (!rulepos.rule.rtes.length) {
-        rulepos.rule.node.remove();
-        RTE.addedcss.splice(rulepos.idx, 1);
-      }
-    }
-  }
-};
-
-RTE.getForNode = function(node) {
-  return node.whRTD || null;
-};
-
-class PreloadedCSS {
-  constructor(links) {
-    this.addcss = links.map(href => ({ type: "link", src: href }));
-
-    const rules = RTE.register(this);
-    // Wait for all rule promises, return false if any gave back an error
-    this.loadpromise = Promise.all(rules.map(rule => rule.promise.then(r => true, e => false))).then(arr => arr.every(_ => _));
-  }
-
-  clone() {
-    return new PreloadedCSS(this.addcss.map(e => e.src));
-  }
-}
-
-RTE.preloadCSS = function(links) {
-  return new PreloadedCSS(links);
-};
