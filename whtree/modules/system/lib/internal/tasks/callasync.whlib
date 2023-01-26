@@ -53,7 +53,9 @@ ASYNC MACRO StartIPCNodeProcess()
     }
     proc->Start();
 
-    nodeipclink := AWAIT port->AsyncAccept(AddTimeToDate(15000, GetCurrentDateTime()));
+    /* This used to be 15sec, updating to 60sec as the 15sec mark is easy to miss on a very busy system (think bootstrapping CI builds)
+       and if something is so broken that callasync isn't coming to come up in 60 seconds, 15 seconds won't safe you either */
+    nodeipclink := AWAIT port->AsyncAccept(AddTimeToDate(60000, GetCurrentDateTime()));
     port->Close();
     port := DEFAULT OBJECT;
 
