@@ -12,8 +12,8 @@ export default class ParsedStructure {
     this.parseCellStyles(structure.cellstyles || []);
 
 
-    for (var i = 0; i < this.blockstyles.length; ++i) {
-      var style = this.blockstyles[i];
+    for (let i = 0; i < this.blockstyles.length; ++i) {
+      const style = this.blockstyles[i];
 
       if (style.listtype == 'ordered')
         this.defaultorderedliststyle = this.defaultorderedliststyle || style;
@@ -24,7 +24,7 @@ export default class ParsedStructure {
 
       if (style.istable) {
         if (style.tabledefaultblockstyle) {
-          let lookupstyle = this.getBlockStyleByTag(style.tabledefaultblockstyle);
+          const lookupstyle = this.getBlockStyleByTag(style.tabledefaultblockstyle);
           if (!lookupstyle)
             throw Error("Block style named by table 'defaultstyle' does not exist in structure");
           style.tabledefaultblockstyle = lookupstyle;
@@ -44,16 +44,16 @@ export default class ParsedStructure {
 
   parseCellStyles(cellstyles) {
     this.cellstyles = [];
-    for (let style of cellstyles) {
+    for (const style of cellstyles) {
       this.cellstyles.push({
-        tag: style.tag.toLowerCase()
-        , def: style
+        tag: style.tag.toLowerCase(),
+        def: style
       });
     }
   }
 
   getClassStyleForCell(cellnode) {
-    for (let style of this.cellstyles)
+    for (const style of this.cellstyles)
       if (style.tag && cellnode.classList && cellnode.classList.contains(style.tag))
         return style.tag;
     return '';
@@ -63,20 +63,20 @@ export default class ParsedStructure {
     this.blockstyles = [];
 
     for (let i = 0; i < inblockstyles.length; ++i) {
-      var blockstyle = inblockstyles[i];
-      var classname = blockstyle.tag.toLowerCase();
-      var containertag = blockstyle.containertag.toLowerCase();
+      const blockstyle = inblockstyles[i];
+      const classname = blockstyle.tag.toLowerCase();
+      const containertag = blockstyle.containertag.toLowerCase();
 
-      let style = {
-        classname: classname
-        , def: blockstyle
-        , tag: blockstyle.tag
-        , istable: blockstyle.type == "table"
-        , tabledefaultblockstyle: null
-        , tableresizing: []
-        , islist: ['ul', 'ol'].includes(containertag)
-        , listtype: containertag == 'ul' ? 'unordered' : containertag == 'ol' ? 'ordered' : ''
-        , importfrom: []
+      const style = {
+        classname: classname,
+        def: blockstyle,
+        tag: blockstyle.tag,
+        istable: blockstyle.type == "table",
+        tabledefaultblockstyle: null,
+        tableresizing: [],
+        islist: ['ul', 'ol'].includes(containertag),
+        listtype: containertag == 'ul' ? 'unordered' : containertag == 'ol' ? 'ordered' : '',
+        importfrom: []
       };
 
       if (blockstyle.importfrom)
@@ -94,7 +94,7 @@ export default class ParsedStructure {
     }
 
     for (let i = 0; i < this.blockstyles.length; ++i) {
-      let style = this.blockstyles[i];
+      const style = this.blockstyles[i];
       style.nextblockstyle = style.def.nextblockstyle && this.getBlockStyleByTag(style.def.nextblockstyle);
       if (!style.nextblockstyle && style.islist)
         style.nextblockstyle = style;
@@ -102,14 +102,14 @@ export default class ParsedStructure {
   }
 
   getBlockStyleByTag(tagname) {
-    for (var i = 0; i < this.blockstyles.length; ++i)
+    for (let i = 0; i < this.blockstyles.length; ++i)
       if (this.blockstyles[i].tag.toUpperCase() == tagname.toUpperCase())
         return this.blockstyles[i];
     return null;
   }
 
   lookupTableStyle(tablenode) {
-    var style = this.getBlockStyleByTag(tablenode.className.split(' ')[0]);
+    const style = this.getBlockStyleByTag(tablenode.className.split(' ')[0]);
     if (style && style.istable)
       return style;
     return this.defaulttablestyle;

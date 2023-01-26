@@ -26,7 +26,7 @@ function getInlineElementPreview(innernode) //mimick widgtpreview.witty
     </div>).outerHTML;
 }
 
-var escapeEl;
+let escapeEl;
 function escapeHTML(html) {
   escapeEl = escapeEl || document.createElement('textarea');
   escapeEl.textContent = html;
@@ -37,12 +37,12 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
-    }
+    },
 
-    , {
-      name: 'clean-embeddedobject'
-      , test: function(doc, win) {
-        var rte = test.getWin().rte.getEditor();
+    {
+      name: 'clean-embeddedobject',
+      test: function(doc, win) {
+        const rte = test.getWin().rte.getEditor();
 
         //processing embedded object
         rte.setContentsHTML('<h1 class="heading1">Kop</h1>'
@@ -101,24 +101,24 @@ test.registerTests(
         console.error("--SetContentsHTML");
         test.getWin().rte.setValue('<html><body><div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="x8ywN3uVVV7vLJ64BkQCRQ" data-innerhtml-contents="&#60;div style=&#34;height:110px&#34;&#62;&#60;img class=&#34;wh-rtd-color-on-hover&#34; src=&#34;/.system/dl/ic~AQJzxwQAE6MtAzA5CwA-MYcDBwHBeABaAIA6SOg&#34; style=&#34;position:absolute;left:10px;top:10px;border-radius:5px;&#34; width=&#34;120&#34; height=&#34;90&#34; /&#62;&#60;div style=&#34;position:absolute;left:140px;right:60px;top:10px;bottom:10px;overflow:hidden&#34;&#62;&#60;div style=&#34;font-weight:bold;font-size:120%&#34;&#62;&#38;#20027;&#38;#20154;&#38;#29992;&#38;#36965;&#38;#25511;&#38;#36710;&#38;#25226;&#38;#19968;&#38;#32676;&#38;#23567;&#38;#29454;&#38;#29356;&#38;#29609;&#38;#22351;&#38;#20102;&#38;#65292;&#38;#30475;&#38;#30528;&#38;#25105;&#38;#37117;&#38;#24819;&#38;#26469;&#38;#19968;&#38;#20010;&#60;/div&#62;&#60;div style=&#34;margin-bottom:5px&#34;&#62;03-08-2014 1:13&#60;/div&#62;@&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#12298;&#38;#27704;&#38;#21033;(&#38;#28145;&#38;#22323;)&#38;#29305;&#38;#31181;&#38;#21360;&#38;#21047;&#38;#26377;&#38;#38480;&#38;#20844;&#38;#21496;&#38;#12299;&#38;#25105;&#38;#20204;&#38;#19981;&#38;#29983;&#38;#20135;&#38;#35270;&#38;#39057;&#38;#65292;&#38;#25105;&#38;#20204;&#38;#21482;&#38;#26159;&#38;#22269;&#38;#22806;youtube&#38;#23448;&#38;#32593;&#38;#35270;&#38;#39057;&#38;#30340;&#38;#25644;&#38;#36816;&#38;#24037;&#38;#65292;&#38;#27599;&#38;#22825;&#38;#20026;&#38;#20320;&#38;#26356;&#38;#26032;&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#35805;&#38;#39064;&#38;#12290;&#38;#33391;&#38;#24515;&#38;#20986;&#38;#21697;&#38;#12290;&#38;#27426;&#38;#36814;&#38;#35746;&#38;#38405;&#38;#26412;&#38;#20154;&#38;#20248;&#38;#37239;&#38;#31354;&#38;#38388;&#38;#65281;@&#38;#22269;&#38;#22806;&#38;#31934;&#38;#24425;&#38;#35270;&#38;#39057;&#38;#27714;&#38;#21508;&#38;#20301;&#38;#32769;&#38;#22823;&#38;#28857;&#38;#20010;&#38;#36190;&#38;#65281;&#38;#35874;&#38;#35874;&#60;/div&#62;&#60;img src=&#34;/tollium_todd.res/socialite/img/youku.png&#34; alt=&#34;&#34; class=&#34;wh-rtd-color-on-hover&#34; style=&#34;position:absolute; bottom:5px; right:5px&#34; /&#62;&#60;/div&#62;"></div></body></html>');
 
-        var body = rte.getBody();
+        const body = rte.getBody();
         test.eq(1, body.childNodes.length);
         test.eqHTML('<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="x8ywN3uVVV7vLJ64BkQCRQ"></div>', test.getWin().rte.getValue());
       }
-    }
+    },
 
     // Now test creating one from scratch
-    , {
-      name: 'create-embeddedobject'
-      , test: async function(doc, win) {
-        var rte = test.getWin().rte.getEditor();
+    {
+      name: 'create-embeddedobject',
+      test: async function(doc, win) {
+        const rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' }));
 
-        var body = rte.getBody();
+        const body = rte.getBody();
         test.eq(3, body.childNodes.length);
         test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>', body.childNodes[0].outerHTML);
         test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>', body.childNodes[2].outerHTML);
@@ -126,10 +126,10 @@ test.registerTests(
         test.assert(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
         test.assert(rte.getSelectionState().propstarget);
       }
-    }
+    },
 
-    , "Test block object selection"
-    , async function() {
+    "Test block object selection",
+    async function() {
       const rte = test.getWin().rte.getEditor();
       const body = rte.getBody();
 
@@ -138,20 +138,20 @@ test.registerTests(
 
       //open context menu
       test.click(body.childNodes[1], { button: 2 });
-      let propsevent = rtetest.getNextAction();
+      const propsevent = rtetest.getNextAction();
       test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Properties")[0]);
 
-      let result = await propsevent;
+      const result = await propsevent;
       test.eq("action-properties", result.detail.action);
       test.eq(body.childNodes[1], result.detail.actiontargetinfo.__node);
-    }
+    },
 
-    , {
-      name: 'embeddedobject-contentsignore'
-      , test: function(doc, win) {
-        var rte = test.getWin().rte.getEditor();
+    {
+      name: 'embeddedobject-contentsignore',
+      test: function(doc, win) {
+        const rte = test.getWin().rte.getEditor();
 
-        var href_contents = escapeHTML(
+        const href_contents = escapeHTML(
           "x<a href='example.com'>link</a>y" +
           "<ul><li>1</li><li>2<ul><li>2.1</li></ul></li></ul>");
 
@@ -165,20 +165,20 @@ test.registerTests(
         // Selection should not pick up the <a> in the embedded object
         test.eq("DIV", rte.getSelectionState().propstarget.tagName);
       }
-    }
+    },
 
     // Now test creating one from scratch
-    , {
-      name: 'create-inlineobject'
-      , test: async function(doc, win) {
-        var rte = test.getWin().rte.getEditor();
+    {
+      name: 'create-inlineobject',
+      test: async function(doc, win) {
+        const rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' }));
 
-        var body = rte.getBody();
+        const body = rte.getBody();
         test.eq(1, body.childNodes.length);
         test.eq(3, body.childNodes[0].childNodes.length);
         test.eq('Dit is een paragraaf tekst waar ', body.childNodes[0].childNodes[0].textContent);
@@ -193,12 +193,12 @@ test.registerTests(
         test.eq('Dit is een paragraaf tekst waar ', body.childNodes[0].childNodes[0].textContent);
         test.eq(' HIER een object ingevoegd gaat worden', body.childNodes[0].childNodes[2].textContent);
       }
-    }
+    },
 
-    , "Should not be able to delete inline objects"
-    , async function() {
-      var rte = test.getWin().rte.getEditor();
-      var body = rte.getBody();
+    "Should not be able to delete inline objects",
+    async function() {
+      const rte = test.getWin().rte.getEditor();
+      const body = rte.getBody();
 
       //position cursor one cursor before before the inline obj. Deleting here caused the inline object to be ripped apart
       rtetest.setRTESelection(null, rte, { startContainer: body.childNodes[0].firstChild, startOffset: 'Dit is een paragraaf tekst waar '.length - 1 });
@@ -206,10 +206,10 @@ test.registerTests(
       test.eq('"Dit is een paragraaf tekst waar(*0*)(*1*)"', rtetest.getHTML(body.childNodes[0].childNodes[0]));
       test.assert(body.childNodes[0].childNodes[1].matches(".wh-rtd-embeddedobject--inline")); //should not be killed
       test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
-    }
+    },
 
-    , "Expansion of previews when started in disabled mode"
-    , async function() {
+    "Expansion of previews when started in disabled mode",
+    async function() {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
 
       //processing embedded object
@@ -221,10 +221,10 @@ test.registerTests(
         + generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
         + '<p class="normal">ondertekst</p>'
         , test.getWin().rte.getValue());
-    }
+    },
 
-    , "Cursor positioning after last inline object in paragraph"
-    , async function() {
+    "Cursor positioning after last inline object in paragraph",
+    async function() {
       // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
       // fixed by added a bogus br after it
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');

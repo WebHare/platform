@@ -12,8 +12,7 @@ export default class FreeEditor extends EditorBase {
     try {
       // execCommand should be called on the document, not the editable area (contenteditable/designmode)
       this.bodydiv.ownerDocument.execCommand(command, p1, p2);
-    }
-    catch (e) {
+    } catch (e) {
       if (this.options.log)
         console.log('ExecCommand exception', e);
       return false;
@@ -45,7 +44,7 @@ export default class FreeEditor extends EditorBase {
 
   //ADDME: Use our own function instead of having the browser make something up
   _setAlignment(align) {
-    var cmd = '';
+    let cmd = '';
     switch (align) {
       case 'center':
         cmd = 'justifycenter';
@@ -65,12 +64,12 @@ export default class FreeEditor extends EditorBase {
   }
 
   getAvailableListActions(range) {
-    let insidelist = range.getAncestorClosest("ul,ol", this.getBody());
-    let havelist = range.querySelectorAll("ul,ol,li").length;
+    const insidelist = range.getAncestorClosest("ul,ol", this.getBody());
+    const havelist = range.querySelectorAll("ul,ol,li").length;
 
     return {
-      canincrease: insidelist || havelist
-      , candecrease: insidelist || havelist
+      canincrease: insidelist || havelist,
+      candecrease: insidelist || havelist
     };
   }
 }

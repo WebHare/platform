@@ -11,7 +11,7 @@ import * as preload from 'dompack/extra/preload';
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
 import FreeEditor from './internal/free-editor';
-var TableEditor = require('./internal/tableeditor');
+const TableEditor = require('./internal/tableeditor');
 import RTEToolbar from './internal/toolbar';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import getTid from "@mod-tollium/js/gettid";
@@ -20,9 +20,11 @@ import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
 export function getDefaultToolbarLayout() {
-  return [["p-class", ["ul", "ol", "li-decrease-level", "li-increase-level"], ["p-align-left", "p-align-right", "p-align-center", "p-align-justify"], ["action-spellcheck", "action-search", "action-showformatting", "action-properties"]
-    , ["b", "i", "u", "strike"], ["sub", "sup"], ["a-href"], ["img", "object-video", "object-insert", "table", "action-symbol"], ["action-clearformatting"]
-  ]
+  return [
+    [
+      "p-class", ["ul", "ol", "li-decrease-level", "li-increase-level"], ["p-align-left", "p-align-right", "p-align-center", "p-align-justify"], ["action-spellcheck", "action-search", "action-showformatting", "action-properties"],
+      ["b", "i", "u", "strike"], ["sub", "sup"], ["a-href"], ["img", "object-video", "object-insert", "table", "action-symbol"], ["action-clearformatting"]
+    ]
   ];
 }
 
@@ -55,31 +57,31 @@ export class RTE {
     this.knownimages = [];
 
     this.options = {
-      structure: null
-      , allowtags: null
-      , hidebuttons: []
-      , content: ''
-      , enabled: true
-      , readonly: false
-      , log: false
-      , selfedit: false
-      , pageedit: false
+      structure: null,
+      allowtags: null,
+      hidebuttons: [],
+      content: '',
+      enabled: true,
+      readonly: false,
+      log: false,
+      selfedit: false,
+      pageedit: false,
       //, actionhandler: null
-      , cssinstance: null
-      , csslinks: null
-      , csscode: ''
-      , preloadedcss: null
-      , breakupnodes: []
-      , htmlclass: ''
-      , bodyclass: ''
+      cssinstance: null,
+      csslinks: null,
+      csscode: '',
+      preloadedcss: null,
+      breakupnodes: [],
+      htmlclass: '',
+      bodyclass: '',
 
-      , contentarea: true //display a content area if possible
-      , editembeddedobjects: true
-      , allowundo: true
-      , margins: 'compact'
-      , propertiesaction: false //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
-      , toolbarlayout: null
-      , ...options
+      contentarea: true, //display a content area if possible
+      editembeddedobjects: true,
+      allowundo: true,
+      margins: 'compact',
+      propertiesaction: false, //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
+      toolbarlayout: null,
+      ...options
     };
 
     if (options && options.toolbarnode)
@@ -110,13 +112,13 @@ export class RTE {
 
       //Create two divs inside the container, which will play the role of HTML and BODY
       this.bodydiv = dompack.create("div", {
-        className: "wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode " + this.options.bodyclass
-        , innerHTML: this.container.innerHTML
-        , on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) }
+        className: "wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode " + this.options.bodyclass,
+        innerHTML: this.container.innerHTML,
+        on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) }
       });
       this.htmldiv = dompack.create("div", {
-        className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass
-        , childNodes: [this.bodydiv]
+        className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass,
+        childNodes: [this.bodydiv]
       });
       if (this.options.structure)
         this.container.classList.add("wh-rtd--structured");
@@ -133,8 +135,7 @@ export class RTE {
 
       this.scrollmonitor = new scrollmonitor.Monitor(this.container);
       scrollmonitor.saveScrollPosition(this.container);
-    }
-    else {
+    } else {
       this.htmldiv = container.ownerDocument.documentElement;
       this.bodydiv = container.ownerDocument.body;
     }
@@ -144,16 +145,15 @@ export class RTE {
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
 
     if (this.toolbarnode) {
-      var toolbaropts = {
-        hidebuttons: this.options.hidebuttons
-        , allowtags: this.options.allowtags
-        , layout: this.options.toolbarlayout || getDefaultToolbarLayout()
+      const toolbaropts = {
+        hidebuttons: this.options.hidebuttons,
+        allowtags: this.options.allowtags,
+        layout: this.options.toolbarlayout || getDefaultToolbarLayout()
       };
 
       if (this.options.structure) {
         toolbaropts.hidebuttons.push('action-clearformatting');
-      }
-      else {
+      } else {
         toolbaropts.hidebuttons.push('p-class', 'action-showformatting', 'object-insert', 'object-video', 'table');
         toolbaropts.compact = true;
       }
@@ -185,8 +185,8 @@ export class RTE {
     //take focus but save scroll position  (ADDME for non-body nodes too!)
     evt.preventDefault();
 
-    let scrollleft = evt.target.parentNode.scrollLeft;
-    let scrolltop = evt.target.parentNode.scrollTop;
+    const scrollleft = evt.target.parentNode.scrollLeft;
+    const scrolltop = evt.target.parentNode.scrollTop;
 
     evt.target.focus(); //on chrome, focus resets scroll position. https://bugs.chromium.org/p/chromium/issues/detail?id=75072
 
@@ -206,46 +206,47 @@ export class RTE {
     if (this.editrte)
       this.editrte._gotSelectionChange(null); //Fixes Chrome's weird cross-td-boundary selection right click
 
-    let selectionstate = this.getSelectionState(true);
+    const selectionstate = this.getSelectionState(true);
     if (!selectionstate)
       return;
 
-    let actiontarget = selectionstate.propstarget ? this.getTargetInfo({ __node: selectionstate.propstarget }) : null;
+    const actiontarget = selectionstate.propstarget ? this.getTargetInfo({ __node: selectionstate.propstarget }) : null;
 
-    let menuitems = [];
-    for (let menuitem of
-      [{ action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
-        , { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") }
-        , null
-        , { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") }
-        , { action: "table-addcolumn-after", title: getTid("tollium:components.rte.table_addcolumn_after") }
-        , null
-        , { action: "table-deleterow", title: getTid("tollium:components.rte.table_deleterow") }
-        , { action: "table-deletecolumn", title: getTid("tollium:components.rte.table_deletecolumn") }
-        , null
-        , { action: "table-addpara-before", title: getTid("tollium:components.rte.table_addpara_before") }
-        , { action: "table-addpara-after", title: getTid("tollium:components.rte.table_addpara_after") }
-        , null
-        , { action: "table-mergeright", title: getTid("tollium:components.rte.table_mergeright") }
-        , { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown") }
-        , { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols") }
-        , { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows") }
-        , null
-        , ...(this.options.propertiesaction ? [{ action: "action-properties", title: getTid("tollium:components.rte.properties") }] : [])
+    const menuitems = [];
+    for (const menuitem of
+      [
+        { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") },
+        { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") },
+        null,
+        { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") },
+        { action: "table-addcolumn-after", title: getTid("tollium:components.rte.table_addcolumn_after") },
+        null,
+        { action: "table-deleterow", title: getTid("tollium:components.rte.table_deleterow") },
+        { action: "table-deletecolumn", title: getTid("tollium:components.rte.table_deletecolumn") },
+        null,
+        { action: "table-addpara-before", title: getTid("tollium:components.rte.table_addpara_before") },
+        { action: "table-addpara-after", title: getTid("tollium:components.rte.table_addpara_after") },
+        null,
+        { action: "table-mergeright", title: getTid("tollium:components.rte.table_mergeright") },
+        { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown") },
+        { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols") },
+        { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows") },
+        null,
+        ...(this.options.propertiesaction ? [{ action: "action-properties", title: getTid("tollium:components.rte.properties") }] : [])
       ]) {
       if (!menuitem || selectionstate.actionstate[menuitem.action].available)
         menuitems.push(menuitem);
     }
 
     if (!dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-contextmenu", {
-      bubbles: true
-      , cancelable: true
-      , detail: { actiontarget, menuitems }
+      bubbles: true,
+      cancelable: true,
+      detail: { actiontarget, menuitems }
     })) {
       return;
     }
 
-    let contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
+    const contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
       {menuitems.map(item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />)}
     </ul>;
 
@@ -254,7 +255,7 @@ export class RTE {
 
   _activateRTDMenuItem(evt, actiontarget) {
     dompack.stop(evt);
-    let item = evt.target.closest('li');
+    const item = evt.target.closest('li');
     this.executeAction(item.dataset.action, actiontarget);
   }
 
@@ -301,16 +302,16 @@ export class RTE {
   }
 
   createEditor(edittarget) {
-    var editoropts = {
-      log: this.options.log
-      , designmode: false
-      , eventnode: this.container
-      , breakupnodes: this.options.breakupnodes
-      , editembeddedobjects: this.options.editembeddedobjects
-      , allowundo: this.options.structure && (!!this.options.undoholder || this.options.allowundo)
+    const editoropts = {
+      log: this.options.log,
+      designmode: false,
+      eventnode: this.container,
+      breakupnodes: this.options.breakupnodes,
+      editembeddedobjects: this.options.editembeddedobjects,
+      allowundo: this.options.structure && (Boolean(this.options.undoholder) || this.options.allowundo)
     };
 
-    var editor;
+    let editor;
     if (this.options.structure) {
       /*
       NOTE: contenteditable makes the node focusable, however the wh-rtd__undoholder is a hidden node we don't want to be focused.
@@ -324,16 +325,14 @@ export class RTE {
         undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         //dompack.create('div', { contentEditable: true, style: {opacity:1}});
         this.options.undoholder.appendChild(undonode);
-      }
-      else if (this.options.allowundo) {
+      } else if (this.options.allowundo) {
         undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         this.container.appendChild(undonode);
       }
 
       editoropts.structure = this.options.structure; //FIXME limit structure to what is needed here
       editor = new StructuredEditor(edittarget, this, editoropts, undonode);
-    }
-    else {
+    } else {
       editoropts.allowtags = this.options.allowtags;
       editoropts.allowundo = false;
       editor = new FreeEditor(edittarget, this, editoropts);
@@ -390,7 +389,7 @@ export class RTE {
   _gotClick(event) {
     dompack.stop(event); //no click should ever escape an RTE area
 
-    let linkel = event.target.closest('a[href]');
+    const linkel = event.target.closest('a[href]');
     if (linkel
       && linkel.href.match(/^https?:/)
       && (!this._isActive() || KeyboardHandler.hasNativeEventMultiSelectKey(event))) {
@@ -402,16 +401,15 @@ export class RTE {
     if (!this._isActive())
       return;
 
-    let editnode = this.getEditNode(event.target);
+    const editnode = this.getEditNode(event.target);
     if (this.editnode != editnode) {
       if (this.editnode)
         this.disconnectCurrentEditor();
       if (editnode)
         this.connectEditor(editnode);
       this._fireStateChange();
-    }
-    else if (editnode) {
-      let lastelt = editnode.lastElementChild;
+    } else if (editnode) {
+      const lastelt = editnode.lastElementChild;
       if (!lastelt || event.clientY > lastelt.getBoundingClientRect().bottom)
         this.editrte.requireBottomParagraph();
     }
@@ -425,7 +423,7 @@ export class RTE {
   }
 
   _updateEnablingAttributes() {
-    let rtdstatenode = this.stylescopenode || this.htmldiv;
+    const rtdstatenode = this.stylescopenode || this.htmldiv;
     rtdstatenode.classList.toggle('wh-rtd--enabled', this._isActive());
     rtdstatenode.classList.toggle('wh-rtd--disabled', !this.options.enabled);
     rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
@@ -483,83 +481,78 @@ export class RTE {
 
   getTargetInfo(actiontarget) //provide JSON-safe information about the action target
   {
-    let node = actiontarget.__node;
+    const node = actiontarget.__node;
     if (node.matches('a')) {
       return {
-        type: 'hyperlink'
-        , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
-        , target: node.target || ''
-        , __node: node
+        type: 'hyperlink',
+        link: node.getAttribute("href"), //note that getAttribute gives the 'true' link but 'href' may give a resolved link
+        target: node.target || '',
+        __node: node
       };
-    }
-    else if (node.matches('td,th,caption')) {
-      let tablenode = node.closest('table');
-      let editor = TableEditor.getEditorForNode(tablenode);
+    } else if (node.matches('td,th,caption')) {
+      const tablenode = node.closest('table');
+      const editor = TableEditor.getEditorForNode(tablenode);
       let targetinfo = {
-        tablecaption: editor.getCaption()
-        , tablestyletag: tablenode.classList[0]
-        , numrows: editor.numrows
-        , numcolumns: editor.numcolumns
-        , datacell: editor.locateFirstDataCell()
+        tablecaption: editor.getCaption(),
+        tablestyletag: tablenode.classList[0],
+        numrows: editor.numrows,
+        numcolumns: editor.numcolumns,
+        datacell: editor.locateFirstDataCell()
       };
 
       if (node.matches('td,th')) {
         targetinfo = {
-          ...targetinfo
-          , type: 'cell'
-          , cellstyletag: node.classList[1] || ''
-          , __node: node
+          ...targetinfo,
+          type: 'cell',
+          cellstyletag: node.classList[1] || '',
+          __node: node
         };
-      }
-      else {
+      } else {
         targetinfo = {
-          ...targetinfo
-          , type: 'table'
-          , __node: tablenode
+          ...targetinfo,
+          type: 'table',
+          __node: tablenode
         };
       }
       return targetinfo;
-    }
-    else if (node.matches('caption')) {
-      let tablenode = node.closest('table');
-      let editor = TableEditor.getEditorForNode(tablenode);
+    } else if (node.matches('caption')) {
+      const tablenode = node.closest('table');
+      const editor = TableEditor.getEditorForNode(tablenode);
       return {
-        type: 'cell'
-        , tablecaption: editor.getCaption()
-        , tablestyletag: tablenode.classList[0]
-        , cellstyletag: node.classList[1] || ''
-        , datacell: editor.locateFirstDataCell()
-        , numrows: editor.numrows
-        , numcolumns: editor.numcolumns
-        , __node: node
+        type: 'cell',
+        tablecaption: editor.getCaption(),
+        tablestyletag: tablenode.classList[0],
+        cellstyletag: node.classList[1] || '',
+        datacell: editor.locateFirstDataCell(),
+        numrows: editor.numrows,
+        numcolumns: editor.numcolumns,
+        __node: node
       };
-    }
-    else if (node.matches('.wh-rtd-embeddedobject')) {
+    } else if (node.matches('.wh-rtd-embeddedobject')) {
       return {
-        type: 'embeddedobject'
-        , instanceref: node.dataset.instanceref
-        , __node: node
+        type: 'embeddedobject',
+        instanceref: node.dataset.instanceref,
+        __node: node
       };
-    }
-    else if (node.matches('img')) {
-      let align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
+    } else if (node.matches('img')) {
+      const align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
       let linkinfo = null;
-      let link = node.closest('a');
+      const link = node.closest('a');
       if (link)
         linkinfo = {
-          link: link.href
-          , target: link.target || ''
+          link: link.href,
+          target: link.target || ''
         };
 
       return {
-        type: 'img'
-        , align: align
-        , width: parseInt(node.getAttribute("width")) || 0
-        , height: parseInt(node.getAttribute("height")) || 0
-        , alttext: node.alt
-        , link: linkinfo
-        , src: node.src
-        , __node: node
+        type: 'img',
+        align: align,
+        width: parseInt(node.getAttribute("width")) || 0,
+        height: parseInt(node.getAttribute("height")) || 0,
+        alttext: node.alt,
+        link: linkinfo,
+        src: node.src,
+        __node: node
       };
     }
     return null;
@@ -567,7 +560,7 @@ export class RTE {
   updateTarget(actiontarget, settings) {
     const undolock = this.getEditor().getUndoLock();
 
-    let node = actiontarget.__node;
+    const node = actiontarget.__node;
     if (node.matches('a'))
       this._updateHyperlink(actiontarget.__node, settings);
     else if (node.matches('td,th'))
@@ -580,14 +573,12 @@ export class RTE {
         if (settings) {
           if (settings.type == 'replace') {
             this.getEditor().updateEmbeddedObject(node, settings.data);
-          }
-          else if (settings.type == 'remove') {
+          } else if (settings.type == 'remove') {
             this.getEditor().removeEmbeddedObject(node);
           }
         }
       }
-    }
-    else if (node.matches('img')) {
+    } else if (node.matches('img')) {
       if (settings.width)
         node.setAttribute("width", settings.width);
       else
@@ -601,13 +592,12 @@ export class RTE {
       node.alt = settings.alttext;
       node.className = "wh-rtd__img" + (settings.align == 'left' ? " wh-rtd__img--floatleft" : settings.align == "right" ? " wh-rtd__img--floatright" : "");
 
-      var link = node.closest('A');
+      let link = node.closest('A');
       if (link && !settings.link) //remove the hyperlink
       {
         link.replaceWith(node);
         this.editrte.selectNodeOuter(node);
-      }
-      else if (settings.link) //add or update a hyperlink
+      } else if (settings.link) //add or update a hyperlink
       {
         if (!link) {
           //replace the image with the link
@@ -620,8 +610,7 @@ export class RTE {
         link.href = settings.link.link;
         link.target = settings.link.target || '';
       }
-    }
-    else {
+    } else {
       console.error(node, settings);
       throw new Error("Did not understand action target");
     }
@@ -635,8 +624,7 @@ export class RTE {
     {
       this.editrte.selectNodeOuter(node);
       this.editrte.removeHyperlink();
-    }
-    else {
+    } else {
       if ('link' in settings)
         node.setAttribute("href", settings.link);
       if ('target' in settings)
@@ -656,7 +644,7 @@ export class RTE {
       return;
     }
 
-    let editor = TableEditor.getEditorForNode(table);
+    const editor = TableEditor.getEditorForNode(table);
     if (editor) {
       editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
       editor.setStyleTag(settings.tablestyletag);
@@ -713,7 +701,7 @@ export class RTE {
   }
 
   getValue() {
-    var returntree = this.getBody().cloneNode(true);
+    const returntree = this.getBody().cloneNode(true);
 
     //clean embedded objects
     domlevel.queryEmbeddedObjects(returntree).forEach(node => {
@@ -811,8 +799,7 @@ export class RTE {
         this.connectEditor(this.bodydiv);
 
       this._fireStateChange();
-    }
-    else {
+    } else {
       this.disconnectCurrentEditor();
       this._fireStateChange();
     }
@@ -836,8 +823,7 @@ export class RTE {
       this._fireStateChange();
       if (!this.options.selfedit && !this.options.pageedit)
         this.connectEditor(this.bodydiv);
-    }
-    else {
+    } else {
       this.disconnectCurrentEditor();
       this._fireStateChange();
     }
@@ -859,14 +845,14 @@ export class RTE {
 
     if (removeclass != "") {
       // remove old classes (to keep extra classes set later intact)
-      for (let cname of removeclass.split(" ")) {
+      for (const cname of removeclass.split(" ")) {
         if (cname != "")
           node.classList.remove(cname);
       }
     }
 
     if (addclass != "") {
-      for (let cname of addclass.split(" ")) {
+      for (const cname of addclass.split(" ")) {
         if (cname != "")
           node.classList.add(cname);
       }
@@ -893,7 +879,7 @@ export class RTE {
 RTE.addedcss = [];
 
 RTE.findCSSRule = function(addcss) {
-  for (var i = 0; i < RTE.addedcss.length; ++i)
+  for (let i = 0; i < RTE.addedcss.length; ++i)
     if (RTE.addedcss[i].type == addcss.type && RTE.addedcss[i].src == addcss.src)
       return { idx: i, rule: RTE.addedcss[i] };
 
@@ -905,48 +891,45 @@ RTE.register = function(rte) {
   if (dompack.debugflags.rte)
     console.log('[wh.rich] Register new rte');
 
-  let rules = [];
+  const rules = [];
 
   //Add any missing stylesheets
-  for (var i = 0; i < rte.addcss.length; ++i) {
-    let rulepos = this.findCSSRule(rte.addcss[i]);
+  for (let i = 0; i < rte.addcss.length; ++i) {
+    const rulepos = this.findCSSRule(rte.addcss[i]);
     if (rulepos) {
       rulepos.rule.rtes.push(rte);
       rules.push(rulepos.rule);
-    }
-    else {
+    } else {
       var node, promise;
       if (rte.addcss[i].type == 'link') {
         node = dompack.create("link", {
-          href: rte.addcss[i].src
-          , rel: "stylesheet"
-          , dataset: { whRtdTempstyle: "" }
+          href: rte.addcss[i].src,
+          rel: "stylesheet",
+          dataset: { whRtdTempstyle: "" }
         });
         promise = preload.promiseNewLinkNode(node);
         promise.catch(() => null); // ignore rejections that aren't handled
         qS('head,body').appendChild(node);
-      }
-      else {
+      } else {
         node = dompack.create("style", {
-          type: "text/css"
-          , dataset: { whRtdTempstyle: "" }
+          type: "text/css",
+          dataset: { whRtdTempstyle: "" }
         });
         qS('head,body').appendChild(node);
         try {
           node.innerHTML = rte.addcss[i].src;
-        }
-        catch (e)//IE
+        } catch (e)//IE
         {
           node.styleSheet.cssText = rte.addcss[i].src;
         }
 
       }
-      let rule = {
-        type: rte.addcss[i].type
-        , src: rte.addcss[i].src
-        , node: node
-        , rtes: [rte]
-        , promise
+      const rule = {
+        type: rte.addcss[i].type,
+        src: rte.addcss[i].src,
+        node: node,
+        rtes: [rte],
+        promise
       };
       RTE.addedcss.push(rule);
       rules.push(rule);
@@ -960,8 +943,8 @@ RTE.unregister = function(rte) {
   if (dompack.debugflags.rte)
     console.log('[wh.rich] Unregister new rte');
 
-  for (var i = rte.addcss.length - 1; i >= 0; --i) {
-    var rulepos = this.findCSSRule(rte.addcss[i]);
+  for (let i = rte.addcss.length - 1; i >= 0; --i) {
+    const rulepos = this.findCSSRule(rte.addcss[i]);
     if (rulepos) {
       rulepos.rule.rtes = rulepos.rule.rtes.filter(el => el != rte); //erase us from the list
       if (!rulepos.rule.rtes.length) {
@@ -980,7 +963,7 @@ class PreloadedCSS {
   constructor(links) {
     this.addcss = links.map(href => ({ type: "link", src: href }));
 
-    let rules = RTE.register(this);
+    const rules = RTE.register(this);
     // Wait for all rule promises, return false if any gave back an error
     this.loadpromise = Promise.all(rules.map(rule => rule.promise.then(r => true, e => false))).then(arr => arr.every(_ => _));
   }
@@ -992,4 +975,4 @@ class PreloadedCSS {
 
 RTE.preloadCSS = function(links) {
   return new PreloadedCSS(links);
-}
+};

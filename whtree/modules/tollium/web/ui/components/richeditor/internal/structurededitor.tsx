@@ -24,9 +24,9 @@ const debugicc = false; //debug insert container contents. needed to figure out 
 //
 
 function explainIntoLines(parsed) {
-  let lines = [];
+  const lines = [];
   let curinlineitems = [];
-  for (let node of parsed) {
+  for (const node of parsed) {
     if (['block', 'table', 'list', 'br'].includes(node.type) || (node.type == "embeddedobject" && node.embedtype != 'inline')) //a block starts
     {
       if (curinlineitems.length) {
@@ -34,8 +34,7 @@ function explainIntoLines(parsed) {
         curinlineitems = [];
       }
       lines.push({ block: node });
-    }
-    else {
+    } else {
       curinlineitems.push(node);
     }
   }
@@ -75,9 +74,9 @@ export default class StructuredEditor extends EditorBase {
   constructor(element, rte, options, undonode) {
     options =
     {
-      structure: null
-      , editembeddedobjects: true
-      , ...options
+      structure: null,
+      editembeddedobjects: true,
+      ...options
     };
 
     super(element, rte, options, undonode);
@@ -96,10 +95,10 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _onStyleSwitch(event, style) {
-    let findcontainertag = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
-    let currentstyle = this.getSelectionState().blockstyle;
-    let availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag.toUpperCase() == findcontainertag);
-    let currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
+    const findcontainertag = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
+    const currentstyle = this.getSelectionState().blockstyle;
+    const availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag.toUpperCase() == findcontainertag);
+    const currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
     if (availablestyles.length == 0)
       return;
 
@@ -133,10 +132,10 @@ export default class StructuredEditor extends EditorBase {
          then put the old content back and insert the pasted data (ie, firefox, opera)
      */
 
-    var clipboardData = event.clipboardData;
+    const clipboardData = event.clipboardData;
 
     if (clipboardData && clipboardData.getData) {
-      let types = Array.from(clipboardData.types); //Edge compatibility - it's a DOMStringList there
+      const types = Array.from(clipboardData.types); //Edge compatibility - it's a DOMStringList there
 
       if (dompack.debugflags.rte) {
         console.log('[rte] paste', clipboardData, "types", types);
@@ -146,14 +145,14 @@ export default class StructuredEditor extends EditorBase {
           console.log('[rte] Items', clipboardData.items, "length", clipboardData.items && clipboardData.items.length);
 
         for (let i = 0; i < types.length; ++i) {
-          var type = types[i];
-          var data = clipboardData.getData(type);
+          const type = types[i];
+          const data = clipboardData.getData(type);
           console.log("[rte] type ", type, "data(" + (typeof data) + "):", "<", data, ">");
         }
       }
 
       if (types.includes('text/html')) {
-        var htmltext = clipboardData.getData('text/html');
+        const htmltext = clipboardData.getData('text/html');
         if (dompack.debugflags.rte) {
           console.log("[rte] Received clipboardData text/html:");
           console.log("[rte] [" + htmltext + "]");
@@ -161,26 +160,25 @@ export default class StructuredEditor extends EditorBase {
         }
         event.preventDefault();
 
-        let pastecontent = document.createElement('div');
+        const pastecontent = document.createElement('div');
         pastecontent.innerHTML = htmltext;
 
         this._pasteContent(pastecontent, 'clipboarddata');
         return;
-      }
-      else if (types.includes("Files")) {
-        for (var idx = 0; idx < clipboardData.items.length; ++idx) {
-          var item = clipboardData.items[idx];
+      } else if (types.includes("Files")) {
+        for (let idx = 0; idx < clipboardData.items.length; ++idx) {
+          const item = clipboardData.items[idx];
 
           // Only seen png pastes for now
           if (["image/png"].includes(item.type)) {
             if (dompack.debugflags.rte)
               console.log("[rte] Got image file of type " + item.type);
 
-            let pastecontent = document.createElement('div');
-            var repl = this._createImageDownloadNode();
+            const pastecontent = document.createElement('div');
+            const repl = this._createImageDownloadNode();
             pastecontent.appendChild(repl);
 
-            var promise = this.uploadImageToServer(item.getAsFile(), repl);
+            const promise = this.uploadImageToServer(item.getAsFile(), repl);
             if (promise) // Upload didn't fail early?
             {
               promise.then(function() {
@@ -192,25 +190,23 @@ export default class StructuredEditor extends EditorBase {
             }
           }
         }
-      }
-      else if (browser.getName() == "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
+      } else if (browser.getName() == "safari" && types.includes("image/tiff") && types.includes("text/uri-list")) {
         // Safari doesn't handle pastes of images well, it does pastes a 'webkit-fake-url://..../<urlpath>' url.
         // We can try to get the URL ourselves
 
         if (dompack.debugflags.rte)
           console.log("[rte] Got a safari image paste");
 
-        var url = clipboardData.getData('text/uri-list');
+        const url = clipboardData.getData('text/uri-list');
 
-        let pastecontent = document.createElement('div');
+        const pastecontent = document.createElement('div');
         pastecontent.appendChild(dompack.create("img", { src: url }));
         this._pasteContent(pastecontent, 'clipboarddata');
 
         event.preventDefault();
         return;
-      }
-      else if (types.includes('text/plain')) {
-        var text = clipboardData.getData('text/plain');
+      } else if (types.includes('text/plain')) {
+        const text = clipboardData.getData('text/plain');
         if (dompack.debugflags.rte) {
           console.log("[rte] Received clipboardData text/plain:");
           console.log("[rte] [" + text + "]");
@@ -219,11 +215,11 @@ export default class StructuredEditor extends EditorBase {
 
         event.preventDefault();
 
-        let pastecontent = document.createElement('div');
+        const pastecontent = document.createElement('div');
 
         // Convert \n to <br>, keep rest as normal html (will be converted to paragraphs in parsing code)
-        var lines = text.split('\n');
-        lines.forEach((line, idx) => {
+        const lines = text.split('\n');
+        lines.forEach((line) => {
           pastecontent.appendChild(document.createTextNode(line));
 
           // Always add br (br at end of DIV will be ignored)
@@ -245,11 +241,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   async _pasteContent(pastecontent, mode) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
     //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    var locator = this.removeSelection();
+    const locator = this.removeSelection();
 
     //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
@@ -272,17 +268,16 @@ export default class StructuredEditor extends EditorBase {
       return acc;
     }, []);
 
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
     try {
-      let ids = embobjs.map(node => node.dataset.instanceref || "");
-      let res = await formservice.validateEmbeddedObjects(ids);
+      const ids = embobjs.map(node => node.dataset.instanceref || "");
+      const res = await formservice.validateEmbeddedObjects(ids);
       if (res.tokill.length) //there are broken embedded objects!
       {
         console.warn(`removing embedded objects`, res.tokill);
         embobjs.filter(node => !node.dataset.instanceref || res.tokill.includes(node.dataset.instanceref)).forEach(el => el.remove());
       }
-    }
-    catch (e) {
+    } catch (e) {
       console.log(`Error validating embedded objects`, e);
     }
     lock.release();
@@ -295,11 +290,11 @@ export default class StructuredEditor extends EditorBase {
     // This event will be triggered by backspace key, delete key, ctrl-x & delete command in IE 9+. Docs say so.
     // We'll use it to change the selection when it totally includes the first paragraph
     //console.log('onselectionchange');
-    var rawselection = this.getSelectionRange();
+    const rawselection = this.getSelectionRange();
     rawselection.limitToNode(this.getBody());
 
-    var up = new domlevel.Locator(this.getBody());
-    var upres = up.scanForward(this.getBody(), { whitespace: true, blocks: true });
+    const up = new domlevel.Locator(this.getBody());
+    const upres = up.scanForward(this.getBody(), { whitespace: true, blocks: true });
 
     // We're before the first content block?
     if ((upres.type != 'outerblock' || upres.data != this.getBody()) && rawselection.start.compare(up) < 0) {
@@ -309,8 +304,7 @@ export default class StructuredEditor extends EditorBase {
         rawselection.end.assign(up);
 
       this.selectRange(rawselection);
-    }
-    else //we're leaving the selection alone, we just need to inform ourselves of it (selectRange would otherwise invoke selectionHasChanged)
+    } else //we're leaving the selection alone, we just need to inform ourselves of it (selectRange would otherwise invoke selectionHasChanged)
     {
       //TODO our base version probably needs to invoke this one as well, but if we just put it there it'll double-execute if the above selectRange runs
       this.selectionHasChanged(rawselection);
@@ -322,18 +316,18 @@ export default class StructuredEditor extends EditorBase {
   //apply wh-rtd-embeddedobject--selected in all the right places
   selectionHasChanged(selection) {
     //select all wh-rtd-embeddedobject unless they're in another wh-rtd-embeddedobject
-    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
-    let currently_selected = Array.from(this.getBody().querySelectorAll(".wh-rtd-embeddedobject--selected"));
+    const embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
+    const currently_selected = Array.from(this.getBody().querySelectorAll(".wh-rtd-embeddedobject--selected"));
     embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
     currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
   }
 
   // Create an paragraph above/below the sibling and send the cursor there
   insertEmptyParagraph(sibling, below) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
-    let loc = below ? domlevel.Locator.newPointingAfter(sibling) : domlevel.Locator.newPointingTo(sibling);
-    let res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
+    const loc = below ? domlevel.Locator.newPointingAfter(sibling) : domlevel.Locator.newPointingTo(sibling);
+    const res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
     this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
     this.selectRange(Range.fromLocator(res.contentlocator));
 
@@ -344,7 +338,7 @@ export default class StructuredEditor extends EditorBase {
     if (!event.target || !this.rte._isActive())
       return;
 
-    var button;
+    let button;
     if (event.target.getAttribute("data-rte-subaction"))
       button = event.target;
     else
@@ -355,9 +349,9 @@ export default class StructuredEditor extends EditorBase {
       event.stopPropagation();
 
       //find the focus of the button
-      let buttonfocus = button.closest('.wh-rtd-embeddedobject');
+      const buttonfocus = button.closest('.wh-rtd-embeddedobject');
       if (buttonfocus) {
-        let subaction = button.getAttribute("data-rte-subaction");
+        const subaction = button.getAttribute("data-rte-subaction");
         switch (subaction) {
           case "navabove":
             {
@@ -386,8 +380,8 @@ export default class StructuredEditor extends EditorBase {
       // Find outer embedded object
       let embobj = event.target.closest('.wh-rtd-embeddedobject');
       if (embobj) {
-        while (true) {
-          let parentembobj = embobj.parentNode.closest('.wh-rtd-embeddedobject');
+        for (; ;) {
+          const parentembobj = embobj.parentNode.closest('.wh-rtd-embeddedobject');
           if (!parentembobj)
             break;
           embobj = parentembobj;
@@ -421,7 +415,7 @@ export default class StructuredEditor extends EditorBase {
       @param toright -
   */
   canCombineNodes(denylist, left, right) {
-    var res;
+    let res;
     if (left.nodeName.toLowerCase() != right.nodeName.toLowerCase())
       res = false;
     else {
@@ -455,20 +449,20 @@ export default class StructuredEditor extends EditorBase {
 
     ancestor = ancestor || domlevel.Locator.findCommonAncestorElement(from, to);
 
-    var splitlocators = [{ locator: from, toward: 'start' }, { locator: to, toward: 'end' }];
+    const splitlocators = [{ locator: from, toward: 'start' }, { locator: to, toward: 'end' }];
     // console.log('rs presplit: ', richdebug.getStructuredOuterHTML(ancestor, splitlocators));
-    var parts = domlevel.splitDom(ancestor, splitlocators);
+    const parts = domlevel.splitDom(ancestor, splitlocators);
     // console.log('rs postsplit: ', richdebug.getStructuredOuterHTML(ancestor, parts));
 
-    var removestart = parts[1].start;
-    var removeend = parts[1].end;
+    const removestart = parts[1].start;
+    const removeend = parts[1].end;
 
     removestart.ascend(ancestor, true);
     removeend.ascend(ancestor, false);
 
     // console.log('rs removerange: ', richdebug.getStructuredOuterHTML(ancestor, { removestart: removestart, removeend: removeend }));
 
-    for (var i = removeend.offset; i > removestart.offset; --i)
+    for (let i = removeend.offset; i > removestart.offset; --i)
       ancestor.removeChild(removestart.getPointedNode());
 
     // console.log('rs removerange after remove: ', richdebug.getStructuredOuterHTML(ancestor, { locator: removestart }));
@@ -478,7 +472,7 @@ export default class StructuredEditor extends EditorBase {
 
   /// Removes the current selection, returns locator at insert point
   removeSelection() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     return this.removeRange(range.start, range.end);
   }
 
@@ -494,12 +488,12 @@ export default class StructuredEditor extends EditorBase {
     if (!locator.parentIsElementOrFragmentNode() && !locator.moveToParent())
       locator = domlevel.splitDataNode(locator, preservelocators, 'end', undoitem);
 
-    var next = locator.insertNode(node, preservelocators, undoitem);
+    const next = locator.insertNode(node, preservelocators, undoitem);
 
     return (
       {
-        locator: locator
-        , next: next
+        locator: locator,
+        next: next
       });
   }
 
@@ -510,13 +504,13 @@ export default class StructuredEditor extends EditorBase {
     //var block = this.getBlockAtNode(locator.getNearestNode());
 
     locator = locator.clone();
-    var res = locator.scanForward(this.getBody(), {});
+    const res = locator.scanForward(this.getBody(), {});
     if (res.type != 'br')
       return null;
     //    if ((!res.segmentbreak && !res.zerowidthspace) || res.blockboundary) // Segment break that is not a block boundary is a <br> or (not implemented) a visible '\n'
     //      return null;
 
-    var x = domlevel.getInvisibleSegmentBreakRange(locator, this.getBody());
+    const x = domlevel.getInvisibleSegmentBreakRange(locator, this.getBody());
     return x;
   }
 
@@ -533,10 +527,10 @@ export default class StructuredEditor extends EditorBase {
     //    console.log(locator);
 
     // Get info about the current block & block root
-    var block = this.getBlockAtNode(locator.element);
+    const block = this.getBlockAtNode(locator.element);
 
     // Only search for last br when we're actually in a block
-    var segmentbreakrange = null;
+    let segmentbreakrange = null;
     if (block.blockroot != block.node)
       segmentbreakrange = this.pointsToLastBlockBR(locator);
 
@@ -574,11 +568,10 @@ export default class StructuredEditor extends EditorBase {
         //        locator = lastbr.next;
 
         //console.log('listinsert, last br: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
-      }
-      else // Need a temporary node to keep block alive through splitdom
+      } else // Need a temporary node to keep block alive through splitdom
       {
         // Create img node, doesn't merge with stuff
-        var tempnode = document.createElement("img");
+        const tempnode = document.createElement("img");
         this.insertNodeAutoSplit(locator, tempnode, preservelocators, undoitem); // Auto-splits textnodes
         segmentbreakrange = Range.fromNodeOuter(tempnode);
         //console.log('listinsert, tempnode: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
@@ -595,8 +588,7 @@ export default class StructuredEditor extends EditorBase {
       domlevel.removeSimpleRange(segmentbreakrange, [locator, ...(preservelocators || [])], undoitem);
 
       // Proceed to shared blocknode insert
-    }
-    else {
+    } else {
       /* Scenarios
 
          1: insert non-list into list : forbidden!
@@ -623,7 +615,7 @@ export default class StructuredEditor extends EditorBase {
       }
 
       //console.log('insertblock presplit', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, block: block }, true));
-      var parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
+      const parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
 
       // Get the locator at the insertpoint
       locator = parts[1].start.clone();
@@ -633,7 +625,7 @@ export default class StructuredEditor extends EditorBase {
     //console.log('going insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     // Insert the new blocknode at the locator
-    var bres = this.createBlockStyleElement(blockstyle, true, anchor);
+    const bres = this.createBlockStyleElement(blockstyle, true, anchor);
     if (anchor)
       bres.insertnode.setAttribute('data-rtd-anchor', anchor);
 
@@ -641,15 +633,15 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('post insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    var contentlocator = new domlevel.Locator(bres.node, 0);
+    const contentlocator = new domlevel.Locator(bres.node, 0);
     if (blockstyle.islist) {
       // Stitch lists on both sides
       this.combineAtLocator(block.blockroot, contentlocator, false, [], preservelocators, undoitem);
       this.combineAtLocator(block.blockroot, contentlocator, true, [], preservelocators, undoitem);
     }
 
-    var blocknode = contentlocator.element;
-    var contentnode = blocknode;
+    const blocknode = contentlocator.element;
+    let contentnode = blocknode;
 
     if (blockstyle.islist && insertli) {
       contentnode = document.createElement('li');
@@ -657,39 +649,38 @@ export default class StructuredEditor extends EditorBase {
       contentlocator.descendToLeafNode(this.getBody());
     }
 
-    var afternodelocator = new domlevel.Locator(blocknode, "end");
+    const afternodelocator = new domlevel.Locator(blocknode, "end");
     afternodelocator.moveToParent(true);
 
     // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
     return (
       {
-        node: blocknode
-        , afternodelocator: afternodelocator
-        , contentlocator: contentlocator
-        , contentnode: contentnode
+        node: blocknode,
+        afternodelocator: afternodelocator,
+        contentlocator: contentlocator,
+        contentnode: contentnode
       });
   }
 
   _insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem) {
     // Get info about the current block & block root
     if (embobjnode.nodeName == 'SPAN') {
-      let res = this.insertNodeAutoSplit(locator, embobjnode, preservelocators, undoitem);
-      let afternodelocator = res.next;
+      const res = this.insertNodeAutoSplit(locator, embobjnode, preservelocators, undoitem);
+      const afternodelocator = res.next;
       // don't want the afternode locator to be corrected to after a newly inserted br
       this.requireVisibleContentInBlockAfterLocator(afternodelocator, [locator, ...(preservelocators || [])], undoitem);
       return {
-        node: embobjnode
-        , afternodelocator
+        node: embobjnode,
+        afternodelocator
       };
 
-    }
-    else //FIXME can't we just invoke insertBlockNode ? basically the same code!
+    } else //FIXME can't we just invoke insertBlockNode ? basically the same code!
     {
-      var block = this.getBlockAtNode(locator.element);
+      const block = this.getBlockAtNode(locator.element);
 
       // Only search for last br when we're actually in a block
-      var segmentbreakrange = null;
+      let segmentbreakrange = null;
       if (block.blockroot != block.node)
         segmentbreakrange = this.pointsToLastBlockBR(locator);
 
@@ -697,7 +688,7 @@ export default class StructuredEditor extends EditorBase {
       if (segmentbreakrange)
         locator = segmentbreakrange.end;
 
-      var parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
+      const parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
 
       // Get the locator at the insertpoint
       locator = parts[1].start.clone();
@@ -706,65 +697,65 @@ export default class StructuredEditor extends EditorBase {
       // Insert the new blocknode at the locator
       locator.insertNode(embobjnode, preservelocators, undoitem);
 
-      var contentlocator = new domlevel.Locator(embobjnode, 0);
-      var blocknode = contentlocator.element;
-      var contentnode = blocknode;
+      const contentlocator = new domlevel.Locator(embobjnode, 0);
+      const blocknode = contentlocator.element;
+      const contentnode = blocknode;
 
-      var afternodelocator = new domlevel.Locator(blocknode, "end");
+      const afternodelocator = new domlevel.Locator(blocknode, "end");
       afternodelocator.moveToParent(true);
 
       // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
       return (
         {
-          node: blocknode
-          , afternodelocator: afternodelocator
-          , contentlocator: contentlocator
-          , contentnode: contentnode
+          node: blocknode,
+          afternodelocator: afternodelocator,
+          contentlocator: contentlocator,
+          contentnode: contentnode
         });
     }
   }
 
   // insert a new table with the given dimensions
   insertTable(cols, rows) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
     // Find the first table block style and default table cell block style
-    var tablestyle = this.structure.blockstyles.filter(style => style.istable)[0];
+    const tablestyle = this.structure.blockstyles.filter(style => style.istable)[0];
     if (!tablestyle)
       throw new Error("no table block style available");
 
-    var cellstyle = tablestyle.tabledefaultblockstyle || this.structure.defaultblockstyle;
+    const cellstyle = tablestyle.tabledefaultblockstyle || this.structure.defaultblockstyle;
 
     // Create a table block
-    var block = { type: 'table', style: tablestyle, nodes: [], colwidths: [], firstdatacell: { row: 0, col: 0 } };
+    const block = { type: 'table', style: tablestyle, nodes: [], colwidths: [], firstdatacell: { row: 0, col: 0 } };
 
     // Create a rowitem for each row
-    for (var i = 0; i < rows; ++i) {
-      var rowitem = { type: 'rowitem', nodes: [], height: null };
+    for (let i = 0; i < rows; ++i) {
+      const rowitem = { type: 'rowitem', nodes: [], height: null };
       block.nodes.push(rowitem);
 
       // Create a cellitem for each cell in the row
-      for (var j = 0; j < cols; ++j) {
+      for (let j = 0; j < cols; ++j) {
         // The cellitem contains a content block containing a br
-        var cellitem = {
-          type: 'cellitem'
-          , defaultstyle: cellstyle
-          , nodes: [{ type: 'block', style: cellstyle, nodes: [{ type: 'br' }], temporary: true, surrogate: true }]
-          , colspan: 1
-          , rowspan: 1
+        const cellitem = {
+          type: 'cellitem',
+          defaultstyle: cellstyle,
+          nodes: [{ type: 'block', style: cellstyle, nodes: [{ type: 'br' }], temporary: true, surrogate: true }],
+          colspan: 1,
+          rowspan: 1
         };
         rowitem.nodes.push(cellitem);
       }
     }
 
     // Set default column width. FIXME don't assume 1px border width
-    let colwidth = Math.floor((parseInt(window.getComputedStyle(this.getBody()).width) - cols) / cols);
+    const colwidth = Math.floor((parseInt(window.getComputedStyle(this.getBody()).width) - cols) / cols);
     for (let i = 0; i < cols; ++i)
       block.colwidths.push(colwidth);
 
     // Insert the table at the current location, replacing the current selection
-    let locator = this.removeSelection();
+    const locator = this.removeSelection();
     this._insertParsed(locator, [block]);
 
     undolock.close();
@@ -774,10 +765,10 @@ export default class StructuredEditor extends EditorBase {
     //This is based on _insertEmbeddedObjectNode. perhaps stuff can be merged ?
 
     // Get info about the current block & block root
-    var block = this.getBlockAtNode(locator.element);
+    const block = this.getBlockAtNode(locator.element);
 
     // Only search for last br when we're actually in a block
-    var segmentbreakrange = null;
+    let segmentbreakrange = null;
     if (block.blockroot != block.node)
       segmentbreakrange = this.pointsToLastBlockBR(locator);
 
@@ -785,7 +776,7 @@ export default class StructuredEditor extends EditorBase {
     if (segmentbreakrange)
       locator = segmentbreakrange.end;
 
-    var parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
+    const parts = domlevel.splitDom(block.blockroot, [{ locator: locator, toward: 'end' }], preservelocators, undoitem);
 
     // Get the locator at the insertpoint
     locator = parts[1].start.clone();
@@ -796,49 +787,49 @@ export default class StructuredEditor extends EditorBase {
 
     // Insert the table cell contents
     tableeditor.getCells(tablenode).forEach(td => {
-      var cellitem = td.propWhRtdCellitem; //FIXME don't rely on this, as cells created through add-row-after don't have a cellitem either
+      const cellitem = td.propWhRtdCellitem; //FIXME don't rely on this, as cells created through add-row-after don't have a cellitem either
       if (!cellitem)
         return;
 
-      var celllocator = new domlevel.Locator(td, 0);
+      const celllocator = new domlevel.Locator(td, 0);
       this._insertParsed(celllocator, cellitem.nodes, false, false, true, preservelocators, undoitem);
     });
 
     //ADDME: Don't know how this should work for tables
-    var contentlocator = new domlevel.Locator(tablenode, 0);
-    var blocknode = contentlocator.element;
-    var contentnode = blocknode;
+    const contentlocator = new domlevel.Locator(tablenode, 0);
+    const blocknode = contentlocator.element;
+    const contentnode = blocknode;
 
-    var afternodelocator = new domlevel.Locator(blocknode, "end");
+    const afternodelocator = new domlevel.Locator(blocknode, "end");
     afternodelocator.moveToParent(true);
 
     // console.log('post normal insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { node: bres.node, contentlocator: contentlocator }));
 
     return (
       {
-        node: blocknode
-        , afternodelocator: afternodelocator
-        , contentlocator: contentlocator
-        , contentnode: contentnode
+        node: blocknode,
+        afternodelocator: afternodelocator,
+        contentlocator: contentlocator,
+        contentnode: contentnode
       });
   }
 
   _initNewTableCell(cellnode) {
     cellnode.classList.add("wh-rtd__tablecell");
-    var tablenode = cellnode.closest("table");
+    const tablenode = cellnode.closest("table");
 
     // Get default cell style
-    var style = this.structure.getBlockStyleByTag(tablenode.className.split(' ')[0]);
-    var cellstyle = style && style.istable && style.tabledefaultblockstyle || this.structure.defaultblockstyle;
+    const style = this.structure.getBlockStyleByTag(tablenode.className.split(' ')[0]);
+    const cellstyle = style && style.istable && style.tabledefaultblockstyle || this.structure.defaultblockstyle;
 
     // Insert new nodes
-    var nodes = [{ type: 'block', style: cellstyle, nodes: [{ type: 'br' }], temporary: true, surrogate: true }];
-    var locator = new domlevel.Locator(cellnode, 0);
+    const nodes = [{ type: 'block', style: cellstyle, nodes: [{ type: 'br' }], temporary: true, surrogate: true }];
+    const locator = new domlevel.Locator(cellnode, 0);
     this._insertParsed(locator, nodes);
   }
 
   _getResizingOptionsForTable(tablenode) {
-    let tablestyle = this.structure.lookupTableStyle(tablenode);
+    const tablestyle = this.structure.lookupTableStyle(tablenode);
     if (tablestyle)
       return tablestyle.tableresizing;
     else
@@ -847,27 +838,27 @@ export default class StructuredEditor extends EditorBase {
 
   /// Pastes the content of a node at a specific locator
   async _pasteContentAt(pastecontent, insertlocator, mode) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
     if (dompack.debugflags.rte)
       console.log('[rte] parseContentAt, raw', pastecontent.innerHTML, 'mode:', mode);
 
     // If we're at the start of a block, don't pass inblock so the first pasted block will replace the current block
-    var down = insertlocator.clone();
-    var downres = down.scanBackward(this.getBody(), { whitespace: true });
-    var atblockstart = ['innerblock', 'outerblock'].includes(downres.type);
+    const down = insertlocator.clone();
+    const downres = down.scanBackward(this.getBody(), { whitespace: true });
+    const atblockstart = ['innerblock', 'outerblock'].includes(downres.type);
 
     if (dompack.debugflags.rte)
       console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
-    var cleanupper = new PasteCleanup({ mode: mode || '' });
-    var res = cleanupper.applyCleanup(pastecontent);
+    const cleanupper = new PasteCleanup({ mode: mode || '' });
+    const res = cleanupper.applyCleanup(pastecontent);
 
     if (dompack.debugflags.rte)
       console.log('[rte] parseContentAt, cleaned', pastecontent.innerHTML);
 
     //console.log('pasting', pastecontent, pastecontent.innerHTML);
-    var locator = this.insertContainerContents(insertlocator, pastecontent, { externalcontent: true, breakafter: res.breakafter });
+    const locator = this.insertContainerContents(insertlocator, pastecontent, { externalcontent: true, breakafter: res.breakafter });
 
     // Set cursor after the pasted stuff
     this.setCursorAtLocator(locator);
@@ -893,11 +884,11 @@ export default class StructuredEditor extends EditorBase {
     if (curnode.nodeName.toLowerCase() == 'span')
       return null;
 
-    var rec = super.getTextStyleRecordFromNode(curnode);
+    let rec = super.getTextStyleRecordFromNode(curnode);
     if (!rec)
       return null;
 
-    var list = this.textstylewhitelistedattributes[rec.nodeName];
+    const list = this.textstylewhitelistedattributes[rec.nodeName];
     if (list) {
       // Merge in the attributes from curnode
       rec = { ...rec, ...domlevel.getAttributes(curnode, list) };
@@ -908,11 +899,11 @@ export default class StructuredEditor extends EditorBase {
 
   getImageStyleRecordFromNode(curnode) {
     //figure out the alignment. we prefer wh-rtd__img--floatleft/right, but accept legacy classes and float:left/right
-    var node = {
-      nodeName: "img"
-      , "class": "wh-rtd__img"
+    let node = {
+      nodeName: "img",
+      "class": "wh-rtd__img"
     };
-    var align = curnode.align ? curnode.align.toLowerCase() : "";
+    const align = curnode.align ? curnode.align.toLowerCase() : "";
 
     if (curnode.classList.contains("wh-rtd__img--uploading")) //don't lose this status during upload
       node["class"] += " wh-rtd__img--uploading";
@@ -928,14 +919,14 @@ export default class StructuredEditor extends EditorBase {
   }
 
   isNodeTextStyleMatch(node, textstyle) {
-    var nodestyle = this.getTextStyleRecordFromNode(node);
+    const nodestyle = this.getTextStyleRecordFromNode(node);
     if (!nodestyle || nodestyle.nodeName != textstyle.nodeName)
       return false;
 
-    var list = this.textstylewhitelistedattributes[nodestyle.nodeName];
+    const list = this.textstylewhitelistedattributes[nodestyle.nodeName];
     if (list) {
-      for (var i = 0; i < list.length; ++i) {
-        let attrname = list[i];
+      for (let i = 0; i < list.length; ++i) {
+        const attrname = list[i];
         if (nodestyle[attrname] !== textstyle[attrname])
           return false;
       }
@@ -945,12 +936,12 @@ export default class StructuredEditor extends EditorBase {
   }
 
   createTextStyleNode(textstyle) {
-    var node = textstyle.nodeName == "a-href" ? "a" : textstyle.nodeName;
+    const node = textstyle.nodeName == "a-href" ? "a" : textstyle.nodeName;
 
-    var stylenode = document.createElement(node);
+    const stylenode = document.createElement(node);
 
     // Remove nodeName from textstyle
-    var copy = { ...textstyle };
+    const copy = { ...textstyle };
     delete copy.nodeName;
 
     domlevel.setAttributes(stylenode, copy);
@@ -959,7 +950,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   insertTextStyleNode(locator, textstyle, preservelocators, undoitem) {
-    var stylenode = this.createTextStyleNode(textstyle);
+    const stylenode = this.createTextStyleNode(textstyle);
     locator.insertNode(stylenode, preservelocators, undoitem);
     return new domlevel.Locator(stylenode);
   }
@@ -976,21 +967,21 @@ export default class StructuredEditor extends EditorBase {
     //console.log('IIFN post ascend: ', richdebug.getStructuredOuterHTML(this.getBody(), { plocator: plocator, cn: block.contentnode }));
 
     // Get path from the block level to the locator
-    var block = this.getBlockAtNode(locator.getNearestNode());
-    var path = locator.getPathFromAncestor(block.contentnode);
+    const block = this.getBlockAtNode(locator.getNearestNode());
+    const path = locator.getPathFromAncestor(block.contentnode);
 
     // FIXME: take allowed styles in current block node into account!
 
     // Walk through styles in order, only handle those that are mentioned in formatting.textstyles
     for (var i = 0; i < this.textstyletags.length; ++i) {
-      var textstyletag = this.textstyletags[i];
+      const textstyletag = this.textstyletags[i];
       if (!formatting.hasTextStyle(textstyletag))
         continue;
 
       // FIXME: support for SPAN with custom formatting
 
       // See if the current path element has the correct tag
-      var curelt = path.length && path[0];
+      const curelt = path.length && path[0];
       if (!curelt || !this.isNodeTextStyleMatch(curelt, formatting.getTextStyleByNodeName(textstyletag)))
         break;
 
@@ -1001,7 +992,7 @@ export default class StructuredEditor extends EditorBase {
     //console.log('IIFN post stylematching: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     if (path.length || !locator.parentIsElementOrFragmentNode()) {
-      var breaknode = path.length ? path[0].parentNode : locator.element.parentNode;
+      const breaknode = path.length ? path[0].parentNode : locator.element.parentNode;
 
       // console.log('IIFN pre ascend html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, breaknode: breaknode }));
       locator.ascend(breaknode, true);
@@ -1014,7 +1005,7 @@ export default class StructuredEditor extends EditorBase {
         //          splitparent = splitparent.parentNode;
 
         // console.log('IIFN pre split html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
-        var parts = domlevel.splitDom(breaknode, [{ locator: locator, toward: 'start' }], preservelocators, undoitem);
+        const parts = domlevel.splitDom(breaknode, [{ locator: locator, toward: 'start' }], preservelocators, undoitem);
         // console.log('IIFN post split html: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
 
         locator = parts[0].end.clone();
@@ -1026,11 +1017,11 @@ export default class StructuredEditor extends EditorBase {
 
     // Create the missing textstyle tags
     for (; i < this.textstyletags.length; ++i) {
-      let textstyletag = this.textstyletags[i];
+      const textstyletag = this.textstyletags[i];
       if (!formatting.hasTextStyle(textstyletag))
         continue;
 
-      var textstyle = formatting.getTextStyleByNodeName(textstyletag);
+      const textstyle = formatting.getTextStyleByNodeName(textstyletag);
       locator = this.insertTextStyleNode(locator, textstyle, preservelocators, undoitem);
     }
 
@@ -1039,20 +1030,20 @@ export default class StructuredEditor extends EditorBase {
       locator.ascend(locator.element.parentNode, false);
 
     locator.insertNode(node, preservelocators, undoitem);
-    var next = locator.clone();
+    const next = locator.clone();
     ++next.offset;
 
-    var res =
+    const res =
     {
-      node: node
-      , inserted: locator
-      , after: next
+      node: node,
+      inserted: locator,
+      after: next
     };
     return res;
   }
 
   DelayedSurroundSelection(elementinfo) {
-    var pos = this.textstyletags.indexOf(elementinfo.element);
+    const pos = this.textstyletags.indexOf(elementinfo.element);
     if (pos)
       elementinfo.subtags = this.textstyletags.slice(pos + 1);
 
@@ -1070,7 +1061,7 @@ export default class StructuredEditor extends EditorBase {
       \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
   getBlockAtNode(node) {
-    var res = super.getBlockAtNode(node);
+    const res = super.getBlockAtNode(node);
     if (res.blockparent != res.node)
       res.blockstyle = this.structure.getBlockStyleByTag(res.node.className.split(' ')[0]);
     else
@@ -1107,27 +1098,26 @@ export default class StructuredEditor extends EditorBase {
       // And keep the range valid
       if (range.end.compare(range.start) < 0)
         range.end.assign(range.start);
-    }
-    else {
+    } else {
       range.end.moveToNextBlockBoundary(this.getBody(), !withinnerlists);
     }
 
-    var blocknodes = [];
+    const blocknodes = [];
 
     // FIXME: use something to limit maxancestor to nearest <body><td><th>
     //var startblocknode = range.start.element;
     //var endblocknode = range.end.element;
 
-    var elts = range.querySelectorAll('*');
+    const elts = range.querySelectorAll('*');
     for (let i = 0; i < elts.length; ++i) {
       if (!elts[i].isContentEditable || !domlevel.isNodeBlockElement(elts[i]))
         continue;
       blocknodes.push(elts[i]);
     }
 
-    var blocks = [];
+    const blocks = [];
     for (let i = 0; i < blocknodes.length; ++i) {
-      let block = this.getBlockAtNode(blocknodes[i]);
+      const block = this.getBlockAtNode(blocknodes[i]);
       if (block.islist && block.contentnode == block.node)
         continue;
 
@@ -1135,29 +1125,27 @@ export default class StructuredEditor extends EditorBase {
     }
 
     if (range.start.element == range.end.element) {
-      let block = this.getBlockAtNode(range.start.element);
+      const block = this.getBlockAtNode(range.start.element);
       if (block.contentnode == block.blockparent) // Non-block enclosed text
       {
         if (blocknodes.length == 0) {
           blocks.push({ type: 'range', range: range });
-        }
-        else {
-          var startrange = range.clone();
+        } else {
+          const startrange = range.clone();
           startrange.end.assign(startrange.start);
           startrange.end.moveToNextBlockBoundary(this.getBody());
 
           if (!startrange.isCollapsed())
             blocks.unshift({ type: 'range', range: startrange });
 
-          var endrange = range.clone();
+          const endrange = range.clone();
           endrange.start.assign(startrange.start);
           endrange.start.moveToPreviousBlockBoundary(this.getBody());
 
           if (!endrange.isCollapsed())
             blocks.push({ type: 'range', range: endrange });
         }
-      }
-      else
+      } else
         blocks.push({ type: 'block', block: block });
     }
 
@@ -1165,21 +1153,21 @@ export default class StructuredEditor extends EditorBase {
   }
 
   getFormattingStateForRange(range) {
-    var state = super.getFormattingStateForRange(range);
+    const state = super.getFormattingStateForRange(range);
 
     // Preinit added fields
     state.blockstyle = null;
     state.limited = { textstyles: this.textstyletags.slice().concat("img") };
 
     // Gather all the blockstyles in range
-    var blockranges = this.getBlocksInRange(range, false);
-    var blockstyles = [], blockstyletags = [];
+    const blockranges = this.getBlocksInRange(range, false);
+    const blockstyles = [], blockstyletags = [];
 
     for (let i = 0; i < blockranges.length; ++i) {
       if (blockranges[i].type != 'block' || !blockranges[i].block.blockstyle)
         continue;
 
-      var blockstyle = blockranges[i].block.blockstyle;
+      const blockstyle = blockranges[i].block.blockstyle;
       if (!blockstyletags.includes(blockstyle.tag)) {
         blockstyles.push(blockstyle);
         blockstyletags.push(blockstyle.tag);
@@ -1192,9 +1180,9 @@ export default class StructuredEditor extends EditorBase {
         if (blockstyles[i].istable) // tables don't have textstyles
           continue;
 
-        var newtextstyles = [];
-        var btextstyles = blockstyles[i].def.textstyles;
-        for (var a = 0; a < btextstyles.length; ++a)
+        const newtextstyles = [];
+        const btextstyles = blockstyles[i].def.textstyles;
+        for (let a = 0; a < btextstyles.length; ++a)
           if (state.limited.textstyles.includes(btextstyles[a])) {
             newtextstyles.push(btextstyles[a]);
           }
@@ -1202,19 +1190,18 @@ export default class StructuredEditor extends EditorBase {
       }
 
       state.blockstyle = blockstyles.length > 1 ? null : blockstyles[0];
-    }
-    else
+    } else
       state.blockstyle = this.structure.defaultblockstyle;
 
     // Also apply the selections to the actionstates
     for (let i = 0; i < this.textstyletags.length; ++i) {
-      var styletag = this.textstyletags[i];
+      const styletag = this.textstyletags[i];
       if (!state.limited.textstyles.includes(styletag) && state.actionstate[styletag])
         state.actionstate[styletag].available = false;
     }
 
     // Enable list toggles only when corresponding list style is available
-    var stylelisttypes = [];
+    const stylelisttypes = [];
     this.structure.blockstyles.forEach(item => { stylelisttypes.push(item.listtype); });
 
     if (!stylelisttypes.includes('unordered'))
@@ -1246,33 +1233,33 @@ export default class StructuredEditor extends EditorBase {
       let htmltext = node.dataset.innerhtmlContents || '';
       if (!htmltext) //we may have already rendered a preview (reparse of existing code or pasted content)
       {
-        let currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
+        const currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
         if (currentpreview)
           htmltext = currentpreview.innerHTML;
       }
 
       return {
-        type: 'embeddedobject'
-        , instanceref: node.getAttribute("data-instanceref")
-        , htmltext: htmltext
-        , typetext: node.getAttribute("data-widget-typetext") || ''
-        , canedit: node.classList.contains("wh-rtd-embeddedobject--editable")
-        , embedtype: node.nodeName == 'SPAN' ? 'inline' : 'block'
-        , wide: node.hasAttribute("data-widget-wide")
+        type: 'embeddedobject',
+        instanceref: node.getAttribute("data-instanceref"),
+        htmltext: htmltext,
+        typetext: node.getAttribute("data-widget-typetext") || '',
+        canedit: node.classList.contains("wh-rtd-embeddedobject--editable"),
+        embedtype: node.nodeName == 'SPAN' ? 'inline' : 'block',
+        wide: node.hasAttribute("data-widget-wide")
       };
     }
 
-    var tagmatch = null;
-    var classmatch = null;
-    var importfrommatch = null;
+    let tagmatch = null;
+    let classmatch = null;
+    let importfrommatch = null;
 
-    var nodename = node.nodeName.toLowerCase();
-    var islist = ['ul', 'ol'].includes(nodename);
-    var istable = ['table'].includes(nodename);
-    var hastables = false;
-    for (var i = 0; i < this.structure.blockstyles.length; ++i) {
-      var blockstyle = this.structure.blockstyles[i];
-      hastables = hastables || !!blockstyle.istable;
+    const nodename = node.nodeName.toLowerCase();
+    const islist = ['ul', 'ol'].includes(nodename);
+    const istable = ['table'].includes(nodename);
+    let hastables = false;
+    for (let i = 0; i < this.structure.blockstyles.length; ++i) {
+      const blockstyle = this.structure.blockstyles[i];
+      hastables = hastables || Boolean(blockstyle.istable);
 
       // importfrom has highest priority. Also overrides list vs nonlist stuff
       if (!importfrommatch && blockstyle.importfrom.find(style => node.matches(style)))
@@ -1281,7 +1268,7 @@ export default class StructuredEditor extends EditorBase {
       // Match on classname (but don't change list to non-list or table to non-table & vv).
       if (!classmatch
         && (blockstyle.islist == islist)
-        && (!!blockstyle.istable == !!istable)
+        && (Boolean(blockstyle.istable) == Boolean(istable))
         && node.classList.contains(blockstyle.classname)) {
         classmatch = blockstyle;
       }
@@ -1294,7 +1281,7 @@ export default class StructuredEditor extends EditorBase {
     }
 
     // Any match yet?
-    var match = importfrommatch || classmatch || tagmatch;
+    const match = importfrommatch || classmatch || tagmatch;
     if (match) {
       if (match.istable)
         return { type: 'tablestyle', style: match };
@@ -1306,7 +1293,7 @@ export default class StructuredEditor extends EditorBase {
       return { type: 'cellitem' };
 
     // Recognized text style?
-    var style = this.getTextStyleRecordFromNode(node);
+    const style = this.getTextStyleRecordFromNode(node);
     if (style && this.textstyletags.includes(style.nodeName))
       return { type: 'textstyle', style: style, displayblock: node.style.display === "block" };
 
@@ -1316,7 +1303,7 @@ export default class StructuredEditor extends EditorBase {
       return { type: "img" };
 
     // Ignore style, script, meta nodes
-    var ignores = ['style', 'script', 'meta'];
+    const ignores = ['style', 'script', 'meta'];
     if (ignores.includes(node.nodeName.toLowerCase()))
       return { type: 'ignore' };
 
@@ -1329,10 +1316,11 @@ export default class StructuredEditor extends EditorBase {
       return { type: 'tablestyle', style: this.structure.defaulttablestyle };
 
     // Return all unrecognized inline nodes as 'unknown', which triggers a recursive parse while ignoring the nodes themselves
-    var inlines =
-      ["abbr", "acronym", "b", "big", "cite", "code", "dfn", "em", "font"
-        , "i", "kbd", "samp", "small", "strong", "sub", "sup"
-        , "tt", "var", "a", "bdo", "label", "q", "span"
+    const inlines =
+      [
+        "abbr", "acronym", "b", "big", "cite", "code", "dfn", "em", "font",
+        "i", "kbd", "samp", "small", "strong", "sub", "sup",
+        "tt", "var", "a", "bdo", "label", "q", "span"
       ];
     if (inlines.includes(node.nodeName.toLowerCase()))
       return { type: 'unknown', displayblock: node.style.display === "block" }; // triggers recursive parse
@@ -1344,7 +1332,7 @@ export default class StructuredEditor extends EditorBase {
   parseContainerContents(node, { inblock, externalcontent, initialblockstyle }) {
     //console.log('parsing\n', richdebug.getStructuredOuterHTML(node, {}, true));
 
-    var topblocklist = [];
+    const topblocklist = [];
     //no_br_to_p: we don't want to convert leftover BRs to blocks (eg from insertContainerContents)
     this.parseContainerContentsRecursive(node, null, topblocklist, [], initialblockstyle, { externalcontent: externalcontent });
 
@@ -1366,8 +1354,7 @@ export default class StructuredEditor extends EditorBase {
     if (item.type == "br") {
       block.deferredbr = [item];
       block.forcevisible = true;
-    }
-    else {
+    } else {
       block.deferredbr = null;
       block.nodes.push(item);
     }
@@ -1375,11 +1362,11 @@ export default class StructuredEditor extends EditorBase {
 
   parseContainerContentsRecursive(node, block, topblocklist, textstyles, initialblockstyle, options) {
     // Copy the children array
-    var children = Array.from(node.childNodes);
+    const children = Array.from(node.childNodes);
 
-    for (var ci = 0; ci < children.length; ++ci) {
-      var child = children[ci];
-      var type = this.parseNode(child);
+    for (let ci = 0; ci < children.length; ++ci) {
+      const child = children[ci];
+      const type = this.parseNode(child);
       //console.log("Parsed", child, type);
       if (!type || type.type == 'ignore')
         continue;
@@ -1396,7 +1383,7 @@ export default class StructuredEditor extends EditorBase {
         }
 
         // If this is an inline node within a cellitem block, create a block with the default (table) style
-        var style = block && block.type == "cellitem" && block.defaultstyle ? block.defaultstyle : initialblockstyle || this.structure.defaultblockstyle;
+        const style = block && block.type == "cellitem" && block.defaultstyle ? block.defaultstyle : initialblockstyle || this.structure.defaultblockstyle;
         initialblockstyle = null;
         block = { type: 'block', style: style, nodes: [], surrogate: true };
         topblocklist.push(block);
@@ -1430,7 +1417,7 @@ export default class StructuredEditor extends EditorBase {
               this._addItemToBlockNodes(block, { type: 'br' });
             }
 
-            var subtextstyles = textstyles.slice();
+            const subtextstyles = textstyles.slice();
             if (block.style.def.textstyles.includes(type.style.nodeName))
               subtextstyles.push(type.style);
 
@@ -1441,7 +1428,7 @@ export default class StructuredEditor extends EditorBase {
           } break;
         case 'text':
           {
-            var text = type.data;
+            let text = type.data;
             //remove stray undisplayed charactesr
             text = text.replaceAll('\u200b', '');
 
@@ -1486,8 +1473,7 @@ export default class StructuredEditor extends EditorBase {
             if (type.embedtype == "block") {
               block = null;
               topblocklist.push(type);
-            }
-            else {
+            } else {
               this._addItemToBlockNodes(block, type);
             }
             break;
@@ -1497,7 +1483,7 @@ export default class StructuredEditor extends EditorBase {
             if (block && block.surrogate)
               block = null;
 
-            let isreallist = type.style.islist;
+            const isreallist = type.style.islist;
             if (initialblockstyle) {
               if (!type.style.islist)
                 type.style = initialblockstyle;
@@ -1507,39 +1493,35 @@ export default class StructuredEditor extends EditorBase {
             if (block && (block.type === 'listitem' && !type.style.islist)) {
               // Non-list in list block. Just parse the contents
               this.parseContainerContentsRecursive(child, block, topblocklist, textstyles, null, options);
-            }
-            else if (type.style.islist && !isreallist) // initial blockstyle is a list
+            } else if (type.style.islist && !isreallist) // initial blockstyle is a list
             {
-              let subblock = { type: 'list', style: type.style, nodes: [], surrogate: true };
+              const subblock = { type: 'list', style: type.style, nodes: [], surrogate: true };
               topblocklist.push(subblock);
 
-              let listitem = { type: 'listitem', nodes: [], listitems: subblock.nodes, style: type.style };
+              const listitem = { type: 'listitem', nodes: [], listitems: subblock.nodes, style: type.style };
               subblock.nodes.push(listitem);
 
               this.parseContainerContentsRecursive(child, listitem, topblocklist, textstyles, null, options);
-            }
-            else if (type.style.islist) {
+            } else if (type.style.islist) {
               // Got an ol/ul node
-              var subblock = { type: 'list', style: type.style, nodes: [] };
+              const subblock = { type: 'list', style: type.style, nodes: [] };
               if (block && block.type === 'listitem') {
                 this._addItemToBlockNodes(block, subblock);
                 block.gotlist = true;
-              }
-              else {
+              } else {
                 topblocklist.push(subblock);
                 block = null;
               }
 
               for (let i = 0; i < child.childNodes.length; ++i)
                 if (['li', 'ol', 'ul'].includes(child.childNodes[i].nodeName.toLowerCase())) {
-                  var listitem = { type: 'listitem', nodes: [], listitems: subblock.nodes, style: type.style };
+                  const listitem = { type: 'listitem', nodes: [], listitems: subblock.nodes, style: type.style };
                   subblock.nodes.push(listitem);
 
-                  var subchild = child.childNodes[i];
+                  const subchild = child.childNodes[i];
                   this.parseContainerContentsRecursive(subchild, listitem, topblocklist, textstyles, null, options);
                 }
-            }
-            else {
+            } else {
               block = { type: 'block', style: type.style, nodes: [], anchor: child.getAttribute('data-rtd-anchor') };
               topblocklist.push(block);
 
@@ -1549,8 +1531,8 @@ export default class StructuredEditor extends EditorBase {
           } break;
         case 'tablestyle':
           {
-            let dims = tableeditor.getTableDimensions(child);
-            let firstdatacell = tableeditor.locateFirstDataCell(child);
+            const dims = tableeditor.getTableDimensions(child);
+            const firstdatacell = tableeditor.locateFirstDataCell(child);
 
             // Skip empty tables
             if (dims.rows === 0 || dims.cols === 0)
@@ -1559,26 +1541,26 @@ export default class StructuredEditor extends EditorBase {
             // If the table has any content, it should *always* close whatever block we're currently in
 
             block = {
-              type: 'table'
-              , style: type.style
-              , nodes: []
-              , colwidths: []
-              , firstdatacell: firstdatacell
-              , caption: child.querySelector('caption')?.textContent ?? ""
+              type: 'table',
+              style: type.style,
+              nodes: [],
+              colwidths: [],
+              firstdatacell: firstdatacell,
+              caption: child.querySelector('caption')?.textContent ?? ""
             };
             topblocklist.push(block);
 
             // Make head rows as non-data
-            let head_rows = child.tHead ? Array.from(child.tHead.rows) : [];
+            const head_rows = child.tHead ? Array.from(child.tHead.rows) : [];
             firstdatacell.row += head_rows.length;
 
             // Make sure to first handle thead, then tbody and finally tfoot
-            let rows = Array.from(child.rows);
-            let rowspans = Array(dims.cols).fill(0);
+            const rows = Array.from(child.rows);
+            const rowspans = Array(dims.cols).fill(0);
 
             for (let i = 0; i < rows.length; ++i) {
-              let cells = Array.from(rows[i].cells);
-              let rowitem = { type: 'rowitem', nodes: [], height: parseInt(rows[i].style.height) };
+              const cells = Array.from(rows[i].cells);
+              const rowitem = { type: 'rowitem', nodes: [], height: parseInt(rows[i].style.height) };
 
               block.nodes.push(rowitem);
 
@@ -1592,14 +1574,14 @@ export default class StructuredEditor extends EditorBase {
                   continue;
                 }
 
-                let currentcell = cells[currentcellidx++]; //currentcellidx out of range? add missing cells
-                let cellitem = {
-                  type: 'cellitem'
-                  , defaultstyle: type.style.tabledefaultblockstyle
-                  , nodes: []
-                  , colspan: currentcell ? currentcell.colSpan : 1
-                  , rowspan: currentcell ? currentcell.rowSpan : 1
-                  , styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
+                const currentcell = cells[currentcellidx++]; //currentcellidx out of range? add missing cells
+                const cellitem = {
+                  type: 'cellitem',
+                  defaultstyle: type.style.tabledefaultblockstyle,
+                  nodes: [],
+                  colspan: currentcell ? currentcell.colSpan : 1,
+                  rowspan: currentcell ? currentcell.rowSpan : 1,
+                  styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
                 };
 
                 rowitem.nodes.push(cellitem);
@@ -1612,15 +1594,15 @@ export default class StructuredEditor extends EditorBase {
             }
 
             // Retrieve the sizing cell sizes
-            let sizetr = document.createElement("tr"); // Row to hold the sizing cells
+            const sizetr = document.createElement("tr"); // Row to hold the sizing cells
             child.appendChild(sizetr);
-            var cols = tableeditor.getCols(child);
+            const cols = tableeditor.getCols(child);
 
             for (let i = 0; i < dims.cols; ++i)
               sizetr.appendChild(document.createElement("td"));
 
             for (let i = 0; i < dims.cols; ++i) {
-              var size = null;
+              let size = null;
               if (i < cols.length)
                 size = parseInt(cols[i].style.width);
               if (!size)
@@ -1646,12 +1628,12 @@ export default class StructuredEditor extends EditorBase {
   }
 
   showParsed(parsed, indent) {
-    var istr = ' ';
+    let istr = ' ';
     while (istr.length < indent)
       istr += istr;
     istr = istr.substr(0, indent);
 
-    for (var i = 0; i < parsed.length; ++i) {
+    for (let i = 0; i < parsed.length; ++i) {
       console.log(istr + 'b ' + i + ': ' + parsed[i].type
         + (parsed[i].type == 'text' ? ' "' + parsed[i].value + '"' : '')
         + (parsed[i].type == "img" ? ' ' + JSON.stringify(parsed[i].value) : '')
@@ -1671,9 +1653,9 @@ export default class StructuredEditor extends EditorBase {
 
   _insertParsed(locator, nodes, inblock, inlist, intable, preservelocators, undoitem) {
     preservelocators = preservelocators || [];
-    for (let line of explainIntoLines(nodes)) {
+    for (const line of explainIntoLines(nodes)) {
       if (line.block) {
-        let node = line.block;
+        const node = line.block;
         switch (node.type) {
           case 'block':
             {
@@ -1682,10 +1664,9 @@ export default class StructuredEditor extends EditorBase {
                 //console.log('temporary',locator);
                 if (node.forcevisible)
                   this.requireVisibleContentInBlockAfterLocator(locator, [locator, ...(preservelocators || [])], undoitem);
-              }
-              else {
+              } else {
                 // Insert block node (allow li inserts)
-                var res = this.insertBlockNode(locator, node.style, true, preservelocators, undoitem, node.anchor);
+                const res = this.insertBlockNode(locator, node.style, true, preservelocators, undoitem, node.anchor);
 
                 //console.log(' inserted blocknode, now', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
 
@@ -1702,7 +1683,7 @@ export default class StructuredEditor extends EditorBase {
             } break;
           case 'embeddedobject':
             {
-              let embobjnode = this._createEmbeddedObjectNode(node);
+              const embobjnode = this._createEmbeddedObjectNode(node);
               locator = this._insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem).afternodelocator;
               break;
             }
@@ -1714,9 +1695,8 @@ export default class StructuredEditor extends EditorBase {
                     locator = this._insertParsed(locator, cellitemnode.nodes, inblock, inlist, intable, preservelocators, undoitem);
                   });
                 });
-              }
-              else {
-                var tablenode = this._createTableNode(node);
+              } else {
+                const tablenode = this._createTableNode(node);
                 locator = this._insertTableNode(locator, tablenode, preservelocators, undoitem).afternodelocator;
                 this.initializeTableEditor(tablenode, node.style.tableresizing);
               }
@@ -1732,9 +1712,9 @@ export default class StructuredEditor extends EditorBase {
                 continue;
               }
 
-              let res = this.insertBlockNode(locator, node.style, false, preservelocators, undoitem, node.anchor);
-              for (var j = 0; j < node.nodes.length; ++j) {
-                let newli = document.createElement('li');
+              const res = this.insertBlockNode(locator, node.style, false, preservelocators, undoitem, node.anchor);
+              for (let j = 0; j < node.nodes.length; ++j) {
+                const newli = document.createElement('li');
                 res.contentlocator.insertNode(newli, preservelocators, undoitem);
                 ++res.contentlocator.offset;
 
@@ -1747,42 +1727,40 @@ export default class StructuredEditor extends EditorBase {
               if (res.node.childNodes.length == 0) {
                 locator = domlevel.Locator.newPointingTo(res.node);
                 locator.removeNode(preservelocators, undoitem);
-              }
-              else
+              } else
                 locator = domlevel.Locator.newPointingAfter(res.node);
             } break;
           case 'br':
             {
-              let formatting = new EditorBase.TextFormattingState();
-              let newnode = document.createElement("br");
+              const formatting = new EditorBase.TextFormattingState();
+              const newnode = document.createElement("br");
               formatting.textstyles = [];
               locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
             } break;
         }
-      }
-      else {
-        for (let node of fixIntralineSpaves(line.inline)) {
+      } else {
+        for (const node of fixIntralineSpaves(line.inline)) {
           switch (node.type) {
             case 'text':
               {
-                let formatting = new EditorBase.TextFormattingState();
+                const formatting = new EditorBase.TextFormattingState();
                 formatting.textstyles = node.textstyles;
 
-                let textnode = document.createTextNode(node.value);
+                const textnode = document.createTextNode(node.value);
                 locator = this.insertInlineFormattedNode(locator, textnode, formatting, preservelocators, undoitem).after;
               } break;
 
             case "img":
               {
-                let newnode = this.createTextStyleNode(node.value);
-                let formatting = new EditorBase.TextFormattingState();
+                const newnode = this.createTextStyleNode(node.value);
+                const formatting = new EditorBase.TextFormattingState();
                 formatting.textstyles = node.textstyles;
                 locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
               } break;
 
             case 'embeddedobject':
               {
-                let embobjnode = this._createEmbeddedObjectNode(node);
+                const embobjnode = this._createEmbeddedObjectNode(node);
                 locator = this._insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem).afternodelocator;
                 break;
               }
@@ -1801,9 +1779,9 @@ export default class StructuredEditor extends EditorBase {
   }
 
   cleanupParsedExternalContent(nodes) {
-    var firstnode = true;
-    for (var i = 0; i < nodes.length; ++i) {
-      var node = nodes[i];
+    let firstnode = true;
+    for (let i = 0; i < nodes.length; ++i) {
+      const node = nodes[i];
       switch (node.type) {
         case 'block':
           {
@@ -1812,7 +1790,7 @@ export default class StructuredEditor extends EditorBase {
           } // fallthrough
         case 'listitem':
           {
-            var subnodes = node.nodes;
+            const subnodes = node.nodes;
             /*            let j;
                         for (j = subnodes.length - 1; j >= 0; --j)
                         {
@@ -1860,8 +1838,8 @@ export default class StructuredEditor extends EditorBase {
     preservelocators = preservelocators || [];
 
     locator = locator.clone();
-    let block = this.getBlockAtNode(locator.getNearestNode());
-    let inlist = block.islist;
+    const block = this.getBlockAtNode(locator.getNearestNode());
+    const inlist = block.islist;
 
     let breakblock = false;
     if (typeof options.inblock == "undefined") {
@@ -1870,33 +1848,31 @@ export default class StructuredEditor extends EditorBase {
       if (downres.type == 'outerblock') {
         options.inblock = false;
         breakblock = true;
-      }
-      else
+      } else
         options.inblock = true;
     }
 
     // When pasting inside a block, overwrite the first blockstyle of the parsed contents, so the textstyle correction algorithm
     // in the parser will evict disallowed styles
     const initialblockstyle = options.inblock && block && block.blockstyle || null;
-    let parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
+    const parsed = this.parseContainerContents(node, { ...options, initialblockstyle });
 
     if (dompack.debugflags.rte)
       console.log('[rte] parsed container contents', parsed, { breakblock });
 
     if (breakblock) {
-      let upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
+      const upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
       if (upres.bogussegmentbreak && !block.inlist && parsed.length) {
         // paragraph is empty, just delete it
         locator = domlevel.Locator.newPointingTo(block.node);
         locator.removeNode(preservelocators, undoitem);
-      }
-      else {
+      } else {
         // break block at insert position into two, append at the end of the first part
         if (block.contentnode != block.blockroot) {
-          let down = locator.clone();
+          const down = locator.clone();
           down.scanBackward(this.getBody(), { whitespace: true });
 
-          let splitres = domlevel.splitDom(block.blockparent, [{ locator: down, toward: 'start', preservetoward: 'end' }], null);
+          const splitres = domlevel.splitDom(block.blockparent, [{ locator: down, toward: 'start', preservetoward: 'end' }], null);
           locator = splitres[0].end;
         }
       }
@@ -1915,7 +1891,7 @@ export default class StructuredEditor extends EditorBase {
     // If the copied selection contains a trailing segment break, make sure a segment break is inserted only
     // if the insert locator doesn't point to a segment break (ignoring whitespace).
     if (options.breakafter) {
-      let upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
+      const upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
       if ((upres.type === "node" || upres.type === "char") && !upres.segmentbreak)
         parsed.push({ type: 'block', style: this.structure.defaultblockstyle, nodes: [] });
     }
@@ -1926,7 +1902,7 @@ export default class StructuredEditor extends EditorBase {
       console.log('pre insertParsed: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
     }
 
-    var res = this._insertParsed(locator, parsed, options.inblock, inlist, options.isintable, preservelocators, undoitem);
+    let res = this._insertParsed(locator, parsed, options.inblock, inlist, options.isintable, preservelocators, undoitem);
     if (debugicc)
       console.log('post insert: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator, res: res }));
 
@@ -1938,7 +1914,7 @@ export default class StructuredEditor extends EditorBase {
 
     if (debugicc)
       console.log('ICC postinsert, html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, res: res }));
-    var range = new Range(res, res);
+    const range = new Range(res, res);
     this.checkDomStructure(range, [locator, res, ...(preservelocators || [])], undoitem);
     if (debugicc)
       console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator, res: res }));
@@ -1954,10 +1930,10 @@ export default class StructuredEditor extends EditorBase {
 
     super.setContentsHTML('');
 
-    var content = document.createElement('div');
+    const content = document.createElement('div');
     content.innerHTML = text;
 
-    var insertlocator = new domlevel.Locator(this.getBody());
+    const insertlocator = new domlevel.Locator(this.getBody());
 
     // console.log('setContentsHTML, html: ', richdebug.getStructuredOuterHTML(content, {}));
 
@@ -1965,7 +1941,7 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('post setContentsHTML: ', richdebug.getStructuredOuterHTML(this.getBody(), { insertlocator: insertlocator }));
 
-    var cursorpos = new domlevel.Locator(this.getBody());
+    const cursorpos = new domlevel.Locator(this.getBody());
     this.setCursorAtLocator(cursorpos);
     this.stateHasChanged();
 
@@ -1974,18 +1950,18 @@ export default class StructuredEditor extends EditorBase {
   }
 
   createBlockStyleElement(blockstyle, noli) {
-    var newel = document.createElement(blockstyle.def.containertag);
+    const newel = document.createElement(blockstyle.def.containertag);
     newel.className = blockstyle.classname;
-    var subnode = newel;
+    let subnode = newel;
     if (!noli && ['ul', 'ol'].includes(blockstyle.def.containertag.toLowerCase())) {
       subnode = document.createElement('li');
       newel.appendChild(subnode);
     }
 
-    var res =
+    const res =
     {
-      node: newel
-      , insertnode: subnode
+      node: newel,
+      insertnode: subnode
     };
     return res;
   }
@@ -2013,27 +1989,28 @@ export default class StructuredEditor extends EditorBase {
 
     //    console.error('changeRangeBlockStyle start:', richdebug.getStructuredOuterHTML(ancestor, { ancestor: ancestor, range:range }));
 
-    var parts = domlevel.splitDom(ancestor,
-      [{ locator: range.start, toward: 'start', preservetoward: 'end' }
-        , { locator: range.end, toward: 'end', preservetoward: 'start' }
+    const parts = domlevel.splitDom(ancestor,
+      [
+        { locator: range.start, toward: 'start', preservetoward: 'end' },
+        { locator: range.end, toward: 'end', preservetoward: 'start' }
       ], preservelocators.concat(range), undoitem);
 
     // Wrap the range in the new block node
-    var elt = this.createBlockStyleElement(newblockstyle, true).node;
+    const elt = this.createBlockStyleElement(newblockstyle, true).node;
     domlevel.wrapSimpleRangeInNewNode(range, elt, preservelocators.concat(parts).concat(range), undoitem);
 
     // For lists, wrap the content in a <li> too
     if (newblockstyle.islist) {
-      var newli = document.createElement('li');
+      const newli = document.createElement('li');
       domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(elt), newli, preservelocators.concat(parts).concat(range), undoitem);
     }
 
     // Extract the new block node, place it in a div
-    let rewritecontentnode = document.createElement('div');
+    const rewritecontentnode = document.createElement('div');
     domlevel.wrapSimpleRangeInNewNode(Range.fromNodeOuter(elt), rewritecontentnode, preservelocators.concat(parts).concat(range), undoitem);
 
     // Remove the node, save the position in the insertlocator
-    let insertlocator = parts[1].start;
+    const insertlocator = parts[1].start;
     domlevel.removeSimpleRange(parts[1], preservelocators.concat([insertlocator]), undoitem);
 
     // Insert the contents of the <div>
@@ -2050,14 +2027,14 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /** Changes the blockstyle of the selection.
-      @param newblockstyle
-      @param forced If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
+      @param newblockstyle -
+      @param forced - If not forced, and all selected blocks are of the same list style as the new blockstyle, everything
          is changed to the default blockstyle.
   */
   setSelectionBlockStyle(newblockstyle, forced) {
-    let undolock = this.getUndoLock();
+    const undolock = this.getUndoLock();
 
-    var blockstyle = newblockstyle;
+    let blockstyle = newblockstyle;
     if (typeof blockstyle == "string")
       blockstyle = this.structure.getBlockStyleByTag(blockstyle);
     if (!blockstyle)
@@ -2065,14 +2042,14 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('ssbs', newblockstyle);
 
-    var range = this.getSelectionRange();
-    var blockranges = this.getBlocksInRange(range, !blockstyle.islist);
+    const range = this.getSelectionRange();
+    const blockranges = this.getBlocksInRange(range, !blockstyle.islist);
 
     // If all the selected blockranges are the same list style, and we are selecting a non-forced list style, we revert
     // to the default block style
     //console.log(!forced, blockstyle.islist);
     if (!forced && blockstyle.islist) {
-      var allmatch = true;
+      let allmatch = true;
       for (let i = 0; i < blockranges.length; ++i)
         if (blockranges[i].type != 'block' || blockranges[i].block.blockstyle.tag != blockstyle.tag) {
           //console.log(blockranges[i].type, blockranges[i].block.blockstyle.tag, blockstyle.tag);
@@ -2085,15 +2062,14 @@ export default class StructuredEditor extends EditorBase {
 
     // Process backward, so we won't have problems with <li> 1 <ol> <li> 2, where converting 1 will break the info of 2
     for (let i = blockranges.length - 1; i >= 0; --i) {
-      let blockrange = blockranges[i];
+      const blockrange = blockranges[i];
       //      console.log(blockrange);
 
       let ancestor, localrange;
       if (blockrange.type == 'range') {
         ancestor = blockrange.range.getAncestorElement();
         localrange = blockrange.range;
-      }
-      else // block.type == 'block'
+      } else // block.type == 'block'
       {
         // Table part or no change needed?
         if (!blockrange.block.blockstyle || blockrange.block.blockstyle.istable || blockrange.block.blockstyle.tag == blockstyle.tag)
@@ -2119,21 +2095,21 @@ export default class StructuredEditor extends EditorBase {
   }
 
   refilterContent(externalcontent) {
-    var body = this.getBody();
+    const body = this.getBody();
     // console.log("before refilter", body.innerHTML);
 
-    var oldcontent = document.createElement('div');
+    const oldcontent = document.createElement('div');
 
     // Use wrap instead of moving firstChild, firefox likes to invent <br>s when moving firstChild's
     domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(body), oldcontent);
     body.removeChild(oldcontent);
 
-    var insertlocator = new domlevel.Locator(body);
+    const insertlocator = new domlevel.Locator(body);
 
     this.insertContainerContents(insertlocator, oldcontent, { externalcontent: externalcontent });
 
     // Make sure selection is placed at start of content
-    var range = new Range(insertlocator, insertlocator);
+    const range = new Range(insertlocator, insertlocator);
     range.normalize(body);
     this.selectRange(range);
 
@@ -2145,11 +2121,11 @@ export default class StructuredEditor extends EditorBase {
     cell.className = "wh-rtd__tablecell" + (newstyle ? " " + newstyle : "");
   }
   setSelectionCellStyle(newstyle) {
-    let range = this.getSelectionRange();
-    let tablecells = range.querySelectorAll("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
-    let parent = range.getAncestorElement().closest("tr,td");
+    const range = this.getSelectionRange();
+    const tablecells = range.querySelectorAll("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
+    const parent = range.getAncestorElement().closest("tr,td");
 
-    for (let applyto of [parent, ...tablecells])
+    for (const applyto of [parent, ...tablecells])
       if (applyto)
         this.setCellStyle(applyto, newstyle);
   }
@@ -2160,41 +2136,40 @@ export default class StructuredEditor extends EditorBase {
   //
 
   executeHardEnter() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     this._executeHardEnterOnRange(range);
   }
 
   _executeHardEnterOnRange(range) {
-    var debughardenter = false;
-    let undolock = this.getUndoLock();
+    const debughardenter = false;
+    const undolock = this.getUndoLock();
     if (debughardenter)
       console.log('hard enter start:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range }));
 
     this.checkDomStructure(range);
 
     // Determine the blocks the selection starts & ends in
-    let startblock = this.getBlockAtNode(range.start.element);
-    let endblock = this.getBlockAtNode(range.end.element);
+    const startblock = this.getBlockAtNode(range.start.element);
+    const endblock = this.getBlockAtNode(range.end.element);
 
     if (debughardenter)
       console.log('hard pre:', richdebug.getStructuredOuterHTML(this.getBody(), { range: range, startblock: startblock, endblock: endblock }));
 
     // Expand selection to first/last visible, sres and eres contain the type of content next to the range
-    let sres = range.start.movePastLastVisible(startblock.contentnode);
+    const sres = range.start.movePastLastVisible(startblock.contentnode);
     let eres = range.end.moveToFirstVisible(endblock.contentnode);
 
     // Is the selection from block start/until the block end?
-    let selectfromblockstart = sres.type == "outerblock";
+    const selectfromblockstart = sres.type == "outerblock";
     let selecteduntilblockend = eres.type == 'outerblock';
 
     // See if the end selection hits the end <br> of a block, if so include it in the range
     if (eres.type == 'br') {
-      let brrange = this.pointsToLastBlockBR(range.end);
+      const brrange = this.pointsToLastBlockBR(range.end);
       if (brrange) {
         range.end.assign(brrange.end);
         selecteduntilblockend = true;
-      }
-      else {
+      } else {
         ++range.end.offset;
         eres = range.end.moveToFirstVisible(endblock.contentnode);
       }
@@ -2234,33 +2209,31 @@ export default class StructuredEditor extends EditorBase {
 
     if (!perform_split) {
       // insert a new block before the currently selected block
-      let prevblock = sres.type == "outerblock" && sres.data.previousElementSibling;
+      const prevblock = sres.type == "outerblock" && sres.data.previousElementSibling;
       if (prevblock)
         reference_block = this.getBlockAtNode(prevblock);
 
       blockinsertlocator = domlevel.Locator.newPointingTo(sres.data);
-    }
-    else {
+    } else {
       // split the currently selected block
       let splitroot = startblock.blockparent;
       if (insert_li)
         splitroot = startblock.node; // Just need to add a li, split until the <ol>/<ul>
 
       // Break the current block on the start of the range
-      let parts = domlevel.splitDom(splitroot, [{ locator: range.start, toward: 'start' }], [range], undolock.undoitem);
+      const parts = domlevel.splitDom(splitroot, [{ locator: range.start, toward: 'start' }], [range], undolock.undoitem);
       blockinsertlocator = parts[1].start;
     }
 
     // insert the new block
     let newblockcontent;
     if (insert_li) {
-      let newli = document.createElement('li');
+      const newli = document.createElement('li');
       blockinsertlocator.insertNode(newli, [range], undolock.undoitem);
       newblockcontent = new domlevel.Locator(newli);
-    }
-    else {
+    } else {
       // Determine the style of the block to insert
-      let newstyle = (reference_block && reference_block?.blockstyle?.nextblockstyle) || this.structure.defaultblockstyle;
+      const newstyle = (reference_block && reference_block?.blockstyle?.nextblockstyle) || this.structure.defaultblockstyle;
       newblockcontent = this.insertBlockNode(blockinsertlocator, newstyle, true, [range], null, null).contentlocator;
     }
 
@@ -2284,7 +2257,7 @@ export default class StructuredEditor extends EditorBase {
       console.log('after remove:', richdebug.getStructuredOuterHTML(this.getBody(), { range }));
 
 
-    let block = this.getBlockAtNode(loc.element);
+    const block = this.getBlockAtNode(loc.element);
     if (block.contentnode)
       this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(block.contentnode), null, undolock.undoitem);
 
@@ -2315,8 +2288,8 @@ export default class StructuredEditor extends EditorBase {
   // Scans backward, skipping over embedded blocks
   _scanBackwardSkipEmbedded(ancestor, locator) {
     locator = locator.clone();
-    while (true) {
-      let bres = locator.scanBackward(this.getBody(), { whitespace: true, blocks: true });
+    for (; ;) {
+      const bres = locator.scanBackward(this.getBody(), { whitespace: true, blocks: true });
       if (bres.type === "outerblock")
         return bres.data === ancestor ? null : locator;
       if (bres.type !== "node" || !bres.data.classList.contains("wh-rtd-embeddedobject")) {
@@ -2332,8 +2305,8 @@ export default class StructuredEditor extends EditorBase {
   // Scans forward, skipping over embedded blocks
   _scanForwardSkipEmbedded(ancestor, locator) {
     locator = locator.clone();
-    while (true) {
-      let fres = locator.scanForward(ancestor, { whitespace: true, blocks: true });
+    for (; ;) {
+      const fres = locator.scanForward(ancestor, { whitespace: true, blocks: true });
       if (fres.type === "outerblock")
         return fres.data === ancestor ? null : locator;
       if (fres.type !== "node" || !fres.data.classList.contains("wh-rtd-embeddedobject"))
@@ -2368,7 +2341,7 @@ export default class StructuredEditor extends EditorBase {
         locator.removeNode([newpos], undolock.undoitem);
         if (block.islist) // last li?
         {
-          let innerloc = new domlevel.Locator(block.node, 0);
+          const innerloc = new domlevel.Locator(block.node, 0);
           if (innerloc.moveToNextBlockBoundary(this.getBody(), false).type === "outerblock") {
             locator = domlevel.Locator.newPointingTo(block.node);
             locator.removeNode([newpos], undolock.undoitem);
@@ -2382,27 +2355,26 @@ export default class StructuredEditor extends EditorBase {
       }
 
       // Disallow deleting tables, embedded blocks and captions
-      let checkblock = (node) => {
+      const checkblock = (node) => {
         if (node.matches("div,table,caption"))
           return false;
         return true;
       };
 
-      let newpos = range.end.clone();
+      const newpos = range.end.clone();
       if (forward) {
-        let moveres = newpos.moveRight(this.getBody(), { checkblock });
+        const moveres = newpos.moveRight(this.getBody(), { checkblock });
         if (moveres)
           range.end.assign(newpos);
         else {
           undolock.close();
           return true;
         }
-      }
-      else {
-        let moveres = newpos.moveLeft(this.getBody(), { checkblock });
+      } else {
+        const moveres = newpos.moveLeft(this.getBody(), { checkblock });
         if (moveres) {
           // See if the previous block is empty. If so, remove it.
-          let block = this.getBlockAtNode(newpos.getNearestNode());
+          const block = this.getBlockAtNode(newpos.getNearestNode());
           if (this._isEmptyBlock(block.contentnode)) {
             block.contentnode.remove();
             if (block.node !== block.contentnode && this._isEmptyBlock(block.node)) // removed last li in list node?
@@ -2412,8 +2384,7 @@ export default class StructuredEditor extends EditorBase {
           }
 
           range.start.assign(newpos);
-        }
-        else {
+        } else {
           undolock.close();
           return true;
         }
@@ -2425,7 +2396,7 @@ export default class StructuredEditor extends EditorBase {
     //console.log('pre constrain', richdebug.getStructuredOuterHTML(this.getBody(), range, { indent: true }));
     range = this._constrainRangeCrossTDSelections(range).range;
 
-    let locator = this._removeRangeAndStitch(range, null, undolock.undoitem);
+    const locator = this._removeRangeAndStitch(range, null, undolock.undoitem);
     this.setCursorAtLocator(locator);
 
     undolock.close();
@@ -2434,7 +2405,7 @@ export default class StructuredEditor extends EditorBase {
 
   addListNodeToNode(node, blockstyle) {
     if (node.lastChild && node.lastChild.lastChild) {
-      var block = this.getBlockAtNode(node.lastChild.lastChild);
+      const block = this.getBlockAtNode(node.lastChild.lastChild);
       if (block && block.blockstyle)
         blockstyle = block.blockstyle;
     }
@@ -2458,19 +2429,19 @@ export default class StructuredEditor extends EditorBase {
   }
 
   addListLevel() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
-    var filtered = lists.getLevelActionableListNodes(range, this.getBody()).addable;
+    const filtered = lists.getLevelActionableListNodes(range, this.getBody()).addable;
 
     //console.log('addlistlevel todo', richdebug.getStructuredOuterHTML(this.getBody(), filtered, true));
 
-    for (var i = 0; i < filtered.length; ++i) {
-      var node = filtered[i];
+    for (let i = 0; i < filtered.length; ++i) {
+      const node = filtered[i];
 
-      var prev = node.previousSibling;
+      let prev = node.previousSibling;
       // If prev is null, the li should be moved into the last li of the previous list
-      var move_into_prevlist = !prev;
+      const move_into_prevlist = !prev;
       if (move_into_prevlist)
         prev = node.parentNode.previousSibling.lastChild;
 
@@ -2479,17 +2450,17 @@ export default class StructuredEditor extends EditorBase {
       // Move the current li into the previous li, wrapped in a copy of the current parent list node
 
       // Clone the parent list node & the first list node, append it into prev
-      var oldlist = node.parentNode;
-      var newlist = oldlist.cloneNode(false);
+      const oldlist = node.parentNode;
+      const newlist = oldlist.cloneNode(false);
       new domlevel.Locator(prev, "end").insertNode(newlist, null, undolock.undoitem);
-      var ancestor = oldlist.parentNode;
+      const ancestor = oldlist.parentNode;
 
       // Clone the li and move its contents (we currently don't have a DOM move function to move range contents into a node)
-      var newli = node.cloneNode(false);
+      const newli = node.cloneNode(false);
       new domlevel.Locator(newlist, "end").insertNode(newli, null, undolock.undoitem);
 
       // Move the contents of our node into the parent list, remove node, keep range ok
-      var insertpos = new domlevel.Locator(newli);
+      let insertpos = new domlevel.Locator(newli);
       domlevel.combineNodes(insertpos, node, [range], undolock.undoitem);
 
       // If we have moved into another list, check if the old list is empty and if so, remove it
@@ -2510,23 +2481,23 @@ export default class StructuredEditor extends EditorBase {
   }
 
   removeListLevel() {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
-    var orgrange = range.clone();
+    const orgrange = range.clone();
 
-    var filtered = lists.getLevelActionableListNodes(range, this.getBody()).removeable;
+    const filtered = lists.getLevelActionableListNodes(range, this.getBody()).removeable;
 
     //console.log('rll pre', richdebug.getStructuredOuterHTML(this.getBody(), { blocks: filtered, orgrange: orgrange }, true));
 
-    for (var i = 0; i < filtered.length; ++i) {
-      var node = filtered[i];
+    for (let i = 0; i < filtered.length; ++i) {
+      const node = filtered[i];
 
       // Make sure our li isn't empty
       this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(node, 0), [orgrange], undolock.undoitem);
 
-      var block = this.getBlockAtNode(node);
-      var parentblock = this.getBlockAtNode(block.blockparent);
-      var parent = node.parentNode;
+      const block = this.getBlockAtNode(node);
+      const parentblock = this.getBlockAtNode(block.blockparent);
+      const parent = node.parentNode;
 
       /*    Current:
             <ol>parentblock
@@ -2537,7 +2508,7 @@ export default class StructuredEditor extends EditorBase {
                       <li>sub1
                   <li>rest2
               <li>rest3
-      
+
             New:
             <ol>parentblock
               <li>rest1
@@ -2547,12 +2518,12 @@ export default class StructuredEditor extends EditorBase {
                   <li>rest2
               <li>rest3
       */
-      var splitpoint = new domlevel.Locator(node);
+      const splitpoint = new domlevel.Locator(node);
 
       //console.log('rll presplit', richdebug.getStructuredOuterHTML(this.getBody(), { splitpoint: splitpoint, node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
 
       // Split the dom to separate the non-list contents of the parent li and the selected list item
-      var parts = domlevel.splitDom(parentblock.node, [{ locator: splitpoint, toward: 'start' }], [orgrange], undolock.undoitem);
+      const parts = domlevel.splitDom(parentblock.node, [{ locator: splitpoint, toward: 'start' }], [orgrange], undolock.undoitem);
 
       //console.log('rll postsplit', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange, parts: parts }, true));
 
@@ -2570,11 +2541,11 @@ export default class StructuredEditor extends EditorBase {
               <li>rest3
       */
       // Move the contents of node into the new li
-      var newli = parts[1].start.getPointedNode(); /* Must succced, because our li node can't be empty */
-      var insertlocator = new domlevel.Locator(newli, 0);
+      const newli = parts[1].start.getPointedNode(); /* Must succced, because our li node can't be empty */
+      const insertlocator = new domlevel.Locator(newli, 0);
 
-      var cres = domlevel.combineNodes(insertlocator, node, [orgrange], undolock.undoitem);
-      var afterlocator = cres.afterlocator;
+      const cres = domlevel.combineNodes(insertlocator, node, [orgrange], undolock.undoitem);
+      const afterlocator = cres.afterlocator;
 
       //console.log('rll postcombine1', richdebug.getStructuredOuterHTML(this.getBody(), { node: node, blocks: filtered, orgrange: orgrange }, true));
 
@@ -2616,27 +2587,27 @@ export default class StructuredEditor extends EditorBase {
   checkDomStructure(range, preservelocators) {
     //console.log('start checkDomStructure', richdebug.getStructuredOuterHTML(this.getBody(), range), range, preservelocators);
 
-    var restoreselection = !range;
+    const restoreselection = !range;
     if (restoreselection)
       range = this.getSelectionRange();
 
     preservelocators = [range, ...(preservelocators || [])];
 
     // First, correct a missing br in the current block, if needed
-    var block = this.getBlockAtNode(range.start.getNearestNode());
+    const block = this.getBlockAtNode(range.start.getNearestNode());
     let locator = new domlevel.Locator(block.contentnode);
     this.requireVisibleContentInBlockAfterLocator(locator, preservelocators);
     domlevel.cleanupBogusBreaks(range.getAncestorElement(), preservelocators);
 
     // If the current block has lost its style, reset to default block style
     if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode) && !block.isintable) {
-      let localrange = Range.fromNodeInner(block.contentnode);
+      const localrange = Range.fromNodeInner(block.contentnode);
       this.changeRangeBlockStyle(localrange, block.blockparent, this.structure.defaultblockstyle, preservelocators.concat([range]));
     }
 
     // See if there is content at start of document not wrapped in block
     locator = new domlevel.Locator(this.getBody());
-    let res = locator.scanForward(this.getBody(), { whitespace: true });
+    const res = locator.scanForward(this.getBody(), { whitespace: true });
 
     // Yes, there is visible content.
     if (!['innerblock'].includes(res.type) && !(res.type == 'node' && domlevel.isEmbeddedObject(res.data))) {
@@ -2644,10 +2615,10 @@ export default class StructuredEditor extends EditorBase {
       locator.moveToNextBlockBoundary(this.getBody(), false);
 
       // Make sure we handle something like bla<i><p>etc gracefully, can only move simple ranges
-      var parts = domlevel.splitDom(this.getBody(), [{ locator: locator, toward: 'start' }], preservelocators);
+      const parts = domlevel.splitDom(this.getBody(), [{ locator: locator, toward: 'start' }], preservelocators);
 
       // Wrap range in block
-      let res = this.insertBlockNode(parts[1].start, this.structure.defaultblockstyle, preservelocators, null);
+      const res = this.insertBlockNode(parts[1].start, this.structure.defaultblockstyle, preservelocators, null);
       domlevel.moveSimpleRangeTo(parts[0], res.contentlocator, preservelocators);
       this.requireVisibleContentInBlockAfterLocator(res.contentlocator, preservelocators);
     }
@@ -2671,12 +2642,12 @@ export default class StructuredEditor extends EditorBase {
   //
 
   _createEmbeddedObjectNode(data) {
-    let isinline = data.embedtype == 'inline';
-    let basenode = isinline ? 'span' : 'div';
+    const isinline = data.embedtype == 'inline';
+    const basenode = isinline ? 'span' : 'div';
 
     const has_inlinepreview = /wh-rtd__inlinepreview/.exec(data.htmltext);
 
-    var node = document.createElement(basenode); //the basenode is also used to show selection status
+    const node = document.createElement(basenode); //the basenode is also used to show selection status
     node.className = "wh-rtd-embeddedobject"
       + (data.canedit ? " wh-rtd-embeddedobject--editable" : "")
       + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
@@ -2685,7 +2656,7 @@ export default class StructuredEditor extends EditorBase {
     node.dataset.instanceref = data.instanceref;
     node.contentEditable = false;
 
-    var box = document.createElement(basenode); //the box is the 'gray' rounded border area for the widget
+    const box = document.createElement(basenode); //the box is the 'gray' rounded border area for the widget
     box.className = "wh-rtd-embeddedobject__box";
     node.appendChild(box);
 
@@ -2699,10 +2670,10 @@ export default class StructuredEditor extends EditorBase {
     }
 
     //objectbuttons need to appear first so we can use position:sticky
-    let objectbuttons = document.createElement(basenode);
+    const objectbuttons = document.createElement(basenode);
     objectbuttons.className = "wh-rtd-objectbuttons";
 
-    let stickyheader = document.createElement(basenode);
+    const stickyheader = document.createElement(basenode);
     stickyheader.className = "wh-rtd-embeddedobject__stickyheader";
     if (typebox)
       stickyheader.appendChild(typebox);
@@ -2715,13 +2686,13 @@ export default class StructuredEditor extends EditorBase {
     box.appendChild(previewnode);
 
     if (!isinline) {
-      var navabovebutton = document.createElement(basenode);
+      const navabovebutton = document.createElement(basenode);
       navabovebutton.className = "wh-rtd-navabovebutton";
       navabovebutton.setAttribute("data-rte-subaction", "navabove");
 
       objectbuttons.appendChild(navabovebutton);
 
-      var navunderbutton = document.createElement(basenode);
+      const navunderbutton = document.createElement(basenode);
       navunderbutton.className = "wh-rtd-navunderbutton";
       navunderbutton.setAttribute("data-rte-subaction", "navunder");
 
@@ -2729,14 +2700,14 @@ export default class StructuredEditor extends EditorBase {
     }
 
     if (this.options.editembeddedobjects) {
-      var editbutton = document.createElement(basenode);
+      const editbutton = document.createElement(basenode);
       editbutton.className = "wh-rtd-editbutton";
       editbutton.setAttribute("data-rte-subaction", "edit");
 
       objectbuttons.appendChild(editbutton);
     }
 
-    var deletebutton = document.createElement(basenode);
+    const deletebutton = document.createElement(basenode);
     deletebutton.className = "wh-rtd-deletebutton";
     deletebutton.setAttribute("data-rte-subaction", "delete");
 
@@ -2746,12 +2717,12 @@ export default class StructuredEditor extends EditorBase {
   }
 
   insertEmbeddedObject(data) {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
-    var rangeiscollapsed = range.isCollapsed();
-    var locator = this.removeSelection();
+    const rangeiscollapsed = range.isCollapsed();
+    const locator = this.removeSelection();
 
-    var node = this._createEmbeddedObjectNode(data);
+    const node = this._createEmbeddedObjectNode(data);
     this._insertEmbeddedObjectNode(locator, node, [], undolock.undoitem);
 
     if (rangeiscollapsed)
@@ -2766,11 +2737,11 @@ export default class StructuredEditor extends EditorBase {
 
   updateEmbeddedObject(target, data) {
     // No undo, embedded object state is kept at server
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
-    var locator = domlevel.Locator.newPointingTo(target);
-    var node = this._createEmbeddedObjectNode(data);
+    const locator = domlevel.Locator.newPointingTo(target);
+    const node = this._createEmbeddedObjectNode(data);
 
     locator.replacePointedNode(node, [range]);
 
@@ -2783,7 +2754,7 @@ export default class StructuredEditor extends EditorBase {
     this._reprocessEmbeddedAutoElements();
   }
   removeEmbeddedObject(node) {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
     domlevel.Locator.newPointingTo(node).removeNode([range], undolock.undoitem);
@@ -2795,17 +2766,17 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _createTableNode(data) {
-    var node = document.createElement('table');
+    const node = document.createElement('table');
     node.className = data.style.classname + " wh-rtd__table";
-    var tbody = document.createElement('tbody');
+    const tbody = document.createElement('tbody');
 
     if (data.caption)
       node.appendChild(<caption class="wh-rtd__tablecaption" contenteditable="false" inert>{data.caption.trim()}</caption>);
 
     if (data.colwidths) {
-      var colgroup = document.createElement('colgroup');
+      const colgroup = document.createElement('colgroup');
       data.colwidths.forEach(width => {
-        var col = document.createElement('col');
+        const col = document.createElement('col');
         if (width)
           col.style.width = width + 'px';
         colgroup.appendChild(col);
@@ -2813,16 +2784,16 @@ export default class StructuredEditor extends EditorBase {
       node.appendChild(colgroup);
     }
 
-    var rowspans = [];
+    const rowspans = [];
     data.nodes.forEach((rowitem, row) => {
       if (rowitem.type != 'rowitem')
         throw new Error("Unexpected table rowitem node");
 
-      var tr = document.createElement('tr');
+      const tr = document.createElement('tr');
       if (rowitem.height)
         tr.style.height = rowitem.height + "px";
 
-      var col = 0;
+      let col = 0;
       rowitem.nodes.forEach(cellitem => {
         if (rowitem.type != 'rowitem')
           throw new Error("Unexpected table rowitem node");
@@ -2831,7 +2802,7 @@ export default class StructuredEditor extends EditorBase {
         while ((rowspans[col] || 0) > row)
           ++col;
 
-        var cellnode = null;
+        let cellnode = null;
         if ((col >= data.firstdatacell.col) === (row >= data.firstdatacell.row))
           cellnode = document.createElement("td");
         else {
@@ -2848,7 +2819,7 @@ export default class StructuredEditor extends EditorBase {
         tr.appendChild(cellnode);
 
 
-        for (var colitr = 0; colitr < cellitem.colspan; ++colitr)
+        for (let colitr = 0; colitr < cellitem.colspan; ++colitr)
           rowspans[col++] = row + cellitem.rowspan;
       });
       tbody.appendChild(tr);
@@ -2860,7 +2831,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   removeTable(node) {
-    var range = this.getSelectionRange();
+    const range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
     domlevel.Locator.newPointingTo(node).removeNode([range], undolock.undoitem);
@@ -2872,21 +2843,21 @@ export default class StructuredEditor extends EditorBase {
   }
 
   requireBottomParagraph() {
-    let body = this.getBody();
-    let locator = new domlevel.Locator(body, "end");
+    const body = this.getBody();
+    const locator = new domlevel.Locator(body, "end");
     let res = locator.scanBackward(body, { whitespace: true });
     switch (res.type) {
       case "char":
       case "br": return; // got bottom text, all is ok
       case "node":
       case "innerblock": {
-        let lname = res.data.nodeName.toLowerCase();
+        const lname = res.data.nodeName.toLowerCase();
         if (lname !== "table" && !res.data.classList.contains("wh-rtd-embeddedobject"))
           return;
 
         const undolock = this.getUndoLock();
 
-        let loc = new domlevel.Locator(body, "end");
+        const loc = new domlevel.Locator(body, "end");
         res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
         this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
         this.selectRange(Range.fromLocator(res.contentlocator));
@@ -2905,10 +2876,10 @@ export default class StructuredEditor extends EditorBase {
   // Lists
   //
   getAvailableListActions(range) {
-    var listdata = lists.getLevelActionableListNodes(range, this.getBody());
+    const listdata = lists.getLevelActionableListNodes(range, this.getBody());
     return {
-      canincrease: listdata.addable.length != 0
-      , candecrease: listdata.removeable.length != 0
+      canincrease: listdata.addable.length != 0,
+      candecrease: listdata.removeable.length != 0
     };
   }
 }

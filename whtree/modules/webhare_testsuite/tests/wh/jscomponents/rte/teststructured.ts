@@ -11,13 +11,13 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 
 
 // HTML used to keep empty elements open
-var useblockfill = true;
-var alwaysblockfill = '<br data-wh-rte="bogus">'; // Always present blockfill
-var blockfill = alwaysblockfill;
-var ieblockfill = ''; // IE interchange blockfill, only present in getContentsHTML when useblockfill == false
-var blockfillistext = false;
-var quotedblockfill = blockfill;
-var quotedloc01blockfill = '(*0*)(*1*)' + blockfill;
+const useblockfill = true;
+const alwaysblockfill = '<br data-wh-rte="bogus">'; // Always present blockfill
+const blockfill = alwaysblockfill;
+const ieblockfill = ''; // IE interchange blockfill, only present in getContentsHTML when useblockfill == false
+const blockfillistext = false;
+const quotedblockfill = blockfill;
+const quotedloc01blockfill = '(*0*)(*1*)' + blockfill;
 
 function getContentsHTMLRaw(win) {
   return test.qS("div.wh-rtd-editor-bodynode").innerHTML;
@@ -27,64 +27,64 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
-    }
-    , {
-      name: 'verifyclasses'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
-        var bodynode = rte.getBody();
+    },
+    {
+      name: 'verifyclasses',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
+        const bodynode = rte.getBody();
         test.assert(bodynode.className.indexOf('html-class') == -1);
         test.assert(bodynode.className.indexOf('body-class') != -1);
         test.assert(bodynode.parentNode.className.indexOf('html-class') != -1);
       }
-    }
-    , {
-      name: 'verifybodymargin'
-      , test: function(doc, win) {
-        var body = win.rte.getEditor().getBody();
-        var html = body.parentNode;
-        var h1 = body.getElementsByTagName('h1')[0];
+    },
+    {
+      name: 'verifybodymargin',
+      test: function(doc, win) {
+        const body = win.rte.getEditor().getBody();
+        const html = body.parentNode;
+        const h1 = body.getElementsByTagName('h1')[0];
 
         // The h1 has a top margin of 10 pixels
         test.eq('10px', getComputedStyle(h1).marginTop);
 
         // The body should be positioned at 0 (the h1 top margin shouldn't push the body down)
-        var bodypos = dompack.getRelativeBounds(body, html);
+        const bodypos = dompack.getRelativeBounds(body, html);
         test.eq(-1, bodypos.top);
 
         // The h1 should be positioned at 10 pixels (its top margin)
-        var h1pos = dompack.getRelativeBounds(h1, html);
+        const h1pos = dompack.getRelativeBounds(h1, html);
         test.eq(10, h1pos.top);
       }
-    }
-    , {
-      name: 'initialcursor'
-      , test: function(doc, win) {
+    },
+    {
+      name: 'initialcursor',
+      test: function(doc, win) {
         // Initial cursor must be placed at start of document
-        let rte = win.rte.getEditor();
-        var range = rte.getSelectionRange();
+        const rte = win.rte.getEditor();
+        const range = rte.getSelectionRange();
         range.normalize(rte.getBody());
 
-        var testlocator = new domlevel.Locator(rte.getBody());
-        var testrange = new Range(testlocator, testlocator);
+        const testlocator = new domlevel.Locator(rte.getBody());
+        const testrange = new Range(testlocator, testlocator);
         testrange.normalize(rte.getBody());
 
         test.eq(testrange, range);
 
         // Image button should be disabled, as 'img' is not permitted here
-        var imgbutton = test.qSA('span.wh-rtd-button[data-button=img]')[0];
+        const imgbutton = test.qSA('span.wh-rtd-button[data-button=img]')[0];
         test.assert(imgbutton != null, "No image button");
         test.assert(imgbutton.classList.contains('disabled'), "Image button is not disabled");
       }
-    }
+    },
 
-    , {
+    {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
-    }
+    },
 
-    , {
-      name: 'emptytest'
-      , test: function(doc, win) {
+    {
+      name: 'emptytest',
+      test: function(doc, win) {
         //blockfill = win.$wh.Rich.Dom.usesBRAsBlockFill() ? '<br>' : '\u200b';
         //blockfillistext = blockfill.substr(0,1) != '<';
         //quotedblockfill = !blockfillistext ? blockfill : '"' + blockfill + '"';
@@ -93,12 +93,12 @@ test.registerTests(
         test.eqHTML('<p class="normal">' + blockfill + '</p>', getContentsHTMLRaw(win), 'getContentsHTMLRaw returned unexpected value');
         test.eqHTML('<p class="normal">' + alwaysblockfill + '</p>', win.rte.getValue(), 'getContentsHTML returned unexpected value');
       }
-    }
+    },
 
-    , {
-      name: 'interchange'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'interchange',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
 
         // In !usebrasblockblockfill mode, br is not present in raw html
         rte.setContentsHTML('<p class="normal"><br></p>');
@@ -123,27 +123,27 @@ test.registerTests(
         rte.setContentsHTML('<code class="language-harescript">&lt;wh Print("Hello, World\\n");</code>');
         test.eqHTML('<code class="language-harescript">&lt;wh Print("Hello, World\\n");</code>', win.rte.getValue());
       }
-    }
+    },
 
 
-    , {
-      name: 'restructuring_1'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'restructuring_1',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
 
         rtetest.setRawStructuredContent(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>');
-        var range = rte.getSelectionRange();
+        const range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>', rte.getBody(), [range.start, range.end]);
       }
-    }
+    },
 
 
-    , {
-      name: 'blocknodeinsert'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
-        var style_ordered = rte.structure.getBlockStyleByTag('ORDERED');
-        var style_normal = rte.structure.getBlockStyleByTag('NORMAL');
+    {
+      name: 'blocknodeinsert',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
+        const style_ordered = rte.structure.getBlockStyleByTag('ORDERED');
+        const style_normal = rte.structure.getBlockStyleByTag('NORMAL');
 
         let body, node_li, node_h1;
 
@@ -227,12 +227,12 @@ test.registerTests(
         rte.insertBlockNode(new domlevel.Locator(node_h1, 1), style_normal);
         test.eqHTML('<h1 class="heading1">a</h1><p class="normal">' + ieblockfill + '</p>', win.rte.getValue());
       }
-    }
+    },
 
-    , {
-      name: 'stitch'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'stitch',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
         let body, node_br, locator;
 
 
@@ -287,7 +287,7 @@ test.registerTests(
         // Stitch list both sides, with empty OL in the middle
         rte.getBody().innerHTML = '<ol class="ordered"><li>1</li></ol><ol class="ordered"></ol><ol class="ordered"><li>2</li></ol>';
         body = rte.getBody();
-        var node_ol = body.getElementsByTagName("OL")[1]; // second OL node
+        const node_ol = body.getElementsByTagName("OL")[1]; // second OL node
         locator = new domlevel.Locator(node_ol, 0);
 
         locator = rte.combineAtLocator(rte.getBody(), locator, false);
@@ -299,19 +299,19 @@ test.registerTests(
         test.eq(1, locator.offset);
 
       }
-    }
+    },
 
 
-    , {
-      name: 'structuring'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'structuring',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/" trash="true">stijl</a>.</p>');
-        var body = rte.getBody();
+        const body = rte.getBody();
 
         //this is the style we applied to HEADING1, we're expecting the rte to have properly set the class
-        var h1 = body.getElementsByTagName("H1")[0];
+        const h1 = body.getElementsByTagName("H1")[0];
         if (test.getTestArgument(0) != 'dummy')
           test.eqIn(['rgb(221, 221, 221)', '#dddddd'], rtetest.getCompStyle(h1, "color"));
 
@@ -328,13 +328,13 @@ test.registerTests(
         test.assert(!selectstate.limited.textstyles.includes('a-href'));
 
         //select the first P. request the current state
-        var p = body.getElementsByTagName("P")[0];
+        const p = body.getElementsByTagName("P")[0];
         rte.setCursor(p, 2);
         if (test.getTestArgument(0) != 'dummy')
           test.eqIn(['rgb(255, 0, 0)', '#ff0000'], rtetest.getCompStyle(p, "color"));
 
         //verify that the 'a' was properly copied into the P after whitelisting
-        var p_a = p.getElementsByTagName("A")[0];
+        const p_a = p.getElementsByTagName("A")[0];
         test.assert(p_a !== null);
         test.eq("http://b-lex.nl/", p_a.href);
         test.assert(!p_a.hasAttribute("trash"));
@@ -356,10 +356,10 @@ test.registerTests(
         //        test.eq('in mijn stijl.', rte.getSelectionText());
 
         rtetest.setStructuredContent(win, '<p class="normal"><b>"a"</b><i>"b"</i></p');
-        var range = rte.getSelectionRange();
+        let range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<p class="normal"><b>"(*0*)(*1*)a"</b><i>"b"</i></p', rte.getBody(), [range.start, range.end]);
 
-        let withtable =
+        const withtable =
           '<p class="normal">"(*0*)a"</p>' +
           '<table class="table wh-rtd__table" style="width: 19px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 18px;"></colgroup>' +
           `<tbody><tr style="height: 18px;"><td class="wh-rtd__tablecell"><p class="normal">"1"</p></td></tr></tbody>` +
@@ -374,12 +374,12 @@ test.registerTests(
 
         rtetest.testEqHTMLEx(win, withtable.replace(/\<p class="normal"/g, '<h1 class="heading1"').replace(/\<\/p/g, '</h1'), rte.getBody(), [range.start, range.end]);
       }
-    }
+    },
 
-    , {
-      name: 'checkDomStructure'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'checkDomStructure',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
 
         rtetest.setRawStructuredContent(win, '"(*0*)a"');
         rte.checkDomStructure();
@@ -389,12 +389,12 @@ test.registerTests(
         rte.checkDomStructure();
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"a(*0*)(*1*)"</p>');
       }
-    }
+    },
 
-    , {
-      name: 'toggleliststyle'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'toggleliststyle',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let range, prestate;
 
         // Normal converts
@@ -488,12 +488,12 @@ test.registerTests(
         await rtetest.testUndoRedo(rte, prestate);
         rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li><i>"(*0*)1(*1*)"</i></li></ul>');
       }
-    }
+    },
 
-    , {
-      name: 'initialstyle'
-      , test: function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'initialstyle',
+      test: function(doc, win) {
+        const rte = win.rte.getEditor();
 
         //make sure the style of the first paragraph is selected
         rte.setContentsHTML('<h2 class="heading2">Kop 2</h2>');
@@ -503,23 +503,23 @@ test.registerTests(
         //make sure that passing empty content, creates and sets the default style
         rte.setContentsHTML('');
 
-        var p = rte.getBody().firstChild;
+        const p = rte.getBody().firstChild;
         test.eq("P", p.nodeName);
         test.eq("normal", p.className);
         selectstate = rte.getSelectionState();
         test.eq('NORMAL', selectstate.blockstyle.tag);
       }
-    }
+    },
 
-    , {
-      name: 'addcr'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'addcr',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let body, prestate;
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn stijl.</p>');
         body = rte.getBody();
-        var h1 = body.getElementsByTagName("H1")[0];
+        const h1 = body.getElementsByTagName("H1")[0];
         rte.setCursor(h1.firstChild, 3);
 
         prestate = rtetest.getPreActionState(rte);
@@ -535,7 +535,7 @@ test.registerTests(
 
         rte.setContentsHTML('<p class="normal">123</p>');
         body = rte.getBody();
-        var p = body.getElementsByTagName("P")[0];
+        const p = body.getElementsByTagName("P")[0];
         //console.log('test pre setsel', richdebug.getStructuredOuterHTML(rte.getBody(), Range.fromDOMRange(rte.GetSelectionObject().GetRange())));
         //console.log('fc', richdebug.getStructuredOuterHTML(rte.getBody(), { fc: p.firstChild }));
         rte.selectRange(new Range(new domlevel.Locator(p.firstChild, 1), new domlevel.Locator(p.firstChild, 2)));
@@ -549,17 +549,17 @@ test.registerTests(
                 rte.setContentsHTML('<p class="normal">"Stap 1)"</p><p class="normal"><br></p><p class="normal">"je testinfo.xml moet naar de juiste JS files wijzen:"</p>');
                 throw 1;
                 rte.executeHardEnter();
-        
+
                 var range = rte.getSelectionRange();
                 rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b(*1*)"<ol class="ordered"><li>"c"</li></ol></li><li>"d"</li></ol>', rte.getBody(), [ range.start, range.end ]);
                 */
       }
-    }
+    },
 
-    , {
-      name: 'softenter'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'softenter',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let locators, range, prestate;
 
         // Within paragraph
@@ -656,12 +656,12 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte.executeSoftEnter());
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"a"<br>"(*0*)(*1*)\u00a0"<br data-wh-rte="bogus"></p>');
       }
-    }
+    },
 
-    , {
-      name: 'hardenter'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'hardenter',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let locators, range;
 
         // in empty paragraph
@@ -733,7 +733,7 @@ test.registerTests(
 
         // Within LI containing a soft break
         rte.setContentsHTML('<ol class="ordered"><li>abcd<br>efgh</li></ol>');
-        var li = rte.getBody().querySelector('li');
+        const li = rte.getBody().querySelector('li');
         rte.setCursor(li.firstChild, 2);
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
 
@@ -854,12 +854,12 @@ test.registerTests(
         // Toggle list style with sublist also changes sublist
         //FIXME write testcase
       }
-    }
+    },
 
-    , {
-      name: 'addlistlevel'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'addlistlevel',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let range;
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b"</li></ol>');
@@ -908,12 +908,12 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte.removeListLevel());
         rtetest.testEqSelHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"(*0*)b"</li><li>(*1*)"c"</li></ol>');
       }
-    }
+    },
 
-    , {
-      name: 'removelistlevel'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'removelistlevel',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let range;
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"</li><li><ol class="ordered"><li>"(*0*)b"</li></ol></li></ol>');
@@ -941,12 +941,12 @@ test.registerTests(
         range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b"</li><li>"(*0*)c"</li></ol></li><li>"d(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
       }
-    }
+    },
 
-    , {
-      name: 'removelistlevel_ie8andlower'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'removelistlevel_ie8andlower',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
         let range;
 
         rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a"<ol class="ordered"><li>"b(*0*)"<ol class="ordered"><li>"c"</li></ol></li></ol></li><li>"d"</li></ol>');
@@ -959,18 +959,18 @@ test.registerTests(
         range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<ol class="ordered"><li>"a"</li><li>"b"(*0*)</li><li>"c(*1*)"</li></ol>', rte.getBody(), [range.start, range.end]);
       }
-    }
+    },
 
-    , {
-      name: 'pasting'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'pasting',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
 
         let locators, topaste, range, imglocator;
 
         //test with actual conent from a worddoc..
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf."</p><p class="normal">"(*0*)after"</p>');
-        var macwordpaste = dompack.create("div", { innerHTML: '<style> <!-- /* Font Definitions */ @font-face {font-family:Times; panose-1:2 0 5 0 0 0 0 0 0 0; mso-font-charset:0; /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {mso-style-unhide:no; mso-style-qformat:yes; mso-style-parent:""; margin:0pt; margin-bottom:.0001pt; mso-pagination:widow-orphan; font-size:12.0pt; font-family:Cambria; } --> </style> <p class="MsoNormal" style="mso-margin-top-alt:auto;mso-margin-bottom-alt:auto; mso-outline-level:2"><b><span style="font-size:18.0pt;font-family:Times; mso-fareast-font-family:&quot;Times New Roman&quot;;mso-bidi-font-family:&quot;Times New Roman&quot;">MSWord normal</span></b></p> <br>' });
+        const macwordpaste = dompack.create("div", { innerHTML: '<style> <!-- /* Font Definitions */ @font-face {font-family:Times; panose-1:2 0 5 0 0 0 0 0 0 0; mso-font-charset:0; /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {mso-style-unhide:no; mso-style-qformat:yes; mso-style-parent:""; margin:0pt; margin-bottom:.0001pt; mso-pagination:widow-orphan; font-size:12.0pt; font-family:Cambria; } --> </style> <p class="MsoNormal" style="mso-margin-top-alt:auto;mso-margin-bottom-alt:auto; mso-outline-level:2"><b><span style="font-size:18.0pt;font-family:Times; mso-fareast-font-family:&quot;Times New Roman&quot;;mso-bidi-font-family:&quot;Times New Roman&quot;">MSWord normal</span></b></p> <br>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(macwordpaste, true), locators[0]));
 
         range = rte.getSelectionRange();
@@ -1140,27 +1140,27 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"testjust because we can(*0*)(*1*)ing"</p>');
 
       }
-    }
+    },
 
-    , {
-      name: 'pasting_inline'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'pasting_inline',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
 
-        var locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.(*0*)"</p>');
+        const locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.(*0*)"</p>');
 
         //FIXME: Ik paste inline, ik zou verwachten dat er geen nieuwe regel gevormd wordt
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(dompack.create("span", { textContent: "ik ben een testje" }), true), locators[0]));
 
-        var range = rte.getSelectionRange();
+        const range = rte.getSelectionRange();
         rtetest.testEqHTMLEx(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.ik ben een testje(*0*)(*1*)"</p>', rte.getBody(), [range.start, range.end]);
       }
-    }
+    },
 
-    , {
-      name: 'deleteandbackspace'
-      , test: async function(doc, win) {
-        let rte = win.rte.getEditor();
+    {
+      name: 'deleteandbackspace',
+      test: async function(doc, win) {
+        const rte = win.rte.getEditor();
 
         // Forward delete
         rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)b"</p>');
@@ -1199,13 +1199,13 @@ test.registerTests(
         await rtetest.runWithUndo(rte, () => rte._executeDeleteByKey(false));
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"a (*0*)(*1*)\u00A0"<i>"b"</i></p>');
       }
-    }
+    },
 
-    , {
-      name: 'focus_after_stylechange'
-      , test: async function(doc, win) {
+    {
+      name: 'focus_after_stylechange',
+      test: async function(doc, win) {
         // Get the select element
-        let select = doc.querySelector(".wh-rtd__toolbarstyle");
+        const select = doc.querySelector(".wh-rtd__toolbarstyle");
 
         // Wait a little to let pending focus stuff handle
         await test.sleep(5);
@@ -1220,13 +1220,13 @@ test.registerTests(
         await test.sleep(1);
         test.assert(doc.activeElement !== select, "Focus should have gone back to rte");
       }
-    }
+    },
 
-    , {
-      name: 'blockstyle change'
-      , test: async function(doc, win) {
+    {
+      name: 'blockstyle change',
+      test: async function(doc, win) {
         // Get the select element
-        let select = doc.querySelector(".wh-rtd__toolbarstyle");
+        const select = doc.querySelector(".wh-rtd__toolbarstyle");
         rtetest.setStructuredContent(win,
           `<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst1"></div>` +
           `<p class="normal">"(*0*)Testline(*1*)"</p>` +

@@ -9,8 +9,8 @@ export function selectRange(range) {
   if (!range.start.element || !range.end.element)
     throw new Error("Range start or end are not valid nodes");
 
-  let doc = range.start.element.ownerDocument;
-  var selection = doc.getSelection();
+  const doc = range.start.element.ownerDocument;
+  const selection = doc.getSelection();
   if (!selection) {
     if (Range.getLogLevel() & 1)
       console.log('have NO selection object');
@@ -21,7 +21,7 @@ export function selectRange(range) {
     console.log('have selection object', range.start, range.end);
 
   // Rangy sometimes fails on IE. This standard code passes the tests...
-  var domrange = doc.createRange();
+  const domrange = doc.createRange();
   domrange.setStart(range.start.element, range.start.offset);
   domrange.setEnd(range.end.element, range.end.offset);
 
@@ -63,15 +63,15 @@ export default class SelectionInterface {
       it is not guaranteed that a selection exists.
   */
   getSelectionRange() {
-    var selection = this.doc.getSelection();
+    const selection = this.doc.getSelection();
     if (!selection || selection.rangeCount == 0)
       return null;
 
-    var domrange = selection.getRangeAt(0);
+    const domrange = selection.getRangeAt(0);
     if (Range.getLogLevel() & 1)
       console.log('got range', domrange.startContainer, domrange.startOffset, domrange.endContainer, domrange.endOffset);
 
-    var result = Range.fromDOMRange(domrange);
+    const result = Range.fromDOMRange(domrange);
     if (Range.getLogLevel() & 1)
       console.log('range', result.start.element, result.start.offset, result.end.element, result.end.offset);
 

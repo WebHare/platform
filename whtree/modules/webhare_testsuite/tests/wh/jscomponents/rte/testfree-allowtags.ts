@@ -8,12 +8,12 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free&allowtags=b,img'
-    }
-    , {
-      name: 'testallowtagsbar'
-      , test: function(doc, win) {
-        var boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
-        var italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
+    },
+    {
+      name: 'testallowtagsbar',
+      test: function(doc, win) {
+        const boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
+        const italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 
         test.assert(boldbutton != null);
         test.assert(!italicbutton != null);
