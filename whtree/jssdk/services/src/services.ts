@@ -113,6 +113,7 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
 }
 
 export function loadWittyResource(resource: string, options?: witty.WittyOptions): Promise<witty.WittyTemplate> {
+  /// 'null' loader would immediately break loadWittyTemplate so we'll let that just use the default
   const loader = options?.loader || readWittyResource;
   return witty.loadWittyTemplate(resource, { ...options, loader });
 }
