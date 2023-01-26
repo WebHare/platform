@@ -384,7 +384,7 @@ IF(ObjectExists(alttestsite))
 LogDebug("webhare_testsuite:reset", "Waiting for publish completion");
 //the testsite better be published before poststartdone as tests will be using it!
 WaitForPublishCompletion(testsite_hs->id);
-WaitForPublishCompletion(testsite_js->id); //TODO JS site should not require accepting errors
+WaitForPublishCompletion(testsite_js->id);
 IF(ObjectExists(alttestsite))
   WaitForPublishCompletion(alttestsite->id);
 
