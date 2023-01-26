@@ -1,6 +1,5 @@
 import * as tablesupport from "./tableeditor";
 import * as dompack from 'dompack';
-import { StringLiteral } from "typescript";
 
 export function fixupScopeTRs(node: HTMLElement) {
   for (const tr of dompack.qSA(node, 'tr')) {
@@ -22,7 +21,7 @@ export interface TargetInfo {
   target?: string;
   //for cell/table
   cellstyletag?: string;
-  tablecaption?: StringLiteral;
+  tablecaption?: string;
   tablestyletag?: string;
   numrows?: number;
   numcolumns?: number;
