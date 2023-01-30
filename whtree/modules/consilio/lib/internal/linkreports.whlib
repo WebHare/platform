@@ -33,6 +33,7 @@ PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
            , groupid := fs_objects.id
            , fileurl := fs_objects.objecturl
            , href := checked_objectlinks.url
+           , linkid := checked_links.id
         FROM consilio.checked_links
            , consilio.checked_objectlinks
            , system_internal.fs_members
@@ -147,6 +148,7 @@ RECORD ARRAY FUNCTION ResolveInternalRTDLinks(RECORD ARRAY settings)
            , groupid
            , fileurl
            , setting
+           , linkid := 0
         FROM links;
 
   // Filter out links that could not be found in the actual document, works around bug that would add edited links instead of
@@ -188,6 +190,7 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
            , checked_objectlinks.text
            , referrer := attrs.tag
            , parentattr := attrs.parent
+           , linkid := checked_links.id
         FROM consilio.checked_links
            , consilio.checked_objectlinks
            , wrd.entity_settings
@@ -232,6 +235,7 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
              , objectlinks.text
              , referrer := wrd_fs_settings.name
              , parentattr := wrd_fs_settings.parent
+             , linkid := links.id
           FROM consilio.checked_links AS links
              , consilio.checked_objectlinks AS objectlinks
              , wrd_fs_settings
