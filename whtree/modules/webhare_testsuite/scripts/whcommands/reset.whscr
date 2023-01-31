@@ -249,7 +249,12 @@ MACRO SetupTestSite(OBJECT testsite)
   OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE ]);
   markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
     [ data := [ type := "publisher:markdown"
-              , text := StringToBlob(`## Markdown file\nThis is a marked down file`)
+              , text := StringToBlob(`
+## Markdown file
+This is a marked down file
+| foo | bar |
+| --- | --- |
+| baz | bim |`)
               ]
     ]);
 
