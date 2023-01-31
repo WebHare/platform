@@ -387,8 +387,8 @@ STATIC OBJECTTYPE ContentSource
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
       RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := refresh ]);
-      IF (Length(result.errors) > 0)
-        THROW NEW Exception(result.errors[0].message);
+      IF (RecordExists(result.error))
+        THROW NEW Exception(result.error.message);
     }
     ELSE
     {

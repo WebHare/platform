@@ -55,3 +55,11 @@ DeleteDiskFile(MergePath(dataroot, "currentserverconfig.xml"));
 DeleteDiskFile(MergePath(dataroot, "etc/serverconfig.xml"));
 
 DeleteDiskDirectory(MergePath(dataroot, "etc")); //only delete if really empty.. what else might still be here?
+
+//5.2 - drop migration issue table
+IF(GetPrimary()->ColumnExists("webhare_internal" ,"postgresql_migration_issues", "id"))
+{
+  GetPrimary()->BeginWork();
+  GetPrimary()->DropTable("webhare_internal" ,"postgresql_migration_issues");
+  GetPrimary()->CommitWork();
+}

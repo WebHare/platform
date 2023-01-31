@@ -14,7 +14,7 @@ function parseHTMLDoc(html: string) {
     processEntities: true,
     htmlEntities: true,
     //convert about everything but known unique tags to arrays..
-    isArray: (name: string, jpath: unknown, isLeafNode: boolean, isAttribute: boolean) => !isAttribute && !["html", "head", "body", "main"].includes(name)
+    isArray: (name: string, jpath: unknown, isLeafNode: boolean, isAttribute: boolean) => !isAttribute && !["html", "head", "body", "main", "thead", "tbody"].includes(name)
   };
   const parser = new XMLParser(parsingOptions);
   return parser.parse(html);
@@ -25,10 +25,15 @@ function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebRespo
   const whfspathnode = doc.html.body.div.find((_: any) => _["@_id"] === "whfspath");
   test.eq(markdowndoc.whfspath, whfspathnode["#text"], "Expect our whfspath to be in the source");
 
-  //FIXME noone asked for <h2 id="markdown-file">Markdown file</h2> - we want class="heading2" and we need to check how WebHare would generate these IDs. (RTD compatibility)
   const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
+  // console.log(contentdiv);
+
   test.eq("Markdown file", contentdiv.h2[0]["#text"]); //it has an id= so this one currently becomes an object
-  test.eq("This is a marked down file", contentdiv.p[0]);
+  test.eq("heading2", contentdiv.h2[0]["@_class"]); //it has an id= so this one currently becomes an object
+  test.eq("This is a marked down file", contentdiv.p[0]["#text"]);
+  test.eq("normal", contentdiv.p[0]["@_class"]);
+  //FIXME also ensure proper classes on table and tr/td!
+  test.eq(["baz", "bim"], contentdiv.table[0].tbody.tr[0].td);
 }
 
 
