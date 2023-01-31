@@ -98,7 +98,7 @@
   </tollium>
 
   <services>
-    <backendservice name="demoservice" handler="js/demoservice.ts#openDemoService" />
+    <backendservice name="demoservice" handler="js/demoservice.ts#openDemoService" main="js/demoservice.ts#createDemoMain" />
 
     <webservice name="test"
                 library="lib/webservicetest.whlib"

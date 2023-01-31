@@ -90,6 +90,18 @@ async function testServices() {
   ensureProperPath(serverconfig.module.system.root);
 }
 
+async function testServiceState() {
+  const instance1 = await services.openBackendService("webhare_testsuite:demoservice", ["instance1"], { linger: true });
+  const instance2 = await services.openBackendService("webhare_testsuite:demoservice", ["instance2"], { linger: true });
+
+  const randomkey = "KEY" + Math.random();
+  await instance1.setShared(randomkey);
+  test.eq(randomkey, await instance2.getShared());
+
+  instance1.close();
+  instance2.close();
+}
+
 async function runOpenPrimary(hsvm: HSVM) {
   const database = hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
@@ -325,6 +337,7 @@ async function main() {
     [
       testResolve,
       testServices,
+      testServiceState,
       testHSVM,
       testHSVMFptrs,
       testResources,
