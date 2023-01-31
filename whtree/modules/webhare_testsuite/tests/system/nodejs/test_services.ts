@@ -15,6 +15,54 @@ function ensureProperPath(inpath: string) {
   test.assert(!inpath.includes("//"), `Path should not contain duplicate slashes: ${inpath}`);
 }
 
+async function testResolve() {
+  await test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
+
+  test.eq("", services.resolveResource("mod::a/b/c/d", ""));
+  test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "/e"));
+  test.eq("mod::a/b/c/e", services.resolveResource("mod::a/b/c/d", "./e"));
+  test.eq("mod::a/b/e", services.resolveResource("mod::a/b/c/d", "../e"));
+  test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "../../e"));
+  await test.throws(/tries to escape/, () => services.resolveResource("mod::a/b/c/d", "../../../e"));
+
+  test.eq(true, services.isAbsoluteResource("mod::publisher/designs/emptydesign/"));
+  // test.eq(true, services.isAbsoluteResource("whres::xml/xmlschema.xsd")); //TODO if we re-add support for whres::..
+
+  test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
+  test.eq("mod::publisher/designs/emptydesign/lib/", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/"));
+  test.eq("mod::publisher/api.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "/api.whlib"));
+
+  test.eq("site::webhare backend/design/lib/webharebackend.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
+  test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", services.resolveResource("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
+  test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", services.resolveResource("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+
+  // TODO do we really want to be able to ignre the missing first path and return a path anyway?
+  //      it seems that the base path would often be fixe and the relative path 'external' data
+  //      so that we should fail *any* case where the base path is unusable?
+  //test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", services.resolveResource("", 'mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
+
+  test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.witty", services.resolveResource("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
+  // MakeAbsoluteResourcePath would return "mod::publisher/designs/emptydesign/" but without the slash makes more sense? you're referring to that directory
+  test.eq("mod::publisher/designs/emptydesign", services.resolveResource("mod::publisher/designs/emptydesign/siteprl.prl", "."));
+
+  test.eq("site::lelibel/design/customleft.siteprl", services.resolveResource("site::lelibel/design/", "/design/customleft.siteprl"));
+  /* TODO unlikely for wh:: support to return
+  test.eq("wh::a/", services.resolveResource("wh::a/b.whlib", "."));
+  test.eq("wh::b/la/", services.resolveResource("wh::b/", "la/"));
+  test.eq("wh::b/la/", services.resolveResource("wh::b/c.whlib", "la/"));
+  test.eq("wh::c.whlib", services.resolveResource("wh::a/b.whlib", "/c.whlib"));
+  test.eq("wh::c.whlib", services.resolveResource("wh::a/b.whlib", "../c.whlib"));
+
+  await test.throws(/tries to escape/, () => services.resolveResource("wh::a/b.whlib", "../../c.whlib"));
+  await test.throws(/tries to escape/, () => services.resolveResource("wh::a.whlib", "../../c.whlib"));
+  */
+  await test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("xx::a/b/c/d", "e"));
+  await test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "xx::a/b/c/d"));
+
+  await test.throws(/tries to escape/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "../../../bla.whlib"));
+  await test.throws(/tries to escape/, () => services.resolveResource("site::mysite/folder/test.html", "../../bla.html"));
+}
+
 async function testServices() {
   test.assert(serverconfig);
 
@@ -120,7 +168,7 @@ async function testResources() {
   test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
   test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
 
-  //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", [ allowdiskpath := TRUE ]));
+  //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", [ allowdiskpath := true ]));
   /* TODO do we really want to support resource paths as input ?
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
   test.eq("site::a/b/test.whscr", services.toResourcePath("site::a/b/test.whscr"));
@@ -275,6 +323,7 @@ async function main() {
 
   test.run(
     [
+      testResolve,
       testServices,
       testHSVM,
       testHSVMFptrs,

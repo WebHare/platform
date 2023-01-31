@@ -66,3 +66,55 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
 
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
 }
+
+/** Returns whether a resource path is an absolute path
+    @param resourcepath - Resource path to test
+    @returns true if the resource path is an absolute path
+*/
+export function isAbsoluteResource(resourcepath: string): boolean {
+  const getns = resourcepath.match(/^([^/]*)::.+/);
+  if (!getns)
+    return false; //definitely not an absolute path
+  if (['mod', 'storage', 'inline', 'inline-base64', 'site', 'whfs'].includes(getns[1]))
+    return true; //absolute path, valid namespae
+  if (['module', 'moduleroot', 'moduledata', 'wh', 'whres', 'direct'].includes(getns[1])) //on the fence about enabling direct:: ?
+    throw new Error(`Namespace '${getns[1]}' is not supported in the JavaScript APIs`);
+
+  throw new Error(`Invalid namespace '${getns[1]}'`);
+}
+
+/** Resolves a (relative) resource path relative to a base path
+    @param base - Base resource path
+    @param relativepath - Resource path to resolve
+    @returns Resolved resource path
+    @throws If the subpath is invalid
+*/
+export function resolveResource(base: string, relativepath: string): string {
+  if (!base)
+    throw new Error(`Cannot make an absolute resource path for '${relativepath}' if invoked without a base path`);
+  if (!isAbsoluteResource(base))
+    throw new Error(`Cannot make an absolute resource path if our base path '${base}' is not absolute`);
+  if (!relativepath || isAbsoluteResource(relativepath))
+    return relativepath;
+
+  const append = relativepath.indexOf('#') >= 0 ? relativepath.substring(relativepath.indexOf('#')) : '';
+  if (append)
+    relativepath = relativepath.substring(0, relativepath.length - append.length);
+
+  // Get the base part we want to protect ("wh::"" or "mod::<modulename>/")
+  // TODO? wh:: and whres:: required specific protection but we're not sure if we'll even support them
+  const basepart = base.split('/')[0];
+
+  // Ensure the base path starts with '/', strip the last non-directory component
+  let basesubpath = base.substring(basepart.length);
+  if (!basesubpath.endsWith('/'))
+    basesubpath = basesubpath.substring(0, basesubpath.lastIndexOf('/') + 1);
+
+  if (!path.join("/__canary__/", basesubpath, relativepath).startsWith("/__canary__/"))
+    throw new Error(`Cannot resolve an absolute resource path for '${relativepath}' that tries to escape from the base folder of '${base}'`);
+
+  if (relativepath.startsWith("/"))
+    return basepart + relativepath + append;
+
+  return basepart + path.join(basesubpath, relativepath) + append;
+}

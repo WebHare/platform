@@ -1,7 +1,7 @@
 import WHBridge from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import { toFSPath } from "./resources";
-export { toFSPath, toResourcePath } from "./resources";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 import * as fs from "node:fs";
 export { openBackendService } from "./backendservice";
 import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
