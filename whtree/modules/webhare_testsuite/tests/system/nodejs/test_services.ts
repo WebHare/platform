@@ -6,7 +6,7 @@ import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
-import runWebHareService from "@mod-system/js/internal/webhareservice";
+import runBackendService from "@mod-system/js/internal/webhareservice";
 
 let serverconfig: services.WebHareBackendConfiguration | null = null;
 
@@ -192,7 +192,7 @@ async function getActiveMessagePortCount() {
   return p.getActiveResourcesInfo().filter((resourcename) => resourcename === "MessagePort").length;
 }
 
-async function runWebHareServiceTest_JS() {
+async function runBackendServiceTest_JS() {
   await test.throws(/Service 'webharedev_jsbridges:nosuchservice' is unavailable.*/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true }));
   await new Promise(r => setTimeout(r, 5));
   test.eq(0, await getActiveMessagePortCount());
@@ -270,7 +270,7 @@ async function testServiceTimeout() {
   await test.sleep(100); //give the connection time to fail
 
   //set it up
-  const customservice = await runWebHareService(customservicename, () => new class { whatsMyName() { return "doggie dog"; } });
+  const customservice = await runBackendService(customservicename, () => new class { whatsMyName() { return "doggie dog"; } });
   const slowserviceconnected = await slowserviceconnection;
   test.eq("doggie dog", await slowserviceconnected.whatsMyName());
   customservice.close();
@@ -279,7 +279,7 @@ async function testServiceTimeout() {
   test.eq(0, await getActiveMessagePortCount());
 }
 
-async function runWebHareServiceTest_HS() {
+async function runBackendServiceTest_HS() {
   await test.throws(/Invalid/, services.openBackendService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:webhareservicetest", ["abort"]));
 
@@ -330,8 +330,8 @@ async function main() {
       testResources,
       testDisconnects,
       testServiceTimeout,
-      runWebHareServiceTest_JS,
-      runWebHareServiceTest_HS,
+      runBackendServiceTest_JS,
+      runBackendServiceTest_HS,
     ], { wrdauth: false });
 }
 

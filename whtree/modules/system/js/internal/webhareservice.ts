@@ -60,7 +60,7 @@ function describePublicInterface(inobj: object): WebHareServiceDescription {
   return { isjs: true, methods };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- never[] doesn't work here, it confuses the actual calls to runWebHareService
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- never[] doesn't work here, it confuses the actual calls to runBackendService
 export type ConnectionConstructor = (...args: any[]) => object;
 
 interface ServiceConnection {
@@ -170,7 +170,7 @@ class WebHareService { //EXTEND IPCPortHandlerBase
      - autorestart: Automatically restart the service if the source code has changed. Defaults to TRUE
      - restartimmediately: Immediately restart the service even if we stil have open connections. Defaults to FALSE
 */
-export default async function runWebHareService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
+export default async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
   options = { autorestart: true, restartimmediately: false, __droplistenerreference: false, ...options };
   if (!servicename.match(/^.+:.+$/))
     throw new Error("A service should have a <module>:<service> name");

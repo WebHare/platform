@@ -1,5 +1,5 @@
 import * as services from "@webhare/services";
-import runWebHareService from "@mod-system/js/internal/webhareservice";
+import runBackendService from "@mod-system/js/internal/webhareservice";
 import { XMLParser } from "fast-xml-parser";
 import { readFileSync } from "fs";
 import * as path from "path";
@@ -39,7 +39,7 @@ async function buildServiceClient(service: BackendServiceDescriptor, args: unkno
 async function main() {
   const backendservices = gatherBackendServices();
   for (const service of backendservices)
-    runWebHareService(service.fullname, (...args) => buildServiceClient(service, args));
+    runBackendService(service.fullname, (...args) => buildServiceClient(service, args));
 }
 
 hmr.activate();
